@@ -2,9 +2,12 @@ package changeset
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -154,6 +157,21 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 		if out.Jobs != nil { //nolint:revive,staticcheck // we want the empty block as documentation
 			// do nothing, as these jobs auto-accept.
 		}
+
+		// Updated environment may be required before executing proposals when proposals involve new addresses
+		// Ex. changesets[0] deploys MCMS, changesets[1] generates a proposal with the new MCMS addresses
+		currentEnv = deployment.Environment{
+			Name:              e.Name,
+			Logger:            e.Logger,
+			ExistingAddresses: addresses,
+			Chains:            e.Chains,
+			SolChains:         e.SolChains,
+			NodeIDs:           e.NodeIDs,
+			Offchain:          e.Offchain,
+			OCRSecrets:        e.OCRSecrets,
+			GetContext:        e.GetContext,
+		}
+
 		if out.MCMSTimelockProposals != nil {
 			for _, prop := range out.MCMSTimelockProposals {
 				chains := mapset.NewSet[uint64]()
@@ -161,12 +179,12 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 					chains.Add(uint64(op.ChainSelector))
 				}
 
-				p := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
-				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop)
+				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return deployment.Environment{}, err
 				}
-				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, currentEnv, &prop)
 				if err != nil {
 					return deployment.Environment{}, err
 				}
@@ -179,23 +197,12 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 					chains.Add(uint64(op.ChainSelector))
 				}
 
-				p := proposalutils.SignMCMSProposal(t, e, &prop)
-				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				p := proposalutils.SignMCMSProposal(t, currentEnv, &prop)
+				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return deployment.Environment{}, err
 				}
 			}
-		}
-		currentEnv = deployment.Environment{
-			Name:              e.Name,
-			Logger:            e.Logger,
-			ExistingAddresses: addresses,
-			Chains:            e.Chains,
-			SolChains:         e.SolChains,
-			NodeIDs:           e.NodeIDs,
-			Offchain:          e.Offchain,
-			OCRSecrets:        e.OCRSecrets,
-			GetContext:        e.GetContext,
 		}
 	}
 	return currentEnv, nil
@@ -250,4 +257,44 @@ func SetPreloadedSolanaAddresses(t *testing.T, env deployment.Environment, selec
 	typeAndVersion = deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
 	err = env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["timelock"], typeAndVersion)
 	require.NoError(t, err)
+}
+
+func MustFundAddressWithLink(t *testing.T, e deployment.Environment, chain deployment.Chain, to common.Address, amount int64) {
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	require.NoError(t, err)
+
+	linkState, err := commonState.MaybeLoadLinkTokenChainState(chain, addresses)
+	require.NoError(t, err)
+	require.NotNil(t, linkState.LinkToken)
+
+	// grant minter permissions - only owner can call this function
+	e.Logger.Info("granting minter permissions for chain", chain.DeployerKey)
+	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	require.NoError(t, err)
+
+	// Mint 'To' address some tokens
+	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, to, big.NewInt(amount))
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	require.NoError(t, err)
+
+	// 'To' address should have the tokens
+	ctx := e.GetContext()
+	endBalance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, to)
+	require.NoError(t, err)
+	expectedBalance := big.NewInt(amount)
+	require.Equal(t, expectedBalance, endBalance)
+}
+
+// MaybeGetLinkBalance returns the LINK balance of the given address on the given chain.
+func MaybeGetLinkBalance(t *testing.T, e deployment.Environment, chain deployment.Chain, linkAddr common.Address) *big.Int {
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	require.NoError(t, err)
+	linkState, err := commonState.MaybeLoadLinkTokenChainState(chain, addresses)
+	require.NoError(t, err)
+	endBalance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: chain.DeployerKey.Context}, linkAddr)
+	require.NoError(t, err)
+	return endBalance
 }

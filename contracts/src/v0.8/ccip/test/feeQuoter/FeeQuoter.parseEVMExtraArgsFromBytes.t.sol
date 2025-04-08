@@ -13,11 +13,11 @@ contract FeeQuoter_resolveGasLimitForDestination is FeeQuoterSetup {
     s_destChainConfig = _generateFeeQuoterDestChainConfigArgs()[0].destChainConfig;
   }
 
-  function test_EVMExtraArgsV1TagSelector() public view {
+  function test_EVMExtraArgsV1TagSelector() public pure {
     assertEq(Client.EVM_EXTRA_ARGS_V1_TAG, bytes4(keccak256("CCIP EVMExtraArgsV1")));
   }
 
-  function test_EVMExtraArgsV2TagSelector() public view {
+  function test_EVMExtraArgsV2TagSelector() public pure {
     assertEq(Client.GENERIC_EXTRA_ARGS_V2_TAG, bytes4(keccak256("CCIP EVMExtraArgsV2")));
   }
 

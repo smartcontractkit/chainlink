@@ -29,18 +29,18 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_allow_list"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_client_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_allow_list"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -509,10 +509,10 @@ func mockEALambdaExecutionResponse(t *testing.T, request map[string]any) []byte 
 	require.Equal(t, functions.LocationInline, int(data["codeLocation"].(float64)))
 	if len(request["nodeProvidedSecrets"].(string)) > 0 {
 		require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
-		require.Equal(t, fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64), request["nodeProvidedSecrets"].(string))
+		require.JSONEq(t, fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64), request["nodeProvidedSecrets"].(string))
 	}
 	args := data["args"].([]interface{})
-	require.Equal(t, 2, len(args))
+	require.Len(t, args, 2)
 	require.Equal(t, DefaultArg1, args[0].(string))
 	require.Equal(t, DefaultArg2, args[1].(string))
 	source := data["source"].(string)

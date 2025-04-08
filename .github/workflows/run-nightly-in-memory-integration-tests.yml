@@ -1,0 +1,79 @@
+name: Run Nightly In-Memory Integration Tests
+
+on:
+  schedule:
+    # Run every night at midnight UTC (0:00 AM)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Useful when running the workflow manually
+    inputs:
+      chainlink_version:
+        description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
+        required: true
+        type: string
+        default: develop
+      slack_notification_after_tests:
+        description: 'Notify on Slack after tests'
+        required: false
+        type: string
+      require_chainlink_image_versions_in_qa_ecr:
+        description:
+          'Check Chainlink image versions to be present in QA ECR. If not, build
+          and push the image to QA ECR. Takes comma separated list of Chainlink
+          image versions. Example:
+          "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
+        required: false
+        type: string        
+      require_chainlink_plugin_versions_in_qa_ecr:
+        description:
+          'Check Chainlink plugins versions to be present in QA ECR. If not,
+          build and push the image to QA ECR. Takes comma separated list of
+          Chainlink image versions. Example:
+          "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
+        required: false
+        type: string        
+      extraArgs:
+        required: false
+        type: string
+        default: '{ "flakeguard_enable": "true", "flakeguard_run_count": "5" }'
+        description: 'JSON of extra arguments for the workflow.'     
+
+jobs:
+  call-nightly-run-e2e-tests-workflow:
+    name: Run Integration In-Memory Tests
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f3caa3782440b436ecc5375ef1b5ae408db636ef
+    with:
+      chainlink_version: ${{ inputs.chainlink_version || 'develop' }}
+      test_path: .github/integration-in-memory-tests.yml
+      test_trigger: Nightly Integration CCIP Tests
+      slack_notification_after_tests: ${{ inputs.slack_notification_after_tests || 'always' }}
+      slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
+      slack_notification_after_tests_name: Nightly Integration CCIP Tests
+      require_chainlink_image_versions_in_qa_ecr: ${{ inputs.require_chainlink_image_versions_in_qa_ecr || '' }}
+      require_chainlink_plugin_versions_in_qa_ecr: ${{ inputs.require_chainlink_plugin_versions_in_qa_ecr || '' }}
+      extraArgs: ${{ inputs.extraArgs || '{"flakeguard_enable":"true","flakeguard_run_count":"5"}' }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}

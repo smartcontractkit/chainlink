@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,6 +27,8 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
+	"github.com/smartcontractkit/chainlink/deployment/operations"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -107,6 +110,8 @@ type Environment struct {
 	Offchain          OffchainClient
 	GetContext        func() context.Context
 	OCRSecrets        OCRSecrets
+	// OperationsBundle contains dependencies required by the operations API.
+	OperationsBundle operations.Bundle
 }
 
 func NewEnvironment(
@@ -130,6 +135,27 @@ func NewEnvironment(
 		Offchain:          offchain,
 		GetContext:        ctx,
 		OCRSecrets:        secrets,
+		// default to memory reporter as that is the only reporter available for now
+		OperationsBundle: operations.NewBundle(ctx, logger, operations.NewMemoryReporter()),
+	}
+}
+
+// Clone creates a copy of the environment with a new reference to the address book.
+func (e Environment) Clone() Environment {
+	ab := NewMemoryAddressBook()
+	if err := ab.Merge(e.ExistingAddresses); err != nil {
+		panic(fmt.Sprintf("failed to copy address book: %v", err))
+	}
+	return Environment{
+		Name:              e.Name,
+		Logger:            e.Logger,
+		ExistingAddresses: ab,
+		Chains:            e.Chains,
+		SolChains:         e.SolChains,
+		NodeIDs:           e.NodeIDs,
+		Offchain:          e.Offchain,
+		GetContext:        e.GetContext,
+		OCRSecrets:        e.OCRSecrets,
 	}
 }
 
@@ -173,6 +199,36 @@ func (e Environment) AllChainSelectorsSolana() []uint64 {
 		return selectors[i] < selectors[j]
 	})
 	return selectors
+}
+
+func (e Environment) AllChainSelectorsAllFamilies() []uint64 {
+	selectors := make([]uint64, 0, len(e.Chains)+len(e.SolChains)+len(e.AptosChains))
+	for sel := range e.Chains {
+		selectors = append(selectors, sel)
+	}
+	for sel := range e.SolChains {
+		selectors = append(selectors, sel)
+	}
+	for sel := range e.AptosChains {
+		selectors = append(selectors, sel)
+	}
+	sort.Slice(selectors, func(i, j int) bool {
+		return selectors[i] < selectors[j]
+	})
+	return selectors
+}
+
+func (e Environment) AllChainSelectorsAllFamiliesExcluding(excluding []uint64) []uint64 {
+	selectors := e.AllChainSelectorsAllFamilies()
+	ret := make([]uint64, 0)
+	// remove the excluded selectors
+	for _, sel := range selectors {
+		if slices.Contains(excluding, sel) {
+			continue
+		}
+		ret = append(ret, sel)
+	}
+	return ret
 }
 
 func (e Environment) AllDeployerKeys() []common.Address {
@@ -361,6 +417,10 @@ func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
 	if err != nil {
 		return OCRConfig{}, false
 	}
+	// only applicable for test related simulated chains, the chains don't have a name
+	if want.ChainName == "" {
+		want.ChainName = strconv.FormatUint(want.ChainSelector, 10)
+	}
 	c, ok := n.SelToOCRConfig[want]
 	return c, ok
 }
@@ -461,11 +521,11 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			NodeIds: []string{node.Id},
 		}})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to list node chain configs for node %s id %s: %w", node.Name, node.Id, err)
 		}
 		n, err := NewNodeFromJD(node, nodeChainConfigs.ChainConfigs)
 		if err != nil {
-			xerr = errors.Join(xerr, err)
+			xerr = errors.Join(xerr, fmt.Errorf("failed to get node metadata for node %s id %s: %w", node.Name, node.Id, err))
 			if !errors.Is(err, ErrMissingEVMChain) {
 				onlyMissingEVMChain = false
 			}
@@ -578,10 +638,25 @@ func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 	default:
 		return chain_selectors.ChainDetails{}, fmt.Errorf("unsupported chain type %s", c.Type)
 	}
-
+	if family == chain_selectors.FamilySolana {
+		// Temporary workaround to handle cases when solana chainId was not using the standard genesis hash,
+		// but using old strings mainnet/testnet/devnet.
+		switch c.Id {
+		case "mainnet":
+			c.Id = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
+		case "devnet":
+			c.Id = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"
+		case "testnet":
+			c.Id = "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY"
+		}
+	}
 	details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(c.Id, family)
 	if err != nil {
 		return chain_selectors.ChainDetails{}, err
+	}
+	// only applicable for test related simulated chains, the chains don't have a name
+	if details.ChainName == "" {
+		details.ChainName = strconv.FormatUint(details.ChainSelector, 10)
 	}
 	return details, nil
 }

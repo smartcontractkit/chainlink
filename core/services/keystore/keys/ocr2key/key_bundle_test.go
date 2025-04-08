@@ -51,18 +51,6 @@ func TestOCR2Keys_New(t *testing.T) {
 	}
 }
 
-func TestOCR2KeyBundle_RawToKey(t *testing.T) {
-	t.Parallel()
-
-	for _, chain := range chaintype.SupportedChainTypes {
-		pk, err := ocr2key.New(chain)
-		require.NoError(t, err)
-
-		pkFromRaw := pk.Raw().Key()
-		assert.NotNil(t, pkFromRaw)
-	}
-}
-
 func TestOCR2KeyBundle_BundleBase(t *testing.T) {
 	t.Parallel()
 

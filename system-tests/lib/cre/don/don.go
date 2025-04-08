@@ -1,8 +1,8 @@
 package don
 
 import (
-	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
 func CreateJobs(testLogger zerolog.Logger, input cretypes.CreateJobsInput) error {
@@ -37,44 +39,71 @@ func CreateJobs(testLogger zerolog.Logger, input cretypes.CreateJobsInput) error
 	return nil
 }
 
-func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) (*cretypes.Topology, error) {
-	topology := &cretypes.Topology{}
-	donsWithMetadata := make([]*cretypes.DonMetadata, len(nodeSetInput))
-
-	// one DON to do everything
-	if len(nodeSetInput) == 1 {
-		flags, err := flags.NodeSetFlags(nodeSetInput[0])
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get flags for nodeset %s", nodeSetInput[0].Name)
-		}
-
-		donsWithMetadata[0] = &cretypes.DonMetadata{
-			ID:            1,
-			Flags:         flags,
-			NodesMetadata: make([]*cretypes.NodeMetadata, len(nodeSetInput[0].NodeSpecs)),
-			Name:          nodeSetInput[0].Name,
-		}
-	} else {
-		for i := range nodeSetInput {
-			flags, err := flags.NodeSetFlags(nodeSetInput[i])
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get flags for nodeset %s", nodeSetInput[i].Name)
+func ValidateTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput types.InfraInput) error {
+	if infraInput.InfraType == types.CRIB {
+		if len(nodeSetInput) == 1 && slices.Contains(nodeSetInput[0].DONTypes, cretypes.GatewayDON) {
+			if len(nodeSetInput[0].Capabilities) > 1 {
+				return errors.New("you must use at least 2 nodeSets when using CRIB and gateway DON. Gateway DON must be in a separate nodeSet and it must be named 'gateway'")
 			}
+		}
 
-			donsWithMetadata[i] = &cretypes.DonMetadata{
-				ID:            libc.MustSafeUint32(i + 1),
-				Flags:         flags,
-				NodesMetadata: make([]*cretypes.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
-				Name:          nodeSetInput[i].Name,
+		for _, nodeSet := range nodeSetInput {
+			if infraInput.InfraType == types.CRIB && slices.Contains(nodeSetInput[0].DONTypes, cretypes.GatewayDON) && nodeSet.Name != "gateway" {
+				return errors.New("when using CRIB gateway nodeSet with the Gateway DON must be named 'gateway', but got " + nodeSet.Name)
 			}
 		}
 	}
 
-	for i, donMetadata := range donsWithMetadata {
-		for j := range donMetadata.NodesMetadata {
+	hasAtLeastOneBootstrapNode := false
+	for _, nodeSet := range nodeSetInput {
+		if nodeSet.BootstrapNodeIndex != -1 {
+			hasAtLeastOneBootstrapNode = true
+			break
+		}
+	}
+
+	if !hasAtLeastOneBootstrapNode {
+		return errors.New("at least one nodeSet must have a bootstrap node")
+	}
+
+	workflowDONHasBootstrapNode := false
+	for _, nodeSet := range nodeSetInput {
+		if nodeSet.BootstrapNodeIndex != -1 && slices.Contains(nodeSet.DONTypes, cretypes.WorkflowDON) {
+			workflowDONHasBootstrapNode = true
+			break
+		}
+	}
+
+	if !workflowDONHasBootstrapNode {
+		return errors.New("due to the limitations of our implementation, workflow DON must always have a bootstrap node")
+	}
+
+	return nil
+}
+
+func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput types.InfraInput) (*cretypes.Topology, error) {
+	topology := &cretypes.Topology{}
+	donsWithMetadata := make([]*cretypes.DonMetadata, len(nodeSetInput))
+
+	for i := range nodeSetInput {
+		flags, err := flags.NodeSetFlags(nodeSetInput[i])
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get flags for nodeset %s", nodeSetInput[i].Name)
+		}
+
+		donsWithMetadata[i] = &cretypes.DonMetadata{
+			ID:            libc.MustSafeUint32(i + 1),
+			Flags:         flags,
+			NodesMetadata: make([]*cretypes.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
+			Name:          nodeSetInput[i].Name,
+		}
+	}
+
+	for donIdx, donMetadata := range donsWithMetadata {
+		for nodeIdx := range donMetadata.NodesMetadata {
 			nodeWithLabels := cretypes.NodeMetadata{}
 			nodeType := cretypes.WorkerNode
-			if nodeSetInput[i].BootstrapNodeIndex != -1 && j == nodeSetInput[i].BootstrapNodeIndex {
+			if nodeSetInput[donIdx].BootstrapNodeIndex != -1 && nodeIdx == nodeSetInput[donIdx].BootstrapNodeIndex {
 				nodeType = cretypes.BootstrapNode
 			}
 			nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cretypes.Label{
@@ -82,27 +111,34 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) (*cretypes
 				Value: nodeType,
 			})
 
-			// TODO this will only work with Docker, for CRIB we need a different approach
-			// that will need to be aware of namespace name and node naming pattern
-			host := fmt.Sprintf("%s-node%d", donMetadata.Name, j)
+			// TODO think whether it would make sense for infraInput to also hold functions that resolve hostnames for various infra and node types
+			// and use it with some default, so that we can easily modify it with little effort
+			host := infra.Host(nodeIdx, nodeType, donMetadata.Name, infraInput)
 
-			if nodeSetInput[i].GatewayNodeIndex != -1 && j == nodeSetInput[i].GatewayNodeIndex {
-				nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cretypes.Label{
-					Key:   node.ExtraRolesKey,
-					Value: cretypes.GatewayNode,
-				})
+			if flags.HasFlag(donMetadata.Flags, cretypes.GatewayDON) {
+				if nodeSetInput[donIdx].GatewayNodeIndex != -1 && nodeIdx == nodeSetInput[donIdx].GatewayNodeIndex {
+					nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cretypes.Label{
+						Key:   node.ExtraRolesKey,
+						Value: cretypes.GatewayNode,
+					})
 
-				topology.GatewayConnectorOutput = &cretypes.GatewayConnectorOutput{
-					Path: "/node",
-					Port: 5003,
-					Host: host,
-					// do not set gateway connector dons, they will be resolved automatically
+					gatewayHost := host
+					if infraInput.InfraType == types.CRIB {
+						gatewayHost += "-gtwnode"
+					}
+
+					topology.GatewayConnectorOutput = &cretypes.GatewayConnectorOutput{
+						Path: "/node",
+						Port: 5003,
+						Host: gatewayHost,
+						// do not set gateway connector dons, they will be resolved automatically
+					}
 				}
 			}
 
 			nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cretypes.Label{
 				Key:   node.IndexKey,
-				Value: strconv.Itoa(j),
+				Value: strconv.Itoa(nodeIdx),
 			})
 
 			nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cretypes.Label{
@@ -110,7 +146,7 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) (*cretypes
 				Value: host,
 			})
 
-			donsWithMetadata[i].NodesMetadata[j] = &nodeWithLabels
+			donsWithMetadata[donIdx].NodesMetadata[nodeIdx] = &nodeWithLabels
 		}
 	}
 

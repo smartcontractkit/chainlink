@@ -240,15 +240,15 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	})
 }
 
-func insertTxAndAttemptWithIdempotencyKey(t *testing.T, txStore txmgr.TestEvmTxStore, tx *txmgr.Tx, idempotencyKey string) common.Hash {
-	ctx := tests.Context(t)
+func insertTxAndAttemptWithIdempotencyKey(tb testing.TB, txStore txmgr.TestEvmTxStore, tx *txmgr.Tx, idempotencyKey string) common.Hash {
+	ctx := tests.Context(tb)
 	err := txStore.InsertTx(ctx, tx)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
-	require.NoError(t, err)
-	attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
+	require.NoError(tb, err)
+	attempt := cltest.NewLegacyEthTxAttempt(tb, tx.ID)
 	err = txStore.InsertTxAttempt(ctx, &attempt)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	return attempt.Hash
 }
 

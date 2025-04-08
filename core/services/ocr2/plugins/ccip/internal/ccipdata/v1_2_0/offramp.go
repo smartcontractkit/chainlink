@@ -23,8 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
-	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -165,7 +165,7 @@ type OffRamp struct {
 
 func (o *OffRamp) GetStaticConfig(ctx context.Context) (cciptypes.OffRampStaticConfig, error) {
 	if o.offRampV120 == nil {
-		return cciptypes.OffRampStaticConfig{}, fmt.Errorf("offramp not initialized")
+		return cciptypes.OffRampStaticConfig{}, errors.New("offramp not initialized")
 	}
 	c, err := o.offRampV120.GetStaticConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {

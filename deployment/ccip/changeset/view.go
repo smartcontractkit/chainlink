@@ -16,7 +16,8 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, err
 	}
-	chainView, err := state.View(e.AllChainSelectors())
+	allChains := append(e.AllChainSelectors(), e.AllChainSelectorsSolana()...)
+	chainView, solanaView, err := state.View(&e, allChains)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +26,8 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 		return nil, err
 	}
 	return ccipview.CCIPView{
-		Chains: chainView,
-		Nops:   nopsView,
+		Chains:    chainView,
+		SolChains: solanaView,
+		Nops:      nopsView,
 	}, nil
 }

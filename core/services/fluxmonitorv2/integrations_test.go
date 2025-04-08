@@ -27,15 +27,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
+	faw "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
-	faw "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -288,7 +288,7 @@ func checkSubmission(t *testing.T, p answerParams, currentBalance int64, receipt
 		require.Len(t, nrlogs, 1, "FluxAggregator did not emit correct NewRound "+
 			"log")
 	} else {
-		assert.Len(t, cltest.GetLogs(t, nil, inrlogs), 0, "FluxAggregator emitted "+
+		assert.Empty(t, cltest.GetLogs(t, nil, inrlogs), "FluxAggregator emitted "+
 			"unexpected NewRound log")
 	}
 
@@ -608,8 +608,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			expMetaMu.Lock()
 			defer expMetaMu.Unlock()
 			assert.Len(t, expectedMeta, 2, "expected metadata %v", expectedMeta)
-			assert.Greater(t, expectedMeta["100"].count, 0, "Stored answer metadata does not contain 100 but contains: %v", expectedMeta)
-			assert.Greater(t, expectedMeta["103"].count, 0, "Stored answer metadata does not contain 103 but contains: %v", expectedMeta)
+			assert.Positive(t, expectedMeta["100"].count, "Stored answer metadata does not contain 100 but contains: %v", expectedMeta)
+			assert.Positive(t, expectedMeta["103"].count, "Stored answer metadata does not contain 103 but contains: %v", expectedMeta)
 			assert.Greater(t, expectedMeta["103"].updatedAt, expectedMeta["100"].updatedAt)
 		})
 	}

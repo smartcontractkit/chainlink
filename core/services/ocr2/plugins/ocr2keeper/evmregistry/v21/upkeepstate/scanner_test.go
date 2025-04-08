@@ -1,7 +1,7 @@
 package upkeepstate
 
 import (
-	"fmt"
+	"errors"
 	"sort"
 	"testing"
 
@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -42,7 +42,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 			[]string{"111"},
 			[]logpoller.Log{},
 			[]string{},
-			fmt.Errorf("test-error"),
+			errors.New("test-error"),
 			true,
 		},
 		{
@@ -152,7 +152,7 @@ func TestPerformedEventsScanner_Batch(t *testing.T) {
 	)
 
 	require.NoError(t, err)
-	require.Equal(t, 2, len(ids))
+	require.Len(t, ids, 2)
 	sort.Slice(ids, func(i, j int) bool {
 		return ids[i] < ids[j]
 	})

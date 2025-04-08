@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
@@ -29,8 +30,8 @@ type RegisterTokenAdminRegistryConfig struct {
 	TokenPubKey             string
 	TokenAdminRegistryAdmin string
 	RegisterType            RegisterTokenAdminRegistryType
+	Override                bool
 	MCMSSolana              *MCMSConfigSolana
-	TestRouter              bool
 }
 
 func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
@@ -49,24 +50,18 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) e
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
 		return err
 	}
-	routerUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	if !cfg.TestRouter {
-		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMcms, chainState.Router, ccipChangeset.Router); err != nil {
-			return fmt.Errorf("failed to validate ownership: %w", err)
-		}
-	}
-	routerProgramAddress, _, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	if err != nil {
 		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
 	}
-	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
+	var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err == nil {
 		return fmt.Errorf("token admin registry already exists for (mint: %s, router: %s)", tokenPubKey.String(), routerProgramAddress.String())
 	}
@@ -81,7 +76,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
 
 	// verified
@@ -89,43 +84,70 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 	tokenAdminRegistryAdmin := solana.MustPublicKeyFromBase58(cfg.TokenAdminRegistryAdmin)
 
 	var instruction *solRouter.Instruction
-	var err error
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	var authority solana.PublicKey
-	if routerUsingMCMS {
-		authority, err = FetchTimelockSigner(e, cfg.ChainSelector)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-		}
-	} else {
-		authority = chain.DeployerKey.PublicKey()
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.Router,
+		solana.PublicKey{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	switch cfg.RegisterType {
 	// the ccip admin signs and makes tokenAdminRegistryAdmin the authority of the tokenAdminRegistry PDA
 	case ViaGetCcipAdminInstruction:
-		instruction, err = solRouter.NewCcipAdminProposeAdministratorInstruction(
-			tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
-			routerConfigPDA,
-			tokenAdminRegistryPDA, // this gets created
-			tokenPubKey,
-			authority,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+		if cfg.Override {
+			instruction, err = solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
+				tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
+				routerConfigPDA,
+				tokenAdminRegistryPDA, // this gets created
+				tokenPubKey,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+		} else {
+			instruction, err = solRouter.NewCcipAdminProposeAdministratorInstruction(
+				tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
+				routerConfigPDA,
+				tokenAdminRegistryPDA, // this gets created
+				tokenPubKey,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
 		}
 	case ViaOwnerInstruction:
-		// the token mint authority signs and makes itself the authority of the tokenAdminRegistry PDA
-		instruction, err = solRouter.NewOwnerProposeAdministratorInstruction(
-			tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
-			routerConfigPDA,
-			tokenAdminRegistryPDA, // this gets created
-			tokenPubKey,
-			authority, // (token mint authority) becomes the authority of the tokenAdminRegistry PDA
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+		if cfg.Override {
+			instruction, err = solRouter.NewOwnerOverridePendingAdministratorInstruction(
+				tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
+				routerConfigPDA,
+				tokenAdminRegistryPDA, // this gets created
+				tokenPubKey,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+		} else {
+			// the token mint authority signs and makes itself the authority of the tokenAdminRegistry PDA
+			instruction, err = solRouter.NewOwnerProposeAdministratorInstruction(
+				tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
+				routerConfigPDA,
+				tokenAdminRegistryPDA, // this gets created
+				tokenPubKey,
+				authority, // (token mint authority) becomes the authority of the tokenAdminRegistry PDA
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
 		}
 	}
 	if routerUsingMCMS {
@@ -157,7 +179,6 @@ type TransferAdminRoleTokenAdminRegistryConfig struct {
 	TokenPubKey               string
 	NewRegistryAdminPublicKey string
 	MCMSSolana                *MCMSConfigSolana
-	TestRouter                bool
 }
 
 func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
@@ -168,20 +189,18 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
-		return err
-	}
-	currentAdmin := chain.DeployerKey.PublicKey()
-	routerUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	var err error
-	if routerUsingMcms {
-		currentAdmin, err = FetchTimelockSigner(e, cfg.ChainSelector)
-		if err != nil {
-			return fmt.Errorf("failed to fetch timelock signer: %w", err)
-		}
+	currentAdmin, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.Router,
+		solana.PublicKey{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 
 	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
@@ -194,17 +213,15 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 		)
 	}
 
-	if !cfg.TestRouter {
-		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMcms, chainState.Router, ccipChangeset.Router); err != nil {
-			return fmt.Errorf("failed to validate ownership: %w", err)
-		}
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
+		return err
 	}
-	routerProgramAddress, _, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	if err != nil {
 		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
 	}
-	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
+	var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot transfer admin role", tokenPubKey.String(), routerProgramAddress.String())
 	}
@@ -217,23 +234,23 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 	}
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
 	// verified
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
 
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	var authority solana.PublicKey
-	var err error
-	if routerUsingMCMS {
-		authority, err = FetchTimelockSigner(e, cfg.ChainSelector)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-		}
-	} else {
-		authority = e.SolChains[cfg.ChainSelector].DeployerKey.PublicKey()
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.Router,
+		solana.PublicKey{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	ix1, err := solRouter.NewTransferAdminRoleTokenAdminRegistryInstruction(
 		newRegistryAdminPubKey,
@@ -260,7 +277,6 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 		}, nil
 	}
 	// the existing authority will have to sign the transfer
-	chain := e.SolChains[cfg.ChainSelector]
 	if err := chain.Confirm([]solana.Instruction{ix1}); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
@@ -272,7 +288,6 @@ type AcceptAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector uint64
 	TokenPubKey   string
 	MCMSSolana    *MCMSConfigSolana
-	TestRouter    bool
 }
 
 func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
@@ -283,32 +298,30 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
 		return err
 	}
-	routerUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	newAdmin := chain.DeployerKey.PublicKey()
-	var err error
-	if routerUsingMcms {
-		newAdmin, err = FetchTimelockSigner(e, cfg.ChainSelector)
-		if err != nil {
-			return fmt.Errorf("failed to fetch timelock signer: %w", err)
-		}
+
+	newAdmin, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.Router,
+		solana.PublicKey{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
-	if !cfg.TestRouter {
-		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMcms, chainState.Router, ccipChangeset.Router); err != nil {
-			return fmt.Errorf("failed to validate ownership: %w", err)
-		}
-	}
-	routerProgramAddress, _, _ := chainState.GetRouterInfo(cfg.TestRouter)
+
+	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	if err != nil {
 		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
 	}
-	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
+	var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot accept admin role", tokenPubKey.String(), routerProgramAddress.String())
 	}
@@ -332,20 +345,19 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 
 	// verified
-	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	var authority solana.PublicKey
-	var err error
-	if routerUsingMCMS {
-		authority, err = FetchTimelockSigner(e, cfg.ChainSelector)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-		}
-	} else {
-		authority = chain.DeployerKey.PublicKey()
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.Router,
+		solana.PublicKey{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	ix1, err := solRouter.NewAcceptAdminRoleTokenAdminRegistryInstruction(
 		routerConfigPDA,

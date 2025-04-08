@@ -7,15 +7,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+
+	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
+	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
-	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
-	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 )
 
 var (
@@ -23,6 +27,7 @@ var (
 )
 
 type DataFeedsChainState struct {
+	ABIByAddress map[string]string
 	commonchangeset.MCMSWithTimelockState
 	DataFeedsCache  map[common.Address]*cache.DataFeedsCache
 	AggregatorProxy map[common.Address]*proxy.AggregatorProxy
@@ -72,6 +77,7 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 
 	state.DataFeedsCache = make(map[common.Address]*cache.DataFeedsCache)
 	state.AggregatorProxy = make(map[common.Address]*proxy.AggregatorProxy)
+	state.ABIByAddress = make(map[string]string)
 
 	for address, tv := range addresses {
 		switch {
@@ -81,12 +87,20 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 				return &state, err
 			}
 			state.DataFeedsCache[common.HexToAddress(address)] = contract
+			state.ABIByAddress[address] = cache.DataFeedsCacheABI
 		case strings.Contains(tv.String(), "AggregatorProxy"):
 			contract, err := proxy.NewAggregatorProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &state, err
 			}
 			state.AggregatorProxy[common.HexToAddress(address)] = contract
+			state.ABIByAddress[address] = proxy.AggregatorProxyABI
+		case tv.String() == deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
+			state.ABIByAddress[address] = gethwrappers.RBACTimelockABI
+		case tv.String() == deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0).String():
+			state.ABIByAddress[address] = gethwrappers.CallProxyABI
+		case tv.String() == deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String() || tv.String() == deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String() || tv.String() == deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
+			state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 		default:
 			logger.Warnw("unknown contract type", "type", tv.Type)
 		}
@@ -122,7 +136,6 @@ func (c DataFeedsChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
 	if c.DataFeedsCache != nil {
 		for _, cache := range c.DataFeedsCache {
-			fmt.Println(cache.Address().Hex())
 			cacheView, err := v1_0.GenerateDataFeedsCacheView(cache)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate cache view %s", cache.Address().String())

@@ -1,20 +1,21 @@
 package solana
 
 import (
+	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
-
-var _ deployment.ChangeSet[BuildSolanaConfig] = BuildSolanaChangeset
 
 // Configuration
 const (
@@ -27,8 +28,41 @@ const (
 // Map program names to their Rust file paths (relative to the Anchor project root)
 // Needed for upgrades in place
 var programToFileMap = map[deployment.ContractType]string{
-	cs.Router:    "programs/ccip-router/src/lib.rs",
-	cs.FeeQuoter: "programs/fee-quoter/src/lib.rs",
+	cs.Router:                      "programs/ccip-router/src/lib.rs",
+	cs.CCIPCommon:                  "programs/ccip-common/src/lib.rs",
+	cs.FeeQuoter:                   "programs/fee-quoter/src/lib.rs",
+	cs.OffRamp:                     "programs/ccip-offramp/src/lib.rs",
+	cs.BurnMintTokenPool:           "programs/burnmint-token-pool/src/lib.rs",
+	cs.LockReleaseTokenPool:        "programs/lockrelease-token-pool/src/lib.rs",
+	cs.RMNRemote:                   "programs/rmn-remote/src/lib.rs",
+	types.AccessControllerProgram:  "programs/access-controller/src/lib.rs",
+	types.ManyChainMultisigProgram: "programs/mcm/src/lib.rs",
+	types.RBACTimelockProgram:      "programs/timelock/src/lib.rs",
+}
+
+var programToVanityKey = map[deployment.ContractType]string{
+	cs.Router:    "Ccip",
+	cs.FeeQuoter: "FeeQ",
+	cs.OffRamp:   "off",
+	cs.RMNRemote: "Rmn",
+}
+
+type LocalBuildConfig struct {
+	BuildLocally         bool
+	CleanDestinationDir  bool
+	CreateDestinationDir bool
+	// Forces re-clone of git directory. Useful for forcing regeneration of keys
+	CleanGitDir bool
+	// When building locally, this will be used to replace the keys in the Rust files
+	GenerateVanityKeys bool
+	UpgradeKeys        map[deployment.ContractType]string
+}
+
+type BuildSolanaConfig struct {
+	GitCommitSha string
+	// when running using CLD, this should be same as the secret (solana_program_path) or envvar (SOLANA_PROGRAM_PATH)
+	DestinationDir string
+	LocalBuild     LocalBuildConfig
 }
 
 // Run a command in a specific directory
@@ -92,7 +126,6 @@ func replaceKeys(e deployment.Environment) error {
 	e.Logger.Debugw("Replacing keys", "solanaDir", solanaDir)
 	output, err := runCommand("make", []string{"docker-update-contracts"}, solanaDir)
 	if err != nil {
-		fmt.Println(output)
 		return fmt.Errorf("anchor key replacement failed: %s %w", output, err)
 	}
 	return nil
@@ -124,6 +157,98 @@ func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.Contrac
 	return nil
 }
 
+func syncRouterAndCommon() error {
+	routerFileName := programToFileMap[cs.Router]
+	commonFileName := programToFileMap[cs.CCIPCommon]
+	routerFile := filepath.Join(cloneDir, anchorDir, routerFileName)
+	commonFile := filepath.Join(cloneDir, anchorDir, commonFileName)
+	file, err := os.Open(routerFile)
+	if err != nil {
+		return fmt.Errorf("error opening router file: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	declareRegex := regexp.MustCompile(`declare_id!\(\"(.+?)\"\);`)
+	var declareID string
+
+	for scanner.Scan() {
+		match := declareRegex.FindStringSubmatch(scanner.Text())
+		if match != nil {
+			declareID = match[0]
+			break
+		}
+	}
+
+	if declareID == "" {
+		return errors.New("declare_id not found in router file")
+	}
+
+	commonContent, err := os.ReadFile(commonFile)
+	if err != nil {
+		return fmt.Errorf("error reading common file: %w", err)
+	}
+
+	updatedContent := declareRegex.ReplaceAllString(string(commonContent), declareID)
+
+	return os.WriteFile(commonFile, []byte(updatedContent), 0600)
+}
+
+func generateVanityKeys(e deployment.Environment, keys map[deployment.ContractType]string) error {
+	e.Logger.Debug("Generating vanity keys...")
+	for program, prefix := range programToVanityKey {
+		_, exists := keys[program]
+		if exists {
+			fmt.Printf("Vanity key for program %s already exists, skipping generation.", program)
+			continue
+		}
+
+		// Construct command arguments
+		args := []string{"grind", "--starts-with", prefix + ":1"}
+
+		// Run command using helper function
+		output, err := runCommand("solana-keygen", args, "./")
+		if err != nil {
+			return fmt.Errorf("failed to generate vanity key for program %s: %w", program, err)
+		}
+
+		// Parse output for JSON filename
+		scanner := bufio.NewScanner(strings.NewReader(output))
+		jsonFilePattern := regexp.MustCompile(`Wrote keypair to (.*\.json)`) // Regex to match output
+		var jsonFilePath string
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			matches := jsonFilePattern.FindStringSubmatch(line)
+			if len(matches) > 1 {
+				jsonFilePath = matches[1]
+				break
+			}
+		}
+
+		if jsonFilePath == "" {
+			return fmt.Errorf("failed to parse output for JSON file path when generating vanity key for program %s", program)
+		}
+
+		// Get absolute path
+		absPath, err := filepath.Abs(jsonFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path for JSON file: %w", err)
+		}
+
+		// Extract file name
+		fileName := filepath.Base(absPath)
+		keys[program] = strings.TrimSuffix(fileName, ".json")
+
+		destination := filepath.Join(cloneDir, deployDir, getTypeToProgramDeployName()[program]+"-keypair.json")
+		if err := os.Rename(absPath, destination); err != nil {
+			return fmt.Errorf("failed to move generated vanity key from %s to %s: %w", absPath, destination, err)
+		}
+		fmt.Println("File copied to:", destination)
+	}
+	return nil
+}
+
 func copyFile(srcFile string, destDir string) error {
 	output, err := runCommand("cp", []string{srcFile, destDir}, ".")
 	if err != nil {
@@ -133,83 +258,69 @@ func copyFile(srcFile string, destDir string) error {
 }
 
 // Build the project with Anchor
-func buildProject(e deployment.Environment, testRouter bool) error {
+func buildProject(e deployment.Environment) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Building project", "solanaDir", solanaDir)
-	var args string
-	if testRouter {
-		args = "ANCHOR_BUILD_ARGS=-p ccip_router"
-	} else {
-		args = ""
-	}
-	output, err := runCommand("make", []string{"docker-build-contracts", args}, solanaDir)
+	args := []string{"docker-build-contracts"}
+	output, err := runCommand("make", args, solanaDir)
 	if err != nil {
 		return fmt.Errorf("anchor build failed: %s %w", output, err)
 	}
 	return nil
 }
 
-type BuildSolanaConfig struct {
-	ChainSelector        uint64
-	GitCommitSha         string
-	DestinationDir       string
-	CleanDestinationDir  bool
-	CreateDestinationDir bool
-	// Forces re-clone of git directory. Useful for forcing regeneration of keys
-	CleanGitDir bool
-	UpgradeKeys map[deployment.ContractType]string
-	TestRouter  bool
-}
-
-func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (deployment.ChangesetOutput, error) {
-	_, ok := e.SolChains[config.ChainSelector]
-	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", config.ChainSelector)
-	}
-	family, err := chainsel.GetSelectorFamily(config.ChainSelector)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	if family != chainsel.FamilySolana {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain is not solana chain %d", config.ChainSelector)
-	}
-
+func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
+	e.Logger.Debugw("Starting local build process", "destinationDir", config.DestinationDir)
 	// Clone the repository
-	if err := cloneRepo(e, config.GitCommitSha, config.CleanGitDir); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %w", err)
+	if err := cloneRepo(e, config.GitCommitSha, config.LocalBuild.CleanGitDir); err != nil {
+		return fmt.Errorf("error cloning repo: %w", err)
 	}
 
 	// Replace keys in Rust files using anchor keys sync
 	if err := replaceKeys(e); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %w", err)
+		return fmt.Errorf("error replacing keys: %w", err)
+	}
+
+	if config.LocalBuild.GenerateVanityKeys {
+		if len(config.LocalBuild.UpgradeKeys) == 0 {
+			config.LocalBuild.UpgradeKeys = make(map[deployment.ContractType]string)
+		}
+		if err := generateVanityKeys(e, config.LocalBuild.UpgradeKeys); err != nil {
+			return fmt.Errorf("error generating vanity keys: %w", err)
+		}
 	}
 
 	// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
 	// We need to do this so the keys will match the existing deployed program
-	if err := replaceKeysForUpgrade(e, config.UpgradeKeys); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys for upgrade: %w", err)
+	if err := replaceKeysForUpgrade(e, config.LocalBuild.UpgradeKeys); err != nil {
+		return fmt.Errorf("error replacing keys for upgrade: %w", err)
+	}
+
+	// Sync the router and common program files
+	if err := syncRouterAndCommon(); err != nil {
+		return fmt.Errorf("error syncing router and common program files: %w", err)
 	}
 
 	// Build the project with Anchor
-	if err := buildProject(e, config.TestRouter); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error building project: %w", err)
+	if err := buildProject(e); err != nil {
+		return fmt.Errorf("error building project: %w", err)
 	}
 
-	if config.CleanDestinationDir {
+	if config.LocalBuild.CleanDestinationDir {
 		e.Logger.Debugw("Cleaning destination dir", "destinationDir", config.DestinationDir)
 		if err := os.RemoveAll(config.DestinationDir); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error cleaning build folder: %w", err)
+			return fmt.Errorf("error cleaning build folder: %w", err)
 		}
-		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
-		err = os.MkdirAll(config.DestinationDir, os.ModePerm)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create build directory: %w", err)
-		}
-	} else if config.CreateDestinationDir {
 		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
 		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create build directory: %w", err)
+			return fmt.Errorf("failed to create build directory: %w", err)
+		}
+	} else if config.LocalBuild.CreateDestinationDir {
+		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
+		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("failed to create build directory: %w", err)
 		}
 	}
 
@@ -217,14 +328,7 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 	e.Logger.Debugw("Reading deploy directory", "deployFilePath", deployFilePath)
 	files, err := os.ReadDir(deployFilePath)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to read deploy directory: %w", err)
-	}
-
-	if config.TestRouter {
-		files, err = filterRouterFiles(files)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to filter router files: %w", err)
-		}
+		return fmt.Errorf("failed to read deploy directory: %w", err)
 	}
 
 	for _, file := range files {
@@ -232,23 +336,26 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 		e.Logger.Debugw("Copying file", "filePath", filePath, "destinationDir", config.DestinationDir)
 		err := copyFile(filePath, config.DestinationDir)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to copy file: %w", err)
+			return fmt.Errorf("failed to copy file: %w", err)
 		}
 	}
-	return deployment.ChangesetOutput{}, nil
+	return nil
 }
 
-func filterRouterFiles(files []os.DirEntry) ([]os.DirEntry, error) {
-	// Filter files to only include those with "router" in the name
-	// ccip_router.so, ccip_router-keypair.json
-	var routerFiles []os.DirEntry
-
-	// Compile the regex pattern once
-	re := regexp.MustCompile(`(?i)router`)
-	for _, file := range files {
-		if re.MatchString(file.Name()) {
-			routerFiles = append(routerFiles, file)
+func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
+	if !config.LocalBuild.BuildLocally {
+		e.Logger.Debug("Downloading Solana CCIP program artifacts...")
+		err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, config.GitCommitSha)
+		if err != nil {
+			return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
+		}
+	} else {
+		e.Logger.Debug("Building Solana CCIP program artifacts locally...")
+		err := buildLocally(e, config)
+		if err != nil {
+			return fmt.Errorf("error building solana ccip program artifacts: %w", err)
 		}
 	}
-	return routerFiles, nil
+
+	return nil
 }

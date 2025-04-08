@@ -27,12 +27,12 @@ func TestRelayerSet_List(t *testing.T) {
 	relayers, err := relayerSet.List(context.Background())
 	assert.NoError(t, err)
 
-	assert.Equal(t, len(relayers), 3)
+	assert.Len(t, relayers, 3)
 
 	relayers, err = relayerSet.List(context.Background(), types.RelayID{Network: "N1", ChainID: "C1"}, types.RelayID{Network: "N3", ChainID: "C3"})
 	assert.NoError(t, err)
 
-	assert.Equal(t, len(relayers), 2)
+	assert.Len(t, relayers, 2)
 
 	_, ok := relayers[types.RelayID{Network: "N1", ChainID: "C1"}]
 	assert.True(t, ok)
@@ -56,7 +56,7 @@ func TestRelayerSet_Get(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = relayerSet.Get(context.Background(), types.RelayID{Network: "N4", ChainID: "C4"})
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestRelayerSet_NewPluginProvider(t *testing.T) {
@@ -171,6 +171,10 @@ func (t *TestRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, page
 }
 
 func (t *TestRelayer) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	panic("implement me")
+}
+
+func (t *TestRelayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
 	panic("implement me")
 }
 

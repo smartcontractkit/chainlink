@@ -26,8 +26,8 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/price_registry"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -175,7 +175,7 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	// Note unsupported chain selector simply returns an empty set not an error
 	gasUpdates, err := pr.GetGasPriceUpdatesCreatedAfter(ctx, 1e6, time.Unix(0, 0), 0)
 	require.NoError(t, err)
-	assert.Len(t, gasUpdates, 0)
+	assert.Empty(t, gasUpdates)
 
 	for i, ts := range th.blockTs {
 		// Should see all updates >= ts.
@@ -211,7 +211,7 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	// Empty token set should return empty set no error.
 	gotEmpty, err := pr.GetTokenPrices(ctx, []cciptypes.Address{})
 	require.NoError(t, err)
-	assert.Len(t, gotEmpty, 0)
+	assert.Empty(t, gotEmpty)
 
 	// We expect latest token prices to apply
 	allTokenUpdates, err := pr.GetTokenPriceUpdatesCreatedAfter(ctx, time.Unix(0, 0), 0)

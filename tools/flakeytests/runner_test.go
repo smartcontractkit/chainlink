@@ -10,8 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // This test suite has two sets of tests that are run in two different modes:
@@ -49,7 +47,7 @@ func TestParser(t *testing.T) {
 	ts := pr.tests
 	assert.Len(t, ts, 1)
 	assert.Len(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"], 1)
-	assert.Equal(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"], 1)
+	assert.Equal(t, 1, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"])
 }
 
 func TestParser_SkipsNonJSON(t *testing.T) {
@@ -65,7 +63,7 @@ func TestParser_SkipsNonJSON(t *testing.T) {
 	ts := pr.tests
 	assert.Len(t, ts, 1)
 	assert.Len(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"], 1)
-	assert.Equal(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"], 1)
+	assert.Equal(t, 1, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"])
 }
 
 func TestParser_PanicDueToLogging(t *testing.T) {
@@ -80,7 +78,7 @@ func TestParser_PanicDueToLogging(t *testing.T) {
 	ts := pr.tests
 	assert.Len(t, ts, 1)
 	assert.Len(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"], 1)
-	assert.Equal(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestAssets_LinkScanValue"], 1)
+	assert.Equal(t, 1, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestAssets_LinkScanValue"])
 }
 
 func TestParser_SuccessfulOutput(t *testing.T) {
@@ -102,7 +100,7 @@ func TestParser_SuccessfulOutput(t *testing.T) {
 	r := strings.NewReader(output)
 	ts, err := parseOutput(r)
 	require.NoError(t, err)
-	assert.Len(t, ts.tests, 0)
+	assert.Empty(t, ts.tests)
 }
 
 type testAdapter func(string, []string, io.Writer) error
@@ -134,7 +132,7 @@ func TestRunner_WithFlake(t *testing.T) {
 
 	// This will report a flake since we've mocked the rerun
 	// to only report one failure (not two as expected).
-	err := r.Run(tests.Context(t))
+	err := r.Run(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, m.report.tests, 1)
 	_, ok := m.report.tests["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"]
@@ -169,7 +167,7 @@ func TestRunner_WithFailedPackage(t *testing.T) {
 
 	// This will report a flake since we've mocked the rerun
 	// to only report one failure (not two as expected).
-	err := r.Run(tests.Context(t))
+	err := r.Run(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, m.report.tests, 1)
 	_, ok := m.report.tests["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"]
@@ -195,9 +193,9 @@ func TestRunner_AllFailures(t *testing.T) {
 		reporter: m,
 	}
 
-	err := r.Run(tests.Context(t))
+	err := r.Run(t.Context())
 	require.NoError(t, err)
-	assert.Len(t, m.report.tests, 0)
+	assert.Empty(t, m.report.tests)
 }
 
 func TestRunner_RerunSuccessful(t *testing.T) {
@@ -221,7 +219,7 @@ func TestRunner_RerunSuccessful(t *testing.T) {
 		reporter: m,
 	}
 
-	err := r.Run(tests.Context(t))
+	err := r.Run(t.Context())
 	require.NoError(t, err)
 	_, ok := m.report.tests["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"]
 	assert.True(t, ok)
@@ -243,7 +241,7 @@ func TestRunner_RootLevelTest(t *testing.T) {
 		reporter: m,
 	}
 
-	err := r.Run(tests.Context(t))
+	err := r.Run(t.Context())
 	require.NoError(t, err)
 	_, ok := m.report.tests["github.com/smartcontractkit/chainlink/v2/"]["TestConfigDocs"]
 	assert.True(t, ok)
@@ -270,7 +268,7 @@ func TestRunner_RerunFailsWithNonzeroExitCode(t *testing.T) {
 		reporter: m,
 	}
 
-	err := r.Run(tests.Context(t))
+	err := r.Run(t.Context())
 	require.NoError(t, err)
 	_, ok := m.report.tests["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"]
 	assert.True(t, ok)
@@ -307,7 +305,7 @@ func TestRunner_RerunWithNonZeroExitCodeDoesntStopCommand(t *testing.T) {
 		reporter: m,
 	}
 
-	err := r.Run(tests.Context(t))
+	err := r.Run(t.Context())
 	require.NoError(t, err)
 	calls := index
 	assert.Equal(t, 4, calls)
@@ -380,7 +378,7 @@ func TestIntegration_DealsWithSubtests(t *testing.T) {
 		reporter:    m,
 	}
 
-	err := r.Run(tests.Context(t))
+	err := r.Run(t.Context())
 	require.NoError(t, err)
 	expectedTests := map[string]map[string]int{
 		"github.com/smartcontractkit/chainlink/v2/tools/flakeytests/": {
@@ -416,7 +414,7 @@ func TestIntegration_ParsesPanics(t *testing.T) {
 		reporter:    m,
 	}
 
-	err := r.Run(tests.Context(t))
+	err := r.Run(t.Context())
 	require.NoError(t, err)
 	_, ok := m.report.tests["github.com/smartcontractkit/chainlink/v2/tools/flakeytests"]["TestSkippedForTests"]
 	assert.False(t, ok)
@@ -447,7 +445,7 @@ func TestIntegration(t *testing.T) {
 		reporter:    m,
 	}
 
-	err := r.Run(tests.Context(t))
+	err := r.Run(t.Context())
 	require.NoError(t, err)
 	_, ok := m.report.tests["github.com/smartcontractkit/chainlink/v2/tools/flakeytests"]["TestSkippedForTests_Success"]
 	assert.False(t, ok)

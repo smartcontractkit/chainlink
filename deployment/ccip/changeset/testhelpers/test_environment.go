@@ -3,13 +3,16 @@ package testhelpers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	solanago "github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -23,8 +26,9 @@ import (
 
 	solBinary "github.com/gagliardetto/binary"
 
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
@@ -253,6 +257,7 @@ func WithNumOfBootstrapNodes(numBootstraps int) TestOps {
 
 type TestEnvironment interface {
 	SetupJobs(t *testing.T)
+	DeleteJobs(ctx context.Context, jobIDs map[string][]string) error
 	StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig)
 	StartChains(t *testing.T)
 	TestConfigs() *TestConfigs
@@ -284,22 +289,15 @@ func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.
 }
 
 func (d *DeployedEnv) SetupJobs(t *testing.T) {
-	out, err := v1_6.CCIPCapabilityJobspecChangeset(d.Env, struct{}{})
+	_, err := commonchangeset.Apply(t, d.Env, nil,
+		commonchangeset.Configure(deployment.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset), nil))
 	require.NoError(t, err)
-	require.NotEmpty(t, out.Jobs)
-	for _, job := range out.Jobs {
-		require.NotEmpty(t, job.JobID)
-		require.NotEmpty(t, job.Spec)
-		require.NotEmpty(t, job.Node)
-	}
-	// Wait for plugins to register filters?
-	// TODO: Investigate how to avoid.
-	time.Sleep(30 * time.Second)
 	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks)
 }
 
 type MemoryEnvironment struct {
 	DeployedEnv
+	nodes      map[string]memory.Node
 	TestConfig *TestConfigs
 	Chains     map[uint64]deployment.Chain
 	SolChains  map[uint64]deployment.SolChain
@@ -339,14 +337,15 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 
 	m.Chains = chains
 	m.SolChains = memory.NewMemoryChainsSol(t, tc.SolChains)
+	env := deployment.Environment{
+		Chains:    m.Chains,
+		SolChains: m.SolChains,
+	}
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
-	replayBlocks, err := LatestBlocksByChain(ctx, chains)
+	replayBlocks, err := LatestBlocksByChain(ctx, env)
 	require.NoError(t, err)
 	m.DeployedEnv = DeployedEnv{
-		Env: deployment.Environment{
-			Chains:    m.Chains,
-			SolChains: m.SolChains,
-		},
+		Env:          env,
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
 		ReplayBlocks: replayBlocks,
@@ -367,7 +366,27 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 			require.NoError(t, node.App.Stop())
 		})
 	}
+	m.nodes = nodes
 	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, nodes)
+}
+
+func (m *MemoryEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
+	for id, node := range m.nodes {
+		if jobsToDelete, ok := jobIDs[id]; ok {
+			for _, jobToDelete := range jobsToDelete {
+				// delete job
+				jobID, err := strconv.ParseInt(jobToDelete, 10, 32)
+				if err != nil {
+					return err
+				}
+				err = node.App.DeleteJob(ctx, int32(jobID))
+				if err != nil {
+					return fmt.Errorf("failed to delete job %s: %w", jobToDelete, err)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
@@ -448,9 +467,9 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	solChains := e.Env.AllChainSelectorsSolana()
 	//nolint:gocritic // we need to segregate EVM and Solana chains
 	allChains := append(evmChains, solChains...)
-	if len(solChains) > 0 {
-		SavePreloadedSolAddresses(t, e.Env, solChains[0])
-	}
+	// if len(solChains) > 0 {
+	// 	SavePreloadedSolAddresses(e.Env, solChains[0])
+	// }
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
@@ -547,6 +566,59 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	return e
 }
 
+func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
+	err := SavePreloadedSolAddresses(e.Env, solChainSelector)
+	if err != nil {
+		return nil, err
+	}
+	state, err := changeset.LoadOnchainState(e.Env)
+	if err != nil {
+		return nil, err
+	}
+	value := [28]uint8{}
+	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
+	if !ok {
+		return nil, errors.New("failed to set string to big.Int")
+	}
+	bigNum.FillBytes(value[:])
+	return []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.DeployChainContractsChangeset),
+			ccipChangeSetSolana.DeployChainContractsConfig{
+				HomeChainSelector: e.HomeChainSel,
+				ChainSelector:     solChainSelector,
+				ContractParamsPerChain: ccipChangeSetSolana.ChainContractParams{
+					FeeQuoterParams: ccipChangeSetSolana.FeeQuoterParams{
+						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000000000000, Hi: 0, Endianness: nil},
+						BillingConfig: []solFeeQuoter.BillingTokenConfig{
+							{
+								Enabled: true,
+								Mint:    state.SolChains[solChainSelector].LinkToken,
+								UsdPerToken: solFeeQuoter.TimestampedPackedU224{
+									Value:     value,
+									Timestamp: int64(100),
+								},
+								PremiumMultiplierWeiPerEth: 100,
+							},
+							{
+								Enabled: true,
+								Mint:    state.SolChains[solChainSelector].WSOL,
+								UsdPerToken: solFeeQuoter.TimestampedPackedU224{
+									Value:     value,
+									Timestamp: int64(100),
+								},
+								PremiumMultiplierWeiPerEth: 100,
+							},
+						},
+					},
+					OffRampParams: ccipChangeSetSolana.OffRampParams{
+						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
+					},
+				},
+			},
+		)}, nil
+}
+
 func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment, mcmsEnabled bool) DeployedEnv {
 	tc := tEnv.TestConfigs()
 	e := tEnv.DeployedEnvironment()
@@ -557,7 +629,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	// no proposals to be made, timelock can be passed as nil here
 	var apps []commonchangeset.ConfiguredChangeSet
 	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
-	solContractParams := make(map[uint64]ccipChangeSetSolana.ChainContractParams)
+
 	evmChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.Chains[chain]; ok {
@@ -576,43 +648,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		evmContractParams[chain] = v1_6.ChainContractParams{
 			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
 			OffRampParams:   v1_6.DefaultOffRampParams(),
-		}
-	}
-
-	value := [28]uint8{}
-	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
-	require.True(t, ok)
-	bigNum.FillBytes(value[:])
-	state, err := changeset.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-	for _, chain := range solChains {
-		solContractParams[chain] = ccipChangeSetSolana.ChainContractParams{
-			FeeQuoterParams: ccipChangeSetSolana.FeeQuoterParams{
-				DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
-				BillingConfig: []solFeeQuoter.BillingTokenConfig{
-					{
-						Enabled: true,
-						Mint:    state.SolChains[chain].LinkToken,
-						UsdPerToken: solFeeQuoter.TimestampedPackedU224{
-							Value:     value,
-							Timestamp: int64(100),
-						},
-						PremiumMultiplierWeiPerEth: 100,
-					},
-					{
-						Enabled: true,
-						Mint:    state.SolChains[chain].WSOL,
-						UsdPerToken: solFeeQuoter.TimestampedPackedU224{
-							Value:     value,
-							Timestamp: int64(100),
-						},
-						PremiumMultiplierWeiPerEth: 100,
-					},
-				},
-			},
-			OffRampParams: ccipChangeSetSolana.OffRampParams{
-				EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
-			},
 		}
 	}
 
@@ -636,18 +671,16 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				ContractParamsPerChain: evmContractParams,
 			},
 		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.DeployChainContractsChangeset),
-			ccipChangeSetSolana.DeployChainContractsConfig{
-				HomeChainSelector:      e.HomeChainSel,
-				ContractParamsPerChain: solContractParams,
-			},
-		),
 	}...)
+	if len(solChains) != 0 {
+		solCs, err := deployChainContractsToSolChainCS(e, solChains[0])
+		require.NoError(t, err)
+		apps = append(apps, solCs...)
+	}
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
 	require.NoError(t, err)
 
-	state, err = changeset.LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	// Assert link present
 	if tc.IsStaticLink {
@@ -675,10 +708,12 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Type:    pluginconfig.USDCCCTPHandlerType,
 			Version: "1.0",
 			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-				Tokens:                 cctpContracts,
-				AttestationAPI:         endpoint,
-				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
-				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+				AttestationConfig: pluginconfig.AttestationConfig{
+					AttestationAPI:         endpoint,
+					AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
+					AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+				},
+				Tokens: cctpContracts,
 			}})
 	}
 
@@ -733,8 +768,14 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 
 	for _, chain := range solChains {
+		// TODO: this is a workaround for tokenConfig.GetTokenInfo
+		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
+		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[chain].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[changeset.LinkSymbol]
+		// TODO: point this to proper SOL feed, apparently 0 signified SOL
+		tokenInfo[cciptypes.UnknownEncodedAddress(solanago.SolMint.String())] = tokenConfig.TokenSymbolToInfo[changeset.WethSymbol]
+
 		ocrOverride := tc.OCRConfigOverride
-		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, nil, ocrOverride)
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
 		chainConfigs[chain] = v1_6.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
@@ -749,9 +790,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 
 	// Apply second set of changesets to configure the CCIP contracts.
-	var mcmsConfig *changeset.MCMSConfig
+	var mcmsConfig *proposalutils.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &changeset.MCMSConfig{
+		mcmsConfig = &proposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -858,7 +899,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 		require.NotNil(t, state.Chains[chain].Weth9)
 		require.NotNil(t, state.Chains[chain].TokenAdminRegistry)
-		require.NotNil(t, state.Chains[chain].RegistryModule)
+		require.NotEmpty(t, state.Chains[chain].RegistryModules1_6)
 		require.NotNil(t, state.Chains[chain].Router)
 		require.NotNil(t, state.Chains[chain].RMNRemote)
 		require.NotNil(t, state.Chains[chain].TestRouter)
@@ -873,9 +914,24 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 }
 
 // NewEnvironmentWithJobs creates a new CCIP environment
-// with capreg, fee tokens, feeds, nodes and jobs set up.
+// with home chain contracts, fee tokens, feeds, nodes and jobs set up.
 func NewEnvironmentWithJobs(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	e := NewEnvironment(t, tEnv)
+	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	// add home chain contracts, otherwise the job approval logic in chainlink fails silently
+	_, err = commonchangeset.Apply(t, e.Env, nil,
+		commonchangeset.Configure(deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			v1_6.DeployHomeChainConfig{
+				HomeChainSel:     e.HomeChainSel,
+				RMNDynamicConfig: NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  NewTestRMNStaticConfig(),
+				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
+				},
+			}))
+	require.NoError(t, err)
 	e.SetupJobs(t)
 	return e
 }

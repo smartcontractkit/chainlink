@@ -42,7 +42,7 @@ func Test_CSAKeysQuery(t *testing.T) {
 		expectedKeys = append(expectedKeys, expectedKey{
 			ID:      k.ID(),
 			Version: k.Version,
-			PubKey:  fmt.Sprintf("csa_%s", k.PublicKeyString()),
+			PubKey:  "csa_" + k.PublicKeyString(),
 		})
 	}
 

@@ -259,7 +259,7 @@ func validateEnv() (err error) {
 		k := kv[:i]
 		_, ok := os.LookupEnv(k)
 		if ok {
-			err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
+			err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %w", k, v2.ErrUnsupported))
 		}
 	}
 	return
@@ -430,6 +430,10 @@ func (g *generalConfig) FluxMonitor() config.FluxMonitor {
 
 func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
+}
+
+func (g *generalConfig) InsecurePPROFHeap() bool {
+	return *g.c.InsecurePPROFHeap
 }
 
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {

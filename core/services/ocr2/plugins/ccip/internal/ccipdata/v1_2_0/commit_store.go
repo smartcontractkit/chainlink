@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
-	commit_store_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/commit_store"
+	commit_store_1_2_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -249,11 +249,11 @@ func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offc
 	defer c.configMu.Unlock()
 
 	if c.estimator == nil {
-		return "", fmt.Errorf("this CommitStore estimator is nil. SetGasEstimator should be called before ChangeConfig")
+		return "", errors.New("this CommitStore estimator is nil. SetGasEstimator should be called before ChangeConfig")
 	}
 
 	if c.sourceMaxGasPrice == nil {
-		return "", fmt.Errorf("this CommitStore sourceMaxGasPrice is nil. SetSourceMaxGasPrice should be called before ChangeConfig")
+		return "", errors.New("this CommitStore sourceMaxGasPrice is nil. SetSourceMaxGasPrice should be called before ChangeConfig")
 	}
 
 	c.gasPriceEstimator = prices.NewDAGasPriceEstimator(

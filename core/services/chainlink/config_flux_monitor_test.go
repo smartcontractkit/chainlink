@@ -17,5 +17,5 @@ func TestFluxMonitorConfig(t *testing.T) {
 	fm := cfg.FluxMonitor()
 
 	assert.Equal(t, uint32(100), fm.DefaultTransactionQueueDepth())
-	assert.Equal(t, true, fm.SimulateTransactions())
+	assert.True(t, fm.SimulateTransactions())
 }

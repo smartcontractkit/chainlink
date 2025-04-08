@@ -2,7 +2,7 @@ package evm
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math/big"
 	"strings"
 	"sync/atomic"
@@ -21,12 +21,12 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/streams_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	gasMocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
@@ -200,7 +200,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 			}
 			if tc.makeEthCall {
 				client := new(clienttest.Client)
-				client.On("BlockByNumber", mock.Anything, tc.checkBlock).Return(nil, fmt.Errorf("error"))
+				client.On("BlockByNumber", mock.Anything, tc.checkBlock).Return(nil, errors.New("error"))
 				e.client = client
 			}
 
@@ -267,7 +267,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			state:       encoding.RpcFlakyFailure,
 			retryable:   true,
 			makeEthCall: true,
-			ethCallErr:  fmt.Errorf("error"),
+			ethCallErr:  errors.New("error"),
 		},
 		{
 			name:     "log block no longer exists",
@@ -493,7 +493,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 				},
 			},
 			ethCallErrors: map[string]error{
-				uid1.String(): fmt.Errorf("error"),
+				uid1.String(): errors.New("error"),
 			},
 		},
 	}
@@ -644,7 +644,7 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 			})).Return(nil).
 				Run(func(args mock.Arguments) {
 					be := args.Get(1).([]rpc.BatchElem)
-					be[0].Error = fmt.Errorf("error")
+					be[0].Error = errors.New("error")
 					res := "0x0001"
 					be[1].Result = res
 				}).Once()
@@ -669,9 +669,9 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	lggr := logger.Test(t)
 	addr := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(ac.IAutomationV21PlusCommonABI))
-	require.Nil(t, err, "need registry abi")
+	require.NoError(t, err, "need registry abi")
 	streamsLookupCompatibleABI, err := abi.JSON(strings.NewReader(streams_lookup_compatible_interface.StreamsLookupCompatibleInterfaceABI))
-	require.Nil(t, err, "need mercury abi")
+	require.NoError(t, err, "need mercury abi")
 	var logPoller logpoller.LogPoller
 	mockReg := mocks.NewRegistry(t)
 	mockHttpClient := mocks.NewHttpClient(t)

@@ -13,11 +13,12 @@ import (
 )
 
 type DummyKeystore struct {
+	chainID       *big.Int
 	privateKeyMap map[common.Address]*ecdsa.PrivateKey
 }
 
-func NewKeystore() *DummyKeystore {
-	return &DummyKeystore{privateKeyMap: make(map[common.Address]*ecdsa.PrivateKey)}
+func NewKeystore(chainID *big.Int) *DummyKeystore {
+	return &DummyKeystore{chainID: chainID, privateKeyMap: make(map[common.Address]*ecdsa.PrivateKey)}
 }
 
 func (k *DummyKeystore) Add(privateKeyString string) error {
@@ -37,9 +38,9 @@ func (k *DummyKeystore) Add(privateKeyString string) error {
 	return nil
 }
 
-func (k *DummyKeystore) SignTx(_ context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (k *DummyKeystore) SignTx(_ context.Context, fromAddress common.Address, tx *types.Transaction) (*types.Transaction, error) {
 	if key, exists := k.privateKeyMap[fromAddress]; exists {
-		return types.SignTx(tx, types.LatestSignerForChainID(chainID), key)
+		return types.SignTx(tx, types.LatestSignerForChainID(k.chainID), key)
 	}
 	return nil, fmt.Errorf("private key for address: %v not found", fromAddress)
 }
@@ -56,7 +57,7 @@ func (k *DummyKeystore) SignMessage(ctx context.Context, address common.Address,
 	return signature, nil
 }
 
-func (k *DummyKeystore) EnabledAddressesForChain(_ context.Context, _ *big.Int) (addresses []common.Address, err error) {
+func (k *DummyKeystore) EnabledAddresses(_ context.Context) (addresses []common.Address, err error) {
 	for address := range k.privateKeyMap {
 		addresses = append(addresses, address)
 	}

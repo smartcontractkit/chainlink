@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
 func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
@@ -25,7 +26,11 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 
 	if err := input.Validate(); err != nil {
 		l.Error().Err(err).Msg("Input validation failed. No debug information will be printed")
+		return
+	}
 
+	if input.InfraInput.InfraType == libtypes.CRIB {
+		l.Error().Msg("❌ Debug information is not supported for CRIB")
 		return
 	}
 
@@ -76,7 +81,7 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 			l.Info().Msg("✅ Reports were sent")
 
 			// debug report transmissions
-			ReportTransmissions(logFiles, l, input.BlockchainOutput.Nodes[0].HostWSUrl)
+			ReportTransmissions(logFiles, l, input.BlockchainOutput.Nodes[0].ExternalWSUrl)
 		}
 
 		// Add support for new capabilities here as needed, if there is some specific debug information to be printed

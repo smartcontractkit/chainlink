@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -38,7 +39,7 @@ var _ ORM = (*orm)(nil)
 
 func NewORM(ds sqlutil.DataSource, lggr logger.Logger) (ORM, error) {
 	if ds == nil {
-		return nil, fmt.Errorf("datasource to CCIP NewORM cannot be nil")
+		return nil, errors.New("datasource to CCIP NewORM cannot be nil")
 	}
 
 	return &orm{

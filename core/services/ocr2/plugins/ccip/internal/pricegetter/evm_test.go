@@ -13,8 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -127,7 +127,7 @@ func TestDynamicPriceGetterWithEmptyInput(t *testing.T) {
 
 			require.NoError(t, err)
 			// Ensure all expected prices are present.
-			assert.True(t, len(prices) == len(expectedTokens))
+			assert.Equal(t, len(prices), len(expectedTokens))
 			// Check prices are matching expected result.
 			for tk, expectedPrice := range expectedTokens {
 				if prices[cciptypes.Address(tk.String())] == nil {

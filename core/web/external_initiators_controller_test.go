@@ -3,8 +3,8 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -106,7 +106,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, eis, 1)
-	assert.Equal(t, fmt.Sprintf("%d", eiBar.ID), eis[0].ID)
+	assert.Equal(t, strconv.FormatInt(eiBar.ID, 10), eis[0].ID)
 	assert.Equal(t, eiBar.Name, eis[0].Name)
 	assert.Nil(t, eis[0].URL)
 	assert.Equal(t, eiBar.AccessKey, eis[0].AccessKey)
@@ -123,7 +123,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	assert.NotEmpty(t, links["prev"])
 
 	assert.Len(t, eis, 1)
-	assert.Equal(t, fmt.Sprintf("%d", eiFoo.ID), eis[0].ID)
+	assert.Equal(t, strconv.FormatInt(eiFoo.ID, 10), eis[0].ID)
 	assert.Equal(t, eiFoo.Name, eis[0].Name)
 	assert.Equal(t, eiFoo.URL.String(), eis[0].URL.String())
 	assert.Equal(t, eiFoo.AccessKey, eis[0].AccessKey)

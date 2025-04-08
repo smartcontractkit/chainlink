@@ -32,7 +32,7 @@ type Client interface {
 	DeleteJobDistributorChainConfig(ctx context.Context, id string) error
 	GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalJobProposal, error)
 	ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*JobProposalApprovalSuccessSpec, error)
-	CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error)
+	CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecCancelJobProposalSpecCancelJobProposalSpecSuccessSpecJobProposalSpec, error)
 	RejectJobProposalSpec(ctx context.Context, id string) (*generated.RejectJobProposalSpecResponse, error)
 	UpdateJobProposalSpecDefinition(ctx context.Context, id string, cmd generated.UpdateJobProposalSpecDefinitionInput) (*generated.UpdateJobProposalSpecDefinitionResponse, error)
 }
@@ -294,8 +294,23 @@ func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bo
 	return nil, errors.New("failed to approve job proposal spec")
 }
 
-func (c *client) CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error) {
-	return generated.CancelJobProposalSpec(ctx, c.gqlClient, id)
+func (c *client) CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecCancelJobProposalSpecCancelJobProposalSpecSuccessSpecJobProposalSpec, error) {
+	res, err := generated.CancelJobProposalSpec(ctx, c.gqlClient, id)
+	if err != nil {
+		return nil, err
+	}
+	if success, ok := res.GetCancelJobProposalSpec().(*generated.CancelJobProposalSpecCancelJobProposalSpecCancelJobProposalSpecSuccess); ok {
+		var cmd generated.CancelJobProposalSpecCancelJobProposalSpecCancelJobProposalSpecSuccessSpecJobProposalSpec
+		err := DecodeInput(success.Spec, &cmd)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode job proposal spec: %w ; and job proposal spec not cancelled", err)
+		}
+		if cmd.Status != generated.SpecStatusCancelled {
+			return nil, errors.New("job proposal spec not cancelled")
+		}
+		return &cmd, nil
+	}
+	return nil, errors.New("failed to cancel job proposal spec")
 }
 
 func (c *client) RejectJobProposalSpec(ctx context.Context, id string) (*generated.RejectJobProposalSpecResponse, error) {
@@ -327,11 +342,15 @@ func (c *client) login() error {
 	}
 	defer res.Body.Close()
 
-	cookieHeader := res.Header.Get("Set-Cookie")
-	if cookieHeader == "" {
-		return errors.New("no cookie found in header")
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("login failed with status code: %d", res.StatusCode)
 	}
 
-	c.cookie = strings.Split(cookieHeader, ";")[0]
-	return nil
+	cookieHeader := res.Header.Get("Set-Cookie")
+	if cookieHeader != "" {
+		c.cookie = strings.Split(cookieHeader, ";")[0]
+		return nil
+	}
+
+	return fmt.Errorf("no set-cookie found in header. Check credentials and scheme. Response code was: %d", res.StatusCode)
 }

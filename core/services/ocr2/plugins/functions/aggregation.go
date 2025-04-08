@@ -3,6 +3,7 @@ package functions
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -16,7 +17,7 @@ func CanAggregate(N int, F int, observations []*encoding.ProcessedRequest) bool 
 
 func Aggregate(aggMethod config.AggregationMethod, observations []*encoding.ProcessedRequest) (*encoding.ProcessedRequest, error) {
 	if len(observations) == 0 {
-		return nil, fmt.Errorf("empty observation list passed for aggregation")
+		return nil, errors.New("empty observation list passed for aggregation")
 	}
 	var errored []*encoding.ProcessedRequest
 	var successful []*encoding.ProcessedRequest

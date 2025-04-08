@@ -24,12 +24,12 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
+	autov2common "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
-	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -201,7 +201,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		message(fmt.Sprintf("LogTrigger{blockNum: %d, blockHash: %s, txHash: %s, logIndex: %d}", blockNum, receipt.BlockHash.Hex(), txHash, logIndex))
 		trigger = mustAutomationTrigger(txHash, logIndex, blockNum, receipt.BlockHash)
 		workID = mustUpkeepWorkID(upkeepID, trigger)
-		message(fmt.Sprintf("workID computed: %s", hex.EncodeToString(workID[:])))
+		message("workID computed: " + hex.EncodeToString(workID[:]))
 
 		var hasKey bool
 		hasKey, err = v2common.HasDedupKey(latestCallOpts, workID)
@@ -265,7 +265,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 
 	upkeepNeeded, performData = checkResult.UpkeepNeeded, checkResult.PerformData
 	if checkResult.UpkeepFailureReason != 0 {
-		message(fmt.Sprintf("checkUpkeep reverted with UpkeepFailureReason %s", getCheckUpkeepFailureReason(checkResult.UpkeepFailureReason)))
+		message("checkUpkeep reverted with UpkeepFailureReason " + getCheckUpkeepFailureReason(checkResult.UpkeepFailureReason))
 	}
 
 	// handle data streams lookup
@@ -595,7 +595,7 @@ func warning(msg string) {
 }
 
 func resolveIneligible(msg string) {
-	exit(fmt.Sprintf("❌ this upkeep is not eligible: %s", msg), nil, 0)
+	exit("❌ this upkeep is not eligible: "+msg, nil, 0)
 }
 
 func resolveEligible() {
@@ -611,11 +611,11 @@ func failUnknown(msg string, err error) {
 }
 
 func failCheckConfig(msg string, err error) {
-	rerun(fmt.Sprintf("%s: check your config", msg), err)
+	rerun(msg+": check your config", err)
 }
 
 func failCheckArgs(msg string, err error) {
-	rerun(fmt.Sprintf("%s: check your command arguments", msg), err)
+	rerun(msg+": check your command arguments", err)
 }
 
 func addLink(identifier string, link string) {
@@ -650,7 +650,7 @@ func tenderlySimLink(ctx context.Context, cfg *config.Config, chainID int64, blo
 		return errResult
 	}
 	values := map[string]interface{}{
-		"network_id": fmt.Sprintf("%d", chainID),
+		"network_id": strconv.FormatInt(chainID, 10),
 		"from":       "0x0000000000000000000000000000000000000000",
 		"input":      hexutil.Encode(input),
 		"to":         contractAddress.Hex(),

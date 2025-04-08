@@ -15,7 +15,7 @@ func TestNewJSONAPIErrors(t *testing.T) {
 	res := models.NewJSONAPIErrors()
 	require.NotNil(t, res)
 	require.NotNil(t, res.Errors)
-	require.Len(t, res.Errors, 0)
+	require.Empty(t, res.Errors)
 }
 
 func TestNewJSONAPIErrorsWith(t *testing.T) {

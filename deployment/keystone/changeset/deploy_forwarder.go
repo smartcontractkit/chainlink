@@ -37,7 +37,7 @@ func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (de
 			return deployment.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", sel)
 		}
 		lggr.Infow("deploying forwarder", "chainSelector", chain.Selector)
-		forwarderResp, err := internal.DeployForwarder(chain, ab)
+		forwarderResp, err := internal.DeployForwarder(env.GetContext(), chain, ab)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", chain.Selector, err)
 		}
@@ -57,6 +57,8 @@ type ConfigureForwardContractsRequest struct {
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *MCMSConfig
+	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
+	Chains map[uint64]struct{}
 }
 
 func (r ConfigureForwardContractsRequest) Validate() error {
@@ -82,12 +84,13 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 	r, err := internal.ConfigureForwardContracts(&env, internal.ConfigureForwarderContractsRequest{
 		Dons:    []internal.RegisteredDon{*wfDon},
 		UseMCMS: req.UseMCMS(),
+		Chains:  req.Chains,
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to configure forward contracts: %w", err)
 	}
 
-	cresp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+	cresp, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -103,10 +106,10 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 		for chainSelector, op := range r.OpsPerChain {
 			contracts := cresp.ContractSets[chainSelector]
 			timelocksPerChain := map[uint64]common.Address{
-				chainSelector: contracts.Timelock.Address(),
+				chainSelector: contracts.Forwarder.McmsContracts.Timelock.Address(),
 			}
 			proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-				chainSelector: contracts.ProposerMcm,
+				chainSelector: contracts.Forwarder.McmsContracts.ProposerMcm,
 			}
 
 			proposal, err := proposalutils.BuildProposalFromBatches(
@@ -119,6 +122,7 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 			if err != nil {
 				return out, fmt.Errorf("failed to build proposal: %w", err)
 			}
+			//nolint:staticcheck // migration will be done in a separate PR
 			out.Proposals = append(out.Proposals, *proposal)
 		}
 	}

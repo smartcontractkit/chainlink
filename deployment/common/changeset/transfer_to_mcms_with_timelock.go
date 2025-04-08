@@ -18,16 +18,16 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
 type TransferToMCMSWithTimelockConfig struct {
 	ContractsByChain map[uint64][]common.Address
-	// MinDelay is for the accept ownership proposal
-	MinDelay time.Duration
+	// MCMSConfig is for the accept ownership proposal
+	MCMSConfig proposalutils.TimelockConfig
 }
 
 type Ownable interface {
@@ -86,7 +86,7 @@ var _ deployment.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWit
 // TransferToMCMSWithTimelock creates a changeset that transfers ownership of all the
 // contracts in the provided configuration to the timelock on the chain and generates
 // a corresponding accept ownership proposal to complete the transfer.
-// It assumes that DeployMCMSWithTimelock has already been run s.t.
+// It assumes that DeployMCMSWithTimelockV2 has already been run s.t.
 // the timelock and mcmses exist on the chain and that the proposed addresses to transfer ownership
 // are currently owned by the deployer key.
 // Deprecated: Use TransferToMCMSWithTimelockV2 instead.
@@ -142,7 +142,7 @@ func TransferToMCMSWithTimelock(
 		})
 	}
 	proposal, err := proposalutils.BuildProposalFromBatches(
-		timelocksByChain, proposersByChain, batches, "Transfer ownership to timelock", cfg.MinDelay)
+		timelocksByChain, proposersByChain, batches, "Transfer ownership to timelock", cfg.MCMSConfig.MinDelay)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
 	}
@@ -205,7 +205,7 @@ func TransferToMCMSWithTimelockV2(
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelockAddressByChain, proposerAddressByChain, inspectorPerChain,
-		batches, "Transfer ownership to timelock", cfg.MinDelay)
+		batches, "Transfer ownership to timelock", cfg.MCMSConfig)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
 	}

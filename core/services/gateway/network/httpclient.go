@@ -28,6 +28,7 @@ type HTTPClientConfig struct {
 	AllowedPorts     []int
 	AllowedSchemes   []string
 	AllowedIPs       []string
+	AllowedIPsCIDR   []string
 }
 
 var (
@@ -90,6 +91,7 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		GetConfigBuilder().
 		SetTimeout(config.DefaultTimeout).
 		SetAllowedIPs(config.AllowedIPs...).
+		SetAllowedIPsCIDR(config.AllowedIPsCIDR...).
 		SetAllowedPorts(config.AllowedPorts...).
 		SetAllowedSchemes(config.AllowedSchemes...).
 		SetBlockedIPs(config.BlockedIPs...).
@@ -120,6 +122,10 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	r, err := http.NewRequestWithContext(timeoutCtx, req.Method, req.URL, bytes.NewBuffer(req.Body))
 	if err != nil {
 		return nil, err
+	}
+
+	for k, v := range req.Headers {
+		r.Header.Add(k, v)
 	}
 
 	resp, err := c.client.Do(r)

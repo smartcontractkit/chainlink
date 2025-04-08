@@ -10,8 +10,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 type HydrateConfig struct {

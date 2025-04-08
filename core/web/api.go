@@ -36,13 +36,13 @@ func ParsePaginatedRequest(sizeParam, pageParam string) (int, int, int, error) {
 
 	if sizeParam != "" {
 		if size, err = strconv.Atoi(sizeParam); err != nil || size < 1 {
-			return 0, 0, 0, fmt.Errorf("invalid size param, error: %+v", err)
+			return 0, 0, 0, fmt.Errorf("invalid size param, error: %w", err)
 		}
 	}
 
 	if pageParam != "" {
 		if page, err = strconv.Atoi(pageParam); err != nil || page < 1 {
-			return 0, 0, 0, fmt.Errorf("invalid page param, error: %+v", err)
+			return 0, 0, 0, fmt.Errorf("invalid page param, error: %w", err)
 		}
 	}
 
@@ -70,7 +70,7 @@ func prevLink(url url.URL, size, page int) jsonapi.Link {
 func NewJSONAPIResponse(resource interface{}) ([]byte, error) {
 	document, err := jsonapi.MarshalToStruct(resource, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal resource to struct: %+v", err)
+		return nil, fmt.Errorf("failed to marshal resource to struct: %w", err)
 	}
 
 	return json.Marshal(document)
@@ -88,7 +88,7 @@ func NewPaginatedResponse(url url.URL, size, page, count int, resource interface
 func getPaginatedResponseDoc(url url.URL, size, page, count int, resource interface{}) (*jsonapi.Document, error) {
 	document, err := jsonapi.MarshalToStruct(resource, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal resource to struct: %+v", err)
+		return nil, fmt.Errorf("failed to marshal resource to struct: %w", err)
 	}
 
 	document.Meta = make(jsonapi.Meta)
@@ -126,7 +126,7 @@ func parsePaginatedResponseToDocument(input []byte, resource interface{}, docume
 	// Unmarshal using the stdlib Unmarshal to extract the links part of the document
 	err = json.Unmarshal(input, &document)
 	if err != nil {
-		return fmt.Errorf("unable to unmarshal links: %+v", err)
+		return fmt.Errorf("unable to unmarshal links: %w", err)
 	}
 	return nil
 }
@@ -137,7 +137,7 @@ func ParseJSONAPIResponse(input []byte, resource interface{}) error {
 	// as is api2go will discard the links
 	err := jsonapi.Unmarshal(input, resource)
 	if err != nil {
-		return fmt.Errorf("web: unable to unmarshal data of type %T, %+v", resource, err)
+		return fmt.Errorf("web: unable to unmarshal data of type %T, %w", resource, err)
 	}
 
 	return nil

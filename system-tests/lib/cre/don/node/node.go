@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -58,7 +57,7 @@ func ToP2PID(node *types.NodeMetadata, transformFn stringTransformer) (string, e
 func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]devenv.NodeInfo, error) {
 	var nodeInfo []devenv.NodeInfo
 	for i := 1; i <= len(nodeOut.CLNodes); i++ {
-		p2pURL, err := url.Parse(nodeOut.CLNodes[i-1].Node.DockerP2PUrl)
+		p2pURL, err := url.Parse(nodeOut.CLNodes[i-1].Node.InternalP2PUrl)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse p2p url: %w", err)
 		}
@@ -68,15 +67,13 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]d
 				Name:        fmt.Sprintf("%s_bootstrap-%d", prefix, i),
 				P2PPort:     p2pURL.Port(),
 				CLConfig: nodeclient.ChainlinkConfig{
-					URL:        nodeOut.CLNodes[i-1].Node.HostURL,
+					URL:        nodeOut.CLNodes[i-1].Node.ExternalURL,
 					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
 					Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
 					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
 				},
 				Labels: map[string]string{
-					HostLabelKey: nodeOut.CLNodes[i-1].Node.ContainerName,
-					IndexKey:     strconv.Itoa(i - 1),
-					NodeTypeKey:  types.BootstrapNode,
+					NodeTypeKey: types.BootstrapNode,
 				},
 			})
 		} else {
@@ -85,15 +82,13 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]d
 				Name:        fmt.Sprintf("%s_node-%d", prefix, i),
 				P2PPort:     p2pURL.Port(),
 				CLConfig: nodeclient.ChainlinkConfig{
-					URL:        nodeOut.CLNodes[i-1].Node.HostURL,
+					URL:        nodeOut.CLNodes[i-1].Node.ExternalURL,
 					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
 					Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
 					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
 				},
 				Labels: map[string]string{
-					HostLabelKey: nodeOut.CLNodes[i-1].Node.ContainerName,
-					IndexKey:     strconv.Itoa(i - 1),
-					NodeTypeKey:  types.WorkerNode,
+					NodeTypeKey: types.WorkerNode,
 				},
 			})
 		}
@@ -128,10 +123,6 @@ func FindManyWithLabel(nodes []*types.NodeMetadata, wantedLabel *types.Label, la
 				foundNodes = append(foundNodes, node)
 			}
 		}
-	}
-
-	if len(foundNodes) == 0 {
-		return nil, fmt.Errorf("node with label %s=%s not found", wantedLabel.Key, wantedLabel.Value)
 	}
 
 	return foundNodes, nil

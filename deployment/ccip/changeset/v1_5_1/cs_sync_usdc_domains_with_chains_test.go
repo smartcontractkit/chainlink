@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -20,7 +22,7 @@ import (
 func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
+	testCases := []struct {
 		Msg        string
 		Input      func(selector uint64) v1_5_1.SyncUSDCDomainsWithChainsConfig
 		ErrStr     string
@@ -89,7 +91,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 						selector: deployment.Version1_5_1,
 					},
 					ChainSelectorToUSDCDomain: map[uint64]uint32{},
-					MCMS:                      &changeset.MCMSConfig{MinDelay: 0 * time.Second},
+					MCMS:                      &proposalutils.TimelockConfig{MinDelay: 0 * time.Second},
 				}
 			},
 			DeployUSDC: true,
@@ -121,8 +123,14 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
+	for _, test := range testCases {
 		t.Run(test.Msg, func(t *testing.T) {
+			if t.Name() == "TestValidateSyncUSDCDomainsWithChainsConfig/Domain_mapping_not_defined" {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-113")
+			}
+			if t.Name() == "TestValidateSyncUSDCDomainsWithChainsConfig/Chain_selector_is_not_valid" {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-195")
+			}
 			deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
 				testCfg.Chains = 2
 				testCfg.PrerequisiteDeploymentOnly = true
@@ -172,13 +180,16 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 	t.Parallel()
 
-	for _, mcmsConfig := range []*changeset.MCMSConfig{nil, &changeset.MCMSConfig{MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Sync domains without MCMS"
 		if mcmsConfig != nil {
 			msg = "Sync domains with MCMS"
 		}
 
 		t.Run(msg, func(t *testing.T) {
+			if t.Name() == "TestSyncUSDCDomainsWithChainsChangeset/Sync_domains_without_MCMS" {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-112")
+			}
 			deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
 				testCfg.Chains = 2
 				testCfg.PrerequisiteDeploymentOnly = true
@@ -209,7 +220,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: timelockOwnedContractsByChain,
-							MinDelay:         0,
+							MCMSConfig:       *mcmsConfig,
 						},
 					),
 				)

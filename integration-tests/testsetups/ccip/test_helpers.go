@@ -99,7 +99,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
-	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, chains)
+	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.DeployedEnv.Env)
 	require.NoError(t, err)
 	l.DeployedEnv.Users = users
 	l.DeployedEnv.Env.Chains = chains
@@ -129,8 +129,26 @@ func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, crConfig deployme
 	FundNodes(t, zeroLogLggr, l.testEnv, l.devEnvTestCfg, don.PluginNodes())
 }
 
+func (l *DeployedLocalDevEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
+	nodesByID := make(map[string]devenv.Node)
+	for _, n := range l.DON.Nodes {
+		nodesByID[n.NodeID] = n
+	}
+	for id, node := range nodesByID {
+		if jobsToDelete, ok := jobIDs[id]; ok {
+			for _, jobToDelete := range jobsToDelete {
+				err := node.DeleteJob(ctx, jobToDelete)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (l *DeployedLocalDevEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
-	err := ccipactions.SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, nil, isUSDCAttestationMissing)
+	err := ccipactions.SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, isUSDCAttestationMissing)
 	require.NoError(t, err)
 	return l.testEnv.MockAdapter.InternalEndpoint
 }
@@ -242,6 +260,7 @@ func MustCCIPNameToRMNName(a string) string {
 	m := map[string]string{
 		chainsel.GETH_TESTNET.Name:  "DevnetAlpha",
 		chainsel.GETH_DEVNET_2.Name: "DevnetBeta",
+		chainsel.GETH_DEVNET_3.Name: "DevnetGamma",
 		// TODO: Add more as needed.
 	}
 	v, ok := m[a]
@@ -366,6 +385,11 @@ func CreateDockerEnv(t *testing.T, v1_6TestConfig *testhelpers.TestConfigs) (
 			"CL nodes are started before simulated chains, so this is expected",
 			zapcore.DPanicLevel,
 			testreporters.WarnAboutAllowedMsgs_No),
+		testreporters.NewAllowedLogMessage(
+			"Lane processing is stopped because source chain is cursed or CommitStore is down",
+			"Curse test are expected to trigger this logs",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_Yes),
 		testreporters.NewAllowedLogMessage(
 			"Error stopping job service",
 			"Possible lifecycle bug in chainlink: failed to close RMN home reader:  has already been stopped: already stopped",

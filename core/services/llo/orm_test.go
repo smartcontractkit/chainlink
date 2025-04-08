@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
 func Test_ORM(t *testing.T) {
@@ -109,7 +110,7 @@ func Test_ORM(t *testing.T) {
 			pd, err = orm.LoadChannelDefinitions(ctx, addr1, donID2)
 			require.NoError(t, err)
 
-			assert.Equal(t, (*PersistedDefinitions)(nil), pd)
+			assert.Equal(t, (*types.PersistedDefinitions)(nil), pd)
 		})
 	})
 

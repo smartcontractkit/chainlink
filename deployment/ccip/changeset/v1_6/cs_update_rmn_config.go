@@ -13,13 +13,12 @@ import (
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -34,7 +33,7 @@ var (
 
 type SetRMNRemoteOnRMNProxyConfig struct {
 	ChainSelectors []uint64
-	MCMSConfig     *changeset.MCMSConfig
+	MCMSConfig     *proposalutils.TimelockConfig
 }
 
 func (c SetRMNRemoteOnRMNProxyConfig) Validate(state changeset.CCIPOnChainState) error {
@@ -107,7 +106,7 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 		inspectors,
 		timelockBatch,
 		fmt.Sprintf("proposal to set RMNRemote on RMNProxy for chains %v", cfg.ChainSelectors),
-		cfg.MCMSConfig.MinDelay,
+		*cfg.MCMSConfig,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -174,7 +173,7 @@ func (c RMNNopConfig) SetBit(bitmap *big.Int, value bool) {
 	}
 }
 
-func getDeployer(e deployment.Environment, chain uint64, mcmConfig *changeset.MCMSConfig) *bind.TransactOpts {
+func getDeployer(e deployment.Environment, chain uint64, mcmConfig *proposalutils.TimelockConfig) *bind.TransactOpts {
 	if mcmConfig == nil {
 		return e.Chains[chain].DeployerKey
 	}
@@ -187,7 +186,7 @@ type SetRMNHomeCandidateConfig struct {
 	RMNStaticConfig   rmn_home.RMNHomeStaticConfig
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
 	DigestToOverride  [32]byte
-	MCMSConfig        *changeset.MCMSConfig
+	MCMSConfig        *proposalutils.TimelockConfig
 }
 
 func (c SetRMNHomeCandidateConfig) Validate(state changeset.CCIPOnChainState) error {
@@ -293,7 +292,7 @@ func isRMNDynamicConfigEqual(a, b rmn_home.RMNHomeDynamicConfig) bool {
 type PromoteRMNHomeCandidateConfig struct {
 	HomeChainSelector uint64
 	DigestToPromote   [32]byte
-	MCMSConfig        *changeset.MCMSConfig
+	MCMSConfig        *proposalutils.TimelockConfig
 }
 
 func (c PromoteRMNHomeCandidateConfig) Validate(state changeset.CCIPOnChainState) error {
@@ -387,7 +386,7 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 		inspectors,
 		[]mcmstypes.BatchOperation{operation},
 		"proposal to set candidate config",
-		config.MCMSConfig.MinDelay,
+		*config.MCMSConfig,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
@@ -466,7 +465,7 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 		inspectors,
 		[]mcmstypes.BatchOperation{operation},
 		"proposal to promote candidate config",
-		config.MCMSConfig.MinDelay,
+		*config.MCMSConfig,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
@@ -486,14 +485,14 @@ func BuildRMNRemotePerChain(e deployment.Environment, state changeset.CCIPOnChai
 }
 
 type RMNRemoteConfig struct {
-	Signers []rmn_remote.RMNRemoteSigner
-	F       uint64
+	Signers []rmn_remote.RMNRemoteSigner `json:"signers"`
+	F       uint64                       `json:"f"`
 }
 
 type SetRMNRemoteConfig struct {
-	HomeChainSelector uint64
-	RMNRemoteConfigs  map[uint64]RMNRemoteConfig
-	MCMSConfig        *changeset.MCMSConfig
+	HomeChainSelector uint64                        `json:"homeChainSelector"`
+	RMNRemoteConfigs  map[uint64]RMNRemoteConfig    `json:"rmnRemoteConfigs"`
+	MCMSConfig        *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 func (c SetRMNRemoteConfig) Validate() error {
@@ -526,7 +525,7 @@ type SetRMNHomeDynamicConfigConfig struct {
 	HomeChainSelector uint64
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
 	ActiveDigest      [32]byte
-	MCMS              *changeset.MCMSConfig
+	MCMS              *proposalutils.TimelockConfig
 }
 
 func (c SetRMNHomeDynamicConfigConfig) Validate(e deployment.Environment) error {
@@ -601,7 +600,7 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 type RevokeCandidateConfig struct {
 	HomeChainSelector uint64
 	CandidateDigest   [32]byte
-	MCMS              *changeset.MCMSConfig
+	MCMS              *proposalutils.TimelockConfig
 }
 
 func (c RevokeCandidateConfig) Validate(e deployment.Environment) error {
@@ -699,9 +698,16 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 
 	rmnRemotePerChain := BuildRMNRemotePerChain(e, state)
 	batches := make([]mcmstypes.BatchOperation, 0)
+
+	lggr.Infow("built rmn remote per chain", "rmnRemotePerChain", rmnRemotePerChain)
+
 	for chain, remoteConfig := range config.RMNRemoteConfigs {
 		remote, ok := rmnRemotePerChain[chain]
 		if !ok {
+			return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
+		}
+
+		if remote == nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
 		}
 
@@ -763,7 +769,7 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 		inspectors,
 		batches,
 		"proposal to promote candidate config",
-		config.MCMSConfig.MinDelay,
+		*config.MCMSConfig,
 	)
 
 	if err != nil {

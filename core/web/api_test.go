@@ -154,10 +154,10 @@ func TestNewJSONAPIResponse(t *testing.T) {
 
 	buffer, err := NewJSONAPIResponse(12981)
 	assert.Error(t, err)
-	assert.Len(t, buffer, 0)
+	assert.Empty(t, buffer)
 
 	r := DummyResource{ID: "782"}
 	buffer, err = NewJSONAPIResponse(&r)
 	assert.NoError(t, err)
-	assert.Equal(t, `{"data":{"type":"dummyResources","id":"782","attributes":{"ID":"782"}}}`, string(buffer))
+	assert.JSONEq(t, `{"data":{"type":"dummyResources","id":"782","attributes":{"ID":"782"}}}`, string(buffer))
 }

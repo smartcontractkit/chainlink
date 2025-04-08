@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.24-bullseye as buildgo
+FROM golang:1.24-bullseye AS buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -31,7 +31,7 @@ RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds | xargs
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana | xargs -I % ln -s % /chainlink-solana
 
 # Build image: Plugins
-FROM golang:1.24-bullseye as buildplugins
+FROM golang:1.24-bullseye AS buildplugins
 RUN go version
 
 WORKDIR /chainlink-feeds
@@ -43,10 +43,10 @@ COPY --from=buildgo /chainlink-solana .
 RUN go install ./pkg/solana/cmd/chainlink-solana
 
 # Final image: ubuntu with chainlink binary
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 
 # Install Postgres for CLI tools, needed specifically for DB backups
@@ -58,9 +58,11 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 
-# Install (but don't enable) LOOP Plugins
+# Install (but don't enable) feeds LOOP Plugin
 COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
+# Install and enable Solana LOOP Plugin
 COPY --from=buildplugins /go/bin/chainlink-solana /usr/local/bin/
+ENV CL_SOLANA_CMD=chainlink-solana
 
 # CCIP specific
 COPY ./cci[p]/confi[g] /ccip-config
@@ -73,7 +75,7 @@ RUN if [ ${CHAINLINK_USER} != root ]; then \
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
 # explicit set the cache dir. needed so both root and non-root user has an explicit location
-ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
+ENV XDG_CACHE_HOME=/home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
 # Set up env and dir for go coverage profiling https://go.dev/doc/build-cover#FAQ

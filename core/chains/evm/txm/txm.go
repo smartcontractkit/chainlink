@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strconv"
 	"sync"
 	"time"
 
@@ -14,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
 
@@ -82,7 +81,7 @@ type Txm struct {
 	errorHandler    ErrorHandler
 	stuckTxDetector StuckTxDetector
 	txStore         TxStore
-	keystore        Keystore
+	keystore        keys.AddressLister
 	config          Config
 	metrics         *txmMetrics
 
@@ -94,7 +93,7 @@ type Txm struct {
 	wg        sync.WaitGroup
 }
 
-func NewTxm(lggr logger.Logger, chainID *big.Int, client Client, attemptBuilder AttemptBuilder, txStore TxStore, stuckTxDetector StuckTxDetector, config Config, keystore Keystore) *Txm {
+func NewTxm(lggr logger.Logger, chainID *big.Int, client Client, attemptBuilder AttemptBuilder, txStore TxStore, stuckTxDetector StuckTxDetector, config Config, keystore keys.AddressLister) *Txm {
 	return &Txm{
 		lggr:            logger.Sugared(logger.Named(lggr, "Txm")),
 		keystore:        keystore,
@@ -118,7 +117,7 @@ func (t *Txm) Start(ctx context.Context) error {
 		t.metrics = tm
 		t.stopCh = make(chan struct{})
 
-		addresses, err := t.keystore.EnabledAddressesForChain(ctx, t.chainID)
+		addresses, err := t.keystore.EnabledAddresses(ctx)
 		if err != nil {
 			return err
 		}
@@ -340,7 +339,7 @@ func (t *Txm) createAndSendAttempt(ctx context.Context, tx *types.Transaction, a
 	return t.sendTransactionWithError(ctx, tx, attempt, address)
 }
 
-func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transaction, attempt *types.Attempt, address common.Address) (err error) {
+func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transaction, attempt *types.Attempt, fromAddress common.Address) (err error) {
 	if tx.Nonce == nil {
 		return fmt.Errorf("nonce for txID: %v is empty", tx.ID)
 	}
@@ -353,20 +352,21 @@ func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transactio
 			return
 		}
 	} else if txErr != nil {
-		pendingNonce, err := t.client.PendingNonceAt(ctx, address)
-		if err != nil {
-			return err
+		pendingNonce, pErr := t.client.PendingNonceAt(ctx, fromAddress)
+		if pErr != nil {
+			return pErr
 		}
 		if pendingNonce <= *tx.Nonce {
-			return fmt.Errorf("Pending nonce for txID: %v didn't increase. PendingNonce: %d, TxNonce: %d. TxErr: %w", tx.ID, pendingNonce, *tx.Nonce, txErr)
+			return fmt.Errorf("pending nonce for txID: %v didn't increase. PendingNonce: %d, TxNonce: %d. TxErr: %w", tx.ID, pendingNonce, *tx.Nonce, txErr)
 		}
 	}
 
 	t.metrics.IncrementNumBroadcastedTxs(ctx)
-	if err = t.metrics.EmitTxMessage(ctx, attempt.Hash, address, tx.ToAddress, strconv.FormatUint(*tx.Nonce, 10)); err != nil {
+	if err = t.metrics.EmitTxMessage(ctx, attempt.Hash, fromAddress, tx); err != nil {
 		t.lggr.Errorw("Beholder error emitting tx message", "err", err)
 	}
-	return t.txStore.UpdateTransactionBroadcast(ctx, attempt.TxID, *tx.Nonce, attempt.Hash, address)
+
+	return t.txStore.UpdateTransactionBroadcast(ctx, attempt.TxID, *tx.Nonce, attempt.Hash, fromAddress)
 }
 
 func (t *Txm) backfillTransactions(ctx context.Context, address common.Address) (bool, error) {

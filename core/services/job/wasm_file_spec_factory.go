@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -108,7 +109,7 @@ func (w WasmFileSpecFactory) sha(wasm, config []byte) string {
 	sum := sha256.New()
 	sum.Write(wasm)
 	sum.Write(config)
-	return fmt.Sprintf("%x", sum.Sum(nil))
+	return hex.EncodeToString(sum.Sum(nil))
 }
 
 var _ WorkflowSpecFactory = (*WasmFileSpecFactory)(nil)

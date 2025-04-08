@@ -19,7 +19,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 	t.Run("decode dest exec data into map svm", func(t *testing.T) {
 		destGasAmount := uint32(10000)
 		encoded := make([]byte, 4)
-		binary.LittleEndian.PutUint32(encoded, destGasAmount)
+		binary.BigEndian.PutUint32(encoded, destGasAmount)
 		output, err := extraDataDecoder.DecodeDestExecDataToMap(encoded)
 		require.NoError(t, err)
 
@@ -65,7 +65,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map evm", func(t *testing.T) {
-		extraArgs := fee_quoter.EVMExtraArgsV2{
+		extraArgs := fee_quoter.GenericExtraArgsV2{
 			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
 			AllowOutOfOrderExecution: false,
 		}

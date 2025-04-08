@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"math/big"
@@ -22,15 +23,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2plus_sub_owner"
 	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
@@ -86,7 +87,6 @@ func SmokeTestVRF(e helpers.Environment) {
 	// generate VRF key
 	key, err := vrfkey.NewV2()
 	helpers.PanicErr(err)
-	fmt.Println("vrf private key:", hexutil.Encode(key.Raw()))
 	fmt.Println("vrf public key:", key.PublicKey.String())
 	fmt.Println("vrf key hash:", key.PublicKey.MustHash())
 
@@ -562,7 +562,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	}
 
 	if *simulationBlock != "pending" && *simulationBlock != "latest" {
-		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+		helpers.PanicErr(errors.New("simulation block must be 'pending' or 'latest'"))
 	}
 
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()

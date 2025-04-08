@@ -1,9 +1,9 @@
 package smoke
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -69,14 +70,20 @@ func TestRunLogBasic(t *testing.T) {
 	err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
 
-	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodPost}, 5)
+	route := &parrot.Route{
+		Method:             http.MethodPost,
+		Path:               "/variable",
+		ResponseBody:       5,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = env.MockAdapter.SetAdapterRoute(route)
 	require.NoError(t, err, "Setting mock adapter value path shouldn't fail")
 
 	jobUUID := uuid.New()
 
 	bta := nodeclient.BridgeTypeAttributes{
-		Name: fmt.Sprintf("five-%s", jobUUID.String()),
-		URL:  fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
+		Name: "five-" + jobUUID.String(),
+		URL:  env.MockAdapter.InternalEndpoint + "/variable",
 	}
 	err = env.ClCluster.Nodes[0].API.MustCreateBridge(&bta)
 	require.NoError(t, err, "Creating bridge shouldn't fail")
@@ -89,10 +96,10 @@ func TestRunLogBasic(t *testing.T) {
 	require.NoError(t, err, "Building observation source spec shouldn't fail")
 
 	_, err = env.ClCluster.Nodes[0].API.MustCreateJob(&nodeclient.DirectRequestJobSpec{
-		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
+		Name:                     "direct-request-" + uuid.NewString(),
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
-		EVMChainID:               fmt.Sprint(sethClient.ChainID),
+		EVMChainID:               strconv.FormatInt(sethClient.ChainID, 10),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})
@@ -105,7 +112,7 @@ func TestRunLogBasic(t *testing.T) {
 		oracle.Address(),
 		jobID,
 		big.NewInt(1e18),
-		fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
+		env.MockAdapter.InternalEndpoint+"/variable",
 		"data,result",
 		big.NewInt(100),
 	)

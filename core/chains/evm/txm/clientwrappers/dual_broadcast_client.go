@@ -16,20 +16,17 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
 
-type DualBroadcastClientKeystore interface {
-	SignMessage(ctx context.Context, address common.Address, message []byte) ([]byte, error)
-}
-
 type DualBroadcastClient struct {
 	c         client.Client
-	keystore  DualBroadcastClientKeystore
+	keystore  keys.MessageSigner
 	customURL *url.URL
 }
 
-func NewDualBroadcastClient(c client.Client, keystore DualBroadcastClientKeystore, customURL *url.URL) *DualBroadcastClient {
+func NewDualBroadcastClient(c client.Client, keystore keys.MessageSigner, customURL *url.URL) *DualBroadcastClient {
 	return &DualBroadcastClient{
 		c:         c,
 		keystore:  keystore,

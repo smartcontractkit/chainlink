@@ -3,13 +3,14 @@ package registrysyncer
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -140,7 +141,7 @@ func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry
 		_, err = tx.ExecContext(
 			ctx,
 			`INSERT INTO registry_syncer_states (data, data_hash) VALUES ($1, $2) ON CONFLICT (data_hash) DO NOTHING`,
-			localRegistryJSON, fmt.Sprintf("%x", hash[:]),
+			localRegistryJSON, hex.EncodeToString(hash[:]),
 		)
 		if err != nil {
 			return err

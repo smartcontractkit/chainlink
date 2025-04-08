@@ -15,8 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	internalsolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/solana"
 	solanachangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
+	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -25,6 +25,7 @@ import (
 )
 
 func TestTransferToMCMSToTimelockSolana(t *testing.T) {
+	t.Parallel()
 	// --- arrange ---
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 0, SolChains: 1}
@@ -38,8 +39,8 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	configuredChangeset := commonchangeset.Configure(
 		&solanachangesets.TransferMCMSToTimelockSolana{},
 		solanachangesets.TransferMCMSToTimelockSolanaConfig{
-			Chains:   []uint64{solanaSelector},
-			MinDelay: 1 * time.Second,
+			Chains:  []uint64{solanaSelector},
+			MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 		},
 	)
 	// validate initial owner
@@ -67,7 +68,7 @@ func deployMCMS(t *testing.T, env deployment.Environment, selector uint64) *stat
 		TimelockMinDelay: big.NewInt(1),
 	}
 
-	chainState, err := internalsolana.DeployMCMSWithTimelockProgramsSolana(env, solanaChain, addressBook, mcmsConfig)
+	chainState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, solanaChain, addressBook, mcmsConfig)
 	require.NoError(t, err)
 	err = env.ExistingAddresses.Merge(addressBook)
 	require.NoError(t, err)

@@ -17,10 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/token_pool"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
@@ -396,6 +396,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 }
 
 func TestSmokeCCIPOnRampLimits(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-124")
 	t.Parallel()
 
 	log := logging.GetTestLogger(t)

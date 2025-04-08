@@ -3,7 +3,6 @@ package ccipcommit
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"slices"
@@ -28,10 +27,10 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -719,7 +718,7 @@ func TestCommitReportingPlugin_observePriceUpdates(t *testing.T) {
 			mockPriceService := ccipdbmocks.NewPriceService(t)
 			var psError error
 			if tc.psError {
-				psError = fmt.Errorf("price service error")
+				psError = errors.New("price service error")
 			}
 			mockPriceService.On("GetGasAndTokenPrices", ctx, destChainSelector).Return(
 				tc.psGasPricesResult,

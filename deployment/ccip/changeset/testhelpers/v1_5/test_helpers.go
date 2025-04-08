@@ -19,15 +19,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5changeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
 	plugintesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
@@ -328,6 +328,34 @@ func WaitForCommit(
 			}
 		case <-timer.C:
 			t.Fatalf("timed out waiting for commit for sequence number %d for commit store %s ", seqNr, commitStore.Address().String())
+			return
+		}
+	}
+}
+
+func WaitForNoCommit(
+	t *testing.T,
+	src deployment.Chain,
+	dest deployment.Chain,
+	commitStore *commit_store.CommitStore,
+	seqNr uint64,
+) {
+	timer := time.NewTimer(30 * time.Second)
+	defer timer.Stop()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			minSeqNr, err := commitStore.GetExpectedNextSequenceNumber(nil)
+			require.NoError(t, err)
+			t.Logf("Waiting for commit for sequence number %d, current min sequence number %d", seqNr, minSeqNr)
+			if minSeqNr > seqNr {
+				t.Fatalf("Commit for sequence number %d found while it was not expected", seqNr)
+				return
+			}
+		case <-timer.C:
+			t.Logf("Successfully observed no commit for sequence number %d for commit store %s during 30s period", seqNr, commitStore.Address().String())
 			return
 		}
 	}

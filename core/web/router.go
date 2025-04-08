@@ -418,7 +418,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/build_info", buildInfo.Show)
 
 		// Debug routes accessible via authentication
-		metricRoutes(authv2, build.IsDev())
+		metricRoutes(authv2, app.GetConfig().InsecurePPROFHeap() || build.IsDev())
 	}
 
 	ping := PingController{app}
@@ -663,7 +663,7 @@ func prometheusHandler(token string, h http.Handler) gin.HandlerFunc {
 			return
 		}
 
-		bearer := fmt.Sprintf("Bearer %s", token)
+		bearer := "Bearer " + token
 
 		if header != bearer {
 			c.String(http.StatusUnauthorized, ginprom.ErrInvalidToken.Error())

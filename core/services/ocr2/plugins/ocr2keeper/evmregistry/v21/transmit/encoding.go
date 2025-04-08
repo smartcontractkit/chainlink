@@ -1,13 +1,14 @@
 package transmit
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 )
 
 // defaultLogParser parses logs from the registry contract
@@ -54,7 +55,7 @@ func defaultLogParser(registry *ac.IAutomationV21PlusCommon, log logpoller.Log) 
 	default:
 		return transmitEventLog{}, fmt.Errorf("unknown log type: %v", l)
 	}
-	return transmitEventLog{}, fmt.Errorf("log with bad structure")
+	return transmitEventLog{}, errors.New("log with bad structure")
 }
 
 // transmitEventLog is a wrapper around logpoller.Log and the parsed log

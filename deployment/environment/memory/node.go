@@ -3,7 +3,6 @@ package memory
 import (
 	"context"
 	"crypto/rand"
-
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -16,20 +15,22 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
+
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
@@ -41,11 +42,14 @@ import (
 	v2toml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -56,11 +60,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
-
-	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
-	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
-	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 )
 
 type Node struct {
@@ -80,10 +79,11 @@ func (n Node) MultiAddr() string {
 	return a
 }
 
-func (n Node) ReplayLogs(chains map[uint64]uint64) error {
+func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 	for sel, block := range chains {
-		chainID, _ := chainsel.ChainIdFromSelector(sel)
-		if err := n.App.ReplayFromBlock(big.NewInt(int64(chainID)), block, false); err != nil {
+		family, _ := chainsel.GetSelectorFamily(sel)
+		chainID, _ := chainsel.GetChainIDFromSelector(sel)
+		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil {
 			return err
 		}
 	}
@@ -309,85 +309,40 @@ func NewNode(
 		clients[chainID] = client.NewSimulatedBackendClient(t, chain.Backend, big.NewInt(int64(chainID)))
 	}
 
-	// Create keystore
 	master := keystore.New(db, utils.FastScryptParams, lggr)
-	kStore := KeystoreSim{
-		eks: &EthKeystoreSim{
-			Eth: master.Eth(),
-		},
-		csa:      master.CSA(),
-		workflow: master.Workflow(),
-	}
+	ctx := t.Context()
+	require.NoError(t, master.Unlock(ctx, "password"))
+	require.NoError(t, master.CSA().EnsureKey(ctx))
+	require.NoError(t, master.Workflow().EnsureKey(ctx))
 
-	// Build evm factory using clients + keystore.
-	mailMon := mailbox.NewMonitor("node", lggr.Named("mailbox"))
-	evmOpts := chainlink.EVMFactoryConfig{
-		ChainOpts: legacyevm.ChainOpts{
-			ChainConfigs:   cfg.EVMConfigs(),
-			DatabaseConfig: cfg.Database(),
-			ListenerConfig: cfg.Database().Listener(),
-			FeatureConfig:  cfg.Feature(),
-			GenEthClient: func(i *big.Int) client.Client {
+	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
+		CREOpts: chainlink.CREOpts{
+			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+		},
+		Config:   cfg,
+		DS:       db,
+		KeyStore: master,
+		EVMFactoryConfigFn: func(fc *chainlink.EVMFactoryConfig) {
+			// Create ChainStores that always sign with 1337
+			fc.GenChainStore = func(ks core.Keystore, i *big.Int) keys.ChainStore {
+				return keys.NewChainStore(ks, big.NewInt(1337))
+			}
+			fc.GenEthClient = func(i *big.Int) client.Client {
 				ethClient, ok := clients[i.Uint64()]
 				if !ok {
 					t.Fatal("no backend for chainID", i)
 				}
 				return ethClient
-			},
-			MailMon: mailMon,
-			DS:      db,
+			}
 		},
-		CSAETHKeystore: kStore,
-	}
-
-	solanaOpts := chainlink.SolanaFactoryConfig{
-		Keystore:    master.Solana(),
-		TOMLConfigs: cfg.SolanaConfigs(),
-		DS:          db,
-	}
-
-	// Build Beholder auth
-	ctx := tests.Context(t)
-	require.NoError(t, master.Unlock(ctx, "password"))
-	require.NoError(t, master.CSA().EnsureKey(ctx))
-	require.NoError(t, master.Workflow().EnsureKey(ctx))
-	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(master)
-	require.NoError(t, err)
-
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Database(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
-
-	// Build relayer factory
-	relayerFactory := chainlink.RelayerFactory{
-		Logger:               lggr,
-		LoopRegistry:         loopRegistry,
-		GRPCOpts:             loop.GRPCOpts{},
-		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
-	}
-	initOps := []chainlink.CoreRelayerChainInitFunc{
-		chainlink.InitEVM(context.Background(), relayerFactory, evmOpts),
-		chainlink.InitSolana(context.Background(), relayerFactory, solanaOpts),
-	}
-	rci, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
-	require.NoError(t, err)
-
-	app, err := chainlink.NewApplication(chainlink.ApplicationOpts{
-		Config:                     cfg,
-		DS:                         db,
-		KeyStore:                   master,
-		RelayerChainInteroperators: rci,
-		Logger:                     lggr,
-		ExternalInitiatorManager:   nil,
-		CloseLogger:                lggr.Sync,
-		UnrestrictedHTTPClient:     &http.Client{},
-		RestrictedHTTPClient:       &http.Client{},
-		AuditLogger:                audit.NoopLogger,
-		MailMon:                    mailMon,
-		LoopRegistry:               loopRegistry,
+		Logger:                   lggr,
+		ExternalInitiatorManager: nil,
+		CloseLogger:              lggr.Sync,
+		UnrestrictedHTTPClient:   &http.Client{},
+		RestrictedHTTPClient:     &http.Client{},
+		AuditLogger:              audit.NoopLogger,
 	})
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, db.Close())
-	})
 	keys := CreateKeys(t, app, chains, solchains)
 
 	// JD
@@ -418,15 +373,14 @@ func CreateKeys(t *testing.T,
 	chains map[uint64]deployment.Chain,
 	solchains map[uint64]deployment.SolChain,
 ) Keys {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	_, err := app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 
 	err = app.GetKeyStore().CSA().EnsureKey(ctx)
 	require.NoError(t, err)
-	csaKeys, err := app.GetKeyStore().CSA().GetAll()
+	csaKey, err := keystore.GetDefault(ctx, app.GetKeyStore().CSA())
 	require.NoError(t, err)
-	csaKey := csaKeys[0]
 
 	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
 	require.NoError(t, err)
@@ -492,10 +446,11 @@ func CreateKeys(t *testing.T,
 			// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
 			fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend)
 		case chainsel.FamilyAptos:
-			err = app.GetKeyStore().Aptos().EnsureKey(ctx)
+			keystore := app.GetKeyStore().Aptos()
+			err = keystore.EnsureKey(ctx)
 			require.NoError(t, err, "failed to create key for aptos")
 
-			keys, err := app.GetKeyStore().Aptos().GetAll()
+			keys, err := keystore.GetAll()
 			require.NoError(t, err)
 			require.Len(t, keys, 1)
 
@@ -504,23 +459,22 @@ func CreateKeys(t *testing.T,
 
 			// TODO: funding
 		case chainsel.FamilyStarknet:
-			err = app.GetKeyStore().StarkNet().EnsureKey(ctx)
+			keystore := app.GetKeyStore().StarkNet()
+			err = keystore.EnsureKey(ctx)
 			require.NoError(t, err, "failed to create key for starknet")
 
-			keys, err := app.GetKeyStore().StarkNet().GetAll()
+			keys, err := keystore.GetAll()
 			require.NoError(t, err)
 			require.Len(t, keys, 1)
 
 			transmitter := keys[0]
 			transmitters[chain.Selector] = transmitter.ID()
-
-			// TODO: funding
 		default:
 			// TODO: other transmission keys unsupported for now
 		}
 	}
 
-	for chain := range solchains {
+	for chainSelector, chain := range solchains {
 		ctype := chaintype.Solana
 		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
 		require.NoError(t, err)
@@ -539,9 +493,9 @@ func CreateKeys(t *testing.T,
 		require.Len(t, solkeys, 1)
 
 		transmitter := solkeys[0]
-		transmitters[chain] = transmitter.ID()
+		transmitters[chainSelector] = transmitter.ID()
 
-		// TODO: funding
+		FundSolAccounts(ctx, []solana.PublicKey{transmitter.PublicKey()}, chain.Client, t)
 	}
 
 	return Keys{
@@ -550,6 +504,14 @@ func CreateKeys(t *testing.T,
 		Transmitters:  transmitters,
 		OCRKeyBundles: keybundles,
 	}
+}
+
+func FundSolAccounts(ctx context.Context, accounts []solana.PublicKey, solanaGoClient *solrpc.Client, t *testing.T) {
+	for _, v := range accounts {
+		_, err := solanaGoClient.RequestAirdrop(ctx, v, 1000*solana.LAMPORTS_PER_SOL, solrpc.CommitmentConfirmed)
+		require.NoError(t, err)
+	}
+	// we don't wait for confirmation so we don't block the tests, it'll take a while before nodes start transmitting
 }
 
 func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
@@ -571,16 +533,26 @@ func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.
 	chainConfig := solcfg.Chain{}
 	chainConfig.SetDefaults()
 
+	// CCIP requires a non-zero execution fee estimate
+	computeUnitPriceDefault := uint64(100)
+	txRetentionTimeout := config.MustNewDuration(10 * time.Minute)
+	chainConfig.ComputeUnitPriceDefault = &computeUnitPriceDefault
+	chainConfig.TxRetentionTimeout = txRetentionTimeout
+
 	url, err := config.ParseURL(chain.URL)
 	if err != nil {
 		panic(err)
 	}
 
 	return &solcfg.TOMLConfig{
-		ChainID:   &chainID,
-		Enabled:   ptr(true),
-		Chain:     chainConfig,
-		MultiNode: mnCfg.MultiNodeConfig{},
+		ChainID: &chainID,
+		Enabled: ptr(true),
+		Chain:   chainConfig,
+		MultiNode: mnCfg.MultiNodeConfig{
+			MultiNode: mnCfg.MultiNode{
+				VerifyChainID: ptr(false),
+			},
+		},
 		Nodes: []*solcfg.Node{{
 			Name:     ptr("primary"),
 			URL:      url,
@@ -590,32 +562,6 @@ func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.
 }
 
 func ptr[T any](v T) *T { return &v }
-
-var _ keystore.Eth = &EthKeystoreSim{}
-
-type EthKeystoreSim struct {
-	keystore.Eth
-}
-
-// override
-func (e *EthKeystoreSim) SignTx(ctx context.Context, address common.Address, tx *gethtypes.Transaction, chainID *big.Int) (*gethtypes.Transaction, error) {
-	// always sign with chain id 1337 for the simulated backend
-	return e.Eth.SignTx(ctx, address, tx, big.NewInt(1337))
-}
-
-type KeystoreSim struct {
-	eks      keystore.Eth
-	csa      keystore.CSA
-	workflow keystore.Workflow
-}
-
-func (e KeystoreSim) Eth() keystore.Eth {
-	return e.eks
-}
-
-func (e KeystoreSim) CSA() keystore.CSA {
-	return e.csa
-}
 
 func setupJD(t *testing.T, app chainlink.Application) {
 	secret := randomBytes32(t)

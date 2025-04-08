@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -17,7 +17,7 @@ import (
 
 // ApplyPriceRegistryUpdate is a helper function used in tests only.
 func ApplyPriceRegistryUpdate(t *testing.T, user *bind.TransactOpts, addr common.Address, ec client.Client, gasPrices []cciptypes.GasPrice, tokenPrices []cciptypes.TokenPrice) common.Hash {
-	require.True(t, len(gasPrices) <= 2)
+	require.LessOrEqual(t, len(gasPrices), 2)
 	pr, err := fee_quoter.NewFeeQuoter(addr, ec)
 	require.NoError(t, err)
 	o, err := pr.Owner(nil)

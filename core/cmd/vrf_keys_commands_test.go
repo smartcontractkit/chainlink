@@ -75,30 +75,30 @@ func TestShellVRF_CRUD(t *testing.T) {
 	client, r := app.NewShellAndRenderer()
 
 	require.NoError(t, client.ListVRFKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
+	require.Len(t, r.Renders, 1)
 	keys := *r.Renders[0].(*cmd.VRFKeyPresenters)
 	// No keys yet
-	require.Equal(t, 0, len(keys))
+	require.Empty(t, keys)
 
 	// Create a VRF key
 	require.NoError(t, client.CreateVRFKey(cltest.EmptyCLIContext()))
-	require.Equal(t, 2, len(r.Renders))
+	require.Len(t, r.Renders, 2)
 	k1 := *r.Renders[1].(*cmd.VRFKeyPresenter)
 
 	// List the key and ensure it matches
 	require.NoError(t, client.ListVRFKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 3, len(r.Renders))
+	require.Len(t, r.Renders, 3)
 	keys = *r.Renders[2].(*cmd.VRFKeyPresenters)
 	AssertKeysEqual(t, k1, keys[0])
 
 	// Create another key
 	require.NoError(t, client.CreateVRFKey(cltest.EmptyCLIContext()))
-	require.Equal(t, 4, len(r.Renders))
+	require.Len(t, r.Renders, 4)
 	k2 := *r.Renders[3].(*cmd.VRFKeyPresenter)
 
 	// Ensure the list is valid
 	require.NoError(t, client.ListVRFKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 5, len(r.Renders))
+	require.Len(t, r.Renders, 5)
 	keys = *r.Renders[4].(*cmd.VRFKeyPresenters)
 	require.Contains(t, []string{keys[0].ID, keys[1].ID}, k1.ID)
 	require.Contains(t, []string{keys[0].ID, keys[1].ID}, k2.ID)
@@ -115,13 +115,13 @@ func TestShellVRF_CRUD(t *testing.T) {
 	err := client.DeleteVRFKey(c)
 	require.NoError(t, err)
 	// Should return the deleted key
-	require.Equal(t, 6, len(r.Renders))
+	require.Len(t, r.Renders, 6)
 	deletedKey := *r.Renders[5].(*cmd.VRFKeyPresenter)
 	AssertKeysEqual(t, k2, deletedKey)
 	// Should NOT be in the DB as archived
 	allKeys, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)
-	assert.Equal(t, 1, len(allKeys))
+	assert.Len(t, allKeys, 1)
 }
 
 func TestVRF_ImportExport(t *testing.T) {
@@ -134,7 +134,7 @@ func TestVRF_ImportExport(t *testing.T) {
 
 	// Create a key (encrypted with cltest.VRFPassword)
 	require.NoError(t, client.CreateVRFKey(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
+	require.Len(t, r.Renders, 1)
 	k1 := *r.Renders[0].(*cmd.VRFKeyPresenter)
 	t.Log(k1.Compressed)
 
@@ -177,7 +177,7 @@ func TestVRF_ImportExport(t *testing.T) {
 	// Should succeed
 	require.NoError(t, client.ImportVRFKey(importCli))
 	require.NoError(t, client.ListVRFKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 4, len(r.Renders))
+	require.Len(t, r.Renders, 4)
 	keys := *r.Renders[3].(*cmd.VRFKeyPresenters)
 	AssertKeysEqualNoTimestamps(t, k1, keys[0])
 }

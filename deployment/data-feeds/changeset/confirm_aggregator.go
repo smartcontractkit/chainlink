@@ -5,9 +5,9 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
 )
 
 // ConfirmAggregatorChangeset is a changeset that confirms a proposed aggregator on deployed AggregatorProxy contract
@@ -28,25 +28,25 @@ func confirmAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAg
 	}
 
 	tx, err := aggregatorProxy.ConfirmAggregator(txOpt, c.NewAggregatorAddress)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to execute ConfirmAggregator: %w", err)
-	}
 
 	if c.McmsConfig != nil {
-		proposal, err := BuildMCMProposals(env, "proposal to confirm a new aggregator", c.ChainSelector, []ProposalData{
-			{
-				contract: aggregatorProxy.Address().Hex(),
-				tx:       tx,
+		proposalConfig := MultiChainProposalConfig{
+			c.ChainSelector: []ProposalData{
+				{
+					contract: aggregatorProxy.Address().Hex(),
+					tx:       tx,
+				},
 			},
-		}, c.McmsConfig.MinDelay)
+		}
+
+		proposal, err := BuildMultiChainProposals(env, "proposal to confirm a new aggregator", proposalConfig, c.McmsConfig.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
 		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
 
-	_, err = chain.Confirm(tx)
-	if err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 

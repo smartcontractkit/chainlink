@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -32,10 +33,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/manyminds/api2go/jsonapi"
 
+	link "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
-	link "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -271,7 +272,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		}
 	}
 
-	postgresContainerName := fmt.Sprintf("%s-postgres", containerName)
+	postgresContainerName := containerName + "-postgres"
 
 	// If force flag is on, we check and remove containers with the same name before creating new ones
 	if force {
@@ -340,7 +341,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		return "", nil, fmt.Errorf("failed to create secret toml file: %w", err)
 	}
 	// Create container with mounted files
-	portStr := fmt.Sprintf("%d", port)
+	portStr := strconv.Itoa(port)
 	nodeContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
 		Image: h.cfg.ChainlinkDockerImage,
 		Cmd:   []string{"-s", "/run/secrets/01-secret.toml", "-c", "/run/secrets/01-config.toml", "local", "n", "-a", "/run/secrets/chainlink-node-api"},
@@ -397,7 +398,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		return "", nil, fmt.Errorf("failed to start node container: %w", err)
 	}
 
-	addr := fmt.Sprintf("http://localhost:%s", portStr)
+	addr := "http://localhost:" + portStr
 	log.Println("Node docker container successfully created and started: ", nodeContainerResp.ID, addr)
 
 	if err = waitForNodeReady(ctx, addr); err != nil {
@@ -484,7 +485,7 @@ func waitForNodeReady(ctx context.Context, addr string) error {
 	const timeout = 120
 	startTime := time.Now().Unix()
 	for {
-		req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/health", addr), nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", addr+"/health", nil)
 		if err != nil {
 			return err
 		}

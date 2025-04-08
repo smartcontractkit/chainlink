@@ -35,7 +35,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	session := sessions.Default(c)
 	var sr clsessions.SessionRequest
 	if err := c.ShouldBindJSON(&sr); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("error binding json %v", err))
+		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("error binding json %w", err))
 		return
 	}
 

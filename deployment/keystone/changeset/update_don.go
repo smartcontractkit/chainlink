@@ -6,8 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -98,7 +98,7 @@ func appendRequest(r *UpdateDonRequest) *AppendNodeCapabilitiesRequest {
 }
 
 func updateDonRequest(env deployment.Environment, r *UpdateDonRequest) (*internal.UpdateDonRequest, error) {
-	resp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+	resp, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -109,7 +109,7 @@ func updateDonRequest(env deployment.Environment, r *UpdateDonRequest) (*interna
 
 	return &internal.UpdateDonRequest{
 		Chain:                env.Chains[r.RegistryChainSel],
-		CapabilitiesRegistry: contractSet.CapabilitiesRegistry,
+		CapabilitiesRegistry: contractSet.CapabilitiesRegistry.Contract,
 		P2PIDs:               r.P2PIDs,
 		CapabilityConfigs:    r.CapabilityConfigs,
 		UseMCMS:              r.UseMCMS(),

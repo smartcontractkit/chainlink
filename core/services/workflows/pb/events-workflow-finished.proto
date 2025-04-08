@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/core/services/workflows/pb/";
+
+package pb;
+
+import "events-metadata.proto";
+
+message WorkflowExecutionFinished {
+  WorkflowMetadata m = 1;
+  string timestamp = 2;
+  string status = 3;
+} 

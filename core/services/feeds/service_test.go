@@ -238,9 +238,9 @@ func setupTestServiceCfg(
 		DatabaseConfig: gcfg.Database(),
 		FeatureConfig:  gcfg.Feature(),
 		ListenerConfig: gcfg.Database().Listener(),
+		KeyStore:       ethKeyStore,
 		DB:             db,
 		HeadTracker:    heads.NullTracker,
-		KeyStore:       ethKeyStore,
 	})
 	keyStore.On("Eth").Return(ethKeyStore)
 	keyStore.On("CSA").Return(csaKeystore)
@@ -272,8 +272,6 @@ func setupTestServiceCfg(
 func Test_Service_RegisterManager(t *testing.T) {
 	t.Parallel()
 
-	key := cltest.DefaultCSAKey
-
 	var (
 		id        = int64(1)
 		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
@@ -303,7 +301,6 @@ func Test_Service_RegisterManager(t *testing.T) {
 		Return(id, nil)
 	svc.orm.On("CreateBatchChainConfig", mock.Anything, params.ChainConfigs, mock.Anything).
 		Return([]int64{}, nil)
-	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	// ListManagers runs in a goroutine so it might be called.
 	svc.orm.On("ListManagers", testutils.Context(t)).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
@@ -314,9 +311,6 @@ func Test_Service_RegisterManager(t *testing.T) {
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(testutils.Context(t), params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
@@ -324,8 +318,6 @@ func Test_Service_RegisterManager(t *testing.T) {
 
 func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	t.Parallel()
-
-	key := cltest.DefaultCSAKey
 
 	var (
 		id        = int64(1)
@@ -360,7 +352,6 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 		Return(id, nil)
 	svc.orm.On("CreateBatchChainConfig", mock.Anything, params.ChainConfigs, mock.Anything).
 		Return([]int64{}, nil)
-	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	// ListManagers runs in a goroutine so it might be called.
 	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
@@ -371,9 +362,6 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(ctx, params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
@@ -418,9 +406,6 @@ func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 		transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
 	})
 	_, err = svc.RegisterManager(testutils.Context(t), params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.Error(t, err)
 	assert.Equal(t, "orm error", err.Error())
 }
@@ -457,9 +442,6 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 
 	_, err = svc.RegisterManager(ctx, params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.Error(t, err)
 
 	assert.Equal(t, "manager was previously registered using the same public key", err.Error())
@@ -505,7 +487,6 @@ func Test_Service_GetManager(t *testing.T) {
 }
 
 func Test_Service_UpdateFeedsManager(t *testing.T) {
-	key := cltest.DefaultCSAKey
 
 	var (
 		mgr = feeds.FeedsManager{ID: 1}
@@ -514,7 +495,6 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 	svc := setupTestService(t)
 
 	svc.orm.On("UpdateManager", mock.Anything, mgr, mock.Anything).Return(nil)
-	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
 
@@ -523,15 +503,12 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 }
 
 func Test_Service_EnableFeedsManager(t *testing.T) {
-	key := cltest.DefaultCSAKey
-
 	mgr := feeds.FeedsManager{ID: 1}
 
 	svc := setupTestService(t)
 
 	svc.orm.On("EnableManager", mock.Anything, mgr.ID).Return(&mgr, nil)
 	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
-	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
 
@@ -643,6 +620,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 
 			workflowKey, err := workflowkey.New()
 			require.NoError(t, err)
+			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
 
 			svc.orm.On("CreateChainConfig", mock.Anything, cfg).Return(int64(1), nil)
@@ -714,6 +692,7 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 
 	workflowKey, err := workflowkey.New()
 	require.NoError(t, err)
+	svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 	svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
 
 	svc.orm.On("GetChainConfig", mock.Anything, cfg.ID).Return(&cfg, nil)
@@ -811,6 +790,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 
 			workflowKey, err := workflowkey.New()
 			require.NoError(t, err)
+			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
 
 			svc.orm.On("UpdateChainConfig", mock.Anything, cfg).Return(int64(1), nil)
@@ -1154,7 +1134,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 						}),
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
-					Return(fmt.Errorf("error creating job"))
+					Return(errors.New("error creating job"))
 			},
 			args:    argsWF,
 			wantID:  0,
@@ -1817,6 +1797,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			svc.p2pKeystore.On("Get", p2pKey.PeerID()).Return(p2pKey, nil)
 			svc.ocr1Keystore.On("Get", ocrKey.GetID()).Return(ocrKey, nil)
 
+			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
 			wkID := workflowKey.ID()
 			svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
@@ -1887,25 +1868,29 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 	workflowKey, err := workflowkey.New()
 	require.NoError(t, err)
 
-	request := &proto.UpdateNodeRequest{
-		Version: nodeVersion.Version,
-		ChainConfigs: []*proto.ChainConfig{
-			{
-				Chain: &proto.Chain{
-					Id:   cfg.ChainID,
-					Type: proto.ChainType_CHAIN_TYPE_EVM,
+	request := func() *proto.UpdateNodeRequest {
+		return &proto.UpdateNodeRequest{
+			Version: nodeVersion.Version,
+			ChainConfigs: []*proto.ChainConfig{
+				{
+					Chain: &proto.Chain{
+						Id:   cfg.ChainID,
+						Type: proto.ChainType_CHAIN_TYPE_EVM,
+					},
+					AccountAddress:          cfg.AccountAddress,
+					AccountAddressPublicKey: &cfg.AccountAddressPublicKey.String,
+					AdminAddress:            cfg.AdminAddress,
+					FluxMonitorConfig:       &proto.FluxMonitorConfig{Enabled: true},
+					Ocr1Config:              &proto.OCR1Config{Enabled: false},
+					Ocr2Config:              &proto.OCR2Config{Enabled: false},
 				},
-				AccountAddress:          cfg.AccountAddress,
-				AccountAddressPublicKey: &cfg.AccountAddressPublicKey.String,
-				AdminAddress:            cfg.AdminAddress,
-				FluxMonitorConfig:       &proto.FluxMonitorConfig{Enabled: true},
-				Ocr1Config:              &proto.OCR1Config{Enabled: false},
-				Ocr2Config:              &proto.OCR2Config{Enabled: false},
 			},
-		},
-		WorkflowKey: func(s string) *string { return &s }(workflowKey.ID()),
+			WorkflowKey: func(s string) *string { return &s }(workflowKey.ID()),
+		}
 	}
-	successResponse := &proto.UpdateNodeResponse{ChainConfigErrors: map[string]*proto.ChainConfigError{}}
+	successResponse := func() *proto.UpdateNodeResponse {
+		return &proto.UpdateNodeResponse{ChainConfigErrors: map[string]*proto.ChainConfigError{}}
+	}
 	failureResponse := func(chainID string) *proto.UpdateNodeResponse {
 		return &proto.UpdateNodeResponse{
 			ChainConfigErrors: map[string]*proto.ChainConfigError{chainID: {Message: "error chain " + chainID}},
@@ -1921,15 +1906,16 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 		{
 			name: "create chain",
 			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
 				svc.orm.EXPECT().CreateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-0")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("1"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("2"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-0")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("1"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("2"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.CreateChainConfig(testutils.Context(t), cfg)
@@ -1944,15 +1930,16 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 		{
 			name: "update chain",
 			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
 				svc.orm.EXPECT().UpdateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetChainConfig(mock.Anything, cfg.ID).Return(&cfg, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("3"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-4")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("5"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("3"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-4")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("5"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.UpdateChainConfig(testutils.Context(t), cfg)
@@ -1967,16 +1954,17 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 		{
 			name: "delete chain",
 			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
 				svc.orm.EXPECT().GetChainConfig(mock.Anything, cfg.ID).Return(&cfg, nil)
 				svc.orm.EXPECT().DeleteChainConfig(mock.Anything, cfg.ID).Return(cfg.ID, nil)
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("6"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("7"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-8")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("6"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("7"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-8")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
@@ -1991,15 +1979,16 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 		{
 			name: "more errors than MaxAttempts",
 			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
 				svc.orm.EXPECT().CreateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("9"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("10"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-11")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("12"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("9"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("10"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-11")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("12"), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.CreateChainConfig(testutils.Context(t), cfg)
@@ -4878,6 +4867,7 @@ func Test_Service_StartStop(t *testing.T) {
 		{
 			name: "success with a feeds manager connection",
 			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr}, nil)
 				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
@@ -4890,6 +4880,7 @@ func Test_Service_StartStop(t *testing.T) {
 			name:                     "success with multiple feeds managers connection",
 			enableMultiFeedsManagers: true,
 			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr, mgr2}, nil)
 				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
@@ -4902,6 +4893,7 @@ func Test_Service_StartStop(t *testing.T) {
 		{
 			name: "success with no registered managers",
 			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{}, nil)
 				svc.connMgr.On("Close")
