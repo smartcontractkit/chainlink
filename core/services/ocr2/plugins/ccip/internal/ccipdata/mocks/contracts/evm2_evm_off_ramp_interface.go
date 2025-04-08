@@ -10,9 +10,9 @@ import (
 
 	event "github.com/ethereum/go-ethereum/event"
 
-	evm_2_evm_offramp "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp"
+	evm_2_evm_offramp "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_offramp"
 
-	generated "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
+	generated "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated"
 
 	mock "github.com/stretchr/testify/mock"
 

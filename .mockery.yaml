@@ -291,7 +291,7 @@ packages:
         config:
           dir: core/services/relay/evm/mocks
       ContractWriter:
-  github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp:
+  github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_offramp:
     config:
       dir: core/services/ocr2/plugins/ccip/internal/ccipdata/mocks/contracts
       filename: evm2_evm_off_ramp_interface.go
