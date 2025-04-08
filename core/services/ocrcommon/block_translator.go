@@ -6,9 +6,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
 // BlockTranslator converts emitted block numbers (from block.number) into a

@@ -37,7 +37,7 @@ import (
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 )
 
 // vrfv2PlusCleanUpFn is a cleanup function that captures pointers from context, in which it's called and uses them to clean up the test environment

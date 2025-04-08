@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	capcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
