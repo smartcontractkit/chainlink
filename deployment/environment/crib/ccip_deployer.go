@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"os"
 	"sync"
-	"testing"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog"
@@ -152,7 +151,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
 	}
 
-	evmChainSelectors := e.AllChainSelectors()
+	// evmChainSelectors := e.AllChainSelectors()
 	solChainSelectors := e.AllChainSelectorsSolana()
 
 	// Set up SOL <--> EVM lanes
@@ -164,7 +163,8 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedChainSel,
 	}
-	for _, evmSelector := range evmChainSelectors {
+	for _, evmSelector := range []uint64{homeChainSel} {
+		fmt.Println("setting up solana lanes for ", evmSelector)
 		gasPrices := map[uint64]*big.Int{
 			solChainSelectors[0]: testhelpers.DefaultGasPrice,
 		}
@@ -682,8 +682,10 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
 	chainType := v1_6.Default
-	ab := deployment.NewMemoryAddressBook()
-	_ = testhelpers.DeployTestContracts(&testing.T{}, e.Logger, ab, homeChainSel, feedChainSel, e.Chains, testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
+	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.Chains[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
+	if err != nil {
+		return *e, fmt.Errorf("failed to deploy feeds: %w", err)
+	}
 	state, err := changeset.LoadOnchainState(*e)
 	if err != nil {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)

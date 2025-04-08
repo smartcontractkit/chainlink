@@ -748,6 +748,7 @@ func AddLane(
 }
 
 func AddLaneSolanaChangesets(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
+	e.Env.Logger.Infof("Adding lane for solana chain selector", solChainSelector, "to remote chain selector", remoteChainSelector)
 	chainFamilySelector := [4]uint8{}
 	if remoteFamily == chainsel.FamilyEVM {
 		// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
