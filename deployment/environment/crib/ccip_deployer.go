@@ -135,7 +135,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// ------ Part 1 -----
 	// Setup because we only need to deploy the contracts and distribute job specs
 	lggr.Infow("setting up chains...")
-	*e, err = setupChains(lggr, e, homeChainSel)
+	*e, err = setupChains(lggr, e, homeChainSel, feedChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
 	}
@@ -162,7 +162,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	deployedEnv := testhelpers.DeployedEnv{
 		Env:          *e,
 		HomeChainSel: homeChainSel,
-		FeedChainSel: homeChainSel,
+		FeedChainSel: feedChainSel,
 	}
 	for _, evmSelector := range evmChainSelectors {
 		gasPrices := map[uint64]*big.Int{
@@ -236,7 +236,7 @@ func DeployCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.
 
 	// Setup because we only need to deploy the contracts and distribute job specs
 	lggr.Infow("setting up chains...")
-	*e, err = setupChains(lggr, e, homeChainSel)
+	*e, err = setupChains(lggr, e, homeChainSel, feedChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
 	}
@@ -349,7 +349,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	}, nil
 }
 
-func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uint64) (deployment.Environment, error) {
+func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel, feedChainSel uint64) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
 	solChainSelectors := e.AllChainSelectorsSolana()
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
@@ -443,7 +443,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 	deployedEnv := testhelpers.DeployedEnv{
 		Env:          env,
 		HomeChainSel: homeChainSel,
-		FeedChainSel: homeChainSel,
+		FeedChainSel: feedChainSel,
 	}
 
 	buildConfig := ccipChangesetSolana.BuildSolanaConfig{
