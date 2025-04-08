@@ -101,7 +101,7 @@ contract ScrollValidator_Validate is ScrollValidator_Setup {
       INIT_GAS_LIMIT, // gas limit
       abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, false, futureTimestampInSeconds) // message
     );
-    vm.expectEmit(true, true, true, true, address(s_scrollValidator));
+    vm.expectEmit(address(s_scrollValidator));
     emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
     s_scrollValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
@@ -132,7 +132,7 @@ contract ScrollValidator_Validate is ScrollValidator_Setup {
       abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds) // message
     );
 
-    vm.expectEmit(true, true, true, true, address(s_scrollValidator));
+    vm.expectEmit(address(s_scrollValidator));
     emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
     s_scrollValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);

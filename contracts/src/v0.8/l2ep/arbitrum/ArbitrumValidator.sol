@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {AggregatorValidatorInterface} from "../../shared/interfaces/AggregatorValidatorInterface.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {AccessControllerInterface} from "../../shared/interfaces/AccessControllerInterface.sol";
+import {BaseValidator} from "../base/BaseValidator.sol";
 import {SimpleWriteAccessController} from "../../shared/access/SimpleWriteAccessController.sol";
 
 /* ./dev dependencies - to be moved from ./dev after audit */
@@ -78,15 +79,6 @@ contract ArbitrumValidator is ITypeAndVersion, AggregatorValidatorInterface, Sim
    * @param amount of funds to withdraw
    */
   event L2WithdrawalRequested(uint256 indexed id, uint256 amount, address indexed refundAddr);
-
-  /**
-   * @notice emitted when a validation is executed successfully
-   * @param previousRoundId previous aggregator OCR round id
-   * @param previousAnswer previous aggregator answer
-   * @param currentRoundId current aggregator OCR round id
-   * @param currentAnswer new aggregator answer - value of 1 considers the service offline.
-   */
-  event ValidatedStatus(uint256 previousRoundId, int256 previousAnswer, uint256 currentRoundId, int256 currentAnswer);
 
   /**
    * @param crossDomainMessengerAddr address the xDomain bridge messenger (Arbitrum Inbox L1) contract address
@@ -298,7 +290,7 @@ contract ArbitrumValidator is ITypeAndVersion, AggregatorValidatorInterface, Sim
       gasPriceBid,
       message
     );
-    emit ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // return success
     return true;
   }

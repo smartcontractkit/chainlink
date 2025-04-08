@@ -75,7 +75,7 @@ contract OptimismValidator_Validate is OptimismValidator_Setup {
       INIT_GAS_LIMIT // gas limit
     );
 
-    vm.expectEmit(true, true, true, true, address(s_optimismValidator));
+    vm.expectEmit(address(s_optimismValidator));
     emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
     s_optimismValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
@@ -104,7 +104,7 @@ contract OptimismValidator_Validate is OptimismValidator_Setup {
       INIT_GAS_LIMIT // gas limit
     );
 
-    vm.expectEmit(true, true, true, true, address(s_optimismValidator));
+    vm.expectEmit(address(s_optimismValidator));
     emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
     s_optimismValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);

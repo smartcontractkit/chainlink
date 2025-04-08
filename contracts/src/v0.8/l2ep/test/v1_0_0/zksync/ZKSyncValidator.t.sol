@@ -126,7 +126,7 @@ contract ZKSyncValidator_Validate is ZKSyncValidator_Setup {
     vm.expectEmit(false, false, false, true);
     emit SentMessage(address(s_zksyncValidator), message);
 
-    vm.expectEmit(true, true, true, true, address(s_zksyncValidator));
+    vm.expectEmit(address(s_zksyncValidator));
     emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
 
     // Runs the function (which produces the event to test)
@@ -154,7 +154,7 @@ contract ZKSyncValidator_Validate is ZKSyncValidator_Setup {
       abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds)
     );
 
-    vm.expectEmit(true, true, true, true, address(s_zksyncValidator));
+    vm.expectEmit(address(s_zksyncValidator));
     emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
     s_zksyncValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
