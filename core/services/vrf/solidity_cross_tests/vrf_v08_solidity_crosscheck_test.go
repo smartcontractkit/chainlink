@@ -7,7 +7,7 @@ import (
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_v08_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_v08_verifier_wrapper"
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"

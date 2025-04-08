@@ -12,6 +12,7 @@ RUN go mod download
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 ARG APTOS_RELAYER_GIT_REF
+ARG CAPABILITIES_GIT_REF
 ARG COSMOS_SHA
 ARG STARKNET_SHA
 # Flag to control installation of private plugins (default: false)
@@ -42,6 +43,7 @@ RUN make install-ocr3-capability
 # Install LOOP Plugins
 RUN make install-plugins \
   APTOS_RELAYER_GIT_REF=${APTOS_RELAYER_GIT_REF} \
+  CAPABILITIES_GIT_REF=${CAPABILITIES_GIT_REF} \
   COSMOS_SHA=${COSMOS_SHA} \
   STARKNET_SHA=${STARKNET_SHA} \
   CL_INSTALL_PRIVATE_PLUGINS=${CL_INSTALL_PRIVATE_PLUGINS}
@@ -101,6 +103,8 @@ EXPOSE 6688
 FROM final-base AS final-private-plugins
 COPY --from=buildgo /go/bin/chainlink-aptos /usr/local/bin/
 ENV CL_APTOS_CMD=chainlink-aptos
+COPY --from=buildgo /go/bin/cron /usr/local/bin/
+COPY --from=buildgo /go/bin/readcontract /usr/local/bin/
 ENTRYPOINT ["chainlink"]
 HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
 CMD ["local", "node"]

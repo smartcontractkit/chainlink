@@ -870,7 +870,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 		require.NotNil(t, state.Chains[chain].Weth9)
 		require.NotNil(t, state.Chains[chain].TokenAdminRegistry)
-		require.NotNil(t, state.Chains[chain].RegistryModule)
+		require.NotEmpty(t, state.Chains[chain].RegistryModules1_6)
 		require.NotNil(t, state.Chains[chain].Router)
 		require.NotNil(t, state.Chains[chain].RMNRemote)
 		require.NotNil(t, state.Chains[chain].TestRouter)

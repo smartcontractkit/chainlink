@@ -9,9 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
-	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 )
 
 func runSetRewardRecipientsTest(t *testing.T, useMCMS bool) {

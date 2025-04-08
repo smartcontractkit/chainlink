@@ -27,9 +27,9 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/operator"
 )
 
 func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
