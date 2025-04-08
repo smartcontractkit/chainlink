@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -78,6 +79,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/mock_v3_aggregator_contract"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 
 	"github.com/gagliardetto/solana-go"
@@ -1457,16 +1459,18 @@ func attachTokenToTheRegistry(
 		return nil
 	}
 
-	tx, err := state.RegistryModule.RegisterAdminViaOwner(owner, token)
-	if err != nil {
-		return err
-	}
-	_, err = chain.Confirm(tx)
-	if err != nil {
-		return err
+	for _, reg := range state.RegistryModules1_6 {
+		tx, err := reg.RegisterAdminViaOwner(owner, token)
+		if err != nil {
+			return err
+		}
+		_, err = chain.Confirm(tx)
+		if err != nil {
+			return err
+		}
 	}
 
-	tx, err = state.TokenAdminRegistry.AcceptAdminRole(owner, token)
+	tx, err := state.TokenAdminRegistry.AcceptAdminRole(owner, token)
 	if err != nil {
 		return err
 	}

@@ -177,12 +177,12 @@ jobs:
         type:
           - cmd: go_core_tests
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32/ram=256/family=r7/disk=large/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_tests_integration
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32/ram=256/family=r7/disk=large/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_fuzz
@@ -192,12 +192,13 @@ jobs:
 
           - cmd: go_core_race_tests
             os: 'ubuntu-latest-32cores-128GB'
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=64/ram=128/family=c7/disk=large/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=64+128/ram=128+256/family=c7+m7/disk=large/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32/ram=256/family=r7/disk=large/extras=s3-cache
+            # Use "*d" instances because they have NVME storage which improves performance for this test suite
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/extras=s3-cache
             build-solana-artifacts: 'true'
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
 
@@ -245,7 +246,9 @@ jobs:
 
       - name: Setup Postgres
         if: ${{ matrix.type.should-run == 'true' }}
-        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/0.2.0
+        with:
+          tmpfs: 'true'
 
       - name: Touching core/web/assets/index.html
         if: ${{ matrix.type.should-run == 'true' }}
@@ -276,6 +279,7 @@ jobs:
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}
         id: run-tests
+        shell: bash
         env:
           OUTPUT_FILE: ./output.txt
           CL_DATABASE_URL: ${{ env.DB_URL }}
@@ -283,6 +287,7 @@ jobs:
         run: |
           # See: https://github.com/golang/go/issues/69179
           GODEBUG=goindex=0
+
           ./tools/bin/${{ matrix.type.cmd }} ./...
 
       - name: Generate Flakeguard Test Reports
@@ -578,7 +583,7 @@ jobs:
       four-per-day-frequency: ${{ steps.check-time.outputs.four-per-day-frequency || 'false' }}
       six-per-day-frequency: ${{ steps.check-time.outputs.six-per-day-frequency || 'false' }}
       # frequencies for self-hosted runners
-      should-use-self-hosted: ${{ steps.check-branch.outputs.self-hosted-runners || 'false' }}
+      should-use-self-hosted: ${{ steps.use-self-hosted.outputs.self-hosted-runners || 'false' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check time and set frequencies
@@ -614,11 +619,20 @@ jobs:
           fi
 
       - name: Self-hosted Runner Frequencies
-        id: check-branch
+        id: use-self-hosted
         env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
           RUNS_ON_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'runs-on') }}
           RUNS_ON_OPT_OUT: ${{ contains(github.event.pull_request.labels.*.name, 'runs-on-opt-out') }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || '' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          if [ "$GITHUB_EVENT_NAME" == "merge_group" ]; then
+            echo "Not using self-hosted runners for merge queue events"
+            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
           if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
             echo "Using self-hosted runners for workflow dispatch events"
             echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
@@ -637,28 +651,26 @@ jobs:
             exit 0
           fi
 
-          echo "Not using self-hosted runners for this event"
-
-          exit 0
-          if [ "$GITHUB_EVENT_NAME" == "merge_group" ]; then
+          if [ "GITHUB_EVENT_NAME" != 'pull_request' ]; then
+            echo "Not using self-hosted runners for event ${GITHUB_EVENT_NAME}"
             echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
 
+          # TODO: Enable below logic once ready for rollout
+          exit 0
+
+          # PR Events
           # generate a deterministic random number based on the branch name
           branch_name="${GITHUB_HEAD_REF:-$(echo $GITHUB_REF | sed 's/refs\/heads\///')}"
           hash=$(echo -n "$branch" | sha256sum | cut -d' ' -f1)
           deterministic_number=$((16#${hash:0:8} % 100))
-
-          if [ "branch_name" == "develop" ]; then
-            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
 
           echo "Branch name: $branch_name"
           echo "Deterministic number: $deterministic_number"
 
           # 10% of the time, use self-hosted runners
           if [ "$deterministic_number" -lt 10 ]; then
+            gh pr edit --repo "${GITHUB_REPOSITORY}" "${PULL_REQUEST_NUMBER}" --add-label "runs-on"
             echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
           fi

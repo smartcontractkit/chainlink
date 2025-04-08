@@ -95,7 +95,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		require.NotNil(t, state.Chains[sel].LinkToken)
 		require.NotNil(t, state.Chains[sel].Weth9)
 		require.NotNil(t, state.Chains[sel].TokenAdminRegistry)
-		require.NotNil(t, state.Chains[sel].RegistryModule)
+		require.NotNil(t, state.Chains[sel].RegistryModules1_6)
 		require.NotNil(t, state.Chains[sel].Router)
 		require.NotNil(t, state.Chains[sel].RMNRemote)
 		require.NotNil(t, state.Chains[sel].TestRouter)
