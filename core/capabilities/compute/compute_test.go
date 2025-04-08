@@ -230,7 +230,9 @@ func TestComputeFetch(t *testing.T) {
 		},
 	}
 
-	headers, err := values.NewMap(map[string]any{})
+	headers, err := values.NewMap(map[string]any{
+		"Content-Type": "application/json",
+	})
 	require.NoError(t, err)
 	expected := cappkg.CapabilityResponse{
 		Value: &values.Map{
@@ -308,7 +310,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 	}
 
 	_, err = th.compute.Execute(t.Context(), req)
-	require.ErrorContains(t, err, fmt.Sprintf("response size %d exceeds maximum allowed size %d", 2056, 1*1024))
+	require.ErrorContains(t, err, fmt.Sprintf("response size %d exceeds maximum allowed size %d", 2092, 1*1024))
 }
 
 func gatewayResponse(t *testing.T, msgID string, body []byte) *api.Message {
