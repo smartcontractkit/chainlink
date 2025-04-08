@@ -112,10 +112,9 @@ type Environment struct {
 	SolChains   map[uint64]SolChain
 	AptosChains map[uint64]AptosChain
 	NodeIDs     []string
-	// The Offchain client is responsible for node and job management.
-	Offchain   OffchainClient
-	GetContext func() context.Context
-	OCRSecrets OCRSecrets
+	Offchain    OffchainClient
+	GetContext  func() context.Context
+	OCRSecrets  OCRSecrets
 	// OperationsBundle contains dependencies required by the operations API.
 	OperationsBundle operations.Bundle
 }
@@ -157,10 +156,20 @@ func (e Environment) Clone() Environment {
 	if err := ab.Merge(e.ExistingAddresses); err != nil {
 		panic(fmt.Sprintf("failed to copy address book: %v", err))
 	}
+
+	ds := datastore.NewMemoryDataStore[
+		datastore.DefaultMetadata,
+		datastore.DefaultMetadata,
+	]()
+	if err := ds.Merge(e.DataStore); err != nil {
+		panic(fmt.Sprintf("failed to copy datastore: %v", err))
+	}
+
 	return Environment{
 		Name:              e.Name,
 		Logger:            e.Logger,
 		ExistingAddresses: ab,
+		DataStore:         ds.Seal(),
 		Chains:            e.Chains,
 		SolChains:         e.SolChains,
 		NodeIDs:           e.NodeIDs,
