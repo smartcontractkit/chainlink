@@ -175,7 +175,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			finalSeqNrExecChannels[cs],
 			&wg,
 			mm.InputChan)
-
 		// error watchers
 		go subscribeSkippedIncorrectNonce(
 			ctx,
