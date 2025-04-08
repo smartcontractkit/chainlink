@@ -1,5 +1,101 @@
 # Changelog Chainlink Core
 
+## 2.23.0 - UNRELEASED
+
+### Minor Changes
+
+- [#16987](https://github.com/smartcontractkit/chainlink/pull/16987) [`f51fb81`](https://github.com/smartcontractkit/chainlink/commit/f51fb81ce88c4debcfa9ea6fc3dc4478d603d32d) - cre: allow nodes to limit number of running workflows for specific EOAs #feature
+
+- [#17009](https://github.com/smartcontractkit/chainlink/pull/17009) [`17de15f`](https://github.com/smartcontractkit/chainlink/commit/17de15fdfcc747e7597ee0f3d9ce78f4d9de7b53) - capabilities: handles single node requests to gateways by selecting a random gateway to start #feature
+
+- [#16704](https://github.com/smartcontractkit/chainlink/pull/16704) [`fe50f92`](https://github.com/smartcontractkit/chainlink/commit/fe50f9203b4d4ce2767e8994992ab645b0649db8) - #internal Split EVM and SVM transmitter
+
+- [#17145](https://github.com/smartcontractkit/chainlink/pull/17145) [`4542bf2`](https://github.com/smartcontractkit/chainlink/commit/4542bf2975f8e155d4af74ffbfca9a3a0f43cf5b) - #updated chain-selectors to v1.0.49
+  #updated New & Old chain testnet & Mainnet config defaults
+
+- [#16704](https://github.com/smartcontractkit/chainlink/pull/16704) [`fe50f92`](https://github.com/smartcontractkit/chainlink/commit/fe50f9203b4d4ce2767e8994992ab645b0649db8) - #internal: Added stop-gap solution enabling EVM->SOL transfers in CCIP contract transmitter
+
+- [#16915](https://github.com/smartcontractkit/chainlink/pull/16915) [`7bac405`](https://github.com/smartcontractkit/chainlink/commit/7bac4053e609b6708f906f988ff028979d2979d7) - Extended Relayer and created a CLI Globabl Replay Command to enable Solana Replay. #Added
+
+- [#16746](https://github.com/smartcontractkit/chainlink/pull/16746) [`0ea74e3`](https://github.com/smartcontractkit/chainlink/commit/0ea74e37930ede55207de80ba322c470cf90a2fa) - #updated [CRE-359] Use canonical operatorforwarder code.
+
+- [#16761](https://github.com/smartcontractkit/chainlink/pull/16761) [`9883fd4`](https://github.com/smartcontractkit/chainlink/commit/9883fd4c3bb541dd869dae851b4c4f0e95e4349c) - #removed [CRE-359] Remove unused operatorforwarder duplicates.
+
+### Patch Changes
+
+- [#16769](https://github.com/smartcontractkit/chainlink/pull/16769) [`7f3e55b`](https://github.com/smartcontractkit/chainlink/commit/7f3e55bafb2cecd0dce07476a1ee30454444f4c7) - #internal bump chainlink-common library to v0.5.1
+
+- [#16789](https://github.com/smartcontractkit/chainlink/pull/16789) [`4ce1a16`](https://github.com/smartcontractkit/chainlink/commit/4ce1a16b5abe4829e608dc25b112d3006ae9acd4) - Support new report type 'evm_streamlined'. #added
+
+  This new report type is designed to be as small and optimized as possible to minimize report size and calldata.
+
+  Reports are encoded as such:
+
+  (no FeedID specified in opts)
+
+  ```
+  <32 bits> channel ID
+  <64 bits> unsigned report timestamp nanoseconds
+  <bytes>   report data as packed ABI encoding
+  ```
+
+  (FeedID specified in opts)
+
+  ```
+  <256 bits> feed ID
+  <64 bits> unsigned report timestamp nanoseconds
+  <bytes>   report data as packed ABI encoding
+  ```
+
+  Report contexts are encoded as such:
+
+  ```
+  // Equivalent to abi.encodePacked(digest, len(report), report, len(sigs), sigs...)
+  // bytes32 config digest
+  // packed uint16 len report
+  // packed bytes report
+  // packed uint8 len sigs
+  // packed bytes sigs
+  ```
+
+  See report_codec_evm_streamlined_test.go for examples.
+
+- [#17095](https://github.com/smartcontractkit/chainlink/pull/17095) [`8dfedde`](https://github.com/smartcontractkit/chainlink/commit/8dfeddee8a9601120518773e85ac152a0edc74fa) - #bugfix bind reg filter before unreg & bind noop when no new addresses
+
+- [#16785](https://github.com/smartcontractkit/chainlink/pull/16785) [`abf6662`](https://github.com/smartcontractkit/chainlink/commit/abf666239a46d6cd0739be7ccaffbad24e2d1011) - #internal upgrade the mcms library to v0.14.0
+
+- [#16754](https://github.com/smartcontractkit/chainlink/pull/16754) [`f0bb88c`](https://github.com/smartcontractkit/chainlink/commit/f0bb88c8835a3aa4e9309717a6451016def58cc9) - Adds message IDs and logging in capabilities server and client #internal
+
+- [#16955](https://github.com/smartcontractkit/chainlink/pull/16955) [`89f4df2`](https://github.com/smartcontractkit/chainlink/commit/89f4df26e241d54574884ba0723801ccb8cd4799) - #updated LLO Config Validation to allow CRE Transmitter without Mercury Server
+
+- [#16844](https://github.com/smartcontractkit/chainlink/pull/16844) [`fa060ab`](https://github.com/smartcontractkit/chainlink/commit/fa060abf0a2b9ddbce06e5a243bc6a70b6daaf85) - (capabilities/webapi): cycles through all gateways until a connection is made on single node request #bug_fix #feature
+
+- [#16825](https://github.com/smartcontractkit/chainlink/pull/16825) [`390c02c`](https://github.com/smartcontractkit/chainlink/commit/390c02cc3e38fc665829e627e0a49b1aec56b2c2) - Implement support for TimestampedStreamValue data types in LLO (RWAs) #added
+
+  Support encoding into evm_abi_unpacked or evm_streamlined report formats.
+
+  ABI must specify how to encode both types, as such:
+
+  ```json
+  // Encodes the timestamp as uint64 and data payload as int192
+  {
+    "abi": [[{ "type": "uint64" }, { "type": "int192" }]]
+  }
+  ```
+
+  The first element of the array encodes the timestamp, the second encodes the data payload.
+
+  Users may suppress one or the other entirely by using the special keyword "bytes0" e.g.
+
+  ```json
+  // Encodes only the data payload
+  {
+    "abi": [[{ "type": "bytes0" }, { "type": "int192" }]]
+  }
+  ```
+
+- [#17116](https://github.com/smartcontractkit/chainlink/pull/17116) [`83dc5cd`](https://github.com/smartcontractkit/chainlink/commit/83dc5cd274dce4b33bf9a28b59021df610d578ce) - #changed filters persist after ChainReader Clean being called
+
 ## 2.22.0 - 2025-03-19
 
 :warning: On **May 31, 2025**, Ubuntu 20.04 will reach end-of-life and will no longer receive security updates. We strongly encourage you to begin upgrading your environments to a stable support Ubuntu versions. **We are bumping the Chainlink image to 24.04 in this release.** We will continue to provide an image that is 20.04 as well to ensure there is ample time to upgrade and remove support as it goes to eol.
