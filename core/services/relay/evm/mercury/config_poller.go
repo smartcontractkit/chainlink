@@ -13,8 +13,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 )
 

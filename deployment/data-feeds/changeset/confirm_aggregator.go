@@ -5,9 +5,9 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
 )
 
 // ConfirmAggregatorChangeset is a changeset that confirms a proposed aggregator on deployed AggregatorProxy contract

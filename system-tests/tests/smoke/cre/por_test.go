@@ -26,8 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
@@ -61,7 +61,18 @@ type TestConfig struct {
 }
 
 type WorkflowConfig struct {
-	UseCRECLI                bool `toml:"use_cre_cli"`
+	UseCRECLI bool `toml:"use_cre_cli"`
+	/*
+		These tests can be run in two modes:
+		1. existing mode: it uses a workflow binary (and configuration) file that is already uploaded to Gist
+		2. compile mode: it compiles a new workflow binary and uploads it to Gist
+
+		For the "compile" mode to work, the `GIST_WRITE_TOKEN` env var must be set to a token that has `gist:read` and `gist:write` permissions, but this permissions
+		are tied to account not to repository. Currently, we have no service account in the CI at all. And using a token that's tied to personal account of a developer
+		is not a good idea. So, for now, we are only allowing the `existing` mode in CI.
+
+		If you wish to use "compile" mode set `ShouldCompileNewWorkflow` to `true`, set `GIST_WRITE_TOKEN` env var and provide the path to the workflow folder.
+	*/
 	ShouldCompileNewWorkflow bool `toml:"should_compile_new_workflow" validate:"no_cre_no_compilation,disabled_in_ci"`
 	// Tells the test where the workflow to compile is located
 	WorkflowFolderLocation *string             `toml:"workflow_folder_location" validate:"required_if=ShouldCompileNewWorkflow true"`
@@ -152,7 +163,6 @@ type CompiledConfig struct {
 func validateEnvVars(t *testing.T, in *TestConfig) {
 	require.NotEmpty(t, os.Getenv("PRIVATE_KEY"), "PRIVATE_KEY env var must be set")
 
-	var ghReadToken string
 	// this is a small hack to avoid changing the reusable workflow
 	if os.Getenv("CI") == "true" {
 		// This part should ideally happen outside of the test, but due to how our reusable e2e test workflow is structured now
@@ -161,26 +171,7 @@ func validateEnvVars(t *testing.T, in *TestConfig) {
 		require.NotEmpty(t, os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV), "missing env var: "+ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV)
 		require.NotEmpty(t, os.Getenv(creenv.E2eJobDistributorImageEnvVarName), "missing env var: "+creenv.E2eJobDistributorImageEnvVarName)
 		require.NotEmpty(t, os.Getenv(creenv.E2eJobDistributorVersionEnvVarName), "missing env var: "+creenv.E2eJobDistributorVersionEnvVarName)
-
-		// disabled until we can figure out how to generate a gist read:write token in CI
-		/*
-		   This test can be run in two modes:
-		   1. `existing` mode: it uses a workflow binary (and configuration) file that is already uploaded to Gist
-		   2. `compile` mode: it compiles a new workflow binary and uploads it to Gist
-
-		   For the `new` mode to work, the `GITHUB_API_TOKEN` env var must be set to a token that has `gist:read` and `gist:write` permissions, but this permissions
-		   are tied to account not to repository. Currently, we have no service account in the CI at all. And using a token that's tied to personal account of a developer
-		   is not a good idea. So, for now, we are only allowing the `existing` mode in CI.
-		*/
-
-		// we use this special function to subsitute a placeholder env variable with the actual environment variable name
-		// it is defined in .github/e2e-tests.yml as '{{ env.GITHUB_API_TOKEN }}'
-		ghReadToken = ctfconfig.MustReadEnvVar_String(creenv.GithubReadTokenEnvVarName)
-	} else {
-		ghReadToken = os.Getenv(creenv.GithubReadTokenEnvVarName)
 	}
-
-	require.NotEmpty(t, ghReadToken, creenv.GithubReadTokenEnvVarName+" env var must be set")
 
 	if in.WorkflowConfig.UseCRECLI {
 		if in.WorkflowConfig.ShouldCompileNewWorkflow {

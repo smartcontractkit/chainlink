@@ -4,9 +4,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
 	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 )
 
 // ContractFlags wraps the a contract

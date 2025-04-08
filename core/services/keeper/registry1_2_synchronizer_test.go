@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	registry1_2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	registry1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"

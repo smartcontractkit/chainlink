@@ -9,12 +9,12 @@ import (
 
 	feemanager "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 )
 
 func TestSetFeeManager(t *testing.T) {

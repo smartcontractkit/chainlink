@@ -6,10 +6,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
 	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 )
 
 type Flags interface {
