@@ -3,7 +3,7 @@ exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'
 exec sh -c 'eval "echo \"FINAL $(cat config.toml)\""'
 exec chainlink -c config.toml node start -p password -a creds &
 
-# initialize client
+# initialize client 
 env NODEURL=http://localhost:$PORT
 exec curl --retry 10 --retry-max-time 60 --retry-connrefused $NODEURL
 exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-version-check
