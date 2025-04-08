@@ -8,9 +8,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 )
 
 var _ deployment.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = TransferAdminRoleChangeset

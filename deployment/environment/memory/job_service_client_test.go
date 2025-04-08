@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -17,6 +18,8 @@ import (
 )
 
 func TestJobClientProposeJob(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-432")
+
 	t.Parallel()
 	ctx := testutils.Context(t)
 	chains, _ := memory.NewMemoryChains(t, 1, 1)
@@ -110,6 +113,8 @@ func TestJobClientProposeJob(t *testing.T) {
 }
 
 func TestJobClientJobAPI(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-402")
+
 	t.Parallel()
 	ctx := testutils.Context(t)
 	chains, _ := memory.NewMemoryChains(t, 1, 1)

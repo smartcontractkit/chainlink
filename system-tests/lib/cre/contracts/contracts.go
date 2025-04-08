@@ -12,10 +12,10 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/deployment"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
@@ -120,7 +120,7 @@ var ChainWriterCapabilityFactory = func(chainID uint64) func(donFlags []string) 
 	}
 }
 
-var ChainReaderCapabilityFactory = func(chainID int, chainFamily string) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+var ChainReaderCapabilityFactory = func(chainID uint64, chainFamily string) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
@@ -268,7 +268,7 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 	return nil
 }
 
-func DeployKeystone(testLogger zerolog.Logger, input *types.KeystoneContractsInput) (*types.KeystoneContractOutput, error) {
+func DeployKeystone(testLogger zerolog.Logger, input *types.KeystoneContractsInput) (*types.KeystoneContractsOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -299,7 +299,7 @@ func DeployKeystone(testLogger zerolog.Logger, input *types.KeystoneContractsInp
 		return nil, errors.Wrap(err, "failed to deploy Workflow Registry contract")
 	}
 
-	out := &types.KeystoneContractOutput{
+	out := &types.KeystoneContractsOutput{
 		ForwarderAddress:            forwarderAddress,
 		OCR3CapabilityAddress:       oCR3CapabilityAddress,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,

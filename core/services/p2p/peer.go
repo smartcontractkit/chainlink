@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/smartcontractkit/libocr/networking/ragedisco"
 	nettypes "github.com/smartcontractkit/libocr/networking/types"
 	"github.com/smartcontractkit/libocr/ragep2p"
@@ -77,9 +78,14 @@ func NewPeer(cfg PeerConfig, lggr logger.Logger) (*peer, error) {
 	discoverer := ragedisco.NewRagep2pDiscoverer(cfg.DeltaReconcile, announceAddresses, cfg.DiscovererDatabase, cfg.MetricsRegisterer)
 	commonLggr := commonlogger.NewOCRWrapper(lggr, true, func(string) {})
 
+	peerKeyring, err := newPeerKeyringWithPrivateKey(cfg.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
 	host, err := ragep2p.NewHost(
 		ragep2p.HostConfig{DurationBetweenDials: cfg.DeltaDial},
-		cfg.PrivateKey,
+		peerKeyring,
 		cfg.ListenAddresses,
 		discoverer,
 		commonLggr,
@@ -233,4 +239,29 @@ func (p *peer) HealthReport() map[string]error {
 
 func (p *peer) Name() string {
 	return p.lggr.Name()
+}
+
+type peerKeyringWithPrivateKey struct {
+	privateKey    ed25519.PrivateKey
+	peerPublicKey ragetypes.PeerPublicKey
+}
+
+var _ ragetypes.PeerKeyring = &peerKeyringWithPrivateKey{}
+
+func newPeerKeyringWithPrivateKey(privateKey ed25519.PrivateKey) (*peerKeyringWithPrivateKey, error) {
+	peerPublicKey, err := ragetypes.PeerPublicKeyFromGenericPublicKey(privateKey.Public())
+	if err != nil {
+		return nil, fmt.Errorf("StaticallySizedEd25519PublicKey failed even though sanity check succeeded: %w", err)
+	}
+	return &peerKeyringWithPrivateKey{privateKey, peerPublicKey}, nil
+}
+
+// PublicKey implements ragetypes.PeerKeyring.
+func (s *peerKeyringWithPrivateKey) PublicKey() ragetypes.PeerPublicKey {
+	return s.peerPublicKey
+}
+
+// Sign implements ragetypes.PeerKeyring.
+func (s *peerKeyringWithPrivateKey) Sign(msg []byte) (signature []byte, err error) {
+	return ed25519.Sign(s.privateKey, msg), nil
 }

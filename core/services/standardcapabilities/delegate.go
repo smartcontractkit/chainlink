@@ -50,6 +50,7 @@ type Delegate struct {
 	peerWrapper             *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
 	computeFetcherFactoryFn compute.FetcherFactory
+	selectorOpts            []func(*webapi.RoundRobinSelector)
 
 	isNewlyCreatedJob bool
 }
@@ -76,6 +77,7 @@ func NewDelegate(
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	fetcherFactoryFn compute.FetcherFactory,
+	opts ...func(*webapi.RoundRobinSelector),
 ) *Delegate {
 	return &Delegate{
 		logger:                  logger,
@@ -92,6 +94,7 @@ func NewDelegate(
 		peerWrapper:             peerWrapper,
 		newOracleFactoryFn:      newOracleFactoryFn,
 		computeFetcherFactoryFn: fetcherFactoryFn,
+		selectorOpts:            opts,
 	}
 }
 
@@ -220,7 +223,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, err
 		}
 		lggr := d.logger.Named("WebAPITarget")
-		handler, err := webapi.NewOutgoingConnectorHandler(connector, targetCfg, capabilities.MethodWebAPITarget, lggr)
+		handler, err := webapi.NewOutgoingConnectorHandler(connector, targetCfg, capabilities.MethodWebAPITarget, lggr, d.selectorOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -250,7 +253,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 			lggr := d.logger.Named("ComputeAction")
 
-			handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), cfg.ServiceConfig, capabilities.MethodComputeAction, lggr)
+			handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), cfg.ServiceConfig, capabilities.MethodComputeAction, lggr, d.selectorOpts...)
 			if err != nil {
 				return nil, err
 			}
