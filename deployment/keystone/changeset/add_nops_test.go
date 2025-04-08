@@ -42,7 +42,7 @@ func TestAddNops(t *testing.T) {
 		}
 		csOut, err := changeset.AddNops(te.Env, req)
 		require.NoError(t, err)
-		require.Empty(t, csOut.Proposals)
+		require.Empty(t, csOut.MCMSTimelockProposals)
 		require.Nil(t, csOut.AddressBook)
 		assertNopsExist(t, te.CapabilitiesRegistry(), nops...)
 		t.Run("idempotent", func(t *testing.T) {
@@ -74,7 +74,7 @@ func TestAddNops(t *testing.T) {
 		}
 		csOut, err := changeset.AddNops(te.Env, req)
 		require.NoError(t, err)
-		require.Len(t, csOut.Proposals, 1)
+		require.Len(t, csOut.MCMSTimelockProposals, 1)
 		require.Nil(t, csOut.AddressBook)
 
 		// now apply the changeset such that the proposal is signed and execed
