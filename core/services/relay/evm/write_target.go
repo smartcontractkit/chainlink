@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -117,7 +118,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		ContractReader:   cr,
 		ChainWriter:      cw,
 		ConfigValidateFn: evaluate,
-		NodeAddress:      "nil",
+		NodeAddress:      config.FromAddress().String(),
 		ForwarderAddress: config.ForwarderAddress().String(),
 		TargetStrategy:   NewEVMTargetStrategy(cr, cw, config.ForwarderAddress().String(), gasLimitDefault, lggr),
 	}
@@ -262,13 +263,27 @@ func getChainInfo(chainID uint64) (monitor.ChainInfo, error) {
 		return monitor.ChainInfo{}, fmt.Errorf("failed to get chain details for chain %d and family %s: %w", chainID, chainFamily, err)
 	}
 
+	neworkName, err := ExtractNetwork(chainDetails.ChainName)
+	if err != nil {
+		return monitor.ChainInfo{}, fmt.Errorf("failed to get network name for chain %d: %w", chainID, err)
+	}
+
 	return monitor.ChainInfo{
 		ChainFamilyName: chainFamily,
 		ChainID:         strconv.Itoa(int(chainID)),
-		NetworkName:     chainDetails.ChainName,
-		// TODO: not sure what the difference between NetworkName and NetworkNameFull is
-		NetworkNameFull: "",
+		NetworkName:     neworkName,
+		NetworkNameFull: chainDetails.ChainName,
 	}, nil
+}
+
+func ExtractNetwork(selector string) (string, error) {
+	// Create a regexp pattern that matches any of the three.
+	re := regexp.MustCompile(`(mainnet|testnet|devnet)`)
+	name := re.FindString(selector)
+	if name == "" {
+		return "", fmt.Errorf("failed to extract network name from selector: %s", selector)
+	}
+	return name, nil
 }
 
 func GenerateWriteTargetName(chainID uint64) string {
