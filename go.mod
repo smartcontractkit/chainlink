@@ -18,7 +18,7 @@ require (
 	github.com/dominikbraun/graph v0.23.0
 	github.com/doyensec/safeurl v0.2.1
 	github.com/esote/minmaxheap v1.0.0
-	github.com/ethereum/go-ethereum v1.15.7
+	github.com/ethereum/go-ethereum v1.15.3
 	github.com/fatih/color v1.18.0
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/gagliardetto/binary v0.8.0
@@ -82,7 +82,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250325191518-036bb568a69d
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250407094203-82c959593df2
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
-	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250407232620-0647c811e8e3
+	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250408001240-a72a1f16cff7
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250325121830-cfa9bf24c4f5
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250402183906-b7e976bc0c24
@@ -114,7 +114,7 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.36.0
 	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa
-	golang.org/x/mod v0.24.0
+	golang.org/x/mod v0.23.0
 	golang.org/x/sync v0.12.0
 	golang.org/x/term v0.30.0
 	golang.org/x/time v0.10.0
@@ -315,7 +315,7 @@ require (
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
-	github.com/smartcontractkit/chainlink-evm/capabilities v0.0.0-20250407230636-a68528440eb2 // indirect
+	github.com/smartcontractkit/chainlink-evm/capabilities v0.0.0-20250408001113-f835ed8de109 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
@@ -327,8 +327,8 @@ require (
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
-	github.com/tklauser/go-sysconf v0.3.15 // indirect
-	github.com/tklauser/numcpus v0.10.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.13 // indirect
+	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect

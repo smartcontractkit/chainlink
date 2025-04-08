@@ -28,7 +28,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.47
-	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407221007-b26aef17d389
+	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407100046-dfdf9600557b
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250325191518-036bb568a69d
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250407094203-82c959593df2
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
@@ -64,7 +64,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.17.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
-	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.3.2 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
@@ -129,8 +129,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240821051457-da69c6d9617a // indirect
-	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.15.2 // indirect
-	github.com/cloudevents/sdk-go/v2 v2.16.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
@@ -169,14 +167,13 @@ require (
 	github.com/dgraph-io/ristretto v0.1.2-0.20240116140435-c67e07994f91 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v28.0.4+incompatible // indirect
+	github.com/docker/docker v27.5.1+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dominikbraun/graph v0.23.0 // indirect
 	github.com/doyensec/safeurl v0.2.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.7.0 // indirect
-	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/edsrzf/mmap-go v1.2.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/esote/minmaxheap v1.0.0 // indirect
@@ -330,8 +327,8 @@ require (
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/linxGnu/grocksdb v1.9.3 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
-	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
-	github.com/magiconair/properties v1.8.9 // indirect
+	github.com/lufia/plan9stats v0.0.0-20240226150601-1dcf7310316a // indirect
+	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/marcboeker/go-duckdb v1.8.3 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -355,7 +352,7 @@ require (
 	github.com/moby/sys/sequential v0.6.0 // indirect
 	github.com/moby/sys/user v0.3.0 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
-	github.com/moby/term v0.5.2 // indirect
+	github.com/moby/term v0.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
@@ -375,7 +372,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil v0.116.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/deltatocumulativeprocessor v0.116.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.1 // indirect
+	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/opentracing-contrib/go-grpc v0.1.1 // indirect
 	github.com/opentracing-contrib/go-stdlib v1.1.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect
@@ -420,15 +417,15 @@ require (
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
-	github.com/shirou/gopsutil/v4 v4.25.2 // indirect
+	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250407102550-fbd77983055c // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250331144401-209a0783b7d2 // indirect
-	github.com/smartcontractkit/chainlink-evm/capabilities v0.0.0-20250407230636-a68528440eb2 // indirect
+	github.com/smartcontractkit/chainlink-evm/capabilities v0.0.0-20250408001113-f835ed8de109 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
-	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250407232620-0647c811e8e3 // indirect
+	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250408001240-a72a1f16cff7 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250325121830-cfa9bf24c4f5 // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3 // indirect
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250402183906-b7e976bc0c24 // indirect
@@ -438,7 +435,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250404135440-77cf27b13c10 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
-	github.com/smartcontractkit/mcms v0.16.1 // indirect
+	github.com/smartcontractkit/mcms v0.14.0 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250318131857-4568a0f8d12d // indirect
@@ -450,14 +447,14 @@ require (
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/testcontainers/testcontainers-go v0.36.0 // indirect
+	github.com/testcontainers/testcontainers-go v0.35.0 // indirect
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tjhop/slog-gokit v0.1.3 // indirect
-	github.com/tklauser/go-sysconf v0.3.15 // indirect
-	github.com/tklauser/numcpus v0.10.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.13 // indirect
+	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/uber/jaeger-client-go v2.30.0+incompatible // indirect
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
@@ -490,7 +487,7 @@ require (
 	go.opentelemetry.io/collector/semconv v0.118.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.59.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 // indirect
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.10.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.10.0 // indirect
@@ -519,7 +516,7 @@ require (
 	golang.org/x/arch v0.11.0 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa // indirect
-	golang.org/x/mod v0.24.0 // indirect
+	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/oauth2 v0.26.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect

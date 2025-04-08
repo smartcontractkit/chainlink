@@ -35,7 +35,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.47
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250407102550-fbd77983055c
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250331144401-209a0783b7d2
-	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407221007-b26aef17d389
+	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407100046-dfdf9600557b
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250407094203-82c959593df2
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250402183906-b7e976bc0c24
@@ -45,14 +45,14 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22
 	github.com/smartcontractkit/libocr v0.0.0-20250328171017-609ec10a5510
-	github.com/smartcontractkit/mcms v0.16.1
+	github.com/smartcontractkit/mcms v0.14.0
 	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
-	github.com/testcontainers/testcontainers-go v0.36.0
+	github.com/testcontainers/testcontainers-go v0.35.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa
-	golang.org/x/mod v0.24.0
+	golang.org/x/mod v0.23.0
 	golang.org/x/oauth2 v0.26.0
 	golang.org/x/sync v0.12.0
 	google.golang.org/grpc v1.71.0
@@ -73,7 +73,7 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
-	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/DataDog/zstd v1.5.6-0.20230824185856-869dae002e5e // indirect
@@ -129,8 +129,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240821051457-da69c6d9617a // indirect
-	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.15.2 // indirect
-	github.com/cloudevents/sdk-go/v2 v2.16.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
@@ -164,7 +162,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.3.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.2-0.20240116140435-c67e07994f91 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v28.0.4+incompatible // indirect
+	github.com/docker/docker v27.4.1+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dominikbraun/graph v0.23.0 // indirect
@@ -290,7 +288,7 @@ require (
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/linxGnu/grocksdb v1.9.3 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
-	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
+	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/marcboeker/go-duckdb v1.8.3 // indirect
@@ -311,7 +309,7 @@ require (
 	github.com/moby/sys/sequential v0.6.0 // indirect
 	github.com/moby/sys/user v0.3.0 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
-	github.com/moby/term v0.5.2 // indirect
+	github.com/moby/term v0.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
@@ -362,9 +360,9 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250325191518-036bb568a69d // indirect
-	github.com/smartcontractkit/chainlink-evm/capabilities v0.0.0-20250407230636-a68528440eb2 // indirect
+	github.com/smartcontractkit/chainlink-evm/capabilities v0.0.0-20250408001113-f835ed8de109 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
-	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250407232620-0647c811e8e3 // indirect
+	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250408001240-a72a1f16cff7 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250325121830-cfa9bf24c4f5 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
@@ -384,8 +382,8 @@ require (
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
-	github.com/tklauser/go-sysconf v0.3.15 // indirect
-	github.com/tklauser/numcpus v0.10.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.13 // indirect
+	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/urfave/cli/v2 v2.27.5 // indirect
@@ -405,7 +403,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 // indirect
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.10.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.10.0 // indirect
