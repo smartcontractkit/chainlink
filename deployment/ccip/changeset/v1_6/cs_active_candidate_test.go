@@ -100,6 +100,7 @@ func Test_ActiveCandidate(t *testing.T) {
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
 			v1_6.UpdateRouterRampsConfig{
+				BypassMCMS: true,
 				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// onRamp update on source chain
 					source: {

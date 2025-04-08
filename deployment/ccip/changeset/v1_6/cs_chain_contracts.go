@@ -1239,6 +1239,9 @@ type UpdateRouterRampsConfig struct {
 	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
 	// Never use this option when running this changeset in isolation.
 	SkipOwnershipCheck bool
+	// BypassMCMS allows you to bypass the enforcement of MCMS for updates to the main router.
+	// WARNING: This should only be used in staging environments where MCMS is not used. NEVER use this option in production.
+	BypassMCMS bool
 }
 
 func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -1260,17 +1263,19 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
+		if !cfg.TestRouter && cfg.MCMS == nil && !cfg.BypassMCMS {
+			return fmt.Errorf("must provide an MCMS config if activating ramps on the main router (use BypassMCMS to skip this check in staging envs)")
+		}
 		if !cfg.SkipOwnershipCheck {
 			if cfg.TestRouter {
 				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
 					return err
 				}
 			} else {
-				// If we activating ramps on the main router, we should validate two things:
+				// If we are activating ramps on the main router, we should validate two things:
 				//   1. All expected CCIP contracts exist on the chain.
 				//   2. All contracts have the expected owner.
 				// That way, if cfg.MCMS exists, we ensure that every contract is owned by MCMS.
-				// TODO: What if someone forgets to transfer ownership of all contracts and forgets to input cfg.MCMS?
 				ownedContracts := map[string]commoncs.Ownable{
 					"router":             chainState.Router,
 					"feeQuoter":          chainState.FeeQuoter,

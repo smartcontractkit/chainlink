@@ -848,6 +848,7 @@ func addEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
 			v1_6.UpdateRouterRampsConfig{
 				TestRouter: isTestRouter,
+				BypassMCMS: true,
 				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// onRamp update on source chain
 					from: {
@@ -882,6 +883,7 @@ func addEVMDestChangesets(e *DeployedEnv, to, from uint64, isTestRouter bool) []
 			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
 			v1_6.UpdateRouterRampsConfig{
 				TestRouter: isTestRouter,
+				BypassMCMS: true,
 				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// offramp update on dest chain
 					to: {
@@ -903,6 +905,7 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 		commoncs.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
 			v1_6.UpdateRouterRampsConfig{
+				BypassMCMS: true,
 				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// onRamp update on source chain
 					src: {
