@@ -1,0 +1,30 @@
+---
+beholder:
+  domain: platform
+  schemas:
+    - entity: WorkflowMetadata
+      schema: "events-metadata.proto"
+    - entity: CapabilityExecutionFinished
+      schema: "events-capability-finished.proto"
+      references:
+        - name: "events-metadata.proto"
+          subject: "beholder__platform__messages-pb.WorkflowMetadata"
+          version: 1
+    - entity: CapabilityExecutionStarted
+      schema: "events-capability-started.proto"
+      references:
+        - name: "events-metadata.proto"
+          subject: "beholder__platform__messages-pb.WorkflowMetadata"
+          version: 1
+    - entity: WorkflowExecutionFinished
+      schema: "events-workflow-finished.proto"
+      references:
+        - name: "events-metadata.proto"
+          subject: "beholder__platform__messages-pb.WorkflowMetadata"
+          version: 1
+    - entity: WorkflowExecutionStarted
+      schema: "events-workflow-started.proto"
+      references:
+        - name: "events-metadata.proto"
+          subject: "beholder__platform__messages-pb.WorkflowMetadata"
+          version: 1
