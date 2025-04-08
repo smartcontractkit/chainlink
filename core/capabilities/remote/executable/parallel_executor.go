@@ -8,6 +8,7 @@ import (
 )
 
 type parallelExecutor struct {
+	services.StateMachine
 	wg       sync.WaitGroup
 	stopChan services.StopChan
 
@@ -29,14 +30,16 @@ func newParallelExecutor(maxParallelTasks int) *parallelExecutor {
 func (t *parallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.Context)) error {
 	select {
 	case t.taskSemaphore <- struct{}{}:
-		t.wg.Add(1)
-		go func() {
-			ctxWithStop, cancel := t.stopChan.Ctx(ctx)
-			fn(ctxWithStop)
-			cancel()
-			<-t.taskSemaphore
-			t.wg.Done()
-		}()
+		t.IfNotStopped(func() {
+			t.wg.Add(1)
+			go func() {
+				ctxWithStop, cancel := t.stopChan.Ctx(ctx)
+				fn(ctxWithStop)
+				cancel()
+				<-t.taskSemaphore
+				t.wg.Done()
+			}()
+		})
 	case <-t.stopChan:
 		return nil
 	case <-ctx.Done():
@@ -46,7 +49,20 @@ func (t *parallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.
 	return nil
 }
 
-func (t *parallelExecutor) Close() {
-	close(t.stopChan)
-	t.wg.Wait()
+func (t *parallelExecutor) Start(ctx context.Context) error {
+	return t.StartOnce(t.Name(), func() error {
+		return nil
+	})
+}
+
+func (t *parallelExecutor) Close() error {
+	return t.StopOnce(t.Name(), func() error {
+		close(t.stopChan)
+		t.wg.Wait()
+		return nil
+	})
+}
+
+func (t *parallelExecutor) Name() string {
+	return "ParallelExecutor"
 }

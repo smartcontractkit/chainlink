@@ -110,14 +110,23 @@ func (r *server) Start(ctx context.Context) error {
 					r.expireRequests()
 				}
 			}
+
 		}()
+
+		err := r.parallelExecutor.Start(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start parallel executor: %w", err)
+		}
 		return nil
 	})
 }
 
 func (r *server) Close() error {
 	return r.StopOnce(r.Name(), func() error {
-		r.parallelExecutor.Close()
+		err := r.parallelExecutor.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close parallel executor: %w", err)
+		}
 
 		close(r.stopCh)
 		r.wg.Wait()
