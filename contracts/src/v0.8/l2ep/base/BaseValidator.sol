@@ -53,29 +53,6 @@ abstract contract BaseValidator is SimpleWriteAccessController, AggregatorValida
     emit ConfigUpdated(l1CrossDomainMessengerAddress, l2UptimeFeedAddr, gasLimit);
   }
 
-  /// @notice validate method uses _validate to send an xDomain L2 tx to update Uptime Feed contract on L2.
-  /// @param previousRoundId previous aggregator OCR round id
-  /// @param previousAnswer previous aggregator answer
-  /// @param currentRoundId current aggregator OCR round id
-  /// @param currentAnswer new aggregator answer - value of 1 considers the service offline.
-  function validate(
-    uint256 previousRoundId,
-    int256 previousAnswer,
-    uint256 currentRoundId,
-    int256 currentAnswer
-  ) external virtual override checkAccess returns (bool) {
-    bool status = _validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
-    emit ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
-    return status;
-  }
-
-  function _validate(
-    uint256 /* previousRoundId */,
-    int256 /* previousAnswer */,
-    uint256 /* currentRoundId */,
-    int256 currentAnswer
-  ) internal virtual returns (bool);
-
   /// @notice fetches the gas cost of sending a cross chain message
   function getGasLimit() external view returns (uint32) {
     return s_gasLimit;
