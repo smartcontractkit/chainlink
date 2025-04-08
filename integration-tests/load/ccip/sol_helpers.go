@@ -65,7 +65,8 @@ func subscribeSolTransmitEvents(
 			lggr.Debugw("received transmit event for",
 				"srcChain", srcChainSel,
 				"destChain", event.DestinationChainSelector,
-				"sequenceNumber", event.SequenceNumber)
+				"sequenceNumber", event.SequenceNumber,
+				"timestamp", uint64(*eventWithTxn.Txn.BlockTime))
 
 			data := messageData{
 				eventType: transmitted,
@@ -176,7 +177,8 @@ func subscribeSolCommitEvents(
 				"sourceChain", mr.SourceChainSelector,
 				"destChain", chainSelector,
 				"minSeqNr", mr.MinSeqNr,
-				"maxSeqNr", mr.MaxSeqNr)
+				"maxSeqNr", mr.MaxSeqNr,
+				"timestamp", uint64(*eventWithTx.Txn.BlockTime))
 
 			// push metrics to state manager for eventual distribution to loki
 			for i := mr.MinSeqNr; i <= mr.MaxSeqNr; i++ {
@@ -296,7 +298,7 @@ func subscribeSolExecutionEvents(
 				"destChain", chainSelector,
 				"sourceChain", event.SourceChainSelector,
 				"sequenceNumber", event.SequenceNumber,
-				"slot", eventWithTxn.Txn.Slot)
+				"timestamp", uint64(*eventWithTxn.Txn.BlockTime))
 			// push metrics to loki here
 			data := messageData{
 				eventType: executed,
