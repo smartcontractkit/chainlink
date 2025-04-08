@@ -10,8 +10,9 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
