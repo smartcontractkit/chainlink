@@ -174,7 +174,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 			require.NoError(t, err)
 			require.Equal(t, uint8(9), remoteChainConfigAccount.Base.Remote.Decimals)
 			e.Logger.Infof("Pool addresses: %v", remoteChainConfigAccount.Base.Remote.PoolAddresses)
-			require.Equal(t, 1, len(remoteChainConfigAccount.Base.Remote.PoolAddresses))
+			require.Len(t, remoteChainConfigAccount.Base.Remote.PoolAddresses, 1)
 			require.Equal(t, inboundConfig.Enabled, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Enabled)
 			require.Equal(t, outboundConfig.Enabled, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Enabled)
 
@@ -310,7 +310,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 			require.NoError(t, err)
 			require.Equal(t, newInboundConfig.Enabled, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Enabled)
 			require.Equal(t, newOutboundConfig.Enabled, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Enabled)
-			require.Equal(t, 2, len(remoteChainConfigAccount.Base.Remote.PoolAddresses))
+			require.Len(t, remoteChainConfigAccount.Base.Remote.PoolAddresses, 2)
 
 			if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType && tokenAddress == newTokenAddress {
 				e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{

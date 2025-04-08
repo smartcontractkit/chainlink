@@ -78,7 +78,7 @@ func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, po
 	for _, ixn := range instructions {
 		tx, err := BuildMCMSTxn(ixn, tokenPool.String(), poolType)
 		if err != nil {
-			fmt.Errorf("failed to generate mcms txn: %w", err)
+			return fmt.Errorf("failed to generate mcms txn: %w", err)
 		}
 		*txns = append(*txns, *tx)
 	}
@@ -88,10 +88,10 @@ func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, po
 // get rate limit config for remote chain
 func getRateLimitConfig(
 	e deployment.Environment, cfg RemoteChainTokenPoolConfig, remoteChainConfigAccount solBaseTokenPool.BaseChain,
-) (bool, *solBaseTokenPool.RateLimitConfig, *solBaseTokenPool.RateLimitConfig) {
-	inboundRateLimit := cfg.InboundRateLimit
-	outboundRateLimit := cfg.OutboundRateLimit
-	setRateLimit := false // it will remain false if its not a new remote chain and there is no rate limit update
+) (setRateLimit bool, inboundRateLimit *solBaseTokenPool.RateLimitConfig, outboundRateLimit *solBaseTokenPool.RateLimitConfig) {
+	inboundRateLimit = cfg.InboundRateLimit
+	outboundRateLimit = cfg.OutboundRateLimit
+	setRateLimit = false // it will turn true if its a new remote chain and there is a rate limit update
 	// check if there is a rate limit update
 	if !cfg.IsUpdate {
 		setRateLimit = true
@@ -128,10 +128,12 @@ func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAdd
 }
 
 // get pool pdas
-func getPoolPDAs(solTokenPubKey string, poolAddress solana.PublicKey, remoteChainSelector uint64) (solana.PublicKey, solana.PublicKey, solana.PublicKey) {
-	tokenPubKey := solana.MustPublicKeyFromBase58(solTokenPubKey)
-	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, poolAddress)
-	remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(remoteChainSelector, tokenPubKey, poolAddress)
+func getPoolPDAs(
+	solTokenPubKey string, poolAddress solana.PublicKey, remoteChainSelector uint64,
+) (tokenPubKey solana.PublicKey, poolConfigPDA solana.PublicKey, remoteChainConfigPDA solana.PublicKey) {
+	tokenPubKey = solana.MustPublicKeyFromBase58(solTokenPubKey)
+	poolConfigPDA, _ = solTokenUtil.TokenPoolConfigAddress(tokenPubKey, poolAddress)
+	remoteChainConfigPDA, _, _ = solTokenUtil.TokenPoolChainConfigPDA(remoteChainSelector, tokenPubKey, poolAddress)
 	return tokenPubKey, poolConfigPDA, remoteChainConfigPDA
 }
 
