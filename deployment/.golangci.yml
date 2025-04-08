@@ -186,3 +186,8 @@ issues:
       text: "^confusing-naming:"
       linters:
         - revive
+    # ignore false positive by revive on function names for BaseDataStore interface implementations 
+    - path: datastore/memory_datastore.go
+      text: "^confusing-naming:"
+      linters:
+        - revive

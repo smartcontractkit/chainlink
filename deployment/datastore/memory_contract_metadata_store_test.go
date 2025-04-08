@@ -12,13 +12,13 @@ func TestMemoryContractMetadataStore_indexOf(t *testing.T) {
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
 			Address:       "0x2324224",
-			Metadata:      DefaultMetadata("metadata1"),
+			Metadata:      DefaultMetadata{Data: "metadata1"},
 		}
 
 		recordTwo = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 2,
 			Address:       "0x2324224",
-			Metadata:      DefaultMetadata("metadata2"),
+			Metadata:      DefaultMetadata{Data: "metadata2"},
 		}
 	)
 
@@ -61,7 +61,7 @@ func TestMemoryContractMetadataStore_Add(t *testing.T) {
 		record = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
 			Address:       "0x2324224",
-			Metadata:      "metadata1",
+			Metadata:      DefaultMetadata{Data: "metadata1"},
 		}
 	)
 
@@ -111,13 +111,13 @@ func TestMemoryContractMetadataStore_AddOrUpdate(t *testing.T) {
 		oldRecord = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
 			Address:       "0x2324224",
-			Metadata:      DefaultMetadata("metadata1"),
+			Metadata:      DefaultMetadata{Data: "metadata1"},
 		}
 
 		newRecord = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
 			Address:       "0x2324224",
-			Metadata:      DefaultMetadata("metadata2"),
+			Metadata:      DefaultMetadata{Data: "metadata2"},
 		}
 	)
 
@@ -164,13 +164,13 @@ func TestMemoryContractMetadataStore_Update(t *testing.T) {
 		oldRecord = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
 			Address:       "0x2324224",
-			Metadata:      DefaultMetadata("metadata1"),
+			Metadata:      DefaultMetadata{Data: "metadata1"},
 		}
 
 		newRecord = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
 			Address:       "0x2324224",
-			Metadata:      DefaultMetadata("metadata2"),
+			Metadata:      DefaultMetadata{Data: "metadata2"},
 		}
 	)
 
@@ -220,19 +220,19 @@ func TestMemoryMemoryContractMetadataStore_Delete(t *testing.T) {
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
 			Address:       "0x2324224",
-			Metadata:      "metadata1",
+			Metadata:      DefaultMetadata{Data: "metadata1"},
 		}
 
 		recordTwo = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 2,
 			Address:       "0x2324224",
-			Metadata:      "metadata2",
+			Metadata:      DefaultMetadata{Data: "metadata2"},
 		}
 
 		recordThree = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 3,
 			Address:       "0x2324224",
-			Metadata:      "metadata3",
+			Metadata:      DefaultMetadata{Data: "metadata3"},
 		}
 	)
 
@@ -288,13 +288,13 @@ func TestMemoryContractMetadataStore_Fetch(t *testing.T) {
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
 			Address:       "0x2324224",
-			Metadata:      "metadata1",
+			Metadata:      DefaultMetadata{Data: "metadata1"},
 		}
 
 		recordTwo = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 2,
 			Address:       "0x2324224",
-			Metadata:      "metadata2",
+			Metadata:      DefaultMetadata{Data: "metadata2"},
 		}
 	)
 
@@ -345,13 +345,13 @@ func TestMemoryContractMetadataStore_Get(t *testing.T) {
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
 			Address:       "0x2324224",
-			Metadata:      "metadata1",
+			Metadata:      DefaultMetadata{Data: "metadata1"},
 		}
 
 		recordTwo = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 2,
 			Address:       "0x2324224",
-			Metadata:      "metadata2",
+			Metadata:      DefaultMetadata{Data: "metadata2"},
 		}
 	)
 
@@ -401,19 +401,19 @@ func TestMemoryContractMetadataStore_Filter(t *testing.T) {
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
 			Address:       "0x2324224",
-			Metadata:      DefaultMetadata("metadata1"),
+			Metadata:      DefaultMetadata{Data: "metadata1"},
 		}
 
 		recordTwo = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 2,
 			Address:       "0x2324224",
-			Metadata:      DefaultMetadata("metadata2"),
+			Metadata:      DefaultMetadata{Data: "metadata2"},
 		}
 
 		recordThree = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 3,
 			Address:       "0x2324224",
-			Metadata:      DefaultMetadata("metadata3"),
+			Metadata:      DefaultMetadata{Data: "metadata3"},
 		}
 	)
 
