@@ -15,9 +15,9 @@ func TestGetDecimalsFromFeedIDValidFeedID(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint8(0x40), decimals)
 
-	decimals, err = GetDecimalsFromFeedID("0x01d0fd1ef80003ff0000000000000000") // invalid bytes for decimal
+	_, err = GetDecimalsFromFeedID("0x01d0fd1ef80003ff0000000000000000") // invalid bytes for decimal
 	require.Error(t, err)
 
-	decimals, err = GetDecimalsFromFeedID("0x00") // invalid feed id
+	_, err = GetDecimalsFromFeedID("0x00") // invalid feed id
 	require.Error(t, err)
 }

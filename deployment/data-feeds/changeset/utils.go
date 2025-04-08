@@ -74,7 +74,7 @@ func GetDecimalsFromFeedID(feedID string) (uint8, error) {
 	}
 
 	if feedIDBytes[7] >= 0x20 && feedIDBytes[7] <= 0x60 {
-		return uint8(feedIDBytes[7]) - 32, nil
+		return feedIDBytes[7] - 32, nil
 	}
 
 	return 0, nil
