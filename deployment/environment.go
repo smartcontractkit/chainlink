@@ -104,7 +104,7 @@ type Environment struct {
 	Name              string
 	Logger            logger.Logger
 	ExistingAddresses AddressBook
-	ExistingDataStore datastore.DataStore[
+	DataStore         datastore.DataStore[
 		datastore.DefaultMetadata,
 		datastore.DefaultMetadata,
 	]
@@ -124,7 +124,7 @@ func NewEnvironment(
 	name string,
 	logger logger.Logger,
 	existingAddrs AddressBook,
-	existingDataStore datastore.DataStore[
+	dataStore datastore.DataStore[
 		datastore.DefaultMetadata,
 		datastore.DefaultMetadata,
 	],
@@ -139,7 +139,7 @@ func NewEnvironment(
 		Name:              name,
 		Logger:            logger,
 		ExistingAddresses: existingAddrs,
-		ExistingDataStore: existingDataStore,
+		DataStore:         dataStore,
 		Chains:            chains,
 		SolChains:         solChains,
 		NodeIDs:           nodeIDs,
