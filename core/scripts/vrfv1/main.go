@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	vrfltoc "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_load_test_ownerless_consumer"
 	vrfoc "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_ownerless_consumer_example"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"

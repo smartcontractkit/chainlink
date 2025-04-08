@@ -6,15 +6,15 @@ import (
 	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
-	client "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	client "github.com/smartcontractkit/chainlink-evm/pkg/client"
 
-	config "github.com/smartcontractkit/chainlink-integrations/evm/config"
+	config "github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	context "context"
 
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	gas "github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	gas "github.com/smartcontractkit/chainlink-evm/pkg/gas"
 
 	heads "github.com/smartcontractkit/chainlink-framework/chains/heads"
 
@@ -22,11 +22,11 @@ import (
 
 	logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	logpoller "github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	logpoller "github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	mock "github.com/stretchr/testify/mock"
 
-	monitor "github.com/smartcontractkit/chainlink-integrations/evm/monitor"
+	monitor "github.com/smartcontractkit/chainlink-evm/pkg/monitor"
 
 	txmgr "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 

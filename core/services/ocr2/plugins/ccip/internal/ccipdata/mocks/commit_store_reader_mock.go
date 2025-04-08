@@ -9,7 +9,7 @@ import (
 
 	context "context"
 
-	gas "github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	gas "github.com/smartcontractkit/chainlink-evm/pkg/gas"
 
 	mock "github.com/stretchr/testify/mock"
 

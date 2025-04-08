@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	cltypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
 var compatibleUtils = cltypes.MustGetABI(ac.AutomationCompatibleUtilsABI)
