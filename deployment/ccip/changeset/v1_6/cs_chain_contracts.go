@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
+	"golang.org/x/sync/errgroup"
 
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -1265,8 +1266,33 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 					return err
 				}
 			} else {
-				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
-					return err
+				// If we activating ramps on the main router, we should validate two things:
+				//   1. All expected CCIP contracts exist on the chain.
+				//   2. All contracts have the expected owner.
+				// That way, if cfg.MCMS exists, we ensure that every contract is owned by MCMS.
+				// TODO: What if someone forgets to transfer ownership of all contracts and forgets to input cfg.MCMS?
+				ownedContracts := map[string]commoncs.Ownable{
+					"router":             chainState.Router,
+					"feeQuoter":          chainState.FeeQuoter,
+					"offRamp":            chainState.OffRamp,
+					"onRamp":             chainState.OnRamp,
+					"nonceManager":       chainState.NonceManager,
+					"rmnRemote":          chainState.RMNRemote,
+					"rmnProxy":           chainState.RMNProxy,
+					"tokenAdminRegistry": chainState.TokenAdminRegistry,
+				}
+				eg := new(errgroup.Group)
+				for contractName, contract := range ownedContracts {
+					if contract == nil {
+						return fmt.Errorf("missing %s contract for chain with selector %d", contractName, chainSel)
+					}
+					eg.Go(func() error {
+						return commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), contract)
+					})
+				}
+				err := eg.Wait()
+				if err != nil {
+					return fmt.Errorf("failed to validate ownership of contracts on chain with selector %d: %w", chainSel, err)
 				}
 			}
 		}
