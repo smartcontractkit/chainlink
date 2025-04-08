@@ -427,55 +427,32 @@ func checkFinalityViolations(
 			lpHealth := getServiceHealth(logPollerServiceName, resp.Data)
 			htHealth := getServiceHealth(headTrackerServiceName, resp.Data)
 			var lpViolated, htViolated bool
-			if lpHealth.Status == "failing" {
-				if lpHealth.Output == commontypes.ErrFinalityViolated.Error() {
-					logPollerViolated++
-					lpViolated = true
-					l.Info().
-						Str("p2pKey", p2pKeys.Data[0].Attributes.PeerID).
-						Str("output", lpHealth.Output).
-						Str("logPollerService", logPollerServiceName).
-						Msg("Log poller finality violation")
-				} else {
-					l.Info().
-						Str("p2pKey", p2pKeys.Data[0].Attributes.PeerID).
-						Str("output", lpHealth.Output).
-						Str("logPollerService", logPollerServiceName).
-						Msg("Log poller unhealthy but not finality violation")
-				}
-			} else {
-				l.Info().
-					Str("p2pKey", p2pKeys.Data[0].Attributes.PeerID).
-					Str("status", lpHealth.Status).
-					Str("output", lpHealth.Output).
-					Str("logPollerService", logPollerServiceName).
-					Msg("Log poller health")
+			if lpHealth.Status == "failing" && lpHealth.Output == commontypes.ErrFinalityViolated.Error() {
+				logPollerViolated++
+				lpViolated = true
 			}
 
-			if htHealth.Status == "failing" {
-				if htHealth.Output == commontypes.ErrFinalityViolated.Error() || strings.Contains(htHealth.Output, "finality violated") {
-					headTrackerViolated++
-					htViolated = true
-					l.Info().
-						Str("p2pKey", p2pKeys.Data[0].Attributes.PeerID).
-						Str("output", htHealth.Output).
-						Str("headTrackerService", headTrackerServiceName).
-						Msg("Head tracker finality violation")
-				} else {
-					l.Info().
-						Str("p2pKey", p2pKeys.Data[0].Attributes.PeerID).
-						Str("output", htHealth.Output).
-						Str("headTrackerService", headTrackerServiceName).
-						Msg("Head tracker unhealthy but not finality violation")
-				}
-			} else {
+			if htHealth.Status == "failing" && (htHealth.Output == commontypes.ErrFinalityViolated.Error() || strings.Contains(htHealth.Output, "finality violated")) {
+				headTrackerViolated++
+				htViolated = true
 				l.Info().
 					Str("p2pKey", p2pKeys.Data[0].Attributes.PeerID).
-					Str("status", htHealth.Status).
 					Str("output", htHealth.Output).
 					Str("headTrackerService", headTrackerServiceName).
-					Msg("Head tracker health")
+					Msg("Head tracker finality violation")
 			}
+
+			l.Info().
+				Str("p2pKey", p2pKeys.Data[0].Attributes.PeerID).
+				Str("htStatus", htHealth.Status).
+				Str("htOutput", htHealth.Output).
+				Str("lpStatus", lpHealth.Status).
+				Str("lpOutput", lpHealth.Output).
+				Str("headTrackerService", headTrackerServiceName).
+				Bool("headTrackerFinalityViolated", htViolated).
+				Bool("logPollerFinalityViolated", lpViolated).
+				Str("logPollerService", logPollerServiceName).
+				Msg("finality violation checks")
 
 			if lpViolated || htViolated {
 				violated++
