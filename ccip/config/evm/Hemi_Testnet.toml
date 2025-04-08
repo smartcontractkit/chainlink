@@ -1,38 +1,4 @@
 ChainID = '743111'
-ChainType = 'optimismBedrock'
-FinalityTagEnabled = true
-LogBroadcasterEnabled = false
-LogPollInterval = '4s'
-MinIncomingConfirmations = 1
-# Blocks are created in batches & sometimes takes upto 2 minutes
-NoNewHeadsThreshold = '3m'
-# Finalization takes upto 22 minutes, added some buffer
-NoNewFinalizedHeadsThreshold = '30m'
 
 [GasEstimator]
-EIP1559DynamicFees = true
-Mode = 'FeeHistory'
 PriceMax = '120 gwei'
-
-[GasEstimator.DAOracle]
-OracleType = 'opstack'
-OracleAddress = '0x420000000000000000000000000000000000000F'
-
-[GasEstimator.FeeHistory]
-# Blocks rate is on anverage of 12-24s 
-CacheTimeout = '10s'
-
-[GasEstimator.BlockHistory]
-# We want to smooth out the gas prices, so we increase the sample size.
-BlockHistorySize = 50
-
-# Blocks are created in batches & sometimes takes upto 2 minutes, increasing this value to avoid resending until the txn is seen
-[Transactions]
-ResendAfterThreshold = '2m'
-
-[HeadTracker]
-FinalityTagBypass = false
-
-[NodePool]
-SyncThreshold = 10
-NewHeadsPollInterval = "4s"
