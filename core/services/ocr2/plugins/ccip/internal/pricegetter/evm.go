@@ -149,18 +149,6 @@ func (d *DynamicPriceGetter) GetTokenPricesUSD(ctx context.Context, tokens []cci
 	return prices, nil
 }
 
-func (d *DynamicPriceGetter) getAllTokensDefined() []cciptypes.Address {
-	tokens := make([]cciptypes.Address, 0)
-
-	for addr := range d.cfg.AggregatorPrices {
-		tokens = append(tokens, ccipcalc.EvmAddrToGeneric(addr))
-	}
-	for addr := range d.cfg.StaticPrices {
-		tokens = append(tokens, ccipcalc.EvmAddrToGeneric(addr))
-	}
-	return tokens
-}
-
 // performBatchCalls performs batch calls on all chains to retrieve token prices.
 func (d *DynamicPriceGetter) performBatchCalls(
 	ctx context.Context,

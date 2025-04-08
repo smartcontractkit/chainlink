@@ -264,6 +264,7 @@ func TestDynamicPriceGetterConfig(t *testing.T) {
 			name: "valid json cfg",
 			jsonCfg: `
 				{
+					"randomFieldsAreIgnored": { "foo": "bar" },
   					"tokenPrices": [
   					  {
   					    "tokenAddress": "0x0000c05e1fba1244763a494a52272170c0000000",

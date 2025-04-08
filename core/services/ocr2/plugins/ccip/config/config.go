@@ -52,8 +52,9 @@ type DynamicPriceGetterConfig struct {
 }
 
 // IsDeprecated returns true if the config uses the deprecated fields.
+// If the config uses both old fields and the new field it is not deprecated.
 func (c *DynamicPriceGetterConfig) IsDeprecated() bool {
-	return len(c.AggregatorPrices) > 0 || len(c.StaticPrices) > 0
+	return (len(c.AggregatorPrices) > 0 || len(c.StaticPrices) > 0) && len(c.TokenPrices) == 0
 }
 
 // TokenPriceConfig specifies the configuration for a token price.
