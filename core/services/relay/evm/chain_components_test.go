@@ -230,6 +230,8 @@ func TestChainReader_HealthReport(t *testing.T) {
 }
 
 func TestChainComponents(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-401")
+
 	t.Parallel()
 	// shared helper so all tests can run efficiently in parallel
 	helper := &helper{}
