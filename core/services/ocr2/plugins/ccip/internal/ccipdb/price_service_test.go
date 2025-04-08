@@ -430,6 +430,28 @@ func TestPriceService_observeTokenPriceUpdates(t *testing.T) {
 			expErr:        true,
 			expDecimalErr: false,
 		},
+		{
+			name: "src native token address equals dest token address and dest token price missing",
+			tokenDecimalsParams: []cciptypes.Address{
+				sourceNativeTokenID.TokenAddress, // marks it as a dest token
+				destTokenIDs[1].TokenAddress,
+				destTokenIDs[2].TokenAddress,
+			},
+			tokenDecimalsResps: []uint8{12, 18, 12},
+			sourceNativeToken:  sourceNativeTokenID,
+			priceGetterRespData: map[ccipcommon.TokenID]*big.Int{ // should return all tokens (including source native token)
+				sourceNativeTokenID: val1e18(100),
+				destTokenIDs[1]:     val1e18(200),
+				destTokenIDs[2]:     val1e18(300),
+			},
+			priceGetterRespErr: nil,
+			expTokenPricesUSD: map[cciptypes.Address]*big.Int{ // should only return the tokens in destination chain
+				destTokenIDs[1].TokenAddress:     val1e18(200),
+				destTokenIDs[2].TokenAddress:     val1e18(300 * 1e6),
+				sourceNativeTokenID.TokenAddress: val1e18(100 * 1e6),
+			},
+			expErr: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -437,6 +459,15 @@ func TestPriceService_observeTokenPriceUpdates(t *testing.T) {
 			priceGetter := pricegetter.NewMockAllTokensPriceGetter(t)
 			offRampReader := ccipdatamocks.NewOffRampReader(t)
 			destPriceReg := ccipdatamocks.NewPriceRegistryReader(t)
+
+			destTokens := make([]cciptypes.Address, len(tc.tokenDecimalsParams))
+			for i, token := range tc.tokenDecimalsParams {
+				destTokens[i] = token
+			}
+			offRampReader.EXPECT().GetTokens(mock.Anything).Return(cciptypes.OffRampTokens{
+				DestinationTokens: destTokens,
+			}, nil).Maybe()
+			destPriceReg.EXPECT().GetFeeTokens(mock.Anything).Return(destTokens, nil).Maybe()
 
 			priceGetter.EXPECT().GetJobSpecTokenPricesUSD(mock.Anything).
 				Return(tc.priceGetterRespData, tc.priceGetterRespErr)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -330,6 +331,15 @@ func (p *priceService) observeTokenPriceUpdates(
 		return nil, fmt.Errorf("failed to fetch token prices: %w", err)
 	}
 
+	missingDestNativePrice, err := p.findMissingDestNativeTokenPrice(ctx, rawTokenPricesUSD)
+	if err != nil {
+		return nil, fmt.Errorf("find missing dest native token price: %w", err)
+	}
+	if missingDestNativePrice != nil {
+		destNativeTokenID := ccipcommon.TokenID{TokenAddress: p.sourceNative, ChainSelector: p.destChainSelector}
+		rawTokenPricesUSD[destNativeTokenID] = missingDestNativePrice
+	}
+
 	// Verify no price returned by price getter is nil
 	for tokenID, price := range rawTokenPricesUSD {
 		if price == nil {
@@ -374,6 +384,53 @@ func (p *priceService) observeTokenPriceUpdates(
 		"tokenPricesUSD", tokenPricesUSDPer1e18,
 	)
 	return tokenPricesUSDPer1e18, nil
+}
+
+// findMissingDestNativeTokenPrice is for backwards compatibility related to token addresses collisions.
+// old priceGetter did not support same token addresses for different tokens.
+// This function check if destination chain native token price is missing and if it does not exist it returns the source
+// native price, assuming their addresses match.
+// Check PR #17133 for more details
+func (p *priceService) findMissingDestNativeTokenPrice(
+	ctx context.Context,
+	tokenPrices map[ccipcommon.TokenID]*big.Int,
+) (*big.Int, error) {
+	lggr := logger.With(p.lggr,
+		"func", "findMissingDestNativeTokenPrice",
+		"sourceNative", p.sourceNative,
+		"prices", tokenPrices,
+	)
+
+	fee, bridged, err := ccipcommon.GetDestinationTokens(ctx, p.offRampReader, p.destPriceRegistryReader)
+	if err != nil {
+		return nil, fmt.Errorf("get destination tokens: %w", err)
+	}
+	onchainDestTokens := ccipcommon.FlattenedAndSortedTokens(fee, bridged)
+	lggr = logger.With(lggr, "onchainDestTokens", onchainDestTokens)
+
+	sourceNativeAddressInDestTokens := slices.Contains(onchainDestTokens, p.sourceNative)
+	if !sourceNativeAddressInDestTokens {
+		lggr.Debugw("destination tokens do not have source native address price is not missing")
+		return nil, nil
+	}
+
+	destNativeTokenID := ccipcommon.TokenID{TokenAddress: p.sourceNative, ChainSelector: p.destChainSelector}
+	sourceNativeTokenID := ccipcommon.TokenID{TokenAddress: p.sourceNative, ChainSelector: p.sourceChainSelector}
+
+	if _, exists := tokenPrices[destNativeTokenID]; exists {
+		lggr.Debugw("price for destination native already exists, new job spec must be in place")
+		return nil, nil
+	}
+
+	// it does not exist so we use the source native token price (which has the same address, so we assume it's the same token)
+	sourcePrice, exists := tokenPrices[sourceNativeTokenID]
+	if !exists || sourcePrice == nil {
+		lggr.Debugw("source native token price is missing, cannot use it for destination native token price")
+		return nil, nil
+	}
+
+	lggr.Debugw("source native token price is missing, assuming source native token price as destination native")
+	return sourcePrice, nil
 }
 
 func (p *priceService) writeGasPricesToDB(ctx context.Context, sourceGasPriceUSD *big.Int) error {
