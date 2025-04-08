@@ -22,7 +22,8 @@ type Shell struct {
 const ErrCommandFailed = "command failed with exit code"
 
 func NewNixShell(folder string, globalEnvVars map[string]string) (*Shell, error) {
-	cmd := exec.Command("nix", "develop", "--command", "sh")
+	println("Starting nix in " + folder)
+	cmd := exec.Command("nix", "develop", "--extra-experimental-features", "nix-command", "--extra-experimental-features flakes", "--command", "sh")
 	cmd.Dir = folder
 
 	// Set global environment variables available to all subsequent commands

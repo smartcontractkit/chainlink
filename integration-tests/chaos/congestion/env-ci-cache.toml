@@ -1,0 +1,88 @@
+[blockchain_a]
+type = 'anvil'
+image = 'f4hrenh9it/foundry:latest'
+pull_image = false
+port = '8545'
+port_ws = ''
+chain_id = '1337'
+docker_cmd_params = ['--block-time=1']
+public_key = ''
+contracts_dir = ''
+
+[blockchain_a.out]
+use_cache = true
+family = 'evm'
+container_name = 'blockchain-node-2b4a4'
+chain_id = '1337'
+
+[[blockchain_a.out.nodes]]
+ws_url = 'ws://127.0.0.1:8545'
+http_url = 'http://127.0.0.1:8545'
+docker_internal_ws_url = 'ws://blockchain-node-2b4a4:8545'
+docker_internal_http_url = 'http://blockchain-node-2b4a4:8545'
+
+[Seth]
+artifacts_dir = ''
+ephemeral_addresses_number = 50
+root_key_funds_buffer = 1000
+abi_dir = ''
+bin_dir = ''
+geth_wrappers_dirs = []
+contract_map_file = ''
+save_deployed_contracts_map = false
+networks = []
+tracing_level = 'REVERTED'
+trace_outputs = []
+pending_nonce_protection_enabled = false
+pending_nonce_protection_timeout = '1m0s'
+abs_path = ''
+experiments_enabled = []
+check_rpc_health_on_start = false
+read_only = false
+force_http = false
+
+[Seth.network]
+name = 'Anvil'
+urls_secret = ['ws://127.0.0.1:8545']
+chain_id = 1337
+eip_1559_dynamic_fees = true
+gas_price = 1000000000
+gas_fee_cap = 15000000000
+gas_tip_cap = 5000000000
+gas_limit = 8000000
+transaction_timeout = '30s'
+dial_timeout = '1m0s'
+transfer_gas_fee = 21000
+private_keys_secret = ['59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d', '4eaee7cd2d6dab622af144f6575745dcc6f478291fef05f69af7bc196390f192', 'f0f0631037f1f2da2ad171dfc83768ed009baefb2ead4eb6c6255b8b0f806273', '5209db7a349b29f24fd05d7b8ab3b4409f2ae818f14c65c9dc1ead889b474da1', '13fc21cf26b14b011ee09a71dfbbcff86edf3000feab9304d090a43570b71da8', '60a97075783717758de0208e692118aa859cab3c29efec5f85974f36d13e9292', '60dd3b5caab2b257dce9ad32a72a4ef0ec22a949c9343d5ff93ffbcf32b403f5', 'e2b89f9992df496cfd7e684ddfdd5def2ebf5e94b7944081585644914a2c50d6', '7aa2e478bb68cb06104c2f5fd1fbccd99a1195cabefb1fc9ef3004f8eaee4aea', 'd2a1f7f785ff4cc5402e8e901a4c145584078cb57f36837f9ad1ce04bd0f016a', '7888d07fb0fe61aeb55c7d0ec22b0a9a7ae43c63e74daccefee0e87fe89aa2ed', 'cc96f0d0f5115433e3cc04346841d92fcaff14f4ca5ce5f90c280f0cff1e83bf', 'ee83cffe7afa38780a82d85c087a00622f716fd2faedf58849ce31860de02bcb', '71db22ebf81657440796b6cb2747885ff13391c1333e847b33cf8719c1a4ca11', 'f2d94fa721f0bbb5d8ffffb41f212831eaf112695f76d0aeb6634d21af789f1c', 'c632f360cdc0edad4f72dc7532af1823b94ab3976eee5ef9bf5702af93709eda', 'f3c4cd64de4dc5793a802245a15b139bf631b80837e5a5dc36c7ee494bef51d8', 'b46fc29018a133cdbd548fbf70060751b2ddcbcc6bfce3559397ea86b146d164', '3874b13b8801968f52d7c94077e2016727819ef70de0c954de1f4079fa727cb9', '771cacc32c9fe5f331892632a12571d707d87b21190214648c97351efc5ee1d9', '36f4244853175f667fcc48af45e8b7acd47c0f82c48208532ad06b742f2d3f7f', 'a5b1f483f9b71466a49df643356bf7c6a31c75ca561b4f34a90b04dec659825c', '02572d60994dbeb94abf2aee87c2052766e1aa2fda41c7038b8eddd056969468', '70abffa3751d17c576a79ce78cb5b1bcac0b60bbe8b070de54c029ef9e274b3e', 'eacead008fa66b908d9364122718fc30ba9281cadf073591afc3a055c0a8df95', '2c04cafb593a4b4333ef21a27ef730ab6350537f801f9c7ee1057f7fd253f658', 'a7af06f82e77b764ecf7f0bc1fbd694b890c1b1f7b6081d5a0dbc34fe66dbee0', 'f449ff743482456d8e47c4703cd054aa71f06baa7f060e5757c85ddeaa0613f9', '744e5f6e9460814f44ad2f4088f7577eff993922680c2103092969db4fd5fea3', 'd83742bfe7a9b0ed6fb7c2af0697f720e305c9142d31bb282afe99eb9f1e2bfb', 'e7ee9a2b48d6a17ffd4aa8d6d570e523baaf6a71a0105ff1915d93c0c384f302', '40b8d6f21932dcf26b51b39039cf3bd0e9bb3ef0c066535e97a0c520d98b5676', '4b561e72c995b8e2e2d705f78e45c500f5a24bd2e91ac4cfd687f1209a32c629', '8f2b816bbd22313947e9f09b6355f4f741fc7a8333dba5c5eb745660f9e19c66', '74d62c8062c55aeaeef9eecb284e3068bb210c3b2f42951b254fdce17037b7a1', '84a14c6785532ef631fdf0242b6a3075e92edfcabc28010a62039a1b02a02342', '0aa288c730aa8a29c82a9bc67ee2276f8af924b1c8ab96d2a90707dbfcecdae1', 'acb36b84f0bf47573a8b9800425a17ffc46584f7a6b1bb960bf7545666076010', '0138aea86456d3a67f11c11b446c5aca6a92bb44a4eb361bcabba33b17aa7b69', '1b9a5875cf3ba2eddfa18a9316086405d0d17c1f4c4654e7cff0593db880f354', 'dee609f18840dfcb90236d1a99cfd6853fb2e14146b0b86709864ce71f54272b', '156c9c4a40abe6146f1aea90cb532edfa18953f9a24d677892714c40ad8049a7', 'e7ed94c0ad2841280bb5a98f26626c223f548aea4cda6b562dcff1273c6cc975', '6f610639f870c2e81ba2128952f650e242bb44b68a26a1cc174eebbf6cf5594a', 'e0140dd548d29629c1b72afbc85c71ea9258f83f5b450aefb911f4e6d0466602', '16e0431bca1a754a03227226b12b1f205f8bc97026d4f2790af91d08babacb1e', '18cb997cd42f14624dc7d335ca848859c372f3e8abcbc41e1b4543b250f7f2cd', '98defa1c3168a7cfcf0d61da2b7b7a56191030b3c0c4d07d58be4da5a47b2180', 'a88e3512249b7c0a93287784cafb294c4d0108f1dc4b537dc1eca898b54ec7f8', '1f6a6480a44037b9e2be808c14231e53eca8d493f2ba56f9b112e76d1ac03c32', '17e593f9633d55feaf0aa59a5768c265fe4e4d5454400848d1a52bea09179e60']
+gas_price_estimation_enabled = false
+gas_price_estimation_blocks = 0
+gas_price_estimation_tx_priority = ''
+gas_price_estimation_attempt_count = 1
+
+[Seth.nonce_manager]
+key_sync_rate_limit_per_sec = 10
+key_sync_timeout = '1m40s'
+key_sync_retries = 10
+key_sync_retry_delay = '1s'
+
+[congestion]
+enabled = true
+initial_delay = 0
+period = 10
+fees_increase_percent = 100.0
+number_of_txs_per_block = 0
+gas_limit = 0
+initial_base_fee_per_gas = 0
+initial_tip_per_gas = 0
+
+[congestion.ramp_up]
+duration = 30
+congestion = 1.0
+
+[congestion.plateau]
+duration = 30
+congestion = 0.6
+
+[congestion.cool_down]
+duration = 30
+congestion = 0.4

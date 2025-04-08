@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -58,6 +59,12 @@ func StartNixShell(input *types.StartNixShellInput) (*nix.Shell, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create Nix shell")
 	}
+	_, err = nixShell.RunCommand("help")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to run nix shell help")
+	}
+
+	println("Executed help")
 
 	// we need to run `devspace purge` to clean up the environment, in case our namespace is already used
 	_, err = nixShell.RunCommand("devspace purge --no-warn")

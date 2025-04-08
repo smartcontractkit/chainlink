@@ -12,8 +12,14 @@ type = "crib"
 
 [infra.crib]
 namespace = "crib-write-don-load-test"
-folder_location = "/Users/ionita/crib/deployments/cre"
+folder_location = "/Users/dh/go/src/github.com/smartcontractkit/crib/deployments/cre" # TODO change to your FOLDER
 provider = "aws"
+
+[infra.crib.team_input]
+team="cre"
+product="workflow-don"
+component="workflow-don"
+cost_center="capabilities-df-migration-performance-tests"
 
 [workflow_config]
 workflow_name = "abcdefgasd"
@@ -23,8 +29,8 @@ use_cre_cli = false
 should_compile_new_workflow = false
 
 [workflow_config.dependencies]
-capabilities_version = "v1.0.2-alpha"
-cre_cli_version = "v0.1.5"
+cron_capability_binary_path = "./amd64_cron"
+cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
 
 [workflow_config.compiled_config]
 binary_url = "xxx"
