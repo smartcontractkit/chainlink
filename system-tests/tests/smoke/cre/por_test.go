@@ -290,8 +290,10 @@ func setupPoRTestEnvironment(
 	var cronBinaryPathInTheContainer string
 	if in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath != "" {
 		require.NoError(t, pathErr, "failed to get default container directory")
+		// where cron binary is located in the container
 		cronBinaryPathInTheContainer = filepath.Join(containerPath, filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath))
-		customBinariesPaths[keystonetypes.CronCapability] = cronBinaryPathInTheContainer
+		// where cron binary is located on the host
+		customBinariesPaths[keystonetypes.CronCapability] = in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath
 	} else {
 		// assume that if cron binary is already in the image it is in the default location and has default name
 		cronBinaryPathInTheContainer = filepath.Join(containerPath, "cron")
