@@ -12,6 +12,7 @@ import (
 var _ deployment.ChangeSet[DeployPingPongDemoContractsConfig] = DeployPingPongDemoContractsChangeset
 var _ deployment.ChangeSet[StartPingPongDemoContractsConfig] = StartPingPongDemoContractsChangeset
 var _ deployment.ChangeSet[SetPausedPingPongDemoContractsConfig] = SetPausedPingPongDemoContractsChangeset
+var _ deployment.ChangeSet[SetConterpartPingPongDemoContractsConfig] = SetCounterpartPingPongDemoContractsChangeset
 
 type DeployPingPongDemoContractsConfig struct {
 	ChainSelector uint64
@@ -147,6 +148,47 @@ func SetPausedPingPongDemoContractsChangeset(env deployment.Environment, c SetPa
 	_, err = transactor.SetPaused(chain.DeployerKey, c.Paused)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set paused state for ping pong demo: %w", err)
+	}
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+type SetConterpartPingPongDemoContractsConfig struct {
+	ChainSelector      uint64
+	CounterpartAddress []byte
+}
+
+func (c SetConterpartPingPongDemoContractsConfig) Validate(env deployment.Environment, state changeset.CCIPOnChainState) error {
+	chainState := state.Chains[c.ChainSelector]
+
+	if chainState.PingPongDemo == nil {
+		return fmt.Errorf("ping pong demo address is empty for chain %d", c.ChainSelector)
+	}
+
+	return nil
+}
+
+func SetCounterpartPingPongDemoContractsChangeset(env deployment.Environment, c SetConterpartPingPongDemoContractsConfig) (deployment.ChangesetOutput, error) {
+	state, err := changeset.LoadOnchainState(env)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	if err := c.Validate(env, state); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid SetConterpartPingPongDemoContractsConfig: %w", err)
+	}
+
+	chain := env.Chains[c.ChainSelector]
+	chainState := state.Chains[c.ChainSelector]
+
+	transactor, err := ping_pong_demo.NewPingPongDemoTransactor(chainState.PingPongDemo.Address(), chain.Client)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transactor for ping pong demo: %w", err)
+	}
+
+	_, err = transactor.SetCounterpart(chain.DeployerKey, c.ChainSelector, c.CounterpartAddress)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set counterpart for ping pong demo: %w", err)
 	}
 
 	return deployment.ChangesetOutput{}, nil
