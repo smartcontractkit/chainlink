@@ -289,6 +289,8 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
+
+	// change this to getNextDonID from donIDClaimer
 	donID, err := state.Chains[c.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
 		Context: e.GetContext(),
 	})
@@ -344,6 +346,10 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetCandidateChangeset on home chain: %w", err)
 	}
+
+	// claim the donID
+	// call donIDClaimer claimNextDonId
+
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
 	// Reset existing addresses

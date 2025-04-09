@@ -598,6 +598,7 @@ func AddDonAndSetCandidateChangeset(
 				cfg.PluginInfo.PluginType.String())
 		}
 
+		// TODO: make a call to donIDClaimer to claimNextDonID
 		expectedDonID, err := state.Chains[cfg.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
 			Context: e.GetContext(),
 		})
