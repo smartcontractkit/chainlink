@@ -39,9 +39,15 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
+	tronsdk "github.com/fbsobreira/gotron-sdk/pkg/address"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	tron "github.com/smartcontractkit/chainlink-internal-integrations/tron/relayer/ocr2"
+	tronclient "github.com/smartcontractkit/chainlink-internal-integrations/tron/relayer/sdk"
+	trontxm "github.com/smartcontractkit/chainlink-internal-integrations/tron/relayer/txm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -540,7 +546,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 		r.chain.LogPoller(),
 		r.chain.GasEstimator(),
 		*r.chain.Config().EVM().GasEstimator().PriceMax().ToInt(),
-		*contractTransmitter,
+		contractTransmitter,
 		configWatcher,
 		feeEstimatorConfig,
 	), nil
@@ -812,8 +818,111 @@ type configTransmitterOpts struct {
 	subjectID *uuid.UUID
 }
 
+type loopKeystoreAdapter struct {
+	ks keys.Store
+}
+
+func (l *loopKeystoreAdapter) Accounts(ctx context.Context) (accounts []string, err error) {
+	enabledAddresses, err := l.ks.EnabledAddresses(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, address := range enabledAddresses {
+		accounts = append(accounts, address.String())
+	}
+	return accounts, nil
+}
+
+func (l *loopKeystoreAdapter) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
+	// We'll need to convert the tron address to an evm address to sign the data
+	tronAddr, err := tronsdk.Base58ToAddress(account)
+	if err != nil {
+		return nil, err
+	}
+
+	addr := tronAddr.EthAddress()
+	return l.ks.SignRawUnhashedBytes(ctx, addr, data)
+}
+
+type evmTransmissionsCache struct {
+	contractAddress     common.Address
+	client              client.Client
+	contractABI         abi.ABI
+	lp                  logpoller.LogPoller
+	transmittedEventSig common.Hash
+}
+
+func NewEVMTransmissionsCache(ctx context.Context, lggr logger.Logger, contractAddress common.Address, client client.Client, contractABI abi.ABI, lp logpoller.LogPoller, transmittedEventSig common.Hash) *evmTransmissionsCache {
+	return &evmTransmissionsCache{
+		contractAddress:     contractAddress,
+		client:              client,
+		contractABI:         contractABI,
+		lp:                  lp,
+		transmittedEventSig: transmittedEventSig,
+	}
+}
+
+func (c *evmTransmissionsCache) LatestTransmissionDetails(ctx context.Context) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, latestAnswer *big.Int, latestTimestamp time.Time, err error) {
+	// Uses the EVM Client to call the latestConfigDigestAndEpoch function on the contract, reuses the same logic thats in the EVM ContractTransmitter
+	configDigest, epoch, err = getLatestConfigDigestAndEpoch(ctx, c.lp, c.contractAddress, c.contractABI, c.transmittedEventSig, c.client)
+	return configDigest, epoch, 0, latestAnswer, latestTimestamp, nil
+}
+
+func (c *evmTransmissionsCache) LatestRoundRequested(ctx context.Context, lookback time.Duration) (ocrtypes.ConfigDigest, uint32, uint8, error) {
+	return ocrtypes.ConfigDigest{}, 0, 0, nil
+}
+
 // newOnChainContractTransmitter creates a new contract transmitter.
-func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (*contractTransmitter, error) {
+func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
+	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
+		chainSpecificURL, err := configWatcher.chain.Client().GetExternallyUsedChainSpecificURL(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		tronClient, err := tronclient.CreateFullNodeClient(chainSpecificURL.URL())
+		if err != nil {
+			return nil, err
+		}
+
+		// Start the Tron TXM
+		tronTXM := trontxm.New(lggr, &loopKeystoreAdapter{ks: ethKeystore}, tronClient, trontxm.TronTxmConfig{})
+		tronTXM.Start(ctx)
+
+		transmitted, ok := transmissionContractABI.Events["Transmitted"]
+		if !ok {
+			return nil, errors.New("invalid ABI, missing transmitted")
+		}
+
+		evmCache := NewEVMTransmissionsCache(ctx, lggr, configWatcher.contractAddress, configWatcher.chain.Client(), transmissionContractABI, configWatcher.chain.LogPoller(), transmitted.ID)
+
+		senderAddress, err := ethKeystore.GetNextAddress(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		transmitter := tron.NewOCRContractTransmitter(ctx, evmCache, tronsdk.EVMAddressToAddress(configWatcher.contractAddress), tronsdk.EVMAddressToAddress(senderAddress), tronTXM, lggr)
+
+		transmitterOptions := &transmitterOps{
+			reportToEvmTxMeta: reportToEvmTxMetaNoop,
+			excludeSigs:       false,
+			retention:         0,
+			maxLogsKept:       0,
+		}
+
+		for _, opt := range ocrTransmitterOpts {
+			opt(transmitterOptions)
+		}
+
+		if transmitterOptions.excludeSigs {
+			lggr.Info("Excluding signatures from transmissions")
+			transmitter = transmitter.WithExcludeSignatures()
+		}
+
+		return transmitter, nil
+	}
+
 	transmitter, err := generateTransmitterFrom(ctx, rargs, ethKeystore, configWatcher, opts)
 	if err != nil {
 		return nil, err
@@ -933,52 +1042,16 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 			relayConfig.DualTransmissionConfig,
 		)
 	case commontypes.CCIPExecution:
-		if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
-			transmitter, err = cciptransmitter.NewTronTransmitterWithStatusChecker(
-				configWatcher.chain.TxManager(),
-				fromAddresses,
-				gasLimit,
-				effectiveTransmitterAddress,
-				strategy,
-				checker,
-				configWatcher.chain.ID(),
-				ethKeystore,
-			)
-		} else {
-			transmitter, err = cciptransmitter.NewTransmitterWithStatusChecker(
-				configWatcher.chain.TxManager(),
-				fromAddresses,
-				gasLimit,
-				effectiveTransmitterAddress,
-				strategy,
-				checker,
-				configWatcher.chain.ID(),
-				ethKeystore,
-			)
-		}
-	case commontypes.CCIPCommit:
-		if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
-			transmitter, err = cciptransmitter.NewTronTransmitter(
-				configWatcher.chain.TxManager(),
-				fromAddresses,
-				gasLimit,
-				effectiveTransmitterAddress,
-				strategy,
-				checker,
-				configWatcher.chain.ID(),
-				ethKeystore,
-			)
-		} else {
-			transmitter, err = ocrcommon.NewTransmitter(
-				configWatcher.chain.TxManager(),
-				fromAddresses,
-				gasLimit,
-				effectiveTransmitterAddress,
-				strategy,
-				checker,
-				ethKeystore,
-			)
-		}
+		transmitter, err = cciptransmitter.NewTransmitterWithStatusChecker(
+			configWatcher.chain.TxManager(),
+			fromAddresses,
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			checker,
+			configWatcher.chain.ID(),
+			ethKeystore,
+		)
 	default:
 		transmitter, err = ocrcommon.NewTransmitter(
 			configWatcher.chain.TxManager(),

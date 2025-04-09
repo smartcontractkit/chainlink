@@ -260,7 +260,7 @@ type DstExecProvider struct {
 	client              client.Client
 	lp                  logpoller.LogPoller
 	startBlock          uint64
-	contractTransmitter *contractTransmitter
+	contractTransmitter ContractTransmitter
 	configWatcher       *configWatcher
 	gasEstimator        gas.EvmFeeEstimator
 	maxGasPrice         big.Int
@@ -278,7 +278,7 @@ func NewDstExecProvider(
 	client client.Client,
 	lp logpoller.LogPoller,
 	startBlock uint64,
-	contractTransmitter *contractTransmitter,
+	contractTransmitter ContractTransmitter,
 	configWatcher *configWatcher,
 	gasEstimator gas.EvmFeeEstimator,
 	maxGasPrice big.Int,

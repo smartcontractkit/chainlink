@@ -223,7 +223,12 @@ func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI,
 // It is plugin independent, in particular avoids use of the plugin specific generated evm wrappers
 // by using the evm client Call directly for functions/events that are part of OCR2Abstract.
 func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
-	latestConfigDigestAndEpoch, err := callContract(ctx, oc.contractAddress, oc.contractABI, "latestConfigDigestAndEpoch", nil, oc.contractReader)
+	return getLatestConfigDigestAndEpoch(ctx, oc.lp, oc.contractAddress, oc.contractABI, oc.transmittedEventSig, oc.contractReader)
+}
+
+// Retrieves the latest config digest and epoch from the OCR2 contract.
+func getLatestConfigDigestAndEpoch(ctx context.Context, lp logpoller.LogPoller, contractAddress common.Address, contractABI abi.ABI, eventSig common.Hash, caller contractReader) (ocrtypes.ConfigDigest, uint32, error) {
+	latestConfigDigestAndEpoch, err := callContract(ctx, contractAddress, contractABI, "latestConfigDigestAndEpoch", nil, caller)
 	if err != nil {
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
@@ -236,7 +241,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	}
 
 	// Otherwise, we have to scan for the logs.
-	latest, err := oc.lp.LatestLogByEventSigWithConfs(ctx, oc.transmittedEventSig, oc.contractAddress, 1)
+	latest, err := lp.LatestLogByEventSigWithConfs(ctx, eventSig, contractAddress, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// No transmissions yet
@@ -244,6 +249,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 		}
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
+
 	return parseTransmitted(latest.Data)
 }
 
