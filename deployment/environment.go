@@ -163,10 +163,11 @@ func (e Environment) Clone() Environment {
 		datastore.DefaultMetadata,
 		datastore.DefaultMetadata,
 	]()
-	if err := ds.Merge(e.DataStore); err != nil {
-		panic(fmt.Sprintf("failed to copy datastore: %v", err))
+	if e.DataStore != nil {
+		if err := ds.Merge(e.DataStore); err != nil {
+			panic(fmt.Sprintf("failed to copy datastore: %v", err))
+		}
 	}
-
 	return Environment{
 		Name:              e.Name,
 		Logger:            e.Logger,
