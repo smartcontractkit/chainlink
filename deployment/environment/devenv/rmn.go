@@ -20,7 +20,6 @@ import (
 	"github.com/testcontainers/testcontainers-go/exec"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -361,10 +360,7 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool, netwo
 		ContainerRequest: tc.ContainerRequest{
 			Name:     rmn.ContainerName,
 			Networks: networks,
-			ConfigModifier: func(config *container.Config) {
-				config.User = "root"
-			},
-			Image: fmt.Sprintf("%s:%s", rmn.ContainerImage, rmn.ContainerVersion),
+			Image:    fmt.Sprintf("%s:%s", rmn.ContainerImage, rmn.ContainerVersion),
 			Env: map[string]string{
 				"AFN_PASSPHRASE": rmn.AFNPassphrase,
 			},
