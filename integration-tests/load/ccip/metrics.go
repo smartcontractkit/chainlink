@@ -18,6 +18,7 @@ import (
 const (
 	LokiLoadLabel = "ccipv2_load_test"
 	ErrLokiPush   = "failed to push metrics to Loki"
+	FinalityDepth = 200
 )
 
 type LokiMetric struct {
@@ -32,12 +33,13 @@ type LokiMetric struct {
 // MetricsManager is used for maintaining state of different sequence numbers
 // Once we've received all expected timestamps, it pushes the metrics to Loki
 type MetricManager struct {
-	lggr      logger.Logger
-	loki      *wasp.LokiClient
-	InputChan chan messageData
-	state     map[srcDstSeqNum]metricState
-	testLabel string
-	ErrorChan chan error
+	lggr       logger.Logger
+	loki       *wasp.LokiClient
+	InputChan  chan messageData
+	state      map[srcDstSeqNum]metricState
+	blockTimes map[uint64]uint64
+	testLabel  string
+	ErrorChan  chan error
 }
 
 type metricState struct {
@@ -56,7 +58,7 @@ type messageData struct {
 	timestamp uint64
 }
 
-func NewMetricsManager(t *testing.T, l logger.Logger, overrides *ccip.LoadConfig) *MetricManager {
+func NewMetricsManager(t *testing.T, l logger.Logger, overrides *ccip.LoadConfig, blockTimes map[uint64]uint64) *MetricManager {
 	// initialize loki using endpoint from user defined env vars
 	loki, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
 	require.NoError(t, err)
@@ -66,12 +68,13 @@ func NewMetricsManager(t *testing.T, l logger.Logger, overrides *ccip.LoadConfig
 	}
 
 	return &MetricManager{
-		lggr:      l,
-		loki:      loki,
-		InputChan: make(chan messageData),
-		state:     make(map[srcDstSeqNum]metricState),
-		testLabel: testLabel,
-		ErrorChan: make(chan error),
+		lggr:       l,
+		loki:       loki,
+		InputChan:  make(chan messageData),
+		state:      make(map[srcDstSeqNum]metricState),
+		blockTimes: blockTimes,
+		testLabel:  testLabel,
+		ErrorChan:  make(chan error),
 	}
 }
 
@@ -143,7 +146,8 @@ func (mm *MetricManager) Start(ctx context.Context) {
 			// only add commit and exec durations if we have correct timestamps to calculate them
 			commitDuration := uint64(0)
 			if state.timestamps[committed] != 0 && state.timestamps[transmitted] != 0 {
-				commitDuration = state.timestamps[committed] - state.timestamps[transmitted]
+				commitDuration = state.timestamps[committed] - state.timestamps[transmitted] -
+					mm.blockTimes[data.dst]*FinalityDepth
 			}
 			execDuration := uint64(0)
 			if state.timestamps[executed] != 0 && state.timestamps[committed] != 0 {
