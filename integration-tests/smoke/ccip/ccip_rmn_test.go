@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"slices"
 	"strconv"
@@ -19,8 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -1019,10 +1020,16 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN(t *testing.T) {
 	e, l, dockerEnv, nonBootstrapP2PIDs, state, rmnCluster := setupReorgTest(t,
 		testhelpers.WithExtraConfigTomls([]string{"Test_CCIPReorg_BelowFinality_OnSource_WithRMN.toml"}),
 		testhelpers.WithRMNEnabled(len(tc.rmnNodes)),
-		testhelpers.WithRMNConfDepth(10),
+		testhelpers.WithRMNConfDepth(20),
 	)
 
 	configureAndPromoteRMNHome(t, &tc, e, rmnCluster)
+
+	e.RmnEnabledSourceChains = make(map[uint64]bool)
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		e.RmnEnabledSourceChains[chainSel] = true
+	}
 
 	sourceSelector, destSelector := performReorgTest(t, e, l, dockerEnv, state, nonBootstrapP2PIDs)
 
@@ -1060,6 +1067,14 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover(t *testing.T) {
 	)
 
 	configureAndPromoteRMNHome(t, &tc, e, rmnCluster)
+
+	e.RmnEnabledSourceChains = make(map[uint64]bool)
+	fmt.Printf("Setup RMN enabled")
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		e.RmnEnabledSourceChains[chainSel] = true
+		fmt.Printf("Setup RMN enabled for chain %d", chainSel)
+	}
 
 	sourceSelector, destSelector := performReorgTest(t, e, l, dockerEnv, state, nonBootstrapP2PIDs)
 
@@ -1100,6 +1115,14 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block(t *testing.T) {
 	)
 
 	configureAndPromoteRMNHome(t, &tc, e, rmnCluster)
+
+	e.RmnEnabledSourceChains = make(map[uint64]bool)
+	fmt.Printf("Setup RMN enabled")
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		e.RmnEnabledSourceChains[chainSel] = true
+		fmt.Printf("Setup RMN enabled for chain %d", chainSel)
+	}
 
 	sourceSelector, destSelector := performReorgTest(t, e, l, dockerEnv, state, nonBootstrapP2PIDs)
 
