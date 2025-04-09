@@ -22,8 +22,9 @@ import (
 
 var _ PriceGetter = &PipelineGetter{}
 
-// Deprecated: not supposed to be used but it seems that some JobSpecs are still using it.
-// Should be removed after all JobSpecs migrate to the dynamic price getter.
+// PipelineGetter is not supposed to be used but it seems that some JobSpecs are still using it.
+// Should be removed after all JobSpecs migrate to the dynamic price getter. It uses a legacy pipeline component of
+// chainlink core.
 type PipelineGetter struct {
 	source                string
 	runner                pipeline.Runner
