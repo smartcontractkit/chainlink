@@ -35,7 +35,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, err
 				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
 					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
 				}
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, "web-api-trigger-capability", "__builtin_web-api-trigger", libjobs.EmptyStdCapConfig))
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, types.WebAPITriggerCapability, "__builtin_web-api-trigger", libjobs.EmptyStdCapConfig))
 			}
 
 			if flags.HasFlag(donWithMetadata.Flags, types.WebAPITargetCapability) {
@@ -47,7 +47,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, err
 						PerSenderBurst = 1000
 						"""`
 
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, "web-api-target-capability", "__builtin_web-api-target", config))
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, types.WebAPITargetCapability, "__builtin_web-api-target", config))
 			}
 		}
 	}
