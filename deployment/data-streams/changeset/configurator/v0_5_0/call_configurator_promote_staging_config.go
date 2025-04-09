@@ -14,11 +14,11 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
 )
 
 var PromoteStagingConfigChangeset = deployment.CreateChangeSet(promoteStagingConfigLogic, promoteStagingConfigPrecondition)

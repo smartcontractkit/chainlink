@@ -24,21 +24,18 @@ library Internal {
   address public constant GAS_ESTIMATION_SENDER = address(0xC11C11C11C11C11C11C11C11C11C11C11C11C1);
 
   /// @notice A collection of token price and gas price updates.
-  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct PriceUpdates {
     TokenPriceUpdate[] tokenPriceUpdates;
     GasPriceUpdate[] gasPriceUpdates;
   }
 
   /// @notice Token price in USD.
-  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct TokenPriceUpdate {
     address sourceToken; // Source token.
     uint224 usdPerToken; // 1e18 USD per 1e18 of the smallest token denomination.
   }
 
   /// @notice Gas price for a given chain in USD, its value may contain tightly packed fields.
-  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct GasPriceUpdate {
     uint64 destChainSelector; // Destination chain selector.
     uint224 usdPerUnitGas; // 1e18 USD per smallest unit (e.g. wei) of destination chain gas.
@@ -70,7 +67,6 @@ library Internal {
   }
 
   /// @notice Report that is submitted by the execution DON at the execution phase, including chain selector data.
-  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct ExecutionReport {
     uint64 sourceChainSelector; // Source chain selector for which the report is submitted.
     Any2EVMRampMessage[] messages;
@@ -111,7 +107,6 @@ library Internal {
   /// @return hashedMessage hashed message as a keccak256.
   function _hash(Any2EVMRampMessage memory original, bytes32 metadataHash) internal pure returns (bytes32) {
     // Fixed-size message fields are included in nested hash to reduce stack pressure.
-    // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
     return keccak256(
       abi.encode(
         MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
@@ -134,7 +129,6 @@ library Internal {
 
   function _hash(EVM2AnyRampMessage memory original, bytes32 metadataHash) internal pure returns (bytes32) {
     // Fixed-size message fields are included in nested hash to reduce stack pressure.
-    // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
     return keccak256(
       abi.encode(
         MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
@@ -191,7 +185,6 @@ library Internal {
   /// IN_PROGRESS currently being executed, used a replay protection.
   /// SUCCESS successfully executed. End state.
   /// FAILURE unsuccessfully executed, manual execution is now enabled.
-  /// @dev RMN depends on this enum, if changing, please notify the RMN maintainers.
   enum MessageExecutionState {
     UNTOUCHED,
     IN_PROGRESS,
@@ -207,6 +200,7 @@ library Internal {
 
   /// @notice Family-agnostic header for OnRamp & OffRamp messages.
   /// The messageId is not expected to match hash(message), since it may originate from another ramp family.
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct RampMessageHeader {
     bytes32 messageId; // Unique identifier for the message, generated with the source chain's encoding scheme (i.e. not necessarily abi.encoded).
     uint64 sourceChainSelector; // ─╮ the chain selector of the source chain, note: not chainId.
@@ -215,6 +209,7 @@ library Internal {
     uint64 nonce; // ───────────────╯ nonce for this lane for this sender, not unique across senders/lanes.
   }
 
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct EVM2AnyTokenTransfer {
     // The source pool EVM address. This value is trusted as it was obtained through the onRamp. It can be relied
     // upon by the destination pool to validate the source pool.
@@ -232,6 +227,7 @@ library Internal {
     bytes destExecData;
   }
 
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct Any2EVMTokenTransfer {
     // The source pool EVM address encoded to bytes. This value is trusted as it is obtained through the onRamp. It can
     // be relied upon by the destination pool to validate the source pool.
@@ -248,6 +244,7 @@ library Internal {
   /// @notice Family-agnostic message routed to an OffRamp.
   /// Note: hash(Any2EVMRampMessage) != hash(EVM2AnyRampMessage), hash(Any2EVMRampMessage) != messageId due to encoding
   /// and parameter differences.
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct Any2EVMRampMessage {
     RampMessageHeader header; // Message header.
     bytes sender; // sender address on the source chain.
@@ -260,6 +257,7 @@ library Internal {
   /// @notice Family-agnostic message emitted from the OnRamp.
   /// Note: hash(Any2EVMRampMessage) != hash(EVM2AnyRampMessage) due to encoding & parameter differences.
   /// messageId = hash(EVM2AnyRampMessage) using the source EVM chain's encoding format.
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct EVM2AnyRampMessage {
     RampMessageHeader header; // Message header.
     address sender; // sender address on the source chain.
@@ -282,7 +280,6 @@ library Internal {
   bytes4 public constant CHAIN_FAMILY_SELECTOR_APTOS = 0xac77ffec;
 
   /// @dev Holds a merkle root and interval for a source chain so that an array of these can be passed in the CommitReport.
-  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   /// @dev inefficient struct packing intentionally chosen to maintain order of specificity. Not a storage struct so impact is minimal.
   // solhint-disable-next-line gas-struct-packing
   struct MerkleRoot {

@@ -8,11 +8,11 @@ import (
 
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
+	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
-	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 )
 
 var ClaimRewardsChangeset = deployment.CreateChangeSet(claimRewardsLogic, claimRewardsPrecondition)

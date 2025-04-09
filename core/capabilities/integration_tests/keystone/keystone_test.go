@@ -16,9 +16,10 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
-	feeds_consumer "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 )
@@ -28,6 +29,8 @@ func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
 }
 
 func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-399")
+
 	testTransmissionSchedule(t, "2s", "oneAtATime")
 }
 
