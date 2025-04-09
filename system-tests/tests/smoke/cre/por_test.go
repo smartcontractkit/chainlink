@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -51,8 +52,13 @@ var (
 	SinglePoRDonCapabilitiesFlags = []string{"ocr3", "cron", "custom-compute", "write-evm"}
 )
 
+type CustomAnvilMiner struct {
+	BlockSpeedSeconds int `toml:"block_speed_seconds"`
+}
+
 type TestConfig struct {
 	BlockchainA                   *blockchain.Input                        `toml:"blockchain_a" validate:"required"`
+	CustomAnvilMiner              *CustomAnvilMiner                        `toml:"custom_anvil_miner"`
 	NodeSets                      []*ns.Input                              `toml:"nodesets" validate:"required"`
 	WorkflowConfig                *WorkflowConfig                          `toml:"workflow_config" validate:"required"`
 	JD                            *jd.Input                                `toml:"jd" validate:"required"`
@@ -381,6 +387,13 @@ func setupPoRTestEnvironment(
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
+
+	if in.CustomAnvilMiner != nil {
+		require.NotContains(t, in.BlockchainA.DockerCmdParamsOverrides, "-b", "custom_anvil_miner was specified but Anvil has '-b' key set, remove that parameter from 'docker_cmd_params' to run deployments instantly or remove custom_anvil_miner key from TOML config")
+		require.Equal(t, "anvil", in.BlockchainA.Type, "custom_anvil_miner was specified but blockchain type is not Anvil")
+		miner := rpc.NewRemoteAnvilMiner(universalSetupOutput.BlockchainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl, nil)
+		miner.MinePeriodically(time.Duration(in.CustomAnvilMiner.BlockSpeedSeconds) * time.Second)
+	}
 
 	deployDataFeedsInput := &keystonetypes.DeployDataFeedsCacheInput{
 		ChainSelector: universalSetupOutput.BlockchainOutput.ChainSelector,
