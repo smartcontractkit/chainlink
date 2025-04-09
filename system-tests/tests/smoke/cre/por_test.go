@@ -238,10 +238,18 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 		CRECLIAbsPath:               input.creCLIAbsPath,
 		WorkflowName:                input.WorkflowConfig.WorkflowName,
 		ShouldCompileNewWorkflow:    input.WorkflowConfig.ShouldCompileNewWorkflow,
-		NewWorkflow: &keystonetypes.NewWorkflow{
+	}
+
+	if input.WorkflowConfig.ShouldCompileNewWorkflow {
+		registerWorkflowInput.NewWorkflow = &keystonetypes.NewWorkflow{
 			FolderLocation: *input.WorkflowConfig.WorkflowFolderLocation,
 			ConfigFilePath: &workflowConfigFilePath,
-		},
+		}
+	} else {
+		registerWorkflowInput.ExistingWorkflow = &keystonetypes.ExistingWorkflow{
+			BinaryURL: input.WorkflowConfig.CompiledWorkflowConfig.BinaryURL,
+			ConfigURL: &input.WorkflowConfig.CompiledWorkflowConfig.ConfigURL,
+		}
 	}
 
 	registerErr := creworkflow.RegisterWithCRECLI(registerWorkflowInput)
