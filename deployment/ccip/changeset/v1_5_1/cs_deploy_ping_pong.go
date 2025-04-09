@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/ping_pong_demo"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/ping_pong_demo"
 )
 
 var _ deployment.ChangeSet[DeployPingPongDemoContractsConfig] = DeployPingPongDemoContractsChangeset
