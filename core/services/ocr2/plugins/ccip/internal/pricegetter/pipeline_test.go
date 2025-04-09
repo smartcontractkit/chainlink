@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
 	config2 "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -114,7 +115,11 @@ func newTestPipelineGetter(t *testing.T, source string) *pricegetter.PipelineGet
 	bridgeORM := bridges.NewORM(db)
 	runner := pipeline.NewRunner(pipeline.NewORM(db, lggr, config.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
 		bridgeORM, cfg, nil, nil, nil, nil, lggr, &http.Client{}, &http.Client{})
-	ds, err := pricegetter.NewPipelineGetter(source, runner, 1, uuid.New(), "test", lggr)
+	sourceNative := ccipcalc.EvmAddrToGeneric(common.HexToAddress("0x"))
+	sourceChain := chainsel.TEST_1000
+	destChain := chainsel.TEST_1338
+	ds, err := pricegetter.NewPipelineGetter(source, runner, 1, uuid.New(), "test",
+		lggr, sourceNative, sourceChain.Selector, destChain.Selector)
 	require.NoError(t, err)
 	return ds
 }

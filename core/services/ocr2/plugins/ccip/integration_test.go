@@ -42,6 +42,11 @@ func TestIntegration_CCIP(t *testing.T) {
 			withPipeline:             false,
 			allowOutOfOrderExecution: false,
 		},
+		{
+			name:                     "with pipeline allowOutOfOrderExecution true",
+			withPipeline:             true,
+			allowOutOfOrderExecution: true,
+		},
 	}
 
 	for _, test := range tests {
