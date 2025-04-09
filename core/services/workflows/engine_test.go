@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	billing "github.com/smartcontractkit/chainlink-common/pkg/billing/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -255,19 +255,6 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		clock:          clock,
 		RateLimiter:    rl,
 		WorkflowLimits: sl,
-		sendMeteringReport: func(report *MeteringReport, name string, ID string, execID string) {
-			detail := report.Description()
-			bClient := beholder.GetClient()
-			// kvAttrs is what the test client matches on, view pkg/utils/test in common for more detail
-			kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain,
-				"beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, detail.Entity),
-				platform.KeyWorkflowName, name, platform.KeyWorkflowID, ID, platform.KeyWorkflowExecutionID, execID}
-
-			data, mErr := proto.Marshal(report.Message())
-			require.NoError(t, mErr)
-
-			require.NoError(t, bClient.Emitter.Emit(t.Context(), data, kvAttrs...))
-		},
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -357,6 +344,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	beholderTester := tests.Beholder(t)
+	mBillingClient := new(mockBillingClient)
 
 	trigger, cr := mockTrigger(t)
 
@@ -384,7 +372,14 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 		t,
 		reg,
 		hardcodedWorkflow,
+		func(cfg *Config) {
+			cfg.BillingClient = mBillingClient
+		},
 	)
+
+	mBillingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+		return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
+	})).Times(4) // TODO: not sure how many times or should use Maybe
 
 	servicetest.Run(t, eng)
 
@@ -2285,4 +2280,19 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 	assert.Equal(t, 2, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, MeteringReportEntity)))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid2))
+}
+
+type mockBillingClient struct {
+	mock.Mock
+}
+
+func (_m *mockBillingClient) SubmitWorkflowReceipt(ctx context.Context, req *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error) {
+	args := _m.Called(ctx, req)
+
+	var a0 *billing.SubmitWorkflowReceiptResponse
+	if arg, ok := args.Get(0).(*billing.SubmitWorkflowReceiptResponse); ok {
+		a0 = arg
+	}
+
+	return a0, args.Error(1)
 }

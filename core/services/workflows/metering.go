@@ -148,6 +148,24 @@ func (r *MeteringReport) SetStep(ref MeteringReportStepRef, steps []MeteringRepo
 }
 
 func (r *MeteringReport) Message() proto.Message {
+	return r.toProto()
+}
+
+type MessageDescription struct {
+	Schema string
+	Domain string
+	Entity string
+}
+
+func (r *MeteringReport) Description() MessageDescription {
+	return MessageDescription{
+		Schema: MeteringReportSchema,
+		Domain: MeteringReportDomain,
+		Entity: MeteringReportEntity,
+	}
+}
+
+func (r *MeteringReport) toProto() *pb.MeteringReport {
 	protoReport := &pb.MeteringReport{
 		Steps: map[string]*pb.MeteringReportStep{},
 	}
@@ -168,20 +186,6 @@ func (r *MeteringReport) Message() proto.Message {
 	}
 
 	return protoReport
-}
-
-type MessageDescription struct {
-	Schema string
-	Domain string
-	Entity string
-}
-
-func (r *MeteringReport) Description() MessageDescription {
-	return MessageDescription{
-		Schema: MeteringReportSchema,
-		Domain: MeteringReportDomain,
-		Entity: MeteringReportEntity,
-	}
 }
 
 // MeterReports is a concurrency-safe wrapper around map[string]*MeteringReport.
@@ -228,3 +232,5 @@ func (s *MeterReports) Len() int {
 
 	return len(s.meterReports)
 }
+
+type WorkflowReceipt struct{}

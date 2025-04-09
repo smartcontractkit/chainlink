@@ -40,7 +40,7 @@ type engineMetrics struct {
 	workflowErrorDurationSeconds     metric.Int64Histogram
 	workflowTimeoutDurationSeconds   metric.Int64Histogram
 	workflowStepDurationSeconds      metric.Int64Histogram
-	workflowMissingMeteringReport    metric.Int64Counter
+	workflowMissingMeteringReport    metric.Int64Gauge
 }
 
 func initMonitoringResources() (em *engineMetrics, err error) {
@@ -169,7 +169,7 @@ func initMonitoringResources() (em *engineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register step execution time histogram: %w", err)
 	}
 
-	em.workflowMissingMeteringReport, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_missing_metering_report")
+	em.workflowMissingMeteringReport, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_missing_metering_report")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow metering missing gauge: %w", err)
 	}
@@ -325,7 +325,7 @@ func (c workflowsMetricLabeler) updateWorkflowStepDurationHistogram(ctx context.
 	c.em.workflowStepDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementWorkflowMissingMeteringReport(ctx context.Context) {
+func (c workflowsMetricLabeler) updateWorkflowMissingMeteringReport(ctx context.Context, val int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
-	c.em.workflowMissingMeteringReport.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+	c.em.workflowMissingMeteringReport.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	billing "github.com/smartcontractkit/chainlink-common/pkg/billing/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
@@ -103,6 +104,10 @@ func (sucm *stepUpdateManager) len() int64 {
 
 type SecretsFor func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
 
+type billingClient interface {
+	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)
+}
+
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
@@ -124,6 +129,7 @@ type Engine struct {
 	maxExecutionDuration time.Duration
 	heartbeatCadence     time.Duration
 	stepTimeoutDuration  time.Duration
+	billingClient        billingClient
 
 	// testing lifecycle hook to signal when an execution is finished.
 	onExecutionFinished func(string)
@@ -148,7 +154,7 @@ type Engine struct {
 	meterReports   *MeterReports
 
 	// sendMeteringReport is a test hook to send a metering report
-	sendMeteringReport func(report *MeteringReport, name string, ID string, execID string)
+	sendMeteringReportHook func(report *MeteringReport, name string, ID string, execID string)
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -601,9 +607,6 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			e.meterReports.Add(stepUpdate.ExecutionID, NewMeteringReport())
 		}
 
-		report, _ := e.meterReports.Get(stepUpdate.ExecutionID)
-		e.sendMeteringReport(report, e.workflow.name.String(), e.workflow.id, stepUpdate.ExecutionID)
-
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
 
@@ -683,13 +686,32 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		logCustMsg(ctx, cma, fmt.Sprintf("execution duration exceeded 15 minutes: %d (seconds)", executionDuration), l)
 		l.Warnf("execution duration exceeded 15 minutes: %d (seconds)", executionDuration)
 	}
+
 	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d (seconds)", executionDuration), l)
 	l.Infof("execution duration: %d (seconds)", executionDuration)
 	err = emitExecutionFinishedEvent(ctx, cma, status, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution finished event: %+v", err)
 	}
+
+	report, exists := e.meterReports.Get(executionID)
+
+	if exists {
+		// send metering report to beholder
+		if err = e.emitMeteringReport(ctx, report, e.workflow.name.String(), e.workflow.id, executionID); err != nil {
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).updateWorkflowMissingMeteringReport(ctx, 0)
+			l.Warn(fmt.Sprintf("metering report send to beholder error %s", err))
+		}
+
+		// send metering report to billing if billing client is not nil
+		if err = e.sendMeteringReportToBilling(ctx, report, e.workflow.id, executionID); err != nil {
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).updateWorkflowMissingMeteringReport(ctx, 0)
+			l.Warn(fmt.Sprintf("metering report send to billing error %s", err))
+		}
+	}
+
 	e.onExecutionFinished(executionID)
+
 	return nil
 }
 
@@ -827,8 +849,9 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		if err := rpt.SetStep(MeteringReportStepRef(stepState.Ref), meteringSteps); err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
+		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).updateWorkflowMissingMeteringReport(ctx, 1)
 	} else {
-		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).incrementWorkflowMissingMeteringReport(ctx)
+		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).updateWorkflowMissingMeteringReport(ctx, 0)
 		// TODO: to be bumped to error if all capabilities must implement metering
 		l.Warnf("no metering report found for %v", msg.state.ExecutionID)
 	}
@@ -1177,6 +1200,47 @@ func (e *Engine) heartbeat(ctx context.Context) {
 	}
 }
 
+func (e *Engine) sendMeteringReportToBilling(ctx context.Context, report *MeteringReport, workflowID string, executionID string) error {
+	if e.billingClient != nil {
+		req := billing.SubmitWorkflowReceiptRequest{
+			AccountId:           "", // TODO: not sure what to do with the AccountID
+			WorkflowId:          workflowID,
+			WorkflowExecutionId: executionID,
+			Metering:            report.toProto(),
+		}
+
+		resp, err := e.billingClient.SubmitWorkflowReceipt(ctx, &req)
+		if err != nil {
+			return err
+		}
+
+		if resp == nil || !resp.Success {
+			return errors.New("failed to submit workflow receipt")
+		}
+	}
+
+	return nil
+}
+
+// emitMeteringReport is separate from `emitCustomMessage` because the workflow and execution id are included as attrs
+// and the reference entity is different.
+func (e *Engine) emitMeteringReport(ctx context.Context, report *MeteringReport, name string, ID string, execID string) error {
+	detail := report.Description()
+	bClient := beholder.GetClient()
+
+	// kvAttrs is what the test client matches on, view pkg/utils/test in common for more detail
+	kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain,
+		"beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, detail.Entity),
+		platform.KeyWorkflowName, name, platform.KeyWorkflowID, ID, platform.KeyWorkflowExecutionID, execID}
+
+	data, err := proto.Marshal(report.Message())
+	if err != nil {
+		return err
+	}
+
+	return bClient.Emitter.Emit(ctx, data, kvAttrs...)
+}
+
 func (e *Engine) Close() error {
 	return e.StopOnce("Engine", func() error {
 		e.logger.Info("shutting down engine")
@@ -1274,6 +1338,7 @@ type Config struct {
 	SecretsFetcher       SecretsFor
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
+	BillingClient        billingClient
 
 	// RateLimiter limits the workflow execution steps globally and per
 	// second that a workflow owner can make
@@ -1290,7 +1355,6 @@ type Config struct {
 	onExecutionFinished func(weid string)
 	onRateLimit         func(weid string)
 	clock               clockwork.Clock
-	sendMeteringReport  func(report *MeteringReport, name string, ID string, execID string)
 }
 
 const (
@@ -1353,10 +1417,6 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 
 	if cfg.clock == nil {
 		cfg.clock = clockwork.NewRealClock()
-	}
-
-	if cfg.sendMeteringReport == nil {
-		cfg.sendMeteringReport = func(*MeteringReport, string, string, string) {}
 	}
 
 	if cfg.RateLimiter == nil {
@@ -1454,7 +1514,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
 		meterReports:         NewMeterReports(),
-		sendMeteringReport:   cfg.sendMeteringReport,
+		billingClient:        cfg.BillingClient,
 	}
 
 	return engine, nil
