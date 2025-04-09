@@ -20,26 +20,13 @@ func RegisterWithCRECLI(input cretypes.RegisterWorkflowWithCRECLIInput) error {
 		return errors.Wrap(pkErr, "failed to set CRE_ETH_PRIVATE_KEY")
 	}
 
-	// create CRE CLI settings file
-	settingsFile, settingsErr := libcrecli.PrepareCRECLISettingsFile(
-		input.WorkflowOwnerAddress,
-		input.CapabilitiesRegistryAddress,
-		input.WorkflowRegistryAddress,
-		input.WorkflowDonID,
-		input.ChainSelector,
-		input.HTTPRPCURL,
-	)
-	if settingsErr != nil {
-		return errors.Wrap(settingsErr, "failed to create CRE CLI settings file")
-	}
-
 	var workflowURL string
 	var workflowConfigURL *string
 	var workflowSecretsURL *string
 
 	// compile and upload the workflow, if we are not using an existing one
 	if input.ShouldCompileNewWorkflow {
-		compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, input.NewWorkflow.FolderLocation, input.NewWorkflow.ConfigFilePath, settingsFile)
+		compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, input.NewWorkflow.FolderLocation, input.NewWorkflow.ConfigFilePath, input.CRESettingsFile)
 		if compileErr != nil {
 			return errors.Wrap(compileErr, "failed to compile workflow")
 		}
@@ -48,7 +35,7 @@ func RegisterWithCRECLI(input cretypes.RegisterWorkflowWithCRECLIInput) error {
 		workflowConfigURL = &compilationResult.ConfigURL
 
 		if input.NewWorkflow.SecretsFilePath != nil {
-			secretsURL, secretsErr := libcrecli.EncryptSecrets(input.CRECLIAbsPath, *input.NewWorkflow.SecretsFilePath, settingsFile)
+			secretsURL, secretsErr := libcrecli.EncryptSecrets(input.CRECLIAbsPath, *input.NewWorkflow.SecretsFilePath, input.CRESettingsFile)
 			if secretsErr != nil {
 				return errors.Wrap(secretsErr, "failed to encrypt workflow secrets")
 			}
@@ -60,7 +47,7 @@ func RegisterWithCRECLI(input cretypes.RegisterWorkflowWithCRECLIInput) error {
 		workflowSecretsURL = input.ExistingWorkflow.SecretsURL
 	}
 
-	registerErr := libcrecli.DeployWorkflow(input.CRECLIAbsPath, input.WorkflowName, workflowURL, workflowConfigURL, workflowSecretsURL, settingsFile)
+	registerErr := libcrecli.DeployWorkflow(input.CRECLIAbsPath, input.WorkflowName, workflowURL, workflowConfigURL, workflowSecretsURL, input.CRESettingsFile)
 	if registerErr != nil {
 		return errors.Wrap(registerErr, "failed to register workflow")
 	}
