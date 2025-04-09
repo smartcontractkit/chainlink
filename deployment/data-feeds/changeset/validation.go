@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -48,13 +49,10 @@ func ValidateMCMSAddresses(ab deployment.AddressBook, chainSelector uint64) erro
 // spec- https://docs.google.com/document/d/13ciwTx8lSUfyz1IdETwpxlIVSn1lwYzGtzOBBTpl5Vg/edit?tab=t.0#heading=h.dxx2wwn1dmoz
 func ValidateFeedID(feedID string) error {
 	// Check for "0x" prefix and remove it
-	if feedID[:2] != "0x" {
-		return errors.New("invalid feed ID")
-	}
-	feedID = feedID[2:]
+	feedID = strings.TrimPrefix(feedID, "0x")
 
 	if len(feedID) != 32 {
-		return errors.New("invalid feed ID length")
+		return fmt.Errorf("invalid feed ID length. Expected 32 characters, got %d", len(feedID))
 	}
 
 	bytes, err := hex.DecodeString(feedID)
