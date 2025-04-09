@@ -20,7 +20,8 @@
 
 [workflow_config]
   workflow_name = "abcdefgasd"
-  feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
+  # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
+  feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
   should_compile_new_workflow = true

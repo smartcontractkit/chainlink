@@ -58,16 +58,16 @@ import (
 )
 
 type TestConfigLoadTest struct {
-	BlockchainA                   *blockchain.Input                      `toml:"blockchain_a" validate:"required"`
-	NodeSets                      []*ns.Input                            `toml:"nodesets" validate:"required"`
-	JD                            *jd.Input                              `toml:"jd" validate:"required"`
-	KeystoneContracts             *keystonetypes.KeystoneContractsInput  `toml:"keystone_contracts"`
-	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput   `toml:"workflow_registry_configuration"`
-	FeedConsumer                  *keystonetypes.DeployFeedConsumerInput `toml:"feed_consumer"`
-	Infra                         *libtypes.InfraInput                   `toml:"infra" validate:"required"`
-	WorkflowDONLoad               *WorkflowLoad                          `toml:"workflow_load"`
-	MockCapabilities              []*MockCapabilities                    `toml:"mock_capabilities"`
-	BinariesConfig                *BinariesConfig                        `toml:"binaries_config"`
+	BlockchainA                   *blockchain.Input                        `toml:"blockchain_a" validate:"required"`
+	NodeSets                      []*ns.Input                              `toml:"nodesets" validate:"required"`
+	JD                            *jd.Input                                `toml:"jd" validate:"required"`
+	KeystoneContracts             *keystonetypes.KeystoneContractsInput    `toml:"keystone_contracts"`
+	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput     `toml:"workflow_registry_configuration"`
+	DataFeedsCache                *keystonetypes.DeployDataFeedsCacheInput `toml:"feed_consumer"`
+	Infra                         *libtypes.InfraInput                     `toml:"infra" validate:"required"`
+	WorkflowDONLoad               *WorkflowLoad                            `toml:"workflow_load"`
+	MockCapabilities              []*MockCapabilities                      `toml:"mock_capabilities"`
+	BinariesConfig                *BinariesConfig                          `toml:"binaries_config"`
 }
 
 type BinariesConfig struct {
@@ -93,11 +93,11 @@ type FeedWithStreamID struct {
 }
 
 type loadTestSetupOutput struct {
-	feedsConsumerAddress common.Address
-	forwarderAddress     common.Address
-	blockchainOutput     *blockchain.Output
-	donTopology          *keystonetypes.DonTopology
-	nodeOutput           []*keystonetypes.WrappedNodeOutput
+	dataFeedsCacheAddress common.Address
+	forwarderAddress      common.Address
+	blockchainOutput      *blockchain.Output
+	donTopology           *keystonetypes.DonTopology
+	nodeOutput            []*keystonetypes.WrappedNodeOutput
 }
 
 func setupLoadTestEnvironment(
@@ -301,7 +301,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
-			logTestInfo(testLogger, "n/a", "n/a", setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
+			logTestInfo(testLogger, "n/a", "n/a", setupOutput.dataFeedsCacheAddress.Hex(), setupOutput.forwarderAddress.Hex())
 
 			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
 
