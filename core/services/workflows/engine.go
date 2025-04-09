@@ -1220,13 +1220,13 @@ func (e *Engine) sendMeteringReportToBilling(ctx context.Context, report *Meteri
 
 // emitMeteringReport is separate from `emitCustomMessage` because the workflow and execution id are included as attrs
 // and the reference entity is different.
-func (e *Engine) emitMeteringReport(ctx context.Context, report *MeteringReport, name string, ID string, execID string) error {
+func (e *Engine) emitMeteringReport(ctx context.Context, report *MeteringReport, workflowName, workflowID, execID string) error {
 	detail := report.Description()
 
 	// kvAttrs is what the test client matches on, view pkg/utils/test in common for more detail
 	kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain,
 		"beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, detail.Entity),
-		platform.KeyWorkflowName, name, platform.KeyWorkflowID, ID, platform.KeyWorkflowExecutionID, execID}
+		platform.KeyWorkflowName, workflowName, platform.KeyWorkflowID, workflowID, platform.KeyWorkflowExecutionID, execID}
 
 	data, err := proto.Marshal(report.Message())
 	if err != nil {
