@@ -666,7 +666,7 @@ jobs:
           echo "Branch name: $branch_name"
           echo "Deterministic number: $deterministic_number"
 
-          # 10% of the time, use self-hosted runners
+          # 25% of the time, use self-hosted runners
           if [ "$deterministic_number" -lt 25 ]; then
             gh pr edit --repo "${GITHUB_REPOSITORY}" "${PULL_REQUEST_NUMBER}" --add-label "runs-on"
             echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
