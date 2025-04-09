@@ -62,7 +62,7 @@ func DeployPingPongDemoContractsChangeset(env deployment.Environment, c DeployPi
 
 	addr, _, _, err := ping_pong_demo.DeployPingPongDemo(chain.DeployerKey, chain.Client, router.Address(), chainState.LinkToken.Address())
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy ping pong demo contract on %s: %w", c.ChainSelector, err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy ping pong demo contract on %d: %w", c.ChainSelector, err)
 	}
 
 	err = newAB.Save(chain.Selector, addr.String(), tv)
