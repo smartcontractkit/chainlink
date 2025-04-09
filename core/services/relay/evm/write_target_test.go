@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -17,12 +16,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
+	dftypes "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds"
+	dfevm "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/evm"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -44,59 +46,56 @@ import (
 
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
-func newMockedEncodeTransmissionInfo() ([]byte, error) {
+func newMockedEncodeTransmissionInfo(state uint8) ([]byte, error) {
 	info := evm.TransmissionInfo{
 		GasLimit:        big.NewInt(0),
 		InvalidReceiver: false,
-		State:           0,
+		State:           state,
 		Success:         false,
 		TransmissionId:  [32]byte{},
 		Transmitter:     common.HexToAddress("0x0"),
 	}
-
 	var buffer bytes.Buffer
-	gasLimitBytes := info.GasLimit.Bytes()
-	if len(gasLimitBytes) > 80 {
-		return nil, fmt.Errorf("GasLimit too large")
-	}
-	paddedGasLimit := make([]byte, 80-len(gasLimitBytes))
-	buffer.Write(paddedGasLimit)
-	buffer.Write(gasLimitBytes)
 
-	// Encode InvalidReceiver (as uint8)
-	if info.InvalidReceiver {
-		buffer.WriteByte(1)
-	} else {
-		buffer.WriteByte(0)
-	}
-
-	// Padding for InvalidReceiver to fit into 32 bytes
-	padInvalidReceiver := make([]byte, 31)
-	buffer.Write(padInvalidReceiver)
-
-	// Encode State (as uint8)
-	buffer.WriteByte(info.State)
-
-	// Padding for State to fit into 32 bytes
-	padState := make([]byte, 31)
-	buffer.Write(padState)
-
-	// Encode Success (as uint8)
-	if info.Success {
-		buffer.WriteByte(1)
-	} else {
-		buffer.WriteByte(0)
-	}
-
-	// Padding for Success to fit into 32 bytes
-	padSuccess := make([]byte, 31)
-	buffer.Write(padSuccess)
-
-	// Encode TransmissionId (as bytes32)
+	// 1. Encode TransmissionId (bytes32)
 	buffer.Write(info.TransmissionId[:])
 
-	// Encode Transmitter (as address)
-	buffer.Write(info.Transmitter.Bytes())
+	// 2. Encode State (uint8, ABI pads to 32 bytes: 31 zeros + 1 byte)
+	stateSlot := make([]byte, 31)
+	stateSlot = append(stateSlot, info.State)
+	buffer.Write(stateSlot)
+
+	// 3. Encode Transmitter (address): address is 20 bytes; pad left with 12 zeros.
+	txBytes := info.Transmitter.Bytes()
+	// Ensure it is 20 bytes; if not, left-pad it (common.HexToAddress always returns 20 bytes).
+	paddedTx := make([]byte, 32-len(txBytes))
+	buffer.Write(paddedTx)
+	buffer.Write(txBytes)
+
+	// 4. Encode InvalidReceiver as bool (32 bytes: 31 zeros then byte(0) or byte(1))
+	var invReceiverByte byte = 0
+	if info.InvalidReceiver {
+		invReceiverByte = 1
+	}
+	invalidReceiverSlot := make([]byte, 31)
+	invalidReceiverSlot = append(invalidReceiverSlot, invReceiverByte)
+	buffer.Write(invalidReceiverSlot)
+
+	// 5. Encode Success as bool (32 bytes)
+	var successByte byte = 0
+	if info.Success {
+		successByte = 1
+	}
+	successSlot := make([]byte, 31)
+	successSlot = append(successSlot, successByte)
+	buffer.Write(successSlot)
+
+	// 6. Encode GasLimit as a uint (for uint80, still ABI-encoded in a 32-byte slot)
+	gasLimitBytes := info.GasLimit.Bytes()
+	// Left-pad the gas limit to 32 bytes.
+	paddedGasLimit := make([]byte, 32-len(gasLimitBytes))
+	buffer.Write(paddedGasLimit)
+	buffer.Write(gasLimitBytes)
 
 	return buffer.Bytes(), nil
 }
@@ -109,10 +108,10 @@ func TestEvmWrite(t *testing.T) {
 
 	// This is a very error-prone way to mock an on-chain response to a GetLatestValue("getTransmissionInfo") call
 	// It's a bit of a hack, but it's the best way to do it without a lot of refactoring
-	mockCall, err := newMockedEncodeTransmissionInfo()
+	mockCall, err := newMockedEncodeTransmissionInfo(0)
 	require.NoError(t, err)
 
-	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Maybe()
+	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Times(3)
 	evmClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte("test"), nil)
 
 	txManager.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(commontypes.Finalized, nil).Maybe()
@@ -165,7 +164,7 @@ func TestEvmWrite(t *testing.T) {
 	require.Len(t, registeredCapabilities, 1) // WriteTarget should be added to the registry
 
 	reportID := [2]byte{0x00, 0x01}
-	reportMetadata := evm.ReportV1Metadata{
+	reportMetadata := dftypes.Metadata{
 		Version:             1,
 		WorkflowExecutionID: [32]byte{},
 		Timestamp:           0,
@@ -177,14 +176,30 @@ func TestEvmWrite(t *testing.T) {
 		ReportID:            reportID,
 	}
 
-	reportMetadataBytes, err := reportMetadata.Encode()
+	feedReports := dfevm.Reports{
+		{
+			FeedID:    [32]byte{0x01},
+			Price:     big.NewInt(1234567890123456789),
+			Timestamp: 1620000000,
+		},
+	}
+
+	feedReportsEncoded, err := dfevm.GetSchema().Pack(feedReports)
+	require.NoError(t, err)
+
+	report := dfevm.Report{
+		Metadata: reportMetadata,
+		Data:     feedReportsEncoded,
+	}
+
+	reportEncoded, err := report.Encode()
 	require.NoError(t, err)
 
 	signatures := [][]byte{}
 
 	validInputs, err := values.NewMap(map[string]any{
 		"signed_report": map[string]any{
-			"report":     reportMetadataBytes,
+			"report":     reportEncoded,
 			"signatures": signatures,
 			"context":    []byte{4, 5},
 			"id":         reportID[:],
@@ -210,7 +225,7 @@ func TestEvmWrite(t *testing.T) {
 		method := forwardABI.Methods["report"]
 		err = method.Inputs.UnpackIntoMap(payload, req.EncodedPayload[4:])
 		require.NoError(t, err)
-		require.Equal(t, reportMetadataBytes, payload["rawReport"])
+		require.Equal(t, reportEncoded, payload["rawReport"])
 		require.Equal(t, signatures, payload["signatures"])
 	}).Once()
 
@@ -227,7 +242,6 @@ func TestEvmWrite(t *testing.T) {
 			Inputs:   validInputs,
 		}
 
-		// TODO: This successfully makes sure a tx is created and submitted, but it doesn't check if the tx is actually sent. Is there a E2E test?
 		_, err = capability.Execute(ctx, req)
 		require.NoError(t, err)
 	})
@@ -298,6 +312,26 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Empty(t, l)
+	})
+
+	t.Run("succeeds when report already succeeded", func(t *testing.T) {
+		mockCall, err = newMockedEncodeTransmissionInfo(1)
+		require.NoError(t, err)
+
+		evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Once()
+
+		ctx := testutils.Context(t)
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, lggr)
+		require.NoError(t, err)
+
+		req := capabilities.CapabilityRequest{
+			Metadata: validMetadata,
+			Config:   validConfig,
+			Inputs:   validInputs,
+		}
+
+		_, err = capability.Execute(ctx, req)
+		require.NoError(t, err)
 	})
 }
 
