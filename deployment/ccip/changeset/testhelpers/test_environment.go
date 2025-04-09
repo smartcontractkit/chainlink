@@ -50,6 +50,12 @@ const (
 	ENVTESTTYPE         = "CCIP_V16_TEST_ENV"
 )
 
+type LogMessageToIgnore struct {
+	Msg    string
+	Reason string
+	Level  zapcore.Level
+}
+
 type TestConfigs struct {
 	Type      EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
 	CreateJob bool
@@ -74,7 +80,18 @@ type TestConfigs struct {
 	LinkPrice                  *big.Int
 	WethPrice                  *big.Int
 	BlockTime                  time.Duration
-	CLNodeConfigOpts           []memory.ConfigOpt
+	// Test env related configs
+
+	// LogMessagesToIgnore are log messages emitted by the chainlink node that cause
+	// the test to auto-fail if they were logged.
+	// In some tests we don't want this to happen where a failure is expected, e.g
+	// we are purposely re-orging beyond finality.
+	LogMessagesToIgnore []LogMessageToIgnore
+
+	// ExtraConfigTomls contains the filenames of additional toml files to be loaded
+	// to potentially override default configs.
+	ExtraConfigTomls []string
+	CLNodeConfigOpts []memory.ConfigOpt
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -118,6 +135,18 @@ func DefaultTestConfigs() *TestConfigs {
 }
 
 type TestOps func(testCfg *TestConfigs)
+
+func WithLogMessagesToIgnore(logMessages []LogMessageToIgnore) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.LogMessagesToIgnore = logMessages
+	}
+}
+
+func WithExtraConfigTomls(extraTomls []string) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.ExtraConfigTomls = extraTomls
+	}
+}
 
 func WithCLNodeConfigOpts(opts ...memory.ConfigOpt) TestOps {
 	return func(testCfg *TestConfigs) {
