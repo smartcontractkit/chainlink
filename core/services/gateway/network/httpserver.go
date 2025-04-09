@@ -6,6 +6,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -89,10 +91,74 @@ func (s *httpServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// split URL into: scheme, hostname, port
+func splitURL(rawURL string) (string, string, string, error) {
+	// lowercase the URL to avoid case sensitivity issues
+	parsedURL, err := url.Parse(strings.ToLower((rawURL)))
+	if err != nil {
+		return "", "", "", fmt.Errorf("error parsing URL: %w", err)
+	}
+
+	host, port, err := net.SplitHostPort(parsedURL.Host)
+	if err != nil {
+		// if there's no port, the host itself is returned
+		if parsedURL.Host != "" {
+			return parsedURL.Scheme, parsedURL.Host, "", nil
+		}
+		return "", "", "", fmt.Errorf("error splitting host and port: %w", err)
+	}
+
+	return parsedURL.Scheme, host, port, nil
+}
+
+func (s *httpServer) matchWildcards(allowedHost string, originHost string) bool {
+	allowedParts := strings.Split(allowedHost, ".")
+	originParts := strings.Split(originHost, ".")
+
+	if len(allowedParts) != len(originParts) {
+		return false
+	}
+
+	for i := 0; i < len(allowedParts); i++ {
+		if allowedParts[i] != "*" && allowedParts[i] != originParts[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *httpServer) isAllowedOrigin(origin string) bool {
+	originScheme, originHost, originPort, err := splitURL(origin)
+	if err != nil {
+		s.lggr.Debug("error parsing origin URL", err)
+		return false
+	}
 	for _, allowed := range s.config.CORSAllowedOrigins {
-		if origin == allowed {
+		// probably better to do this once when server starts and store it in a map
+		// this is an easier solution so we don't have to apply more changes to the code
+		// just need to be careful when specifying allowed origins in the config file
+		allowedScheme, allowedHost, allowedPort, err := splitURL(allowed)
+		if err != nil {
+			s.lggr.Debug("error parsing allowed origin URL", err)
+			continue
+		}
+		// skip if the scheme doesn't match at all
+		if originScheme != allowedScheme {
+			continue
+		}
+		// skip if the port doesn't match at all
+		if originPort != allowedPort {
+			continue
+		}
+		// check for exact host match (e.g., https://remix.com)
+		if originScheme == allowedHost {
 			return true
+		}
+		// check for wildcard host match (e.g., *.remix.com)
+		if strings.Contains(allowedHost, "*") {
+			if s.matchWildcards(allowedHost, originHost) {
+				return true
+			}
 		}
 	}
 	return false

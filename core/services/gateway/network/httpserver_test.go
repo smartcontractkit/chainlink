@@ -115,6 +115,49 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
 }
 
+func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *testing.T) {
+	t.Parallel()
+	server, handler, url := startNewServer(t, 100_000, 100_000, true,
+		[]string{"https://remix.*.org", "https://another.valid.*.com", "http://*.example.com"})
+	defer server.Close()
+
+	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
+
+	origin := "https://remix.ethereum.org"
+	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	respBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, []byte("response"), respBytes)
+	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
+	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
+
+	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
+
+	origin = "https://another.valid.hostname.com"
+	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	respBytes, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, []byte("response"), respBytes)
+	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
+	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
+
+	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
+
+	origin = "http://my.example.com"
+	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	respBytes, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, []byte("response"), respBytes)
+	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
+	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
+}
+
 func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest(t *testing.T) {
 	t.Parallel()
 	server, _, url := startNewServer(t, 100_000, 100_000, true,
@@ -143,6 +186,49 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T)
 	origin := "https://not.allowed.origin.com"
 	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
 	respBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, []byte("response"), respBytes)
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Methods"))
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Headers"))
+}
+
+func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *testing.T) {
+	t.Parallel()
+	server, handler, url := startNewServer(t, 100_000, 100_000, true,
+		[]string{"https://remix.*.org", "https://another.valid.*.com", "http://*.example.com"})
+	defer server.Close()
+
+	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
+
+	origin := "https://notallowed.remix.org"
+	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	respBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, []byte("response"), respBytes)
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Methods"))
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Headers"))
+
+	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
+
+	origin = "https://another.valid.domain.org"
+	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	respBytes, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, []byte("response"), respBytes)
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Methods"))
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Headers"))
+
+	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
+
+	origin = "http://example.com"
+	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	respBytes, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
