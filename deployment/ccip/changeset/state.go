@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/log_message_data_receiver"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
@@ -90,6 +91,7 @@ var (
 	WETH9                deployment.ContractType = "WETH9"
 	Router               deployment.ContractType = "Router"
 	TokenAdminRegistry   deployment.ContractType = "TokenAdminRegistry"
+	TokenPoolFactory     deployment.ContractType = "TokenPoolFactory"
 	RegistryModule       deployment.ContractType = "RegistryModuleOwnerCustom"
 	NonceManager         deployment.ContractType = "NonceManager"
 	FeeQuoter            deployment.ContractType = "FeeQuoter"
@@ -137,6 +139,7 @@ type CCIPChainState struct {
 	RMNProxy           *rmn_proxy_contract.RMNProxy
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
+	TokenPoolFactory   *token_pool_factory.TokenPoolFactory
 	RegistryModules1_6 []*registry_module_owner_custom.RegistryModuleOwnerCustom
 	// TODO change this to contract object for v1.5 RegistryModules once we have the wrapper available in chainlink-evm
 	RegistryModules1_5 []common.Address
@@ -901,6 +904,13 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.TokenAdminRegistry = tm
 			state.ABIByAddress[address] = token_admin_registry.TokenAdminRegistryABI
+		case deployment.NewTypeAndVersion(TokenPoolFactory, deployment.Version1_5_1).String():
+			tpf, err := token_pool_factory.NewTokenPoolFactory(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.TokenPoolFactory = tpf
+			state.ABIByAddress[address] = token_pool_factory.TokenPoolFactoryABI
 		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_6_0).String():
 			rm, err := registry_module_owner_custom.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
 			if err != nil {
