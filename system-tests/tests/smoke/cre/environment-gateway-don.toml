@@ -6,7 +6,7 @@
 
 [jd]
   # change to your version
-  image = "jd-test-1:latest"
+  image = "job-distributor:0.9.0"
 
 # fake data provider used as a mocked price source
 [fake]
