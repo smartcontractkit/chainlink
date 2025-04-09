@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/mcms"
 
+	"github.com/smartcontractkit/chainlink/deployment/datastore"
 	"github.com/smartcontractkit/chainlink/deployment/operations"
 )
 
@@ -112,6 +113,7 @@ type ChangesetOutput struct {
 	DescribedTimelockProposals []string
 	MCMSProposals              []mcms.Proposal
 	AddressBook                AddressBook
+	DataStore                  datastore.MutableDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
 	// Reports are populated by the Operations API with the
 	// results of the operations executed in the changeset.
 	Reports []operations.Report[any, any]

@@ -19,6 +19,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/datastore"
 
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
@@ -212,6 +213,10 @@ func NewMemoryEnvironmentFromChainsNodes(
 		Memory,
 		lggr,
 		deployment.NewMemoryAddressBook(),
+		datastore.NewMemoryDataStore[
+			datastore.DefaultMetadata,
+			datastore.DefaultMetadata,
+		]().Seal(),
 		chains,
 		solChains,
 		aptosChains,
@@ -236,6 +241,10 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		Memory,
 		lggr,
 		deployment.NewMemoryAddressBook(),
+		datastore.NewMemoryDataStore[
+			datastore.DefaultMetadata,
+			datastore.DefaultMetadata,
+		]().Seal(),
 		chains,
 		solChains,
 		aptosChains,
