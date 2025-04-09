@@ -5,12 +5,12 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/deployment"
-	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 )
 
 const (
@@ -79,7 +79,7 @@ type ConfigureForwarderContractsRequest struct {
 	UseMCMS bool
 }
 type ConfigureForwarderContractsResponse struct {
-	OpsPerChain map[uint64]timelock.BatchChainOperation
+	OpsPerChain map[uint64]mcmstypes.BatchOperation
 }
 
 // Depreciated: use [changeset.ConfigureForwardContracts] instead
@@ -94,7 +94,7 @@ func ConfigureForwardContracts(env *deployment.Environment, req ConfigureForward
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 
-	opPerChain := make(map[uint64]timelock.BatchChainOperation)
+	opPerChain := make(map[uint64]mcmstypes.BatchOperation)
 	// configure forwarders on all chains
 	for _, chain := range env.Chains {
 		if _, shouldInclude := req.Chains[chain.Selector]; len(req.Chains) > 0 && !shouldInclude {

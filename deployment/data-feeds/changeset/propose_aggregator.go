@@ -5,9 +5,9 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
 )
 
 // ProposeAggregatorChangeset is a changeset that proposes a new aggregator on existing AggregatorProxy contract

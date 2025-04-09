@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 )
 
 func TestParseErrorFromABI(t *testing.T) {

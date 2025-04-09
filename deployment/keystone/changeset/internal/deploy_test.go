@@ -13,10 +13,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -56,7 +56,7 @@ func Test_RegisterNOPS(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp.Ops)
-		require.Len(t, resp.Ops.Batch, 1)
+		require.Len(t, resp.Ops.Transactions, 1)
 	})
 }
 

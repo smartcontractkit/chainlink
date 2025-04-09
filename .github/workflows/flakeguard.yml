@@ -281,14 +281,6 @@ jobs:
           persist-credentials: false
           ref: ${{ env.GIT_HEAD_REF }}
 
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-        with:
-          prod: "true"
-
-      - name: Install Foundry
-        uses: ./.github/actions/install-solidity-foundry
-
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:

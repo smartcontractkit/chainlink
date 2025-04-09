@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -65,6 +67,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// initialize additional accounts on other chains
 	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
+	// todo: fund keys on solana
 	require.NoError(t, err)
 	// todo: defer returning funds
 
@@ -111,7 +114,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	for ind := range *userOverrides.NumDestinationChains {
 		cs := env.AllChainSelectors()[ind]
 
-		messageKeys := make(map[uint64]*bind.TransactOpts)
+		evmSourceKeys := make(map[uint64]*bind.TransactOpts)
+		solanaSourceKeys := make(map[uint64]*solana.PrivateKey)
+		// todo: make solana source keys
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
 		var mu sync.Mutex
 		var wg2 sync.WaitGroup
@@ -120,14 +125,14 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			go func(src uint64) {
 				defer wg2.Done()
 				mu.Lock()
-				messageKeys[src] = transmitKeys[src][ind]
+				evmSourceKeys[src] = transmitKeys[src][ind]
 				mu.Unlock()
 				assert.NoError(t, prepareAccountToSendLink(
 					t,
 					state,
 					*env,
 					src,
-					messageKeys[src],
+					evmSourceKeys[src],
 				))
 			}(src)
 		}
@@ -140,7 +145,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			&state,
 			state.Chains[cs].Receiver.Address(),
 			userOverrides,
-			messageKeys,
+			evmSourceKeys,
+			solanaSourceKeys,
 			ind,
 			mm.InputChan,
 		)
