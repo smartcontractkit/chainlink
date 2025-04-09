@@ -349,9 +349,6 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetCandidateChangeset on home chain: %w", err)
 	}
 
-	// claim the donID
-	// call donIDClaimer claimNextDonId
-
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
 	// Reset existing addresses
