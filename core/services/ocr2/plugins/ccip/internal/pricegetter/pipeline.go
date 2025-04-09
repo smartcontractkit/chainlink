@@ -9,6 +9,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
@@ -19,6 +20,7 @@ import (
 
 var _ PriceGetter = &PipelineGetter{}
 
+// Deprecated: not used
 type PipelineGetter struct {
 	source        string
 	runner        pipeline.Runner
@@ -59,24 +61,8 @@ func (d *PipelineGetter) FilterConfiguredTokens(ctx context.Context, tokens []cc
 	return configured, unconfigured, nil
 }
 
-func (d *PipelineGetter) GetJobSpecTokenPricesUSD(ctx context.Context) (map[cciptypes.Address]*big.Int, error) {
-	prices, err := d.getPricesFromRunner(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	tokenPrices := make(map[cciptypes.Address]*big.Int)
-	for tokenAddressStr, rawPrice := range prices {
-		tokenAddressStr := ccipcalc.HexToAddress(tokenAddressStr)
-		castedPrice, err := parseutil.ParseBigIntFromAny(rawPrice)
-		if err != nil {
-			return nil, err
-		}
-
-		tokenPrices[tokenAddressStr] = castedPrice
-	}
-
-	return tokenPrices, nil
+func (d *PipelineGetter) GetJobSpecTokenPricesUSD(ctx context.Context) (map[ccipcommon.TokenID]*big.Int, error) {
+	panic("GetJobSpecTokenPricesUSD not supported by pipeline price getter migrate to dynamic price getter via jobSpec config")
 }
 
 func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
@@ -108,6 +94,10 @@ func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.
 	}
 
 	return tokenPrices, nil
+}
+
+func (d *PipelineGetter) GetTokenPricesUSD(ctx context.Context, tokens []ccipcommon.TokenID) (map[ccipcommon.TokenID]*big.Int, error) {
+	panic("GetTokenPricesUSD not supported by pipeline price getter migrate to dynamic price getter via jobSpec config")
 }
 
 func (d *PipelineGetter) getPricesFromRunner(ctx context.Context) (map[string]interface{}, error) {

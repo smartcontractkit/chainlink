@@ -120,7 +120,7 @@ var ChainWriterCapabilityFactory = func(chainID uint64) func(donFlags []string) 
 	}
 }
 
-var ChainReaderCapabilityFactory = func(chainID int, chainFamily string) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+var ChainReaderCapabilityFactory = func(chainID uint64, chainFamily string) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
@@ -141,8 +141,7 @@ var ChainReaderCapabilityFactory = func(chainID int, chainFamily string) func(do
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   fmt.Sprintf("read-contract-%s-%d", chainFamily, chainID),
 					Version:        "1.0.0",
-					CapabilityType: 0, // TRIGGER
-					ResponseType:   0, // REPORT
+					CapabilityType: 1, // ACTION
 				},
 				Config: &capabilitiespb.CapabilityConfig{},
 			})
@@ -268,7 +267,7 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 	return nil
 }
 
-func DeployKeystone(testLogger zerolog.Logger, input *types.KeystoneContractsInput) (*types.KeystoneContractOutput, error) {
+func DeployKeystone(testLogger zerolog.Logger, input *types.KeystoneContractsInput) (*types.KeystoneContractsOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -299,7 +298,7 @@ func DeployKeystone(testLogger zerolog.Logger, input *types.KeystoneContractsInp
 		return nil, errors.Wrap(err, "failed to deploy Workflow Registry contract")
 	}
 
-	out := &types.KeystoneContractOutput{
+	out := &types.KeystoneContractsOutput{
 		ForwarderAddress:            forwarderAddress,
 		OCR3CapabilityAddress:       oCR3CapabilityAddress,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,

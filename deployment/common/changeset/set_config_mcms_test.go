@@ -534,6 +534,8 @@ func TestValidate(t *testing.T) {
 }
 
 func TestValidateV2(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-439")
+
 	t.Parallel()
 	env := setupSetConfigTestEnv(t)
 

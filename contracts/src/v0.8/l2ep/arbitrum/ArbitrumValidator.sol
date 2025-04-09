@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {AggregatorValidatorInterface} from "../../shared/interfaces/AggregatorValidatorInterface.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {AccessControllerInterface} from "../../shared/interfaces/AccessControllerInterface.sol";
+import {BaseValidator} from "../base/BaseValidator.sol";
 import {SimpleWriteAccessController} from "../../shared/access/SimpleWriteAccessController.sol";
 
 /* ./dev dependencies - to be moved from ./dev after audit */
@@ -251,9 +252,9 @@ contract ArbitrumValidator is ITypeAndVersion, AggregatorValidatorInterface, Sim
    * @param currentAnswer new aggregator answer - value of 1 considers the service offline.
    */
   function validate(
-    uint256 /* previousRoundId */,
+    uint256 previousRoundId,
     int256 previousAnswer,
-    uint256 /* currentRoundId */,
+    uint256 currentRoundId,
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
     // Avoids resending to L2 the same tx on every call
@@ -289,6 +290,7 @@ contract ArbitrumValidator is ITypeAndVersion, AggregatorValidatorInterface, Sim
       gasPriceBid,
       message
     );
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // return success
     return true;
   }

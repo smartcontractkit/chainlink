@@ -14,13 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	gasmocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 )
 

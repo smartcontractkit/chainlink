@@ -15,8 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )

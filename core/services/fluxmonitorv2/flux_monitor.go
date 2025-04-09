@@ -20,8 +20,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
-	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
