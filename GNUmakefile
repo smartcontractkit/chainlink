@@ -19,7 +19,7 @@ ifndef APTOS_RELAYER_GIT_REF
 override APTOS_RELAYER_GIT_REF = "2.21.0-beta16-aptos"
 endif
 ifndef CAPABILITIES_GIT_REF
-override CAPABILITIES_GIT_REF = "d47e69a0a62dabb95df658585cc9229d2c4a4b32"
+override CAPABILITIES_GIT_REF = "cf8a3317f89784ff2bf51c04e65b4afcb6eb4363"
 endif
 
 .PHONY: install
@@ -149,12 +149,8 @@ comma := ,
 operator-ui: ## Fetch the frontend
 	go run operator_ui/install.go .
 
-.PHONY: abigen
-abigen: ## Build & install abigen.
-	./tools/bin/build_abigen
-
 .PHONY: generate
-generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
+generate: codecgen mockery protoc gomods ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
 	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
 	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files

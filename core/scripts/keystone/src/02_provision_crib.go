@@ -9,9 +9,9 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"gopkg.in/yaml.v3"
 
-	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"

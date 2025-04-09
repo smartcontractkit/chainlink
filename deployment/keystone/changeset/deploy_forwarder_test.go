@@ -201,7 +201,7 @@ func TestConfigureForwarders(t *testing.T) {
 				}
 
 				//nolint:staticcheck // migration will be done in a separate PR
-				require.Len(t, csOut.Proposals, expectedProposals)
+				require.Len(t, csOut.MCMSTimelockProposals, expectedProposals)
 				require.Nil(t, csOut.AddressBook)
 
 				timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)

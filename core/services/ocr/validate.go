@@ -10,9 +10,9 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
-	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"

@@ -47,6 +47,7 @@ func GetProgramsPath() string {
 type MemoryEnvironmentConfig struct {
 	Chains             int
 	SolChains          int
+	AptosChains        int
 	NumOfUsersPerChain int
 	Nodes              int
 	Bootstraps         int
@@ -81,6 +82,10 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]depl
 func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]deployment.SolChain {
 	mchains := GenerateChainsSol(t, numChains)
 	return generateMemoryChainSol(mchains)
+}
+
+func NewMemoryChainsAptos(t *testing.T, numChains int) map[uint64]deployment.AptosChain {
+	return GenerateChainsAptos(t, numChains)
 }
 
 func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
@@ -163,6 +168,7 @@ func NewNodes(
 	logLevel zapcore.Level,
 	chains map[uint64]deployment.Chain,
 	solChains map[uint64]deployment.SolChain,
+	aptosChains map[uint64]deployment.AptosChain,
 	numNodes,
 	numBootstraps int,
 	registryConfig deployment.CapabilityRegistryConfig,
@@ -177,13 +183,13 @@ func NewNodes(
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
 	for i := 0; i < numBootstraps; i++ {
-		node := NewNode(t, ports[i], chains, solChains, logLevel, true /* bootstrap */, registryConfig, configOpts...)
+		node := NewNode(t, ports[i], chains, solChains, aptosChains, logLevel, true /* bootstrap */, registryConfig, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
 	for i := 0; i < numNodes; i++ {
 		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, ports[numBootstraps+i], chains, solChains, logLevel, false /* bootstrap */, registryConfig, configOpts...)
+		node := NewNode(t, ports[numBootstraps+i], chains, solChains, aptosChains, logLevel, false /* bootstrap */, registryConfig, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
@@ -195,6 +201,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
 	solChains map[uint64]deployment.SolChain,
+	aptosChains map[uint64]deployment.AptosChain,
 	nodes map[string]Node,
 ) deployment.Environment {
 	var nodeIDs []string
@@ -207,6 +214,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		deployment.NewMemoryAddressBook(),
 		chains,
 		solChains,
+		aptosChains,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
@@ -218,7 +226,8 @@ func NewMemoryEnvironmentFromChainsNodes(
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
 	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
 	solChains := NewMemoryChainsSol(t, config.SolChains)
-	nodes := NewNodes(t, logLevel, chains, solChains, config.Nodes, config.Bootstraps, config.RegistryConfig)
+	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
+	nodes := NewNodes(t, logLevel, chains, solChains, aptosChains, config.Nodes, config.Bootstraps, config.RegistryConfig)
 	var nodeIDs []string
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
@@ -229,6 +238,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		deployment.NewMemoryAddressBook(),
 		chains,
 		solChains,
+		aptosChains,
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		t.Context,

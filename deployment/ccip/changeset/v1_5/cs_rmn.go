@@ -11,7 +11,7 @@ import (
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"

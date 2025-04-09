@@ -7,7 +7,7 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
 func TestConfirmedLogExtraction(t *testing.T) {

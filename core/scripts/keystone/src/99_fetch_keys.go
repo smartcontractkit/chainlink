@@ -9,7 +9,7 @@ import (
 
 	"github.com/urfave/cli"
 
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"

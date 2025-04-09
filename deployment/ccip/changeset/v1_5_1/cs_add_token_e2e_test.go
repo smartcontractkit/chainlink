@@ -9,11 +9,11 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"

@@ -8,6 +8,8 @@ on:
   push:
     tags:
       - "*"
+    branches:
+      - develop
   workflow_dispatch:
     inputs:
       cl_ref:
@@ -28,9 +30,9 @@ on:
         required: false
         type: string
 
-# Only run 1 of this workflow at a time per PR
+# Only run 1 of this workflow at a time per PR, but don't cancel runs on develop
 concurrency:
-  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--e2e-tests-${{ inputs.distinct_run_name }}
+  group: ${{ github.ref != 'refs/heads/develop' && format('{0}-{1}-{2}-e2e-tests-{3}', github.ref, github.repository, github.event_name, inputs.distinct_run_name) || github.sha }}
   cancel-in-progress: true
 
 env:
@@ -118,8 +120,8 @@ jobs:
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
-      - name: Ignore Filter On Workflow Dispatch
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+      - name: Ignore Filter On Workflow Dispatch or PR Label
+        if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-e2e')) || github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
         run: echo "changes=true" >> $GITHUB_OUTPUT
     outputs:
@@ -431,15 +433,6 @@ jobs:
             echo "CCIP tests were skipped."
           fi
 
-      - name: Send slack notification for failed migration tests
-        if: steps.check_core_results.outputs.node_migration_tests_failed == 'true' && github.event_name != 'workflow_dispatch'
-        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-        with:
-          channel-id: "#team-test-tooling-internal"
-          slack-message: ":x: :mild-panic-intensifies: Node Migration Tests Failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}\n${{ format('Notifying <!subteam^{0}|{0}>', secrets.GUARDIAN_SLACK_NOTIFICATION_HANDLE) }}"
-
       - name: Fail the job if core tests in PR not successful
         if: always() && needs.run-core-e2e-tests-for-pr.result == 'failure'
         run: exit 1
@@ -668,7 +661,6 @@ jobs:
         if: needs.changes.outputs.core_changes == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
 
   solana-smoke-tests:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
       checks: write
@@ -794,3 +786,32 @@ jobs:
           path: .covdata
           retention-days: 1
 
+  # TODO: Use other Slack Channel for this notification
+  notify-test-failure:
+    name: Notify Test Failure
+    if: ${{ github.ref == 'refs/heads/develop' && failure() }}
+    needs: [check-e2e-test-results, solana-smoke-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send slack notification for failed migration tests
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
+          payload: |
+            channel: "C08FN09RS80"
+            text: "E2E Tests Failed Post-Merge, Immediate Action Required"
+            blocks: |
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*:rotating_light: E2E Tests Failed Post-Merge, Immediate Action Required :rotating_light:*"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "Alerting @devex-cicd-oncall, E2E tests failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop by user ${{ github.actor }}. Please follow instructions below to remedy the issue."
+              - type: divider
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "1. Use the `/gh-lookup ${{ github.actor }}` command to find the who made the commit.\n2. <https://smartcontract-it.atlassian.net/wiki/spaces/ENG/pages/597262421/Raising+an+Incident|Raise a Pager Duty Incident> with that engineer to fix the issue.\n3. Start a 1 hour timer. If the E2E tests cannot be made passing on `develop` branch by then, please use `git revert <last-green-commit>` to revert the `develop` branch back to a happy state.\n4. Write a quick summary of the actions taken and post it in a thread to this message."

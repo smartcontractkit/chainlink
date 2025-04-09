@@ -11,12 +11,12 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
 var _ TxAttemptBuilder = (*evmTxAttemptBuilder)(nil)

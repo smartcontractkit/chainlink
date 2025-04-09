@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"

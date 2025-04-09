@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
