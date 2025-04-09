@@ -53,6 +53,8 @@ func DeployPingPongContractChangeset(
 	newAddresses := deployment.NewMemoryAddressBook()
 
 	programName := getTypeToProgramDeployName()[changeset.PingPongDemo]
+
+	// programID := "BjFYvj71HHzrAVjzvLSWuxPXybqAVQXLtnCvq3D9wyY3"
 	programID, err := chain.DeployProgram(e.Logger, programName, false)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
@@ -60,9 +62,14 @@ func DeployPingPongContractChangeset(
 
 	programAddress := solana.MustPublicKeyFromBase58(programID)
 
+	solPingPong.SetProgramID(programAddress)
+
 	e.Logger.Infow("Deployed program", "Program", changeset.PingPongDemo, "addr", programID, "chain", chain.String())
 
 	tv := deployment.NewTypeAndVersion(changeset.PingPongDemo, deployment.Version1_0_0)
+	tv.Labels.Add(fmt.Sprintf("From - %d", c.FromChainSelector))
+	tv.Labels.Add(fmt.Sprintf("To - %d", c.ToChainSelector))
+
 	err = newAddresses.Save(chain.Selector, programID, tv)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address: %w", err)
@@ -85,7 +92,7 @@ func DeployPingPongContractChangeset(
 		c.IsPaused,
 		c.ExtraArgs,
 		ppConfigPDA,
-		chainState.BurnMintTokenPool,
+		c.FeesTokenMint,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		programAddress,
@@ -97,7 +104,7 @@ func DeployPingPongContractChangeset(
 	}
 
 	if err := chain.Confirm([]solana.Instruction{initTx}); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm initializeRMNRemote: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm initialize config instruction: %w", err)
 	}
 
 	feeBillingSignerPDA, _, err := solanaStateUtils.FindFeeBillingSignerPDA(chainState.Router)
@@ -105,7 +112,7 @@ func DeployPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
-	ppSendSignerPDA, _, err := solanaStateUtils.FindPingPongCCIPSendSignerPDA(chainState.PingPong)
+	ppSendSignerPDA, _, err := solanaStateUtils.FindPingPongCCIPSendSignerPDA(programAddress)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
@@ -115,9 +122,14 @@ func DeployPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
+	ppNameVersion, _, err := solanaStateUtils.FindNameAndVersionPDA(programAddress)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong name version pda: %w", err)
+	}
+
 	initialize, err := solPingPong.NewInitializeInstruction(
 		ppConfigPDA,
-		solana.PublicKey{}, // TODO complete with name version PDA
+		ppNameVersion,
 		feeBillingSignerPDA,
 		c.FeesTokenProgram,
 		c.FeesTokenMint,
@@ -133,7 +145,7 @@ func DeployPingPongContractChangeset(
 	}
 
 	if err := chain.Confirm([]solana.Instruction{initialize}); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm initializeRMNRemote: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm initialize instruction: %w", err)
 	}
 
 	e.Logger.Infow("Initialized ping pong demo", "chain", chain.String())
@@ -144,8 +156,9 @@ func DeployPingPongContractChangeset(
 }
 
 type StartPingPongConfig struct {
-	DeployerKey   solana.PublicKey
-	ChainSelector uint64
+	DeployerKey     solana.PublicKey
+	ChainSelector   uint64
+	PingPongProgram solana.PublicKey
 
 	FeesTokenProgram solana.PublicKey
 	FeesTokenMint    solana.PublicKey
@@ -173,12 +186,14 @@ func StartPingPongContractChangeset(
 	chain := e.SolChains[c.ChainSelector]
 	chainState := s.SolChains[c.ChainSelector]
 
-	ppConfigPDA, _, err := solanaStateUtils.FindPingPongDemoConfigPDA(chainState.PingPong)
+	solPingPong.SetProgramID(c.PingPongProgram)
+
+	ppConfigPDA, _, err := solanaStateUtils.FindPingPongDemoConfigPDA(c.PingPongProgram)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
-	ppSendSignerPDA, _, err := solanaStateUtils.FindPingPongCCIPSendSignerPDA(chainState.PingPong)
+	ppSendSignerPDA, _, err := solanaStateUtils.FindPingPongCCIPSendSignerPDA(c.PingPongProgram)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
@@ -239,6 +254,32 @@ func StartPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find external pool signer pda: %w", err)
 	}
 
+	e.Logger.Info("Starting ping pong demo")
+	e.Logger.Info(
+		" \n ppConfigPDA - ", ppConfigPDA,
+		" \n c.DeployerKey - ", c.DeployerKey,
+		" \n ppSendSignerPDA - ", ppSendSignerPDA,
+		" \n c.FeesTokenProgram - ", c.FeesTokenProgram,
+		" \n c.FeesTokenMint - ", c.FeesTokenMint,
+		" \n ppFeeTokenAta - ", ppFeeTokenAta,
+		" \n chainState.Router - ", chainState.Router,
+		" \n chainState.RouterConfigPDA - ", chainState.RouterConfigPDA,
+		" \n destChainStatePDA - ", destChainStatePDA,
+		" \n routerNoncePDA - ", routerNoncePDA,
+		" \n routerFeeTokenReceiver - ", routerFeeTokenReceiver,
+		" \n feeBillingSignerPDA - ", feeBillingSignerPDA,
+		" \n chainState.FeeQuoter - ", chainState.FeeQuoter,
+		" \n chainState.FeeQuoterConfigPDA - ", chainState.FeeQuoterConfigPDA,
+		" \n fqDestChainPDA - ", fqDestChainPDA,
+		" \n fqBillingTokenConfigPDA - ", fqBillingTokenConfigPDA,
+		" \n fqLinkTokenConfigPDA - ", fqLinkTokenConfigPDA,
+		" \n chainState.RMNRemote - ", chainState.RMNRemote,
+		" \n rmnRemoteCursesPDA - ", rmnRemoteCursesPDA,
+		" \n rmnRemoteConfigPDA - ", rmnRemoteConfigPDA,
+		" \n externalTokenPoolSignerPDA - ", externalTokenPoolSignerPDA,
+		" \n solana.SystemProgramID - ", solana.SystemProgramID,
+	)
+
 	initTx, err := solPingPong.NewStartPingPongInstruction(
 		ppConfigPDA,
 		c.DeployerKey,
@@ -269,7 +310,7 @@ func StartPingPongContractChangeset(
 	}
 
 	if err := chain.Confirm([]solana.Instruction{initTx}); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm initializeRMNRemote: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm start instruction: %w", err)
 	}
 
 	e.Logger.Infow("Initialized ping pong demo", "chain", chain.String())
@@ -278,8 +319,9 @@ func StartPingPongContractChangeset(
 }
 
 type SetPausePingPongConfig struct {
-	ChainSelector uint64
-	IsPaused      bool
+	ChainSelector   uint64
+	PingPongProgram solana.PublicKey
+	IsPaused        bool
 }
 
 func (c SetPausePingPongConfig) Validate(e deployment.Environment) error {
@@ -295,14 +337,7 @@ func SetPausePingPongChangeset(
 
 	chain := e.SolChains[c.ChainSelector]
 
-	s, err := ccipChangeset.LoadOnchainStateSolana(e)
-	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return deployment.ChangesetOutput{}, err
-	}
-	chainState := s.SolChains[c.ChainSelector]
-
-	ppConfigPDA, _, err := solanaStateUtils.FindPingPongDemoConfigPDA(chainState.PingPong)
+	ppConfigPDA, _, err := solanaStateUtils.FindPingPongDemoConfigPDA(c.PingPongProgram)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}

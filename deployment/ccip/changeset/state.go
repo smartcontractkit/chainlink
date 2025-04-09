@@ -62,6 +62,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/ping_pong_demo"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
@@ -168,6 +169,7 @@ type CCIPChainState struct {
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
 	MockUSDCTokenMessenger *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
 	Multicall3             *multicall3.Multicall3
+	PingPongDemo           *ping_pong_demo.PingPongDemo
 
 	// Legacy contracts
 	EVM2EVMOnRamp  map[uint64]*evm_2_evm_onramp.EVM2EVMOnRamp   // mapping of dest chain selector -> EVM2EVMOnRamp
@@ -1143,6 +1145,14 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			deployment.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_6_0).String():
 			// Ignore firedrill contracts
 			// Firedrill contracts are unknown to core and their state is being loaded separately
+		case deployment.NewTypeAndVersion(PingPongDemo, deployment.Version1_0_0).String():
+			pingPong, err := ping_pong_demo.NewPingPongDemo(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+
+			state.PingPongDemo = pingPong
+			state.ABIByAddress[address] = ping_pong_demo.PingPongDemoABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller
