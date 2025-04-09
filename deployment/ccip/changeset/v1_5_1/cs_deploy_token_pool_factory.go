@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -31,18 +32,19 @@ func deployTokenPoolFactoryPrecondition(e deployment.Environment, config DeployT
 		if err != nil {
 			return fmt.Errorf("failed to validate chain with selector %d: %w", chainSel, err)
 		}
+		chain := e.Chains[chainSel]
 		state := state.Chains[chainSel]
 		if state.TokenPoolFactory != nil {
-			return fmt.Errorf("token pool factory already deployed on %s", e.Chains[chainSel].String())
+			return fmt.Errorf("token pool factory already deployed on %s", chain.String())
 		}
 		if state.TokenAdminRegistry == nil {
-			return fmt.Errorf("token admin registry does not exist on %s", e.Chains[chainSel].String())
+			return fmt.Errorf("token admin registry does not exist on %s", chain.String())
 		}
 		if state.Router == nil {
-			return fmt.Errorf("router does not exist on %s", e.Chains[chainSel].String())
+			return fmt.Errorf("router does not exist on %s", chain.String())
 		}
 		if len(state.RegistryModules1_6) == 0 {
-			return fmt.Errorf("registry module with version 1.6.0 does not exist on %s", e.Chains[chainSel].String())
+			return fmt.Errorf("registry module with version 1.6.0 does not exist on %s", chain.String())
 		}
 		// There can be multiple registry modules with version 1.6.0 on a chain, but only one can be used for the token pool factory.
 		// If the user has specified a registry module address, check that it exists on the chain.
@@ -50,7 +52,7 @@ func deployTokenPoolFactoryPrecondition(e deployment.Environment, config DeployT
 		// If there are multiple registry modules with version 1.6.0, the user MUST specify which one to use by providing the address.
 		registryModuleAddress, ok := config.RegistryModule1_6Addresses[chainSel]
 		if !ok && len(state.RegistryModules1_6) > 1 {
-			return fmt.Errorf("multiple registry modules with version 1.6.0 exist on %s, must specify using RegistryModule1_6Addresses", e.Chains[chainSel].String())
+			return fmt.Errorf("multiple registry modules with version 1.6.0 exist on %s, must specify using RegistryModule1_6Addresses", chain.String())
 		} else if ok {
 			registryModuleExists := false
 			for _, registryModule := range state.RegistryModules1_6 {
@@ -60,7 +62,7 @@ func deployTokenPoolFactoryPrecondition(e deployment.Environment, config DeployT
 				}
 			}
 			if !registryModuleExists {
-				return fmt.Errorf("registry module with version 1.6.0 and address %s does not exist on %s", registryModuleAddress.String(), e.Chains[chainSel].String())
+				return fmt.Errorf("no registry module with version 1.6.0 and address %s found on %s", registryModuleAddress.String(), chain.String())
 			}
 		}
 	}
