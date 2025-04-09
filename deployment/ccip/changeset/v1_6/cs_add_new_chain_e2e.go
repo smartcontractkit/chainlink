@@ -290,7 +290,8 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	// change this to getNextDonID from donIDClaimer
+	// change this to getNextDonID from donIDClaimer (store this value so that we can use this in SetCandidateChangeset)
+	// call this currentDonId
 	donID, err := state.Chains[c.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
 		Context: e.GetContext(),
 	})
@@ -341,6 +342,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 				SkipChainConfigValidation: true,
 			},
 		},
+		// use currentDonId here
 		DonIDOverrides: map[uint64]uint32{c.NewChain.Selector: donID},
 	})
 	if err != nil {
