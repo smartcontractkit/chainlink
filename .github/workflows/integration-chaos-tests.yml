@@ -1,10 +1,5 @@
 name: Integration Chaos Test
 on:
-  schedule:
-    - cron: "0 0 * * *"
-  push:
-    tags:
-      - "*"
   workflow_dispatch:
     inputs:
       team:
