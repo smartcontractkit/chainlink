@@ -1,0 +1,6 @@
+[
+  {
+    "stateMutability": "payable",
+    "type": "receive"
+  }
+]

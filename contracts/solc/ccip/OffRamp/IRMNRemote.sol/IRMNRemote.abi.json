@@ -1,0 +1,109 @@
+[
+  {
+    "type": "function",
+    "name": "getCursedSubjects",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "subjects",
+        "type": "bytes16[]",
+        "internalType": "bytes16[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isCursed",
+    "inputs": [
+      {
+        "name": "subject",
+        "type": "bytes16",
+        "internalType": "bytes16"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isCursed",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "verify",
+    "inputs": [
+      {
+        "name": "offRampAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "merkleRoots",
+        "type": "tuple[]",
+        "internalType": "struct Internal.MerkleRoot[]",
+        "components": [
+          {
+            "name": "sourceChainSelector",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "onRampAddress",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "minSeqNr",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "maxSeqNr",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "merkleRoot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      },
+      {
+        "name": "signatures",
+        "type": "tuple[]",
+        "internalType": "struct IRMNRemote.Signature[]",
+        "components": [
+          {
+            "name": "r",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "s",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "view"
+  }
+]

@@ -1,0 +1,1398 @@
+[
+  {
+    "type": "function",
+    "name": "acceptOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addCapabilities",
+    "inputs": [
+      {
+        "name": "capabilities",
+        "type": "tuple[]",
+        "internalType": "struct CapabilitiesRegistry.Capability[]",
+        "components": [
+          {
+            "name": "labelledName",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "version",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "capabilityType",
+            "type": "uint8",
+            "internalType": "enum CapabilitiesRegistry.CapabilityType"
+          },
+          {
+            "name": "responseType",
+            "type": "uint8",
+            "internalType": "enum CapabilitiesRegistry.CapabilityResponseType"
+          },
+          {
+            "name": "configurationContract",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addDON",
+    "inputs": [
+      {
+        "name": "nodes",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "capabilityConfigurations",
+        "type": "tuple[]",
+        "internalType": "struct CapabilitiesRegistry.CapabilityConfiguration[]",
+        "components": [
+          {
+            "name": "capabilityId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "config",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      },
+      {
+        "name": "isPublic",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "acceptsWorkflows",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "f",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addNodeOperators",
+    "inputs": [
+      {
+        "name": "nodeOperators",
+        "type": "tuple[]",
+        "internalType": "struct CapabilitiesRegistry.NodeOperator[]",
+        "components": [
+          {
+            "name": "admin",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "internalType": "string"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addNodes",
+    "inputs": [
+      {
+        "name": "nodes",
+        "type": "tuple[]",
+        "internalType": "struct CapabilitiesRegistry.NodeParams[]",
+        "components": [
+          {
+            "name": "nodeOperatorId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "signer",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "p2pId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "encryptionPublicKey",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "hashedCapabilityIds",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "deprecateCapabilities",
+    "inputs": [
+      {
+        "name": "hashedCapabilityIds",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getCapabilities",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct CapabilitiesRegistry.CapabilityInfo[]",
+        "components": [
+          {
+            "name": "hashedId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "labelledName",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "version",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "capabilityType",
+            "type": "uint8",
+            "internalType": "enum CapabilitiesRegistry.CapabilityType"
+          },
+          {
+            "name": "responseType",
+            "type": "uint8",
+            "internalType": "enum CapabilitiesRegistry.CapabilityResponseType"
+          },
+          {
+            "name": "configurationContract",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "isDeprecated",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCapability",
+    "inputs": [
+      {
+        "name": "hashedId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct CapabilitiesRegistry.CapabilityInfo",
+        "components": [
+          {
+            "name": "hashedId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "labelledName",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "version",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "capabilityType",
+            "type": "uint8",
+            "internalType": "enum CapabilitiesRegistry.CapabilityType"
+          },
+          {
+            "name": "responseType",
+            "type": "uint8",
+            "internalType": "enum CapabilitiesRegistry.CapabilityResponseType"
+          },
+          {
+            "name": "configurationContract",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "isDeprecated",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCapabilityConfigs",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "capabilityId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDON",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct CapabilitiesRegistry.DONInfo",
+        "components": [
+          {
+            "name": "id",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "configCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "f",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "isPublic",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "acceptsWorkflows",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "nodeP2PIds",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "capabilityConfigurations",
+            "type": "tuple[]",
+            "internalType": "struct CapabilitiesRegistry.CapabilityConfiguration[]",
+            "components": [
+              {
+                "name": "capabilityId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "config",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDONs",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct CapabilitiesRegistry.DONInfo[]",
+        "components": [
+          {
+            "name": "id",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "configCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "f",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "isPublic",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "acceptsWorkflows",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "nodeP2PIds",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "capabilityConfigurations",
+            "type": "tuple[]",
+            "internalType": "struct CapabilitiesRegistry.CapabilityConfiguration[]",
+            "components": [
+              {
+                "name": "capabilityId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "config",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getHashedCapabilityId",
+    "inputs": [
+      {
+        "name": "labelledName",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "version",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "getNextDONId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNode",
+    "inputs": [
+      {
+        "name": "p2pId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "nodeInfo",
+        "type": "tuple",
+        "internalType": "struct INodeInfoProvider.NodeInfo",
+        "components": [
+          {
+            "name": "nodeOperatorId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "configCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "workflowDONId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "signer",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "p2pId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "encryptionPublicKey",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "hashedCapabilityIds",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "capabilitiesDONIds",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNodeOperator",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct CapabilitiesRegistry.NodeOperator",
+        "components": [
+          {
+            "name": "admin",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "internalType": "string"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNodeOperators",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct CapabilitiesRegistry.NodeOperator[]",
+        "components": [
+          {
+            "name": "admin",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "internalType": "string"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNodes",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct INodeInfoProvider.NodeInfo[]",
+        "components": [
+          {
+            "name": "nodeOperatorId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "configCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "workflowDONId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "signer",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "p2pId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "encryptionPublicKey",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "hashedCapabilityIds",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "capabilitiesDONIds",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNodesByP2PIds",
+    "inputs": [
+      {
+        "name": "p2pIds",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct INodeInfoProvider.NodeInfo[]",
+        "components": [
+          {
+            "name": "nodeOperatorId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "configCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "workflowDONId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "signer",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "p2pId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "encryptionPublicKey",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "hashedCapabilityIds",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "capabilitiesDONIds",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isCapabilityDeprecated",
+    "inputs": [
+      {
+        "name": "hashedCapabilityId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "removeDONs",
+    "inputs": [
+      {
+        "name": "donIds",
+        "type": "uint32[]",
+        "internalType": "uint32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "removeNodeOperators",
+    "inputs": [
+      {
+        "name": "nodeOperatorIds",
+        "type": "uint32[]",
+        "internalType": "uint32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "removeNodes",
+    "inputs": [
+      {
+        "name": "removedNodeP2PIds",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "typeAndVersion",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "updateDON",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "nodes",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "capabilityConfigurations",
+        "type": "tuple[]",
+        "internalType": "struct CapabilitiesRegistry.CapabilityConfiguration[]",
+        "components": [
+          {
+            "name": "capabilityId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "config",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      },
+      {
+        "name": "isPublic",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "f",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateNodeOperators",
+    "inputs": [
+      {
+        "name": "nodeOperatorIds",
+        "type": "uint32[]",
+        "internalType": "uint32[]"
+      },
+      {
+        "name": "nodeOperators",
+        "type": "tuple[]",
+        "internalType": "struct CapabilitiesRegistry.NodeOperator[]",
+        "components": [
+          {
+            "name": "admin",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "internalType": "string"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateNodes",
+    "inputs": [
+      {
+        "name": "nodes",
+        "type": "tuple[]",
+        "internalType": "struct CapabilitiesRegistry.NodeParams[]",
+        "components": [
+          {
+            "name": "nodeOperatorId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "signer",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "p2pId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "encryptionPublicKey",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "hashedCapabilityIds",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "CapabilityConfigured",
+    "inputs": [
+      {
+        "name": "hashedCapabilityId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CapabilityDeprecated",
+    "inputs": [
+      {
+        "name": "hashedCapabilityId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ConfigSet",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "configCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NodeAdded",
+    "inputs": [
+      {
+        "name": "p2pId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "nodeOperatorId",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "signer",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NodeOperatorAdded",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "admin",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NodeOperatorRemoved",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NodeOperatorUpdated",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "admin",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NodeRemoved",
+    "inputs": [
+      {
+        "name": "p2pId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NodeUpdated",
+    "inputs": [
+      {
+        "name": "p2pId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "nodeOperatorId",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "signer",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferRequested",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AccessForbidden",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CapabilityAlreadyExists",
+    "inputs": [
+      {
+        "name": "hashedCapabilityId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CapabilityDoesNotExist",
+    "inputs": [
+      {
+        "name": "hashedCapabilityId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CapabilityIsDeprecated",
+    "inputs": [
+      {
+        "name": "hashedCapabilityId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CapabilityRequiredByDON",
+    "inputs": [
+      {
+        "name": "hashedCapabilityId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DONDoesNotExist",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DuplicateDONCapability",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "capabilityId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DuplicateDONNode",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "nodeP2PId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCapabilityConfigurationContractInterface",
+    "inputs": [
+      {
+        "name": "proposedConfigurationContract",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidFaultTolerance",
+    "inputs": [
+      {
+        "name": "f",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "nodeCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidNodeCapabilities",
+    "inputs": [
+      {
+        "name": "hashedCapabilityIds",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidNodeEncryptionPublicKey",
+    "inputs": [
+      {
+        "name": "encryptionPublicKey",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidNodeOperatorAdmin",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidNodeP2PId",
+    "inputs": [
+      {
+        "name": "p2pId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidNodeSigner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LengthMismatch",
+    "inputs": [
+      {
+        "name": "lengthOne",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "lengthTwo",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NodeAlreadyExists",
+    "inputs": [
+      {
+        "name": "nodeP2PId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NodeDoesNotExist",
+    "inputs": [
+      {
+        "name": "nodeP2PId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NodeDoesNotSupportCapability",
+    "inputs": [
+      {
+        "name": "nodeP2PId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "capabilityId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NodeOperatorDoesNotExist",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NodePartOfCapabilitiesDON",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "nodeP2PId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NodePartOfWorkflowDON",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "nodeP2PId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  }
+]

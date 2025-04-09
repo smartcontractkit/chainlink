@@ -1,0 +1,277 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "configId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "previousConfigBlockNumber",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "configDigest",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "configCount",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes[]",
+        "name": "signers",
+        "type": "bytes[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32[]",
+        "name": "offchainTransmitters",
+        "type": "bytes32[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "f",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "onchainConfig",
+        "type": "bytes"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "offchainConfigVersion",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "offchainConfig",
+        "type": "bytes"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "isGreenProduction",
+        "type": "bool"
+      }
+    ],
+    "name": "ProductionConfigSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "configId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "retiredConfigDigest",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "isGreenProduction",
+        "type": "bool"
+      }
+    ],
+    "name": "PromoteStagingConfig",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "configId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "previousConfigBlockNumber",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "configDigest",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "configCount",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes[]",
+        "name": "signers",
+        "type": "bytes[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32[]",
+        "name": "offchainTransmitters",
+        "type": "bytes32[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "f",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "onchainConfig",
+        "type": "bytes"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "offchainConfigVersion",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "offchainConfig",
+        "type": "bytes"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "isGreenProduction",
+        "type": "bool"
+      }
+    ],
+    "name": "StagingConfigSet",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "configId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bool",
+        "name": "currentState",
+        "type": "bool"
+      }
+    ],
+    "name": "promoteStagingConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "configId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes[]",
+        "name": "signers",
+        "type": "bytes[]"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "offchainTransmitters",
+        "type": "bytes32[]"
+      },
+      {
+        "internalType": "uint8",
+        "name": "f",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes",
+        "name": "onchainConfig",
+        "type": "bytes"
+      },
+      {
+        "internalType": "uint64",
+        "name": "offchainConfigVersion",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes",
+        "name": "offchainConfig",
+        "type": "bytes"
+      }
+    ],
+    "name": "setProductionConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "configId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes[]",
+        "name": "signers",
+        "type": "bytes[]"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "offchainTransmitters",
+        "type": "bytes32[]"
+      },
+      {
+        "internalType": "uint8",
+        "name": "f",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes",
+        "name": "onchainConfig",
+        "type": "bytes"
+      },
+      {
+        "internalType": "uint64",
+        "name": "offchainConfigVersion",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes",
+        "name": "offchainConfig",
+        "type": "bytes"
+      }
+    ],
+    "name": "setStagingConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

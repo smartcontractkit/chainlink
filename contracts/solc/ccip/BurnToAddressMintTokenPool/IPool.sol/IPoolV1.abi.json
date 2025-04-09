@@ -1,0 +1,185 @@
+[
+  {
+    "type": "function",
+    "name": "isSupportedChain",
+    "inputs": [
+      {
+        "name": "remoteChainSelector",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isSupportedToken",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lockOrBurn",
+    "inputs": [
+      {
+        "name": "lockOrBurnIn",
+        "type": "tuple",
+        "internalType": "struct Pool.LockOrBurnInV1",
+        "components": [
+          {
+            "name": "receiver",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "remoteChainSelector",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "originalSender",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "localToken",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "lockOrBurnOut",
+        "type": "tuple",
+        "internalType": "struct Pool.LockOrBurnOutV1",
+        "components": [
+          {
+            "name": "destTokenAddress",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "destPoolData",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "releaseOrMint",
+    "inputs": [
+      {
+        "name": "releaseOrMintIn",
+        "type": "tuple",
+        "internalType": "struct Pool.ReleaseOrMintInV1",
+        "components": [
+          {
+            "name": "originalSender",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "remoteChainSelector",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "receiver",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "localToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "sourcePoolAddress",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "sourcePoolData",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "offchainTokenData",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct Pool.ReleaseOrMintOutV1",
+        "components": [
+          {
+            "name": "destinationAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "supportsInterface",
+    "inputs": [
+      {
+        "name": "interfaceId",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  }
+]

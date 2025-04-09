@@ -1,0 +1,168 @@
+[
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "enum OptimismL1BridgeAdapter.FinalizationAction",
+            "name": "action",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes",
+            "name": "data",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct OptimismL1BridgeAdapter.FinalizeWithdrawERC20Payload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "encodeFinalizeWithdrawalERC20Payload",
+    "outputs": [],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "nonce",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "sender",
+                "type": "address"
+              },
+              {
+                "internalType": "address",
+                "name": "target",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "gasLimit",
+                "type": "uint256"
+              },
+              {
+                "internalType": "bytes",
+                "name": "data",
+                "type": "bytes"
+              }
+            ],
+            "internalType": "struct Types.WithdrawalTransaction",
+            "name": "withdrawalTransaction",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct OptimismL1BridgeAdapter.OptimismFinalizationPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "encodeOptimismFinalizationPayload",
+    "outputs": [],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "nonce",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "sender",
+                "type": "address"
+              },
+              {
+                "internalType": "address",
+                "name": "target",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "gasLimit",
+                "type": "uint256"
+              },
+              {
+                "internalType": "bytes",
+                "name": "data",
+                "type": "bytes"
+              }
+            ],
+            "internalType": "struct Types.WithdrawalTransaction",
+            "name": "withdrawalTransaction",
+            "type": "tuple"
+          },
+          {
+            "internalType": "uint256",
+            "name": "l2OutputIndex",
+            "type": "uint256"
+          },
+          {
+            "components": [
+              {
+                "internalType": "bytes32",
+                "name": "version",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "stateRoot",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "messagePasserStorageRoot",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "latestBlockhash",
+                "type": "bytes32"
+              }
+            ],
+            "internalType": "struct Types.OutputRootProof",
+            "name": "outputRootProof",
+            "type": "tuple"
+          },
+          {
+            "internalType": "bytes[]",
+            "name": "withdrawalProof",
+            "type": "bytes[]"
+          }
+        ],
+        "internalType": "struct OptimismL1BridgeAdapter.OptimismProveWithdrawalPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "encodeOptimismProveWithdrawalPayload",
+    "outputs": [],
+    "stateMutability": "pure",
+    "type": "function"
+  }
+]

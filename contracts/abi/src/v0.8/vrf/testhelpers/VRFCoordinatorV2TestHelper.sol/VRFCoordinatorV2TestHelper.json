@@ -1,0 +1,78 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "linkEthFeed",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "int256",
+        "name": "linkWei",
+        "type": "int256"
+      }
+    ],
+    "name": "InvalidLinkWeiPrice",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PaymentTooLarge",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LINK_ETH_FEED",
+    "outputs": [
+      {
+        "internalType": "contract AggregatorV3Interface",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "gasAfterPaymentCalculation",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "fulfillmentFlatFeeLinkPPM",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "weiPerUnitGas",
+        "type": "uint256"
+      }
+    ],
+    "name": "calculatePaymentAmountTest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getPaymentAmount",
+    "outputs": [
+      {
+        "internalType": "uint96",
+        "name": "",
+        "type": "uint96"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

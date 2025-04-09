@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
-	feeds_consumer "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
@@ -32,7 +32,7 @@ func Test_runLLOWorkflow(t *testing.T) {
 	lggr.SetLogLevel(zapcore.InfoLevel)
 
 	// setup the trigger sink that will receive the trigger event in the llo-specific format, per v2.0.0
-	triggerSink := framework.NewTriggerSink(t, "streams-trigger", "2.0.0")
+	triggerSink := framework.NewTriggerSink(t, "streams-trigger:don_16nodes", "2.0.0") // note the label {"don": "16nodes"} to ensure that we can support labelled capabilities; it must match the llo wf spec in [workflow.go]. the label nor the value are important for this test
 
 	// setup the dons, the size is not important for this test
 	workflowDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Workflow", NumNodes: 4, F: 1, AcceptsWorkflows: true})

@@ -1,0 +1,15 @@
+[
+  {
+    "inputs": [],
+    "name": "linkAvailableForPayment",
+    "outputs": [
+      {
+        "internalType": "int256",
+        "name": "availableBalance",
+        "type": "int256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

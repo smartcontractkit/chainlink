@@ -8,10 +8,10 @@ import (
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/types"
 
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 // NOPIdentity is a node operator identity
@@ -197,7 +197,7 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
 	}
 
-	contractSetResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+	contractSetResp, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -207,7 +207,7 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 
 	nodeParams := make(map[string]kcr.CapabilitiesRegistryNodeParams)
 	for nodeName, cr := range req.CreateNodeRequests {
-		params, err := cr.Resolve(contractSetResp.ContractSets[req.RegistryChainSel].CapabilitiesRegistry)
+		params, err := cr.Resolve(contractSetResp.ContractSets[req.RegistryChainSel].CapabilitiesRegistry.Contract)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to resolve node params for node %s: %w", nodeName, err)
 		}
@@ -219,14 +219,13 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 	}
 
 	var (
-		useMCMS                = req.MCMSConfig != nil
-		registryChain          = env.Chains[req.RegistryChainSel]
-		registry               = contractSetResp.ContractSets[req.RegistryChainSel].CapabilitiesRegistry
-		registryChainContracts = contractSetResp.ContractSets[req.RegistryChainSel]
+		useMCMS       = req.MCMSConfig != nil
+		registryChain = env.Chains[req.RegistryChainSel]
+		registry      = contractSetResp.ContractSets[req.RegistryChainSel].CapabilitiesRegistry
 	)
 	resp, err := internal.AddNodes(env.Logger, &internal.AddNodesRequest{
 		RegistryChain:        registryChain,
-		CapabilitiesRegistry: registry,
+		CapabilitiesRegistry: registry.Contract,
 		NodeParams:           nodeParams,
 		UseMCMS:              useMCMS,
 	})
@@ -240,10 +239,10 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]string{
-			registryChain.Selector: registryChainContracts.Timelock.Address().Hex(),
+			registryChain.Selector: registry.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			registryChain.Selector: registryChainContracts.ProposerMcm.Address().Hex(),
+			registryChain.Selector: registry.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {

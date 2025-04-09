@@ -1,0 +1,212 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "previousConfigBlockNumber",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "configDigest",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "configCount",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes[]",
+        "name": "signers",
+        "type": "bytes[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "address[]",
+        "name": "transmitters",
+        "type": "address[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "f",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "onchainConfig",
+        "type": "bytes"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "offchainConfigVersion",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "offchainConfig",
+        "type": "bytes"
+      }
+    ],
+    "name": "ConfigSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "configDigest",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "epoch",
+        "type": "uint32"
+      }
+    ],
+    "name": "Transmitted",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "latestConfigDetails",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "configCount",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "blockNumber",
+        "type": "uint32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "configDigest",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "latestConfigDigestAndEpoch",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "scanLogs",
+        "type": "bool"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "configDigest",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "epoch",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes[]",
+        "name": "signers",
+        "type": "bytes[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "transmitters",
+        "type": "address[]"
+      },
+      {
+        "internalType": "uint8",
+        "name": "f",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes",
+        "name": "onchainConfig",
+        "type": "bytes"
+      },
+      {
+        "internalType": "uint64",
+        "name": "offchainConfigVersion",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes",
+        "name": "offchainConfig",
+        "type": "bytes"
+      }
+    ],
+    "name": "setConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32[3]",
+        "name": "reportContext",
+        "type": "bytes32[3]"
+      },
+      {
+        "internalType": "bytes",
+        "name": "report",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "rs",
+        "type": "bytes32[]"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "ss",
+        "type": "bytes32[]"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "rawVs",
+        "type": "bytes32"
+      }
+    ],
+    "name": "transmit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "typeAndVersion",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  }
+]

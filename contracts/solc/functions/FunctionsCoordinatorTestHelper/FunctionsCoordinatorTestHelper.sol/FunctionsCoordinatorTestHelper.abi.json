@@ -1,0 +1,1318 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "router",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "config",
+        "type": "tuple",
+        "internalType": "struct FunctionsBillingConfig",
+        "components": [
+          {
+            "name": "fulfillmentGasPriceOverEstimationBP",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "feedStalenessSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadBeforeCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadAfterCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minimumEstimateGasPriceWei",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "maxSupportedRequestDataVersion",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "fallbackUsdPerUnitLink",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "fallbackUsdPerUnitLinkDecimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "fallbackNativePerUnitLink",
+            "type": "uint224",
+            "internalType": "uint224"
+          },
+          {
+            "name": "requestTimeoutSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "donFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "operationFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "transmitTxSizeBytes",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      },
+      {
+        "name": "linkToNativeFeed",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "linkToUsdFeed",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "acceptOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "callReport",
+    "inputs": [
+      {
+        "name": "report",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "callReportMultipleSigners",
+    "inputs": [
+      {
+        "name": "report",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "secondSigner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "deleteCommitment",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "estimateCost",
+    "inputs": [
+      {
+        "name": "subscriptionId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "callbackGasLimit",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "gasPriceWei",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint96",
+        "internalType": "uint96"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getAdminFeeJuels",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint72",
+        "internalType": "uint72"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getConfig",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct FunctionsBillingConfig",
+        "components": [
+          {
+            "name": "fulfillmentGasPriceOverEstimationBP",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "feedStalenessSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadBeforeCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadAfterCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minimumEstimateGasPriceWei",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "maxSupportedRequestDataVersion",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "fallbackUsdPerUnitLink",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "fallbackUsdPerUnitLinkDecimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "fallbackNativePerUnitLink",
+            "type": "uint224",
+            "internalType": "uint224"
+          },
+          {
+            "name": "requestTimeoutSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "donFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "operationFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "transmitTxSizeBytes",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDONFeeJuels",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint72",
+        "internalType": "uint72"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDONPublicKey",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getOperationFeeJuels",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint72",
+        "internalType": "uint72"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getThresholdPublicKey",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getUsdPerUnitLink",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getWeiPerUnitLink",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "latestConfigDetails",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "configCount",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "configDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "latestConfigDigestAndEpoch",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "scanLogs",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "configDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "epoch",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "oracleWithdraw",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint96",
+        "internalType": "uint96"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "oracleWithdrawAll",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setConfig",
+    "inputs": [
+      {
+        "name": "_signers",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "_transmitters",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "_f",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "_onchainConfig",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_offchainConfigVersion",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "_offchainConfig",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDONPublicKey",
+    "inputs": [
+      {
+        "name": "donPublicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setThresholdPublicKey",
+    "inputs": [
+      {
+        "name": "thresholdPublicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "startRequest",
+    "inputs": [
+      {
+        "name": "request",
+        "type": "tuple",
+        "internalType": "struct FunctionsResponse.RequestMeta",
+        "components": [
+          {
+            "name": "data",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "flags",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "requestingContract",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "availableBalance",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "adminFee",
+            "type": "uint72",
+            "internalType": "uint72"
+          },
+          {
+            "name": "subscriptionId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "initiatedRequests",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "callbackGasLimit",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "dataVersion",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "completedRequests",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "subscriptionOwner",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "commitment",
+        "type": "tuple",
+        "internalType": "struct FunctionsResponse.Commitment",
+        "components": [
+          {
+            "name": "requestId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "coordinator",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "estimatedTotalCostJuels",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "client",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "subscriptionId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "callbackGasLimit",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "adminFee",
+            "type": "uint72",
+            "internalType": "uint72"
+          },
+          {
+            "name": "donFee",
+            "type": "uint72",
+            "internalType": "uint72"
+          },
+          {
+            "name": "gasOverheadBeforeCallback",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "gasOverheadAfterCallback",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transmit",
+    "inputs": [
+      {
+        "name": "reportContext",
+        "type": "bytes32[3]",
+        "internalType": "bytes32[3]"
+      },
+      {
+        "name": "report",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "rs",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "ss",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "rawVs",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transmitters",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "typeAndVersion",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "updateConfig",
+    "inputs": [
+      {
+        "name": "config",
+        "type": "tuple",
+        "internalType": "struct FunctionsBillingConfig",
+        "components": [
+          {
+            "name": "fulfillmentGasPriceOverEstimationBP",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "feedStalenessSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadBeforeCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadAfterCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minimumEstimateGasPriceWei",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "maxSupportedRequestDataVersion",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "fallbackUsdPerUnitLink",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "fallbackUsdPerUnitLinkDecimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "fallbackNativePerUnitLink",
+            "type": "uint224",
+            "internalType": "uint224"
+          },
+          {
+            "name": "requestTimeoutSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "donFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "operationFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "transmitTxSizeBytes",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "CommitmentDeleted",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ConfigSet",
+    "inputs": [
+      {
+        "name": "previousConfigBlockNumber",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "configDigest",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "configCount",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "signers",
+        "type": "address[]",
+        "indexed": false,
+        "internalType": "address[]"
+      },
+      {
+        "name": "transmitters",
+        "type": "address[]",
+        "indexed": false,
+        "internalType": "address[]"
+      },
+      {
+        "name": "f",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "onchainConfig",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      },
+      {
+        "name": "offchainConfigVersion",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "offchainConfig",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ConfigUpdated",
+    "inputs": [
+      {
+        "name": "config",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct FunctionsBillingConfig",
+        "components": [
+          {
+            "name": "fulfillmentGasPriceOverEstimationBP",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "feedStalenessSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadBeforeCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadAfterCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minimumEstimateGasPriceWei",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "maxSupportedRequestDataVersion",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "fallbackUsdPerUnitLink",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "fallbackUsdPerUnitLinkDecimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "fallbackNativePerUnitLink",
+            "type": "uint224",
+            "internalType": "uint224"
+          },
+          {
+            "name": "requestTimeoutSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "donFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "operationFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "transmitTxSizeBytes",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OracleRequest",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestingContract",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "requestInitiator",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "subscriptionId",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "subscriptionOwner",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "data",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      },
+      {
+        "name": "dataVersion",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "flags",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "callbackGasLimit",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "commitment",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct FunctionsResponse.Commitment",
+        "components": [
+          {
+            "name": "requestId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "coordinator",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "estimatedTotalCostJuels",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "client",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "subscriptionId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "callbackGasLimit",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "adminFee",
+            "type": "uint72",
+            "internalType": "uint72"
+          },
+          {
+            "name": "donFee",
+            "type": "uint72",
+            "internalType": "uint72"
+          },
+          {
+            "name": "gasOverheadBeforeCallback",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "gasOverheadAfterCallback",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OracleResponse",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "transmitter",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferRequested",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RequestBilled",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "juelsPerGas",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      },
+      {
+        "name": "l1FeeShareWei",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "callbackCostJuels",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      },
+      {
+        "name": "donFeeJuels",
+        "type": "uint72",
+        "indexed": false,
+        "internalType": "uint72"
+      },
+      {
+        "name": "adminFeeJuels",
+        "type": "uint72",
+        "indexed": false,
+        "internalType": "uint72"
+      },
+      {
+        "name": "operationFeeJuels",
+        "type": "uint72",
+        "indexed": false,
+        "internalType": "uint72"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Transmitted",
+    "inputs": [
+      {
+        "name": "configDigest",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "epoch",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "EmptyPublicKey",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InconsistentReportData",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InsufficientBalance",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidCalldata",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidConfig",
+    "inputs": [
+      {
+        "name": "message",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidLinkWeiPrice",
+    "inputs": [
+      {
+        "name": "linkWei",
+        "type": "int256",
+        "internalType": "int256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSubscription",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidUsdLinkPrice",
+    "inputs": [
+      {
+        "name": "usdLink",
+        "type": "int256",
+        "internalType": "int256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MustBeSubOwner",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NoTransmittersSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyCallableByRouter",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyCallableByRouterOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PaymentTooLarge",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ReportInvalid",
+    "inputs": [
+      {
+        "name": "message",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "RouterMustBeSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedPublicKeyChange",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedSender",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnsupportedRequestDataVersion",
+    "inputs": []
+  }
+]

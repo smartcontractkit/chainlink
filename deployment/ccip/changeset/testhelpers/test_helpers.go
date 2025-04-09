@@ -21,6 +21,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -28,9 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -67,16 +68,17 @@ import (
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/mock_v3_aggregator_contract"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 
 	"github.com/gagliardetto/solana-go"
@@ -118,14 +120,48 @@ func Context(tb testing.TB) context.Context {
 	return ctx
 }
 
-func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64) {
+// ReplayLogsOption represents an option for the ReplayLogs function
+type ReplayLogsOption func(*replayLogsOptions)
+
+type replayLogsOptions struct {
+	assertOnError bool
+}
+
+// WithAssertOnError configures whether ReplayLogs should assert on errors
+func WithAssertOnError(assert bool) ReplayLogsOption {
+	return func(opts *replayLogsOptions) {
+		opts.assertOnError = assert
+	}
+}
+
+// ReplayLogs replays logs for the given blocks using the provided offchain client.
+// By default, it will assert on errors. Use WithAssertOnError(false) to change this behavior.
+func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64, opts ...ReplayLogsOption) {
+	options := &replayLogsOptions{
+		assertOnError: true,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	var err error
+
 	switch oc := oc.(type) {
 	case *memory.JobClient:
-		require.NoError(t, oc.ReplayLogs(t.Context(), replayBlocks))
+		err = oc.ReplayLogs(t.Context(), replayBlocks)
 	case *devenv.JobDistributor:
-		require.NoError(t, oc.ReplayLogs(replayBlocks))
+		err = oc.ReplayLogs(replayBlocks)
 	default:
 		t.Fatalf("unsupported offchain client type %T", oc)
+	}
+
+	if err != nil {
+		if options.assertOnError {
+			require.NoError(t, err)
+		} else {
+			t.Logf("failed to replay logs: %v", err)
+		}
 	}
 }
 
@@ -184,16 +220,19 @@ func LatestBlock(ctx context.Context, env deployment.Environment, chainSelector 
 	}
 }
 
-func LatestBlocksByChain(ctx context.Context, chains map[uint64]deployment.Chain) (map[uint64]uint64, error) {
-	// TODO: use LatestBlock and include solchains
+func LatestBlocksByChain(ctx context.Context, env deployment.Environment) (map[uint64]uint64, error) {
 	latestBlocks := make(map[uint64]uint64)
-	for _, chain := range chains {
-		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
+
+	chains := []uint64{}
+	chains = slices.AppendSeq(chains, maps.Keys(env.Chains))
+	chains = slices.AppendSeq(chains, maps.Keys(env.SolChains))
+	for _, selector := range chains {
+		block, err := LatestBlock(ctx, env, selector)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get latest header for chain %d", chain.Selector)
+			return nil, errors.Wrapf(err, "failed to get latest block for chain %d", selector)
 		}
-		block := latesthdr.Number.Uint64()
-		latestBlocks[chain.Selector] = block
+		latestBlocks[selector] = block
+
 	}
 	return latestBlocks, nil
 }
@@ -806,7 +845,7 @@ func addLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, rem
 							MaxPerMsgGasLimit:           3000000,
 							MaxDataBytes:                30000,
 							MaxNumberOfTokensPerMsg:     5,
-							DefaultTokenDestGasOverhead: 5000,
+							DefaultTokenDestGasOverhead: 75000,
 							ChainFamilySelector:         chainFamilySelector,
 						},
 					},
@@ -1481,16 +1520,18 @@ func attachTokenToTheRegistry(
 		return nil
 	}
 
-	tx, err := state.RegistryModule.RegisterAdminViaOwner(owner, token)
-	if err != nil {
-		return err
-	}
-	_, err = chain.Confirm(tx)
-	if err != nil {
-		return err
+	for _, reg := range state.RegistryModules1_6 {
+		tx, err := reg.RegisterAdminViaOwner(owner, token)
+		if err != nil {
+			return err
+		}
+		_, err = chain.Confirm(tx)
+		if err != nil {
+			return err
+		}
 	}
 
-	tx, err = state.TokenAdminRegistry.AcceptAdminRole(owner, token)
+	tx, err := state.TokenAdminRegistry.AcceptAdminRole(owner, token)
 	if err != nil {
 		return err
 	}
@@ -1750,8 +1791,6 @@ func TransferMultiple(
 
 	for _, tt := range requests {
 		t.Run(tt.Name, func(t *testing.T) {
-			expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
-
 			pairId := SourceDestPair{
 				SourceChainSelector: tt.SourceChain,
 				DestChainSelector:   tt.DestChain,
@@ -1763,6 +1802,15 @@ func TransferMultiple(
 			var tokens any
 			switch family {
 			case chainsel.FamilyEVM:
+				destFamily, err := chainsel.GetSelectorFamily(tt.DestChain)
+				require.NoError(t, err)
+				if destFamily == chainsel.FamilySolana {
+					// for EVM2Solana token transfer we need to use tokenReceiver instead logical receiver
+					expectedTokenBalances.add(tt.DestChain, tt.TokenReceiver, tt.ExpectedTokenBalances)
+				} else {
+					expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
+				}
+
 				tokens = tt.Tokens
 
 				// TODO: handle this for all chains
@@ -1776,6 +1824,7 @@ func TransferMultiple(
 				}
 			case chainsel.FamilySolana:
 				tokens = tt.SolTokens
+				expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
 			default:
 				t.Errorf("unsupported source chain: %v", family)
 			}
@@ -1817,8 +1866,7 @@ type TokenBalanceAccumulator map[uint64][]ExpectedTokenBalance
 func (t TokenBalanceAccumulator) add(
 	destChain uint64,
 	receiver []byte,
-	expectedBalances []ExpectedBalance,
-) {
+	expectedBalances []ExpectedBalance) {
 	for _, expected := range expectedBalances {
 		token := expected.Token
 		balance := expected.Amount

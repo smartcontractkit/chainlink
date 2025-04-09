@@ -1,0 +1,48 @@
+[
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "maxInboxMessagesRead",
+            "type": "uint256"
+          },
+          {
+            "internalType": "contract IBridge",
+            "name": "bridge",
+            "type": "address"
+          }
+        ],
+        "internalType": "struct ExecutionContext",
+        "name": "execCtx",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint256",
+        "name": "machineStep",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "beforeHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes",
+        "name": "proof",
+        "type": "bytes"
+      }
+    ],
+    "name": "proveOneStep",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "afterHash",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

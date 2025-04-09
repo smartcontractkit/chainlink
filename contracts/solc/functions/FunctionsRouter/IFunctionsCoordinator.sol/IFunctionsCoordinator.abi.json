@@ -1,0 +1,187 @@
+[
+  {
+    "type": "function",
+    "name": "getDONPublicKey",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getThresholdPublicKey",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setDONPublicKey",
+    "inputs": [
+      {
+        "name": "donPublicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setThresholdPublicKey",
+    "inputs": [
+      {
+        "name": "thresholdPublicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "startRequest",
+    "inputs": [
+      {
+        "name": "request",
+        "type": "tuple",
+        "internalType": "struct FunctionsResponse.RequestMeta",
+        "components": [
+          {
+            "name": "data",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "flags",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "requestingContract",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "availableBalance",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "adminFee",
+            "type": "uint72",
+            "internalType": "uint72"
+          },
+          {
+            "name": "subscriptionId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "initiatedRequests",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "callbackGasLimit",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "dataVersion",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "completedRequests",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "subscriptionOwner",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "commitment",
+        "type": "tuple",
+        "internalType": "struct FunctionsResponse.Commitment",
+        "components": [
+          {
+            "name": "requestId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "coordinator",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "estimatedTotalCostJuels",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "client",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "subscriptionId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "callbackGasLimit",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "adminFee",
+            "type": "uint72",
+            "internalType": "uint72"
+          },
+          {
+            "name": "donFee",
+            "type": "uint72",
+            "internalType": "uint72"
+          },
+          {
+            "name": "gasOverheadBeforeCallback",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "gasOverheadAfterCallback",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  }
+]

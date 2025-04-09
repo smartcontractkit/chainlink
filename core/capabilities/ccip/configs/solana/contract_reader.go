@@ -363,9 +363,18 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("config"),
 						},
+						OutputModifications: codec.ModifiersConfig{
+							// create a field to extract it
+							&codec.HardCodeModifierConfig{
+								OffChainValues: map[string]any{"RmnRemoteAddress": ""},
+							},
+							&codec.PropertyExtractorConfig{
+								FieldName: "RmnRemoteAddress",
+							},
+						},
 						ResponseAddressHardCoder: &codec.HardCodeModifierConfig{
-							// type doesn't matter it will be overridden with address internally
-							OffChainValues: map[string]any{"RmnRemoteAddress": ""},
+							// type doesn't matter it will be overridden with address internally, key is "" because it's a primitive value and not a field
+							OffChainValues: map[string]any{"": ""},
 						},
 					},
 				},
@@ -373,12 +382,17 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 			consts.ContractNameRMNRemote: {
 				IDL: rmnRemoteIDL,
 				Reads: map[string]config.ReadDefinition{
-					// TODO: need to have definition or it'll complain
 					consts.MethodNameGetVersionedConfig: {
 						ChainSpecificName: "Config",
 						ReadType:          config.Account,
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("config"),
+						},
+						OutputModifications: codec.ModifiersConfig{
+							// Disable fields so config isn't used, we only use global verification
+							&codec.DropModifierConfig{
+								Fields: []string{"Version"},
+							},
 						},
 					},
 					consts.MethodNameGetReportDigestHeader: {

@@ -16,7 +16,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -430,6 +430,10 @@ func (g *generalConfig) FluxMonitor() config.FluxMonitor {
 
 func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
+}
+
+func (g *generalConfig) InsecurePPROFHeap() bool {
+	return *g.c.InsecurePPROFHeap
 }
 
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {

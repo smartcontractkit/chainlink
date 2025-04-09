@@ -34,12 +34,7 @@ func (l *lookup) addReadNameForContract(contract, readName string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	readNames, exists := l.contractReadNames[contract]
-	if !exists {
-		readNames = []string{}
-	}
-
-	l.contractReadNames[contract] = append(readNames, readName)
+	l.contractReadNames[contract] = append(l.contractReadNames[contract], readName)
 }
 
 func (l *lookup) bindAddressForContract(contract, address string) {

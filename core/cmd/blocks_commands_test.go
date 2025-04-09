@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -49,7 +49,7 @@ func Test_ReplayFromBlock(t *testing.T) {
 		// Incorrect chain family
 		require.NoError(t, set.Set("chain-id", "5"))
 		require.NoError(t, set.Set("family", "xxxx"))
-		require.ErrorContains(t, client.ReplayFromBlock(c), "Replay not implemented for chain family")
+		require.ErrorContains(t, client.ReplayFromBlock(c), "relayer does not exist")
 	})
 
 	t.Run("evm replay", func(t *testing.T) {

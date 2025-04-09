@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -198,7 +197,7 @@ func (a *FakeRageP2PNetwork) newNode() *brokerNode {
 					panic(fmt.Sprintf("receiver not found for key %+v", k))
 				}
 
-				r.Receive(tests.Context(a.t), msg)
+				r.Receive(a.t.Context(), msg)
 			case reg := <-n.registerReceiverCh:
 				receivers[reg.receiverKey] = reg.receiver
 			}

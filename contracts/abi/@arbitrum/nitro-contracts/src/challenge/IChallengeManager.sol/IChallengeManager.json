@@ -1,0 +1,377 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "challengeIndex",
+        "type": "uint64"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "challengeRoot",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "challengedSegmentStart",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "challengedSegmentLength",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32[]",
+        "name": "chainHashes",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "Bisected",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "challengeIndex",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum IChallengeManager.ChallengeTerminationType",
+        "name": "kind",
+        "type": "uint8"
+      }
+    ],
+    "name": "ChallengeEnded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "challengeIndex",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "blockSteps",
+        "type": "uint256"
+      }
+    ],
+    "name": "ExecutionChallengeBegun",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "challengeIndex",
+        "type": "uint64"
+      },
+      {
+        "components": [
+          {
+            "internalType": "bytes32[2]",
+            "name": "bytes32Vals",
+            "type": "bytes32[2]"
+          },
+          {
+            "internalType": "uint64[2]",
+            "name": "u64Vals",
+            "type": "uint64[2]"
+          }
+        ],
+        "indexed": false,
+        "internalType": "struct GlobalState",
+        "name": "startState",
+        "type": "tuple"
+      },
+      {
+        "components": [
+          {
+            "internalType": "bytes32[2]",
+            "name": "bytes32Vals",
+            "type": "bytes32[2]"
+          },
+          {
+            "internalType": "uint64[2]",
+            "name": "u64Vals",
+            "type": "uint64[2]"
+          }
+        ],
+        "indexed": false,
+        "internalType": "struct GlobalState",
+        "name": "endState",
+        "type": "tuple"
+      }
+    ],
+    "name": "InitiatedChallenge",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "challengeIndex",
+        "type": "uint64"
+      }
+    ],
+    "name": "OneStepProofCompleted",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "challengeIndex_",
+        "type": "uint64"
+      }
+    ],
+    "name": "challengeInfo",
+    "outputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "addr",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "timeLeft",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct ChallengeLib.Participant",
+            "name": "current",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "addr",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "timeLeft",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct ChallengeLib.Participant",
+            "name": "next",
+            "type": "tuple"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastMoveTimestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "wasmModuleRoot",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "challengeStateHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "maxInboxMessages",
+            "type": "uint64"
+          },
+          {
+            "internalType": "enum ChallengeLib.ChallengeMode",
+            "name": "mode",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct ChallengeLib.Challenge",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "challengeIndex_",
+        "type": "uint64"
+      }
+    ],
+    "name": "clearChallenge",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "wasmModuleRoot_",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "enum MachineStatus[2]",
+        "name": "startAndEndMachineStatuses_",
+        "type": "uint8[2]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "bytes32[2]",
+            "name": "bytes32Vals",
+            "type": "bytes32[2]"
+          },
+          {
+            "internalType": "uint64[2]",
+            "name": "u64Vals",
+            "type": "uint64[2]"
+          }
+        ],
+        "internalType": "struct GlobalState[2]",
+        "name": "startAndEndGlobalStates_",
+        "type": "tuple[2]"
+      },
+      {
+        "internalType": "uint64",
+        "name": "numBlocks",
+        "type": "uint64"
+      },
+      {
+        "internalType": "address",
+        "name": "asserter_",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "challenger_",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "asserterTimeLeft_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "challengerTimeLeft_",
+        "type": "uint256"
+      }
+    ],
+    "name": "createChallenge",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "challengeIndex",
+        "type": "uint64"
+      }
+    ],
+    "name": "currentResponder",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IChallengeResultReceiver",
+        "name": "resultReceiver_",
+        "type": "address"
+      },
+      {
+        "internalType": "contract ISequencerInbox",
+        "name": "sequencerInbox_",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IBridge",
+        "name": "bridge_",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IOneStepProofEntry",
+        "name": "osp_",
+        "type": "address"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "challengeIndex",
+        "type": "uint64"
+      }
+    ],
+    "name": "isTimedOut",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "challengeIndex_",
+        "type": "uint64"
+      }
+    ],
+    "name": "timeout",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

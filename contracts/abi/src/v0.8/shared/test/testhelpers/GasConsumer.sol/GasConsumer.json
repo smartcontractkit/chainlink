@@ -1,0 +1,16 @@
+[
+  {
+    "inputs": [],
+    "name": "consumeAllGas",
+    "outputs": [],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "throwOutOfGasError",
+    "outputs": [],
+    "stateMutability": "pure",
+    "type": "function"
+  }
+]

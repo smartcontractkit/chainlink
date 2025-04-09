@@ -1,0 +1,1 @@
+{"id":"f7839206f1d892c99431319c7fdb3457","source_id_to_path":{"0":"src/v0.8/automation/AutomationBase.sol","1":"src/v0.8/automation/KeeperBase.sol","2":"src/v0.8/automation/interfaces/AutomationCompatibleInterface.sol","3":"src/v0.8/automation/interfaces/KeeperCompatibleInterface.sol","4":"src/v0.8/automation/testhelpers/KeeperConsumer.sol"},"language":"Solidity"}

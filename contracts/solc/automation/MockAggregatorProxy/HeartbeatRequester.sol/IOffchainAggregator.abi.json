@@ -1,0 +1,15 @@
+[
+  {
+    "type": "function",
+    "name": "requestNewRound",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint80",
+        "internalType": "uint80"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  }
+]

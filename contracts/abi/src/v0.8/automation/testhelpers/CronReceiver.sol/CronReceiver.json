@@ -1,0 +1,35 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [],
+    "name": "Received1",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [],
+    "name": "Received2",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "handler1",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "handler2",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "revertHandler",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

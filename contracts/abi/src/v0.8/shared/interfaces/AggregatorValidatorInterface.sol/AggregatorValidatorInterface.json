@@ -1,0 +1,36 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "previousRoundId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "int256",
+        "name": "previousAnswer",
+        "type": "int256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "currentRoundId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "int256",
+        "name": "currentAnswer",
+        "type": "int256"
+      }
+    ],
+    "name": "validate",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

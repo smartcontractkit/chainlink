@@ -1,0 +1,30 @@
+[
+  {
+    "inputs": [],
+    "name": "OnlyCallableByRouter",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlyCallableByRouterOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RouterMustBeSet",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "typeAndVersion",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  }
+]

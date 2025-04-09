@@ -27,6 +27,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/hashicorp/consul/sdk/freeport"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/stretchr/testify/require"
@@ -34,10 +35,9 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"golang.org/x/mod/modfile"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 )
@@ -57,7 +57,7 @@ type SolanaChain struct {
 }
 
 func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *simulated.Backend) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	nonce, err := backend.Client().PendingNonceAt(ctx, from.From)
 	require.NoError(t, err)
 	gp, err := backend.Client().SuggestGasPrice(ctx)
@@ -290,8 +290,8 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		}
 		require.NoError(t, err)
 		testcontainers.CleanupContainer(t, output.Container)
-		url = output.Nodes[0].HostHTTPUrl
-		wsURL = output.Nodes[0].HostWSUrl
+		url = output.Nodes[0].ExternalHTTPUrl
+		wsURL = output.Nodes[0].ExternalWSUrl
 		break
 	}
 	require.NoError(t, err)
@@ -301,7 +301,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	var ready bool
 	for i := 0; i < 30; i++ {
 		time.Sleep(time.Second)
-		out, err := client.GetHealth(tests.Context(t))
+		out, err := client.GetHealth(t.Context())
 		if err != nil || out != solRpc.HealthOk {
 			t.Logf("API server not ready yet (attempt %d)\n", i+1)
 			continue

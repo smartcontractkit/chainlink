@@ -1,0 +1,540 @@
+[
+  {
+    "type": "function",
+    "name": "decodeCommitReport",
+    "inputs": [
+      {
+        "name": "report",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct OffRamp.CommitReport",
+        "components": [
+          {
+            "name": "priceUpdates",
+            "type": "tuple",
+            "internalType": "struct Internal.PriceUpdates",
+            "components": [
+              {
+                "name": "tokenPriceUpdates",
+                "type": "tuple[]",
+                "internalType": "struct Internal.TokenPriceUpdate[]",
+                "components": [
+                  {
+                    "name": "sourceToken",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "usdPerToken",
+                    "type": "uint224",
+                    "internalType": "uint224"
+                  }
+                ]
+              },
+              {
+                "name": "gasPriceUpdates",
+                "type": "tuple[]",
+                "internalType": "struct Internal.GasPriceUpdate[]",
+                "components": [
+                  {
+                    "name": "destChainSelector",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  },
+                  {
+                    "name": "usdPerUnitGas",
+                    "type": "uint224",
+                    "internalType": "uint224"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "blessedMerkleRoots",
+            "type": "tuple[]",
+            "internalType": "struct Internal.MerkleRoot[]",
+            "components": [
+              {
+                "name": "sourceChainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "onRampAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "minSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "maxSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "merkleRoot",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "unblessedMerkleRoots",
+            "type": "tuple[]",
+            "internalType": "struct Internal.MerkleRoot[]",
+            "components": [
+              {
+                "name": "sourceChainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "onRampAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "minSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "maxSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "merkleRoot",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "rmnSignatures",
+            "type": "tuple[]",
+            "internalType": "struct IRMNRemote.Signature[]",
+            "components": [
+              {
+                "name": "r",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "s",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "decodeExecuteReport",
+    "inputs": [
+      {
+        "name": "report",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct Internal.ExecutionReport[]",
+        "components": [
+          {
+            "name": "sourceChainSelector",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "messages",
+            "type": "tuple[]",
+            "internalType": "struct Internal.Any2EVMRampMessage[]",
+            "components": [
+              {
+                "name": "header",
+                "type": "tuple",
+                "internalType": "struct Internal.RampMessageHeader",
+                "components": [
+                  {
+                    "name": "messageId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "sourceChainSelector",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  },
+                  {
+                    "name": "destChainSelector",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  },
+                  {
+                    "name": "sequenceNumber",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  },
+                  {
+                    "name": "nonce",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  }
+                ]
+              },
+              {
+                "name": "sender",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "data",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "receiver",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "gasLimit",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "tokenAmounts",
+                "type": "tuple[]",
+                "internalType": "struct Internal.Any2EVMTokenTransfer[]",
+                "components": [
+                  {
+                    "name": "sourcePoolAddress",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  },
+                  {
+                    "name": "destTokenAddress",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "destGasAmount",
+                    "type": "uint32",
+                    "internalType": "uint32"
+                  },
+                  {
+                    "name": "extraData",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "offchainTokenData",
+            "type": "bytes[][]",
+            "internalType": "bytes[][]"
+          },
+          {
+            "name": "proofs",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "proofFlagBits",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "event",
+    "name": "CommitReportDecoded",
+    "inputs": [
+      {
+        "name": "report",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct OffRamp.CommitReport",
+        "components": [
+          {
+            "name": "priceUpdates",
+            "type": "tuple",
+            "internalType": "struct Internal.PriceUpdates",
+            "components": [
+              {
+                "name": "tokenPriceUpdates",
+                "type": "tuple[]",
+                "internalType": "struct Internal.TokenPriceUpdate[]",
+                "components": [
+                  {
+                    "name": "sourceToken",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "usdPerToken",
+                    "type": "uint224",
+                    "internalType": "uint224"
+                  }
+                ]
+              },
+              {
+                "name": "gasPriceUpdates",
+                "type": "tuple[]",
+                "internalType": "struct Internal.GasPriceUpdate[]",
+                "components": [
+                  {
+                    "name": "destChainSelector",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  },
+                  {
+                    "name": "usdPerUnitGas",
+                    "type": "uint224",
+                    "internalType": "uint224"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "blessedMerkleRoots",
+            "type": "tuple[]",
+            "internalType": "struct Internal.MerkleRoot[]",
+            "components": [
+              {
+                "name": "sourceChainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "onRampAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "minSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "maxSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "merkleRoot",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "unblessedMerkleRoots",
+            "type": "tuple[]",
+            "internalType": "struct Internal.MerkleRoot[]",
+            "components": [
+              {
+                "name": "sourceChainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "onRampAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "minSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "maxSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "merkleRoot",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "rmnSignatures",
+            "type": "tuple[]",
+            "internalType": "struct IRMNRemote.Signature[]",
+            "components": [
+              {
+                "name": "r",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "s",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ExecuteReportDecoded",
+    "inputs": [
+      {
+        "name": "report",
+        "type": "tuple[]",
+        "indexed": false,
+        "internalType": "struct Internal.ExecutionReport[]",
+        "components": [
+          {
+            "name": "sourceChainSelector",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "messages",
+            "type": "tuple[]",
+            "internalType": "struct Internal.Any2EVMRampMessage[]",
+            "components": [
+              {
+                "name": "header",
+                "type": "tuple",
+                "internalType": "struct Internal.RampMessageHeader",
+                "components": [
+                  {
+                    "name": "messageId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "sourceChainSelector",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  },
+                  {
+                    "name": "destChainSelector",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  },
+                  {
+                    "name": "sequenceNumber",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  },
+                  {
+                    "name": "nonce",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  }
+                ]
+              },
+              {
+                "name": "sender",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "data",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "receiver",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "gasLimit",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "tokenAmounts",
+                "type": "tuple[]",
+                "internalType": "struct Internal.Any2EVMTokenTransfer[]",
+                "components": [
+                  {
+                    "name": "sourcePoolAddress",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  },
+                  {
+                    "name": "destTokenAddress",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "destGasAmount",
+                    "type": "uint32",
+                    "internalType": "uint32"
+                  },
+                  {
+                    "name": "extraData",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "offchainTokenData",
+            "type": "bytes[][]",
+            "internalType": "bytes[][]"
+          },
+          {
+            "name": "proofs",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "proofFlagBits",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  }
+]

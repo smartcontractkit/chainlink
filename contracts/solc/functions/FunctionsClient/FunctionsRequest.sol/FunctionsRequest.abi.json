@@ -1,0 +1,35 @@
+[
+  {
+    "type": "function",
+    "name": "REQUEST_DATA_VERSION",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "EmptyArgs",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EmptySecrets",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EmptySource",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoInlineSecrets",
+    "inputs": []
+  }
+]

@@ -21,11 +21,11 @@ import (
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	configtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -2215,7 +2215,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 
 	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+hintNotValidDualTransmissionSpec, nil)
 	require.NoError(t, err)
-	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "dual transmission meta.hint value some-invalid-hint should be one of the following [contract_address function_selector logs calldata default_logs]")
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "dual transmission meta.hint value some-invalid-hint should be one of the following [contract_address function_selector logs calldata default_logs full]")
 
 	invalidRefundFormatDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true

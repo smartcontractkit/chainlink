@@ -10,8 +10,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	le "github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
-	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
 )
 
 type LogEmitterContract struct {

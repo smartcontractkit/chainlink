@@ -1,0 +1,594 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "string[]",
+        "name": "feedIds",
+        "type": "string[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "feedNames",
+        "type": "string[]"
+      },
+      {
+        "internalType": "int192[]",
+        "name": "deviationPercentagePPMs",
+        "type": "int192[]"
+      },
+      {
+        "internalType": "uint32[]",
+        "name": "stalenessSeconds",
+        "type": "uint32[]"
+      },
+      {
+        "internalType": "address",
+        "name": "verifier",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "feedId",
+        "type": "string"
+      }
+    ],
+    "name": "DuplicateFeed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "feedId",
+        "type": "string"
+      }
+    ],
+    "name": "FeedNotActive",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidFeeds",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "feedId",
+        "type": "string"
+      },
+      {
+        "internalType": "uint32",
+        "name": "currentTimestamp",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "incomingTimestamp",
+        "type": "uint32"
+      }
+    ],
+    "name": "StaleReport",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "feedParamKey",
+        "type": "string"
+      },
+      {
+        "internalType": "string[]",
+        "name": "feeds",
+        "type": "string[]"
+      },
+      {
+        "internalType": "string",
+        "name": "timeParamKey",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "time",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "extraData",
+        "type": "bytes"
+      }
+    ],
+    "name": "StreamsLookup",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "observationsTimestamp",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "int192",
+        "name": "price",
+        "type": "int192"
+      },
+      {
+        "indexed": false,
+        "internalType": "int192",
+        "name": "bid",
+        "type": "int192"
+      },
+      {
+        "indexed": false,
+        "internalType": "int192",
+        "name": "ask",
+        "type": "int192"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "feedId",
+        "type": "string"
+      }
+    ],
+    "name": "FeedUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "acceptOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string[]",
+        "name": "feedIds",
+        "type": "string[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "feedNames",
+        "type": "string[]"
+      },
+      {
+        "internalType": "int192[]",
+        "name": "deviationPercentagePPMs",
+        "type": "int192[]"
+      },
+      {
+        "internalType": "uint32[]",
+        "name": "stalenessSeconds",
+        "type": "uint32[]"
+      }
+    ],
+    "name": "addFeeds",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes[]",
+        "name": "values",
+        "type": "bytes[]"
+      },
+      {
+        "internalType": "bytes",
+        "name": "lookupData",
+        "type": "bytes"
+      }
+    ],
+    "name": "checkCallback",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      },
+      {
+        "internalType": "bytes",
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "name": "checkErrorHandler",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "upkeepNeeded",
+        "type": "bool"
+      },
+      {
+        "internalType": "bytes",
+        "name": "performData",
+        "type": "bytes"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "name": "checkUpkeep",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      },
+      {
+        "internalType": "bytes",
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "int192",
+        "name": "onChain",
+        "type": "int192"
+      },
+      {
+        "internalType": "int192",
+        "name": "offChain",
+        "type": "int192"
+      },
+      {
+        "internalType": "int192",
+        "name": "deviationPercentagePPM",
+        "type": "int192"
+      }
+    ],
+    "name": "deviationExceedsThreshold",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string[]",
+        "name": "feedIds",
+        "type": "string[]"
+      }
+    ],
+    "name": "getLatestFeedData",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint32",
+            "name": "observationsTimestamp",
+            "type": "uint32"
+          },
+          {
+            "internalType": "int192",
+            "name": "price",
+            "type": "int192"
+          },
+          {
+            "internalType": "int192",
+            "name": "bid",
+            "type": "int192"
+          },
+          {
+            "internalType": "int192",
+            "name": "ask",
+            "type": "int192"
+          },
+          {
+            "internalType": "string",
+            "name": "feedName",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "feedId",
+            "type": "string"
+          },
+          {
+            "internalType": "bool",
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "internalType": "int192",
+            "name": "deviationPercentagePPM",
+            "type": "int192"
+          },
+          {
+            "internalType": "uint32",
+            "name": "stalenessSeconds",
+            "type": "uint32"
+          }
+        ],
+        "internalType": "struct MercuryRegistry.Feed[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "performData",
+        "type": "bytes"
+      }
+    ],
+    "name": "performUpkeep",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string[]",
+        "name": "feeds",
+        "type": "string[]"
+      }
+    ],
+    "name": "revertForFeedLookup",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      },
+      {
+        "internalType": "bytes",
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "name": "s_feedMapping",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "observationsTimestamp",
+        "type": "uint32"
+      },
+      {
+        "internalType": "int192",
+        "name": "price",
+        "type": "int192"
+      },
+      {
+        "internalType": "int192",
+        "name": "bid",
+        "type": "int192"
+      },
+      {
+        "internalType": "int192",
+        "name": "ask",
+        "type": "int192"
+      },
+      {
+        "internalType": "string",
+        "name": "feedName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "feedId",
+        "type": "string"
+      },
+      {
+        "internalType": "bool",
+        "name": "active",
+        "type": "bool"
+      },
+      {
+        "internalType": "int192",
+        "name": "deviationPercentagePPM",
+        "type": "int192"
+      },
+      {
+        "internalType": "uint32",
+        "name": "stalenessSeconds",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "s_feeds",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "s_verifier",
+    "outputs": [
+      {
+        "internalType": "contract IVerifierProxy",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string[]",
+        "name": "feedIds",
+        "type": "string[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "feedNames",
+        "type": "string[]"
+      },
+      {
+        "internalType": "int192[]",
+        "name": "deviationPercentagePPMs",
+        "type": "int192[]"
+      },
+      {
+        "internalType": "uint32[]",
+        "name": "stalenessSeconds",
+        "type": "uint32[]"
+      }
+    ],
+    "name": "setFeeds",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "verifier",
+        "type": "address"
+      }
+    ],
+    "name": "setVerifier",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

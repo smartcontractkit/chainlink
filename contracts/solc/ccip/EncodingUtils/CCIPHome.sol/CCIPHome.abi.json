@@ -1,0 +1,1209 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "capabilitiesRegistry",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "acceptOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "applyChainConfigUpdates",
+    "inputs": [
+      {
+        "name": "chainSelectorRemoves",
+        "type": "uint64[]",
+        "internalType": "uint64[]"
+      },
+      {
+        "name": "chainConfigAdds",
+        "type": "tuple[]",
+        "internalType": "struct CCIPHome.ChainConfigArgs[]",
+        "components": [
+          {
+            "name": "chainSelector",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "chainConfig",
+            "type": "tuple",
+            "internalType": "struct CCIPHome.ChainConfig",
+            "components": [
+              {
+                "name": "readers",
+                "type": "bytes32[]",
+                "internalType": "bytes32[]"
+              },
+              {
+                "name": "fChain",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "config",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "beforeCapabilityConfigSet",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "update",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getActiveDigest",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "pluginType",
+        "type": "uint8",
+        "internalType": "enum Internal.OCRPluginType"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getAllChainConfigs",
+    "inputs": [
+      {
+        "name": "pageIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "pageSize",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct CCIPHome.ChainConfigArgs[]",
+        "components": [
+          {
+            "name": "chainSelector",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "chainConfig",
+            "type": "tuple",
+            "internalType": "struct CCIPHome.ChainConfig",
+            "components": [
+              {
+                "name": "readers",
+                "type": "bytes32[]",
+                "internalType": "bytes32[]"
+              },
+              {
+                "name": "fChain",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "config",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getAllConfigs",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "pluginType",
+        "type": "uint8",
+        "internalType": "enum Internal.OCRPluginType"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "activeConfig",
+        "type": "tuple",
+        "internalType": "struct CCIPHome.VersionedConfig",
+        "components": [
+          {
+            "name": "version",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "configDigest",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "config",
+            "type": "tuple",
+            "internalType": "struct CCIPHome.OCR3Config",
+            "components": [
+              {
+                "name": "pluginType",
+                "type": "uint8",
+                "internalType": "enum Internal.OCRPluginType"
+              },
+              {
+                "name": "chainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "FRoleDON",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "offchainConfigVersion",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "offrampAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "rmnHomeAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "nodes",
+                "type": "tuple[]",
+                "internalType": "struct CCIPHome.OCR3Node[]",
+                "components": [
+                  {
+                    "name": "p2pId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "signerKey",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  },
+                  {
+                    "name": "transmitterKey",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  }
+                ]
+              },
+              {
+                "name": "offchainConfig",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "candidateConfig",
+        "type": "tuple",
+        "internalType": "struct CCIPHome.VersionedConfig",
+        "components": [
+          {
+            "name": "version",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "configDigest",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "config",
+            "type": "tuple",
+            "internalType": "struct CCIPHome.OCR3Config",
+            "components": [
+              {
+                "name": "pluginType",
+                "type": "uint8",
+                "internalType": "enum Internal.OCRPluginType"
+              },
+              {
+                "name": "chainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "FRoleDON",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "offchainConfigVersion",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "offrampAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "rmnHomeAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "nodes",
+                "type": "tuple[]",
+                "internalType": "struct CCIPHome.OCR3Node[]",
+                "components": [
+                  {
+                    "name": "p2pId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "signerKey",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  },
+                  {
+                    "name": "transmitterKey",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  }
+                ]
+              },
+              {
+                "name": "offchainConfig",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCandidateDigest",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "pluginType",
+        "type": "uint8",
+        "internalType": "enum Internal.OCRPluginType"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCapabilityConfiguration",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "configuration",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "getCapabilityRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getChainConfig",
+    "inputs": [
+      {
+        "name": "chainSelector",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct CCIPHome.ChainConfig",
+        "components": [
+          {
+            "name": "readers",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "fChain",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "config",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getConfig",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "pluginType",
+        "type": "uint8",
+        "internalType": "enum Internal.OCRPluginType"
+      },
+      {
+        "name": "configDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "versionedConfig",
+        "type": "tuple",
+        "internalType": "struct CCIPHome.VersionedConfig",
+        "components": [
+          {
+            "name": "version",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "configDigest",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "config",
+            "type": "tuple",
+            "internalType": "struct CCIPHome.OCR3Config",
+            "components": [
+              {
+                "name": "pluginType",
+                "type": "uint8",
+                "internalType": "enum Internal.OCRPluginType"
+              },
+              {
+                "name": "chainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "FRoleDON",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "offchainConfigVersion",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "offrampAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "rmnHomeAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "nodes",
+                "type": "tuple[]",
+                "internalType": "struct CCIPHome.OCR3Node[]",
+                "components": [
+                  {
+                    "name": "p2pId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "signerKey",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  },
+                  {
+                    "name": "transmitterKey",
+                    "type": "bytes",
+                    "internalType": "bytes"
+                  }
+                ]
+              },
+              {
+                "name": "offchainConfig",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "ok",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getConfigDigests",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "pluginType",
+        "type": "uint8",
+        "internalType": "enum Internal.OCRPluginType"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "activeConfigDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "candidateConfigDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNumChainConfigurations",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "promoteCandidateAndRevokeActive",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "pluginType",
+        "type": "uint8",
+        "internalType": "enum Internal.OCRPluginType"
+      },
+      {
+        "name": "digestToPromote",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "digestToRevoke",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeCandidate",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "pluginType",
+        "type": "uint8",
+        "internalType": "enum Internal.OCRPluginType"
+      },
+      {
+        "name": "configDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setCandidate",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "pluginType",
+        "type": "uint8",
+        "internalType": "enum Internal.OCRPluginType"
+      },
+      {
+        "name": "config",
+        "type": "tuple",
+        "internalType": "struct CCIPHome.OCR3Config",
+        "components": [
+          {
+            "name": "pluginType",
+            "type": "uint8",
+            "internalType": "enum Internal.OCRPluginType"
+          },
+          {
+            "name": "chainSelector",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "FRoleDON",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "offchainConfigVersion",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "offrampAddress",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "rmnHomeAddress",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "nodes",
+            "type": "tuple[]",
+            "internalType": "struct CCIPHome.OCR3Node[]",
+            "components": [
+              {
+                "name": "p2pId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "signerKey",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "transmitterKey",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "offchainConfig",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      },
+      {
+        "name": "digestToOverwrite",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "newConfigDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "supportsInterface",
+    "inputs": [
+      {
+        "name": "interfaceId",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "typeAndVersion",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "ActiveConfigRevoked",
+    "inputs": [
+      {
+        "name": "configDigest",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CandidateConfigRevoked",
+    "inputs": [
+      {
+        "name": "configDigest",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CapabilityConfigurationSet",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ChainConfigRemoved",
+    "inputs": [
+      {
+        "name": "chainSelector",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ChainConfigSet",
+    "inputs": [
+      {
+        "name": "chainSelector",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "chainConfig",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct CCIPHome.ChainConfig",
+        "components": [
+          {
+            "name": "readers",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "fChain",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "config",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ConfigPromoted",
+    "inputs": [
+      {
+        "name": "configDigest",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ConfigSet",
+    "inputs": [
+      {
+        "name": "configDigest",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "version",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "config",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct CCIPHome.OCR3Config",
+        "components": [
+          {
+            "name": "pluginType",
+            "type": "uint8",
+            "internalType": "enum Internal.OCRPluginType"
+          },
+          {
+            "name": "chainSelector",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "FRoleDON",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "offchainConfigVersion",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "offrampAddress",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "rmnHomeAddress",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "nodes",
+            "type": "tuple[]",
+            "internalType": "struct CCIPHome.OCR3Node[]",
+            "components": [
+              {
+                "name": "p2pId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "signerKey",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "transmitterKey",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "offchainConfig",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferRequested",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "CanOnlySelfCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CannotTransferToSelf",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ChainSelectorNotFound",
+    "inputs": [
+      {
+        "name": "chainSelector",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ChainSelectorNotSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ConfigDigestMismatch",
+    "inputs": [
+      {
+        "name": "expectedConfigDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "gotConfigDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DONIdMismatch",
+    "inputs": [
+      {
+        "name": "callDonId",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "capabilityRegistryDonId",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "FChainMustBePositive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FChainTooHigh",
+    "inputs": [
+      {
+        "name": "fChain",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "FRoleDON",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "FTooHigh",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidNode",
+    "inputs": [
+      {
+        "name": "node",
+        "type": "tuple",
+        "internalType": "struct CCIPHome.OCR3Node",
+        "components": [
+          {
+            "name": "p2pId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "signerKey",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "transmitterKey",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPluginType",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidSelector",
+    "inputs": [
+      {
+        "name": "selector",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MustBeProposedOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoOpStateTransitionNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotEnoughTransmitters",
+    "inputs": [
+      {
+        "name": "got",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minimum",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OfframpAddressCannotBeZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyCallableByOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyCapabilitiesRegistryCanCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OwnerCannotBeZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RMNHomeAddressCannotBeZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RevokingZeroDigestNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TooManySigners",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddressNotAllowed",
+    "inputs": []
+  }
+]

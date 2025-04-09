@@ -51,36 +51,36 @@ func (role MCMSRole) String() string {
 }
 
 type MCMSWithTimelockConfig struct {
-	Canceller        config.Config
-	Bypasser         config.Config
-	Proposer         config.Config
-	TimelockMinDelay *big.Int
-	Label            *string
+	Canceller        config.Config `json:"canceller"`
+	Bypasser         config.Config `json:"bypasser"`
+	Proposer         config.Config `json:"proposer"`
+	TimelockMinDelay *big.Int      `json:"timelockMinDelay"`
+	Label            *string       `json:"label"`
 }
 
 // MCMSWithTimelockConfigV2 holds the configuration for an MCMS with timelock.
 // Note that this type already exists in types.go, but this one is using the new lib version.
 type MCMSWithTimelockConfigV2 struct {
-	Canceller        mcmstypes.Config
-	Bypasser         mcmstypes.Config
-	Proposer         mcmstypes.Config
-	TimelockMinDelay *big.Int
-	Label            *string
+	Canceller        mcmstypes.Config `json:"canceller"`
+	Bypasser         mcmstypes.Config `json:"bypasser"`
+	Proposer         mcmstypes.Config `json:"proposer"`
+	TimelockMinDelay *big.Int         `json:"timelockMinDelay"`
+	Label            *string          `json:"label"`
 }
 
 type OCRParameters struct {
-	DeltaProgress                           time.Duration
-	DeltaResend                             time.Duration
-	DeltaInitial                            time.Duration
-	DeltaRound                              time.Duration
-	DeltaGrace                              time.Duration
-	DeltaCertifiedCommitRequest             time.Duration
-	DeltaStage                              time.Duration
-	Rmax                                    uint64
-	MaxDurationQuery                        time.Duration
-	MaxDurationObservation                  time.Duration
-	MaxDurationShouldAcceptAttestedReport   time.Duration
-	MaxDurationShouldTransmitAcceptedReport time.Duration
+	DeltaProgress                           time.Duration `json:"deltaProgress"`
+	DeltaResend                             time.Duration `json:"deltaResend"`
+	DeltaInitial                            time.Duration `json:"deltaInitial"`
+	DeltaRound                              time.Duration `json:"deltaRound"`
+	DeltaGrace                              time.Duration `json:"deltaGrace"`
+	DeltaCertifiedCommitRequest             time.Duration `json:"deltaCertifiedCommitRequest"`
+	DeltaStage                              time.Duration `json:"deltaStage"`
+	Rmax                                    uint64        `json:"rmax"`
+	MaxDurationQuery                        time.Duration `json:"maxDurationQuery"`
+	MaxDurationObservation                  time.Duration `json:"maxDurationObservation"`
+	MaxDurationShouldAcceptAttestedReport   time.Duration `json:"maxDurationShouldAcceptAttestedReport"`
+	MaxDurationShouldTransmitAcceptedReport time.Duration `json:"maxDurationShouldTransmitAcceptedReport"`
 }
 
 func (params OCRParameters) Validate() error {

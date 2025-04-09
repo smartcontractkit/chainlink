@@ -1,0 +1,15 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "encodedData",
+        "type": "bytes"
+      }
+    ],
+    "name": "onMigration",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  }
+]

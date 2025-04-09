@@ -21,10 +21,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
-	evmkeystore "github.com/smartcontractkit/chainlink-integrations/evm/keys"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -1725,7 +1725,7 @@ func (o *orm) loadJobSpecErrors(ctx context.Context, jb *Job) error {
 }
 
 func validateDualTransmissionHint(vals []interface{}) error {
-	accepted := []string{"contract_address", "function_selector", "logs", "calldata", "default_logs"}
+	accepted := []string{"contract_address", "function_selector", "logs", "calldata", "default_logs", "full"}
 	for _, v := range vals {
 		valString, ok := v.(string)
 		if !ok {

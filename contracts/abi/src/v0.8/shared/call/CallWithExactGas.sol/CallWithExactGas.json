@@ -1,0 +1,17 @@
+[
+  {
+    "inputs": [],
+    "name": "NoContract",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NoGasForCallExactCheck",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotEnoughGasForCall",
+    "type": "error"
+  }
+]

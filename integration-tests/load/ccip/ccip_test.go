@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -33,7 +35,6 @@ var (
 	wg sync.WaitGroup
 )
 
-// todo: add multiple keys and rotate them when sending messages
 // this key only works on simulated geth chains in crib
 const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
@@ -46,8 +47,6 @@ const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7
 // step 4: teardown
 // wait for ccip to finish, push remaining data
 func TestCCIPLoad_RPS(t *testing.T) {
-	// comment out when executing the test
-	// t.Skip("Skipping test as this test should not be auto triggered")
 	lggr := logger.Test(t)
 	ctx, cancel := context.WithCancel(tests.Context(t))
 	defer cancel()
@@ -58,7 +57,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	userOverrides := config.CCIP.Load
 
 	// generate environment from crib-produced files
-	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
+	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
 	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey)
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
@@ -68,6 +67,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// initialize additional accounts on other chains
 	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
+	// todo: fund keys on solana
 	require.NoError(t, err)
 	// todo: defer returning funds
 
@@ -114,7 +114,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	for ind := range *userOverrides.NumDestinationChains {
 		cs := env.AllChainSelectors()[ind]
 
-		messageKeys := make(map[uint64]*bind.TransactOpts)
+		evmSourceKeys := make(map[uint64]*bind.TransactOpts)
+		solanaSourceKeys := make(map[uint64]*solana.PrivateKey)
+		// todo: make solana source keys
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
 		var mu sync.Mutex
 		var wg2 sync.WaitGroup
@@ -123,14 +125,14 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			go func(src uint64) {
 				defer wg2.Done()
 				mu.Lock()
-				messageKeys[src] = transmitKeys[src][ind]
+				evmSourceKeys[src] = transmitKeys[src][ind]
 				mu.Unlock()
 				assert.NoError(t, prepareAccountToSendLink(
 					t,
 					state,
 					*env,
 					src,
-					messageKeys[src],
+					evmSourceKeys[src],
 				))
 			}(src)
 		}
@@ -143,7 +145,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			&state,
 			state.Chains[cs].Receiver.Address(),
 			userOverrides,
-			messageKeys,
+			evmSourceKeys,
+			solanaSourceKeys,
 			ind,
 			mm.InputChan,
 		)
@@ -244,6 +247,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go func() {
 			<-testTimer.C
 			cancel()
+			t.Fail()
 		}()
 	}
 

@@ -1,0 +1,300 @@
+[
+  {
+    "type": "function",
+    "name": "exposeCommitReport",
+    "inputs": [
+      {
+        "name": "commitReport",
+        "type": "tuple",
+        "internalType": "struct OffRamp.CommitReport",
+        "components": [
+          {
+            "name": "priceUpdates",
+            "type": "tuple",
+            "internalType": "struct Internal.PriceUpdates",
+            "components": [
+              {
+                "name": "tokenPriceUpdates",
+                "type": "tuple[]",
+                "internalType": "struct Internal.TokenPriceUpdate[]",
+                "components": [
+                  {
+                    "name": "sourceToken",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "usdPerToken",
+                    "type": "uint224",
+                    "internalType": "uint224"
+                  }
+                ]
+              },
+              {
+                "name": "gasPriceUpdates",
+                "type": "tuple[]",
+                "internalType": "struct Internal.GasPriceUpdate[]",
+                "components": [
+                  {
+                    "name": "destChainSelector",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  },
+                  {
+                    "name": "usdPerUnitGas",
+                    "type": "uint224",
+                    "internalType": "uint224"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "blessedMerkleRoots",
+            "type": "tuple[]",
+            "internalType": "struct Internal.MerkleRoot[]",
+            "components": [
+              {
+                "name": "sourceChainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "onRampAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "minSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "maxSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "merkleRoot",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "unblessedMerkleRoots",
+            "type": "tuple[]",
+            "internalType": "struct Internal.MerkleRoot[]",
+            "components": [
+              {
+                "name": "sourceChainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "onRampAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "minSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "maxSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "merkleRoot",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "rmnSignatures",
+            "type": "tuple[]",
+            "internalType": "struct IRMNRemote.Signature[]",
+            "components": [
+              {
+                "name": "r",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "s",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "exposeOCR3Config",
+    "inputs": [
+      {
+        "name": "config",
+        "type": "tuple[]",
+        "internalType": "struct CCIPHome.OCR3Config[]",
+        "components": [
+          {
+            "name": "pluginType",
+            "type": "uint8",
+            "internalType": "enum Internal.OCRPluginType"
+          },
+          {
+            "name": "chainSelector",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "FRoleDON",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "offchainConfigVersion",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "offrampAddress",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "rmnHomeAddress",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "nodes",
+            "type": "tuple[]",
+            "internalType": "struct CCIPHome.OCR3Node[]",
+            "components": [
+              {
+                "name": "p2pId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "signerKey",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "transmitterKey",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "offchainConfig",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "exposeRmnReport",
+    "inputs": [
+      {
+        "name": "rmnReportVersion",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "rmnReport",
+        "type": "tuple",
+        "internalType": "struct RMNRemote.Report",
+        "components": [
+          {
+            "name": "destChainId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "destChainSelector",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "rmnRemoteContractAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "offrampAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "rmnHomeContractConfigDigest",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "merkleRoots",
+            "type": "tuple[]",
+            "internalType": "struct Internal.MerkleRoot[]",
+            "components": [
+              {
+                "name": "sourceChainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "onRampAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "minSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "maxSeqNr",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "merkleRoot",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }
+]

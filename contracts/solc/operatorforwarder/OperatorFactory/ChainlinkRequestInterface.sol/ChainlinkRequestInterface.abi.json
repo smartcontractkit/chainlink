@@ -1,0 +1,78 @@
+[
+  {
+    "type": "function",
+    "name": "cancelOracleRequest",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "payment",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "callbackFunctionId",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      },
+      {
+        "name": "expiration",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "oracleRequest",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "requestPrice",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "serviceAgreementID",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "callbackAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "callbackFunctionId",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      },
+      {
+        "name": "nonce",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "dataVersion",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }
+]

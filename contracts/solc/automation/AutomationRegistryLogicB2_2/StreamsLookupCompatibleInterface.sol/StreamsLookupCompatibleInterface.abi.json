@@ -1,0 +1,91 @@
+[
+  {
+    "type": "function",
+    "name": "checkCallback",
+    "inputs": [
+      {
+        "name": "values",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "extraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "upkeepNeeded",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "performData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "checkErrorHandler",
+    "inputs": [
+      {
+        "name": "errCode",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "extraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "upkeepNeeded",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "performData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "StreamsLookup",
+    "inputs": [
+      {
+        "name": "feedParamKey",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "feeds",
+        "type": "string[]",
+        "internalType": "string[]"
+      },
+      {
+        "name": "timeParamKey",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "time",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "extraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  }
+]

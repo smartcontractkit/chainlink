@@ -1,0 +1,960 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addTestStruct",
+    "inputs": [
+      {
+        "name": "field",
+        "type": "int32",
+        "internalType": "int32"
+      },
+      {
+        "name": "differentField",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "oracleId",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "oracleIds",
+        "type": "uint8[32]",
+        "internalType": "uint8[32]"
+      },
+      {
+        "name": "accountStruct",
+        "type": "tuple",
+        "internalType": "struct AccountStruct",
+        "components": [
+          {
+            "name": "Account",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "AccountStr",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "accounts",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "bigField",
+        "type": "int192",
+        "internalType": "int192"
+      },
+      {
+        "name": "nestedDynamicStruct",
+        "type": "tuple",
+        "internalType": "struct MidLevelDynamicTestStruct",
+        "components": [
+          {
+            "name": "FixedBytes",
+            "type": "bytes2",
+            "internalType": "bytes2"
+          },
+          {
+            "name": "Inner",
+            "type": "tuple",
+            "internalType": "struct InnerDynamicTestStruct",
+            "components": [
+              {
+                "name": "IntVal",
+                "type": "int64",
+                "internalType": "int64"
+              },
+              {
+                "name": "S",
+                "type": "string",
+                "internalType": "string"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "nestedStaticStruct",
+        "type": "tuple",
+        "internalType": "struct MidLevelStaticTestStruct",
+        "components": [
+          {
+            "name": "FixedBytes",
+            "type": "bytes2",
+            "internalType": "bytes2"
+          },
+          {
+            "name": "Inner",
+            "type": "tuple",
+            "internalType": "struct InnerStaticTestStruct",
+            "components": [
+              {
+                "name": "IntVal",
+                "type": "int64",
+                "internalType": "int64"
+              },
+              {
+                "name": "A",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getAlterablePrimitiveValue",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDifferentPrimitiveValue",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "getElementAtIndex",
+    "inputs": [
+      {
+        "name": "i",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct TestStruct",
+        "components": [
+          {
+            "name": "Field",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "DifferentField",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "OracleId",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "OracleIds",
+            "type": "uint8[32]",
+            "internalType": "uint8[32]"
+          },
+          {
+            "name": "AccountStruct",
+            "type": "tuple",
+            "internalType": "struct AccountStruct",
+            "components": [
+              {
+                "name": "Account",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "AccountStr",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "Accounts",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "BigField",
+            "type": "int192",
+            "internalType": "int192"
+          },
+          {
+            "name": "NestedDynamicStruct",
+            "type": "tuple",
+            "internalType": "struct MidLevelDynamicTestStruct",
+            "components": [
+              {
+                "name": "FixedBytes",
+                "type": "bytes2",
+                "internalType": "bytes2"
+              },
+              {
+                "name": "Inner",
+                "type": "tuple",
+                "internalType": "struct InnerDynamicTestStruct",
+                "components": [
+                  {
+                    "name": "IntVal",
+                    "type": "int64",
+                    "internalType": "int64"
+                  },
+                  {
+                    "name": "S",
+                    "type": "string",
+                    "internalType": "string"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "NestedStaticStruct",
+            "type": "tuple",
+            "internalType": "struct MidLevelStaticTestStruct",
+            "components": [
+              {
+                "name": "FixedBytes",
+                "type": "bytes2",
+                "internalType": "bytes2"
+              },
+              {
+                "name": "Inner",
+                "type": "tuple",
+                "internalType": "struct InnerStaticTestStruct",
+                "components": [
+                  {
+                    "name": "IntVal",
+                    "type": "int64",
+                    "internalType": "int64"
+                  },
+                  {
+                    "name": "A",
+                    "type": "address",
+                    "internalType": "address"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPrimitiveValue",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "getSliceValue",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64[]",
+        "internalType": "uint64[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "returnSeen",
+    "inputs": [
+      {
+        "name": "field",
+        "type": "int32",
+        "internalType": "int32"
+      },
+      {
+        "name": "differentField",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "oracleId",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "oracleIds",
+        "type": "uint8[32]",
+        "internalType": "uint8[32]"
+      },
+      {
+        "name": "accountStruct",
+        "type": "tuple",
+        "internalType": "struct AccountStruct",
+        "components": [
+          {
+            "name": "Account",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "AccountStr",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "accounts",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "bigField",
+        "type": "int192",
+        "internalType": "int192"
+      },
+      {
+        "name": "nestedDynamicStruct",
+        "type": "tuple",
+        "internalType": "struct MidLevelDynamicTestStruct",
+        "components": [
+          {
+            "name": "FixedBytes",
+            "type": "bytes2",
+            "internalType": "bytes2"
+          },
+          {
+            "name": "Inner",
+            "type": "tuple",
+            "internalType": "struct InnerDynamicTestStruct",
+            "components": [
+              {
+                "name": "IntVal",
+                "type": "int64",
+                "internalType": "int64"
+              },
+              {
+                "name": "S",
+                "type": "string",
+                "internalType": "string"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "nestedStaticStruct",
+        "type": "tuple",
+        "internalType": "struct MidLevelStaticTestStruct",
+        "components": [
+          {
+            "name": "FixedBytes",
+            "type": "bytes2",
+            "internalType": "bytes2"
+          },
+          {
+            "name": "Inner",
+            "type": "tuple",
+            "internalType": "struct InnerStaticTestStruct",
+            "components": [
+              {
+                "name": "IntVal",
+                "type": "int64",
+                "internalType": "int64"
+              },
+              {
+                "name": "A",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct TestStruct",
+        "components": [
+          {
+            "name": "Field",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "DifferentField",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "OracleId",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "OracleIds",
+            "type": "uint8[32]",
+            "internalType": "uint8[32]"
+          },
+          {
+            "name": "AccountStruct",
+            "type": "tuple",
+            "internalType": "struct AccountStruct",
+            "components": [
+              {
+                "name": "Account",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "AccountStr",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "Accounts",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "BigField",
+            "type": "int192",
+            "internalType": "int192"
+          },
+          {
+            "name": "NestedDynamicStruct",
+            "type": "tuple",
+            "internalType": "struct MidLevelDynamicTestStruct",
+            "components": [
+              {
+                "name": "FixedBytes",
+                "type": "bytes2",
+                "internalType": "bytes2"
+              },
+              {
+                "name": "Inner",
+                "type": "tuple",
+                "internalType": "struct InnerDynamicTestStruct",
+                "components": [
+                  {
+                    "name": "IntVal",
+                    "type": "int64",
+                    "internalType": "int64"
+                  },
+                  {
+                    "name": "S",
+                    "type": "string",
+                    "internalType": "string"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "NestedStaticStruct",
+            "type": "tuple",
+            "internalType": "struct MidLevelStaticTestStruct",
+            "components": [
+              {
+                "name": "FixedBytes",
+                "type": "bytes2",
+                "internalType": "bytes2"
+              },
+              {
+                "name": "Inner",
+                "type": "tuple",
+                "internalType": "struct InnerStaticTestStruct",
+                "components": [
+                  {
+                    "name": "IntVal",
+                    "type": "int64",
+                    "internalType": "int64"
+                  },
+                  {
+                    "name": "A",
+                    "type": "address",
+                    "internalType": "address"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "setAlterablePrimitiveValue",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "triggerEvent",
+    "inputs": [
+      {
+        "name": "field",
+        "type": "int32",
+        "internalType": "int32"
+      },
+      {
+        "name": "oracleId",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "nestedDynamicStruct",
+        "type": "tuple",
+        "internalType": "struct MidLevelDynamicTestStruct",
+        "components": [
+          {
+            "name": "FixedBytes",
+            "type": "bytes2",
+            "internalType": "bytes2"
+          },
+          {
+            "name": "Inner",
+            "type": "tuple",
+            "internalType": "struct InnerDynamicTestStruct",
+            "components": [
+              {
+                "name": "IntVal",
+                "type": "int64",
+                "internalType": "int64"
+              },
+              {
+                "name": "S",
+                "type": "string",
+                "internalType": "string"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "nestedStaticStruct",
+        "type": "tuple",
+        "internalType": "struct MidLevelStaticTestStruct",
+        "components": [
+          {
+            "name": "FixedBytes",
+            "type": "bytes2",
+            "internalType": "bytes2"
+          },
+          {
+            "name": "Inner",
+            "type": "tuple",
+            "internalType": "struct InnerStaticTestStruct",
+            "components": [
+              {
+                "name": "IntVal",
+                "type": "int64",
+                "internalType": "int64"
+              },
+              {
+                "name": "A",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "oracleIds",
+        "type": "uint8[32]",
+        "internalType": "uint8[32]"
+      },
+      {
+        "name": "accountStruct",
+        "type": "tuple",
+        "internalType": "struct AccountStruct",
+        "components": [
+          {
+            "name": "Account",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "AccountStr",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "accounts",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "differentField",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "bigField",
+        "type": "int192",
+        "internalType": "int192"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "triggerEventWithDynamicTopic",
+    "inputs": [
+      {
+        "name": "field",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "triggerStaticBytes",
+    "inputs": [
+      {
+        "name": "val1",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "val2",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "val3",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "val4",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "val5",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "val6",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "val7",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "raw",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "triggerWithFourTopics",
+    "inputs": [
+      {
+        "name": "field1",
+        "type": "int32",
+        "internalType": "int32"
+      },
+      {
+        "name": "field2",
+        "type": "int32",
+        "internalType": "int32"
+      },
+      {
+        "name": "field3",
+        "type": "int32",
+        "internalType": "int32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "triggerWithFourTopicsWithHashed",
+    "inputs": [
+      {
+        "name": "field1",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "field2",
+        "type": "uint8[32]",
+        "internalType": "uint8[32]"
+      },
+      {
+        "name": "field3",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "StaticBytes",
+    "inputs": [
+      {
+        "name": "message",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Triggered",
+    "inputs": [
+      {
+        "name": "field",
+        "type": "int32",
+        "indexed": true,
+        "internalType": "int32"
+      },
+      {
+        "name": "oracleId",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "nestedDynamicStruct",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct MidLevelDynamicTestStruct",
+        "components": [
+          {
+            "name": "FixedBytes",
+            "type": "bytes2",
+            "internalType": "bytes2"
+          },
+          {
+            "name": "Inner",
+            "type": "tuple",
+            "internalType": "struct InnerDynamicTestStruct",
+            "components": [
+              {
+                "name": "IntVal",
+                "type": "int64",
+                "internalType": "int64"
+              },
+              {
+                "name": "S",
+                "type": "string",
+                "internalType": "string"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "nestedStaticStruct",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct MidLevelStaticTestStruct",
+        "components": [
+          {
+            "name": "FixedBytes",
+            "type": "bytes2",
+            "internalType": "bytes2"
+          },
+          {
+            "name": "Inner",
+            "type": "tuple",
+            "internalType": "struct InnerStaticTestStruct",
+            "components": [
+              {
+                "name": "IntVal",
+                "type": "int64",
+                "internalType": "int64"
+              },
+              {
+                "name": "A",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "oracleIds",
+        "type": "uint8[32]",
+        "indexed": false,
+        "internalType": "uint8[32]"
+      },
+      {
+        "name": "accountStruct",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct AccountStruct",
+        "components": [
+          {
+            "name": "Account",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "AccountStr",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "Accounts",
+        "type": "address[]",
+        "indexed": false,
+        "internalType": "address[]"
+      },
+      {
+        "name": "differentField",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "bigField",
+        "type": "int192",
+        "indexed": false,
+        "internalType": "int192"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TriggeredEventWithDynamicTopic",
+    "inputs": [
+      {
+        "name": "fieldHash",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "field",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TriggeredWithFourTopics",
+    "inputs": [
+      {
+        "name": "field1",
+        "type": "int32",
+        "indexed": true,
+        "internalType": "int32"
+      },
+      {
+        "name": "field2",
+        "type": "int32",
+        "indexed": true,
+        "internalType": "int32"
+      },
+      {
+        "name": "field3",
+        "type": "int32",
+        "indexed": true,
+        "internalType": "int32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TriggeredWithFourTopicsWithHashed",
+    "inputs": [
+      {
+        "name": "field1",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "field2",
+        "type": "uint8[32]",
+        "indexed": true,
+        "internalType": "uint8[32]"
+      },
+      {
+        "name": "field3",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  }
+]

@@ -1,0 +1,302 @@
+[
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint32",
+            "name": "blockNum",
+            "type": "uint32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "blockHash",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct AutomationRegistryBase2_2.ConditionalTrigger",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "_conditionalTrigger",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "index",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "txHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "blockNumber",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "blockHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "source",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32[]",
+            "name": "topics",
+            "type": "bytes32[]"
+          },
+          {
+            "internalType": "bytes",
+            "name": "data",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct Log",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "_log",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "logBlockHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "txHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "logIndex",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "blockNum",
+            "type": "uint32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "blockHash",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct AutomationRegistryBase2_2.LogTrigger",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "_logTrigger",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "contractAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "uint8",
+            "name": "filterSelector",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "topic0",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "topic1",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "topic2",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "topic3",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct LogTriggerConfig",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "_logTriggerConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint32",
+            "name": "paymentPremiumPPB",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "flatFeeMicroLink",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "checkGasLimit",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint24",
+            "name": "stalenessSeconds",
+            "type": "uint24"
+          },
+          {
+            "internalType": "uint16",
+            "name": "gasCeilingMultiplier",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint96",
+            "name": "minUpkeepSpend",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint32",
+            "name": "maxPerformGas",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "maxCheckDataSize",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "maxPerformDataSize",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "maxRevertDataSize",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "fallbackGasPrice",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "fallbackLinkPrice",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "transcoder",
+            "type": "address"
+          },
+          {
+            "internalType": "address[]",
+            "name": "registrars",
+            "type": "address[]"
+          },
+          {
+            "internalType": "address",
+            "name": "upkeepPrivilegeManager",
+            "type": "address"
+          }
+        ],
+        "internalType": "struct IAutomationV21PlusCommon.OnchainConfigLegacy",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "_onChainConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "fastGasWei",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "linkNative",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "upkeepIds",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "gasLimits",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "bytes[]",
+            "name": "triggers",
+            "type": "bytes[]"
+          },
+          {
+            "internalType": "bytes[]",
+            "name": "performDatas",
+            "type": "bytes[]"
+          }
+        ],
+        "internalType": "struct AutomationRegistryBase2_2.Report",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "_report",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

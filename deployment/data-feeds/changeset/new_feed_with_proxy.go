@@ -27,15 +27,11 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 	chainState := state.Chains[c.ChainSelector]
 	ab := deployment.NewMemoryAddressBook()
 
-	addressMap, _ := env.ExistingAddresses.AddressesForChain(c.ChainSelector)
-	var dataFeedsCacheAddress string
-	cacheTV := deployment.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
-	cacheTV.Labels.Add("data-feeds")
-	for addr, tv := range addressMap {
-		if tv.String() == cacheTV.String() {
-			dataFeedsCacheAddress = addr
-		}
+	dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, nil)
+	if dataFeedsCacheAddress == "" {
+		return deployment.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract address not found in addressbook for chain %d", c.ChainSelector)
 	}
+
 	dataFeedsCache := chainState.DataFeedsCache[common.HexToAddress(dataFeedsCacheAddress)]
 	if dataFeedsCache == nil {
 		return deployment.ChangesetOutput{}, errors.New("DataFeedsCache contract not found in onchain state")
@@ -53,7 +49,8 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 			AccessController: []common.Address{c.AccessController},
 			Labels:           append([]string{c.Descriptions[index]}, c.Labels...),
 		}
-		newEnv, err := DeployAggregatorProxyChangeset.Apply(env, proxyConfig)
+		newEnv, err := RunChangeset(DeployAggregatorProxyChangeset, env, proxyConfig)
+
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to execute DeployAggregatorProxyChangeset: %w", err)
 		}

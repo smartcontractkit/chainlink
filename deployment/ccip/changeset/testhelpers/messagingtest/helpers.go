@@ -7,20 +7,19 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
 // Use this when testhelpers.DeployedEnv is available (usually in ephemeral test environments).
@@ -104,12 +103,7 @@ func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, chainSelectors ...u
 	time.Sleep(30 * time.Second)
 	replayBlocks := make(map[uint64]uint64)
 	for _, selector := range chainSelectors {
-		family, err := chain_selectors.GetSelectorFamily(selector)
-		require.NoError(t, err)
-		// log replay is only available on EVM
-		if family == chain_selectors.FamilyEVM {
-			replayBlocks[selector] = 1
-		}
+		replayBlocks[selector] = 1
 	}
 	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 }
@@ -122,7 +116,7 @@ func getLatestNonce(tc TestCase) uint64 {
 	switch family {
 	case chain_selectors.FamilyEVM:
 		latestNonce, err = tc.OnchainState.Chains[tc.DestChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-			Context: tests.Context(tc.T),
+			Context: tc.T.Context(),
 		}, tc.SourceChain, tc.Sender)
 		require.NoError(tc.T, err)
 	case chain_selectors.FamilySolana:

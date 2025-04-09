@@ -1,0 +1,619 @@
+[
+  {
+    "type": "function",
+    "name": "decodeEVMExtraArgsV1",
+    "inputs": [
+      {
+        "name": "gasLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct Client.EVMExtraArgsV1",
+        "components": [
+          {
+            "name": "gasLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "decodeEVMExtraArgsV2",
+    "inputs": [
+      {
+        "name": "gasLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "allowOutOfOrderExecution",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct Client.GenericExtraArgsV2",
+        "components": [
+          {
+            "name": "gasLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "allowOutOfOrderExecution",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "decodeGenericExtraArgsV2",
+    "inputs": [
+      {
+        "name": "gasLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "allowOutOfOrderExecution",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct Client.GenericExtraArgsV2",
+        "components": [
+          {
+            "name": "gasLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "allowOutOfOrderExecution",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "decodeSVMExtraArgsV1",
+    "inputs": [
+      {
+        "name": "computeUnits",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "accountIsWritableBitmap",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "allowOutOfOrderExecution",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "tokenReceiver",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "accounts",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct Client.SVMExtraArgsV1",
+        "components": [
+          {
+            "name": "computeUnits",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "accountIsWritableBitmap",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "allowOutOfOrderExecution",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "tokenReceiver",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "accounts",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "encodeAny2EVMTokenAmountsHashPreimage",
+    "inputs": [
+      {
+        "name": "tokenAmounts",
+        "type": "tuple[]",
+        "internalType": "struct Internal.Any2EVMTokenTransfer[]",
+        "components": [
+          {
+            "name": "sourcePoolAddress",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "destTokenAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "destGasAmount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "extraData",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "encodeEVM2AnyTokenAmountsHashPreimage",
+    "inputs": [
+      {
+        "name": "tokenAmount",
+        "type": "tuple[]",
+        "internalType": "struct Internal.EVM2AnyTokenTransfer[]",
+        "components": [
+          {
+            "name": "sourcePoolAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "destTokenAddress",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "extraData",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "destExecData",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "encodeEVMExtraArgsV1",
+    "inputs": [
+      {
+        "name": "extraArgs",
+        "type": "tuple",
+        "internalType": "struct Client.EVMExtraArgsV1",
+        "components": [
+          {
+            "name": "gasLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "encodeEVMExtraArgsV2",
+    "inputs": [
+      {
+        "name": "extraArgs",
+        "type": "tuple",
+        "internalType": "struct Client.GenericExtraArgsV2",
+        "components": [
+          {
+            "name": "gasLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "allowOutOfOrderExecution",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "encodeFinalHashPreimage",
+    "inputs": [
+      {
+        "name": "leafDomainSeparator",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "metaDataHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "fixedSizeFieldsHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "senderHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "dataHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "tokenAmountsHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "encodeFixedSizeFieldsHashPreimage",
+    "inputs": [
+      {
+        "name": "messageId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "sequenceNumber",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "gasLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "nonce",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "encodeGenericExtraArgsV2",
+    "inputs": [
+      {
+        "name": "extraArgs",
+        "type": "tuple",
+        "internalType": "struct Client.GenericExtraArgsV2",
+        "components": [
+          {
+            "name": "gasLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "allowOutOfOrderExecution",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "encodeMetadataHashPreimage",
+    "inputs": [
+      {
+        "name": "any2EVMMessageHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "sourceChainSelector",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "destChainSelector",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "onRampHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "encodeSVMExtraArgsV1",
+    "inputs": [
+      {
+        "name": "extraArgs",
+        "type": "tuple",
+        "internalType": "struct Client.SVMExtraArgsV1",
+        "components": [
+          {
+            "name": "computeUnits",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "accountIsWritableBitmap",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "allowOutOfOrderExecution",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "tokenReceiver",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "accounts",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "hash",
+    "inputs": [
+      {
+        "name": "message",
+        "type": "tuple",
+        "internalType": "struct Internal.Any2EVMRampMessage",
+        "components": [
+          {
+            "name": "header",
+            "type": "tuple",
+            "internalType": "struct Internal.RampMessageHeader",
+            "components": [
+              {
+                "name": "messageId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sourceChainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "destChainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "sequenceNumber",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "nonce",
+                "type": "uint64",
+                "internalType": "uint64"
+              }
+            ]
+          },
+          {
+            "name": "sender",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "data",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "receiver",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "gasLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "tokenAmounts",
+            "type": "tuple[]",
+            "internalType": "struct Internal.Any2EVMTokenTransfer[]",
+            "components": [
+              {
+                "name": "sourcePoolAddress",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "destTokenAddress",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "destGasAmount",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "extraData",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "amount",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "onRamp",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "pure"
+  }
+]

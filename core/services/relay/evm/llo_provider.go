@@ -20,7 +20,7 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -174,6 +174,7 @@ func NewLLOProvider(
 			MercuryTransmitterOpts: mercuryTransmitterOpts,
 			Subtransmitters:        lloCfg.Transmitters,
 			RetirementReportCache:  retirementReportCache,
+			CapabilitiesRegistry:   capabilitiesRegistry,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LLO transmitter: %w", err)

@@ -34,9 +34,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 )
 
 func ConfirmGasPriceUpdatedForAll(
@@ -412,15 +412,20 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	defer ticker.Stop()
 	for {
 		select {
+		case <-t.Context().Done():
+			return nil, nil
 		case <-ticker.C:
 			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				dest.Selector, srcSelector, expectedSeqNumRange.String())
 
 			// Need to do this because the subscription sometimes fails to get the event.
 			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
-				Context: tests.Context(t),
+				Context: t.Context(),
 			})
-			require.NoError(t, err)
+			// In some test case the test ends while the filter is still running resulting in a context.Canceled error.
+			if err != nil && !errors.Is(err, context.Canceled) {
+				require.NoError(t, err)
+			}
 			for iter.Next() {
 				event := iter.Event
 				verified := verifyCommitReport(event)

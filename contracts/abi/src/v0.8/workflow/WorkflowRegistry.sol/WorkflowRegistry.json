@@ -1,0 +1,957 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "caller",
+        "type": "address"
+      }
+    ],
+    "name": "AddressNotAuthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "BinaryURLRequired",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "caller",
+        "type": "address"
+      }
+    ],
+    "name": "CallerIsNotWorkflowOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CannotTransferToSelf",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "donID",
+        "type": "uint32"
+      }
+    ],
+    "name": "DONNotAllowed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidWorkflowID",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MustBeProposedOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlyCallableByOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OwnerCannotBeZero",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RegistryLocked",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "providedLength",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "maxAllowedLength",
+        "type": "uint8"
+      }
+    ],
+    "name": "URLTooLong",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "WorkflowAlreadyInDesiredStatus",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "WorkflowAlreadyRegistered",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "WorkflowContentNotUpdated",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "WorkflowDoesNotExist",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "WorkflowIDAlreadyExists",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "WorkflowNameRequired",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "providedLength",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "maxAllowedLength",
+        "type": "uint8"
+      }
+    ],
+    "name": "WorkflowNameTooLong",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint32[]",
+        "name": "donIDs",
+        "type": "uint32[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "allowed",
+        "type": "bool"
+      }
+    ],
+    "name": "AllowedDONsUpdatedV1",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address[]",
+        "name": "addresses",
+        "type": "address[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "allowed",
+        "type": "bool"
+      }
+    ],
+    "name": "AuthorizedAddressesUpdatedV1",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "lockedBy",
+        "type": "address"
+      }
+    ],
+    "name": "RegistryLockedV1",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "unlockedBy",
+        "type": "address"
+      }
+    ],
+    "name": "RegistryUnlockedV1",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "workflowID",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "workflowOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint32",
+        "name": "donID",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "workflowName",
+        "type": "string"
+      }
+    ],
+    "name": "WorkflowActivatedV1",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "workflowID",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "workflowOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint32",
+        "name": "donID",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "workflowName",
+        "type": "string"
+      }
+    ],
+    "name": "WorkflowDeletedV1",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "secretsURLHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "workflowName",
+        "type": "string"
+      }
+    ],
+    "name": "WorkflowForceUpdateSecretsRequestedV1",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "workflowID",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "workflowOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint32",
+        "name": "donID",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "workflowName",
+        "type": "string"
+      }
+    ],
+    "name": "WorkflowPausedV1",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "workflowID",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "workflowOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint32",
+        "name": "donID",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum WorkflowRegistry.WorkflowStatus",
+        "name": "status",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "workflowName",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "binaryURL",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "configURL",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "secretsURL",
+        "type": "string"
+      }
+    ],
+    "name": "WorkflowRegisteredV1",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "oldWorkflowID",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "workflowOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint32",
+        "name": "donID",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "newWorkflowID",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "workflowName",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "binaryURL",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "configURL",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "secretsURL",
+        "type": "string"
+      }
+    ],
+    "name": "WorkflowUpdatedV1",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "acceptOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workflowKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "activateWorkflow",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "field",
+        "type": "string"
+      }
+    ],
+    "name": "computeHashKey",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workflowKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "deleteWorkflow",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllAllowedDONs",
+    "outputs": [
+      {
+        "internalType": "uint32[]",
+        "name": "allowedDONs",
+        "type": "uint32[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllAuthorizedAddresses",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "authorizedAddresses",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "workflowOwner",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "workflowName",
+        "type": "string"
+      }
+    ],
+    "name": "getWorkflowMetadata",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "workflowID",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "owner",
+            "type": "address"
+          },
+          {
+            "internalType": "uint32",
+            "name": "donID",
+            "type": "uint32"
+          },
+          {
+            "internalType": "enum WorkflowRegistry.WorkflowStatus",
+            "name": "status",
+            "type": "uint8"
+          },
+          {
+            "internalType": "string",
+            "name": "workflowName",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "binaryURL",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "configURL",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "secretsURL",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct WorkflowRegistry.WorkflowMetadata",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "donID",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "start",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getWorkflowMetadataListByDON",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "workflowID",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "owner",
+            "type": "address"
+          },
+          {
+            "internalType": "uint32",
+            "name": "donID",
+            "type": "uint32"
+          },
+          {
+            "internalType": "enum WorkflowRegistry.WorkflowStatus",
+            "name": "status",
+            "type": "uint8"
+          },
+          {
+            "internalType": "string",
+            "name": "workflowName",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "binaryURL",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "configURL",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "secretsURL",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct WorkflowRegistry.WorkflowMetadata[]",
+        "name": "workflowMetadataList",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "workflowOwner",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "start",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getWorkflowMetadataListByOwner",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "workflowID",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "owner",
+            "type": "address"
+          },
+          {
+            "internalType": "uint32",
+            "name": "donID",
+            "type": "uint32"
+          },
+          {
+            "internalType": "enum WorkflowRegistry.WorkflowStatus",
+            "name": "status",
+            "type": "uint8"
+          },
+          {
+            "internalType": "string",
+            "name": "workflowName",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "binaryURL",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "configURL",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "secretsURL",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct WorkflowRegistry.WorkflowMetadata[]",
+        "name": "workflowMetadataList",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "isRegistryLocked",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "lockRegistry",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workflowKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "pauseWorkflow",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "workflowName",
+        "type": "string"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "workflowID",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "donID",
+        "type": "uint32"
+      },
+      {
+        "internalType": "enum WorkflowRegistry.WorkflowStatus",
+        "name": "status",
+        "type": "uint8"
+      },
+      {
+        "internalType": "string",
+        "name": "binaryURL",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "configURL",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "secretsURL",
+        "type": "string"
+      }
+    ],
+    "name": "registerWorkflow",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "secretsURL",
+        "type": "string"
+      }
+    ],
+    "name": "requestForceUpdateSecrets",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "typeAndVersion",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "unlockRegistry",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint32[]",
+        "name": "donIDs",
+        "type": "uint32[]"
+      },
+      {
+        "internalType": "bool",
+        "name": "allowed",
+        "type": "bool"
+      }
+    ],
+    "name": "updateAllowedDONs",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address[]",
+        "name": "addresses",
+        "type": "address[]"
+      },
+      {
+        "internalType": "bool",
+        "name": "allowed",
+        "type": "bool"
+      }
+    ],
+    "name": "updateAuthorizedAddresses",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "workflowKey",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "newWorkflowID",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "binaryURL",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "configURL",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "secretsURL",
+        "type": "string"
+      }
+    ],
+    "name": "updateWorkflow",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

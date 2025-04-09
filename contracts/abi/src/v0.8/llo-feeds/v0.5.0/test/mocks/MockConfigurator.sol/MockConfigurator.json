@@ -1,0 +1,74 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "s_configurationStates",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "configCount",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint32",
+        "name": "latestConfigBlockNumber",
+        "type": "uint32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "configDigest",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "configId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes[]",
+        "name": "signers",
+        "type": "bytes[]"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "offchainTransmitters",
+        "type": "bytes32[]"
+      },
+      {
+        "internalType": "uint8",
+        "name": "f",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes",
+        "name": "onchainConfig",
+        "type": "bytes"
+      },
+      {
+        "internalType": "uint64",
+        "name": "offchainConfigVersion",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes",
+        "name": "offchainConfig",
+        "type": "bytes"
+      }
+    ],
+    "name": "setStagingConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

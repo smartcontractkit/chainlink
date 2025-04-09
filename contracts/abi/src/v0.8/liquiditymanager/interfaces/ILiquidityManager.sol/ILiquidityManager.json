@@ -1,0 +1,55 @@
+[
+  {
+    "inputs": [],
+    "name": "getAllCrossChainRebalancers",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "remoteRebalancer",
+            "type": "address"
+          },
+          {
+            "internalType": "contract IBridgeAdapter",
+            "name": "localBridge",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "remoteToken",
+            "type": "address"
+          },
+          {
+            "internalType": "uint64",
+            "name": "remoteChainSelector",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bool",
+            "name": "enabled",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct ILiquidityManager.CrossChainRebalancerArgs[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getLiquidity",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "currentLiquidity",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

@@ -6,12 +6,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func Test_VerifyRmnReportSignatures(t *testing.T) {
@@ -53,15 +52,13 @@ func Test_VerifyRmnReportSignatures(t *testing.T) {
 		},
 	}
 
-	ctx := tests.Context(t)
-
 	rmnCrypto := NewEVMRMNCrypto(logger.Test(t))
 
 	r, _ := cciptypes.NewBytes32FromString("0x89546b4652d0377062a398e413344e4da6034ae877c437d0efe0e5246b70a9a1")
 	s, _ := cciptypes.NewBytes32FromString("0x95eef2d24d856ccac3886db8f4aebea60684ed73942392692908fed79a679b4e")
 
 	err := rmnCrypto.VerifyReportSignatures(
-		ctx,
+		t.Context(),
 		[]cciptypes.RMNECDSASignature{{R: r, S: s}},
 		reportData,
 		[]cciptypes.UnknownAddress{onchainRmnRemoteAddr.Bytes()},

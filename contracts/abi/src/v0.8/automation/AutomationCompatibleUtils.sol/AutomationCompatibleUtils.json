@@ -1,0 +1,212 @@
+[
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint32",
+            "name": "blockNum",
+            "type": "uint32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "blockHash",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct IAutomationV21PlusCommon.ConditionalTrigger",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "_conditionalTrigger",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "index",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "txHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "blockNumber",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "blockHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "source",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32[]",
+            "name": "topics",
+            "type": "bytes32[]"
+          },
+          {
+            "internalType": "bytes",
+            "name": "data",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct Log",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "_log",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "logBlockHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "txHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "logIndex",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "blockNum",
+            "type": "uint32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "blockHash",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct IAutomationV21PlusCommon.LogTrigger",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "_logTrigger",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "contractAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "uint8",
+            "name": "filterSelector",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "topic0",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "topic1",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "topic2",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "topic3",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct IAutomationV21PlusCommon.LogTriggerConfig",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "_logTriggerConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "fastGasWei",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "linkNative",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "upkeepIds",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "gasLimits",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "bytes[]",
+            "name": "triggers",
+            "type": "bytes[]"
+          },
+          {
+            "internalType": "bytes[]",
+            "name": "performDatas",
+            "type": "bytes[]"
+          }
+        ],
+        "internalType": "struct IAutomationV21PlusCommon.Report",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "name": "_report",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

@@ -1,0 +1,31 @@
+[
+  {
+    "type": "function",
+    "name": "transcodeUpkeeps",
+    "inputs": [
+      {
+        "name": "fromVersion",
+        "type": "uint8",
+        "internalType": "enum UpkeepFormat"
+      },
+      {
+        "name": "toVersion",
+        "type": "uint8",
+        "internalType": "enum UpkeepFormat"
+      },
+      {
+        "name": "encodedUpkeeps",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  }
+]

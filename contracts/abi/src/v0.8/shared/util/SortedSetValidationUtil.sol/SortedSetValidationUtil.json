@@ -1,0 +1,34 @@
+[
+  {
+    "inputs": [],
+    "name": "EmptySet",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "set",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "NotASortedSet",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "subset",
+        "type": "bytes32[]"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "superset",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "NotASubset",
+    "type": "error"
+  }
+]

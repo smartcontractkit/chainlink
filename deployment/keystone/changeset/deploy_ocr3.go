@@ -84,7 +84,7 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
-		r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+		r, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
 			Chains:      env.Chains,
 			AddressBook: env.ExistingAddresses,
 		})
@@ -93,10 +93,10 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 		}
 		contracts := r.ContractSets[cfg.ChainSel]
 		timelocksPerChain := map[uint64]string{
-			cfg.ChainSel: contracts.Timelock.Address().Hex(),
+			cfg.ChainSel: contracts.OCR3[*cfg.Address].McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			cfg.ChainSel: contracts.ProposerMcm.Address().Hex(),
+			cfg.ChainSel: contracts.OCR3[*cfg.Address].McmsContracts.ProposerMcm.Address().Hex(),
 		}
 
 		inspector, err := proposalutils.McmsInspectorForChain(env, cfg.ChainSel)

@@ -1,0 +1,46 @@
+[
+  {
+    "type": "function",
+    "name": "migrateUpkeeps",
+    "inputs": [
+      {
+        "name": "upkeepIDs",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "destination",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "receiveUpkeeps",
+    "inputs": [
+      {
+        "name": "encodedUpkeeps",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "upkeepVersion",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "version",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  }
+]

@@ -1,0 +1,71 @@
+[
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "_feedId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_chainId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_contractAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_configCount",
+        "type": "uint64"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_signers",
+        "type": "address[]"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "_offchainTransmitters",
+        "type": "bytes32[]"
+      },
+      {
+        "internalType": "uint8",
+        "name": "_f",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes",
+        "name": "_onchainConfig",
+        "type": "bytes"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_encodedConfigVersion",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes",
+        "name": "_encodedConfig",
+        "type": "bytes"
+      }
+    ],
+    "name": "exposedConfigDigestFromConfigData",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  }
+]

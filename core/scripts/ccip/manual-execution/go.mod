@@ -7,7 +7,7 @@ toolchain go1.24.0
 require (
 	github.com/ethereum/go-ethereum v1.15.3
 	github.com/pkg/errors v0.9.1
-	github.com/smartcontractkit/chain-selectors v1.0.47
+	github.com/smartcontractkit/chain-selectors v1.0.49
 	golang.org/x/crypto v0.36.0
 )
 
@@ -40,5 +40,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
-
-exclude github.com/sourcegraph/sourcegraph/lib v0.0.0-20221216004406-749998a2ac74

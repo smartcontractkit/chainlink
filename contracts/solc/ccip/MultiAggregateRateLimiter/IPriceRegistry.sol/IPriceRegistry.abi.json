@@ -1,0 +1,234 @@
+[
+  {
+    "type": "function",
+    "name": "convertTokenAmount",
+    "inputs": [
+      {
+        "name": "fromToken",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "fromTokenAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "toToken",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "toTokenAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDestinationChainGasPrice",
+    "inputs": [
+      {
+        "name": "destChainSelector",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct Internal.TimestampedPackedUint224",
+        "components": [
+          {
+            "name": "value",
+            "type": "uint224",
+            "internalType": "uint224"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getFeeTokens",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTokenAndGasPrices",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "destChainSelector",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "tokenPrice",
+        "type": "uint224",
+        "internalType": "uint224"
+      },
+      {
+        "name": "gasPrice",
+        "type": "uint224",
+        "internalType": "uint224"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTokenPrice",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct Internal.TimestampedPackedUint224",
+        "components": [
+          {
+            "name": "value",
+            "type": "uint224",
+            "internalType": "uint224"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTokenPrices",
+    "inputs": [
+      {
+        "name": "tokens",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct Internal.TimestampedPackedUint224[]",
+        "components": [
+          {
+            "name": "value",
+            "type": "uint224",
+            "internalType": "uint224"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getValidatedTokenPrice",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint224",
+        "internalType": "uint224"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "updatePrices",
+    "inputs": [
+      {
+        "name": "priceUpdates",
+        "type": "tuple",
+        "internalType": "struct Internal.PriceUpdates",
+        "components": [
+          {
+            "name": "tokenPriceUpdates",
+            "type": "tuple[]",
+            "internalType": "struct Internal.TokenPriceUpdate[]",
+            "components": [
+              {
+                "name": "sourceToken",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "usdPerToken",
+                "type": "uint224",
+                "internalType": "uint224"
+              }
+            ]
+          },
+          {
+            "name": "gasPriceUpdates",
+            "type": "tuple[]",
+            "internalType": "struct Internal.GasPriceUpdate[]",
+            "components": [
+              {
+                "name": "destChainSelector",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "usdPerUnitGas",
+                "type": "uint224",
+                "internalType": "uint224"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }
+]

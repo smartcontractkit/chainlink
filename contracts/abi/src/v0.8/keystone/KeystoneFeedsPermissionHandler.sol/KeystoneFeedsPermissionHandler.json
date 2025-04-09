@@ -1,0 +1,205 @@
+[
+  {
+    "inputs": [],
+    "name": "CannotTransferToSelf",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MustBeProposedOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlyCallableByOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OwnerCannotBeZero",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "forwarder",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "workflowOwner",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes10",
+        "name": "workflowName",
+        "type": "bytes10"
+      },
+      {
+        "internalType": "bytes2",
+        "name": "reportName",
+        "type": "bytes2"
+      }
+    ],
+    "name": "ReportForwarderUnauthorized",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "reportId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "forwarder",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes10",
+            "name": "workflowName",
+            "type": "bytes10"
+          },
+          {
+            "internalType": "bytes2",
+            "name": "reportName",
+            "type": "bytes2"
+          },
+          {
+            "internalType": "address",
+            "name": "workflowOwner",
+            "type": "address"
+          },
+          {
+            "internalType": "bool",
+            "name": "isAllowed",
+            "type": "bool"
+          }
+        ],
+        "indexed": false,
+        "internalType": "struct KeystoneFeedsPermissionHandler.Permission",
+        "name": "permission",
+        "type": "tuple"
+      }
+    ],
+    "name": "ReportPermissionSet",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "acceptOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "forwarder",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes10",
+            "name": "workflowName",
+            "type": "bytes10"
+          },
+          {
+            "internalType": "bytes2",
+            "name": "reportName",
+            "type": "bytes2"
+          },
+          {
+            "internalType": "address",
+            "name": "workflowOwner",
+            "type": "address"
+          },
+          {
+            "internalType": "bool",
+            "name": "isAllowed",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct KeystoneFeedsPermissionHandler.Permission[]",
+        "name": "permissions",
+        "type": "tuple[]"
+      }
+    ],
+    "name": "setReportPermissions",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

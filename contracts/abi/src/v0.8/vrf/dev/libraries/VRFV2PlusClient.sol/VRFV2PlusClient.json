@@ -1,0 +1,15 @@
+[
+  {
+    "inputs": [],
+    "name": "EXTRA_ARGS_V1_TAG",
+    "outputs": [
+      {
+        "internalType": "bytes4",
+        "name": "",
+        "type": "bytes4"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

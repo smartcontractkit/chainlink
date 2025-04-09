@@ -1,0 +1,55 @@
+[
+  {
+    "type": "function",
+    "name": "beforeCapabilityConfigSet",
+    "inputs": [
+      {
+        "name": "nodes",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "donCapabilityConfig",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "donCapabilityConfigCount",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getCapabilityConfiguration",
+    "inputs": [
+      {
+        "name": "donId",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "configuration",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "CapabilityConfigurationSet",
+    "inputs": [],
+    "anonymous": false
+  }
+]

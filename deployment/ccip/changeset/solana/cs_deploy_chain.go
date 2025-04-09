@@ -91,7 +91,7 @@ type UpgradeConfig struct {
 	// SpillAddress and UpgradeAuthority must be set
 	SpillAddress     solana.PublicKey
 	UpgradeAuthority solana.PublicKey
-	// MCMS config must be set for upgrades and offramp redploys (to configure the fee quoter after redeploy)
+	// MCMS config must be set for upgrades and offramp redeploys (to configure the fee quoter after redeploy)
 	MCMS *proposalutils.TimelockConfig
 }
 
@@ -282,7 +282,6 @@ func initializeRouter(
 	}
 	// addressing errcheck in the next PR
 	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
-	externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 
 	instruction, err := solRouter.NewInitializeInstruction(
 		chain.Selector, // chain selector
@@ -296,7 +295,6 @@ func initializeRouter(
 		solana.SystemProgramID,
 		ccipRouterProgram,
 		programData.Address,
-		externalTokenPoolsSignerPDA,
 	).ValidateAndBuild()
 
 	if err != nil {
@@ -378,8 +376,6 @@ func initializeOffRamp(
 	offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
 	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
 	offRampStatePDA, _, _ := solState.FindOfframpStatePDA(offRampAddress)
-	offRampExternalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(offRampAddress)
-	offRampTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(offRampAddress)
 
 	initIx, err := solOffRamp.NewInitializeInstruction(
 		offRampReferenceAddressesPDA,
@@ -388,8 +384,6 @@ func initializeOffRamp(
 		rmnRemoteAddress,
 		addressLookupTable,
 		offRampStatePDA,
-		offRampExternalExecutionConfigPDA,
-		offRampTokenPoolsSignerPDA,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		offRampAddress,
@@ -758,7 +752,7 @@ func deployChainContractsSolana(
 
 	// LOOKUP TABLE
 	if createLookupTable {
-		// fee quoter enteries
+		// fee quoter entries
 		linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)
 		wsolFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.WSOL, feeQuoterAddress)
 		feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
@@ -771,15 +765,11 @@ func deployChainContractsSolana(
 		}...)
 
 		// router entries
-		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
-		externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 		routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
 		feeBillingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(ccipRouterProgram)
 		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
 			ccipRouterProgram,
 			routerConfigPDA,
-			externalExecutionConfigPDA,
-			externalTokenPoolsSignerPDA,
 			feeBillingSignerPDA,
 		}...)
 
@@ -844,6 +834,36 @@ func generateUpgradeTxns(
 	)
 	if err != nil {
 		return txns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
+	}
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	if err != nil {
+		return txns, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	// if we're not upgrading via timelock, execute the raw ixns
+	if config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
+		ixns := []solana.Instruction{upgradeIxn}
+		extendIxn, err := generateExtendIxn(
+			&e,
+			chain,
+			programID,
+			bufferProgram,
+			config.UpgradeConfig.UpgradeAuthority,
+		)
+		if err != nil {
+			return txns, fmt.Errorf("failed to generate extend buffer instruction: %w", err)
+		}
+		if extendIxn != nil {
+			ixns = append(ixns, extendIxn)
+		}
+		ixns = append(ixns, closeIxn)
+		if err := chain.Confirm(ixns); err != nil {
+			return txns, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
 	}
 	upgradeTx, err := BuildMCMSTxn(upgradeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
 	if err != nil {
@@ -1128,7 +1148,7 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 	}
 
 	solTestReceiver.SetProgramID(receiverAddress)
-	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(receiverAddress)
+	externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
 	instruction, ixErr := solTestReceiver.NewInitializeInstruction(
 		chainState.Router,
 		ccipChangeset.FindReceiverTargetAccount(receiverAddress),

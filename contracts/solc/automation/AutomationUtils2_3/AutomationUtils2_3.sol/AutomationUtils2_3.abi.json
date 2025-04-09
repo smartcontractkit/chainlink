@@ -1,0 +1,47 @@
+[
+  {
+    "type": "function",
+    "name": "_report",
+    "inputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct AutomationRegistryBase2_3.Report",
+        "components": [
+          {
+            "name": "fastGasWei",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "linkUSD",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "upkeepIds",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "gasLimits",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "triggers",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          },
+          {
+            "name": "performDatas",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }
+]

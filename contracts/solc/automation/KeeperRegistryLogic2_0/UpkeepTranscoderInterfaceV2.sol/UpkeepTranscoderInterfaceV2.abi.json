@@ -1,0 +1,31 @@
+[
+  {
+    "type": "function",
+    "name": "transcodeUpkeeps",
+    "inputs": [
+      {
+        "name": "fromVersion",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "toVersion",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "encodedUpkeeps",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  }
+]

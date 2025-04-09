@@ -1,0 +1,190 @@
+[
+  {
+    "type": "function",
+    "name": "getNode",
+    "inputs": [
+      {
+        "name": "p2pId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "nodeInfo",
+        "type": "tuple",
+        "internalType": "struct INodeInfoProvider.NodeInfo",
+        "components": [
+          {
+            "name": "nodeOperatorId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "configCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "workflowDONId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "signer",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "p2pId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "encryptionPublicKey",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "hashedCapabilityIds",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "capabilitiesDONIds",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNodes",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct INodeInfoProvider.NodeInfo[]",
+        "components": [
+          {
+            "name": "nodeOperatorId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "configCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "workflowDONId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "signer",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "p2pId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "encryptionPublicKey",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "hashedCapabilityIds",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "capabilitiesDONIds",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNodesByP2PIds",
+    "inputs": [
+      {
+        "name": "p2pIds",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct INodeInfoProvider.NodeInfo[]",
+        "components": [
+          {
+            "name": "nodeOperatorId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "configCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "workflowDONId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "signer",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "p2pId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "encryptionPublicKey",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "hashedCapabilityIds",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          },
+          {
+            "name": "capabilitiesDONIds",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "NodeDoesNotExist",
+    "inputs": [
+      {
+        "name": "nodeP2PId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  }
+]

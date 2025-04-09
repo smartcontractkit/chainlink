@@ -1,0 +1,548 @@
+[
+  {
+    "type": "function",
+    "name": "deleteCommitment",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "estimateCost",
+    "inputs": [
+      {
+        "name": "subscriptionId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "callbackGasLimit",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "gasPriceWei",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint96",
+        "internalType": "uint96"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getAdminFeeJuels",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint72",
+        "internalType": "uint72"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getConfig",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct FunctionsBillingConfig",
+        "components": [
+          {
+            "name": "fulfillmentGasPriceOverEstimationBP",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "feedStalenessSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadBeforeCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadAfterCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minimumEstimateGasPriceWei",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "maxSupportedRequestDataVersion",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "fallbackUsdPerUnitLink",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "fallbackUsdPerUnitLinkDecimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "fallbackNativePerUnitLink",
+            "type": "uint224",
+            "internalType": "uint224"
+          },
+          {
+            "name": "requestTimeoutSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "donFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "operationFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "transmitTxSizeBytes",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDONFeeJuels",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint72",
+        "internalType": "uint72"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getOperationFeeJuels",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint72",
+        "internalType": "uint72"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getUsdPerUnitLink",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getWeiPerUnitLink",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "oracleWithdraw",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint96",
+        "internalType": "uint96"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "oracleWithdrawAll",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "typeAndVersion",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "updateConfig",
+    "inputs": [
+      {
+        "name": "config",
+        "type": "tuple",
+        "internalType": "struct FunctionsBillingConfig",
+        "components": [
+          {
+            "name": "fulfillmentGasPriceOverEstimationBP",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "feedStalenessSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadBeforeCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadAfterCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minimumEstimateGasPriceWei",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "maxSupportedRequestDataVersion",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "fallbackUsdPerUnitLink",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "fallbackUsdPerUnitLinkDecimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "fallbackNativePerUnitLink",
+            "type": "uint224",
+            "internalType": "uint224"
+          },
+          {
+            "name": "requestTimeoutSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "donFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "operationFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "transmitTxSizeBytes",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "CommitmentDeleted",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ConfigUpdated",
+    "inputs": [
+      {
+        "name": "config",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct FunctionsBillingConfig",
+        "components": [
+          {
+            "name": "fulfillmentGasPriceOverEstimationBP",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "feedStalenessSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadBeforeCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gasOverheadAfterCallback",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minimumEstimateGasPriceWei",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "maxSupportedRequestDataVersion",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "fallbackUsdPerUnitLink",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "fallbackUsdPerUnitLinkDecimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "fallbackNativePerUnitLink",
+            "type": "uint224",
+            "internalType": "uint224"
+          },
+          {
+            "name": "requestTimeoutSeconds",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "donFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "operationFeeCentsUsd",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "transmitTxSizeBytes",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RequestBilled",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "juelsPerGas",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      },
+      {
+        "name": "l1FeeShareWei",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "callbackCostJuels",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      },
+      {
+        "name": "donFeeJuels",
+        "type": "uint72",
+        "indexed": false,
+        "internalType": "uint72"
+      },
+      {
+        "name": "adminFeeJuels",
+        "type": "uint72",
+        "indexed": false,
+        "internalType": "uint72"
+      },
+      {
+        "name": "operationFeeJuels",
+        "type": "uint72",
+        "indexed": false,
+        "internalType": "uint72"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InsufficientBalance",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidCalldata",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidLinkWeiPrice",
+    "inputs": [
+      {
+        "name": "linkWei",
+        "type": "int256",
+        "internalType": "int256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSubscription",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidUsdLinkPrice",
+    "inputs": [
+      {
+        "name": "usdLink",
+        "type": "int256",
+        "internalType": "int256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MustBeSubOwner",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NoTransmittersSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyCallableByRouter",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyCallableByRouterOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PaymentTooLarge",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RouterMustBeSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedSender",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnsupportedRequestDataVersion",
+    "inputs": []
+  }
+]
