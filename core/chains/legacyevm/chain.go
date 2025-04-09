@@ -49,6 +49,11 @@ type Chain interface {
 	GasEstimator() gas.EvmFeeEstimator
 }
 
+// ChainTronSupport is an Chain interface extension for Tron support.
+type ChainTronSupport interface {
+	Nodes() []*toml.Node
+}
+
 var (
 	_           Chain = &chain{}
 	nilBigInt   *big.Int
@@ -113,6 +118,9 @@ type chain struct {
 	logPoller       logpoller.LogPoller
 	balanceMonitor  monitor.BalanceMonitor
 	gasEstimator    gas.EvmFeeEstimator
+
+	// Extend with Node[] config (support TRON)
+	nodes []*toml.Node
 }
 
 type errChainDisabled struct {
@@ -308,6 +316,9 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 		logPoller:       logPoller,
 		balanceMonitor:  balanceMonitor,
 		gasEstimator:    gasEstimator,
+
+		// Extend with Node[] config (support TRON)
+		nodes: nodes,
 	}, nil
 }
 
@@ -491,3 +502,6 @@ func (c *chain) HeadTracker() heads.Tracker             { return c.headTracker }
 func (c *chain) Logger() logger.Logger                  { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor { return c.balanceMonitor }
 func (c *chain) GasEstimator() gas.EvmFeeEstimator      { return c.gasEstimator }
+
+// Add ChainTronSupport
+func (c *chain) Nodes() []*toml.Node { return c.nodes }

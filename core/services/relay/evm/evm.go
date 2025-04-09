@@ -42,7 +42,7 @@ import (
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
 	tronsdk "github.com/fbsobreira/gotron-sdk/pkg/address"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	tron "github.com/smartcontractkit/chainlink-internal-integrations/tron/relayer/ocr2"
 	tronclient "github.com/smartcontractkit/chainlink-internal-integrations/tron/relayer/sdk"
 	trontxm "github.com/smartcontractkit/chainlink-internal-integrations/tron/relayer/txm"
@@ -874,14 +874,23 @@ func (c *evmTransmissionsCache) LatestRoundRequested(ctx context.Context, lookba
 // newOnChainContractTransmitter creates a new contract transmitter.
 func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
 	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
-		chainSpecificURL, err := configWatcher.chain.Client().GetExternallyUsedChainSpecificURL(ctx)
-		if err != nil {
-			return nil, err
+		// On TRON, get the (extra) nodes information from the chain
+		chain, ok := configWatcher.chain.(legacyevm.ChainTronSupport)
+		if !ok {
+			return nil, fmt.Errorf("chain %s does not support TRON", configWatcher.chain.ID())
 		}
 
-		tronClient, err := tronclient.CreateFullNodeClient(chainSpecificURL.URL())
+		// Check there is at least one node
+		if len(chain.Nodes()) == 0 {
+			return nil, fmt.Errorf("no nodes found for chain %s", configWatcher.chain.ID())
+		}
+
+		// Use an (extra) write-specific node URL for the Tron client
+		// Notice: TronClient is not multinode aware, so we need to use the first node
+		nodeURL := (*chain.Nodes()[0]).HTTPURLExtraWrite.URL()
+		tronClient, err := tronclient.CreateFullNodeClient(nodeURL)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to create Tron client: %w", err)
 		}
 
 		// Start the Tron TXM
