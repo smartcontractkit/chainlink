@@ -379,7 +379,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 
 	mBillingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 		return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
-	})).Times(4) // TODO: not sure how many times or should use Maybe
+	})).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil).Times(4) // TODO: not sure how many times or should use Maybe
 
 	servicetest.Run(t, eng)
 

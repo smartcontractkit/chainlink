@@ -152,9 +152,6 @@ type Engine struct {
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
 	meterReports   *MeterReports
-
-	// sendMeteringReport is a test hook to send a metering report
-	sendMeteringReportHook func(report *MeteringReport, name string, ID string, execID string)
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -664,6 +661,21 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		return fmt.Errorf("failed to mark execution as finished: %w", err)
 	}
 
+	report, exists := e.meterReports.Get(executionID)
+	if exists {
+		// send metering report to beholder
+		if err = e.emitMeteringReport(ctx, report, e.workflow.name.String(), e.workflow.id, executionID); err != nil {
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).updateWorkflowMissingMeteringReport(ctx, 0)
+			l.Warn(fmt.Sprintf("metering report send to beholder error %s", err))
+		}
+
+		// send metering report to billing if billing client is not nil
+		if err = e.sendMeteringReportToBilling(ctx, report, e.workflow.id, executionID); err != nil {
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).updateWorkflowMissingMeteringReport(ctx, 0)
+			l.Warn(fmt.Sprintf("metering report send to billing error %s", err))
+		}
+	}
+
 	// clean all per execution state trackers
 	e.stepUpdatesChMap.remove(executionID)
 	e.meterReports.Delete(executionID)
@@ -692,22 +704,6 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 	err = emitExecutionFinishedEvent(ctx, cma, status, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution finished event: %+v", err)
-	}
-
-	report, exists := e.meterReports.Get(executionID)
-
-	if exists {
-		// send metering report to beholder
-		if err = e.emitMeteringReport(ctx, report, e.workflow.name.String(), e.workflow.id, executionID); err != nil {
-			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).updateWorkflowMissingMeteringReport(ctx, 0)
-			l.Warn(fmt.Sprintf("metering report send to beholder error %s", err))
-		}
-
-		// send metering report to billing if billing client is not nil
-		if err = e.sendMeteringReportToBilling(ctx, report, e.workflow.id, executionID); err != nil {
-			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).updateWorkflowMissingMeteringReport(ctx, 0)
-			l.Warn(fmt.Sprintf("metering report send to billing error %s", err))
-		}
 	}
 
 	e.onExecutionFinished(executionID)
@@ -1226,7 +1222,6 @@ func (e *Engine) sendMeteringReportToBilling(ctx context.Context, report *Meteri
 // and the reference entity is different.
 func (e *Engine) emitMeteringReport(ctx context.Context, report *MeteringReport, name string, ID string, execID string) error {
 	detail := report.Description()
-	bClient := beholder.GetClient()
 
 	// kvAttrs is what the test client matches on, view pkg/utils/test in common for more detail
 	kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain,
@@ -1238,7 +1233,7 @@ func (e *Engine) emitMeteringReport(ctx context.Context, report *MeteringReport,
 		return err
 	}
 
-	return bClient.Emitter.Emit(ctx, data, kvAttrs...)
+	return beholder.GetEmitter().Emit(ctx, data, kvAttrs...)
 }
 
 func (e *Engine) Close() error {
