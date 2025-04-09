@@ -583,3 +583,66 @@ type JobSpecFactoryInput struct {
 	DonTopology             *DonTopology
 	KeystoneContractsOutput *KeystoneContractsOutput
 }
+
+type RegisterWorkflowWithCRECLIInput struct {
+	DoNotUseCRECLI              bool
+	ShouldCompileNewWorkflow    bool
+	ChainSelector               uint64
+	WorkflowName                string
+	WorkflowDonID               uint32
+	WorkflowRegistryAddress     common.Address
+	CapabilitiesRegistryAddress common.Address
+	WorkflowOwnerAddress        common.Address
+	CRECLIPrivateKey            string
+	HTTPRPCURL                  string
+	CRECLIAbsPath               string
+	NewWorkflow                 *NewWorkflow
+	ExistingWorkflow            *ExistingWorkflow
+}
+
+type NewWorkflow struct {
+	FolderLocation  string
+	ConfigFilePath  *string
+	SecretsFilePath *string
+}
+
+type ExistingWorkflow struct {
+	BinaryURL  string
+	ConfigURL  *string
+	SecretsURL *string
+}
+
+func (w *RegisterWorkflowWithCRECLIInput) Validate() error {
+	if w.ChainSelector == 0 {
+		return errors.New("ChainSelector is required")
+	}
+	if w.WorkflowName == "" {
+		return errors.New("WorkflowName is required")
+	}
+	if w.WorkflowDonID == 0 {
+		return errors.New("WorkflowDonID is required")
+	}
+	if w.CRECLIPrivateKey == "" {
+		return errors.New("CRECLIPrivateKey is required")
+	}
+	if w.HTTPRPCURL == "" {
+		return errors.New("HTTPRPCURL is required")
+	}
+	if w.NewWorkflow != nil && w.ExistingWorkflow != nil {
+		return errors.New("only one of NewWorkflow or ExistingWorkflow can be provided")
+	}
+	if w.ShouldCompileNewWorkflow && w.NewWorkflow == nil {
+		return errors.New("NewWorkflow is required when ShouldCompileNewWorkflow is true")
+	}
+	if !w.ShouldCompileNewWorkflow && w.ExistingWorkflow == nil {
+		return errors.New("ExistingWorkflow is required when ShouldCompileNewWorkflow is false")
+	}
+	if w.NewWorkflow != nil && w.NewWorkflow.FolderLocation == "" {
+		return errors.New("WorkflowFolderLocation is required when ShouldCompileNewWorkflow is true")
+	}
+	if w.ExistingWorkflow != nil && w.ExistingWorkflow.BinaryURL == "" {
+		return errors.New("BinaryURL is required when ShouldCompileNewWorkflow is false")
+	}
+
+	return nil
+}
