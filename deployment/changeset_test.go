@@ -98,6 +98,7 @@ func NewNoopEnvironment(t *testing.T) Environment {
 		NewMemoryAddressBook(),
 		map[uint64]Chain{},
 		map[uint64]SolChain{},
+		map[uint64]AptosChain{},
 		[]string{},
 		nil,
 		t.Context,

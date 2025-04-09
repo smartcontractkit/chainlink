@@ -69,6 +69,7 @@ func NewNoopEnvironment(t *testing.T) deployment.Environment {
 		deployment.NewMemoryAddressBook(),
 		map[uint64]deployment.Chain{},
 		map[uint64]deployment.SolChain{},
+		map[uint64]deployment.AptosChain{},
 		[]string{},
 		nil,
 		func() context.Context { return tests.Context(t) },
