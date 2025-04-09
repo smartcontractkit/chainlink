@@ -1,6 +1,12 @@
 package solana_test
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -22,6 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
+	solRpc "github.com/gagliardetto/solana-go/rpc"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -362,4 +370,88 @@ func TestUpgrade(t *testing.T) {
 	require.NoError(t, err)
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+}
+
+func TestIDLUpgrade(t *testing.T) {
+	// programID := solana.MustPublicKeyFromBase58("AacpQtBFpfVDWqacCqBPj59GChahCYUNLNb4Wsvft83M")
+	// idlAddress, _, _ := solana.FindProgramAddress([][]byte{[]byte("anchor:idl")}, programID)
+	// solana.CreateWithSeed(base, )
+	// fmt.Println(idlAddress.String())
+
+	programID := solana.MustPublicKeyFromBase58("AacpQtBFpfVDWqacCqBPj59GChahCYUNLNb4Wsvft83M")
+
+	deployerKey, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/yashvardhan/.config/solana/id_devnet.json")
+	require.NoError(t, err)
+	currentUpgradeAuthority := solana.MustPublicKeyFromBase58("7oZnxiocDK1aa9XAQC3CZ1VHKFkKwLuwRK8NddhU3FT2")
+	require.Equal(t, deployerKey.PublicKey().String(), currentUpgradeAuthority.String())
+
+	// Step 1: Get the base PDA using FindProgramAddress with no seeds
+	base, _, err := solana.FindProgramAddress([][]byte{}, programID)
+	if err != nil {
+		fmt.Printf("failed to find base PDA: %v", err)
+	}
+
+	// Step 2: Create the derived address with a seed
+	seed := "anchor:idl"
+	idlAddress, err := solana.CreateWithSeed(base, seed, programID)
+	if err != nil {
+		fmt.Printf("failed to create with seed: %v", err)
+	}
+
+	fmt.Println("Base PDA:     ", base.String())
+	fmt.Println("IDL Address:  ", idlAddress.String())
+
+	keys := solana.AccountMetaSlice{
+		solana.NewAccountMeta(idlAddress, true, false),
+		solana.NewAccountMeta(currentUpgradeAuthority, false, true), // New upgrade authority
+	}
+
+	newAuthority := solana.MustPublicKeyFromBase58("FxghvBLeWky3gxXYnDP2sHa2MuFbJ7WWiSzFT96sMZqi")
+
+	// Step 1: Build IDL instruction data
+	data, err := serializeIdlSetAuthority(newAuthority)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("Data:         ", hex.EncodeToString(data))
+
+	instruction := solana.NewInstruction(
+		programID,
+		keys,
+		data,
+	)
+	client := solRpc.New(solRpc.DevNet.RPC)
+	_, err = solCommonUtil.SendAndConfirm(
+		context.Background(), client, []solana.Instruction{instruction}, deployerKey, solRpc.CommitmentConfirmed,
+	)
+	require.NoError(t, err)
+}
+
+// Sha256("anchor:idl")[..8] = 0x0a69e9a778bcf440
+const IDL_IX_TAG uint64 = 0x0a69e9a778bcf440
+
+func serializeIdlSetAuthority(newAuthority solana.PublicKey) ([]byte, error) {
+	buf := new(bytes.Buffer)
+
+	// Step 1: Write IDL_IX_TAG as little endian
+	if err := binary.Write(buf, binary.LittleEndian, IDL_IX_TAG); err != nil {
+		return nil, fmt.Errorf("failed to write IDL_IX_TAG: %w", err)
+	}
+
+	// Step 2: Write 8-byte discriminator for SetAuthority
+	discriminator := idlDiscriminator("SetAuthority")
+	buf.Write(discriminator[:])
+
+	// Step 3: Write new authority pubkey (32 bytes)
+	buf.Write(newAuthority.Bytes())
+
+	return buf.Bytes(), nil
+}
+
+// Generate the 8-byte Anchor discriminator for an IDL instruction
+func idlDiscriminator(name string) [8]byte {
+	hash := sha256.Sum256([]byte("global:" + name))
+	var out [8]byte
+	copy(out[:], hash[:8])
+	return out
 }
