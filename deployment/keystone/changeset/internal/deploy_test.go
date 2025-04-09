@@ -56,7 +56,7 @@ func Test_RegisterNOPS(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp.Ops)
-		require.Len(t, resp.Ops.Batch, 1)
+		require.Len(t, resp.Ops.Transactions, 1)
 	})
 }
 

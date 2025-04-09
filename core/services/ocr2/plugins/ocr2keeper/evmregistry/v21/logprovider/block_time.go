@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
 var (

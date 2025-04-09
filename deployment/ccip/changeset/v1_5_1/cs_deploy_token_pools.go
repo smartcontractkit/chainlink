@@ -12,16 +12,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/burn_mint_token_pool"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/burn_with_from_mint_token_pool"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 )
 

@@ -50,11 +50,11 @@ import (
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 type TestConfigLoadTest struct {
@@ -681,8 +681,8 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 	return event, eventID, nil
 }
 
-func decodeTargetInput(inputs *values.Map) (targets.Request, error) {
-	var r targets.Request
+func decodeTargetInput(inputs *values.Map) (evm.Request, error) {
+	var r evm.Request
 	const signedReportField = "signed_report"
 	signedReport, ok := inputs.Underlying[signedReportField]
 	if !ok {

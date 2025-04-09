@@ -141,8 +141,7 @@ var ChainReaderCapabilityFactory = func(chainID uint64, chainFamily string) func
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   fmt.Sprintf("read-contract-%s-%d", chainFamily, chainID),
 					Version:        "1.0.0",
-					CapabilityType: 0, // TRIGGER
-					ResponseType:   0, // REPORT
+					CapabilityType: 1, // ACTION
 				},
 				Config: &capabilitiespb.CapabilityConfig{},
 			})
