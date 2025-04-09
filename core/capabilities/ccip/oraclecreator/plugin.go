@@ -273,7 +273,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		MonitoringEndpoint: i.monitoringEndpointGen.GenMonitoringEndpoint(
 			destChainFamily,
 			destRelayID.ChainID,
-			string(config.Config.OfframpAddress),
+			offrampAddrStr,
 			synchronization.OCR3CCIPCommit,
 		),
 		OffchainConfigDigester: ocrimpls.NewConfigDigester(config.ConfigDigest),
