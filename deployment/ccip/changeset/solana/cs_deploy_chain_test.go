@@ -54,7 +54,7 @@ func verifyProgramSizes(t *testing.T, e deployment.Environment) {
 	for program, sizeBytes := range deployment.GetSolanaProgramBytes() {
 		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
 		programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programsToState[program].Bytes()}, solana.BPFLoaderUpgradeableProgramID)
-		programDataSize, err := ccipChangesetSolana.SolProgramSize(&e, e.SolChains[e.AllChainSelectorsSolana()[0]], programDataAccount)
+		programDataSize, err := ccipChangesetSolana.GetSolProgramSize(&e, e.SolChains[e.AllChainSelectorsSolana()[0]], programDataAccount)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, programDataSize, sizeBytes)
 	}
