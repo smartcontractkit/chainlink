@@ -177,12 +177,12 @@ jobs:
         type:
           - cmd: go_core_tests
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/disk=large/spot=false/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_tests_integration
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/spot=false/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_fuzz
@@ -192,13 +192,13 @@ jobs:
 
           - cmd: go_core_race_tests
             os: 'ubuntu-latest-32cores-128GB'
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=64+128/ram=128+256/family=c7+m7/disk=large/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=64+128/ram=128+256/family=c7+m7/disk=large/spot=false/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
             os: ubuntu22.04-32cores-128GB
             # Use "*d" instances because they have NVME storage which improves performance for this test suite
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/disk=large/spot=false/extras=s3-cache
             build-solana-artifacts: 'true'
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
 
