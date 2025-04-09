@@ -177,7 +177,7 @@ jobs:
         type:
           - cmd: go_core_tests
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/disk=large/spot=false/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/spot=false/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_tests_integration
@@ -198,7 +198,7 @@ jobs:
           - cmd: go_core_ccip_deployment_tests
             os: ubuntu22.04-32cores-128GB
             # Use "*d" instances because they have NVME storage which improves performance for this test suite
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/disk=large/spot=false/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/spot=false/extras=s3-cache
             build-solana-artifacts: 'true'
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
 
@@ -217,6 +217,24 @@ jobs:
       - name: Enable S3 Cache for Self-Hosted Runners
         if: ${{ needs.run-frequency.outputs.should-use-self-hosted == 'true' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
+      - name: Mount /tmp
+        # For self-hosted runners - the volume mounted to / is too small to handle flakeguard
+        # outputs to /tmp. If we are using an SSD backed volume, we can mount /mnt/ephemeral/tmp.
+        # Otherwise, we will need to use `disk=large` label for the runner.
+        if: ${{ needs.run-frequency.outputs.should-use-self-hosted == 'true' }}
+        run: |
+          if [ -d "/mnt/ephemeral" ]; then
+            if [ ! -d "/mnt/ephemeral/tmp" ]; then
+              sudo mkdir -p /mnt/ephemeral/tmp
+              sudo chmod 1777 /mnt/ephemeral/tmp
+            fi
+
+            sudo mount --bind /mnt/ephemeral/tmp /tmp
+            echo "Successfully mounted /mnt/ephemeral/tmp to /tmp"
+          else
+            echo "/mnt/ephemeral does not exist, using default /tmp"
+          fi
 
       - name: Checkout the repo
         uses: actions/checkout@v4
