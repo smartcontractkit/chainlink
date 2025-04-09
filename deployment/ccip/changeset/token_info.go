@@ -13,22 +13,29 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
 )
 
 type TokenSymbol string
 
+func (ts TokenSymbol) String() string {
+	return string(ts)
+}
+
 const (
-	LinkSymbol   TokenSymbol = "LINK"
-	WethSymbol   TokenSymbol = "WETH"
-	WAVAXSymbol  TokenSymbol = "WAVAX"
-	WBNBSymbol   TokenSymbol = "WBNB"
-	WPOLSymbol   TokenSymbol = "WPOL"
-	USDCSymbol   TokenSymbol = "USDC"
-	USDCName     string      = "USD Coin"
-	LinkDecimals             = 18
-	WethDecimals             = 18
-	UsdcDecimals             = 6
+	LinkSymbol      TokenSymbol = "LINK"
+	WethSymbol      TokenSymbol = "WETH"
+	WAVAXSymbol     TokenSymbol = "WAVAX"
+	WBNBSymbol      TokenSymbol = "WBNB"
+	WPOLSymbol      TokenSymbol = "WPOL"
+	USDCSymbol      TokenSymbol = "USDC"
+	CCIPBnMSymbol   TokenSymbol = "CCIP-BnM"
+	CCIPLnMSymbol   TokenSymbol = "CCIP-LnM"
+	CLCCIPLnMSymbol TokenSymbol = "clCCIP-LnM"
+	USDCName        string      = "USD Coin"
+	LinkDecimals                = 18
+	WethDecimals                = 18
+	UsdcDecimals                = 6
 
 	// Price Feed Descriptions
 	AvaxUSD  = "AVAX / USD"

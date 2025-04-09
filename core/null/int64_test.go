@@ -2,7 +2,6 @@ package null_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
 	"strconv"
 	"testing"
@@ -22,7 +21,7 @@ func TestInt64From(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprintf("%d", test.input), func(t *testing.T) {
+		t.Run(strconv.FormatInt(test.input, 10), func(t *testing.T) {
 			i := null.Int64From(test.input)
 			assert.True(t, i.Valid)
 			assert.Equal(t, test.input, i.Int64)

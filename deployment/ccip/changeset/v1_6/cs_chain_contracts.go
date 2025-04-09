@@ -19,9 +19,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -29,10 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
 const (
@@ -69,7 +69,7 @@ var (
 
 type UpdateNonceManagerConfig struct {
 	UpdatesByChain map[uint64]NonceManagerUpdate // source -> dest -> update
-	MCMS           *changeset.MCMSConfig
+	MCMS           *proposalutils.TimelockConfig
 }
 
 type NonceManagerUpdate struct {
@@ -255,7 +255,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 		inspectors,
 		batches,
 		"Update nonce manager for previous ramps and authorized callers",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -276,7 +276,11 @@ type UpdateOnRampDestsConfig struct {
 
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *changeset.MCMSConfig
+	MCMS *proposalutils.TimelockConfig
+	// SkipOwnershipCheck allows you to bypass the ownership check for the onRamp.
+	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
+	// Never use this option when running this changeset in isolation.
+	SkipOwnershipCheck bool
 }
 
 func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
@@ -302,8 +306,10 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 		if chainState.OnRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
-			return err
+		if !cfg.SkipOwnershipCheck {
+			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
+				return err
+			}
 		}
 		sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
 		if err != nil {
@@ -399,7 +405,7 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 		inspectors,
 		batches,
 		"Update onramp destinations",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -419,7 +425,7 @@ type UpdateOnRampDynamicConfig struct {
 	UpdatesByChain map[uint64]OnRampDynamicConfigUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *changeset.MCMSConfig
+	MCMS *proposalutils.TimelockConfig
 }
 
 func (cfg UpdateOnRampDynamicConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -510,7 +516,7 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e, timelocks, proposers, inspectors, batches,
 		"update onramp dynamic config",
-		cfg.MCMS.MinDelay)
+		*cfg.MCMS)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -529,7 +535,7 @@ type UpdateOnRampAllowListConfig struct {
 	UpdatesByChain map[uint64]map[uint64]OnRampAllowListUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *changeset.MCMSConfig
+	MCMS *proposalutils.TimelockConfig
 }
 
 func (cfg UpdateOnRampAllowListConfig) Validate(env deployment.Environment) error {
@@ -672,7 +678,7 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 		inspectors,
 		batches,
 		"update onramp allowlist",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -683,7 +689,7 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 
 type WithdrawOnRampFeeTokensConfig struct {
 	FeeTokensByChain map[uint64][]common.Address
-	MCMS             *changeset.MCMSConfig
+	MCMS             *proposalutils.TimelockConfig
 }
 
 func (cfg WithdrawOnRampFeeTokensConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -774,7 +780,7 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 		inspectors,
 		batches,
 		"withdraw onramp fee tokens",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -785,7 +791,7 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 
 type UpdateFeeQuoterPricesConfig struct {
 	PricesByChain map[uint64]FeeQuoterPriceUpdatePerSource // source -> PriceDetails
-	MCMS          *changeset.MCMSConfig
+	MCMS          *proposalutils.TimelockConfig
 }
 
 type FeeQuoterPriceUpdatePerSource struct {
@@ -941,7 +947,7 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 		inspectors,
 		batches,
 		"Update fq prices",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -955,7 +961,7 @@ type UpdateFeeQuoterDestsConfig struct {
 	UpdatesByChain map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *changeset.MCMSConfig
+	MCMS *proposalutils.TimelockConfig
 }
 
 func (cfg UpdateFeeQuoterDestsConfig) Validate(e deployment.Environment) error {
@@ -1062,7 +1068,7 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 		inspectors,
 		batches,
 		"Update fq destinations",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -1082,7 +1088,11 @@ type UpdateOffRampSourcesConfig struct {
 	// UpdatesByChain is a mapping from dest chain -> source chain -> source chain
 	// update on the dest chain offramp.
 	UpdatesByChain map[uint64]map[uint64]OffRampSourceUpdate
-	MCMS           *changeset.MCMSConfig
+	MCMS           *proposalutils.TimelockConfig
+	// SkipOwnershipCheck allows you to bypass the ownership check for the offRamp.
+	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
+	// Never use this option when running this changeset in isolation.
+	SkipOwnershipCheck bool
 }
 
 func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -1101,8 +1111,10 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state c
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
-			return err
+		if !cfg.SkipOwnershipCheck {
+			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
+				return err
+			}
 		}
 
 		for source := range updates {
@@ -1202,7 +1214,7 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 		inspectors,
 		batches,
 		"Update offramp sources",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -1221,7 +1233,11 @@ type UpdateRouterRampsConfig struct {
 	// on all chains. Disallow mixing test router/non-test router per chain for simplicity.
 	TestRouter     bool
 	UpdatesByChain map[uint64]RouterUpdates
-	MCMS           *changeset.MCMSConfig
+	MCMS           *proposalutils.TimelockConfig
+	// SkipOwnershipCheck allows you to bypass the ownership check for the router.
+	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
+	// Never use this option when running this changeset in isolation.
+	SkipOwnershipCheck bool
 }
 
 func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -1243,13 +1259,15 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if cfg.TestRouter {
-			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
-				return err
-			}
-		} else {
-			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
-				return err
+		if !cfg.SkipOwnershipCheck {
+			if cfg.TestRouter {
+				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
+					return err
+				}
+			} else {
+				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -1382,7 +1400,7 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 		inspectors,
 		batches,
 		"Update router offramps",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -1395,7 +1413,7 @@ type SetOCR3OffRampConfig struct {
 	HomeChainSel       uint64
 	RemoteChainSels    []uint64
 	CCIPHomeConfigType globals.ConfigType
-	MCMS               *changeset.MCMSConfig
+	MCMS               *proposalutils.TimelockConfig
 }
 
 func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -1524,7 +1542,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 		inspectors,
 		batches,
 		"Update OCR3 config",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -1536,7 +1554,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 
 type UpdateDynamicConfigOffRampConfig struct {
 	Updates map[uint64]OffRampParams
-	MCMS    *changeset.MCMSConfig
+	MCMS    *proposalutils.TimelockConfig
 }
 
 func (cfg UpdateDynamicConfigOffRampConfig) Validate(e deployment.Environment) error {
@@ -1638,7 +1656,7 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 		inspectors,
 		batches,
 		"Update offramp dynamic config",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -1741,7 +1759,7 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 
 type ApplyFeeTokensUpdatesConfig struct {
 	UpdatesByChain map[uint64]ApplyFeeTokensUpdatesConfigPerChain
-	MCMSConfig     *changeset.MCMSConfig
+	MCMSConfig     *proposalutils.TimelockConfig
 }
 
 type ApplyFeeTokensUpdatesConfigPerChain struct {
@@ -1753,11 +1771,6 @@ func (cfg ApplyFeeTokensUpdatesConfig) Validate(e deployment.Environment) error 
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return err
-	}
-	if cfg.MCMSConfig != nil {
-		if err := cfg.MCMSConfig.Validate(); err != nil {
-			return err
-		}
 	}
 	for chainSel, updates := range cfg.UpdatesByChain {
 		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMSConfig); err != nil {
@@ -1860,7 +1873,7 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 		inspectorPerChain,
 		batches,
 		"Apply fee tokens updates",
-		cfg.MCMSConfig.MinDelay,
+		*cfg.MCMSConfig,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error building proposal: %w", err)
@@ -1873,7 +1886,7 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 type UpdateTokenPriceFeedsConfig struct {
 	Updates           map[uint64][]UpdateTokenPriceFeedsConfigPerChain
 	FeedChainSelector uint64
-	MCMS              *changeset.MCMSConfig
+	MCMS              *proposalutils.TimelockConfig
 }
 
 type UpdateTokenPriceFeedsConfigPerChain struct {
@@ -2013,7 +2026,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg Updat
 		inspectorPerChain,
 		batches,
 		"Update token price feeds",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error building proposal: %w", err)
@@ -2025,7 +2038,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg Updat
 
 type PremiumMultiplierWeiPerEthUpdatesConfig struct {
 	Updates map[uint64][]PremiumMultiplierWeiPerEthUpdatesConfigPerChain
-	MCMS    *changeset.MCMSConfig
+	MCMS    *proposalutils.TimelockConfig
 }
 
 func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) Validate(e deployment.Environment) error {
@@ -2137,7 +2150,7 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Envir
 		inspectorPerChain,
 		batches,
 		"Apply premium multiplier updates",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error building proposal: %w", err)
@@ -2149,7 +2162,7 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Envir
 
 type ApplyTokenTransferFeeConfigUpdatesConfig struct {
 	UpdatesByChain map[uint64]ApplyTokenTransferFeeConfigUpdatesConfigPerChain
-	MCMS           *changeset.MCMSConfig
+	MCMS           *proposalutils.TimelockConfig
 }
 
 func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) Validate(e deployment.Environment) error {
@@ -2317,7 +2330,7 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e deployment.Environme
 		inspectorPerChain,
 		batches,
 		"Apply token transfer fee config updates",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error building proposal: %w", err)

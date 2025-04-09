@@ -24,18 +24,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
-	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
-	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
-	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -1682,24 +1682,23 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, highestSeenHead, mailMon)
 	kst := cltest.NewKeyStore(t, db)
 
-	chainsAndConfig := evmtest.NewLegacyChainsAndConfig(t, evmtest.TestChainOpts{
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		Client:         ethClient,
 		ChainConfigs:   globalConfig.EVMConfigs(),
 		DatabaseConfig: globalConfig.Database(),
 		FeatureConfig:  globalConfig.Feature(),
 		ListenerConfig: globalConfig.Database().Listener(),
-		DB:             db,
 		KeyStore:       kst.Eth(),
+		DB:             db,
 		LogBroadcaster: &log.NullBroadcaster{},
 		MailMon:        mailMon,
 	})
 
 	m := make(map[string]legacyevm.Chain)
-	for _, r := range chainsAndConfig.Slice() {
+	for _, r := range legacyChains.Slice() {
 		m[r.ID().String()] = r
 	}
 
-	legacyChains := chainsAndConfig.NewLegacyChains()
 	pipelineHelper := cltest.NewJobPipelineV2(t, globalConfig.WebServer(), globalConfig.JobPipeline(), legacyChains, db, kst, nil, nil)
 
 	return &broadcasterHelper{

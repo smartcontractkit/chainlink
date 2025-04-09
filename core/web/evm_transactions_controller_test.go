@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -45,7 +45,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	_, count, err := txStore.TransactionsWithAttempts(ctx, 0, 100)
 	require.NoError(t, err)
-	require.Equal(t, count, 3)
+	require.Equal(t, 3, count)
 
 	size := 2
 	resp, cleanup := client.Get(fmt.Sprintf("/v2/transactions?size=%d", size))

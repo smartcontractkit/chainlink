@@ -23,8 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/random"
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -286,7 +286,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latestBlock, err := r.poller.LatestBlock(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrHeadNotAvailable, err)
 	}
 
 	r.lock.Lock()
@@ -330,7 +330,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 func (r *logRecoverer) recover(ctx context.Context) error {
 	latest, err := r.poller.LatestBlock(ctx)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+		return fmt.Errorf("%w: %w", ErrHeadNotAvailable, err)
 	}
 
 	start, offsetBlock := r.getRecoveryWindow(latest.BlockNumber)

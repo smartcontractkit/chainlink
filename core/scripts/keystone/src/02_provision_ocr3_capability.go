@@ -15,8 +15,8 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 

@@ -1,6 +1,7 @@
 package vrfkey
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -9,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	bm "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
@@ -28,7 +29,7 @@ var (
 	Generator            = Secp256k1Curve.Point().Base()
 	eulersCriterionPower = bm.Div(bm.Sub(FieldSize, bm.One), bm.Two)
 	sqrtPower            = bm.Div(bm.Add(FieldSize, bm.One), bm.Four)
-	ErrCGammaEqualsSHash = fmt.Errorf("pick a different nonce; c*gamma = s*hash, with this one")
+	ErrCGammaEqualsSHash = errors.New("pick a different nonce; c*gamma = s*hash, with this one")
 	// hashToCurveHashPrefix is domain-separation tag for initial HashToCurve hash.
 	// Corresponds to HASH_TO_CURVE_HASH_PREFIX in VRF.sol.
 	hashToCurveHashPrefix = common.BigToHash(bm.One).Bytes()
@@ -145,7 +146,7 @@ func checkCGammaNotEqualToSHash(c *big.Int, gamma kyber.Point, s *big.Int,
 func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 ) (kyber.Point, error) {
 	if !(secp256k1.ValidPublicKey(p) && input.BitLen() <= 256 && input.Cmp(bm.Zero) >= 0) {
-		return nil, fmt.Errorf("bad input to vrf.HashToCurve")
+		return nil, errors.New("bad input to vrf.HashToCurve")
 	}
 	x := FieldHash(append(hashToCurveHashPrefix, append(secp256k1.LongMarshal(p),
 		utils.Uint256ToBytes32(input)...)...))

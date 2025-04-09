@@ -11,9 +11,9 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 )
 
 func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
@@ -143,7 +143,7 @@ func TestExecPriceEstimator_DenoteInUSD(t *testing.T) {
 
 			gasPrice, err := g.DenoteInUSD(ctx, tc.gasPrice, tc.nativePrice)
 			assert.NoError(t, err)
-			assert.True(t, tc.expPrice.Cmp(gasPrice) == 0)
+			assert.Equal(t, tc.expPrice.Cmp(gasPrice), 0)
 		})
 	}
 }
@@ -195,7 +195,7 @@ func TestExecPriceEstimator_Median(t *testing.T) {
 
 			gasPrice, err := g.Median(ctx, tc.gasPrices)
 			assert.NoError(t, err)
-			assert.True(t, tc.expMedian.Cmp(gasPrice) == 0)
+			assert.Equal(t, tc.expMedian.Cmp(gasPrice), 0)
 		})
 	}
 }

@@ -161,7 +161,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	})
 
 	t.Run("http client non-HTTP error", func(t *testing.T) {
-		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("error while marshalling")).Once()
+		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
 		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
 			var payload Response
@@ -263,7 +263,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		resp := <-ch
 		require.Equal(t, handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}, resp)
 		_, open := <-ch
-		require.Equal(t, open, false)
+		require.False(t, open)
 	})
 
 	t.Run("sad case invalid method", func(t *testing.T) {
@@ -274,7 +274,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		resp := <-ch
 		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "invalid method foo"}, resp)
 		_, open := <-ch
-		require.Equal(t, open, false)
+		require.False(t, open)
 	})
 
 	t.Run("sad case stale message", func(t *testing.T) {
@@ -285,7 +285,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		resp := <-ch
 		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "stale message"}, resp)
 		_, open := <-ch
-		require.Equal(t, open, false)
+		require.False(t, open)
 	})
 
 	t.Run("sad case empty payload", func(t *testing.T) {
@@ -296,7 +296,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		resp := <-ch
 		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
 		_, open := <-ch
-		require.Equal(t, open, false)
+		require.False(t, open)
 	})
 
 	t.Run("sad case invalid payload", func(t *testing.T) {
@@ -307,7 +307,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		resp := <-ch
 		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
 		_, open := <-ch
-		require.Equal(t, open, false)
+		require.False(t, open)
 	})
 	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
 }

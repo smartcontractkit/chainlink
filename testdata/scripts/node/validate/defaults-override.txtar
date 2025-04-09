@@ -72,6 +72,7 @@ HTTPURL = 'https://foo.bar'
 
 # Effective Configuration, with defaults applied:
 InsecureFastScrypt = false
+InsecurePPROFHeap = false
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 
@@ -475,6 +476,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [EVM.OCR]
 ContractConfirmations = 4

@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -23,7 +23,7 @@ type GetUpkeepFailure struct{}
 var errGetUpkeep = errors.New("chain connection error example")
 
 func (g *GetUpkeepFailure) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepConfig, error) {
-	return nil, fmt.Errorf("%w [%s]: getConfig v1.%d", ErrContractCallFailure, errGetUpkeep, RegistryVersion_1_2)
+	return nil, fmt.Errorf("%w [%w]: getConfig v1.%d", ErrContractCallFailure, errGetUpkeep, RegistryVersion_1_2)
 }
 
 func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {

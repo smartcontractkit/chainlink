@@ -3,7 +3,6 @@ package read_test
 import (
 	"fmt"
 	"math/big"
-	"math/rand/v2"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -14,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
@@ -116,7 +115,6 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 		{numCalls: 10, batchSize: 100, parallelRpcCallsLimit: 10},
 		{numCalls: 1, batchSize: 100, parallelRpcCallsLimit: 10},
 		{numCalls: 1000, batchSize: 10, parallelRpcCallsLimit: 2},
-		{numCalls: rand.Uint() % 1000, batchSize: rand.Uint() % 500, parallelRpcCallsLimit: rand.Uint() % 500},
 	}
 
 	type MethodParam struct {

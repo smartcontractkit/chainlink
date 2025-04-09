@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
@@ -46,5 +46,5 @@ func TestInsertSelectDelete(t *testing.T) {
 	states, err = orm.SelectStatesByWorkIDs(ctx, []string{"0x1"})
 
 	require.NoError(t, err, "no error expected from select")
-	require.Len(t, states, 0, "records return should be empty since records were deleted")
+	require.Empty(t, states, "records return should be empty since records were deleted")
 }

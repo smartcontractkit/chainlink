@@ -2,7 +2,9 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,9 +19,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -64,7 +66,7 @@ func NewLogProvider(
 
 	abi, err := abi.JSON(strings.NewReader(registry.KeeperRegistryABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, fmt.Errorf("%w: %w", ErrABINotParsable, err)
 	}
 
 	// Add log filters for the log poller so that it can poll and find the logs that
@@ -444,11 +446,11 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(ctx context.Context, txHash 
 		// TODO: the log provider should be in the evm package for isolation
 		res, ok := upkeep.(EVMAutomationUpkeepResult20)
 		if !ok {
-			return "", fmt.Errorf("unexpected type")
+			return "", errors.New("unexpected type")
 		}
 
 		if res.ID.String() == string(id) {
-			bl := fmt.Sprintf("%d", res.Block)
+			bl := strconv.FormatUint(uint64(res.Block), 10)
 
 			c.txCheckBlockCache.Set(cacheKey, bl, pluginutils.DefaultCacheExpiration)
 

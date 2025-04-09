@@ -3,6 +3,7 @@ package oraclecreator
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -39,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -50,6 +50,8 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 var _ cctypes.OracleCreator = &pluginOracleCreator{}
@@ -67,9 +69,10 @@ var plugins = map[string]plugin{
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return ccipevm.NewMessageHasherV1(lggr, extraDataCodec)
 		},
-		TokenDataEncoder:    ccipevm.NewEVMTokenDataEncoder(),
-		GasEstimateProvider: ccipevm.NewGasEstimateProvider(),
-		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
+		TokenDataEncoder:           ccipevm.NewEVMTokenDataEncoder(),
+		GasEstimateProvider:        ccipevm.NewGasEstimateProvider(extraDataCodec),
+		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
+		ContractTransmitterFactory: &ocrimpls.EVMContractTransmitterFactory{},
 	},
 	chainsel.FamilySolana: {
 		CommitPluginCodec:  ccipsolana.NewCommitPluginCodecV1(),
@@ -77,10 +80,11 @@ var plugins = map[string]plugin{
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return ccipsolana.NewMessageHasherV1(lggr, extraDataCodec)
 		},
-		TokenDataEncoder:    ccipsolana.NewSolanaTokenDataEncoder(),
-		GasEstimateProvider: ccipsolana.NewGasEstimateProvider(),
-		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
-		PriceOnlyCommitFn:   consts.MethodCommitPriceOnly,
+		TokenDataEncoder:           ccipsolana.NewSolanaTokenDataEncoder(),
+		GasEstimateProvider:        ccipsolana.NewGasEstimateProvider(),
+		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
+		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
+		ContractTransmitterFactory: &ocrimpls.SVMContractTransmitterFactory{},
 	},
 }
 
@@ -90,12 +94,13 @@ const (
 )
 
 type plugin struct {
-	CommitPluginCodec   cciptypes.CommitPluginCodec
-	ExecutePluginCodec  cciptypes.ExecutePluginCodec
-	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
-	TokenDataEncoder    cciptypes.TokenDataEncoder
-	GasEstimateProvider cciptypes.EstimateProvider
-	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
+	CommitPluginCodec          cciptypes.CommitPluginCodec
+	ExecutePluginCodec         cciptypes.ExecutePluginCodec
+	MessageHasher              func(lggr logger.Logger) cciptypes.MessageHasher
+	TokenDataEncoder           cciptypes.TokenDataEncoder
+	GasEstimateProvider        cciptypes.EstimateProvider
+	RMNCrypto                  func(lggr logger.Logger) cciptypes.RMNCrypto
+	ContractTransmitterFactory ContractTransmitterFactory
 	// PriceOnlyCommitFn optional method override for price only commit reports.
 	PriceOnlyCommitFn string
 }
@@ -176,7 +181,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 	destRelayID := types.NewRelayID(destChainFamily, destChainID)
 
-	configTracker := ocrimpls.NewConfigTracker(config)
+	configTracker := ocrimpls.NewConfigTracker(config, i.addressCodec)
 	publicConfig, err := configTracker.PublicConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
@@ -322,7 +327,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
 		if !i.peerWrapper.IsStarted() {
-			return nil, nil, fmt.Errorf("peer wrapper is not started")
+			return nil, nil, errors.New("peer wrapper is not started")
 		}
 
 		i.lggr.Infow("creating rmn peer client",
@@ -355,7 +360,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				RmnPeerClient:     rmnPeerClient,
 				RmnCrypto:         rmnCrypto})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
-		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
+		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewCommitTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 			consts.MethodCommit,
@@ -380,7 +385,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractWriters:  chainWriters,
 			})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
-		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
+		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewExecTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 		)
@@ -433,7 +438,12 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
 		}
 
-		chainReaderConfig, err1 := getChainReaderConfig(i.lggr, chainID, destChainID, homeChainID, ofc, chainSelector, destChainFamily)
+		if _, exists := plugins[relayChainFamily]; !exists {
+			i.lggr.Debugw("createReadersAndWriters: skipping unsupported relayer", "chainID", chainID, "family", relayChainFamily)
+			continue
+		}
+
+		chainReaderConfig, err1 := getChainReaderConfig(i.lggr, chainID, destChainID, homeChainID, ofc, chainSelector, relayChainFamily)
 		if err1 != nil {
 			return nil, nil, fmt.Errorf("failed to get chain reader config: %w", err1)
 		}
@@ -468,7 +478,6 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			execBatchGasLimit,
 			relayChainFamily,
 			config.Config.OfframpAddress,
-			chainDetails.ChainSelector,
 		)
 		if err1 != nil {
 			return nil, nil, err1
@@ -509,7 +518,7 @@ func decodeAndValidateOffchainConfig(
 		ofc.commitOffchainConfig = &commitOffchainCfg
 	}
 	if !ofc.isValid() {
-		return offChainConfig{}, fmt.Errorf("invalid offchain config: both commit and exec configs are either set or unset")
+		return offChainConfig{}, errors.New("invalid offchain config: both commit and exec configs are either set or unset")
 	}
 	return ofc, nil
 }
@@ -595,8 +604,7 @@ func createChainWriter(
 	transmitters map[types.RelayID][]string,
 	execBatchGasLimit uint64,
 	chainFamily string,
-	offrampProgramAddress []byte,
-	destChainSelector uint64,
+	offrampAddress []byte,
 ) (types.ContractWriter, error) {
 	var err error
 	var chainWriterConfig []byte
@@ -605,11 +613,13 @@ func createChainWriter(
 	switch chainFamily {
 	case relay.NetworkSolana:
 		var solConfig chainwriter.ChainWriterConfig
-		if solana.PublicKeyLength != len(offrampProgramAddress) {
-			return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(offrampProgramAddress))
+		var offrampProgramAddress solana.PublicKey
+		// NOTE: this function can still be called with EVM inputs, and PublicKeyFromBytes will panic on addresses with len=20
+		// technically we only need the writer to do fee estimation so this doesn't matter and we can use a zero address
+		if len(offrampAddress) == solana.PublicKeyLength {
+			offrampProgramAddress = solana.PublicKeyFromBytes(offrampAddress)
 		}
-		offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
-		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0], destChainSelector); err != nil {
+		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0]); err != nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {

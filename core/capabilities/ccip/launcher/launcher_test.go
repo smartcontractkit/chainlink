@@ -10,7 +10,7 @@ import (
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"

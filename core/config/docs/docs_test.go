@@ -13,10 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
@@ -49,7 +49,7 @@ func TestDoc(t *testing.T) {
 		docDefaults.ChainType = nil
 
 		// clean up KeySpecific as a special case
-		require.Equal(t, 1, len(docDefaults.KeySpecific))
+		require.Len(t, docDefaults.KeySpecific, 1)
 		ks := toml.KeySpecific{Key: new(types.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: new(assets.Wei)}}
 		require.Equal(t, ks, docDefaults.KeySpecific[0])

@@ -6,27 +6,27 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
-	"github.com/stretchr/testify/require"
-
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_ActiveCandidate(t *testing.T) {
+	t.Parallel()
 	// Setup an environment with 2 chains, a source and a dest.
 	// We want to have the active instance execute a few messages
 	// and then setup a candidate instance. The candidate instance
@@ -138,9 +138,8 @@ func Test_ActiveCandidate(t *testing.T) {
 	testhelpers.AssertTimelockOwnership(t, tenv, allChains, state)
 
 	sendMsg := func() {
-		latesthdr, err := tenv.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
+		block, err := testhelpers.LatestBlock(testcontext.Get(t), tenv.Env, dest)
 		require.NoError(t, err)
-		block := latesthdr.Number.Uint64()
 		msgSentEvent := testhelpers.TestSendRequest(t, tenv.Env, state, source, dest, false, router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello world"),
@@ -202,7 +201,7 @@ func Test_ActiveCandidate(t *testing.T) {
 				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: tenv.HomeChainSel,
 					FeedChainSelector: tenv.FeedChainSel,
-					MCMS: &changeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 0,
 					},
 				},

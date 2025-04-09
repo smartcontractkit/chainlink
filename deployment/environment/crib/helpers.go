@@ -18,7 +18,7 @@ import (
 
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) error {
 	transmittersStr := make([]common.Address, 0)
-	fundingAmount := new(big.Int).Mul(deployment.UBigInt(100_000), deployment.UBigInt(1e18)) // 100K ETH
+	fundingAmount := new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 ETH
 
 	g := new(errgroup.Group)
 	for sel, chain := range env.Chains {
@@ -54,7 +54,7 @@ func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain deployme
 		return err
 	}
 	for _, address := range accounts {
-		tx := gethtypes.NewTransaction(nonce, address, fundingAmount, uint64(1000000), big.NewInt(1000000), nil)
+		tx := gethtypes.NewTransaction(nonce, address, fundingAmount, uint64(1000000), big.NewInt(100000000), nil)
 
 		signedTx, err := chain.DeployerKey.Signer(chain.DeployerKey.From, tx)
 		if err != nil {

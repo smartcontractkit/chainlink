@@ -29,16 +29,16 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -83,13 +83,13 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 	if opts.Name != "" {
 		btr.Name = bridges.MustParseBridgeName(opts.Name)
 	} else {
-		btr.Name = bridges.MustParseBridgeName(fmt.Sprintf("test_bridge_%s", rnd))
+		btr.Name = bridges.MustParseBridgeName("test_bridge_" + rnd)
 	}
 
 	if opts.URL != "" {
 		btr.URL = WebURL(t, opts.URL)
 	} else {
-		btr.URL = WebURL(t, fmt.Sprintf("https://bridge.example.com/api?%s", rnd))
+		btr.URL = WebURL(t, "https://bridge.example.com/api?"+rnd)
 	}
 
 	bta, bt, err := bridges.NewBridgeType(btr)
@@ -162,7 +162,7 @@ func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 	return types.NewTx(&tx)
 }
 
-func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
+func MustInsertUnconfirmedEthTx(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
 	for _, opt := range opts {
@@ -202,7 +202,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	return etx
 }
 
-func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
+func MustInsertConfirmedEthTxWithLegacyAttempt(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
 	timeNow := time.Now()
 	etx := NewEthTx(fromAddress)
 	ctx := testutils.Context(t)
@@ -222,7 +222,7 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestE
 	return etx
 }
 
-func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
+func NewLegacyEthTxAttempt(t testing.TB, etxID int64) txmgr.TxAttempt {
 	gasPrice := assets.NewWeiI(1)
 	return txmgr.TxAttempt{
 		ChainSpecificFeeLimit: 42,

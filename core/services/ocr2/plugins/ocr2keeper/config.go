@@ -2,7 +2,7 @@ package ocr2keeper
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"time"
 )
 
@@ -64,23 +64,23 @@ type PluginConfig struct {
 
 func ValidatePluginConfig(cfg PluginConfig) error {
 	if cfg.CacheExpiration < 0 {
-		return fmt.Errorf("cache expiration cannot be less than zero")
+		return errors.New("cache expiration cannot be less than zero")
 	}
 
 	if cfg.CacheEvictionInterval < 0 {
-		return fmt.Errorf("cache eviction interval cannot be less than zero")
+		return errors.New("cache eviction interval cannot be less than zero")
 	}
 
 	if cfg.CacheEvictionInterval > 0 && cfg.CacheEvictionInterval.Value() < time.Second {
-		return fmt.Errorf("cache eviction interval should be more than every second")
+		return errors.New("cache eviction interval should be more than every second")
 	}
 
 	if cfg.MaxServiceWorkers < 0 {
-		return fmt.Errorf("max service workers cannot be less than zero")
+		return errors.New("max service workers cannot be less than zero")
 	}
 
 	if cfg.ServiceQueueLength < 0 {
-		return fmt.Errorf("service queue length cannot be less than zero")
+		return errors.New("service queue length cannot be less than zero")
 	}
 
 	return nil

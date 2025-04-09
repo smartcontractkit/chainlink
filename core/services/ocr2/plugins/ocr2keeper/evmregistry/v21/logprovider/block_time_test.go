@@ -1,14 +1,14 @@
 package logprovider
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
@@ -30,11 +30,11 @@ func TestBlockTimeResolver_BlockTime(t *testing.T) {
 			"latest block err",
 			10,
 			0,
-			fmt.Errorf("test err"),
+			errors.New("test err"),
 			nil,
 			nil,
 			0,
-			fmt.Errorf("test err"),
+			errors.New("test err"),
 		},
 		{
 			"block range err",
@@ -42,9 +42,9 @@ func TestBlockTimeResolver_BlockTime(t *testing.T) {
 			20,
 			nil,
 			nil,
-			fmt.Errorf("test err"),
+			errors.New("test err"),
 			0,
-			fmt.Errorf("test err"),
+			errors.New("test err"),
 		},
 		{
 			"2 sec block time",

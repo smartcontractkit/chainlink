@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 

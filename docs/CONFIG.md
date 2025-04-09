@@ -21,6 +21,7 @@ HTTPURL = 'https://foo.bar' # Required
 ## Global
 ```toml
 InsecureFastScrypt = false # Default
+InsecurePPROFHeap = false # Default
 RootDir = '~/.chainlink' # Default
 ShutdownGracePeriod = '5s' # Default
 ```
@@ -32,6 +33,13 @@ ShutdownGracePeriod = '5s' # Default
 InsecureFastScrypt = false # Default
 ```
 InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead. This is insecure and only useful for local testing. DO NOT ENABLE THIS IN PRODUCTION.
+
+### InsecurePPROFHeap
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+InsecurePPROFHeap = false # Default
+```
+InsecurePPROFHeap allows dumping the heap in pprof. This is very useful for debugging memory leaks but in certain rare cases may potentially expose sensitive data e.g. private key components, so is disabled by default.
 
 ### RootDir
 ```toml
@@ -2213,6 +2221,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -2321,6 +2330,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -2429,6 +2439,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -2537,6 +2548,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -2650,6 +2662,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -2758,6 +2771,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -2866,6 +2880,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -2975,6 +2990,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -3083,6 +3099,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -3190,6 +3207,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -3297,6 +3315,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -3405,6 +3424,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -3513,6 +3533,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -3622,6 +3643,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -3730,6 +3752,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -3838,6 +3861,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -3951,6 +3975,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -4059,6 +4084,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -4167,6 +4193,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -4275,6 +4302,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -4388,6 +4416,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -4498,6 +4527,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -4608,6 +4638,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -4721,6 +4752,232 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
+<details><summary>Mind Mainnet (228)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'arbitrum'
+FinalityDepth = 50
+FinalityTagEnabled = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'Arbitrum'
+PriceDefault = '5 mwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'arbitrum'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+VerifyChainID = true
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
+<details><summary>Lens Mainnet (232)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'zksync'
+FinalityDepth = 50
+FinalityTagEnabled = true
+LinkContractAddress = '0x2Ea38D6cDb6774992d4A62fe622f4405663729Dd'
+LogBackfillBatchSize = 1000
+LogPollInterval = '5s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '7m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 40
+BumpThreshold = 1
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '5s'
+
+[GasEstimator.DAOracle]
+OracleType = 'zksync'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -4829,6 +5086,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -4936,6 +5194,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -5049,6 +5308,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -5161,6 +5421,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -5270,6 +5531,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -5379,6 +5641,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -5491,6 +5754,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -5603,6 +5867,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -5716,6 +5981,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -5829,6 +6095,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -5937,6 +6204,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -6046,6 +6314,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -6159,6 +6428,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -6266,6 +6536,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -6379,6 +6650,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -6489,6 +6761,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -6598,6 +6871,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -6707,6 +6981,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -6815,6 +7090,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -6922,6 +7198,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -7035,6 +7312,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -7148,6 +7426,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -7255,6 +7534,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -7368,6 +7648,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -7481,6 +7762,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -7589,6 +7871,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -7697,6 +7980,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -7810,6 +8094,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -7920,6 +8205,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -8027,6 +8313,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -8135,6 +8422,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -8243,6 +8531,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -8352,6 +8641,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -8465,6 +8755,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -8579,6 +8870,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -8693,6 +8985,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -8800,6 +9093,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -8913,6 +9207,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -9020,6 +9315,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '4s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -9129,6 +9425,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -9241,6 +9538,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -9353,6 +9651,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -9461,6 +9760,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -9574,6 +9874,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -9637,11 +9938,11 @@ Enabled = false
 Enabled = true
 
 [GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '70 gwei'
-PriceMax = '2 micro'
-PriceMin = '70 gwei'
-LimitDefault = 100000000
+Mode = 'FeeHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -9650,7 +9951,7 @@ BumpMin = '5 gwei'
 BumpPercent = 40
 BumpThreshold = 1
 EIP1559DynamicFees = false
-FeeCapDefault = '2 micro'
+FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
@@ -9662,7 +9963,7 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
-CacheTimeout = '10s'
+CacheTimeout = '5s'
 
 [GasEstimator.DAOracle]
 OracleType = 'zksync'
@@ -9686,6 +9987,10 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
+
+[NodePool.Errors]
+TerminallyUnderpriced = '(?:: |^)(max fee per gas less than block base fee|virtual machine entered unexpected state. (?:P|p)lease contact developers and provide transaction details that caused this error. Error description: (?:The operator included transaction with an unacceptable gas price|Assertion error: Fair pubdata price too high))$'
 
 [OCR]
 ContractConfirmations = 4
@@ -9798,6 +10103,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -9824,11 +10130,11 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'celo'
-FinalityDepth = 10
-FinalityTagEnabled = false
+FinalityDepth = 2750
+FinalityTagEnabled = true
 LinkContractAddress = '0xd07294e6E917e07dfDcee882dd1e2565085C2ae0'
 LogBackfillBatchSize = 1000
-LogPollInterval = '5s'
+LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
@@ -9839,8 +10145,8 @@ NoNewHeadsThreshold = '1m0s'
 LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 2
-NoNewFinalizedHeadsThreshold = '1m0s'
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '45m0s'
 
 [Transactions]
 Enabled = true
@@ -9849,7 +10155,7 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
+ResendAfterThreshold = '30s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9873,14 +10179,14 @@ EstimateLimit = false
 BumpMin = '2 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 12
+BlockHistorySize = 50
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
@@ -9889,7 +10195,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [HeadTracker]
-HistoryDepth = 50
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
@@ -9900,13 +10206,14 @@ PersistenceEnabled = true
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
-SyncThreshold = 5
+SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -10015,6 +10322,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -10123,6 +10431,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -10232,6 +10541,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -10347,6 +10657,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -10462,6 +10773,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -10570,6 +10882,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -10683,6 +10996,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -10790,6 +11104,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -10900,6 +11215,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -10973,7 +11289,7 @@ LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 EstimateLimit = false
-BumpMin = '5 gwei'
+BumpMin = '500 mwei'
 BumpPercent = 40
 BumpThreshold = 3
 EIP1559DynamicFees = false
@@ -11010,6 +11326,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -11123,6 +11440,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -11236,6 +11554,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -11347,6 +11666,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -11455,6 +11775,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -11563,6 +11884,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -11671,6 +11993,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -11779,6 +12102,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -11892,6 +12216,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -12004,6 +12329,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -12117,6 +12443,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -12129,6 +12456,335 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
+<details><summary>Plume Mainnet (98866)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+FinalityTagEnabled = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '5s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '10m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '13h0m0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '20 gwei'
+PriceMax = '1 micro'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 mwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '4s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+VerifyChainID = true
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
+<details><summary>Plume Sepolia (98867)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+FinalityTagEnabled = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '5s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '6m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '1h10m0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '20 gwei'
+PriceMax = '1 micro'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 mwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '4s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+VerifyChainID = true
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
+<details><summary>Mind Testnet (192940)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'arbitrum'
+FinalityDepth = 50
+FinalityTagEnabled = true
+LinkContractAddress = '0xd8A9246e84903e82CA01e42774b01A7CdD465BFa'
+LogBackfillBatchSize = 1000
+LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'Arbitrum'
+PriceDefault = '5 mwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'arbitrum'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+VerifyChainID = true
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -12225,6 +12881,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -12333,6 +12990,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -12445,6 +13103,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -12557,6 +13216,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -12669,6 +13329,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -12783,6 +13444,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -12897,6 +13559,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -13006,6 +13669,120 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
+<details><summary>Hemi Testnet (743111)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'optimismBedrock'
+FinalityDepth = 50
+FinalityTagEnabled = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '4s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = false
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '30m0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '2m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 50
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '4s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -13119,6 +13896,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -13232,6 +14010,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -13343,6 +14122,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -13451,6 +14231,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -13564,6 +14345,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 1
@@ -13676,6 +14458,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -13788,6 +14571,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -13901,6 +14685,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -14009,6 +14794,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -14117,6 +14903,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -14952,6 +15739,7 @@ FinalizedBlockPollInterval = '5s' # Default
 EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '1m' # Default
 NewHeadsPollInterval = '0s' # Default
+VerifyChainID = true # Default
 ```
 The node pool manages multiple RPC endpoints.
 
@@ -15052,6 +15840,12 @@ NewHeadsPollInterval = '0s' # Default
 NewHeadsPollInterval define an interval for polling new block periodically using http client rather than subscribe to ws feed
 
 Set to 0 to disable.
+
+### VerifyChainID
+```toml
+VerifyChainID = true # Default
+```
+VerifyChainID enforces RPC Client ChainIDs to match configured ChainID
 
 ## EVM.NodePool.Errors
 :warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._
@@ -15558,7 +16352,7 @@ ComputeUnitPriceDefault is the default price per compute unit price, and the sta
 ```toml
 FeeBumpPeriod = '3s' # Default
 ```
-FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
+FeeBumpPeriod is the amount of time before a tx is retried with a fee bump. WARNING: If FeeBumpPeriod is shorter than blockhash expiration, multiple valid transactions can exist in parallel. This can result in higher costs and can cause unexpected behaviors if contracts do not de-dupe txs
 
 ### BlockHistoryPollPeriod
 ```toml
@@ -15601,6 +16395,7 @@ NewHeadsPollInterval = '10s' # Default
 FinalizedBlockPollInterval = '10s' # Default
 EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '10s' # Default
+VerifyChainID = true # Default
 NodeNoNewHeadsThreshold = '10s' # Default
 NoNewFinalizedHeadsThreshold = '10s' # Default
 FinalityDepth = 0 # Default
@@ -15674,6 +16469,12 @@ EnforceRepeatableRead enforces the repeatable read guarantee for multinode.
 DeathDeclarationDelay = '10s' # Default
 ```
 DeathDeclarationDelay is the duration to wait before declaring a node dead.
+
+### VerifyChainID
+```toml
+VerifyChainID = true # Default
+```
+VerifyChainID enforces RPC Client ChainIDs to match configured ChainID
 
 ### NodeNoNewHeadsThreshold
 ```toml

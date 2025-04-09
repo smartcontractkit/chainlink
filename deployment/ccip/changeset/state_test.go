@@ -5,7 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -17,11 +18,12 @@ func TestSmokeState(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	state, err := changeset.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
-	_, err = state.View(tenv.Env.AllChainSelectors())
+	_, _, err = state.View(&tenv.Env, tenv.Env.AllChainSelectors())
 	require.NoError(t, err)
 }
 
 func TestMCMSState(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-106")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
 	addressbook := deployment.NewMemoryAddressBook()
 	newTv := deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)

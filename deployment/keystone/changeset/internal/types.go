@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,8 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -71,15 +70,10 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 		aptosOcr2KeyBundleId = aptosCC.KeyBundleID
 		aptosOnchainPublicKey = fmt.Sprintf("%x", aptosCC.OnchainPublicKey[:])
 	}
-	registryChainID, err := chainsel.ChainIdFromSelector(registryChainSel)
-	if err != nil {
-		panic(err)
+	evmCC, exists := o.OCRConfigForChainSelector(registryChainSel)
+	if !exists {
+		panic(fmt.Sprintf("ocr2 config not found for chain selector %d", registryChainSel))
 	}
-	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
-	if err != nil {
-		panic(err)
-	}
-	evmCC := o.SelToOCRConfig[registryChainDetails]
 	return NodeKeys{
 		EthAddress:            string(evmCC.TransmitAccount),
 		P2PPeerID:             strings.TrimPrefix(o.PeerID.String(), "p2p_"),

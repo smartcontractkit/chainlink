@@ -16,7 +16,7 @@ import (
 func MustGetEventID(name string, abi2 abi.ABI) common.Hash {
 	event, ok := abi2.Events[name]
 	if !ok {
-		panic(fmt.Sprintf("missing event %s", name))
+		panic("missing event " + name)
 	}
 	return event.ID
 }
@@ -24,7 +24,7 @@ func MustGetEventID(name string, abi2 abi.ABI) common.Hash {
 func MustGetEventInputs(name string, abi2 abi.ABI) abi.Arguments {
 	m, ok := abi2.Events[name]
 	if !ok {
-		panic(fmt.Sprintf("missing event %s", name))
+		panic("missing event " + name)
 	}
 	return m.Inputs
 }
@@ -32,7 +32,7 @@ func MustGetEventInputs(name string, abi2 abi.ABI) abi.Arguments {
 func MustGetMethodInputs(name string, abi2 abi.ABI) abi.Arguments {
 	m, ok := abi2.Methods[name]
 	if !ok {
-		panic(fmt.Sprintf("missing method %s", name))
+		panic("missing method " + name)
 	}
 	return m.Inputs
 }
@@ -163,7 +163,7 @@ func getABI(abiStr string, operationType uint8) (*abi.ABI, error) {
 	case DECODE:
 		operationStr = "outputs"
 	default:
-		return nil, fmt.Errorf("invalid operation type")
+		return nil, errors.New("invalid operation type")
 	}
 
 	inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "%s": %s}]`, operationStr, abiStr)

@@ -11,11 +11,11 @@ import (
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
 )
 
 var _ deployment.ChangeSet[PermaBlessCommitStoreConfig] = PermaBlessCommitStoreChangeset
@@ -57,7 +57,7 @@ type PermaBlessCommitStoreConfigPerDest struct {
 
 type PermaBlessCommitStoreConfig struct {
 	Configs    map[uint64]PermaBlessCommitStoreConfigPerDest
-	MCMSConfig *changeset.MCMSConfig
+	MCMSConfig *proposalutils.TimelockConfig
 }
 
 func (c PermaBlessCommitStoreConfig) Validate(env deployment.Environment) error {
@@ -173,7 +173,7 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 		inspectors,
 		ops,
 		"PermaBless commit stores on RMN",
-		c.MCMSConfig.MinDelay,
+		*c.MCMSConfig,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

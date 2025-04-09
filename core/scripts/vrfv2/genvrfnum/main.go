@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
@@ -86,9 +87,9 @@ func main() {
 				preSeed := preseed(keyHash, sender, *subID, nonce)
 				record = append(record,
 					keyHash.String(), sender.String(), // keyHash, sender addr
-					fmt.Sprintf("%d", *subID), fmt.Sprintf("%d", nonce), hexutil.Encode(preSeed[:]), // subId, nonce, preseed
-					*blockhashStr, fmt.Sprintf("%d", *blockNum), // blockhash, blocknum
-					fmt.Sprintf("%d", *cbGasLimit), fmt.Sprintf("%d", *numWords)) // cb gas limit, num words
+					strconv.FormatUint(*subID, 10), strconv.FormatUint(nonce, 10), hexutil.Encode(preSeed[:]), // subId, nonce, preseed
+					*blockhashStr, strconv.FormatUint(*blockNum, 10), // blockhash, blocknum
+					strconv.FormatUint(uint64(*cbGasLimit), 10), strconv.FormatUint(uint64(*numWords), 10)) // cb gas limit, num words
 
 				preseedData := proof.PreSeedDataV2{
 					PreSeed:          preSeed,

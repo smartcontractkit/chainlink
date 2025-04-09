@@ -9,9 +9,10 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -40,6 +41,7 @@ const (
 	GatewayJobSpec              JobSpecType = "gateway"
 	WorkflowJobSpec             JobSpecType = "workflow"
 	StandardCapabilitiesJobSpec JobSpecType = "standardcapabilities"
+	CCIPSJobSpec                JobSpecType = "ccip"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job

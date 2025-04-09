@@ -14,12 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config"
-	mocks2 "github.com/smartcontractkit/chainlink-integrations/evm/config/mocks"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	mocks2 "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -71,8 +71,8 @@ func TestResolver_ETHKeys(t *testing.T) {
 		},
 	}
 	gError := errors.New("error")
-	keysError := fmt.Errorf("error getting unlocked keys: %v", gError)
-	statesError := fmt.Errorf("error getting key states: %v", gError)
+	keysError := fmt.Errorf("error getting unlocked keys: %w", gError)
+	statesError := fmt.Errorf("error getting key states: %w", gError)
 
 	evmMockConfig := mockEvmConfig{linkAddr: "0x5431F5F973781809D18643b87B44921b11355d81", gasEstimatorMock: mocks2.NewGasEstimator(t)}
 	evmMockConfig.gasEstimatorMock.On("PriceMaxKey", mock.Anything).Return(assets.NewWeiI(1))

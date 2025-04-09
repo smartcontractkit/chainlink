@@ -1,7 +1,6 @@
 package ccipdata
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -16,10 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -121,7 +120,7 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 		).Return([]logpoller.Log{}, nil)
 
 		usdcMessageData, err := u.GetUSDCMessagePriorToLogIndexInTx(ctx, ccipLogIndex, 0, txHash.String())
-		assert.Errorf(t, err, fmt.Sprintf("no USDC message found prior to log index %d in tx %s", ccipLogIndex, txHash.Hex()))
+		assert.Errorf(t, err, "no USDC message found prior to log index %d in tx %s", ccipLogIndex, txHash.Hex())
 		assert.Nil(t, usdcMessageData)
 
 		lp.AssertExpectations(t)

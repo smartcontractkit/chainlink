@@ -13,7 +13,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	configtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -261,6 +261,10 @@ func (c RawConfig) NodeNames() []string {
 }
 
 func (c RawConfig) SetDefaults() {
+	if e, ok := c["Enabled"].(bool); ok && e {
+		// already enabled by default so drop it
+		delete(c, "Enabled")
+	}
 }
 
 // TOMLString returns a TOML encoded string.
@@ -432,12 +436,27 @@ func (s *Secrets) TOMLString() (string, error) {
 	return string(b), nil
 }
 
-var ErrInvalidSecrets = errors.New("invalid secrets")
+type InvalidSecretsError struct {
+	err error
+}
+
+func (e InvalidSecretsError) Error() string {
+	return fmt.Sprintf("invalid secrets: %v", e.err)
+}
+
+func (e InvalidSecretsError) Unwrap() error {
+	return e.err
+}
+
+func (e InvalidSecretsError) Is(err error) bool {
+	_, ok := err.(InvalidSecretsError) //nolint:errcheck // implementing errors.Is
+	return ok
+}
 
 // Validate validates every consitutent secret and return an accumulated error
 func (s *Secrets) Validate() error {
 	if err := commonconfig.Validate(s); err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
+		return InvalidSecretsError{err: err}
 	}
 	return nil
 }
@@ -459,7 +478,7 @@ func (s *Secrets) ValidateDB() error {
 	s.setDefaults()
 	v := &dbValidationType{s.Database}
 	if err := commonconfig.Validate(v); err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
+		return InvalidSecretsError{err: err}
 	}
 	return nil
 }

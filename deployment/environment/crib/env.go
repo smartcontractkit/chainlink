@@ -1,25 +1,38 @@
 package crib
 
+import (
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+)
+
 const (
-	AddressBookFileName   = "ccip-v2-scripts-address-book.json"
-	NodesDetailsFileName  = "ccip-v2-scripts-nodes-details.json"
-	ChainsConfigsFileName = "ccip-v2-scripts-chains-details.json"
+	AddressBookFileName       = "address-book.json"
+	NodesDetailsFileName      = "nodes-details.json"
+	ChainsConfigsFileName     = "chains-details.json"
+	RMNNodeIdentitiesFileName = "rmn-node-identities.json"
 )
 
 type CRIBEnv struct {
-	envStateDir string
+	lggr                logger.Logger
+	cribEnvStateDirPath string
 }
 
-func NewDevspaceEnvFromStateDir(envStateDir string) CRIBEnv {
+func NewDevspaceEnvFromStateDir(lggr logger.Logger, envStateDir string) CRIBEnv {
 	return CRIBEnv{
-		envStateDir: envStateDir,
+		lggr:                lggr,
+		cribEnvStateDirPath: envStateDir,
 	}
 }
 
 func (c CRIBEnv) GetConfig(key string) (DeployOutput, error) {
-	reader := NewOutputReader(c.envStateDir)
-	nodesDetails := reader.ReadNodesDetails()
-	chainConfigs := reader.ReadChainConfigs()
+	reader := NewOutputReader(c.cribEnvStateDirPath)
+	nodesDetails, err := reader.ReadNodesDetails()
+	if err != nil {
+		c.lggr.Warn("No nodes details found, not necessary for testing.. continuing...", err)
+	}
+	chainConfigs, err := reader.ReadChainConfigs()
+	if err != nil {
+		return DeployOutput{}, err
+	}
 	for i, chain := range chainConfigs {
 		err := chain.SetDeployerKey(&key)
 		if err != nil {
@@ -28,8 +41,13 @@ func (c CRIBEnv) GetConfig(key string) (DeployOutput, error) {
 		chainConfigs[i] = chain
 	}
 
+	addressBook, err := reader.ReadAddressBook()
+	if err != nil {
+		return DeployOutput{}, err
+	}
+
 	return DeployOutput{
-		AddressBook: reader.ReadAddressBook(),
+		AddressBook: addressBook,
 		NodeIDs:     nodesDetails.NodeIDs,
 		Chains:      chainConfigs,
 	}, nil
@@ -48,6 +66,13 @@ type ChainConfig struct {
 	HTTPRPCs  []RPC  // http rpcs to connect to the chain
 }
 
+type BootstrapNode struct {
+	P2PID        string
+	InternalHost string
+	Port         string
+}
+
 type NodesDetails struct {
-	NodeIDs []string
+	NodeIDs       []string
+	BootstrapNode BootstrapNode
 }

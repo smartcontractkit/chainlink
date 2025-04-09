@@ -9,14 +9,11 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
@@ -25,10 +22,10 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kf "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 )
 
 type ConfigureContractsRequest struct {
@@ -437,7 +434,7 @@ type RegisterNOPSRequest struct {
 
 type RegisterNOPSResponse struct {
 	Nops []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded // if UseMCMS is false, a list of added node operators is returned
-	Ops  *timelock.BatchChainOperation                                  // if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
+	Ops  *mcmstypes.BatchOperation                                      // if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
 }
 
 func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
@@ -517,23 +514,19 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 	return resp, nil
 }
 
-func addNOPsMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator, regChain deployment.Chain) (*timelock.BatchChainOperation, error) {
+func addNOPsMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator, regChain deployment.Chain) (*mcmstypes.BatchOperation, error) {
 	tx, err := registry.AddNodeOperators(deployment.SimTransactOpts(), nops)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
 
-	return &timelock.BatchChainOperation{
-		ChainIdentifier: mcms.ChainIdentifier(regChain.Selector),
-		Batch: []mcms.Operation{
-			{
-				To:    registry.Address(),
-				Data:  tx.Data(),
-				Value: big.NewInt(0),
-			},
-		},
-	}, nil
+	ops, err := proposalutils.BatchOperationForChain(regChain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create batch operation: %w", err)
+	}
+
+	return &ops, nil
 }
 
 // register nodes
@@ -663,16 +656,8 @@ func extractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer [32
 	if err != nil {
 		return signer, enc, fmt.Errorf("error decoding workflow key: %w", err)
 	}
-	chainID, err := chainsel.ChainIdFromSelector(chainSel)
-	if err != nil {
-		return signer, enc, fmt.Errorf("error getting chain id for selector %d: %w", chainSel, err)
-	}
-	chainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(chainID, 10), chainsel.FamilyEVM)
-	if err != nil {
-		return signer, enc, fmt.Errorf("error getting chain details for selector %d, chain id %d: %w", chainSel, chainID, err)
-	}
 
-	evmCC, exists := n.SelToOCRConfig[chainDetails]
+	evmCC, exists := n.OCRConfigForChainSelector(chainSel)
 	if !exists {
 		return signer, enc, fmt.Errorf("config for selector %v not found on node (id: %s, name: %s)", chainSel, n.NodeID, n.Name)
 	}
@@ -994,12 +979,12 @@ func containsAllDONs(donInfos []capabilities_registry.CapabilitiesRegistryDONInf
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (map[uint64]timelock.BatchChainOperation, error) {
+func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (map[uint64]mcmstypes.BatchOperation, error) {
 	if fwdr == nil {
 		return nil, errors.New("nil forwarder contract")
 	}
 	var (
-		opMap = make(map[uint64]timelock.BatchChainOperation)
+		opMap = make(map[uint64]mcmstypes.BatchOperation)
 	)
 	for _, dn := range dons {
 		if !dn.Info.AcceptsWorkflows {
@@ -1024,15 +1009,9 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.Key
 			}
 		} else {
 			// create the mcms proposals
-			ops := timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chain.Selector),
-				Batch: []mcms.Operation{
-					{
-						To:    fwdr.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
+			ops, err := proposalutils.BatchOperationForChain(chain.Selector, fwdr.Address().Hex(), tx.Data(), big.NewInt(0), string(KeystoneForwarder), nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create proposal batch operation for chain %d: %w", chain.Selector, err)
 			}
 			opMap[chain.Selector] = ops
 		}

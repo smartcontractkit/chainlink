@@ -11,16 +11,26 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 )
 
+// ConfigureTokenPoolContractsChangeset is responsible for the following operations:
+// If the chain is already supported -
+//  1. it updates the rate limits for the chain
+//  2. it adds a new remote pool if the token pool on the remote chain is being updated
+//
+// If the chain is not supported -
+//  1. it adds chain support with the desired rate limits
+//  2. it adds the desired remote pool addresses to the token pool on the chain
+//  3. if there used to be an existing token pool on tokenadmin_registry, it adds the remote pool addresses of that token pool to ensure 0 downtime
 var _ deployment.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
@@ -70,6 +80,9 @@ type TokenPoolConfig struct {
 	Type deployment.ContractType
 	// Version is the version of the token pool.
 	Version semver.Version
+	// OverrideTokenSymbol is the token symbol to use to override against main symbol (ex: override to clCCIP-LnM when the main token symbol is CCIP-LnM)
+	// WARNING: This should only be used in exceptional cases where the token symbol on a particular chain differs from the main tokenSymbol
+	OverrideTokenSymbol changeset.TokenSymbol
 }
 
 func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, state changeset.CCIPChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
@@ -81,6 +94,10 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 	// Ensure that the inputted version is known
 	if _, ok := changeset.TokenPoolVersions[c.Version]; !ok {
 		return fmt.Errorf("%s is not a known token pool version", c.Version)
+	}
+
+	if c.OverrideTokenSymbol != "" {
+		tokenSymbol = c.OverrideTokenSymbol
 	}
 
 	// Ensure that a pool with given symbol, type and version is known to the environment
@@ -109,7 +126,7 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 // ConfigureTokenPoolContractsConfig is the configuration for the ConfigureTokenPoolContractsConfig changeset.
 type ConfigureTokenPoolContractsConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *changeset.MCMSConfig
+	MCMS *proposalutils.TimelockConfig
 	// PoolUpdates defines the changes that we want to make to the token pool on a chain
 	PoolUpdates map[uint64]TokenPoolConfig
 	// Symbol is the symbol of the token of interest.
@@ -201,6 +218,15 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 
 // configureTokenPool creates all transactions required to configure the desired token pool on a chain,
 // either applying the transactions with the deployer key or returning an MCMS proposal.
+// configureTokenPool is responsible for the following operations:
+// If the chain is already supported -
+//  1. it updates the rate limits for the chain
+//  2. it adds a new remote pool if the token pool on the remote chain is being updated
+//
+// If the chain is not supported -
+//  1. it adds chain support with the desired rate limits
+//  2. it adds the desired remote pool addresses to the token pool on the chain
+//  3. if there used to be an existing token pool on tokenadmin_registry, it adds the remote pool addresses of that token pool to ensure 0 downtime
 func configureTokenPool(
 	ctx context.Context,
 	opts *bind.TransactOpts,
@@ -210,8 +236,12 @@ func configureTokenPool(
 	chainSelector uint64,
 ) error {
 	poolUpdate := config.PoolUpdates[chainSelector]
+	tokenSymbol := config.TokenSymbol
+	if poolUpdate.OverrideTokenSymbol != "" {
+		tokenSymbol = poolUpdate.OverrideTokenSymbol
+	}
 	chain := chains[chainSelector]
-	tokenPool, _, tokenConfig, err := getTokenStateFromPool(ctx, config.TokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
+	tokenPool, _, tokenConfig, err := getTokenStateFromPool(ctx, tokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
 	if err != nil {
 		return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
 	}
@@ -232,7 +262,11 @@ func configureTokenPool(
 		}
 		remoteChain := chains[remoteChainSelector]
 		remotePoolUpdate := config.PoolUpdates[remoteChainSelector]
-		remoteTokenPool, remoteTokenAddress, remoteTokenConfig, err := getTokenStateFromPool(ctx, config.TokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
+		tokenSymbol = config.TokenSymbol
+		if remotePoolUpdate.OverrideTokenSymbol != "" {
+			tokenSymbol = remotePoolUpdate.OverrideTokenSymbol
+		}
+		remoteTokenPool, remoteTokenAddress, remoteTokenConfig, err := getTokenStateFromPool(ctx, tokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
 		if err != nil {
 			return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
 		}
@@ -264,7 +298,7 @@ func configureTokenPool(
 				}
 				for _, address := range remotePoolAddressesOnChain {
 					if !bytes.Equal(address, remoteTokenPoolAddressBytes) {
-						remotePoolAddresses = append(remotePoolAddresses, remotePoolAddressesOnChain...)
+						remotePoolAddresses = append(remotePoolAddresses, address)
 					}
 				}
 			}

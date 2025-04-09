@@ -1,7 +1,6 @@
 package keystore_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,7 +20,7 @@ func TestMasterKeystore_Unlock_Save(t *testing.T) {
 	const tableName = "encrypted_key_rings"
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
-		_, err := db.Exec(fmt.Sprintf("DELETE FROM %s", tableName))
+		_, err := db.Exec("DELETE FROM " + tableName)
 		require.NoError(t, err)
 	}
 

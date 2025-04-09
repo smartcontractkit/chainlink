@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,7 +47,7 @@ func TestBase64DecodeTask(t *testing.T) {
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("without vars through input param", func(t *testing.T) {
-				inputStr := fmt.Sprintf("%v", test.input)
+				inputStr := test.input
 				if inputStr == "" {
 					// empty input parameter is indistinguishable from not providing it at all
 					// in that case the task will use an input defined by the job DAG

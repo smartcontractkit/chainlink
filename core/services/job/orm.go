@@ -21,9 +21,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -348,20 +349,14 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				}
 
 				// Check if secondary transmitter address is used as primary somewhere else
-				hasLock, err2 := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(dtTransmitterAddress), keystore.TXMv1)
-				if err2 != nil {
-					return err2
-				} else if hasLock {
+				if checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(dtTransmitterAddress), evmkeystore.TXMv1) {
 					return errors.Errorf("key %s cannot be a secondary transmitter address because it's used a primary transmitter in another job", dtTransmitterAddress)
 				}
 			}
 
 			// Check if primary transmitter address is used as secondary somewhere else, don't check for mercury as it uses CSA keys for transmitters
 			if jb.OCR2OracleSpec.PluginType != types.Mercury {
-				hasLock, err2 := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(jb.OCR2OracleSpec.TransmitterID.String), keystore.TXMv2)
-				if err2 != nil {
-					return err2
-				} else if hasLock {
+				if checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(jb.OCR2OracleSpec.TransmitterID.String), evmkeystore.TXMv2) {
 					return errors.Errorf("key %s cannot be a (primary) transmitter address because it's used a secondary transmitter address in another job", jb.OCR2OracleSpec.TransmitterID.String)
 				}
 			}
@@ -1427,7 +1422,7 @@ func (o *orm) PipelineRuns(ctx context.Context, jobID *int32, offset, size int) 
 		filter = fmt.Sprintf("JOIN job_pipeline_specs USING(pipeline_spec_id) WHERE job_pipeline_specs.job_id = %d", *jobID)
 	}
 	err = o.transact(ctx, false, func(tx *orm) error {
-		sql := fmt.Sprintf(`SELECT count(*) FROM pipeline_runs %s`, filter)
+		sql := "SELECT count(*) FROM pipeline_runs " + filter
 		if err = tx.ds.QueryRowxContext(ctx, sql).Scan(&count); err != nil {
 			return errors.Wrap(err, "error counting runs")
 		}
@@ -1730,7 +1725,7 @@ func (o *orm) loadJobSpecErrors(ctx context.Context, jb *Job) error {
 }
 
 func validateDualTransmissionHint(vals []interface{}) error {
-	accepted := []string{"contract_address", "function_selector", "logs", "calldata", "default_logs"}
+	accepted := []string{"contract_address", "function_selector", "logs", "calldata", "default_logs", "full"}
 	for _, v := range vals {
 		valString, ok := v.(string)
 		if !ok {
@@ -1793,11 +1788,8 @@ func validateDualTransmissionMeta(meta map[string]interface{}) error {
 	return nil
 }
 
-func checkIfKeyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, usage keystore.ServiceType) (bool, error) {
-	rm, err := ks.GetResourceMutex(ctx, address)
-	if err != nil {
-		return false, err
-	}
+func checkIfKeyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, usage evmkeystore.ServiceType) bool {
+	rm := ks.GetResourceMutex(ctx, address)
 
 	return rm.IsLocked(usage)
 }

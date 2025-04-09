@@ -2,7 +2,7 @@ package ocr
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,13 +22,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
@@ -168,7 +168,7 @@ func (t *OCRContractTracker) Start(ctx context.Context) error {
 		t.wg.Add(1)
 		go t.processLogs()
 
-		t.mailMon.Monitor(t.configsMB, "OCRContractTracker", "Configs", fmt.Sprint(t.jobID))
+		t.mailMon.Monitor(t.configsMB, "OCRContractTracker", "Configs", strconv.Itoa(int(t.jobID)))
 
 		return nil
 	})
@@ -456,7 +456,7 @@ func getEventTopic(name string) gethCommon.Hash {
 	}
 	event, exists := abi.Events[name]
 	if !exists {
-		panic(fmt.Sprintf("abi.Events was missing %s", name))
+		panic("abi.Events was missing " + name)
 	}
 	return event.ID
 }

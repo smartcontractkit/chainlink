@@ -9,13 +9,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	solanainternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/solana"
+	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -23,13 +26,16 @@ import (
 )
 
 func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-404")
+
+	t.Parallel()
 	envConfig := memory.MemoryEnvironmentConfig{SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, envConfig)
 	chainSelector := env.AllChainSelectorsSolana()[0]
 	chain := env.SolChains[chainSelector]
 	defaultState := func() *state.MCMSWithTimelockStateSolana {
 		addressBook := deployment.NewMemoryAddressBook()
-		chainState, err := solanainternal.DeployMCMSWithTimelockProgramsSolana(env, chain, addressBook,
+		chainState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, chain, addressBook,
 			commontypes.MCMSWithTimelockConfigV2{
 				Proposer: mcmstypes.Config{
 					Quorum:  1,

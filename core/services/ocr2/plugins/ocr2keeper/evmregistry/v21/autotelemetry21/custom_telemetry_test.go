@@ -7,8 +7,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
@@ -33,9 +33,9 @@ func TestNewAutomationCustomTelemetryService(t *testing.T) {
 		t.Errorf("Expected no error, but got: %v", err)
 	}
 	service.monitoringEndpoint.SendLog([]byte("test"))
-	assert.Equal(t, me.LogCount(), 1)
+	assert.Equal(t, 1, me.LogCount())
 	service.monitoringEndpoint.SendLog([]byte("test2"))
-	assert.Equal(t, me.LogCount(), 2)
+	assert.Equal(t, 2, me.LogCount())
 	service.Close()
 }
 

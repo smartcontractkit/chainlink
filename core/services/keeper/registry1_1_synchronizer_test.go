@@ -14,11 +14,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	registry1_1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	registry1_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -159,7 +159,7 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.LastKeeperIndex.Valid
-	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(true))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 	g.Eventually(func() int64 {
 		var upkeep keeper.UpkeepRegistration
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)

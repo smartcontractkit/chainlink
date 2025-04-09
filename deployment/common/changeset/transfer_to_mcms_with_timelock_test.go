@@ -52,7 +52,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 				ContractsByChain: map[uint64][]common.Address{
 					chain1: {link.LinkToken.Address()},
 				},
-				MinDelay: 0,
+				MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
 			},
 		),
 	)
@@ -117,7 +117,9 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 				ContractsByChain: map[uint64][]common.Address{
 					chain1: {link.LinkToken.Address()},
 				},
-				MinDelay: 0,
+				MCMSConfig: proposalutils.TimelockConfig{
+					MinDelay: 0,
+				},
 			},
 		),
 	)

@@ -14,21 +14,23 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
-	gasmocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
-	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -43,7 +45,7 @@ import (
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
 func newMockedEncodeTransmissionInfo() ([]byte, error) {
-	info := targets.TransmissionInfo{
+	info := evm.TransmissionInfo{
 		GasLimit:        big.NewInt(0),
 		InvalidReceiver: false,
 		State:           0,
@@ -109,17 +111,21 @@ func TestEvmWrite(t *testing.T) {
 	// It's a bit of a hack, but it's the best way to do it without a lot of refactoring
 	mockCall, err := newMockedEncodeTransmissionInfo()
 	require.NoError(t, err)
+
 	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Maybe()
 	evmClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte("test"), nil)
 
-	txManager.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(commonTypes.Finalized, nil)
+	txManager.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(commontypes.Finalized, nil).Maybe()
 
+	chain.On("Start", mock.Anything).Return(nil)
+	chain.On("Close").Return(nil)
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
 	chain.On("LogPoller").Return(poller)
+	chain.On("LatestHead", mock.Anything).Return(commontypes.Head{Height: "99"}, nil)
 
 	ht := headstest.NewTracker[*evmtypes.Head, common.Hash](t)
-	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{}, &evmtypes.Head{}, nil)
+	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{Number: 99}, &evmtypes.Head{}, nil)
 	chain.On("HeadTracker").Return(ht)
 
 	chain.On("Client").Return(evmClient)
@@ -146,18 +152,20 @@ func TestEvmWrite(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	cRegistry := evmcapabilities.NewRegistry(lggr)
-	relayer, err := relayevm.NewRelayer(testutils.Context(t), lggr, chain, relayevm.RelayerOpts{
+	relayer, err := relayevm.NewRelayer(lggr, chain, relayevm.RelayerOpts{
 		DS:                   db,
-		CSAETHKeystore:       keyStore,
+		EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
+		CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
 		CapabilitiesRegistry: cRegistry,
 	})
 	require.NoError(t, err)
+	servicetest.Run(t, relayer)
 	registeredCapabilities, err := cRegistry.List(testutils.Context(t))
 	require.NoError(t, err)
 	require.Len(t, registeredCapabilities, 1) // WriteTarget should be added to the registry
 
 	reportID := [2]byte{0x00, 0x01}
-	reportMetadata := targets.ReportV1Metadata{
+	reportMetadata := evm.ReportV1Metadata{
 		Version:             1,
 		WorkflowExecutionID: [32]byte{},
 		Timestamp:           0,
@@ -219,6 +227,7 @@ func TestEvmWrite(t *testing.T) {
 			Inputs:   validInputs,
 		}
 
+		// TODO: This successfully makes sure a tx is created and submitted, but it doesn't check if the tx is actually sent. Is there a E2E test?
 		_, err = capability.Execute(ctx, req)
 		require.NoError(t, err)
 	})
@@ -270,20 +279,70 @@ func TestEvmWrite(t *testing.T) {
 			require.NoError(t, err2)
 			c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
 		})
+		testChain.On("Start", mock.Anything).Return(nil)
+		testChain.On("Close").Return(nil)
 		testChain.On("ID").Return(big.NewInt(11155111))
 		testChain.On("Config").Return(evmtest.NewChainScopedConfig(t, testCfg))
 		capabilityRegistry := evmcapabilities.NewRegistry(lggr)
 
-		_, err := relayevm.NewRelayer(ctx, lggr, testChain, relayevm.RelayerOpts{
+		relayer, err := relayevm.NewRelayer(lggr, testChain, relayevm.RelayerOpts{
 			DS:                   db,
-			CSAETHKeystore:       keyStore,
+			EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
+			CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
 			CapabilitiesRegistry: capabilityRegistry,
 		})
 		require.NoError(t, err)
+		servicetest.Run(t, relayer)
 
 		l, err := capabilityRegistry.List(ctx)
 		require.NoError(t, err)
 
 		assert.Empty(t, l)
 	})
+}
+
+func TestExtractNetwork(t *testing.T) {
+	testCases := []struct {
+		networkName  string
+		expectedName string
+		expectedErr  bool
+	}{
+		{
+			networkName:  "ethereum-testnet-goerli",
+			expectedName: "testnet",
+			expectedErr:  false,
+		},
+		{
+			networkName:  "ethereum-mainnet",
+			expectedName: "mainnet",
+			expectedErr:  false,
+		},
+		{
+			networkName:  "polygon-devnet",
+			expectedName: "devnet",
+			expectedErr:  false,
+		},
+		{
+			networkName:  "ethereum_test",
+			expectedName: "",
+			expectedErr:  true,
+		},
+		{
+			networkName:  "ethereum",
+			expectedName: "",
+			expectedErr:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.networkName, func(t *testing.T) {
+			networkName, err := evm.ExtractNetwork(tc.networkName)
+			if tc.expectedErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedName, networkName)
+		})
+	}
 }

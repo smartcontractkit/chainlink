@@ -15,8 +15,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
@@ -24,13 +23,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -49,7 +50,7 @@ type DonContext struct {
 	p2pNetwork            *FakeRageP2PNetwork
 	capabilityRegistry    *CapabilitiesRegistry
 	workflowRegistry      *WorkflowRegistry
-	syncerFetcherFunc     syncer.FetcherFunc
+	syncerFetcherFunc     artifacts.FetcherFunc
 	computeFetcherFactory compute.FetcherFactory
 }
 
@@ -63,7 +64,7 @@ func CreateDonContext(ctx context.Context, t *testing.T) DonContext {
 	return DonContext{EthBlockchain: ethBlockchain, p2pNetwork: rageP2PNetwork, capabilityRegistry: capabilitiesRegistry}
 }
 
-func CreateDonContextWithWorkflowRegistry(ctx context.Context, t *testing.T, syncerFetcherFunc syncer.FetcherFunc,
+func CreateDonContextWithWorkflowRegistry(ctx context.Context, t *testing.T, syncerFetcherFunc artifacts.FetcherFunc,
 	computeFetcherFactory compute.FetcherFactory) DonContext {
 	donContext := CreateDonContext(ctx, t)
 	workflowRegistry := NewWorkflowRegistry(ctx, t, donContext.EthBlockchain)
@@ -196,6 +197,7 @@ func (d *DON) Initialise() {
 		d.nodeConfigModifiers = append(d.nodeConfigModifiers, func(c *chainlink.Config, node *capabilityNode) {
 			workflowRegistryAddressStr := d.workflowRegistry.addr.String()
 			c.Capabilities.WorkflowRegistry.Address = &workflowRegistryAddressStr
+			c.Capabilities.WorkflowRegistry.ChainID = ptr(fmt.Sprintf("%d", testutils.SimulatedChainID))
 		})
 	}
 	d.initialised = true
@@ -411,9 +413,10 @@ func startNewNode(ctx context.Context,
 	newOracleFactoryFn standardcapabilities.NewOracleFactoryFn,
 	keyV2 ethkey.KeyV2,
 	setupCfg func(c *chainlink.Config),
-	fetcherFunc syncer.FetcherFunc,
+	fetcherFunc artifacts.FetcherFunc,
 	fetcherFactoryFunc compute.FetcherFactory,
 ) *cltest.TestApplication {
+	beholderTester := tests.Beholder(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Capabilities.ExternalRegistry.ChainID = ptr(fmt.Sprintf("%d", testutils.SimulatedChainID))
 		c.Capabilities.ExternalRegistry.Address = ptr(capRegistryAddr.String())
@@ -441,8 +444,9 @@ func startNewNode(ctx context.Context,
 	require.NoError(t, err)
 	ethBlockchain.Commit()
 
-	return cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, ethBlockchain.Backend, nodeInfo,
-		dispatcher, peerWrapper, newOracleFactoryFn, localCapabilities, keyV2, lggr, fetcherFunc, fetcherFactoryFunc)
+	return cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, ethBlockchain.Backend,
+		nodeInfo, dispatcher, peerWrapper, newOracleFactoryFn, localCapabilities, keyV2, lggr, fetcherFunc,
+		fetcherFactoryFunc, beholderTester)
 }
 
 // Functions below this point are for adding non-standard capabilities to a DON, deliberately verbose. Eventually these
@@ -555,8 +559,4 @@ func addOCR3Capability(ctx context.Context, t *testing.T, lggr logger.Logger, ca
 	transmitter := ocr3.NewContractTransmitter(lggr, capabilityRegistry, "")
 
 	libocr.AddNode(plugin, transmitter, ocr2KeyBundle)
-}
-
-func Context(tb testing.TB) (ctx context.Context, cancel func()) {
-	return context.WithCancel(testutils.Context(tb))
 }

@@ -10,11 +10,14 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type OCR3SignerVerifier interface {
+	SignBlob(b []byte) (sig []byte, err error)
+	VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b []byte, sig []byte) bool
 	Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error)
 	Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool
 }
@@ -31,7 +34,7 @@ type KeyBundle interface {
 	ChainType() chaintype.ChainType
 	Marshal() ([]byte, error)
 	Unmarshal(b []byte) (err error)
-	Raw() Raw
+	Raw() internal.Raw
 	OnChainPublicKey() string
 	// Decrypts ciphertext using the encryptionKey from an OCR2 OffchainKeyring
 	NaclBoxOpenAnonymous(ciphertext []byte) (plaintext []byte, err error)
@@ -111,11 +114,9 @@ func (kb keyBundleBase) GoString() string {
 	return kb.String()
 }
 
-type Raw []byte
-
-func (raw Raw) Key() (kb KeyBundle) {
+func KeyFor(raw internal.Raw) (kb KeyBundle) {
 	var temp struct{ ChainType chaintype.ChainType }
-	err := json.Unmarshal(raw, &temp)
+	err := json.Unmarshal(raw.Bytes(), &temp)
 	if err != nil {
 		panic(err)
 	}
@@ -135,7 +136,7 @@ func (raw Raw) Key() (kb KeyBundle) {
 	default:
 		return nil
 	}
-	if err := kb.Unmarshal(raw); err != nil {
+	if err := kb.Unmarshal(raw.Bytes()); err != nil {
 		panic(err)
 	}
 	return

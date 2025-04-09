@@ -5,6 +5,7 @@ import (
 	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -33,21 +34,21 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/dummy_protocol_wrapper"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	registrylogica21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
-	registrylogicb21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
-	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	automationForwarderLogic "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_forwarder_logic"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/basic_upkeep_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/dummy_protocol_wrapper"
+	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	registrylogica21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
+	registrylogicb21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
+	registry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/log_upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -225,7 +226,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	commit()
 
 	ids, addrs, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, upkeeps)
-	require.Equal(t, upkeeps, len(ids))
+	require.Len(t, ids, upkeeps)
 	require.Equal(t, len(ids), len(contracts))
 	require.Equal(t, len(ids), len(addrs))
 
@@ -1157,7 +1158,7 @@ func (c *feedLookupUpkeepController) EmitEvents(
 
 		require.True(t, eventEmitted, "event expected on backend")
 		if !eventEmitted {
-			return fmt.Errorf("event was not emitted")
+			return errors.New("event was not emitted")
 		}
 
 		afterEmit()

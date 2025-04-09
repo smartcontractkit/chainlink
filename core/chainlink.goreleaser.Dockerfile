@@ -5,7 +5,7 @@ FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
 ARG TARGETARCH
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 
 # Install Postgres for CLI tools, needed specifically for DB backups
@@ -45,7 +45,7 @@ RUN if [ ${CHAINLINK_USER} != root ]; then \
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
 # explicit set the cache dir. needed so both root and non-root user has an explicit location
-ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
+ENV XDG_CACHE_HOME=/home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
 EXPOSE 6688

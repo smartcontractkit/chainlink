@@ -23,11 +23,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -491,7 +491,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 
 			oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-			require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+			require.NoError(t, fm.SetOracleAddress(t.Context()))
 			fm.ExportedPollIfEligible(thresholds.rel, thresholds.abs)
 		})
 	}
@@ -526,7 +526,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 		Once()
 
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-	require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+	require.NoError(t, fm.SetOracleAddress(t.Context()))
 
 	fm.ExportedPollIfEligible(1, 1)
 }
@@ -784,7 +784,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			}
 
 			require.NoError(t, fm.Start(testutils.Context(t)))
-			require.Len(t, idleDurationOccured, 0, "no Job Runs created")
+			require.Empty(t, idleDurationOccured, "no Job Runs created")
 
 			if tc.expectedToSubmit {
 				g.Eventually(func() int { return len(idleDurationOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
@@ -817,7 +817,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			fm.Close()
 
 			if !tc.expectedToSubmit {
-				require.Len(t, idleDurationOccured, 0)
+				require.Empty(t, idleDurationOccured)
 			}
 		})
 	}
@@ -1068,7 +1068,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		}, nil).Once().Run(func(args mock.Arguments) {
 		initialPollOccurred <- struct{}{}
 	})
-	require.Len(t, idleDurationOccured, 0, "no Job Runs created")
+	require.Empty(t, idleDurationOccured, "no Job Runs created")
 	g.Eventually(func() int { return len(initialPollOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
 
 	// idleDuration 1 triggers using the same round id as the initial poll. This resets the idle timer
@@ -1171,7 +1171,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	tm.fluxAggregator.On("Address").Return(common.Address{})
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 
-	require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+	require.NoError(t, fm.SetOracleAddress(t.Context()))
 	fm.ExportedRoundState(t)
 	servicetest.Run(t, fm)
 
@@ -1506,7 +1506,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Return(nil)
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+		require.NoError(t, fm.SetOracleAddress(t.Context()))
 
 		tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(flux_aggregator_wrapper.LatestRoundData{
 			Answer:    big.NewInt(10),
@@ -1635,7 +1635,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Once()
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+		require.NoError(t, fm.SetOracleAddress(t.Context()))
 		fm.ExportedPollIfEligible(0, 0)
 
 		// Now fire off the NewRound log and ensure it does not respond this time
@@ -1732,7 +1732,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Once()
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+		require.NoError(t, fm.SetOracleAddress(t.Context()))
 		fm.ExportedPollIfEligible(0, 0)
 
 		// Now fire off the NewRound log and ensure it does not respond this time

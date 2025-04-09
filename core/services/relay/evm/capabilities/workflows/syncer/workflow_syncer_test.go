@@ -5,7 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
+	"math/big"
 	rand2 "math/rand/v2"
 	"strings"
 	"sync"
@@ -24,13 +27,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -57,6 +63,8 @@ type testEvtHandler struct {
 	events []syncer.Event
 	mux    sync.Mutex
 }
+
+func (m *testEvtHandler) Close() error { return nil }
 
 func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event) error {
 	m.mux.Lock()
@@ -309,8 +317,12 @@ func Test_SecretsWorker(t *testing.T) {
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
-		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
+		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
+		encryptionKey  = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+		workflowOwner  = backendTH.ContractsOwner.From.Hex()
+		beforeContents = "contents"
+		afterContents  = "updated contents"
 		giveTicker     = time.NewTicker(500 * time.Millisecond)
 		giveSecretsURL = "https://original-url.com"
 		donID          = uint32(1)
@@ -321,12 +333,17 @@ func Test_SecretsWorker(t *testing.T) {
 			SecretsURL: giveSecretsURL,
 			BinaryURL:  "someurl",
 		}
-		giveContents = "contents"
-		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
-			return []byte(wantContents), nil
-		}
 	)
+
+	beforeSecretsPayload := encryptSecrets(t, workflowOwner, map[string][]string{
+		"SECRET_A": {beforeContents},
+	}, encryptionKey)
+	afterSecretsPayload := encryptSecrets(t, workflowOwner, map[string][]string{
+		"SECRET_A": {afterContents},
+	}, encryptionKey)
+	fetcherFn := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
+		return afterSecretsPayload, nil
+	}
 
 	defer giveTicker.Stop()
 
@@ -346,7 +363,7 @@ func Test_SecretsWorker(t *testing.T) {
 	require.NoError(t, err)
 	giveHash := hex.EncodeToString(hash)
 
-	gotID, err := orm.Create(ctx, giveSecretsURL, giveHash, giveContents)
+	gotID, err := orm.Create(ctx, giveSecretsURL, giveHash, string(beforeSecretsPayload))
 	require.NoError(t, err)
 
 	gotSecretsURL, err := orm.GetSecretsURLByID(ctx, gotID)
@@ -356,17 +373,18 @@ func Test_SecretsWorker(t *testing.T) {
 	// verify the DB
 	contents, err := orm.GetContents(ctx, giveSecretsURL)
 	require.NoError(t, err)
-	require.Equal(t, contents, giveContents)
-
+	require.Equal(t, string(beforeSecretsPayload), contents)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 
-	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
 	require.NoError(t, err)
 
+	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), encryptionKey, emitter)
+
 	handler := &testSecretsWorkEventHandler{
-		wrappedHandler: syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-			emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, wl),
+		wrappedHandler: syncer.NewEventHandler(lggr, nil, nil,
+			emitter, rl, wl, store),
 		registeredCh: make(chan syncer.Event, 1),
 	}
 
@@ -405,7 +423,7 @@ func Test_SecretsWorker(t *testing.T) {
 		secrets, err := orm.GetContents(ctx, giveSecretsURL)
 		lggr.Debugf("got secrets %v", secrets)
 		require.NoError(t, err)
-		return secrets == wantContents
+		return secrets == string(afterSecretsPayload)
 	}, tests.WaitTimeout(t), time.Second)
 }
 
@@ -493,7 +511,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
-		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
+		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
 		giveTicker    = time.NewTicker(500 * time.Millisecond)
 		giveBinaryURL = "https://original-url.com"
@@ -505,7 +523,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)
@@ -526,11 +544,13 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 
-	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
 	require.NoError(t, err)
 
-	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, wl, syncer.WithEngineRegistry(er))
+	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+
+	handler := syncer.NewEventHandler(lggr, nil, nil,
+		emitter, rl, wl, store, syncer.WithEngineRegistry(er))
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
@@ -596,7 +616,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
-		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
+		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
 		giveTicker    = time.NewTicker(500 * time.Millisecond)
 		giveBinaryURL = "https://original-url.com"
@@ -608,7 +628,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)
@@ -629,22 +649,13 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
-	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
 	require.NoError(t, err)
-	handler := syncer.NewEventHandler(
-		lggr,
-		orm,
-		fetcherFn,
-		nil,
-		nil,
-		emitter,
-		clockwork.NewFakeClock(),
-		workflowkey.Key{},
-		rl,
-		wl,
-		syncer.WithEngineRegistry(er),
-		syncer.WithEngineFactoryFn(mf.new),
-	)
+
+	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+
+	handler := syncer.NewEventHandler(lggr, nil, nil,
+		emitter, rl, wl, store, syncer.WithEngineRegistry(er), syncer.WithEngineFactoryFn(mf.new))
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
@@ -820,6 +831,7 @@ func updateWorkflow(
 }
 
 type evtHandler interface {
+	io.Closer
 	Handle(ctx context.Context, event syncer.Event) error
 }
 
@@ -827,6 +839,8 @@ type testSecretsWorkEventHandler struct {
 	wrappedHandler evtHandler
 	registeredCh   chan syncer.Event
 }
+
+func (m *testSecretsWorkEventHandler) Close() error { return m.wrappedHandler.Close() }
 
 func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event syncer.Event) error {
 	switch {
@@ -838,4 +852,29 @@ func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event syncer.E
 	default:
 		panic(fmt.Sprintf("unexpected event type: %v", event.GetEventType()))
 	}
+}
+
+func encryptSecrets(t *testing.T, workflowOwner string, secretsMap map[string][]string, encryptionKey workflowkey.Key) []byte {
+	sm, secretsEnvVars, err := secrets.EncryptSecretsForNodes(
+		workflowOwner,
+		secretsMap,
+		map[string][32]byte{
+			"p2pId": encryptionKey.PublicKey(),
+		},
+		secrets.SecretsConfig{},
+	)
+	require.NoError(t, err)
+
+	secretsPayload, err := json.Marshal(secrets.EncryptedSecretsResult{
+		EncryptedSecrets: sm,
+		Metadata: secrets.Metadata{
+			WorkflowOwner:          workflowOwner,
+			EnvVarsAssignedToNodes: secretsEnvVars,
+			NodePublicEncryptionKeys: map[string]string{
+				"p2pId": encryptionKey.PublicKeyString(),
+			},
+		},
+	})
+	require.NoError(t, err)
+	return secretsPayload
 }

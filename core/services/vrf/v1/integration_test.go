@@ -17,9 +17,9 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -90,8 +90,8 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				return len(runs) == 2 && runs[0].State == pipeline.RunStatusCompleted && runs[1].State == pipeline.RunStatusCompleted
 			}, testutils.WaitTimeout(t), 1*time.Second)
 			assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
-			assert.Equal(t, 4, len(runs[0].PipelineTaskRuns))
-			assert.Equal(t, 4, len(runs[1].PipelineTaskRuns))
+			assert.Len(t, runs[0].PipelineTaskRuns, 4)
+			assert.Len(t, runs[1].PipelineTaskRuns, 4)
 			assert.NotNil(t, 0, runs[0].Outputs.Val)
 			assert.NotNil(t, 0, runs[1].Outputs.Val)
 
@@ -210,7 +210,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
 	}, 10*time.Second, 1*time.Second)
 	assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
-	assert.Equal(t, 4, len(runs[0].PipelineTaskRuns))
+	assert.Len(t, runs[0].PipelineTaskRuns, 4)
 	assert.NotNil(t, 0, runs[0].Outputs.Val)
 
 	// stop jobs as to not cause a race condition in geth simulated backend

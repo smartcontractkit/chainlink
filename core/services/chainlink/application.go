@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/grafana/pyroscope-go"
 	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -25,14 +27,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -42,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -57,7 +64,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -67,6 +74,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
@@ -75,6 +83,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
@@ -126,9 +135,9 @@ type Application interface {
 	// Feeds
 	GetFeedsService() feeds.Service
 
-	// ReplayFromBlock replays logs from on or after the given block number. If forceBroadcast is
-	// set to true, consumers will reprocess data even if it has already been processed.
-	ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error
+	// ReplayFromBlock replays logs from on or after the given block number. If forceBroadcast (evm only)
+	// is set to true, consumers will reprocess data even if it has already been processed.
+	ReplayFromBlock(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool) error
 
 	// ID is unique to this particular application instance
 	ID() uuid.UUID
@@ -180,25 +189,24 @@ type ApplicationOpts struct {
 	// CREOpts is the options for the CRE services
 	CREOpts
 
-	Config                     GeneralConfig
-	Logger                     logger.Logger
-	MailMon                    *mailbox.Monitor
-	DS                         sqlutil.DataSource
-	KeyStore                   keystore.Master
-	RelayerChainInteroperators *CoreRelayerChainInteroperators
-	AuditLogger                audit.AuditLogger
-	CloseLogger                func() error
-	ExternalInitiatorManager   webhook.ExternalInitiatorManager
-	Version                    string
-	RestrictedHTTPClient       *http.Client
-	UnrestrictedHTTPClient     *http.Client
-	SecretGenerator            SecretGenerator
-	LoopRegistry               *plugins.LoopRegistry
-	GRPCOpts                   loop.GRPCOpts
-	MercuryPool                wsrpc.Pool
-	RetirementReportCache      llo.RetirementReportCache
-	LLOTransmissionReaper      services.ServiceCtx
-	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
+	Config                   GeneralConfig
+	Logger                   logger.Logger
+	Registerer               prometheus.Registerer
+	DS                       sqlutil.DataSource
+	KeyStore                 keystore.Master
+	AuditLogger              audit.AuditLogger
+	CloseLogger              func() error
+	ExternalInitiatorManager webhook.ExternalInitiatorManager
+	Version                  string
+	RestrictedHTTPClient     *http.Client
+	UnrestrictedHTTPClient   *http.Client
+	SecretGenerator          SecretGenerator
+	GRPCOpts                 loop.GRPCOpts
+	MercuryPool              wsrpc.Pool
+	RetirementReportCache    retirement.RetirementReportCache
+	LLOTransmissionReaper    services.ServiceCtx
+	NewOracleFactoryFn       standardcapabilities.NewOracleFactoryFn
+	EVMFactoryConfigFn       func(*EVMFactoryConfig)
 }
 
 type Heartbeat struct {
@@ -260,7 +268,7 @@ func (h *Heartbeat) getBeat() time.Duration {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
-func NewApplication(opts ApplicationOpts) (Application, error) {
+func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
 
 	heartbeat := NewHeartbeat(opts.Logger)
@@ -268,29 +276,85 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	auditLogger := opts.AuditLogger
 	cfg := opts.Config
-	relayerChainInterops := opts.RelayerChainInteroperators
-	mailMon := opts.MailMon
 	externalInitiatorManager := opts.ExternalInitiatorManager
 	globalLogger := logger.Sugared(opts.Logger)
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
+	mailMon := mailbox.NewMonitor(cfg.AppID().String(), globalLogger.Named("Mailbox"))
+
 	if opts.CapabilitiesRegistry == nil {
 		// for tests only, in prod Registry should always be set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
-	creCfg := creServiceConfig{
-		DS:                   opts.DS,
-		CREOpts:              opts.CREOpts,
-		capabilityCfg:        cfg.Capabilities(),
-		workflowsCfg:         cfg.Workflows(),
-		logger:               globalLogger,
-		relayerChainInterops: relayerChainInterops,
-		keystore:             keyStore,
+	csaKeystore := &keystore.CSASigner{CSA: keyStore.CSA()}
+	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(ctx, keyStore.CSA())
+	if err != nil {
+		return nil, fmt.Errorf("failed to build Beholder auth: %w", err)
 	}
-	creServices, err := newCREServices(creCfg)
+	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.Database(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+
+	relayerFactory := RelayerFactory{
+		Logger:                opts.Logger,
+		Registerer:            opts.Registerer,
+		LoopRegistry:          loopRegistry,
+		GRPCOpts:              opts.GRPCOpts,
+		MercuryPool:           opts.MercuryPool,
+		CapabilitiesRegistry:  opts.CapabilitiesRegistry,
+		HTTPClient:            opts.UnrestrictedHTTPClient,
+		RetirementReportCache: opts.RetirementReportCache,
+	}
+
+	evmFactoryCfg := EVMFactoryConfig{
+		ChainOpts: legacyevm.ChainOpts{
+			ChainConfigs:   cfg.EVMConfigs(),
+			DatabaseConfig: cfg.Database(),
+			ListenerConfig: cfg.Database().Listener(),
+			FeatureConfig:  cfg.Feature(),
+			MailMon:        mailMon,
+			DS:             opts.DS,
+		},
+		EthKeystore:   keyStore.Eth(),
+		CSAKeystore:   csaKeystore,
+		MercuryConfig: cfg.Mercury(),
+	}
+
+	if opts.EVMFactoryConfigFn != nil {
+		opts.EVMFactoryConfigFn(&evmFactoryCfg)
+	}
+
+	// evm always enabled for backward compatibility
+	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction
+	initOps := []CoreRelayerChainInitFunc{InitDummy(relayerFactory), InitEVM(relayerFactory, evmFactoryCfg)}
+
+	if cfg.CosmosEnabled() {
+		initOps = append(initOps, InitCosmos(relayerFactory, keyStore.Cosmos(), cfg.CosmosConfigs()))
+	}
+	if cfg.SolanaEnabled() {
+		solanaCfg := SolanaFactoryConfig{
+			TOMLConfigs: cfg.SolanaConfigs(),
+			DS:          opts.DS,
+		}
+		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), solanaCfg))
+	}
+	if cfg.StarkNetEnabled() {
+		initOps = append(initOps, InitStarknet(relayerFactory, keyStore.StarkNet(), cfg.StarknetConfigs()))
+	}
+	if cfg.AptosEnabled() {
+		initOps = append(initOps, InitAptos(relayerFactory, keyStore.Aptos(), cfg.AptosConfigs()))
+	}
+	if cfg.TronEnabled() {
+		initOps = append(initOps, InitTron(relayerFactory, keyStore.Tron(), cfg.TronConfigs()))
+	}
+
+	relayChainInterops, err := NewCoreRelayerChainInteroperators(initOps...)
+	if err != nil {
+		return nil, err
+	}
+
+	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
@@ -299,12 +363,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// as OCR2 job implementations, in the case of Median today.
 	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
 	// we need to initialize in case we serve OCR2 LOOPs
-	loopRegistry := opts.LoopRegistry
 	if loopRegistry == nil {
-		beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(keyStore)
-		if err != nil {
-			return nil, fmt.Errorf("could not build Beholder auth: %w", err)
-		}
 		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Database(), opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 	}
 
@@ -333,7 +392,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), keyStore.CSA(), globalLogger)
+	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, globalLogger)
 	srvcs = append(srvcs, telemetryManager)
 
 	backupCfg := cfg.Database().Backup()
@@ -363,13 +422,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// EVM chains are used all over the place. This will need to change for fully EVM extraction
 	// TODO: BCF-2510, BCF-2511
 
-	legacyEVMChains := relayerChainInterops.LegacyEVMChains()
+	legacyEVMChains := relayChainInterops.LegacyEVMChains()
 	if legacyEVMChains == nil {
-		return nil, fmt.Errorf("no evm chains found")
+		return nil, errors.New("no evm chains found")
 	}
 
 	srvcs = append(srvcs, mailMon)
-	srvcs = append(srvcs, relayerChainInterops.Services()...)
+	srvcs = append(srvcs, relayChainInterops.Services()...)
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
@@ -408,7 +467,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(opts.DS, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
-		workflowORM    = workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock())
+		workflowORM    = workflowstore.NewInMemoryStore(globalLogger, clockwork.NewRealClock())
 	)
 	srvcs = append(srvcs, workflowORM)
 
@@ -427,7 +486,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	srvcs = append(srvcs, pipelineORM)
 
-	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register, opts.LoopRegistry.Unregister)
+	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, loopRegistry.Register, loopRegistry.Unregister)
 
 	var (
 		delegates = map[job.Type]job.Delegate{
@@ -519,7 +578,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	} else {
-		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
+		return nil, errors.New("P2P stack required for OCR or OCR2")
 	}
 
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
@@ -530,7 +589,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		loopRegistrarConfig,
 		telemetryManager,
 		pipelineRunner,
-		opts.RelayerChainInteroperators,
+		relayChainInterops,
 		creServices.gatewayConnectorWrapper,
 		keyStore,
 		peerWrapper,
@@ -542,7 +601,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
 			opts.DS,
 			jobORM,
-			keyStore,
+			keyStore.Eth(),
+			keyStore.OCR(),
 			pipelineRunner,
 			peerWrapper,
 			telemetryManager,
@@ -574,7 +634,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				Lggr:                  globalLogger,
 				Ks:                    keyStore.OCR2(),
 				EthKs:                 keyStore.Eth(),
-				Relayers:              opts.RelayerChainInteroperators,
+				Relayers:              relayChainInterops,
 				MailMon:               mailMon,
 				CapabilitiesRegistry:  opts.CapabilitiesRegistry,
 				RetirementReportCache: opts.RetirementReportCache,
@@ -588,13 +648,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg.OCR2(),
 			cfg.Insecure(),
-			opts.RelayerChainInteroperators,
+			relayChainInterops,
 		)
 		delegates[job.CCIP] = ccip.NewDelegate(
 			globalLogger,
 			loopRegistrarConfig,
 			pipelineRunner,
-			relayerChainInterops,
+			relayChainInterops,
 			opts.KeyStore,
 			opts.DS,
 			peerWrapper,
@@ -657,7 +717,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	return &ChainlinkApplication{
-		relayers:                 opts.RelayerChainInteroperators,
+		relayers:                 relayChainInterops,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
@@ -701,7 +761,7 @@ type CREOpts struct {
 	CapabilitiesDispatcher  remotetypes.Dispatcher
 	CapabilitiesPeerWrapper p2ptypes.PeerWrapper
 
-	FetcherFunc      syncer.FetcherFunc
+	FetcherFunc      artifacts.FetcherFunc
 	FetcherFactoryFn compute.FetcherFactory
 }
 
@@ -733,16 +793,16 @@ type CREServices struct {
 	srvs []services.ServiceCtx
 }
 
-func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
-	var (
-		capCfg               = cscfg.capabilityCfg
-		wCfg                 = cscfg.workflowsCfg
-		globalLogger         = cscfg.logger
-		keyStore             = cscfg.keystore
-		relayerChainInterops = cscfg.relayerChainInterops
-		opts                 = cscfg.CREOpts
-		ds                   = cscfg.DS
-	)
+func newCREServices(
+	ctx context.Context,
+	globalLogger logger.Logger,
+	ds sqlutil.DataSource,
+	keyStore creKeystore,
+	capCfg config.Capabilities,
+	wCfg config.Workflows,
+	relayerChainInterops *CoreRelayerChainInteroperators,
+	opts CREOpts,
+) (*CREServices, error) {
 	var srvcs []services.ServiceCtx
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      capCfg.RateLimit().GlobalRPS(),
@@ -754,9 +814,14 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
 	}
 
-	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
-		Global:   wCfg.Limits().Global(),
-		PerOwner: wCfg.Limits().PerOwner(),
+	if len(wCfg.Limits().PerOwnerOverrides()) > 0 {
+		globalLogger.Debugw("loaded per owner overrides", "overrides", wCfg.Limits().PerOwnerOverrides())
+	}
+
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(globalLogger, syncerlimiter.Config{
+		Global:            wCfg.Limits().Global(),
+		PerOwner:          wCfg.Limits().PerOwner(),
+		PerOwnerOverrides: wCfg.Limits().PerOwnerOverrides(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow syncer limiter: %w", err)
@@ -765,9 +830,13 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	if capCfg.GatewayConnector().DonID() != "" {
 		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", capCfg.GatewayConnector().DonID())
+		chainID, ok := new(big.Int).SetString(capCfg.GatewayConnector().ChainIDForNodeKey(), 0)
+		if !ok {
+			return nil, fmt.Errorf("failed to parse gateway connector chain ID as integer: %s", capCfg.GatewayConnector().ChainIDForNodeKey())
+		}
 		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
 			capCfg.GatewayConnector(),
-			keyStore.Eth(),
+			keys.NewStore(keystore.NewEthSigner(keyStore.Eth(), chainID)),
 			clockwork.NewRealClock(),
 			globalLogger)
 		srvcs = append(srvcs, gatewayConnectorWrapper)
@@ -832,7 +901,7 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 
 			if capCfg.WorkflowRegistry().Address() != "" {
 				lggr := globalLogger.Named("WorkflowRegistrySyncer")
-				var fetcherFunc syncer.FetcherFunc
+				var fetcherFunc artifacts.FetcherFunc
 				if opts.FetcherFunc == nil {
 					if gatewayConnectorWrapper == nil {
 						return nil, errors.New("unable to create workflow registry syncer without gateway connector")
@@ -844,37 +913,29 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 					fetcherFunc = opts.FetcherFunc
 				}
 
-				err = keyStore.Workflow().EnsureKey(context.Background())
-				if err != nil {
-					return nil, fmt.Errorf("failed to ensure workflow key: %w", err)
-				}
-
-				keys, err := keyStore.Workflow().GetAll()
+				key, err := keystore.GetDefault(ctx, keyStore.Workflow())
 				if err != nil {
 					return nil, fmt.Errorf("failed to get all workflow keys: %w", err)
 				}
-				if len(keys) != 1 {
-					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
-				}
 
-				eventHandler := syncer.NewEventHandler(
-					lggr,
-					syncer.NewWorkflowRegistryDS(ds, globalLogger),
+				artifactsStore := artifacts.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
 					fetcherFunc,
-					workflowstore.NewDBStore(ds, lggr, clockwork.NewRealClock()),
-					opts.CapabilitiesRegistry,
-					custmsg.NewLabeler(),
-					clockwork.NewRealClock(),
-					keys[0],
-					workflowRateLimiter,
-					workflowLimits,
-					syncer.WithMaxArtifactSize(
-						syncer.ArtifactConfig{
+					clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifacts.WithMaxArtifactSize(
+						artifacts.ArtifactConfig{
 							MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
 							MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
 							MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
 						},
-					),
+					))
+
+				eventHandler := syncer.NewEventHandler(
+					lggr,
+					workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+					opts.CapabilitiesRegistry,
+					custmsg.NewLabeler(),
+					workflowRateLimiter,
+					workflowLimits,
+					artifactsStore,
 				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
@@ -1201,14 +1262,32 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 }
 
 // ReplayFromBlock implements the Application interface.
-func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
-	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
-	if err != nil {
-		return err
-	}
-	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
-	if app.Config.Feature().LogPoller() {
-		chain.LogPoller().ReplayAsync(int64(number))
+func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool) error {
+	switch chainFamily {
+	case relay.NetworkEVM:
+		// TODO: Implement EVM Replay on Relayer instead of using LegacyChains - BCFR-1160
+		chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID)
+		if err != nil {
+			return err
+		}
+		//nolint:gosec // this won't overflow
+		fromBlock := int64(number)
+		chain.LogBroadcaster().ReplayFromBlock(fromBlock, forceBroadcast)
+		if app.Config.Feature().LogPoller() {
+			chain.LogPoller().ReplayAsync(fromBlock)
+		}
+	default:
+		relayer, err := app.GetRelayers().Get(commontypes.RelayID{
+			Network: chainFamily,
+			ChainID: chainID,
+		})
+		if err != nil {
+			return err
+		}
+		err = relayer.Replay(ctx, strconv.FormatUint(number, 10), map[string]any{})
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -1251,7 +1330,7 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 		return nil, err
 	}
 	if !app.Config.Feature().LogPoller() {
-		return nil, fmt.Errorf("FindLCA is only available if LogPoller is enabled")
+		return nil, errors.New("FindLCA is only available if LogPoller is enabled")
 	}
 
 	lca, err := chain.LogPoller().FindLCA(ctx)
@@ -1269,7 +1348,7 @@ func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, c
 		return err
 	}
 	if !app.Config.Feature().LogPoller() {
-		return fmt.Errorf("DeleteLogPollerDataAfter is only available if LogPoller is enabled")
+		return errors.New("DeleteLogPollerDataAfter is only available if LogPoller is enabled")
 	}
 
 	err = chain.LogPoller().DeleteLogsAndBlocksAfter(ctx, start)

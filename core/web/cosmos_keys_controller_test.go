@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -84,13 +83,13 @@ func TestCosmosKeysController_Delete_HappyPath(t *testing.T) {
 	initialLength := len(keys)
 	key, _ := keyStore.Cosmos().Create(ctx)
 
-	response, cleanup := client.Delete(fmt.Sprintf("/v2/keys/cosmos/%s", key.ID()))
+	response, cleanup := client.Delete("/v2/keys/cosmos/" + key.ID())
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	assert.Error(t, utils.JustError(keyStore.Cosmos().Get(key.ID())))
 
 	keys, _ = keyStore.Cosmos().GetAll()
-	assert.Equal(t, initialLength, len(keys))
+	assert.Len(t, keys, initialLength)
 }
 
 func setupCosmosKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {

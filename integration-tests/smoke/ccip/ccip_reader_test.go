@@ -35,25 +35,24 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/pgtest"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	evmchaintypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmchaintypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_reader_tester"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_reader_tester"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -553,34 +552,37 @@ func requireEqualRoots(
 		)
 	}
 }
-
-func TestCCIPReader_ExecutedMessages(t *testing.T) {
+func commitSqNrs(
+	s *testSetupData,
+	chainSel cciptypes.ChainSelector,
+	seqNums []uint64,
+	state uint8) error {
+	for _, sqnr := range seqNums {
+		_, err := s.contract.EmitExecutionStateChanged(
+			s.auth,
+			uint64(chainSel),
+			sqnr,
+			cciptypes.Bytes32{1, 0, 0, 1},
+			cciptypes.Bytes32{1, 0, 0, 1, 1, 0, 0, 1},
+			state,
+			[]byte{1, 2, 3, 4},
+			big.NewInt(250_000),
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	s := setupExecutedMessagesTest(ctx, t, false)
-	_, err := s.contract.EmitExecutionStateChanged(
-		s.auth,
-		uint64(chainS1),
-		14,
-		cciptypes.Bytes32{1, 0, 0, 1},
-		cciptypes.Bytes32{1, 0, 0, 1, 1, 0, 0, 1},
-		1,
-		[]byte{1, 2, 3, 4},
-		big.NewInt(250_000),
-	)
+	err := commitSqNrs(s, chainS1, []uint64{14}, 1)
 	require.NoError(t, err)
 	s.sb.Commit()
 
-	_, err = s.contract.EmitExecutionStateChanged(
-		s.auth,
-		uint64(chainS1),
-		15,
-		cciptypes.Bytes32{1, 0, 0, 2},
-		cciptypes.Bytes32{1, 0, 0, 2, 1, 0, 0, 2},
-		1,
-		[]byte{1, 2, 3, 4, 5},
-		big.NewInt(350_000),
-	)
+	err = commitSqNrs(s, chainS1, []uint64{15}, 1)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -588,19 +590,104 @@ func TestCCIPReader_ExecutedMessages(t *testing.T) {
 	// Maybe another situation where chain reader doesn't register filters as expected.
 	require.NoError(t, s.lp.Replay(ctx, 1))
 
-	var executedMsgs []cciptypes.SeqNum
+	var executedMsgs map[cciptypes.ChainSelector][]cciptypes.SeqNum
 	require.Eventually(t, func() bool {
 		executedMsgs, err = s.reader.ExecutedMessages(
 			ctx,
-			chainS1,
-			cciptypes.NewSeqNumRange(14, 15),
+			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
+				chainS1: {
+					cciptypes.NewSeqNumRange(14, 15),
+				},
+			},
+			primitives.Unconfirmed,
+		)
+		require.NoError(t, err)
+		return len(executedMsgs[chainS1]) == 2
+	}, tests.WaitTimeout(t), 50*time.Millisecond)
+
+	assert.Equal(t, []cciptypes.SeqNum{14, 15}, executedMsgs[chainS1])
+}
+
+func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
+	t.Parallel()
+	ctx := tests.Context(t)
+	s := setupExecutedMessagesTest(ctx, t, false)
+	err := commitSqNrs(s, chainS1, []uint64{15}, 1)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS2, []uint64{15}, 1)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	// Need to replay as sometimes the logs are not picked up by the log poller (?)
+	// Maybe another situation where chain reader doesn't register filters as expected.
+	require.NoError(t, s.lp.Replay(ctx, 1))
+
+	var executedMsgs map[cciptypes.ChainSelector][]cciptypes.SeqNum
+	require.Eventually(t, func() bool {
+		executedMsgs, err = s.reader.ExecutedMessages(
+			ctx,
+			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
+				chainS1: {
+					cciptypes.NewSeqNumRange(14, 16),
+				},
+				chainS2: {
+					cciptypes.NewSeqNumRange(15, 15),
+				},
+				chainS3: {}, // empty, should not affect query
+			},
+			primitives.Unconfirmed,
+		)
+		require.NoError(t, err)
+		return executedMsgs[chainS1][0] == 15 && executedMsgs[chainS2][0] == 15
+	}, tests.WaitTimeout(t), 50*time.Millisecond)
+
+	assert.Equal(t, []cciptypes.SeqNum{15}, executedMsgs[chainS1])
+	assert.Len(t, executedMsgs, 2)
+	assert.Equal(t, []cciptypes.SeqNum{15}, executedMsgs[chainS1])
+	assert.Equal(t, []cciptypes.SeqNum{15}, executedMsgs[chainS2])
+}
+
+func TestCCIPReader_ExecutedMessages_MultiChainDisjoint(t *testing.T) {
+	t.Parallel()
+	ctx := tests.Context(t)
+	s := setupExecutedMessagesTest(ctx, t, false)
+	err := commitSqNrs(s, chainS1, []uint64{15, 17, 70}, 1)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS2, []uint64{15, 16}, 1)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	// Need to replay as sometimes the logs are not picked up by the log poller (?)
+	// Maybe another situation where chain reader doesn't register filters as expected.
+	require.NoError(t, s.lp.Replay(ctx, 1))
+
+	var executedMsgs map[cciptypes.ChainSelector][]cciptypes.SeqNum
+	require.Eventually(t, func() bool {
+		executedMsgs, err = s.reader.ExecutedMessages(
+			ctx,
+			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
+				chainS1: {
+					cciptypes.NewSeqNumRange(10, 20),
+					cciptypes.NewSeqNumRange(70, 70),
+				},
+				chainS2: {
+					cciptypes.NewSeqNumRange(15, 16),
+				},
+			},
 			primitives.Unconfirmed,
 		)
 		require.NoError(t, err)
 		return len(executedMsgs) == 2
 	}, tests.WaitTimeout(t), 50*time.Millisecond)
 
-	assert.Equal(t, []cciptypes.SeqNum{14, 15}, executedMsgs)
+	assert.Len(t, executedMsgs[chainS1], 3)
+	assert.Len(t, executedMsgs[chainS2], 2)
+	assert.Equal(t, []cciptypes.SeqNum{15, 17, 70}, executedMsgs[chainS1])
+	assert.Equal(t, []cciptypes.SeqNum{15, 16}, executedMsgs[chainS2])
 }
 
 func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
@@ -824,18 +911,22 @@ func TestCCIPReader_Nonces(t *testing.T) {
 	}
 	s.sb.Commit()
 
-	for sourceChain, addrs := range nonces {
-		var addrQuery []string
-		for addr := range addrs {
-			addrQuery = append(addrQuery, addr.String())
+	request := make(map[cciptypes.ChainSelector][]string)
+	for chain, addresses := range nonces {
+		request[chain] = make([]string, 0, len(addresses))
+		for address := range addresses {
+			request[chain] = append(request[chain], address.String())
 		}
-		addrQuery = append(addrQuery, utils.RandomAddress().String())
+		request[chain] = append(request[chain], utils.RandomAddress().String())
+	}
 
-		results, err := s.reader.Nonces(ctx, sourceChain, addrQuery)
-		require.NoError(t, err)
-		assert.Len(t, results, len(addrQuery))
-		for addr, nonce := range addrs {
-			assert.Equal(t, nonce, results[addr.String()])
+	results, err := s.reader.Nonces(ctx, request)
+	require.NoError(t, err)
+
+	for chain, addresses := range nonces {
+		assert.Len(t, results[chain], len(request[chain]))
+		for address, nonce := range addresses {
+			assert.Equal(t, nonce, results[chain][address.String()])
 		}
 	}
 }
@@ -1181,65 +1272,6 @@ func Test_LinkPriceUSD(t *testing.T) {
 	require.Equal(t, testhelpers.DefaultLinkPrice, linkPriceUSD.Int)
 }
 
-func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
-	t.Parallel()
-	ctx := tests.Context(t)
-	env, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(4))
-	state, err := changeset.LoadOnchainState(env.Env)
-	require.NoError(t, err)
-
-	selectors := env.Env.AllChainSelectors()
-	destChain, chain1, chain2, chain3 := selectors[0], selectors[1], selectors[2], selectors[3]
-
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, destChain, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, destChain, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain3, destChain, false)
-
-	boundContracts := map[cciptypes.ChainSelector][]types.BoundContract{}
-	for i, selector := range env.Env.AllChainSelectorsExcluding([]uint64{destChain}) {
-		feeQuoter := state.Chains[selector].FeeQuoter
-		destChainCfg := v1_6.DefaultFeeQuoterDestChainConfig(true)
-		//nolint:gosec // disable G115
-		destChainCfg.DestDataAvailabilityOverheadGas = uint32(100 + i)
-		//nolint:gosec // disable G115
-		destChainCfg.DestGasPerDataAvailabilityByte = uint16(200 + i)
-		//nolint:gosec // disable G115
-		destChainCfg.DestDataAvailabilityMultiplierBps = uint16(1 + i)
-		_, err2 := feeQuoter.ApplyDestChainConfigUpdates(env.Env.Chains[selector].DeployerKey, []fee_quoter.FeeQuoterDestChainConfigArgs{
-			{
-				DestChainSelector: destChain,
-				DestChainConfig:   destChainCfg,
-			},
-		})
-		require.NoError(t, err2)
-		be := env.Env.Chains[selector].Client.(*memory.Backend)
-		be.Commit()
-		boundContracts[cs(selector)] = []types.BoundContract{
-			{
-				Address: feeQuoter.Address().String(),
-				Name:    consts.ContractNameFeeQuoter,
-			},
-		}
-	}
-
-	reader := testSetupRealContracts(
-		ctx,
-		t,
-		destChain,
-		boundContracts,
-		nil,
-		env,
-	)
-
-	daConfig, err := reader.GetMedianDataAvailabilityGasConfig(ctx)
-	require.NoError(t, err)
-
-	// Verify the results
-	require.Equal(t, uint32(101), daConfig.DestDataAvailabilityOverheadGas)
-	require.Equal(t, uint16(201), daConfig.DestGasPerDataAvailabilityByte)
-	require.Equal(t, uint16(2), daConfig.DestDataAvailabilityMultiplierBps)
-}
-
 func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
@@ -1457,12 +1489,15 @@ func benchmarkExecutedMessages(b *testing.B, logsInsertedFirst int, startSeqNum,
 	for i := 0; i < b.N; i++ {
 		executedRanges, err := s.reader.ExecutedMessages(
 			ctx,
-			chainS1,
-			cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
+			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
+				chainS1: {
+					cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
+				},
+			},
 			primitives.Unconfirmed,
 		)
 		require.NoError(b, err)
-		require.Len(b, executedRanges, expectedRangeLen)
+		require.Len(b, executedRanges[chainS1], expectedRangeLen)
 	}
 }
 

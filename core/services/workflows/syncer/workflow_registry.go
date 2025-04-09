@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"iter"
 	"strconv"
 	"strings"
@@ -17,8 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -92,7 +94,7 @@ type WorkflowLoadConfig struct {
 }
 
 // FetcherFunc is an abstraction for fetching the contents stored at a URL.
-type FetcherFunc func(ctx context.Context, url string, maxBytesSize uint32) ([]byte, error)
+type FetcherFunc func(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error)
 
 // ContractReader is a subset of types.ContractReader defined locally to enable mocking.
 type ContractReader interface {
@@ -148,6 +150,7 @@ func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 }
 
 type evtHandler interface {
+	io.Closer
 	Handle(ctx context.Context, event Event) error
 }
 
@@ -244,7 +247,7 @@ func (w *workflowRegistry) Close() error {
 	return w.StopOnce(w.Name(), func() error {
 		close(w.stopCh)
 		w.wg.Wait()
-		return nil
+		return w.handler.Close()
 	})
 }
 

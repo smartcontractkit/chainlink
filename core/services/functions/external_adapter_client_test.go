@@ -2,6 +2,7 @@ package functions_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,7 +34,7 @@ func runFetcherTest(t *testing.T, adapterJSONResponse, expectedSecrets, expected
 	if expectedError != nil {
 		assert.Equal(t, expectedError.Error(), err.Error(), "Unexpected error")
 	} else {
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 	assert.Equal(t, expectedUserError, string(userError), "Unexpected userError")
 	assert.Equal(t, expectedSecrets, string(encryptedSecrets), "Unexpected secrets")
@@ -56,7 +57,7 @@ func runRequestTest(t *testing.T, adapterJSONResponse, expectedUserResult, expec
 	if expectedError != nil {
 		assert.Equal(t, expectedError.Error(), err.Error(), "Unexpected error")
 	} else {
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 	assert.Equal(t, expectedUserResult, string(userResult), "Unexpected user result")
 	assert.Equal(t, expectedUserError, string(userError), "Unexpected user error")
@@ -89,7 +90,7 @@ func TestFetchEncryptedSecrets_UnexpectedResponse(t *testing.T) {
 	runFetcherTest(t, `{
 			"invalid": "invalid",
 			"statusCode": 200
-		}`, "", "", fmt.Errorf("error fetching encrypted secrets: external adapter response data was empty"))
+		}`, "", "", errors.New("error fetching encrypted secrets: external adapter response data was empty"))
 }
 
 func TestFetchEncryptedSecrets_FailedStatusCode(t *testing.T) {
@@ -100,14 +101,14 @@ func TestFetchEncryptedSecrets_FailedStatusCode(t *testing.T) {
 				"error": "0x616263646566"
 			},
 			"statusCode": 400
-		}`, "", "", fmt.Errorf("error fetching encrypted secrets: external adapter invalid StatusCode 400"))
+		}`, "", "", errors.New("error fetching encrypted secrets: external adapter invalid StatusCode 400"))
 }
 
 func TestFetchEncryptedSecrets_MissingData(t *testing.T) {
 	runFetcherTest(t, `{
 			"result": "success",
 			"statusCode": 200
-		}`, "", "", fmt.Errorf("error fetching encrypted secrets: external adapter response data was empty"))
+		}`, "", "", errors.New("error fetching encrypted secrets: external adapter response data was empty"))
 }
 
 func TestFetchEncryptedSecrets_InvalidResponse(t *testing.T) {
@@ -118,7 +119,7 @@ func TestFetchEncryptedSecrets_InvalidResponse(t *testing.T) {
 					"error": ""
 				},
 				"statusCode": 200
-			}`, "", "", fmt.Errorf("error fetching encrypted secrets: error decoding result hex string: hex string must have 0x prefix"))
+			}`, "", "", errors.New("error fetching encrypted secrets: error decoding result hex string: hex string must have 0x prefix"))
 }
 
 func TestFetchEncryptedSecrets_InvalidUserError(t *testing.T) {
@@ -129,7 +130,7 @@ func TestFetchEncryptedSecrets_InvalidUserError(t *testing.T) {
 					"result": ""
 				},
 				"statusCode": 200
-			}`, "", "", fmt.Errorf("error fetching encrypted secrets: error decoding userError hex string: hex string must have 0x prefix"))
+			}`, "", "", errors.New("error fetching encrypted secrets: error decoding userError hex string: hex string must have 0x prefix"))
 }
 
 func TestFetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
@@ -140,7 +141,7 @@ func TestFetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
 					"error": ""
 				},
 				"statusCode": 200
-			}`, "", "", fmt.Errorf("error fetching encrypted secrets: unexpected result in response: 'unexpected'"))
+			}`, "", "", errors.New("error fetching encrypted secrets: unexpected result in response: 'unexpected'"))
 }
 
 func TestRunComputation_Success(t *testing.T) {
@@ -151,7 +152,7 @@ func TestRunComputation_MissingData(t *testing.T) {
 	runRequestTest(t, `{
 				"result": "success",
 				"statusCode": 200
-			}`, "", "", nil, fmt.Errorf("error running computation: external adapter response data was empty"))
+			}`, "", "", nil, errors.New("error running computation: external adapter response data was empty"))
 }
 
 func TestRunComputation_CorrectAdapterRequest(t *testing.T) {

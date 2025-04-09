@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/datastore"
 )
 
 const (
@@ -38,9 +39,14 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 	}
 	var nodeIDs []string
 	if jd.don != nil {
-		err = jd.don.CreateSupportedChains(ctx(), config.Chains, *jd)
-		if err != nil {
-			return nil, nil, err
+		// Gateway DON doesn't require any chain setup, and trying to create chains for it will fail,
+		// because its nodes are missing chain-related configuration. Of course, we could add that configuration,
+		// but its not how it is setup on production.
+		if len(config.Chains) > 0 {
+			err = jd.don.CreateSupportedChains(ctx(), config.Chains, *jd)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 		nodeIDs = jd.don.NodeIds()
 	}
@@ -49,8 +55,13 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		DevEnv,
 		lggr,
 		deployment.NewMemoryAddressBook(),
+		datastore.NewMemoryDataStore[
+			datastore.DefaultMetadata,
+			datastore.DefaultMetadata,
+		]().Seal(),
 		chains,
 		nil, // sending nil for solana chains right now, we can build this when we need it
+		nil, // sending nil for aptos chains right now, we can build this when we need it
 		nodeIDs,
 		offChain,
 		ctx,

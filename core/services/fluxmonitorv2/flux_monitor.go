@@ -7,6 +7,7 @@ import (
 	"math/big"
 	mrand "math/rand"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,12 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2/promfm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -200,10 +201,7 @@ func NewFromJobSpec(
 
 	flags, err := NewFlags(cfg.FlagsContractAddress(), ethClient)
 	logger.Sugared(lggr).ErrorIf(err,
-		fmt.Sprintf(
-			"Error creating Flags contract instance, check address: %s",
-			cfg.FlagsContractAddress(),
-		),
+		"Error creating Flags contract instance, check address: "+cfg.FlagsContractAddress(),
 	)
 
 	paymentChecker := &PaymentChecker{
@@ -591,7 +589,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(ctx context.Context, log flux_aggreg
 	}()
 
 	newRoundLogger.Debug("NewRound log")
-	promfm.SetBigInt(promfm.SeenRound.WithLabelValues(fmt.Sprintf("%d", fm.spec.JobID)), log.RoundId)
+	promfm.SetBigInt(promfm.SeenRound.WithLabelValues(strconv.Itoa(int(fm.spec.JobID))), log.RoundId)
 
 	//
 	// NewRound answer submission logic:
@@ -957,7 +955,7 @@ func (fm *FluxMonitor) pollIfEligible(ctx context.Context, pollReq PollRequestTy
 		return
 	}
 
-	jobID := fmt.Sprintf("%d", fm.spec.JobID)
+	jobID := strconv.Itoa(int(fm.spec.JobID))
 	latestAnswer := decimal.NewFromBigInt(roundState.LatestSubmission, 0)
 	promfm.SetDecimal(promfm.SeenValue.WithLabelValues(jobID), answer)
 
@@ -1022,10 +1020,10 @@ func (fm *FluxMonitor) isValidSubmission(ctx context.Context, l logger.Logger, a
 	jobId := fm.spec.JobID
 	jobName := fm.spec.JobName
 	elapsed := time.Since(started)
-	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", jobId), jobName, "", job.FluxMonitor.String()).Set(float64(elapsed))
-	pipeline.PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", jobId), jobName).Inc()
-	pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", jobId), jobName).Set(float64(elapsed))
-	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", jobId), jobName, "", job.FluxMonitor.String(), "", "error").Inc()
+	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(strconv.Itoa(int(jobId)), jobName, "", job.FluxMonitor.String()).Set(float64(elapsed))
+	pipeline.PromPipelineRunErrors.WithLabelValues(strconv.Itoa(int(jobId)), jobName).Inc()
+	pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(strconv.Itoa(int(jobId)), jobName).Set(float64(elapsed))
+	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(strconv.Itoa(int(jobId)), jobName, "", job.FluxMonitor.String(), "", "error").Inc()
 	return false
 }
 

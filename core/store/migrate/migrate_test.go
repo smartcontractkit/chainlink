@@ -15,9 +15,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -460,16 +460,16 @@ func TestDatabaseBackFillWithMigration202(t *testing.T) {
 	assert.Len(t, results, 201)
 
 	simulatedOrm := logpoller.NewORM(testutils.SimulatedChainID, db, logger.TestLogger(t))
-	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 10, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 51, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 90, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 120, time.Now(), 23), err)
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 10, time.Now(), 0))
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 51, time.Now(), 0))
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 90, time.Now(), 0))
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 120, time.Now(), 23))
 
 	baseOrm := logpoller.NewORM(big.NewInt(int64(84531)), db, logger.TestLogger(t))
-	require.NoError(t, baseOrm.InsertBlock(ctx, testutils.Random32Byte(), 400, time.Now(), 0), err)
+	require.NoError(t, baseOrm.InsertBlock(ctx, testutils.Random32Byte(), 400, time.Now(), 0))
 
 	klaytnOrm := logpoller.NewORM(big.NewInt(int64(1001)), db, logger.TestLogger(t))
-	require.NoError(t, klaytnOrm.InsertBlock(ctx, testutils.Random32Byte(), 100, time.Now(), 0), err)
+	require.NoError(t, klaytnOrm.InsertBlock(ctx, testutils.Random32Byte(), 100, time.Now(), 0))
 
 	_, err = p.UpTo(ctx, 202)
 	require.NoError(t, err)

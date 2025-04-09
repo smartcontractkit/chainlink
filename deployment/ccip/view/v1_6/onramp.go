@@ -5,19 +5,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
+	router1_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
-	router1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
 type OnRampView struct {
 	types.ContractMetaData
 	DynamicConfig         onramp.OnRampDynamicConfig        `json:"dynamicConfig"`
 	StaticConfig          onramp.OnRampStaticConfig         `json:"staticConfig"`
-	Owner                 common.Address                    `json:"owner"`
 	SourceTokenToPool     map[common.Address]common.Address `json:"sourceTokenToPool"`
 	DestChainSpecificData map[uint64]DestChainSpecificData  `json:"destChainSpecificData"`
 }
@@ -47,10 +46,6 @@ func GenerateOnRampView(
 		return OnRampView{}, fmt.Errorf("failed to get static config: %w", err)
 	}
 
-	owner, err := onRampContract.Owner(nil)
-	if err != nil {
-		return OnRampView{}, fmt.Errorf("failed to get owner: %w", err)
-	}
 	// populate destChainSelectors from router
 	destChainSelectors, err := v1_2.GetRemoteChainSelectors(routerContract)
 	if err != nil {
@@ -95,7 +90,6 @@ func GenerateOnRampView(
 		ContractMetaData:      tv,
 		DynamicConfig:         dynamicConfig,
 		StaticConfig:          staticConfig,
-		Owner:                 owner,
 		SourceTokenToPool:     sourceTokenToPool,
 		DestChainSpecificData: destChainSpecificData,
 	}, nil

@@ -2,12 +2,11 @@ package web
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -38,7 +37,7 @@ func (bdc *LCAController) FindLCA(c *gin.Context) {
 	}
 
 	if lca == nil {
-		jsonAPIError(c, http.StatusNotFound, fmt.Errorf("failed to find last common ancestor"))
+		jsonAPIError(c, http.StatusNotFound, errors.New("failed to find last common ancestor"))
 		return
 	}
 

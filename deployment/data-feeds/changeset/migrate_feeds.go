@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 )
 
 // MigrateFeedsChangeset Migrates feeds to DataFeedsCache contract.
@@ -20,7 +19,7 @@ var MigrateFeedsChangeset = deployment.CreateChangeSet(migrateFeedsLogic, migrat
 type MigrationSchema struct {
 	Address        string                    `json:"address"`
 	TypeAndVersion deployment.TypeAndVersion `json:"typeAndVersion"`
-	FeedID         string                    `json:"feedId"` // without 0x prefix
+	FeedID         string                    `json:"feedId"`
 	Description    string                    `json:"description"`
 }
 
@@ -31,23 +30,18 @@ func migrateFeedsLogic(env deployment.Environment, c types.MigrationConfig) (dep
 	contract := chainState.DataFeedsCache[c.CacheAddress]
 	ab := deployment.NewMemoryAddressBook()
 
-	proxies, _ := shared.LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
+	proxies, _ := LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
 
-	dataIDs := make([][16]byte, len(proxies))
+	var feedIDs []string
 	addresses := make([]common.Address, len(proxies))
 	descriptions := make([]string, len(proxies))
 	for i, proxy := range proxies {
-		dataIDBytes16, err := shared.ConvertHexToBytes16(proxy.FeedID)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("cannot convert hex to bytes %s: %w", proxy.FeedID, err)
-		}
-
-		dataIDs[i] = dataIDBytes16
+		feedIDs = append(feedIDs, proxy.FeedID)
 		addresses[i] = common.HexToAddress(proxy.Address)
 		descriptions[i] = proxy.Description
 
 		proxy.TypeAndVersion.AddLabel(proxy.Description)
-		err = ab.Save(
+		err := ab.Save(
 			c.ChainSelector,
 			proxy.Address,
 			proxy.TypeAndVersion,
@@ -57,25 +51,17 @@ func migrateFeedsLogic(env deployment.Environment, c types.MigrationConfig) (dep
 		}
 	}
 
+	dataIDs, _ := FeedIDsToBytes16(feedIDs)
+
 	// Set the feed config
 	tx, err := contract.SetDecimalFeedConfigs(chain.DeployerKey, dataIDs, descriptions, c.WorkflowMetadata)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set feed config %w", err)
-	}
-
-	_, err = chain.Confirm(tx)
-	if err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
 	// Set the proxy to dataId mapping
 	tx, err = contract.UpdateDataIdMappingsForProxies(chain.DeployerKey, addresses, dataIDs)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update feed proxy mapping %w", err)
-	}
-
-	_, err = chain.Confirm(tx)
-	if err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
@@ -88,9 +74,17 @@ func migrateFeedsPrecondition(env deployment.Environment, c types.MigrationConfi
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
 
-	_, err := shared.LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
+	proxies, err := LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
 	if err != nil {
 		return fmt.Errorf("failed to load addresses input file: %w", err)
+	}
+	var feedIDs []string
+	for _, proxy := range proxies {
+		feedIDs = append(feedIDs, proxy.FeedID)
+	}
+	_, err = FeedIDsToBytes16(feedIDs)
+	if err != nil {
+		return fmt.Errorf("failed to convert feed ids to bytes16: %w", err)
 	}
 
 	if len(c.WorkflowMetadata) == 0 {

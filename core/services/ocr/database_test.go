@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -287,7 +287,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		// No keys for this oracleSpecID yet
 		m, err = odb2.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
-		require.Len(t, m, 0)
+		require.Empty(t, m)
 	})
 
 	t.Run("deletes pending transmission by key", func(t *testing.T) {
