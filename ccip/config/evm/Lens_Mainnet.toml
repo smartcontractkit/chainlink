@@ -1,0 +1,4 @@
+ChainID = "232"
+
+[GasEstimator]
+LimitDefault = 2_500_000_000

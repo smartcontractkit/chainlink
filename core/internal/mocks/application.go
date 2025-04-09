@@ -23,7 +23,7 @@ import (
 
 	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 
-	logpoller "github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	logpoller "github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -39,7 +39,7 @@ import (
 
 	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
-	types "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	types "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	uuid "github.com/google/uuid"
 

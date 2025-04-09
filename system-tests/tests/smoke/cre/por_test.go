@@ -33,6 +33,7 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
@@ -284,15 +285,29 @@ func setupPoRTestEnvironment(
 		extraAllowedPorts = append(extraAllowedPorts, in.Fake.Port)
 	}
 
+	customBinariesPaths := map[string]string{}
+	containerPath, pathErr := capabilities.DefaultContainerDirectory(in.Infra.InfraType)
+	var cronBinaryPathInTheContainer string
+	if in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath != "" {
+		require.NoError(t, pathErr, "failed to get default container directory")
+		// where cron binary is located in the container
+		cronBinaryPathInTheContainer = filepath.Join(containerPath, filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath))
+		// where cron binary is located on the host
+		customBinariesPaths[keystonetypes.CronCapability] = in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath
+	} else {
+		// assume that if cron binary is already in the image it is in the default location and has default name
+		cronBinaryPathInTheContainer = filepath.Join(containerPath, "cron")
+	}
+
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:  mustSetCapabilitiesFn(in.NodeSets),
 		CapabilityFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:           *in.BlockchainA,
 		JdInput:                    *in.JD,
 		InfraInput:                 *in.Infra,
-		CustomBinariesPaths:        map[string]string{keystonetypes.CronCapability: in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath},
+		CustomBinariesPaths:        customBinariesPaths,
 		ExtraAllowedPorts:          extraAllowedPorts,
-		JobSpecFactoryFunctions:    []keystonetypes.JobSpecFactoryFn{keystonepor.PoRJobSpecFactoryFn(filepath.Join("/home/capabilities/", filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)), extraAllowedPorts, []string{}, []string{"0.0.0.0/0"})},
+		JobSpecFactoryFunctions:    []keystonetypes.JobSpecFactoryFn{keystonepor.PoRJobSpecFactoryFn(cronBinaryPathInTheContainer, extraAllowedPorts, []string{}, []string{"0.0.0.0/0"})},
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)

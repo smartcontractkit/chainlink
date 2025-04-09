@@ -772,6 +772,7 @@ func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableC
 	tokenProgram, _ := chainState.TokenToTokenProgram(tokenPubKey)
 	poolTokenAccount, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgram, tokenPubKey, tokenPoolSigner)
 	feeTokenConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
+	routerPoolSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(tokenPool, routerProgramAddress)
 
 	// the 'table' address is not derivable
 	// but this will be stored in tokenAdminRegistryPDA as a part of the SetPool changeset
@@ -790,6 +791,7 @@ func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableC
 		tokenProgram,            // 6
 		tokenPubKey,             // 7 - writable
 		feeTokenConfigPDA,       // 8
+		routerPoolSignerPDA,     // 9
 	}
 	if err = solCommonUtil.ExtendLookupTable(ctx, client, table, *authorityPrivKey, list); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table for token pool (mint: %s): %w", tokenPubKey.String(), err)

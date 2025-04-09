@@ -8,13 +8,13 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-
-	gas "github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	gas "github.com/smartcontractkit/chainlink-evm/pkg/gas"
 
 	mock "github.com/stretchr/testify/mock"
 
 	null "gopkg.in/guregu/null.v4"
+
+	pkgtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	time "time"
 
@@ -340,22 +340,22 @@ func (_c *EvmTxStore_CountUnstartedTransactions_Call) RunAndReturn(run func(cont
 }
 
 // CreateTransaction provides a mock function with given fields: ctx, txRequest, chainID
-func (_m *EvmTxStore) CreateTransaction(ctx context.Context, txRequest types.TxRequest[common.Address, common.Hash], chainID *big.Int) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) CreateTransaction(ctx context.Context, txRequest types.TxRequest[common.Address, common.Hash], chainID *big.Int) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, txRequest, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateTransaction")
 	}
 
-	var r0 types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.TxRequest[common.Address, common.Hash], *big.Int) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.TxRequest[common.Address, common.Hash], *big.Int) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, txRequest, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, types.TxRequest[common.Address, common.Hash], *big.Int) types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.TxRequest[common.Address, common.Hash], *big.Int) types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, txRequest, chainID)
 	} else {
-		r0 = ret.Get(0).(types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		r0 = ret.Get(0).(types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, types.TxRequest[common.Address, common.Hash], *big.Int) error); ok {
@@ -387,18 +387,18 @@ func (_c *EvmTxStore_CreateTransaction_Call) Run(run func(ctx context.Context, t
 	return _c
 }
 
-func (_c *EvmTxStore_CreateTransaction_Call) Return(tx types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_CreateTransaction_Call {
+func (_c *EvmTxStore_CreateTransaction_Call) Return(tx types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_CreateTransaction_Call {
 	_c.Call.Return(tx, err)
 	return _c
 }
 
-func (_c *EvmTxStore_CreateTransaction_Call) RunAndReturn(run func(context.Context, types.TxRequest[common.Address, common.Hash], *big.Int) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_CreateTransaction_Call {
+func (_c *EvmTxStore_CreateTransaction_Call) RunAndReturn(run func(context.Context, types.TxRequest[common.Address, common.Hash], *big.Int) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_CreateTransaction_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // DeleteInProgressAttempt provides a mock function with given fields: ctx, attempt
-func (_m *EvmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+func (_m *EvmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, attempt)
 
 	if len(ret) == 0 {
@@ -406,7 +406,7 @@ func (_m *EvmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt types
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error); ok {
 		r0 = rf(ctx, attempt)
 	} else {
 		r0 = ret.Error(0)
@@ -422,14 +422,14 @@ type EvmTxStore_DeleteInProgressAttempt_Call struct {
 
 // DeleteInProgressAttempt is a helper method to define mock.On call
 //   - ctx context.Context
-//   - attempt types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
+//   - attempt types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
 func (_e *EvmTxStore_Expecter) DeleteInProgressAttempt(ctx interface{}, attempt interface{}) *EvmTxStore_DeleteInProgressAttempt_Call {
 	return &EvmTxStore_DeleteInProgressAttempt_Call{Call: _e.mock.On("DeleteInProgressAttempt", ctx, attempt)}
 }
 
-func (_c *EvmTxStore_DeleteInProgressAttempt_Call) Run(run func(ctx context.Context, attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])) *EvmTxStore_DeleteInProgressAttempt_Call {
+func (_c *EvmTxStore_DeleteInProgressAttempt_Call) Run(run func(ctx context.Context, attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])) *EvmTxStore_DeleteInProgressAttempt_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]))
+		run(args[0].(context.Context), args[1].(types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]))
 	})
 	return _c
 }
@@ -439,7 +439,7 @@ func (_c *EvmTxStore_DeleteInProgressAttempt_Call) Return(_a0 error) *EvmTxStore
 	return _c
 }
 
-func (_c *EvmTxStore_DeleteInProgressAttempt_Call) RunAndReturn(run func(context.Context, types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_DeleteInProgressAttempt_Call {
+func (_c *EvmTxStore_DeleteInProgressAttempt_Call) RunAndReturn(run func(context.Context, types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_DeleteInProgressAttempt_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -492,23 +492,23 @@ func (_c *EvmTxStore_DeleteReceiptByTxHash_Call) RunAndReturn(run func(context.C
 }
 
 // FindAttemptsRequiringReceiptFetch provides a mock function with given fields: ctx, chainID
-func (_m *EvmTxStore) FindAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindAttemptsRequiringReceiptFetch")
 	}
 
-	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -540,34 +540,34 @@ func (_c *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call) Run(run func(ctx co
 	return _c
 }
 
-func (_c *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call) Return(hashes []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call {
+func (_c *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call) Return(hashes []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call {
 	_c.Call.Return(hashes, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call) RunAndReturn(run func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call {
+func (_c *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call) RunAndReturn(run func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindConfirmedTxesReceipts provides a mock function with given fields: ctx, finalizedBlockNum, chainID
-func (_m *EvmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) ([]*evmtypes.Receipt, error) {
+func (_m *EvmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) ([]*pkgtypes.Receipt, error) {
 	ret := _m.Called(ctx, finalizedBlockNum, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindConfirmedTxesReceipts")
 	}
 
-	var r0 []*evmtypes.Receipt
+	var r0 []*pkgtypes.Receipt
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) ([]*evmtypes.Receipt, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) ([]*pkgtypes.Receipt, error)); ok {
 		return rf(ctx, finalizedBlockNum, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) []*evmtypes.Receipt); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) []*pkgtypes.Receipt); ok {
 		r0 = rf(ctx, finalizedBlockNum, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*evmtypes.Receipt)
+			r0 = ret.Get(0).([]*pkgtypes.Receipt)
 		}
 	}
 
@@ -600,12 +600,12 @@ func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) Run(run func(ctx context.Co
 	return _c
 }
 
-func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) Return(receipts []*evmtypes.Receipt, err error) *EvmTxStore_FindConfirmedTxesReceipts_Call {
+func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) Return(receipts []*pkgtypes.Receipt, err error) *EvmTxStore_FindConfirmedTxesReceipts_Call {
 	_c.Call.Return(receipts, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) RunAndReturn(run func(context.Context, int64, *big.Int) ([]*evmtypes.Receipt, error)) *EvmTxStore_FindConfirmedTxesReceipts_Call {
+func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) RunAndReturn(run func(context.Context, int64, *big.Int) ([]*pkgtypes.Receipt, error)) *EvmTxStore_FindConfirmedTxesReceipts_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -725,22 +725,22 @@ func (_c *EvmTxStore_FindEarliestUnconfirmedTxAttemptBlock_Call) RunAndReturn(ru
 }
 
 // FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainID
-func (_m *EvmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainID *big.Int) (evmtypes.Nonce, error) {
+func (_m *EvmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainID *big.Int) (pkgtypes.Nonce, error) {
 	ret := _m.Called(ctx, fromAddress, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindLatestSequence")
 	}
 
-	var r0 evmtypes.Nonce
+	var r0 pkgtypes.Nonce
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (evmtypes.Nonce, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (pkgtypes.Nonce, error)); ok {
 		return rf(ctx, fromAddress, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) evmtypes.Nonce); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) pkgtypes.Nonce); ok {
 		r0 = rf(ctx, fromAddress, chainID)
 	} else {
-		r0 = ret.Get(0).(evmtypes.Nonce)
+		r0 = ret.Get(0).(pkgtypes.Nonce)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
@@ -772,34 +772,34 @@ func (_c *EvmTxStore_FindLatestSequence_Call) Run(run func(ctx context.Context, 
 	return _c
 }
 
-func (_c *EvmTxStore_FindLatestSequence_Call) Return(_a0 evmtypes.Nonce, _a1 error) *EvmTxStore_FindLatestSequence_Call {
+func (_c *EvmTxStore_FindLatestSequence_Call) Return(_a0 pkgtypes.Nonce, _a1 error) *EvmTxStore_FindLatestSequence_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EvmTxStore_FindLatestSequence_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (evmtypes.Nonce, error)) *EvmTxStore_FindLatestSequence_Call {
+func (_c *EvmTxStore_FindLatestSequence_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (pkgtypes.Nonce, error)) *EvmTxStore_FindLatestSequence_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindNextUnstartedTransactionFromAddress provides a mock function with given fields: ctx, fromAddress, chainID
-func (_m *EvmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context, fromAddress common.Address, chainID *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context, fromAddress common.Address, chainID *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, fromAddress, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindNextUnstartedTransactionFromAddress")
 	}
 
-	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, fromAddress, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, fromAddress, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -832,47 +832,47 @@ func (_c *EvmTxStore_FindNextUnstartedTransactionFromAddress_Call) Run(run func(
 	return _c
 }
 
-func (_c *EvmTxStore_FindNextUnstartedTransactionFromAddress_Call) Return(_a0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], _a1 error) *EvmTxStore_FindNextUnstartedTransactionFromAddress_Call {
+func (_c *EvmTxStore_FindNextUnstartedTransactionFromAddress_Call) Return(_a0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], _a1 error) *EvmTxStore_FindNextUnstartedTransactionFromAddress_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EvmTxStore_FindNextUnstartedTransactionFromAddress_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindNextUnstartedTransactionFromAddress_Call {
+func (_c *EvmTxStore_FindNextUnstartedTransactionFromAddress_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindNextUnstartedTransactionFromAddress_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindReorgOrIncludedTxs provides a mock function with given fields: ctx, fromAddress, nonce, chainID
-func (_m *EvmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress common.Address, nonce pkgtypes.Nonce, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, fromAddress, nonce, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindReorgOrIncludedTxs")
 	}
 
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	var r1 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
+	var r1 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, evmtypes.Nonce, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, pkgtypes.Nonce, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, fromAddress, nonce, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, evmtypes.Nonce, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, pkgtypes.Nonce, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, fromAddress, nonce, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, evmtypes.Nonce, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, pkgtypes.Nonce, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r1 = rf(ctx, fromAddress, nonce, chainID)
 	} else {
 		if ret.Get(1) != nil {
-			r1 = ret.Get(1).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r1 = ret.Get(1).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, common.Address, evmtypes.Nonce, *big.Int) error); ok {
+	if rf, ok := ret.Get(2).(func(context.Context, common.Address, pkgtypes.Nonce, *big.Int) error); ok {
 		r2 = rf(ctx, fromAddress, nonce, chainID)
 	} else {
 		r2 = ret.Error(2)
@@ -889,47 +889,47 @@ type EvmTxStore_FindReorgOrIncludedTxs_Call struct {
 // FindReorgOrIncludedTxs is a helper method to define mock.On call
 //   - ctx context.Context
 //   - fromAddress common.Address
-//   - nonce evmtypes.Nonce
+//   - nonce pkgtypes.Nonce
 //   - chainID *big.Int
 func (_e *EvmTxStore_Expecter) FindReorgOrIncludedTxs(ctx interface{}, fromAddress interface{}, nonce interface{}, chainID interface{}) *EvmTxStore_FindReorgOrIncludedTxs_Call {
 	return &EvmTxStore_FindReorgOrIncludedTxs_Call{Call: _e.mock.On("FindReorgOrIncludedTxs", ctx, fromAddress, nonce, chainID)}
 }
 
-func (_c *EvmTxStore_FindReorgOrIncludedTxs_Call) Run(run func(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce, chainID *big.Int)) *EvmTxStore_FindReorgOrIncludedTxs_Call {
+func (_c *EvmTxStore_FindReorgOrIncludedTxs_Call) Run(run func(ctx context.Context, fromAddress common.Address, nonce pkgtypes.Nonce, chainID *big.Int)) *EvmTxStore_FindReorgOrIncludedTxs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(common.Address), args[2].(evmtypes.Nonce), args[3].(*big.Int))
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(pkgtypes.Nonce), args[3].(*big.Int))
 	})
 	return _c
 }
 
-func (_c *EvmTxStore_FindReorgOrIncludedTxs_Call) Return(reorgTx []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], includedTxs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindReorgOrIncludedTxs_Call {
+func (_c *EvmTxStore_FindReorgOrIncludedTxs_Call) Return(reorgTx []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], includedTxs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindReorgOrIncludedTxs_Call {
 	_c.Call.Return(reorgTx, includedTxs, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindReorgOrIncludedTxs_Call) RunAndReturn(run func(context.Context, common.Address, evmtypes.Nonce, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindReorgOrIncludedTxs_Call {
+func (_c *EvmTxStore_FindReorgOrIncludedTxs_Call) RunAndReturn(run func(context.Context, common.Address, pkgtypes.Nonce, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindReorgOrIncludedTxs_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxAttempt provides a mock function with given fields: ctx, hash
-func (_m *EvmTxStore) FindTxAttempt(ctx context.Context, hash common.Hash) (*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxAttempt(ctx context.Context, hash common.Hash) (*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, hash)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxAttempt")
 	}
 
-	var r0 *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) (*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) (*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, hash)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, hash)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -961,34 +961,34 @@ func (_c *EvmTxStore_FindTxAttempt_Call) Run(run func(ctx context.Context, hash 
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxAttempt_Call) Return(_a0 *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], _a1 error) *EvmTxStore_FindTxAttempt_Call {
+func (_c *EvmTxStore_FindTxAttempt_Call) Return(_a0 *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], _a1 error) *EvmTxStore_FindTxAttempt_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxAttempt_Call) RunAndReturn(run func(context.Context, common.Hash) (*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxAttempt_Call {
+func (_c *EvmTxStore_FindTxAttempt_Call) RunAndReturn(run func(context.Context, common.Hash) (*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxAttempt_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxAttemptConfirmedByTxIDs provides a mock function with given fields: ctx, ids
-func (_m *EvmTxStore) FindTxAttemptConfirmedByTxIDs(ctx context.Context, ids []int64) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxAttemptConfirmedByTxIDs(ctx context.Context, ids []int64) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, ids)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxAttemptConfirmedByTxIDs")
 	}
 
-	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []int64) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, ids)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []int64) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, ids)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1020,34 +1020,34 @@ func (_c *EvmTxStore_FindTxAttemptConfirmedByTxIDs_Call) Run(run func(ctx contex
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxAttemptConfirmedByTxIDs_Call) Return(_a0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], _a1 error) *EvmTxStore_FindTxAttemptConfirmedByTxIDs_Call {
+func (_c *EvmTxStore_FindTxAttemptConfirmedByTxIDs_Call) Return(_a0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], _a1 error) *EvmTxStore_FindTxAttemptConfirmedByTxIDs_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxAttemptConfirmedByTxIDs_Call) RunAndReturn(run func(context.Context, []int64) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxAttemptConfirmedByTxIDs_Call {
+func (_c *EvmTxStore_FindTxAttemptConfirmedByTxIDs_Call) RunAndReturn(run func(context.Context, []int64) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxAttemptConfirmedByTxIDs_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxAttemptsConfirmedMissingReceipt provides a mock function with given fields: ctx, chainID
-func (_m *EvmTxStore) FindTxAttemptsConfirmedMissingReceipt(ctx context.Context, chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxAttemptsConfirmedMissingReceipt(ctx context.Context, chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxAttemptsConfirmedMissingReceipt")
 	}
 
-	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1079,34 +1079,34 @@ func (_c *EvmTxStore_FindTxAttemptsConfirmedMissingReceipt_Call) Run(run func(ct
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxAttemptsConfirmedMissingReceipt_Call) Return(attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxAttemptsConfirmedMissingReceipt_Call {
+func (_c *EvmTxStore_FindTxAttemptsConfirmedMissingReceipt_Call) Return(attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxAttemptsConfirmedMissingReceipt_Call {
 	_c.Call.Return(attempts, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxAttemptsConfirmedMissingReceipt_Call) RunAndReturn(run func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxAttemptsConfirmedMissingReceipt_Call {
+func (_c *EvmTxStore_FindTxAttemptsConfirmedMissingReceipt_Call) RunAndReturn(run func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxAttemptsConfirmedMissingReceipt_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxAttemptsRequiringResend provides a mock function with given fields: ctx, olderThan, maxInFlightTransactions, chainID, address
-func (_m *EvmTxStore) FindTxAttemptsRequiringResend(ctx context.Context, olderThan time.Time, maxInFlightTransactions uint32, chainID *big.Int, address common.Address) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxAttemptsRequiringResend(ctx context.Context, olderThan time.Time, maxInFlightTransactions uint32, chainID *big.Int, address common.Address) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, olderThan, maxInFlightTransactions, chainID, address)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxAttemptsRequiringResend")
 	}
 
-	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time, uint32, *big.Int, common.Address) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, uint32, *big.Int, common.Address) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, olderThan, maxInFlightTransactions, chainID, address)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time, uint32, *big.Int, common.Address) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, uint32, *big.Int, common.Address) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, olderThan, maxInFlightTransactions, chainID, address)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1141,34 +1141,34 @@ func (_c *EvmTxStore_FindTxAttemptsRequiringResend_Call) Run(run func(ctx contex
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxAttemptsRequiringResend_Call) Return(attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxAttemptsRequiringResend_Call {
+func (_c *EvmTxStore_FindTxAttemptsRequiringResend_Call) Return(attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxAttemptsRequiringResend_Call {
 	_c.Call.Return(attempts, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxAttemptsRequiringResend_Call) RunAndReturn(run func(context.Context, time.Time, uint32, *big.Int, common.Address) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxAttemptsRequiringResend_Call {
+func (_c *EvmTxStore_FindTxAttemptsRequiringResend_Call) RunAndReturn(run func(context.Context, time.Time, uint32, *big.Int, common.Address) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxAttemptsRequiringResend_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxByHash provides a mock function with given fields: ctx, hash
-func (_m *EvmTxStore) FindTxByHash(ctx context.Context, hash common.Hash) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxByHash(ctx context.Context, hash common.Hash) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, hash)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxByHash")
 	}
 
-	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, hash)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, hash)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1200,33 +1200,33 @@ func (_c *EvmTxStore_FindTxByHash_Call) Run(run func(ctx context.Context, hash c
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxByHash_Call) Return(_a0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], _a1 error) *EvmTxStore_FindTxByHash_Call {
+func (_c *EvmTxStore_FindTxByHash_Call) Return(_a0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], _a1 error) *EvmTxStore_FindTxByHash_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxByHash_Call) RunAndReturn(run func(context.Context, common.Hash) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxByHash_Call {
+func (_c *EvmTxStore_FindTxByHash_Call) RunAndReturn(run func(context.Context, common.Hash) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxByHash_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxWithAttempts provides a mock function with given fields: ctx, etxID
-func (_m *EvmTxStore) FindTxWithAttempts(ctx context.Context, etxID int64) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxWithAttempts(ctx context.Context, etxID int64) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, etxID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxWithAttempts")
 	}
 
-	var r0 types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, etxID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64) types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, etxID)
 	} else {
-		r0 = ret.Get(0).(types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		r0 = ret.Get(0).(types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
@@ -1257,34 +1257,34 @@ func (_c *EvmTxStore_FindTxWithAttempts_Call) Run(run func(ctx context.Context, 
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxWithAttempts_Call) Return(etx types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxWithAttempts_Call {
+func (_c *EvmTxStore_FindTxWithAttempts_Call) Return(etx types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxWithAttempts_Call {
 	_c.Call.Return(etx, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxWithAttempts_Call) RunAndReturn(run func(context.Context, int64) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxWithAttempts_Call {
+func (_c *EvmTxStore_FindTxWithAttempts_Call) RunAndReturn(run func(context.Context, int64) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxWithAttempts_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxWithIdempotencyKey provides a mock function with given fields: ctx, idempotencyKey, chainID
-func (_m *EvmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, idempotencyKey, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxWithIdempotencyKey")
 	}
 
-	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, idempotencyKey, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, *big.Int) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, *big.Int) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, idempotencyKey, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1317,38 +1317,38 @@ func (_c *EvmTxStore_FindTxWithIdempotencyKey_Call) Run(run func(ctx context.Con
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxWithIdempotencyKey_Call) Return(tx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxWithIdempotencyKey_Call {
+func (_c *EvmTxStore_FindTxWithIdempotencyKey_Call) Return(tx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxWithIdempotencyKey_Call {
 	_c.Call.Return(tx, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxWithIdempotencyKey_Call) RunAndReturn(run func(context.Context, string, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxWithIdempotencyKey_Call {
+func (_c *EvmTxStore_FindTxWithIdempotencyKey_Call) RunAndReturn(run func(context.Context, string, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxWithIdempotencyKey_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxWithSequence provides a mock function with given fields: ctx, fromAddress, seq
-func (_m *EvmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common.Address, seq evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common.Address, seq pkgtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, fromAddress, seq)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxWithSequence")
 	}
 
-	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, pkgtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, fromAddress, seq)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, evmtypes.Nonce) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, pkgtypes.Nonce) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, fromAddress, seq)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, evmtypes.Nonce) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, pkgtypes.Nonce) error); ok {
 		r1 = rf(ctx, fromAddress, seq)
 	} else {
 		r1 = ret.Error(1)
@@ -1365,46 +1365,46 @@ type EvmTxStore_FindTxWithSequence_Call struct {
 // FindTxWithSequence is a helper method to define mock.On call
 //   - ctx context.Context
 //   - fromAddress common.Address
-//   - seq evmtypes.Nonce
+//   - seq pkgtypes.Nonce
 func (_e *EvmTxStore_Expecter) FindTxWithSequence(ctx interface{}, fromAddress interface{}, seq interface{}) *EvmTxStore_FindTxWithSequence_Call {
 	return &EvmTxStore_FindTxWithSequence_Call{Call: _e.mock.On("FindTxWithSequence", ctx, fromAddress, seq)}
 }
 
-func (_c *EvmTxStore_FindTxWithSequence_Call) Run(run func(ctx context.Context, fromAddress common.Address, seq evmtypes.Nonce)) *EvmTxStore_FindTxWithSequence_Call {
+func (_c *EvmTxStore_FindTxWithSequence_Call) Run(run func(ctx context.Context, fromAddress common.Address, seq pkgtypes.Nonce)) *EvmTxStore_FindTxWithSequence_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(common.Address), args[2].(evmtypes.Nonce))
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(pkgtypes.Nonce))
 	})
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxWithSequence_Call) Return(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxWithSequence_Call {
+func (_c *EvmTxStore_FindTxWithSequence_Call) Return(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxWithSequence_Call {
 	_c.Call.Return(etx, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxWithSequence_Call) RunAndReturn(run func(context.Context, common.Address, evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxWithSequence_Call {
+func (_c *EvmTxStore_FindTxWithSequence_Call) RunAndReturn(run func(context.Context, common.Address, pkgtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxWithSequence_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxesByIDs provides a mock function with given fields: ctx, etxIDs, chainID
-func (_m *EvmTxStore) FindTxesByIDs(ctx context.Context, etxIDs []int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxesByIDs(ctx context.Context, etxIDs []int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, etxIDs, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxesByIDs")
 	}
 
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, etxIDs, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, etxIDs, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1437,34 +1437,34 @@ func (_c *EvmTxStore_FindTxesByIDs_Call) Run(run func(ctx context.Context, etxID
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesByIDs_Call) Return(etxs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxesByIDs_Call {
+func (_c *EvmTxStore_FindTxesByIDs_Call) Return(etxs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxesByIDs_Call {
 	_c.Call.Return(etxs, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesByIDs_Call) RunAndReturn(run func(context.Context, []int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxesByIDs_Call {
+func (_c *EvmTxStore_FindTxesByIDs_Call) RunAndReturn(run func(context.Context, []int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxesByIDs_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxesByMetaFieldAndStates provides a mock function with given fields: ctx, metaField, metaValue, states, chainID
-func (_m *EvmTxStore) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, metaField, metaValue, states, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxesByMetaFieldAndStates")
 	}
 
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, metaField, metaValue, states, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, []types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, metaField, metaValue, states, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1499,34 +1499,34 @@ func (_c *EvmTxStore_FindTxesByMetaFieldAndStates_Call) Run(run func(ctx context
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesByMetaFieldAndStates_Call) Return(tx []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxesByMetaFieldAndStates_Call {
+func (_c *EvmTxStore_FindTxesByMetaFieldAndStates_Call) Return(tx []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxesByMetaFieldAndStates_Call {
 	_c.Call.Return(tx, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesByMetaFieldAndStates_Call) RunAndReturn(run func(context.Context, string, string, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxesByMetaFieldAndStates_Call {
+func (_c *EvmTxStore_FindTxesByMetaFieldAndStates_Call) RunAndReturn(run func(context.Context, string, string, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxesByMetaFieldAndStates_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxesPendingCallback provides a mock function with given fields: ctx, latest, finalized, chainID
-func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, latest int64, finalized int64, chainID *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error) {
+func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, latest int64, finalized int64, chainID *big.Int) ([]types.ReceiptPlus[*pkgtypes.Receipt], error) {
 	ret := _m.Called(ctx, latest, finalized, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxesPendingCallback")
 	}
 
-	var r0 []types.ReceiptPlus[*evmtypes.Receipt]
+	var r0 []types.ReceiptPlus[*pkgtypes.Receipt]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) ([]types.ReceiptPlus[*pkgtypes.Receipt], error)); ok {
 		return rf(ctx, latest, finalized, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) []types.ReceiptPlus[*evmtypes.Receipt]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) []types.ReceiptPlus[*pkgtypes.Receipt]); ok {
 		r0 = rf(ctx, latest, finalized, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.ReceiptPlus[*evmtypes.Receipt])
+			r0 = ret.Get(0).([]types.ReceiptPlus[*pkgtypes.Receipt])
 		}
 	}
 
@@ -1560,34 +1560,34 @@ func (_c *EvmTxStore_FindTxesPendingCallback_Call) Run(run func(ctx context.Cont
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesPendingCallback_Call) Return(receiptsPlus []types.ReceiptPlus[*evmtypes.Receipt], err error) *EvmTxStore_FindTxesPendingCallback_Call {
+func (_c *EvmTxStore_FindTxesPendingCallback_Call) Return(receiptsPlus []types.ReceiptPlus[*pkgtypes.Receipt], err error) *EvmTxStore_FindTxesPendingCallback_Call {
 	_c.Call.Return(receiptsPlus, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesPendingCallback_Call) RunAndReturn(run func(context.Context, int64, int64, *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error)) *EvmTxStore_FindTxesPendingCallback_Call {
+func (_c *EvmTxStore_FindTxesPendingCallback_Call) RunAndReturn(run func(context.Context, int64, int64, *big.Int) ([]types.ReceiptPlus[*pkgtypes.Receipt], error)) *EvmTxStore_FindTxesPendingCallback_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxesWithAttemptsAndReceiptsByIdsAndState provides a mock function with given fields: ctx, ids, states, chainID
-func (_m *EvmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, ids, states, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxesWithAttemptsAndReceiptsByIdsAndState")
 	}
 
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []int64, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, ids, states, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []int64, []types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, []types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, ids, states, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1621,34 +1621,34 @@ func (_c *EvmTxStore_FindTxesWithAttemptsAndReceiptsByIdsAndState_Call) Run(run 
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesWithAttemptsAndReceiptsByIdsAndState_Call) Return(tx []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxesWithAttemptsAndReceiptsByIdsAndState_Call {
+func (_c *EvmTxStore_FindTxesWithAttemptsAndReceiptsByIdsAndState_Call) Return(tx []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxesWithAttemptsAndReceiptsByIdsAndState_Call {
 	_c.Call.Return(tx, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesWithAttemptsAndReceiptsByIdsAndState_Call) RunAndReturn(run func(context.Context, []int64, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxesWithAttemptsAndReceiptsByIdsAndState_Call {
+func (_c *EvmTxStore_FindTxesWithAttemptsAndReceiptsByIdsAndState_Call) RunAndReturn(run func(context.Context, []int64, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxesWithAttemptsAndReceiptsByIdsAndState_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxesWithMetaFieldByReceiptBlockNum provides a mock function with given fields: ctx, metaField, blockNum, chainID
-func (_m *EvmTxStore) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, metaField, blockNum, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxesWithMetaFieldByReceiptBlockNum")
 	}
 
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, metaField, blockNum, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, int64, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, int64, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, metaField, blockNum, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1682,34 +1682,34 @@ func (_c *EvmTxStore_FindTxesWithMetaFieldByReceiptBlockNum_Call) Run(run func(c
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesWithMetaFieldByReceiptBlockNum_Call) Return(tx []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxesWithMetaFieldByReceiptBlockNum_Call {
+func (_c *EvmTxStore_FindTxesWithMetaFieldByReceiptBlockNum_Call) Return(tx []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxesWithMetaFieldByReceiptBlockNum_Call {
 	_c.Call.Return(tx, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesWithMetaFieldByReceiptBlockNum_Call) RunAndReturn(run func(context.Context, string, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxesWithMetaFieldByReceiptBlockNum_Call {
+func (_c *EvmTxStore_FindTxesWithMetaFieldByReceiptBlockNum_Call) RunAndReturn(run func(context.Context, string, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxesWithMetaFieldByReceiptBlockNum_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxesWithMetaFieldByStates provides a mock function with given fields: ctx, metaField, states, chainID
-func (_m *EvmTxStore) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, metaField, states, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxesWithMetaFieldByStates")
 	}
 
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, metaField, states, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, []types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, []types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, metaField, states, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1743,34 +1743,34 @@ func (_c *EvmTxStore_FindTxesWithMetaFieldByStates_Call) Run(run func(ctx contex
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesWithMetaFieldByStates_Call) Return(tx []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxesWithMetaFieldByStates_Call {
+func (_c *EvmTxStore_FindTxesWithMetaFieldByStates_Call) Return(tx []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxesWithMetaFieldByStates_Call {
 	_c.Call.Return(tx, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesWithMetaFieldByStates_Call) RunAndReturn(run func(context.Context, string, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxesWithMetaFieldByStates_Call {
+func (_c *EvmTxStore_FindTxesWithMetaFieldByStates_Call) RunAndReturn(run func(context.Context, string, []types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxesWithMetaFieldByStates_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxsByStateAndFromAddresses provides a mock function with given fields: ctx, addresses, state, chainID
-func (_m *EvmTxStore) FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, addresses, state, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxsByStateAndFromAddresses")
 	}
 
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, addresses, state, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []common.Address, types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, addresses, state, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1804,34 +1804,34 @@ func (_c *EvmTxStore_FindTxsByStateAndFromAddresses_Call) Run(run func(ctx conte
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxsByStateAndFromAddresses_Call) Return(txs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxsByStateAndFromAddresses_Call {
+func (_c *EvmTxStore_FindTxsByStateAndFromAddresses_Call) Return(txs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxsByStateAndFromAddresses_Call {
 	_c.Call.Return(txs, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxsByStateAndFromAddresses_Call) RunAndReturn(run func(context.Context, []common.Address, types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxsByStateAndFromAddresses_Call {
+func (_c *EvmTxStore_FindTxsByStateAndFromAddresses_Call) RunAndReturn(run func(context.Context, []common.Address, types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxsByStateAndFromAddresses_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxsRequiringGasBump provides a mock function with given fields: ctx, address, blockNum, gasBumpThreshold, depth, chainID
-func (_m *EvmTxStore) FindTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum int64, gasBumpThreshold int64, depth int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxsRequiringGasBump(ctx context.Context, address common.Address, blockNum int64, gasBumpThreshold int64, depth int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, address, blockNum, gasBumpThreshold, depth, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxsRequiringGasBump")
 	}
 
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, int64, int64, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, int64, int64, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, address, blockNum, gasBumpThreshold, depth, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, int64, int64, int64, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, int64, int64, int64, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, address, blockNum, gasBumpThreshold, depth, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1867,34 +1867,34 @@ func (_c *EvmTxStore_FindTxsRequiringGasBump_Call) Run(run func(ctx context.Cont
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxsRequiringGasBump_Call) Return(etxs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxsRequiringGasBump_Call {
+func (_c *EvmTxStore_FindTxsRequiringGasBump_Call) Return(etxs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxsRequiringGasBump_Call {
 	_c.Call.Return(etxs, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxsRequiringGasBump_Call) RunAndReturn(run func(context.Context, common.Address, int64, int64, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxsRequiringGasBump_Call {
+func (_c *EvmTxStore_FindTxsRequiringGasBump_Call) RunAndReturn(run func(context.Context, common.Address, int64, int64, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxsRequiringGasBump_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FindTxsRequiringResubmissionDueToInsufficientFunds provides a mock function with given fields: ctx, address, chainID
-func (_m *EvmTxStore) FindTxsRequiringResubmissionDueToInsufficientFunds(ctx context.Context, address common.Address, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxsRequiringResubmissionDueToInsufficientFunds(ctx context.Context, address common.Address, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, address, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxsRequiringResubmissionDueToInsufficientFunds")
 	}
 
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, address, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, address, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1927,34 +1927,34 @@ func (_c *EvmTxStore_FindTxsRequiringResubmissionDueToInsufficientFunds_Call) Ru
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxsRequiringResubmissionDueToInsufficientFunds_Call) Return(etxs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxsRequiringResubmissionDueToInsufficientFunds_Call {
+func (_c *EvmTxStore_FindTxsRequiringResubmissionDueToInsufficientFunds_Call) Return(etxs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxsRequiringResubmissionDueToInsufficientFunds_Call {
 	_c.Call.Return(etxs, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxsRequiringResubmissionDueToInsufficientFunds_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxsRequiringResubmissionDueToInsufficientFunds_Call {
+func (_c *EvmTxStore_FindTxsRequiringResubmissionDueToInsufficientFunds_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxsRequiringResubmissionDueToInsufficientFunds_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetAbandonedTransactionsByBatch provides a mock function with given fields: ctx, chainID, enabledAddrs, offset, limit
-func (_m *EvmTxStore) GetAbandonedTransactionsByBatch(ctx context.Context, chainID *big.Int, enabledAddrs []common.Address, offset uint, limit uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) GetAbandonedTransactionsByBatch(ctx context.Context, chainID *big.Int, enabledAddrs []common.Address, offset uint, limit uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, chainID, enabledAddrs, offset, limit)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAbandonedTransactionsByBatch")
 	}
 
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, []common.Address, uint, uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, []common.Address, uint, uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, chainID, enabledAddrs, offset, limit)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, []common.Address, uint, uint) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, []common.Address, uint, uint) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, chainID, enabledAddrs, offset, limit)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1989,34 +1989,34 @@ func (_c *EvmTxStore_GetAbandonedTransactionsByBatch_Call) Run(run func(ctx cont
 	return _c
 }
 
-func (_c *EvmTxStore_GetAbandonedTransactionsByBatch_Call) Return(txs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_GetAbandonedTransactionsByBatch_Call {
+func (_c *EvmTxStore_GetAbandonedTransactionsByBatch_Call) Return(txs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_GetAbandonedTransactionsByBatch_Call {
 	_c.Call.Return(txs, err)
 	return _c
 }
 
-func (_c *EvmTxStore_GetAbandonedTransactionsByBatch_Call) RunAndReturn(run func(context.Context, *big.Int, []common.Address, uint, uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_GetAbandonedTransactionsByBatch_Call {
+func (_c *EvmTxStore_GetAbandonedTransactionsByBatch_Call) RunAndReturn(run func(context.Context, *big.Int, []common.Address, uint, uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_GetAbandonedTransactionsByBatch_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetInProgressTxAttempts provides a mock function with given fields: ctx, address, chainID
-func (_m *EvmTxStore) GetInProgressTxAttempts(ctx context.Context, address common.Address, chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) GetInProgressTxAttempts(ctx context.Context, address common.Address, chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, address, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetInProgressTxAttempts")
 	}
 
-	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, address, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, address, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -2049,34 +2049,34 @@ func (_c *EvmTxStore_GetInProgressTxAttempts_Call) Run(run func(ctx context.Cont
 	return _c
 }
 
-func (_c *EvmTxStore_GetInProgressTxAttempts_Call) Return(attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_GetInProgressTxAttempts_Call {
+func (_c *EvmTxStore_GetInProgressTxAttempts_Call) Return(attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_GetInProgressTxAttempts_Call {
 	_c.Call.Return(attempts, err)
 	return _c
 }
 
-func (_c *EvmTxStore_GetInProgressTxAttempts_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_GetInProgressTxAttempts_Call {
+func (_c *EvmTxStore_GetInProgressTxAttempts_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_GetInProgressTxAttempts_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetTxByID provides a mock function with given fields: ctx, id
-func (_m *EvmTxStore) GetTxByID(ctx context.Context, id int64) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) GetTxByID(ctx context.Context, id int64) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTxByID")
 	}
 
-	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -2108,34 +2108,34 @@ func (_c *EvmTxStore_GetTxByID_Call) Run(run func(ctx context.Context, id int64)
 	return _c
 }
 
-func (_c *EvmTxStore_GetTxByID_Call) Return(tx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_GetTxByID_Call {
+func (_c *EvmTxStore_GetTxByID_Call) Return(tx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_GetTxByID_Call {
 	_c.Call.Return(tx, err)
 	return _c
 }
 
-func (_c *EvmTxStore_GetTxByID_Call) RunAndReturn(run func(context.Context, int64) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_GetTxByID_Call {
+func (_c *EvmTxStore_GetTxByID_Call) RunAndReturn(run func(context.Context, int64) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_GetTxByID_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetTxInProgress provides a mock function with given fields: ctx, fromAddress
-func (_m *EvmTxStore) GetTxInProgress(ctx context.Context, fromAddress common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) GetTxInProgress(ctx context.Context, fromAddress common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, fromAddress)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTxInProgress")
 	}
 
-	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)); ok {
 		return rf(ctx, fromAddress)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, fromAddress)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -2167,12 +2167,12 @@ func (_c *EvmTxStore_GetTxInProgress_Call) Run(run func(ctx context.Context, fro
 	return _c
 }
 
-func (_c *EvmTxStore_GetTxInProgress_Call) Return(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_GetTxInProgress_Call {
+func (_c *EvmTxStore_GetTxInProgress_Call) Return(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_GetTxInProgress_Call {
 	_c.Call.Return(etx, err)
 	return _c
 }
 
-func (_c *EvmTxStore_GetTxInProgress_Call) RunAndReturn(run func(context.Context, common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_GetTxInProgress_Call {
+func (_c *EvmTxStore_GetTxInProgress_Call) RunAndReturn(run func(context.Context, common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_GetTxInProgress_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2236,7 +2236,7 @@ func (_c *EvmTxStore_HasInProgressTransaction_Call) RunAndReturn(run func(contex
 }
 
 // LoadTxAttempts provides a mock function with given fields: ctx, etx
-func (_m *EvmTxStore) LoadTxAttempts(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+func (_m *EvmTxStore) LoadTxAttempts(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, etx)
 
 	if len(ret) == 0 {
@@ -2244,7 +2244,7 @@ func (_m *EvmTxStore) LoadTxAttempts(ctx context.Context, etx *types.Tx[*big.Int
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error); ok {
 		r0 = rf(ctx, etx)
 	} else {
 		r0 = ret.Error(0)
@@ -2260,14 +2260,14 @@ type EvmTxStore_LoadTxAttempts_Call struct {
 
 // LoadTxAttempts is a helper method to define mock.On call
 //   - ctx context.Context
-//   - etx *types.Tx[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
+//   - etx *types.Tx[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
 func (_e *EvmTxStore_Expecter) LoadTxAttempts(ctx interface{}, etx interface{}) *EvmTxStore_LoadTxAttempts_Call {
 	return &EvmTxStore_LoadTxAttempts_Call{Call: _e.mock.On("LoadTxAttempts", ctx, etx)}
 }
 
-func (_c *EvmTxStore_LoadTxAttempts_Call) Run(run func(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])) *EvmTxStore_LoadTxAttempts_Call {
+func (_c *EvmTxStore_LoadTxAttempts_Call) Run(run func(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])) *EvmTxStore_LoadTxAttempts_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]))
+		run(args[0].(context.Context), args[1].(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]))
 	})
 	return _c
 }
@@ -2277,13 +2277,13 @@ func (_c *EvmTxStore_LoadTxAttempts_Call) Return(_a0 error) *EvmTxStore_LoadTxAt
 	return _c
 }
 
-func (_c *EvmTxStore_LoadTxAttempts_Call) RunAndReturn(run func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_LoadTxAttempts_Call {
+func (_c *EvmTxStore_LoadTxAttempts_Call) RunAndReturn(run func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_LoadTxAttempts_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // PreloadTxes provides a mock function with given fields: ctx, attempts
-func (_m *EvmTxStore) PreloadTxes(ctx context.Context, attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+func (_m *EvmTxStore) PreloadTxes(ctx context.Context, attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, attempts)
 
 	if len(ret) == 0 {
@@ -2291,7 +2291,7 @@ func (_m *EvmTxStore) PreloadTxes(ctx context.Context, attempts []types.TxAttemp
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error); ok {
 		r0 = rf(ctx, attempts)
 	} else {
 		r0 = ret.Error(0)
@@ -2307,14 +2307,14 @@ type EvmTxStore_PreloadTxes_Call struct {
 
 // PreloadTxes is a helper method to define mock.On call
 //   - ctx context.Context
-//   - attempts []types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
+//   - attempts []types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
 func (_e *EvmTxStore_Expecter) PreloadTxes(ctx interface{}, attempts interface{}) *EvmTxStore_PreloadTxes_Call {
 	return &EvmTxStore_PreloadTxes_Call{Call: _e.mock.On("PreloadTxes", ctx, attempts)}
 }
 
-func (_c *EvmTxStore_PreloadTxes_Call) Run(run func(ctx context.Context, attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])) *EvmTxStore_PreloadTxes_Call {
+func (_c *EvmTxStore_PreloadTxes_Call) Run(run func(ctx context.Context, attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])) *EvmTxStore_PreloadTxes_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]))
+		run(args[0].(context.Context), args[1].([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]))
 	})
 	return _c
 }
@@ -2324,7 +2324,7 @@ func (_c *EvmTxStore_PreloadTxes_Call) Return(_a0 error) *EvmTxStore_PreloadTxes
 	return _c
 }
 
-func (_c *EvmTxStore_PreloadTxes_Call) RunAndReturn(run func(context.Context, []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_PreloadTxes_Call {
+func (_c *EvmTxStore_PreloadTxes_Call) RunAndReturn(run func(context.Context, []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_PreloadTxes_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2438,7 +2438,7 @@ func (_c *EvmTxStore_ReapTxHistory_Call) RunAndReturn(run func(context.Context, 
 }
 
 // SaveConfirmedAttempt provides a mock function with given fields: ctx, timeout, attempt, broadcastAt
-func (_m *EvmTxStore) SaveConfirmedAttempt(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], broadcastAt time.Time) error {
+func (_m *EvmTxStore) SaveConfirmedAttempt(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], broadcastAt time.Time) error {
 	ret := _m.Called(ctx, timeout, attempt, broadcastAt)
 
 	if len(ret) == 0 {
@@ -2446,7 +2446,7 @@ func (_m *EvmTxStore) SaveConfirmedAttempt(ctx context.Context, timeout time.Dur
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], time.Time) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], time.Time) error); ok {
 		r0 = rf(ctx, timeout, attempt, broadcastAt)
 	} else {
 		r0 = ret.Error(0)
@@ -2463,15 +2463,15 @@ type EvmTxStore_SaveConfirmedAttempt_Call struct {
 // SaveConfirmedAttempt is a helper method to define mock.On call
 //   - ctx context.Context
 //   - timeout time.Duration
-//   - attempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
+//   - attempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
 //   - broadcastAt time.Time
 func (_e *EvmTxStore_Expecter) SaveConfirmedAttempt(ctx interface{}, timeout interface{}, attempt interface{}, broadcastAt interface{}) *EvmTxStore_SaveConfirmedAttempt_Call {
 	return &EvmTxStore_SaveConfirmedAttempt_Call{Call: _e.mock.On("SaveConfirmedAttempt", ctx, timeout, attempt, broadcastAt)}
 }
 
-func (_c *EvmTxStore_SaveConfirmedAttempt_Call) Run(run func(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], broadcastAt time.Time)) *EvmTxStore_SaveConfirmedAttempt_Call {
+func (_c *EvmTxStore_SaveConfirmedAttempt_Call) Run(run func(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], broadcastAt time.Time)) *EvmTxStore_SaveConfirmedAttempt_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(time.Duration), args[2].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]), args[3].(time.Time))
+		run(args[0].(context.Context), args[1].(time.Duration), args[2].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]), args[3].(time.Time))
 	})
 	return _c
 }
@@ -2481,13 +2481,13 @@ func (_c *EvmTxStore_SaveConfirmedAttempt_Call) Return(_a0 error) *EvmTxStore_Sa
 	return _c
 }
 
-func (_c *EvmTxStore_SaveConfirmedAttempt_Call) RunAndReturn(run func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], time.Time) error) *EvmTxStore_SaveConfirmedAttempt_Call {
+func (_c *EvmTxStore_SaveConfirmedAttempt_Call) RunAndReturn(run func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], time.Time) error) *EvmTxStore_SaveConfirmedAttempt_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // SaveFetchedReceipts provides a mock function with given fields: ctx, r
-func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt) error {
+func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, r []*pkgtypes.Receipt) error {
 	ret := _m.Called(ctx, r)
 
 	if len(ret) == 0 {
@@ -2495,7 +2495,7 @@ func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rec
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []*pkgtypes.Receipt) error); ok {
 		r0 = rf(ctx, r)
 	} else {
 		r0 = ret.Error(0)
@@ -2511,14 +2511,14 @@ type EvmTxStore_SaveFetchedReceipts_Call struct {
 
 // SaveFetchedReceipts is a helper method to define mock.On call
 //   - ctx context.Context
-//   - r []*evmtypes.Receipt
+//   - r []*pkgtypes.Receipt
 func (_e *EvmTxStore_Expecter) SaveFetchedReceipts(ctx interface{}, r interface{}) *EvmTxStore_SaveFetchedReceipts_Call {
 	return &EvmTxStore_SaveFetchedReceipts_Call{Call: _e.mock.On("SaveFetchedReceipts", ctx, r)}
 }
 
-func (_c *EvmTxStore_SaveFetchedReceipts_Call) Run(run func(ctx context.Context, r []*evmtypes.Receipt)) *EvmTxStore_SaveFetchedReceipts_Call {
+func (_c *EvmTxStore_SaveFetchedReceipts_Call) Run(run func(ctx context.Context, r []*pkgtypes.Receipt)) *EvmTxStore_SaveFetchedReceipts_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]*evmtypes.Receipt))
+		run(args[0].(context.Context), args[1].([]*pkgtypes.Receipt))
 	})
 	return _c
 }
@@ -2528,13 +2528,13 @@ func (_c *EvmTxStore_SaveFetchedReceipts_Call) Return(err error) *EvmTxStore_Sav
 	return _c
 }
 
-func (_c *EvmTxStore_SaveFetchedReceipts_Call) RunAndReturn(run func(context.Context, []*evmtypes.Receipt) error) *EvmTxStore_SaveFetchedReceipts_Call {
+func (_c *EvmTxStore_SaveFetchedReceipts_Call) RunAndReturn(run func(context.Context, []*pkgtypes.Receipt) error) *EvmTxStore_SaveFetchedReceipts_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // SaveInProgressAttempt provides a mock function with given fields: ctx, attempt
-func (_m *EvmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+func (_m *EvmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, attempt)
 
 	if len(ret) == 0 {
@@ -2542,7 +2542,7 @@ func (_m *EvmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *types.
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error); ok {
 		r0 = rf(ctx, attempt)
 	} else {
 		r0 = ret.Error(0)
@@ -2558,14 +2558,14 @@ type EvmTxStore_SaveInProgressAttempt_Call struct {
 
 // SaveInProgressAttempt is a helper method to define mock.On call
 //   - ctx context.Context
-//   - attempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
+//   - attempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
 func (_e *EvmTxStore_Expecter) SaveInProgressAttempt(ctx interface{}, attempt interface{}) *EvmTxStore_SaveInProgressAttempt_Call {
 	return &EvmTxStore_SaveInProgressAttempt_Call{Call: _e.mock.On("SaveInProgressAttempt", ctx, attempt)}
 }
 
-func (_c *EvmTxStore_SaveInProgressAttempt_Call) Run(run func(ctx context.Context, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])) *EvmTxStore_SaveInProgressAttempt_Call {
+func (_c *EvmTxStore_SaveInProgressAttempt_Call) Run(run func(ctx context.Context, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])) *EvmTxStore_SaveInProgressAttempt_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]))
+		run(args[0].(context.Context), args[1].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]))
 	})
 	return _c
 }
@@ -2575,13 +2575,13 @@ func (_c *EvmTxStore_SaveInProgressAttempt_Call) Return(_a0 error) *EvmTxStore_S
 	return _c
 }
 
-func (_c *EvmTxStore_SaveInProgressAttempt_Call) RunAndReturn(run func(context.Context, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_SaveInProgressAttempt_Call {
+func (_c *EvmTxStore_SaveInProgressAttempt_Call) RunAndReturn(run func(context.Context, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_SaveInProgressAttempt_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // SaveInsufficientFundsAttempt provides a mock function with given fields: ctx, timeout, attempt, broadcastAt
-func (_m *EvmTxStore) SaveInsufficientFundsAttempt(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], broadcastAt time.Time) error {
+func (_m *EvmTxStore) SaveInsufficientFundsAttempt(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], broadcastAt time.Time) error {
 	ret := _m.Called(ctx, timeout, attempt, broadcastAt)
 
 	if len(ret) == 0 {
@@ -2589,7 +2589,7 @@ func (_m *EvmTxStore) SaveInsufficientFundsAttempt(ctx context.Context, timeout 
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], time.Time) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], time.Time) error); ok {
 		r0 = rf(ctx, timeout, attempt, broadcastAt)
 	} else {
 		r0 = ret.Error(0)
@@ -2606,15 +2606,15 @@ type EvmTxStore_SaveInsufficientFundsAttempt_Call struct {
 // SaveInsufficientFundsAttempt is a helper method to define mock.On call
 //   - ctx context.Context
 //   - timeout time.Duration
-//   - attempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
+//   - attempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
 //   - broadcastAt time.Time
 func (_e *EvmTxStore_Expecter) SaveInsufficientFundsAttempt(ctx interface{}, timeout interface{}, attempt interface{}, broadcastAt interface{}) *EvmTxStore_SaveInsufficientFundsAttempt_Call {
 	return &EvmTxStore_SaveInsufficientFundsAttempt_Call{Call: _e.mock.On("SaveInsufficientFundsAttempt", ctx, timeout, attempt, broadcastAt)}
 }
 
-func (_c *EvmTxStore_SaveInsufficientFundsAttempt_Call) Run(run func(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], broadcastAt time.Time)) *EvmTxStore_SaveInsufficientFundsAttempt_Call {
+func (_c *EvmTxStore_SaveInsufficientFundsAttempt_Call) Run(run func(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], broadcastAt time.Time)) *EvmTxStore_SaveInsufficientFundsAttempt_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(time.Duration), args[2].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]), args[3].(time.Time))
+		run(args[0].(context.Context), args[1].(time.Duration), args[2].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]), args[3].(time.Time))
 	})
 	return _c
 }
@@ -2624,13 +2624,13 @@ func (_c *EvmTxStore_SaveInsufficientFundsAttempt_Call) Return(_a0 error) *EvmTx
 	return _c
 }
 
-func (_c *EvmTxStore_SaveInsufficientFundsAttempt_Call) RunAndReturn(run func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], time.Time) error) *EvmTxStore_SaveInsufficientFundsAttempt_Call {
+func (_c *EvmTxStore_SaveInsufficientFundsAttempt_Call) RunAndReturn(run func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], time.Time) error) *EvmTxStore_SaveInsufficientFundsAttempt_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // SaveReplacementInProgressAttempt provides a mock function with given fields: ctx, oldAttempt, replacementAttempt
-func (_m *EvmTxStore) SaveReplacementInProgressAttempt(ctx context.Context, oldAttempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], replacementAttempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+func (_m *EvmTxStore) SaveReplacementInProgressAttempt(ctx context.Context, oldAttempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], replacementAttempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, oldAttempt, replacementAttempt)
 
 	if len(ret) == 0 {
@@ -2638,7 +2638,7 @@ func (_m *EvmTxStore) SaveReplacementInProgressAttempt(ctx context.Context, oldA
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error); ok {
 		r0 = rf(ctx, oldAttempt, replacementAttempt)
 	} else {
 		r0 = ret.Error(0)
@@ -2654,15 +2654,15 @@ type EvmTxStore_SaveReplacementInProgressAttempt_Call struct {
 
 // SaveReplacementInProgressAttempt is a helper method to define mock.On call
 //   - ctx context.Context
-//   - oldAttempt types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
-//   - replacementAttempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
+//   - oldAttempt types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
+//   - replacementAttempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
 func (_e *EvmTxStore_Expecter) SaveReplacementInProgressAttempt(ctx interface{}, oldAttempt interface{}, replacementAttempt interface{}) *EvmTxStore_SaveReplacementInProgressAttempt_Call {
 	return &EvmTxStore_SaveReplacementInProgressAttempt_Call{Call: _e.mock.On("SaveReplacementInProgressAttempt", ctx, oldAttempt, replacementAttempt)}
 }
 
-func (_c *EvmTxStore_SaveReplacementInProgressAttempt_Call) Run(run func(ctx context.Context, oldAttempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], replacementAttempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])) *EvmTxStore_SaveReplacementInProgressAttempt_Call {
+func (_c *EvmTxStore_SaveReplacementInProgressAttempt_Call) Run(run func(ctx context.Context, oldAttempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], replacementAttempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])) *EvmTxStore_SaveReplacementInProgressAttempt_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]), args[2].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]))
+		run(args[0].(context.Context), args[1].(types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]), args[2].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]))
 	})
 	return _c
 }
@@ -2672,13 +2672,13 @@ func (_c *EvmTxStore_SaveReplacementInProgressAttempt_Call) Return(_a0 error) *E
 	return _c
 }
 
-func (_c *EvmTxStore_SaveReplacementInProgressAttempt_Call) RunAndReturn(run func(context.Context, types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_SaveReplacementInProgressAttempt_Call {
+func (_c *EvmTxStore_SaveReplacementInProgressAttempt_Call) RunAndReturn(run func(context.Context, types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_SaveReplacementInProgressAttempt_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // SaveSentAttempt provides a mock function with given fields: ctx, timeout, attempt, broadcastAt
-func (_m *EvmTxStore) SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], broadcastAt time.Time) error {
+func (_m *EvmTxStore) SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], broadcastAt time.Time) error {
 	ret := _m.Called(ctx, timeout, attempt, broadcastAt)
 
 	if len(ret) == 0 {
@@ -2686,7 +2686,7 @@ func (_m *EvmTxStore) SaveSentAttempt(ctx context.Context, timeout time.Duration
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], time.Time) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], time.Time) error); ok {
 		r0 = rf(ctx, timeout, attempt, broadcastAt)
 	} else {
 		r0 = ret.Error(0)
@@ -2703,15 +2703,15 @@ type EvmTxStore_SaveSentAttempt_Call struct {
 // SaveSentAttempt is a helper method to define mock.On call
 //   - ctx context.Context
 //   - timeout time.Duration
-//   - attempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
+//   - attempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
 //   - broadcastAt time.Time
 func (_e *EvmTxStore_Expecter) SaveSentAttempt(ctx interface{}, timeout interface{}, attempt interface{}, broadcastAt interface{}) *EvmTxStore_SaveSentAttempt_Call {
 	return &EvmTxStore_SaveSentAttempt_Call{Call: _e.mock.On("SaveSentAttempt", ctx, timeout, attempt, broadcastAt)}
 }
 
-func (_c *EvmTxStore_SaveSentAttempt_Call) Run(run func(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], broadcastAt time.Time)) *EvmTxStore_SaveSentAttempt_Call {
+func (_c *EvmTxStore_SaveSentAttempt_Call) Run(run func(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], broadcastAt time.Time)) *EvmTxStore_SaveSentAttempt_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(time.Duration), args[2].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]), args[3].(time.Time))
+		run(args[0].(context.Context), args[1].(time.Duration), args[2].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]), args[3].(time.Time))
 	})
 	return _c
 }
@@ -2721,7 +2721,7 @@ func (_c *EvmTxStore_SaveSentAttempt_Call) Return(_a0 error) *EvmTxStore_SaveSen
 	return _c
 }
 
-func (_c *EvmTxStore_SaveSentAttempt_Call) RunAndReturn(run func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], time.Time) error) *EvmTxStore_SaveSentAttempt_Call {
+func (_c *EvmTxStore_SaveSentAttempt_Call) RunAndReturn(run func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], time.Time) error) *EvmTxStore_SaveSentAttempt_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2775,24 +2775,24 @@ func (_c *EvmTxStore_SetBroadcastBeforeBlockNum_Call) RunAndReturn(run func(cont
 }
 
 // Transactions provides a mock function with given fields: ctx, offset, limit
-func (_m *EvmTxStore) Transactions(ctx context.Context, offset int, limit int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error) {
+func (_m *EvmTxStore) Transactions(ctx context.Context, offset int, limit int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], int, error) {
 	ret := _m.Called(ctx, offset, limit)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Transactions")
 	}
 
-	var r0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 int
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], int, error)); ok {
 		return rf(ctx, offset, limit)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, offset, limit)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -2831,35 +2831,35 @@ func (_c *EvmTxStore_Transactions_Call) Run(run func(ctx context.Context, offset
 	return _c
 }
 
-func (_c *EvmTxStore_Transactions_Call) Return(_a0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], _a1 int, _a2 error) *EvmTxStore_Transactions_Call {
+func (_c *EvmTxStore_Transactions_Call) Return(_a0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], _a1 int, _a2 error) *EvmTxStore_Transactions_Call {
 	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *EvmTxStore_Transactions_Call) RunAndReturn(run func(context.Context, int, int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error)) *EvmTxStore_Transactions_Call {
+func (_c *EvmTxStore_Transactions_Call) RunAndReturn(run func(context.Context, int, int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], int, error)) *EvmTxStore_Transactions_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // TransactionsWithAttempts provides a mock function with given fields: ctx, offset, limit
-func (_m *EvmTxStore) TransactionsWithAttempts(ctx context.Context, offset int, limit int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error) {
+func (_m *EvmTxStore) TransactionsWithAttempts(ctx context.Context, offset int, limit int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], int, error) {
 	ret := _m.Called(ctx, offset, limit)
 
 	if len(ret) == 0 {
 		panic("no return value specified for TransactionsWithAttempts")
 	}
 
-	var r0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 int
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], int, error)); ok {
 		return rf(ctx, offset, limit)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, offset, limit)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -2898,35 +2898,35 @@ func (_c *EvmTxStore_TransactionsWithAttempts_Call) Run(run func(ctx context.Con
 	return _c
 }
 
-func (_c *EvmTxStore_TransactionsWithAttempts_Call) Return(_a0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], _a1 int, _a2 error) *EvmTxStore_TransactionsWithAttempts_Call {
+func (_c *EvmTxStore_TransactionsWithAttempts_Call) Return(_a0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], _a1 int, _a2 error) *EvmTxStore_TransactionsWithAttempts_Call {
 	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *EvmTxStore_TransactionsWithAttempts_Call) RunAndReturn(run func(context.Context, int, int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error)) *EvmTxStore_TransactionsWithAttempts_Call {
+func (_c *EvmTxStore_TransactionsWithAttempts_Call) RunAndReturn(run func(context.Context, int, int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], int, error)) *EvmTxStore_TransactionsWithAttempts_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // TxAttempts provides a mock function with given fields: ctx, offset, limit
-func (_m *EvmTxStore) TxAttempts(ctx context.Context, offset int, limit int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error) {
+func (_m *EvmTxStore) TxAttempts(ctx context.Context, offset int, limit int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], int, error) {
 	ret := _m.Called(ctx, offset, limit)
 
 	if len(ret) == 0 {
 		panic("no return value specified for TxAttempts")
 	}
 
-	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
 	var r1 int
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], int, error)); ok {
 		return rf(ctx, offset, limit)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf(ctx, offset, limit)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -2965,12 +2965,12 @@ func (_c *EvmTxStore_TxAttempts_Call) Run(run func(ctx context.Context, offset i
 	return _c
 }
 
-func (_c *EvmTxStore_TxAttempts_Call) Return(_a0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], _a1 int, _a2 error) *EvmTxStore_TxAttempts_Call {
+func (_c *EvmTxStore_TxAttempts_Call) Return(_a0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], _a1 int, _a2 error) *EvmTxStore_TxAttempts_Call {
 	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *EvmTxStore_TxAttempts_Call) RunAndReturn(run func(context.Context, int, int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], int, error)) *EvmTxStore_TxAttempts_Call {
+func (_c *EvmTxStore_TxAttempts_Call) RunAndReturn(run func(context.Context, int, int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], int, error)) *EvmTxStore_TxAttempts_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3024,7 +3024,7 @@ func (_c *EvmTxStore_UpdateBroadcastAts_Call) RunAndReturn(run func(context.Cont
 }
 
 // UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: ctx, etx, attempt, NewAttemptState
-func (_m *EvmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], NewAttemptState types.TxAttemptState) error {
+func (_m *EvmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], NewAttemptState types.TxAttemptState) error {
 	ret := _m.Called(ctx, etx, attempt, NewAttemptState)
 
 	if len(ret) == 0 {
@@ -3032,7 +3032,7 @@ func (_m *EvmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, 
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttemptState) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], types.TxAttemptState) error); ok {
 		r0 = rf(ctx, etx, attempt, NewAttemptState)
 	} else {
 		r0 = ret.Error(0)
@@ -3048,16 +3048,16 @@ type EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call struct {
 
 // UpdateTxAttemptInProgressToBroadcast is a helper method to define mock.On call
 //   - ctx context.Context
-//   - etx *types.Tx[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
-//   - attempt types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
+//   - etx *types.Tx[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
+//   - attempt types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
 //   - NewAttemptState types.TxAttemptState
 func (_e *EvmTxStore_Expecter) UpdateTxAttemptInProgressToBroadcast(ctx interface{}, etx interface{}, attempt interface{}, NewAttemptState interface{}) *EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call {
 	return &EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call{Call: _e.mock.On("UpdateTxAttemptInProgressToBroadcast", ctx, etx, attempt, NewAttemptState)}
 }
 
-func (_c *EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call) Run(run func(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], NewAttemptState types.TxAttemptState)) *EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call {
+func (_c *EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call) Run(run func(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], NewAttemptState types.TxAttemptState)) *EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]), args[2].(types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]), args[3].(types.TxAttemptState))
+		run(args[0].(context.Context), args[1].(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]), args[2].(types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]), args[3].(types.TxAttemptState))
 	})
 	return _c
 }
@@ -3067,7 +3067,7 @@ func (_c *EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call) Return(_a0 error
 	return _c
 }
 
-func (_c *EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call) RunAndReturn(run func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttemptState) error) *EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call {
+func (_c *EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call) RunAndReturn(run func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], types.TxAttemptState) error) *EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3216,7 +3216,7 @@ func (_c *EvmTxStore_UpdateTxFatalError_Call) RunAndReturn(run func(context.Cont
 }
 
 // UpdateTxFatalErrorAndDeleteAttempts provides a mock function with given fields: ctx, etx
-func (_m *EvmTxStore) UpdateTxFatalErrorAndDeleteAttempts(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+func (_m *EvmTxStore) UpdateTxFatalErrorAndDeleteAttempts(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, etx)
 
 	if len(ret) == 0 {
@@ -3224,7 +3224,7 @@ func (_m *EvmTxStore) UpdateTxFatalErrorAndDeleteAttempts(ctx context.Context, e
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error); ok {
 		r0 = rf(ctx, etx)
 	} else {
 		r0 = ret.Error(0)
@@ -3240,14 +3240,14 @@ type EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call struct {
 
 // UpdateTxFatalErrorAndDeleteAttempts is a helper method to define mock.On call
 //   - ctx context.Context
-//   - etx *types.Tx[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
+//   - etx *types.Tx[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
 func (_e *EvmTxStore_Expecter) UpdateTxFatalErrorAndDeleteAttempts(ctx interface{}, etx interface{}) *EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call {
 	return &EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call{Call: _e.mock.On("UpdateTxFatalErrorAndDeleteAttempts", ctx, etx)}
 }
 
-func (_c *EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call) Run(run func(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])) *EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call {
+func (_c *EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call) Run(run func(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])) *EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]))
+		run(args[0].(context.Context), args[1].(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]))
 	})
 	return _c
 }
@@ -3257,7 +3257,7 @@ func (_c *EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call) Return(_a0 error)
 	return _c
 }
 
-func (_c *EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call) RunAndReturn(run func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call {
+func (_c *EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call) RunAndReturn(run func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3311,7 +3311,7 @@ func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingTxHashes_Call) RunAndReturn(r
 }
 
 // UpdateTxUnstartedToInProgress provides a mock function with given fields: ctx, etx, attempt
-func (_m *EvmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+func (_m *EvmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, etx, attempt)
 
 	if len(ret) == 0 {
@@ -3319,7 +3319,7 @@ func (_m *EvmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *ty
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error); ok {
 		r0 = rf(ctx, etx, attempt)
 	} else {
 		r0 = ret.Error(0)
@@ -3335,15 +3335,15 @@ type EvmTxStore_UpdateTxUnstartedToInProgress_Call struct {
 
 // UpdateTxUnstartedToInProgress is a helper method to define mock.On call
 //   - ctx context.Context
-//   - etx *types.Tx[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
-//   - attempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,evmtypes.Nonce,gas.EvmFee]
+//   - etx *types.Tx[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
+//   - attempt *types.TxAttempt[*big.Int,common.Address,common.Hash,common.Hash,pkgtypes.Nonce,gas.EvmFee]
 func (_e *EvmTxStore_Expecter) UpdateTxUnstartedToInProgress(ctx interface{}, etx interface{}, attempt interface{}) *EvmTxStore_UpdateTxUnstartedToInProgress_Call {
 	return &EvmTxStore_UpdateTxUnstartedToInProgress_Call{Call: _e.mock.On("UpdateTxUnstartedToInProgress", ctx, etx, attempt)}
 }
 
-func (_c *EvmTxStore_UpdateTxUnstartedToInProgress_Call) Run(run func(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])) *EvmTxStore_UpdateTxUnstartedToInProgress_Call {
+func (_c *EvmTxStore_UpdateTxUnstartedToInProgress_Call) Run(run func(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])) *EvmTxStore_UpdateTxUnstartedToInProgress_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]), args[2].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]))
+		run(args[0].(context.Context), args[1].(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]), args[2].(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]))
 	})
 	return _c
 }
@@ -3353,7 +3353,7 @@ func (_c *EvmTxStore_UpdateTxUnstartedToInProgress_Call) Return(_a0 error) *EvmT
 	return _c
 }
 
-func (_c *EvmTxStore_UpdateTxUnstartedToInProgress_Call) RunAndReturn(run func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_UpdateTxUnstartedToInProgress_Call {
+func (_c *EvmTxStore_UpdateTxUnstartedToInProgress_Call) RunAndReturn(run func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_UpdateTxUnstartedToInProgress_Call {
 	_c.Call.Return(run)
 	return _c
 }
