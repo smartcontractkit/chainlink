@@ -110,7 +110,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
-	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
 	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
 }
@@ -129,7 +129,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
-	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
 	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
 
@@ -141,7 +141,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
-	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
 	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
 
@@ -153,7 +153,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
-	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
 	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
 }
@@ -170,7 +170,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest
 	require.NoError(t, err)
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	require.Empty(t, respBytes)
-	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
 	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
 }

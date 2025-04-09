@@ -92,7 +92,7 @@ func (s *httpServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 // split URL into: scheme, hostname, port
-func splitURL(rawURL string) (string, string, string, error) {
+func (s *httpServer) splitURL(rawURL string) (string, string, string, error) {
 	// lowercase the URL to avoid case sensitivity issues
 	parsedURL, err := url.Parse(strings.ToLower((rawURL)))
 	if err != nil {
@@ -128,7 +128,7 @@ func (s *httpServer) matchWildcards(allowedHost string, originHost string) bool 
 }
 
 func (s *httpServer) isAllowedOrigin(origin string) bool {
-	originScheme, originHost, originPort, err := splitURL(origin)
+	originScheme, originHost, originPort, err := s.splitURL(origin)
 	if err != nil {
 		s.lggr.Debug("error parsing origin URL", err)
 		return false
@@ -137,7 +137,7 @@ func (s *httpServer) isAllowedOrigin(origin string) bool {
 		// probably better to do this once when server starts and store it in a map
 		// this is an easier solution so we don't have to apply more changes to the code
 		// just need to be careful when specifying allowed origins in the config file
-		allowedScheme, allowedHost, allowedPort, err := splitURL(allowed)
+		allowedScheme, allowedHost, allowedPort, err := s.splitURL(allowed)
 		if err != nil {
 			s.lggr.Debug("error parsing allowed origin URL", err)
 			continue
@@ -151,7 +151,7 @@ func (s *httpServer) isAllowedOrigin(origin string) bool {
 			continue
 		}
 		// check for exact host match (e.g., https://remix.com)
-		if originScheme == allowedHost {
+		if originHost == allowedHost {
 			return true
 		}
 		// check for wildcard host match (e.g., *.remix.com)
