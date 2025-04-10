@@ -786,11 +786,9 @@ jobs:
           path: .covdata
           retention-days: 1
 
-  # TODO: Use other Slack Channel for this notification
   notify-test-failure:
     name: Notify Test Failure
-    # TODO: Switch to develop
-    if: ${{ github.ref_name == '17222/merge' && failure() }}
+    if: ${{ github.ref_name == 'develop' && failure() }}
     needs: [check-e2e-test-results, solana-smoke-tests]
     runs-on: ubuntu-latest
     steps:
@@ -803,7 +801,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             {
-              "channel": "C049X3353K2",
+              "channel": "C023GJUSQ0H",
               "text": "E2E Tests Failed Post-Merge, Immediate Action Required",
               "blocks": [
                 {
@@ -817,7 +815,7 @@ jobs:
                   "type": "section", 
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Alerting <!subteam^S04SLH4V4JJ@devex-cicd-oncall>, E2E tests failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop by user ${{ github.actor }}. Please follow instructions below to remedy the issue."
+                    "text": "Alerting <!subteam^S04SLH4V4JJ|devex-cicd-oncall> and <@U01Q4N37KFG>, E2E tests failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop by user `${{ github.actor }}`. Please follow instructions below to remedy the issue."
                   }
                 },
                 {
