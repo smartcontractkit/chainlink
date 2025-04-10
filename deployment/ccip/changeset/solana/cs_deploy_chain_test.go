@@ -375,6 +375,10 @@ func TestUpgrade(t *testing.T) {
 }
 
 func TestIDLUpgrade(t *testing.T) {
+	ci := os.Getenv("CI") == "true"
+	if ci {
+		return
+	}
 	programID := solana.MustPublicKeyFromBase58("AacpQtBFpfVDWqacCqBPj59GChahCYUNLNb4Wsvft83M")
 
 	deployerKey, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/yashvardhan/.config/solana/id_devnet.json")
@@ -426,6 +430,10 @@ func getCompressedIDL(t *testing.T) ([]byte, error) {
 }
 
 func TestIDLSetBuffer(t *testing.T) {
+	ci := os.Getenv("CI") == "true"
+	if ci {
+		return
+	}
 	// These are placeholder IDs — replace with your actual ones
 	programID := solana.MustPublicKeyFromBase58("GnpXUEvp4Uu5qzTRDHzDT5oRh7oY7g5GDRagc6zJo7M5")
 	payer, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/yashvardhan/.config/solana/id.json")
@@ -512,6 +520,10 @@ func buildCreateBufferData() ([]byte, error) {
 }
 
 func TestConvertLegacyIdl(t *testing.T) {
+	ci := os.Getenv("CI") == "true"
+	if ci {
+		return
+	}
 	idlBytes, err := os.ReadFile("/Users/yashvardhan/chainlink/deployment/ccip/changeset/internal/solana_contracts/access_controller.json")
 	require.NoError(t, err)
 	var idl ccipChangesetSolana.IDL
@@ -548,6 +560,10 @@ func serializeIdl(idl any) ([]byte, error) {
 }
 
 func TestIDLSetAuthorityLocal(t *testing.T) {
+	ci := os.Getenv("CI") == "true"
+	if ci {
+		return
+	}
 	programID := solana.MustPublicKeyFromBase58("GnpXUEvp4Uu5qzTRDHzDT5oRh7oY7g5GDRagc6zJo7M5")
 
 	// derive idl address
