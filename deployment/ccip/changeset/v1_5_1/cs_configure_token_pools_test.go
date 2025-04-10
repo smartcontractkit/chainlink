@@ -229,7 +229,7 @@ func TestValidateTokenPoolConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			err := test.TokenPoolConfig.Validate(e.GetContext(), e.Chains[selectorA], state.Chains[selectorA], state, test.UseMcms, testhelpers.TestTokenSymbol)
+			err := test.TokenPoolConfig.Validate(e.GetContext(), e.Chains[selectorA], state, test.UseMcms, testhelpers.TestTokenSymbol)
 			require.Error(t, err)
 			require.ErrorContains(t, err, test.ErrStr)
 		})

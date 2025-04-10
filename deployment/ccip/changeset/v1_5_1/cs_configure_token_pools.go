@@ -139,7 +139,8 @@ type TokenPoolConfig struct {
 	OverrideTokenSymbol changeset.TokenSymbol
 }
 
-func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, chainState changeset.CCIPChainState, ccipState changeset.CCIPOnChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
+func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, ccipState changeset.CCIPOnChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
+	chainState, _ := ccipState.Chains[chain.Selector]
 	// Ensure that the inputted type is known
 	if _, ok := changeset.TokenPoolTypes[c.Type]; !ok {
 		return fmt.Errorf("%s is not a known token pool type", c.Type)
@@ -243,7 +244,7 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) 
 				return fmt.Errorf("missing proposerMcm on %s", chain.String())
 			}
 		}
-		if err := poolUpdate.Validate(env.GetContext(), chain, chainState, state, c.MCMS != nil, c.TokenSymbol); err != nil {
+		if err := poolUpdate.Validate(env.GetContext(), chain, state, c.MCMS != nil, c.TokenSymbol); err != nil {
 			return fmt.Errorf("invalid pool update on %s: %w", chain.String(), err)
 		}
 	}

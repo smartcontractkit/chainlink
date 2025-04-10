@@ -80,6 +80,9 @@ func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, po
 		if err != nil {
 			return fmt.Errorf("failed to generate mcms txn: %w", err)
 		}
+		if tx == nil {
+			return fmt.Errorf("mcms txn unexpectedly nil")
+		}
 		*txns = append(*txns, *tx)
 	}
 	return nil
@@ -333,7 +336,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if cfg.MCMSSolana != nil && cfg.MCMSSolana.BurnMintTokenPoolOwnedByTimelock[tokenPubKey] {
-			err = appendTxs(instructions, chainState.BurnMintTokenPool, ccipChangeset.BurnMintToken, &txns)
+			err = appendTxs(instructions, chainState.BurnMintTokenPool, ccipChangeset.BurnMintTokenPool, &txns)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 			}
@@ -598,7 +601,7 @@ func AppendRemoteTokenPool(e deployment.Environment, cfg AppendRemoteTokenPoolCo
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if cfg.MCMSSolana != nil && cfg.MCMSSolana.BurnMintTokenPoolOwnedByTimelock[tokenPubKey] {
-			err = appendTxs(instructions, chainState.BurnMintTokenPool, ccipChangeset.BurnMintToken, &txns)
+			err = appendTxs(instructions, chainState.BurnMintTokenPool, ccipChangeset.BurnMintTokenPool, &txns)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 			}
@@ -1203,8 +1206,6 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 	tokenPool := chainState.LockReleaseTokenPool
 
 	solLockReleaseTokenPool.SetProgramID(tokenPool)
-	programID := tokenPool
-	contractType := ccipChangeset.LockReleaseTokenPool
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	tokenPoolUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.LockReleaseTokenPoolOwnedByTimelock[tokenPubKey]
@@ -1315,13 +1316,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 
 	if tokenPoolUsingMcms {
 		txns := make([]mcmsTypes.Transaction, 0)
-		for _, ixn := range ixns {
-			tx, err := BuildMCMSTxn(ixn, programID.String(), contractType)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
-			}
-			txns = append(txns, *tx)
-		}
+		err = appendTxs(ixns, tokenPool, ccipChangeset.LockReleaseTokenPool, &txns)
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.SolChainSelector, "proposal to RemoveFromTokenPoolAllowList in Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
 		if err != nil {
