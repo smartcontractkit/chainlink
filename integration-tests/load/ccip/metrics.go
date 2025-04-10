@@ -90,7 +90,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 				timestamps := metricState.timestamps
 				if timestamps[committed] != 0 && timestamps[transmitted] != 0 {
 					commitDuration = timestamps[committed] - timestamps[transmitted] -
-						mm.blockTimes[srcDstSeqNum.dst]*FinalityDepth
+						mm.blockTimes[srcDstSeqNum.src]*FinalityDepth
 				}
 				if timestamps[executed] != 0 && timestamps[committed] != 0 {
 					execDuration = timestamps[executed] - timestamps[committed]
@@ -148,7 +148,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 			commitDuration := uint64(0)
 			if state.timestamps[committed] != 0 && state.timestamps[transmitted] != 0 {
 				commitDuration = state.timestamps[committed] - state.timestamps[transmitted] -
-					mm.blockTimes[data.dst]*FinalityDepth
+					mm.blockTimes[data.src]*FinalityDepth
 			}
 			execDuration := uint64(0)
 			if state.timestamps[executed] != 0 && state.timestamps[committed] != 0 {
