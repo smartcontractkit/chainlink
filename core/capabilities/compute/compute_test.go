@@ -190,7 +190,7 @@ func TestComputeExecute(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, resp.Value.Underlying["Value"].(*values.Bool).Underlying)
 	assert.Equal(t, metering.ComputeUnit.Name, resp.Metadata.Metering[0].SpendUnit)
-	assert.Equal(t, 0, resp.Metadata.Metering[0].SpendValue)
+	assert.Equal(t, "0", resp.Metadata.Metering[0].SpendValue)
 }
 
 func TestComputeFetch(t *testing.T) {
@@ -252,7 +252,13 @@ func TestComputeFetch(t *testing.T) {
 			},
 		},
 		Metadata: cappkg.ResponseMetadata{
-			Metering: []cappkg.MeteringNodeDetail{},
+			Metering: []cappkg.MeteringNodeDetail{
+				{
+					Peer2PeerID: "",
+					SpendUnit:   metering.ComputeUnit.Name,
+					SpendValue:  "0",
+				},
+			},
 		},
 	}
 
