@@ -1,11 +1,9 @@
 package changeset
 
 import (
-	"fmt"
-	"strings"
+	"regexp"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -156,9 +154,7 @@ ask_price [type=median allowedFaults=3 index=2];
 	// Remove the externalJobID line from the spec. This is needed because the externalJobID is generated randomly
 	// and we want to exclude it from the comparison.
 	stripExternalJobID := func(spec string) string {
-		idx := strings.Index(spec, "externalJobID = ")
-		strLen := len(fmt.Sprintf(`externalJobID = "%s"`, uuid.New()))
-		return spec[:idx] + spec[idx+strLen:]
+		return regexp.MustCompile(`externalJobID = "[a-fA-F0-9\-]+"`).ReplaceAllString(spec, "")
 	}
 
 	for _, tt := range tests {
