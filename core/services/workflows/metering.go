@@ -6,16 +6,9 @@ import (
 	"sync"
 
 	"github.com/shopspring/decimal"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/metering/pb"
-)
-
-const (
-	MeteringReportSchema string = "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb/capabilities.proto"
-	MeteringReportDomain string = "platform"
-	MeteringReportEntity string = "MeteringReport"
-	MeteringProtoPkg     string = "pb"
+	workflowpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/events/pb"
 )
 
 type MeteringReportStepRef string
@@ -147,27 +140,10 @@ func (r *MeteringReport) SetStep(ref MeteringReportStepRef, steps []MeteringRepo
 	return nil
 }
 
-func (r *MeteringReport) Message() proto.Message {
-	return r.toProto()
-}
-
-type MessageDescription struct {
-	Schema string
-	Domain string
-	Entity string
-}
-
-func (r *MeteringReport) Description() MessageDescription {
-	return MessageDescription{
-		Schema: MeteringReportSchema,
-		Domain: MeteringReportDomain,
-		Entity: MeteringReportEntity,
-	}
-}
-
-func (r *MeteringReport) toProto() *pb.MeteringReport {
+func (r *MeteringReport) Message() *pb.MeteringReport {
 	protoReport := &pb.MeteringReport{
-		Steps: map[string]*pb.MeteringReportStep{},
+		Steps:    map[string]*pb.MeteringReportStep{},
+		Metadata: &workflowpb.WorkflowMetadata{},
 	}
 
 	for key, step := range r.steps {

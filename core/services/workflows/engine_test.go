@@ -379,7 +379,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 
 	mBillingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 		return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
-	})).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil).Times(4) // TODO: not sure how many times or should use Maybe
+	})).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
 
 	servicetest.Run(t, eng)
 
@@ -400,6 +400,8 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionFinished)))
 	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionStarted)))
 	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionFinished)))
+
+	mBillingClient.AssertExpectations(t)
 }
 
 const (

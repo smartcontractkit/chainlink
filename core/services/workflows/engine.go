@@ -18,13 +18,16 @@ import (
 	billing "github.com/smartcontractkit/chainlink-common/pkg/billing/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	meteringpb "github.com/smartcontractkit/chainlink-common/pkg/metering/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	workflowpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/events/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -664,14 +667,14 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 	report, exists := e.meterReports.Get(executionID)
 	if exists {
 		// send metering report to beholder
-		if err = e.emitMeteringReport(ctx, report, e.workflow.name.String(), e.workflow.id, executionID); err != nil {
-			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).updateWorkflowMissingMeteringReport(ctx, 0)
+		if err = emitMeteringReport(ctx, cma, report); err != nil {
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).incrementWorkflowMissingMeteringReport(ctx)
 			l.Warn(fmt.Sprintf("metering report send to beholder error %s", err))
 		}
 
 		// send metering report to billing if billing client is not nil
 		if err = e.sendMeteringReportToBilling(ctx, report, e.workflow.id, executionID); err != nil {
-			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).updateWorkflowMissingMeteringReport(ctx, 0)
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).incrementWorkflowMissingMeteringReport(ctx)
 			l.Warn(fmt.Sprintf("metering report send to billing error %s", err))
 		}
 	}
@@ -845,9 +848,9 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		if err := rpt.SetStep(MeteringReportStepRef(stepState.Ref), meteringSteps); err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
-		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).updateWorkflowMissingMeteringReport(ctx, 1)
+		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).incrementWorkflowMissingMeteringReport(ctx)
 	} else {
-		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).updateWorkflowMissingMeteringReport(ctx, 0)
+		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).incrementWorkflowMissingMeteringReport(ctx)
 		// TODO: to be bumped to error if all capabilities must implement metering
 		l.Warnf("no metering report found for %v", msg.state.ExecutionID)
 	}
@@ -1202,7 +1205,7 @@ func (e *Engine) sendMeteringReportToBilling(ctx context.Context, report *Meteri
 			AccountId:           "", // TODO: not sure what to do with the AccountID
 			WorkflowId:          workflowID,
 			WorkflowExecutionId: executionID,
-			Metering:            report.toProto(),
+			Metering:            report.Message(),
 		}
 
 		resp, err := e.billingClient.SubmitWorkflowReceipt(ctx, &req)
@@ -1216,24 +1219,6 @@ func (e *Engine) sendMeteringReportToBilling(ctx context.Context, report *Meteri
 	}
 
 	return nil
-}
-
-// emitMeteringReport is separate from `emitCustomMessage` because the workflow and execution id are included as attrs
-// and the reference entity is different.
-func (e *Engine) emitMeteringReport(ctx context.Context, report *MeteringReport, workflowName, workflowID, execID string) error {
-	detail := report.Description()
-
-	// kvAttrs is what the test client matches on, view pkg/utils/test in common for more detail
-	kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain,
-		"beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, detail.Entity),
-		platform.KeyWorkflowName, workflowName, platform.KeyWorkflowID, workflowID, platform.KeyWorkflowExecutionID, execID}
-
-	data, err := proto.Marshal(report.Message())
-	if err != nil {
-		return err
-	}
-
-	return beholder.GetEmitter().Emit(ctx, data, kvAttrs...)
 }
 
 func (e *Engine) Close() error {
@@ -1591,6 +1576,43 @@ func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
 	return m
 }
 
+// buildCommonWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).
+func buildCommonWorkflowMetadata(kvs map[string]string) *workflowpb.WorkflowMetadata {
+	m := &workflowpb.WorkflowMetadata{}
+
+	m.WorkflowName = kvs[platform.KeyWorkflowName]
+	m.Version = kvs[platform.KeyWorkflowVersion]
+	m.WorkflowID = kvs[platform.KeyWorkflowID]
+	m.WorkflowExecutionID = kvs[platform.KeyWorkflowExecutionID]
+	m.Owner = kvs[platform.KeyWorkflowOwner]
+
+	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
+		if id, err := strconv.ParseInt(donIDStr, 10, 32); err == nil {
+			m.DonID = int32(id)
+		}
+	}
+
+	m.P2PID = kvs[platform.KeyP2PID]
+
+	if donFStr, ok := kvs[platform.KeyDonF]; ok {
+		if id, err := strconv.ParseInt(donFStr, 10, 32); err == nil {
+			m.DonF = int32(id)
+		}
+	}
+	if donNStr, ok := kvs[platform.KeyDonN]; ok {
+		if id, err := strconv.ParseInt(donNStr, 10, 32); err == nil {
+			m.DonN = int32(id)
+		}
+	}
+	if donQStr, ok := kvs[platform.KeyDonQ]; ok {
+		if id, err := strconv.ParseInt(donQStr, 10, 32); err == nil {
+			m.DonQ = int32(id)
+		}
+	}
+
+	return m
+}
+
 // emitProtoMessage marshals a proto.Message and emits it via beholder.
 func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	b, err := proto.Marshal(msg)
@@ -1599,31 +1621,39 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	}
 
 	// Determine the schema and entity based on the message type
+	// entity must be prefixed with the proto package name
 	var schema, entity string
 	switch msg.(type) {
 	case *pb.WorkflowExecutionStarted:
 		schema = SchemaWorkflowStarted
-		entity = EventWorkflowExecutionStarted
+		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionStarted)
 	case *pb.WorkflowExecutionFinished:
 		schema = SchemaWorkflowFinished
-		entity = EventWorkflowExecutionFinished
+		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionFinished)
 	case *pb.CapabilityExecutionStarted:
 		schema = SchemaCapabilityStarted
-		entity = EventCapabilityExecutionStarted
+		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionStarted)
 	case *pb.CapabilityExecutionFinished:
 		schema = SchemaCapabilityFinished
-		entity = EventCapabilityExecutionFinished
+		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionFinished)
+	case *meteringpb.MeteringReport:
+		schema = MeteringReportSchema
+		entity = fmt.Sprintf("%s.%s", MeteringProtoPkg, MeteringReportEntity)
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}
-
-	// entity must be prefixed with the proto package name
-	entity = fmt.Sprintf("%s.%s", EventsProtoPkg, entity)
 
 	return beholder.GetEmitter().Emit(ctx, b,
 		"beholder_data_schema", schema, // required
 		"beholder_domain", "platform", // required
 		"beholder_entity", entity) // required
+}
+
+func emitMeteringReport(ctx context.Context, cma custmsg.MessageEmitter, report *MeteringReport) error {
+	rpt := report.Message()
+	rpt.Metadata = buildCommonWorkflowMetadata(cma.Labels())
+
+	return emitProtoMessage(ctx, rpt)
 }
 
 func emitExecutionStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, triggerID string, executionID string) error {
