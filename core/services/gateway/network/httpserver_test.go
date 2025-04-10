@@ -118,7 +118,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *testing.T) {
 	t.Parallel()
 	server, handler, url := startNewServer(t, 100_000, 100_000, true,
-		[]string{"https://remix.*.org", "https://another.valid.*.com", "http://*.example.com"})
+		[]string{"https://*.ethereum.org", "https://*.valid.domain.com", "http://*.gov"})
 	defer server.Close()
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
@@ -135,7 +135,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
-	origin = "https://another.valid.hostname.com"
+	origin = "https://another.valid.domain.com"
 	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
 	respBytes, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -147,7 +147,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
-	origin = "http://my.example.com"
+	origin = "http://example.gov"
 	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
 	respBytes, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -197,12 +197,12 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T)
 func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *testing.T) {
 	t.Parallel()
 	server, handler, url := startNewServer(t, 100_000, 100_000, true,
-		[]string{"https://remix.*.org", "https://another.valid.*.com", "http://*.example.com"})
+		[]string{"https://*.ethereum.org", "https://*.valid.domain.com", "http://example.gov:8080"})
 	defer server.Close()
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
-	origin := "https://notallowed.remix.org"
+	origin := "https://ethereum.remix.org" // doesn't end with ethereum.org
 	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
 	respBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -214,7 +214,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *t
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
-	origin = "https://another.valid.domain.org"
+	origin = "http://another.valid.domain.org" // http instead of https
 	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
 	respBytes, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -226,7 +226,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *t
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
-	origin = "http://example.com"
+	origin = "http://example.gov" // port missing
 	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
 	respBytes, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)

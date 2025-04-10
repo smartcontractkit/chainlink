@@ -111,22 +111,6 @@ func (s *httpServer) splitURL(rawURL string) (string, string, string, error) {
 	return parsedURL.Scheme, host, port, nil
 }
 
-func (s *httpServer) matchWildcards(allowedHost string, originHost string) bool {
-	allowedParts := strings.Split(allowedHost, ".")
-	originParts := strings.Split(originHost, ".")
-
-	if len(allowedParts) != len(originParts) {
-		return false
-	}
-
-	for i := 0; i < len(allowedParts); i++ {
-		if allowedParts[i] != "*" && allowedParts[i] != originParts[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func (s *httpServer) isAllowedOrigin(origin string) bool {
 	originScheme, originHost, originPort, err := s.splitURL(origin)
 	if err != nil {
@@ -150,13 +134,14 @@ func (s *httpServer) isAllowedOrigin(origin string) bool {
 		if originPort != allowedPort {
 			continue
 		}
-		// check for exact host match (e.g., https://remix.com)
+		// check for exact host match (e.g., remix.com)
 		if originHost == allowedHost {
 			return true
 		}
 		// check for wildcard host match (e.g., *.remix.com)
-		if strings.Contains(allowedHost, "*") {
-			if s.matchWildcards(allowedHost, originHost) {
+		if strings.HasPrefix(allowedHost, "*.") {
+			allowedHost = allowedHost[2:]
+			if strings.HasSuffix(originHost, allowedHost) {
 				return true
 			}
 		}
