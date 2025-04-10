@@ -855,7 +855,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 			return nil, err
 		}
 
-		transmitter := tron.NewOCRContractTransmitter(ctx, evmCache, tronsdk.EVMAddressToAddress(configWatcher.contractAddress), tronsdk.EVMAddressToAddress(senderAddress), tronTXM, lggr)
+		transmitter := tron.NewOCRContractTransmitter(ctx, evmCache, tronsdk.EVMAddressToAddress(configWatcher.contractAddress), tronsdk.EVMAddressToAddress(senderAddress), tronTXM, lggr).WithEthereumKeystore()
 
 		transmitterOptions := &transmitterOps{
 			reportToEvmTxMeta: reportToEvmTxMetaNoop,
