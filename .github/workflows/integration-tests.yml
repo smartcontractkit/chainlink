@@ -131,6 +131,8 @@ jobs:
       cre_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.cre_changes }}
 
   build-chainlink:
+    # Skipping build for PRs to skip all tests on PRs
+    if: ${{ github.event_name != 'pull_request' }}
     environment: integration
     permissions:
       id-token: write
