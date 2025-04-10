@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -149,7 +150,6 @@ func (j *JobServiceClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobR
 	if err != nil {
 		return nil, fmt.Errorf("failed to propose job: %w", err)
 	}
-	fmt.Printf("proposed job uuid %s with id, spec, version: %d\n%s\n%d\n", extractor.ExternalJobID, appProposalID, in.Spec, len(proposals)+1)
 	// auto approve for now
 	proposedSpec, err := n.App.GetFeedsService().ListSpecsByJobProposalIDs(ctx, []int64{appProposalID})
 	if err != nil {

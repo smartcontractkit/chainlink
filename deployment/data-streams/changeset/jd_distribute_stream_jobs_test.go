@@ -103,7 +103,6 @@ ask_price [type=median allowedFaults=3 index=2];
 `
 
 	config := CsDistributeStreamJobSpecsConfig{
-		ChainSelectorEVM: chainSelector,
 		Filter: &jd.ListFilter{
 			DONID:    donID,
 			DONName:  donName,
@@ -154,7 +153,7 @@ ask_price [type=median allowedFaults=3 index=2];
 	// Remove the externalJobID line from the spec. This is needed because the externalJobID is generated randomly
 	// and we want to exclude it from the comparison.
 	stripExternalJobID := func(spec string) string {
-		return regexp.MustCompile(`externalJobID = "[a-fA-F0-9\-]+"`).ReplaceAllString(spec, "")
+		return regexp.MustCompile(`externalJobID = '[a-fA-F0-9\-]+'`).ReplaceAllString(spec, "")
 	}
 
 	for _, tt := range tests {
@@ -189,7 +188,6 @@ func TestValidatePreconditions(t *testing.T) {
 	e := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{}).Environment
 
 	config := CsDistributeStreamJobSpecsConfig{
-		ChainSelectorEVM: 1,
 		Filter: &jd.ListFilter{
 			DONID:    1,
 			DONName:  "don",
@@ -234,15 +232,6 @@ func TestValidatePreconditions(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:   "no chain selector",
-			config: config,
-			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.ChainSelectorEVM = 0
-				return c
-			},
-			wantErr: pointer.To("chain selector is required"),
-		},
-		{
 			name:   "no filter",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
@@ -252,13 +241,28 @@ func TestValidatePreconditions(t *testing.T) {
 			wantErr: pointer.To("filter is required"),
 		},
 		{
-			name:   "no streams",
+			name:   "no DONID",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.Streams = nil
+				c.Filter = &jd.ListFilter{
+					DONID:   0,
+					DONName: "don",
+				}
 				return c
 			},
-			wantErr: pointer.To("streams are required"),
+			wantErr: pointer.To("DONID and DONName are required"),
+		},
+		{
+			name:   "no DONName",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Filter = &jd.ListFilter{
+					DONID:   111,
+					DONName: "",
+				}
+				return c
+			},
+			wantErr: pointer.To("DONID and DONName are required"),
 		},
 		{
 			name:   "empty streams",
@@ -389,7 +393,6 @@ func TestValidatePreconditions(t *testing.T) {
 					},
 				}
 				return c
-
 			},
 			wantErr: pointer.To("at least one API is required for each stream"),
 		},

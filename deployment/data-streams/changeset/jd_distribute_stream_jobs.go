@@ -19,9 +19,8 @@ import (
 var _ deployment.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStreamJobSpecs{}
 
 type CsDistributeStreamJobSpecsConfig struct {
-	ChainSelectorEVM uint64
-	Filter           *jd.ListFilter
-	Streams          []StreamSpecConfig
+	Filter  *jd.ListFilter
+	Streams []StreamSpecConfig
 }
 
 type StreamSpecConfig struct {
@@ -122,13 +121,13 @@ func generateDatasources(cc StreamSpecConfig) []jobs.Datasource {
 }
 
 func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ deployment.Environment, config CsDistributeStreamJobSpecsConfig) error {
-	if config.ChainSelectorEVM == 0 {
-		return errors.New("chain selector is required")
-	}
 	if config.Filter == nil {
 		return errors.New("filter is required")
 	}
-	if config.Streams == nil || len(config.Streams) == 0 {
+	if config.Filter.DONID == 0 || config.Filter.DONName == "" {
+		return errors.New("DONID and DONName are required")
+	}
+	if len(config.Streams) == 0 {
 		return errors.New("streams are required")
 	}
 	for _, s := range config.Streams {

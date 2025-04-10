@@ -44,13 +44,13 @@ externalJobID = '00000000-0000-0000-0000-000000000000'
 streamID = 3000
 observationSource = """
 // data source 1
-ds1_payload [type=bridge name=\"bridge-bridge1\" timeout=\"50s\" requestData="{\\"data\\":{\\"endpoint\\":\\"quote1\\"}}"];
+ds1_payload [type=bridge name=\"bridge-bridge1\" timeout=\"50s\" requestData={\"data\":{\"endpoint\":\"quote1\"}}];
 
 ds1_benchmark [type=jsonparse path=\"data,benchmark\"];
 ds1_bid [type=jsonparse path=\"data,bid\"];
 ds1_ask [type=jsonparse path=\"data,ask\"];
 // data source 2
-ds2_payload [type=bridge name=\"bridge-bridge2\" timeout=\"50s\" requestData="{\\"data\\":{\\"endpoint\\":\\"quote2\\"}}"];
+ds2_payload [type=bridge name=\"bridge-bridge2\" timeout=\"50s\" requestData={\"data\":{\"endpoint\":\"quote2\"}}];
 
 ds2_benchmark [type=jsonparse path=\"data,benchmark\"];
 ds2_bid [type=jsonparse path=\"data,bid\"];
