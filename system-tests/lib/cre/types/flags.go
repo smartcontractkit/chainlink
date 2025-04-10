@@ -21,6 +21,10 @@ const (
 	WebAPITargetCapability  CapabilityFlag = "web-api-target"
 	WebAPITriggerCapability CapabilityFlag = "web-api-trigger"
 	MockCapability          CapabilityFlag = "mock"
-
 	// Add more capabilities as needed
+)
+
+// Job names for which there are no specific capabilities
+const (
+	GatewayJobName = "gateway"
 )

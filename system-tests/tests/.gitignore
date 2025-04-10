@@ -5,6 +5,8 @@ amd64_cron
 cron
 # workflow registration artifact, it's created anew every time the workflow is registered
 abcdefgasd.yaml
+# DF Cache contract configuration artifacts
+set-feed-*.yaml
 # chainlink cli binary, it should be downloaded by the test
 cre_v*
 

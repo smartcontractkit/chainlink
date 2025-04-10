@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

@@ -10,7 +10,7 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
 // contractBinding stores read bindings and manages the common contract event filter.

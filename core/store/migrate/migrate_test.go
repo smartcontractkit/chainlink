@@ -15,9 +15,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"

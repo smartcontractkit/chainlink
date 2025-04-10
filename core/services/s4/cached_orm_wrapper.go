@@ -9,7 +9,7 @@ import (
 
 	"github.com/patrickmn/go-cache"
 
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

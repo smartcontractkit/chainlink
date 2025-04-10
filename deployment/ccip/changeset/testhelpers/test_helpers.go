@@ -570,8 +570,6 @@ func SendRequestSol(
 
 	rmnRemoteCursesPDA, _, err := solstate.FindRMNRemoteCursesPDA(s.RMNRemote)
 	require.NoError(t, err)
-	externalTokenPoolsSignerPDA, _, err := solstate.FindExternalTokenPoolsSignerPDA(s.Router)
-	require.NoError(t, err)
 
 	base := ccip_router.NewCcipSendInstruction(
 		destinationChainSelector,
@@ -595,7 +593,6 @@ func SendRequestSol(
 		s.RMNRemote,
 		rmnRemoteCursesPDA,
 		s.RMNRemoteConfigPDA,
-		externalTokenPoolsSignerPDA,
 	)
 	base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
 
@@ -1693,6 +1690,7 @@ type TestTransferRequest struct {
 	Name                   string
 	SourceChain, DestChain uint64
 	Receiver               []byte
+	TokenReceiver          []byte
 	ExpectedStatus         int
 	// optional
 	Tokens                []router.ClientEVMTokenAmount
@@ -1730,8 +1728,6 @@ func TransferMultiple(
 
 	for _, tt := range requests {
 		t.Run(tt.Name, func(t *testing.T) {
-			expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
-
 			pairId := SourceDestPair{
 				SourceChainSelector: tt.SourceChain,
 				DestChainSelector:   tt.DestChain,
@@ -1743,6 +1739,15 @@ func TransferMultiple(
 			var tokens any
 			switch family {
 			case chainsel.FamilyEVM:
+				destFamily, err := chainsel.GetSelectorFamily(tt.DestChain)
+				require.NoError(t, err)
+				if destFamily == chainsel.FamilySolana {
+					// for EVM2Solana token transfer we need to use tokenReceiver instead logical receiver
+					expectedTokenBalances.add(tt.DestChain, tt.TokenReceiver, tt.ExpectedTokenBalances)
+				} else {
+					expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
+				}
+
 				tokens = tt.Tokens
 
 				// TODO: handle this for all chains
@@ -1756,6 +1761,7 @@ func TransferMultiple(
 				}
 			case chainsel.FamilySolana:
 				tokens = tt.SolTokens
+				expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
 			default:
 				t.Errorf("unsupported source chain: %v", family)
 			}
@@ -2037,7 +2043,7 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 	require.NoError(t, err)
 	for solSelector, chainState := range state.SolChains {
 		solTestReceiver.SetProgramID(chainState.Receiver)
-		externalExecutionConfigPDA, _, _ := solstate.FindExternalExecutionConfigPDA(chainState.Receiver)
+		externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, chainState.Receiver)
 		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
 			chainState.Router,
 			changeset.FindReceiverTargetAccount(chainState.Receiver),
