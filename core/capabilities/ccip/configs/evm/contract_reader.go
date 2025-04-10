@@ -3,6 +3,8 @@ package evm
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
@@ -23,6 +25,17 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+)
+
+const (
+	// CommitExecLogsRetention defines the duration for which logs critical for Commit/Exec plugins processing are retained.
+	// Although Exec relies on permissionlessExecThreshold which is lower than 24hours for picking eligible CommitRoots,
+	// Commit still can reach to older logs because it filters them by sequence numbers. For instance, in case of RMN curse on chain,
+	// we might have logs waiting in OnRamp to be committed first. When outage takes days we still would
+	// be able to bring back processing without replaying any logs from chain. You can read that param as
+	// "how long CCIP can be down and still be able to process all the messages after getting back to life".
+	// Breaching this threshold would require replaying chain using LogPoller from the beginning of the outage.
+	CommitExecLogsRetention = 30 * 24 * time.Hour // 30 days
 )
 
 var (
@@ -58,6 +71,9 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				GenericEventNames: []string{
 					mustGetEventName(consts.EventNameExecutionStateChanged, offrampABI),
 					mustGetEventName(consts.EventNameCommitReportAccepted, offrampABI),
+				},
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
