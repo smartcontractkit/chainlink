@@ -274,7 +274,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 			destChainFamily,
 			destRelayID.ChainID,
 			offrampAddrStr,
-			synchronization.OCR3CCIPCommit,
+			pluginTypeToTelemetryType(pluginType),
 		),
 		OffchainConfigDigester: ocrimpls.NewConfigDigester(config.ConfigDigest),
 		OffchainKeyring:        keybundle,
@@ -693,5 +693,16 @@ func defaultLocalConfig() ocrtypes.LocalConfig {
 		DatabaseTimeout:                    10 * time.Second,
 		MinOCR2MaxDurationQuery:            1 * time.Second,
 		DevelopmentMode:                    "false",
+	}
+}
+
+func pluginTypeToTelemetryType(pluginType cctypes.PluginType) synchronization.TelemetryType {
+	switch pluginType {
+	case cctypes.PluginTypeCCIPCommit:
+		return synchronization.OCR3CCIPCommit
+	case cctypes.PluginTypeCCIPExec:
+		return synchronization.OCR3CCIPExec
+	default:
+		panic(fmt.Sprintf("unknown plugin type %d", pluginType))
 	}
 }
