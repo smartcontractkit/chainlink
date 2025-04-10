@@ -290,9 +290,8 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	// change this to getNextDonID from donIDClaimer (store this value so that we can use this in SetCandidateChangeset)
-	// call this currentDonId
-	donID, err := state.Chains[c.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
+	// get the nextDonID from donID claim to be claimed
+	donID, err := state.Chains[c.HomeChainSelector].DonIDClaimer.GetNextDONId(&bind.CallOpts{
 		Context: e.GetContext(),
 	})
 	if err != nil {
@@ -320,6 +319,8 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 			},
 			SkipChainConfigValidation: true,
 		},
+
+		DonIDOverrides: uint32(donID),
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run AddDonAndSetCandidateChangeset on home chain: %w", err)
@@ -347,6 +348,13 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetCandidateChangeset on home chain: %w", err)
+	}
+
+	// Claim donID using donIDClaimer at the end of the changeset run
+	txOpts := e.Chains[c.HomeChainSelector].DeployerKey
+	_, err = state.Chains[c.HomeChainSelector].DonIDClaimer.ClaimNextDONId(txOpts)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get next DON ID: %w", err)
 	}
 
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/exp/maps"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -40,6 +42,7 @@ var (
 	_ deployment.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
 	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
 	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
+	_ deployment.ChangeSet[DeployDonIDClaimerConfig]             = DeployDonIDClaimerChangeset
 )
 
 func findTokenInfo(tokens []changeset.TokenDetails, address common.Address) (string, uint8, error) {
@@ -506,6 +509,9 @@ type AddDonAndSetCandidateChangesetConfig struct {
 	// Only set one plugin at a time while you are adding the DON for the first time.
 	// For subsequent SetCandidate call use SetCandidateChangeset as that fetches the already added DONID and sets the candidate.
 	PluginInfo SetCandidatePluginInfo `json:"pluginInfo"`
+
+	// WARNING: Do not use if calling this changeset in isolation
+	DonIDOverrides uint32 `json:"donIdOverrides"`
 }
 
 func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -598,13 +604,19 @@ func AddDonAndSetCandidateChangeset(
 				cfg.PluginInfo.PluginType.String())
 		}
 
-		// TODO: make a call to claimNextDonID from donIDClaimer
-		expectedDonID, err := state.Chains[cfg.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
-			Context: e.GetContext(),
-		})
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("get next don id: %w", err)
+		var expectedDonID uint32
+		if cfg.DonIDOverrides != 0 {
+			expectedDonID = cfg.DonIDOverrides
+		} else {
+			// TODO: make a call to claimNextDonID from donIDClaimer
+			expectedDonID, err = state.Chains[cfg.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
+				Context: e.GetContext(),
+			})
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("get next don id: %w", err)
+			}
 		}
+
 		addDonOp, err := newDonWithCandidateOp(
 			txOpts,
 			e.Chains[cfg.HomeChainSelector],
@@ -1410,5 +1422,82 @@ func ValidateCCIPHomeConfigSetUp(
 	if execConfigs.CandidateConfig.ConfigDigest != [32]byte{} {
 		return fmt.Errorf("candidate config digest is nonempty for exec, expected empty, cfg: %v", execConfigs.CandidateConfig)
 	}
+	return nil
+}
+
+type DeployDonIDClaimerConfig struct {
+	HomeChainSelector  uint64         `json:"homeChainSelector"`
+	CapabilityRegistry common.Address `json:"capabilityRegistry"`
+}
+
+func DeployDonIDClaimerChangeset(e deployment.Environment, cfg DeployDonIDClaimerConfig) (deployment.ChangesetOutput, error) {
+	state, err := changeset.LoadOnchainState(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return deployment.ChangesetOutput{}, err
+	}
+
+	if err := cfg.Validate(e, state); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+	}
+
+	ab := deployment.NewMemoryAddressBook()
+	chain := e.Chains[cfg.HomeChainSelector]
+	err = deployDonIDClaimerContract(e, ab, state, chain)
+	if err != nil {
+		e.Logger.Errorw("Failed to deploy donIDClaimer contract", "err", err, "addressBook", ab)
+		return deployment.ChangesetOutput{
+			AddressBook: ab,
+		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", err)
+	}
+	return deployment.ChangesetOutput{
+		Proposals:   []timelock.MCMSWithTimelockProposal{},
+		AddressBook: ab,
+	}, nil
+}
+
+func deployDonIDClaimerContract(e deployment.Environment, ab deployment.AddressBook, state changeset.CCIPOnChainState, chain deployment.Chain) error {
+	chainState, chainExists := state.Chains[chain.Selector]
+	if !chainExists {
+		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
+
+	if state.Chains[chain.Selector].DonIDClaimer == nil {
+		_, err := deployment.DeployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*don_id_claimer.DonIDClaimer] {
+				donIDClaimerAddr, tx2, donIdClaimerC, err2 := don_id_claimer.DeployDonIDClaimer(
+					chain.DeployerKey,
+					chain.Client,
+					chainState.CapabilityRegistry.Address(),
+				)
+				return deployment.ContractDeploy[*don_id_claimer.DonIDClaimer]{
+					Address: donIDClaimerAddr, Contract: donIdClaimerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.DonIDClaimer, deployment.Version1_6_1), Err: err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy donIdClaimer contract", "chain", chain.String(), "err", err)
+			return err
+		}
+	} else {
+		e.Logger.Infow("DonIDClaimer already deployed", "chain", chain.String(), "addr", chainState.DonIDClaimer.Address)
+	}
+
+	return nil
+}
+
+func (d DeployDonIDClaimerConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+	if err := deployment.IsValidChainSelector(d.HomeChainSelector); err != nil {
+		return fmt.Errorf("home chain selector invalid: %w", err)
+	}
+
+	_, exists := state.Chains[d.HomeChainSelector]
+	if !exists {
+		return fmt.Errorf("home chain %d does not exist", d.HomeChainSelector)
+	}
+
+	if state.Chains[d.HomeChainSelector].CapabilityRegistry == nil {
+		return errors.New("CapabilityRegistry contract does not exist")
+	}
+
 	return nil
 }
