@@ -3,6 +3,7 @@ package solana
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -81,7 +82,7 @@ func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, po
 			return fmt.Errorf("failed to generate mcms txn: %w", err)
 		}
 		if tx == nil {
-			return fmt.Errorf("mcms txn unexpectedly nil")
+			return errors.New("mcms txn unexpectedly nil")
 		}
 		*txns = append(*txns, *tx)
 	}
@@ -1319,6 +1320,9 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 	if tokenPoolUsingMcms {
 		txns := make([]mcmsTypes.Transaction, 0)
 		err = appendTxs(ixns, tokenPool, ccipChangeset.LockReleaseTokenPool, &txns)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
+		}
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.SolChainSelector, "proposal to RemoveFromTokenPoolAllowList in Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
 		if err != nil {

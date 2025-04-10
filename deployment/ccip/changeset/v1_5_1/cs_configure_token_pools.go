@@ -140,7 +140,7 @@ type TokenPoolConfig struct {
 }
 
 func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, ccipState changeset.CCIPOnChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
-	chainState, _ := ccipState.Chains[chain.Selector]
+	chainState := ccipState.Chains[chain.Selector]
 	// Ensure that the inputted type is known
 	if _, ok := changeset.TokenPoolTypes[c.Type]; !ok {
 		return fmt.Errorf("%s is not a known token pool type", c.Type)
