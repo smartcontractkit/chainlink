@@ -1222,7 +1222,7 @@ func DeployTransferableTokenSolana(
 				RemoteChainSelector: evmChainSel,
 				SolTokenPubKey:      solTokenAddress.String(),
 				PoolType:            solTestTokenPool.BurnAndMint_PoolType,
-				RemoteConfig: solTestTokenPool.RemoteConfig{
+				RemoteConfig: &solTestTokenPool.RemoteConfig{
 					// this can be potentially read from the state if we are given the token symbol
 					PoolAddresses: []solTestTokenPool.RemoteAddress{
 						{
@@ -1234,12 +1234,12 @@ func DeployTransferableTokenSolana(
 					},
 					Decimals: 18,
 				},
-				InboundRateLimit: solTestTokenPool.RateLimitConfig{
+				InboundRateLimit: &solTestTokenPool.RateLimitConfig{
 					Enabled:  true,
 					Capacity: uint64(1000e9),
 					Rate:     1,
 				},
-				OutboundRateLimit: solTestTokenPool.RateLimitConfig{
+				OutboundRateLimit: &solTestTokenPool.RateLimitConfig{
 					Enabled:  true,
 					Capacity: uint64(1000e9),
 					Rate:     1,

@@ -105,6 +105,8 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllow
 	ReadTimeoutMillis = 1_000
 	RequestTimeoutMillis = 10_000
 	WriteTimeoutMillis = 1_000
+	CORSEnabled = false
+	CORSAllowedOrigins = []
 	[gatewayConfig.HTTPClientConfig]
 	MaxResponseBytes = 100_000_000
 `,
