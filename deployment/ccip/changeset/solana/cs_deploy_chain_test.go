@@ -583,3 +583,19 @@ func TestIDLSetAuthorityLocal(t *testing.T) {
 	)
 	require.NoError(t, err)
 }
+
+func TestUploadIDL(t *testing.T) {
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+
+	// evmChain := tenv.Env.AllChainSelectors()[0]
+	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+	_, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+			},
+		),
+	})
+	require.NoError(t, err)
+}

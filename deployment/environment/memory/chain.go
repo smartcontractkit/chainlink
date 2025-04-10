@@ -424,7 +424,7 @@ func getSolanaCcipDependencyVersion(gomodPath string) (string, error) {
 	return "", fmt.Errorf("dependency %s not found", dependency)
 }
 
-func getSha() (version string, err error) {
+func GetSha() (version string, err error) {
 	modFilePath, err := getModFilePath()
 	if err != nil {
 		return "", err
@@ -448,13 +448,13 @@ func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr lo
 	const name = "artifacts.tar.gz"
 
 	if sha == "" {
-		version, err := getSha()
+		version, err := GetSha()
 		if err != nil {
 			return err
 		}
 		sha = version
 	}
-	tag := "solana-artifacts-localtest-f93a56f0edc5" //+ sha
+	tag := "solana-artifacts-localtest-" + sha
 
 	if lggr != nil {
 		lggr.Infof("Downloading Solana CCIP program artifacts (tag = %s)", tag)
