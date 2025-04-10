@@ -82,8 +82,19 @@ type DynamicPriceGetter = pricegetter.DynamicPriceGetter
 
 type AllTokensPriceGetter = pricegetter.AllTokensPriceGetter
 
-func NewPipelineGetter(source string, runner pipeline.Runner, jobID int32, externalJobID uuid.UUID, name string, lggr logger.Logger) (*pricegetter.PipelineGetter, error) {
-	return pricegetter.NewPipelineGetter(source, runner, jobID, externalJobID, name, lggr)
+func NewPipelineGetter(
+	source string,
+	runner pipeline.Runner,
+	jobID int32,
+	externalJobID uuid.UUID,
+	name string,
+	lggr logger.Logger,
+	sourceNativeTokenAddr ccip.Address,
+	sourceChainSelector uint64,
+	destChainSelector uint64,
+) (*pricegetter.PipelineGetter, error) {
+	return pricegetter.NewPipelineGetter(source, runner, jobID, externalJobID, name, lggr,
+		sourceNativeTokenAddr, sourceChainSelector, destChainSelector)
 }
 
 func NewDynamicPriceGetterClient(batchCaller rpclib.EvmBatchCaller) DynamicPriceGetterClient {
