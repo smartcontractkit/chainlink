@@ -424,11 +424,11 @@ func UploadIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutpu
 		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %w", err)
 	}
 
-	e.Logger.Debug("Updating Anchor.toml")
-	err = updateToml(e)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error updating Anchor.toml: %w", err)
-	}
+	// e.Logger.Debug("Updating Anchor.toml")
+	// err = updateToml(e)
+	// if err != nil {
+	// 	return deployment.ChangesetOutput{}, fmt.Errorf("error updating Anchor.toml: %w", err)
+	// }
 
 	chain := e.SolChains[c.ChainSelector]
 	existingState, _ := ccipChangeset.LoadOnchainState(e)

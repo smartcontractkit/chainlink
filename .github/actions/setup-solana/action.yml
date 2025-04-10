@@ -8,6 +8,36 @@ inputs:
 runs:
   using: composite
   steps:
+      - name: Install Rust
+        uses: actions-rs/toolchain@b2417cde72dcf67f306c0ae8e0828a81bf0b189f
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: rustfmt, clippy
+
+      # ✅ Cache Cargo dependencies and builds
+      - name: Cache Cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+     # ✅ Install Anchor CLI (only if not cached)
+      - name: Install Anchor CLI
+        shell: bash
+        run: |
+          if ! command -v anchor &> /dev/null; then
+            cargo install --git https://github.com/coral-xyz/anchor --tag v0.29.0 anchor-cli
+          fi
+          anchor --version           
+
       - uses: actions/cache@v4
         id: cache
         name: Cache solana CLI
