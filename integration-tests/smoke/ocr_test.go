@@ -27,7 +27,6 @@ const (
 
 func TestOCRBasic(t *testing.T) {
 	t.Parallel()
-	require.FailNow(t, "DEBUG: Failing to check pipeline notifications")
 	l := logging.GetTestLogger(t)
 
 	env, ocrInstances, sethClient := prepareORCv1SmokeTestEnv(t, l, 5)
