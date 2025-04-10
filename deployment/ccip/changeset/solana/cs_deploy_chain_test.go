@@ -212,6 +212,7 @@ func TestUpgrade(t *testing.T) {
 				ChainSelector:         solChainSelectors[0],
 				NewUpgradeAuthority:   upgradeAuthority,
 				SetAfterInitialDeploy: true,
+				SetOffRamp:            true,
 				SetMCMSPrograms:       true,
 			},
 		),
