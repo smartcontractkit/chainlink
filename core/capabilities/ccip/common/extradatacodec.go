@@ -10,12 +10,12 @@ import (
 
 // ExtraDataCodec is a struct that holds the chain specific extra data codec
 type ExtraDataCodec struct {
-	EVMExtraDataCodec    ChainSpecificExtraDataCodec
-	SolanaExtraDataCodec ChainSpecificExtraDataCodec
+	EVMExtraDataCodec    SourceChainExtraDataCodec
+	SolanaExtraDataCodec SourceChainExtraDataCodec
 }
 
 // NewExtraDataCodec is a constructor for ExtraDataCodec
-func NewExtraDataCodec(evmExtraDataCodec, solanaExtraDataCodec ChainSpecificExtraDataCodec) ExtraDataCodec {
+func NewExtraDataCodec(evmExtraDataCodec, solanaExtraDataCodec SourceChainExtraDataCodec) ExtraDataCodec {
 	return ExtraDataCodec{
 		EVMExtraDataCodec:    evmExtraDataCodec,
 		SolanaExtraDataCodec: solanaExtraDataCodec,

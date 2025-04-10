@@ -97,7 +97,7 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData, chainSelector uin
 func TestExecutePluginCodecV1(t *testing.T) {
 	d := testSetup(t)
 	ctx := testutils.Context(t)
-	mockExtraDataCodec := mocks.NewChainSpecificExtraDataCodec(t)
+	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
 	destGasAmount := rand.Uint32()
 	gasLimit := utils.RandUint256()
 	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything).Return(map[string]any{

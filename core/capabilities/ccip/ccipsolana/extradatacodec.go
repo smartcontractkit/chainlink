@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	agbinary "github.com/gagliardetto/binary"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
@@ -78,3 +79,6 @@ func (d ExtraDataCodec) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (m
 		svmDestExecDataKey: binary.BigEndian.Uint32(destExecData),
 	}, nil
 }
+
+// Ensure ExtraDataCodec implements the SourceChainExtraDataCodec interface
+var _ ccipcommon.SourceChainExtraDataCodec = &ExtraDataCodec{}

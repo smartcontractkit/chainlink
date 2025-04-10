@@ -45,7 +45,7 @@ func TestMessageHasher_InvalidReceiver(t *testing.T) {
 
 	// Set receiver to a []byte of 2 length
 	any2AnyMsg.Receiver = []byte{0, 0}
-	mockExtraDataCodec := mocks.NewChainSpecificExtraDataCodec(t)
+	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
 	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
 	}, nil).Maybe()
@@ -68,7 +68,7 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 
 	// Set DestTokenAddress to a []byte of 2 length
 	any2AnyMsg.TokenAmounts[0].DestTokenAddress = []byte{0, 0}
-	mockExtraDataCodec := mocks.NewChainSpecificExtraDataCodec(t)
+	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
 	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
 	}, nil).Maybe()

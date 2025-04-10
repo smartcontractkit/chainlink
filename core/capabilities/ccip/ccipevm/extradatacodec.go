@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 const (
@@ -13,7 +14,7 @@ const (
 	evmDestExecDataKey = "destGasAmount"
 )
 
-// ExtraDataCodec is a concrete implementation of ExtraDataDecoder
+// ExtraDataCodec is a concrete implementation of SourceChainExtraDataCodec
 type ExtraDataCodec struct{}
 
 // DecodeDestExecDataToMap reformats bytes into a chain agnostic map[string]interface{} representation for dest exec data
@@ -66,3 +67,6 @@ func (d ExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[str
 	}
 	return output, nil
 }
+
+// Ensure ExtraDataCodec implements the SourceChainExtraDataCodec interface
+var _ ccipcommon.SourceChainExtraDataCodec = &ExtraDataCodec{}
