@@ -86,7 +86,6 @@ func deployPingPongDemoContractsChangeset(env deployment.Environment, c DeployPi
 					Tv:       deployment.NewTypeAndVersion(changeset.PingPongDemo, deployment.Version1_0_0),
 					Err:      err,
 				}
-
 			},
 		)
 
@@ -142,6 +141,7 @@ type SetPausedPingPongDemoContractsConfig struct {
 func validateSetPausedPingPongContractAddress(env deployment.Environment, config SetPausedPingPongDemoContractsConfig) error {
 	return validatePingPongContractAddress(env, config.ChainSelector)
 }
+
 func setPausedPingPongDemoContractsChangeset(env deployment.Environment, c SetPausedPingPongDemoContractsConfig) (deployment.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
@@ -176,6 +176,7 @@ type SetConterpartPingPongDemoContractsConfig struct {
 func validateSetCounterpartPingPongContractAddress(env deployment.Environment, config SetConterpartPingPongDemoContractsConfig) error {
 	return validatePingPongContractAddress(env, config.ChainSelector)
 }
+
 func setCounterpartPingPongDemoContractsChangeset(env deployment.Environment, c SetConterpartPingPongDemoContractsConfig) (deployment.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
@@ -209,11 +210,14 @@ func validatePingPongContractAddress(env deployment.Environment, chainSelector u
 	}
 
 	err = changeset.ValidateChain(env, state, chainSelector, nil)
+	if err != nil {
+		return fmt.Errorf("failed to validate chain for %d: %w", chainSelector, err)
+	}
 
 	chainState := state.Chains[chainSelector]
 
 	if chainState.PingPongDemo == nil {
-		return fmt.Errorf("ping pong demo address is empty")
+		return fmt.Errorf("ping pong demo address is empty for chain %d", chainSelector)
 	}
 
 	return nil
