@@ -31,7 +31,7 @@ func newParallelExecutor(maxParallelTasks int) *parallelExecutor {
 func (t *parallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.Context)) error {
 	select {
 	case t.taskSemaphore <- struct{}{}:
-		stopped := t.IfNotStopped(func() {
+		stopped := !t.IfNotStopped(func() {
 			t.wg.Add(1)
 			go func() {
 				ctxWithStop, cancel := t.stopChan.Ctx(ctx)
