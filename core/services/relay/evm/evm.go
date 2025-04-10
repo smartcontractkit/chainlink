@@ -38,13 +38,11 @@ import (
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
 	tronsdk "github.com/fbsobreira/gotron-sdk/pkg/address"
-	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	tronkeystore "github.com/smartcontractkit/chainlink-tron/relayer/keystore"
 	tron "github.com/smartcontractkit/chainlink-tron/relayer/ocr2"
 	tronclient "github.com/smartcontractkit/chainlink-tron/relayer/sdk"
@@ -819,34 +817,6 @@ type configTransmitterOpts struct {
 	subjectID *uuid.UUID
 }
 
-type evmTransmissionsCache struct {
-	contractAddress     common.Address
-	client              client.Client
-	contractABI         abi.ABI
-	lp                  logpoller.LogPoller
-	transmittedEventSig common.Hash
-}
-
-func NewEVMTransmissionsCache(ctx context.Context, lggr logger.Logger, contractAddress common.Address, client client.Client, contractABI abi.ABI, lp logpoller.LogPoller, transmittedEventSig common.Hash) *evmTransmissionsCache {
-	return &evmTransmissionsCache{
-		contractAddress:     contractAddress,
-		client:              client,
-		contractABI:         contractABI,
-		lp:                  lp,
-		transmittedEventSig: transmittedEventSig,
-	}
-}
-
-func (c *evmTransmissionsCache) LatestTransmissionDetails(ctx context.Context) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, latestAnswer *big.Int, latestTimestamp time.Time, err error) {
-	// Uses the EVM Client to call the latestConfigDigestAndEpoch function on the contract, reuses the same logic thats in the EVM ContractTransmitter
-	configDigest, epoch, err = getLatestConfigDigestAndEpoch(ctx, c.lp, c.contractAddress, c.contractABI, c.transmittedEventSig, c.client)
-	return configDigest, epoch, 0, latestAnswer, latestTimestamp, nil
-}
-
-func (c *evmTransmissionsCache) LatestRoundRequested(ctx context.Context, lookback time.Duration) (ocrtypes.ConfigDigest, uint32, uint8, error) {
-	return ocrtypes.ConfigDigest{}, 0, 0, nil
-}
-
 // newOnChainContractTransmitter creates a new contract transmitter.
 func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
 	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
@@ -878,7 +848,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 			return nil, errors.New("invalid ABI, missing transmitted")
 		}
 
-		evmCache := NewEVMTransmissionsCache(ctx, lggr, configWatcher.contractAddress, configWatcher.chain.Client(), transmissionContractABI, configWatcher.chain.LogPoller(), transmitted.ID)
+		evmCache := tron.NewEVMTransmissionsCache(ctx, lggr, configWatcher.contractAddress, configWatcher.chain.Client(), transmissionContractABI, configWatcher.chain.LogPoller(), transmitted.ID)
 
 		senderAddress, err := ethKeystore.GetNextAddress(ctx)
 		if err != nil {
