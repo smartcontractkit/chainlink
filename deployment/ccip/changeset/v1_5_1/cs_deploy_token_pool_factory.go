@@ -43,6 +43,9 @@ func deployTokenPoolFactoryPrecondition(e deployment.Environment, config DeployT
 		if state.Router == nil {
 			return fmt.Errorf("router does not exist on %s", chain.String())
 		}
+		if state.RMNProxy == nil {
+			return fmt.Errorf("rmn proxy does not exist on %s", chain.String())
+		}
 		if len(state.RegistryModules1_6) == 0 {
 			return fmt.Errorf("registry module with version 1.6.0 does not exist on %s", chain.String())
 		}

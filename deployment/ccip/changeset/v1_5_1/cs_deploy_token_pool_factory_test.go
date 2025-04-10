@@ -5,14 +5,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
@@ -86,18 +91,77 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
-				testCfg.Chains = 2
-				testCfg.PrerequisiteDeploymentOnly = true
+			lggr := logger.TestLogger(t)
+			e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+				Chains: 2,
 			})
-			e := deployedEnvironment.Env
 			selectors := e.AllChainSelectors()
 
-			state, err := changeset.LoadOnchainState(e)
-			require.NoError(t, err, "failed to load onchain state")
+			if !test.ForgetPrerequisites {
+				// NOTE: We don't use the DeployPrerequisites changeset because the TokenPoolFactory is a prerequisite in itself.
+				for _, selector := range selectors {
+					// Deploy token admin registry
+					tokenAdminRegistry, err := deployment.DeployContract(e.Logger, e.Chains[selector], e.ExistingAddresses,
+						func(chain deployment.Chain) deployment.ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
+							tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
+								chain.DeployerKey,
+								chain.Client)
+							return deployment.ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
+								Address: tokenAdminRegistryAddr, Contract: tokenAdminRegistry, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.TokenAdminRegistry, deployment.Version1_5_0), Err: err2,
+							}
+						})
+					require.NoError(t, err, "failed to deploy token admin registry")
+					// Deploy RMN proxy
+					rmnProxy, err := deployment.DeployContract(lggr, e.Chains[selector], e.ExistingAddresses,
+						func(chain deployment.Chain) deployment.ContractDeploy[*rmn_proxy_contract.RMNProxy] {
+							rmnProxyAddr, tx2, rmnProxy2, err2 := rmn_proxy_contract.DeployRMNProxy(
+								chain.DeployerKey,
+								chain.Client,
+								// We don't need the actual RMN address here,
+								// just a random address to satisfy the constructor.
+								utils.RandomAddress(),
+							)
+							return deployment.ContractDeploy[*rmn_proxy_contract.RMNProxy]{
+								Address: rmnProxyAddr, Contract: rmnProxy2, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.ARMProxy, deployment.Version1_0_0), Err: err2,
+							}
+						})
+					require.NoError(t, err, "failed to deploy RMN proxy")
+					// Deploy router
+					_, err = deployment.DeployContract(e.Logger, e.Chains[selector], e.ExistingAddresses,
+						func(chain deployment.Chain) deployment.ContractDeploy[*router.Router] {
+							routerAddr, tx2, routerC, err2 := router.DeployRouter(
+								chain.DeployerKey,
+								chain.Client,
+								// We don't need the actual addresses here, just some random ones
+								// to satisfy the constructor.
+								utils.RandomAddress(),
+								rmnProxy.Address,
+							)
+							return deployment.ContractDeploy[*router.Router]{
+								Address: routerAddr, Contract: routerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_2_0), Err: err2,
+							}
+						})
+					require.NoError(t, err, "failed to deploy router")
+					// Deploy registry module
+					_, err = deployment.DeployContract(e.Logger, e.Chains[selector], e.ExistingAddresses,
+						func(chain deployment.Chain) deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
+							regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
+								chain.DeployerKey,
+								chain.Client,
+								tokenAdminRegistry.Address,
+							)
+							return deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
+								Address: regModAddr, Contract: regMod, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.RegistryModule, deployment.Version1_6_0), Err: err2,
+							}
+						})
+					require.NoError(t, err, "failed to deploy registry module")
+				}
+			}
 
 			if test.MultipleRegistryModules {
 				// Add a new registry module to each chain
+				state, err := changeset.LoadOnchainState(e)
+				require.NoError(t, err, "failed to load onchain state")
 				for _, selector := range selectors {
 					_, err := deployment.DeployContract(e.Logger, e.Chains[selector], e.ExistingAddresses,
 						func(chain deployment.Chain) deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
@@ -112,12 +176,8 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 					require.NoError(t, err, "failed to deploy registry module")
 				}
 			}
-			if test.ForgetPrerequisites {
-				// Clear the address book
-				e.ExistingAddresses = deployment.NewMemoryAddressBook()
-			}
 
-			state, err = changeset.LoadOnchainState(e)
+			state, err := changeset.LoadOnchainState(e)
 			require.NoError(t, err, "failed to load onchain state")
 
 			e, err = commonchangeset.Apply(t, e, nil, commonchangeset.Configure(
