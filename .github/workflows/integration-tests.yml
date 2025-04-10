@@ -82,11 +82,11 @@ jobs:
           module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
           enforce-semantic-tag: "true"
   changes:
+    # Don't run E2E tests on PR
+    if: ${{ github.event_name != 'pull_request' }} 
     environment: integration
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -131,8 +131,6 @@ jobs:
       cre_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.cre_changes }}
 
   build-chainlink:
-    # Skipping build for PRs to skip all tests on PRs
-    if: ${{ github.event_name != 'pull_request' }}
     environment: integration
     permissions:
       id-token: write
