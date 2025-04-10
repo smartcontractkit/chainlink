@@ -115,46 +115,63 @@ func getCommitRootAcceptedEvent(
 	}
 
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
-	end := start + durationToBlocks(destChainSel, 48*time.Hour)
-	lggr.Debugw("Getting commit root accepted event", "startBlock", start, "endBlock", end)
-	iter, err := state.Chains[destChainSel].OffRamp.FilterCommitReportAccepted(
-		&bind.FilterOpts{
-			Start: start,
-			End:   &end,
-		},
-	)
-	if err != nil {
-		return offramp.InternalMerkleRoot{}, fmt.Errorf("failed to filter commit report accepted: %w", err)
-	}
+	step := durationToBlocks(destChainSel, 24*time.Hour)
+	lggr.Debugw("Getting commit root accepted event", "startBlock", start, "step", step)
 
 	var countMerkleRoots int
 	var countNoRoots int
-	for iter.Next() {
-		if len(iter.Event.BlessedMerkleRoots) == 0 && len(iter.Event.UnblessedMerkleRoots) == 0 {
-			countNoRoots++
-			continue
+	for {
+		if start > hdr.Number.Uint64() {
+			// Probably didn't find everything
+			lggr.Debugw("start block is greater than current head, stopping")
+			break
 		}
 
-		countMerkleRoots++
-		for _, root := range iter.Event.BlessedMerkleRoots {
-			if root.SourceChainSelector == srcChainSel {
-				lggr.Debugw("checking commit root", "minSeqNr", root.MinSeqNr, "maxSeqNr", root.MaxSeqNr, "txHash", iter.Event.Raw.TxHash.String())
-				if msgSeqNr >= root.MinSeqNr && msgSeqNr <= root.MaxSeqNr {
-					lggr.Debugw("found commit root", "root", root, "txHash", iter.Event.Raw.TxHash.String())
-					return root, nil
+		end := start + step
+		if end > hdr.Number.Uint64() {
+			end = hdr.Number.Uint64()
+		}
+		lggr.Debugw("Querying with", "startBlock", start, "endBlock", end, "step", step)
+
+		iter, err := state.Chains[destChainSel].OffRamp.FilterCommitReportAccepted(
+			&bind.FilterOpts{
+				Start: start,
+				End:   &end,
+			},
+		)
+		if err != nil {
+			return offramp.InternalMerkleRoot{}, fmt.Errorf("failed to filter commit report accepted: %w", err)
+		}
+
+		for iter.Next() {
+			if len(iter.Event.BlessedMerkleRoots) == 0 && len(iter.Event.UnblessedMerkleRoots) == 0 {
+				countNoRoots++
+				continue
+			}
+
+			countMerkleRoots++
+			for _, root := range iter.Event.BlessedMerkleRoots {
+				if root.SourceChainSelector == srcChainSel {
+					lggr.Debugw("checking commit root", "minSeqNr", root.MinSeqNr, "maxSeqNr", root.MaxSeqNr, "txHash", iter.Event.Raw.TxHash.String())
+					if msgSeqNr >= root.MinSeqNr && msgSeqNr <= root.MaxSeqNr {
+						lggr.Debugw("found commit root", "root", root, "txHash", iter.Event.Raw.TxHash.String())
+						return root, nil
+					}
+				}
+			}
+
+			for _, root := range iter.Event.UnblessedMerkleRoots {
+				if root.SourceChainSelector == srcChainSel {
+					lggr.Debugw("checking commit root", "minSeqNr", root.MinSeqNr, "maxSeqNr", root.MaxSeqNr, "txHash", iter.Event.Raw.TxHash.String())
+					if msgSeqNr >= root.MinSeqNr && msgSeqNr <= root.MaxSeqNr {
+						lggr.Debugw("found commit root", "root", root, "txHash", iter.Event.Raw.TxHash.String())
+						return root, nil
+					}
 				}
 			}
 		}
 
-		for _, root := range iter.Event.UnblessedMerkleRoots {
-			if root.SourceChainSelector == srcChainSel {
-				lggr.Debugw("checking commit root", "minSeqNr", root.MinSeqNr, "maxSeqNr", root.MaxSeqNr, "txHash", iter.Event.Raw.TxHash.String())
-				if msgSeqNr >= root.MinSeqNr && msgSeqNr <= root.MaxSeqNr {
-					lggr.Debugw("found commit root", "root", root, "txHash", iter.Event.Raw.TxHash.String())
-					return root, nil
-				}
-			}
-		}
+		start = end + 1
 	}
 
 	lggr.Debugw("didn't find commit root", "countMerkleRoots", countMerkleRoots, "countNoRoots", countNoRoots)
