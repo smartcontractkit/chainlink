@@ -45,7 +45,11 @@ func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig
 	}
 
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
+		if tx != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
+		}
+
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to submit transaction: %w", err)
 	}
 
 	return deployment.ChangesetOutput{}, nil
