@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -21,6 +22,7 @@ func ConfirmTx(chain deployment.AptosChain, txHash string, opts ...any) error {
 	if !userTx.Success {
 		return fmt.Errorf("transaction failed: %s", userTx.VmStatus)
 	}
+	time.Sleep(time.Second * 1)
 	return nil
 }
 

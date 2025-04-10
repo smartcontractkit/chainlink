@@ -41,7 +41,7 @@ func mustParseAddress(t *testing.T, addr string) aptos.AccountAddress {
 	return address
 }
 
-func getMockChainContractParams(t *testing.T, chainSelector uint64) config.ChainContractParams {
+func GetMockChainContractParams(t *testing.T, chainSelector uint64) config.ChainContractParams {
 	mockParsedAddress := mustParseAddress(t, mockAddress)
 	mockParsedLinkAddress := mustParseAddress(t, mockLinkAddress)
 

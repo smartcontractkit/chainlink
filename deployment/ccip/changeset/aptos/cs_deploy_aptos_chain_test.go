@@ -39,8 +39,8 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			},
 			config: config.DeployAptosChainConfig{
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
-					4457093679053095497: getMockChainContractParams(t, 4457093679053095497),
-					743186221051783445:  getMockChainContractParams(t, 743186221051783445),
+					4457093679053095497: GetMockChainContractParams(t, 4457093679053095497),
+					743186221051783445:  GetMockChainContractParams(t, 743186221051783445),
 				},
 				MCMSConfigPerChain: map[uint64]mcmstypes.Config{
 					4457093679053095497: getMockMCMSConfig(t),
@@ -71,8 +71,8 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			},
 			config: config.DeployAptosChainConfig{
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
-					4457093679053095497: getMockChainContractParams(t, 4457093679053095497),
-					743186221051783445:  getMockChainContractParams(t, 743186221051783445),
+					4457093679053095497: GetMockChainContractParams(t, 4457093679053095497),
+					743186221051783445:  GetMockChainContractParams(t, 743186221051783445),
 				},
 			},
 			wantErr: false,
@@ -98,8 +98,8 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			},
 			config: config.DeployAptosChainConfig{
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
-					4457093679053095497: getMockChainContractParams(t, 4457093679053095497),
-					743186221051783445:  getMockChainContractParams(t, 743186221051783445),
+					4457093679053095497: GetMockChainContractParams(t, 4457093679053095497),
+					743186221051783445:  GetMockChainContractParams(t, 743186221051783445),
 				},
 			},
 			wantErrRe: `chain 743186221051783445 not found in env`,
@@ -137,7 +137,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			},
 			config: config.DeployAptosChainConfig{
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
-					4457093679053095497: getMockChainContractParams(t, 4457093679053095497),
+					4457093679053095497: GetMockChainContractParams(t, 4457093679053095497),
 				},
 				// MCMSConfigPerChain is missing needed configs
 			},
@@ -204,7 +204,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 	t.Log("Deployer: ", env.AptosChains[chainSelector].DeployerSigner)
 
 	// Deploy CCIP to Aptos chain
-	mockCCIPParams := getMockChainContractParams(t, chainSelector)
+	mockCCIPParams := GetMockChainContractParams(t, chainSelector)
 	ccipConfig := config.DeployAptosChainConfig{
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
 			chainSelector: mockCCIPParams,

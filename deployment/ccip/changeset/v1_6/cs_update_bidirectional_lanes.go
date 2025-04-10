@@ -156,6 +156,11 @@ func (c UpdateBidirectionalLanesConfig) BuildConfigs() UpdateBidirectionalLanesC
 
 func updateBidirectionalLanesPrecondition(e deployment.Environment, c UpdateBidirectionalLanesConfig) error {
 	configs := c.BuildConfigs()
+
+	return UpdateLanesPrecondition(e, configs)
+}
+
+func UpdateLanesPrecondition(e deployment.Environment, configs UpdateBidirectionalLanesChangesetConfigs) error {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -190,8 +195,16 @@ func updateBidirectionalLanesPrecondition(e deployment.Environment, c UpdateBidi
 }
 
 func updateBidirectionalLanesLogic(e deployment.Environment, c UpdateBidirectionalLanesConfig) (deployment.ChangesetOutput, error) {
-	proposals := make([]mcms.TimelockProposal, 0)
 	configs := c.BuildConfigs()
+
+	return UpdateLanesLogic(e, c.MCMSConfig, configs)
+}
+
+// UpdateLanesLogic is the main logic for updating lanes. Configs provided can be unidirectional
+// TODO: this should be refactored as a sequence once EVM changesets move to Operations API
+// TODO: UpdateBidirectionalLanesChangesetConfigs name is misleading, it accepts any kind of lane updates
+func UpdateLanesLogic(e deployment.Environment, mcmsConfig *proposalutils.TimelockConfig, configs UpdateBidirectionalLanesChangesetConfigs) (deployment.ChangesetOutput, error) {
+	proposals := make([]mcms.TimelockProposal, 0)
 
 	out, err := UpdateFeeQuoterDestsChangeset(e, configs.UpdateFeeQuoterDestsConfig)
 	if err != nil {
@@ -232,7 +245,7 @@ func updateBidirectionalLanesLogic(e deployment.Environment, c UpdateBidirection
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), proposals, nil, "Update multiple bidirectional lanes", c.MCMSConfig)
+	proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), proposals, nil, "Update multiple bidirectional lanes", mcmsConfig)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 	}
