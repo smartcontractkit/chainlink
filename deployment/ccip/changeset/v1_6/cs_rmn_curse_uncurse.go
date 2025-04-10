@@ -35,6 +35,13 @@ type RMNCurseConfig struct {
 
 func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 	state, err := changeset.LoadOnchainState(e)
+	isEnforced, err := state.IsMCMSEnforced(e.GetContext())
+	if err != nil {
+		return fmt.Errorf("failed to check if MCMS is enforced in environment: %w", err)
+	}
+	if isEnforced && c.MCMS == nil {
+		return errors.New("MCMS is enforced for environment, but no MCMS config was provided")
+	}
 
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
