@@ -45,6 +45,7 @@ import (
 
 	tronsdk "github.com/fbsobreira/gotron-sdk/pkg/address"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	tronkeystore "github.com/smartcontractkit/chainlink-tron/relayer/keystore"
 	tron "github.com/smartcontractkit/chainlink-tron/relayer/ocr2"
 	tronclient "github.com/smartcontractkit/chainlink-tron/relayer/sdk"
 	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
@@ -818,33 +819,6 @@ type configTransmitterOpts struct {
 	subjectID *uuid.UUID
 }
 
-type loopKeystoreAdapter struct {
-	ks keys.Store
-}
-
-func (l *loopKeystoreAdapter) Accounts(ctx context.Context) (accounts []string, err error) {
-	enabledAddresses, err := l.ks.EnabledAddresses(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, address := range enabledAddresses {
-		accounts = append(accounts, address.String())
-	}
-	return accounts, nil
-}
-
-func (l *loopKeystoreAdapter) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
-	// We'll need to convert the tron address to an evm address to sign the data
-	tronAddr, err := tronsdk.Base58ToAddress(account)
-	if err != nil {
-		return nil, err
-	}
-
-	addr := tronAddr.EthAddress()
-	return l.ks.SignRawUnhashedBytes(ctx, addr, data)
-}
-
 type evmTransmissionsCache struct {
 	contractAddress     common.Address
 	client              client.Client
@@ -896,7 +870,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		}
 
 		// Start the Tron TXM
-		tronTXM := trontxm.New(lggr, &loopKeystoreAdapter{ks: ethKeystore}, tronClient, trontxm.TronTxmConfig{})
+		tronTXM := trontxm.New(lggr, tronkeystore.NewLoopKeystoreAdapter(ethKeystore), tronClient, trontxm.TronTxmConfig{})
 		tronTXM.Start(ctx)
 
 		transmitted, ok := transmissionContractABI.Events["Transmitted"]
