@@ -18,13 +18,15 @@ type GetCRCW struct{}
 
 // GetChainWriter returns a new ContractWriter for Solana chains.
 func (g GetCRCW) GetChainWriter(ctx context.Context, pararms ccipcommon.GetChainWriterParams) (types.ContractWriter, error) {
-	if solana.PublicKeyLength != len(pararms.OfframpProgramAddress) {
-		return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(pararms.OfframpProgramAddress))
+	var offrampProgramAddress solana.PublicKey
+	// NOTE: this function can still be called with EVM inputs, and PublicKeyFromBytes will panic on addresses with len=20
+	// technically we only need the writer to do fee estimation so this doesn't matter and we can use a zero address
+	if len(pararms.OfframpProgramAddress) == solana.PublicKeyLength {
+		offrampProgramAddress = solana.PublicKeyFromBytes(pararms.OfframpProgramAddress)
 	}
 
-	offrampAddress := solana.PublicKeyFromBytes(pararms.OfframpProgramAddress)
 	transmitter := pararms.Transmitters[types.NewRelayID(pararms.ChainFamily, pararms.ChainID)]
-	solConfig, err := solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0])
+	solConfig, err := solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 	}
