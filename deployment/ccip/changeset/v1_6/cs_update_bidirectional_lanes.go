@@ -40,9 +40,6 @@ type UpdateBidirectionalLanesConfig struct {
 	Lanes []BidirectionalLaneDefinition
 	// TestRouter indicates if we want to enable these lanes on the test router.
 	TestRouter bool
-	// BypassMCMS allows you to bypass the enforcement of MCMS for updates to the main router.
-	// WARNING: This should only be used in staging environments where MCMS is not used. NEVER use this option in production.
-	BypassMCMS bool
 }
 
 type UpdateBidirectionalLanesChangesetConfigs struct {
@@ -150,7 +147,6 @@ func (c UpdateBidirectionalLanesConfig) BuildConfigs() UpdateBidirectionalLanesC
 			UpdatesByChain: offRampUpdatesByChain,
 		},
 		UpdateRouterRampsConfig: UpdateRouterRampsConfig{
-			BypassMCMS:     c.BypassMCMS,
 			TestRouter:     c.TestRouter,
 			MCMS:           routerMCMSConfig,
 			UpdatesByChain: routerUpdatesByChain,

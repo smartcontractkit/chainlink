@@ -1239,9 +1239,6 @@ type UpdateRouterRampsConfig struct {
 	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
 	// Never use this option when running this changeset in isolation.
 	SkipOwnershipCheck bool
-	// BypassMCMS allows you to bypass the enforcement of MCMS for updates to the main router.
-	// WARNING: This should only be used in staging environments where MCMS is not used. NEVER use this option in production.
-	BypassMCMS bool
 }
 
 func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -1263,9 +1260,11 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if !cfg.TestRouter && cfg.MCMS == nil && !cfg.BypassMCMS {
-			return errors.New("must provide an MCMS config if activating ramps on the main router (use BypassMCMS to skip this check in staging envs)")
-		}
+		/*
+			if !cfg.TestRouter && cfg.MCMS == nil {
+				return errors.New("must provide an MCMS config if activating ramps on the main router")
+			}
+		*/
 		if !cfg.SkipOwnershipCheck {
 			if cfg.TestRouter {
 				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {

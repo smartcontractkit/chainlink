@@ -513,7 +513,6 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
 					v1_6.UpdateRouterRampsConfig{
-						BypassMCMS:     true,
 						UpdatesByChain: updateRouterChanges,
 					},
 				),

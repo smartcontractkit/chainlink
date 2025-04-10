@@ -578,9 +578,6 @@ type ConnectNewChainConfig struct {
 	TestRouter *bool `json:"testRouter,omitempty"`
 	// MCMSConfig is the MCMS configuration, omit to use deployer key only.
 	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
-	// BypassMCMS allows you to bypass the enforcement of MCMS for updates to the main router.
-	// WARNING: This should only be used in staging environments where MCMS is not used. NEVER use this option in production.
-	BypassMCMS bool
 }
 
 func (c ConnectNewChainConfig) validateNewChain(env deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -742,12 +739,12 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 	if !*c.TestRouter {
 		mcmsConfig = c.MCMSConfig
 	}
-	allEnablementProposals, err = connectRampsAndRouters(env, c.NewChainSelector, c.RemoteChains, mcmsConfig, *c.TestRouter, allEnablementProposals, c.BypassMCMS)
+	allEnablementProposals, err = connectRampsAndRouters(env, c.NewChainSelector, c.RemoteChains, mcmsConfig, *c.TestRouter, allEnablementProposals)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to enable production router on chain with selector %d: %w", c.NewChainSelector, err)
 	}
 	for remoteChainSelector := range c.RemoteChains {
-		allEnablementProposals, err = connectRampsAndRouters(env, remoteChainSelector, map[uint64]ConnectionConfig{c.NewChainSelector: c.NewChainConnectionConfig}, c.MCMSConfig, *c.TestRouter, allEnablementProposals, c.BypassMCMS)
+		allEnablementProposals, err = connectRampsAndRouters(env, remoteChainSelector, map[uint64]ConnectionConfig{c.NewChainSelector: c.NewChainConnectionConfig}, c.MCMSConfig, *c.TestRouter, allEnablementProposals)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to enable production router on chain with selector %d: %w", remoteChainSelector, err)
 		}
@@ -781,7 +778,6 @@ func connectRampsAndRouters(
 	mcmsConfig *proposalutils.TimelockConfig,
 	testRouter bool,
 	proposalAggregate []mcmslib.TimelockProposal,
-	bypassMCMS bool,
 ) ([]mcmslib.TimelockProposal, error) {
 	// Update offRamp sources on the new chain.
 	offRampUpdatesOnNew := make(map[uint64]OffRampSourceUpdate, len(remoteChains))
@@ -837,7 +833,6 @@ func connectRampsAndRouters(
 		cfg = nil
 	}
 	out, err = UpdateRouterRampsChangeset(e, UpdateRouterRampsConfig{
-		BypassMCMS: bypassMCMS,
 		TestRouter: testRouter,
 		UpdatesByChain: map[uint64]RouterUpdates{
 			chainSelector: RouterUpdates{

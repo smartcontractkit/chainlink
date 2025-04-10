@@ -2,16 +2,24 @@ package changeset_test
 
 import (
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestSmokeState(t *testing.T) {
@@ -38,6 +46,123 @@ func TestMCMSState(t *testing.T) {
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].BypasserMcm.Address().String())
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].ProposerMcm.Address().String())
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].CancellerMcm.Address().String())
+}
+
+func TestIsMCMSEnforced(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		Msg                string
+		DeployCCIPHome     bool
+		DeployMCMS         bool
+		TransferToMCMS     bool
+		ExpectedIsEnforced bool
+		ExpectedErr        string
+	}{
+		{
+			Msg:                "MCMS owned",
+			DeployCCIPHome:     true,
+			DeployMCMS:         true,
+			TransferToMCMS:     true,
+			ExpectedIsEnforced: true,
+		},
+		{
+			Msg:                "Not MCMS owned",
+			DeployCCIPHome:     true,
+			DeployMCMS:         true,
+			TransferToMCMS:     false,
+			ExpectedIsEnforced: false,
+		},
+		{
+			Msg:                "MCMS not deployed",
+			DeployCCIPHome:     true,
+			DeployMCMS:         false,
+			TransferToMCMS:     false,
+			ExpectedIsEnforced: false,
+		},
+		{
+			Msg:                "CCIPHome not deployed",
+			DeployCCIPHome:     false,
+			DeployMCMS:         false,
+			TransferToMCMS:     false,
+			ExpectedIsEnforced: false,
+			ExpectedErr:        "CCIP home not found",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Msg, func(t *testing.T) {
+			var err error
+			lggr := logger.TestLogger(t)
+			e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+				Chains: 1,
+			})
+			homeChainSelector := e.AllChainSelectors()[0]
+
+			if test.DeployCCIPHome {
+				_, err = deployment.DeployContract(e.Logger, e.Chains[homeChainSelector], e.ExistingAddresses,
+					func(chain deployment.Chain) deployment.ContractDeploy[*ccip_home.CCIPHome] {
+						address, tx2, contract, err2 := ccip_home.DeployCCIPHome(
+							chain.DeployerKey,
+							chain.Client,
+							utils.RandomAddress(), // We don't need a real contract address here, just a random one to satisfy the constructor.
+						)
+						return deployment.ContractDeploy[*ccip_home.CCIPHome]{
+							Address: address, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.CCIPHome, deployment.Version1_6_0), Err: err2,
+						}
+					})
+				require.NoError(t, err, "failed to deploy CCIP home")
+			}
+
+			if test.DeployMCMS {
+				e, err = commonchangeset.Apply(t, e, nil,
+					commonchangeset.Configure(deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
+						homeChainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
+					}),
+				)
+				require.NoError(t, err, "failed to deploy MCMS")
+				state, err := changeset.LoadOnchainState(e)
+				require.NoError(t, err, "failed to load onchain state")
+
+				if test.TransferToMCMS {
+					e, err = commonchangeset.Apply(t, e,
+						map[uint64]*proposalutils.TimelockExecutionContracts{
+							homeChainSelector: &proposalutils.TimelockExecutionContracts{
+								Timelock:  state.Chains[homeChainSelector].Timelock,
+								CallProxy: state.Chains[homeChainSelector].CallProxy,
+							},
+						},
+						commonchangeset.Configure(
+							deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+							commonchangeset.TransferToMCMSWithTimelockConfig{
+								ContractsByChain: map[uint64][]common.Address{
+									homeChainSelector: {
+										state.Chains[homeChainSelector].CCIPHome.Address(),
+									},
+								},
+								MCMSConfig: proposalutils.TimelockConfig{
+									MinDelay: 0 * time.Second,
+								},
+							},
+						),
+					)
+					require.NoError(t, err, "failed to transfer CCIP home to MCMS")
+				}
+			}
+
+			state, err := changeset.LoadOnchainState(e)
+			require.NoError(t, err, "failed to load onchain state")
+
+			isEnforced, err := state.IsMCMSEnforced(e.GetContext(), homeChainSelector)
+			if test.ExpectedErr != "" {
+				require.Error(t, err, "expected error but got nil")
+				require.Contains(t, err.Error(), test.ExpectedErr, "error message mismatch")
+				return
+			}
+			require.NoError(t, err, "failed to check if MCMS is enforced")
+			require.Equal(t, test.ExpectedIsEnforced, isEnforced, "isEnforced mismatch")
+		})
+	}
 }
 
 // TODO: add solana state test
