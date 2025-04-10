@@ -454,7 +454,7 @@ func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr lo
 		}
 		sha = version
 	}
-	tag := "solana-artifacts-localtest-" + sha
+	tag := "solana-artifacts-localtest-f93a56f0edc5" //+ sha
 
 	if lggr != nil {
 		lggr.Infof("Downloading Solana CCIP program artifacts (tag = %s)", tag)
