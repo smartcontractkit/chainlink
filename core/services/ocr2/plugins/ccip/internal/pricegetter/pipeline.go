@@ -2,6 +2,7 @@ package pricegetter
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -20,29 +22,47 @@ import (
 
 var _ PriceGetter = &PipelineGetter{}
 
-// Deprecated: not used
+// PipelineGetter is not supposed to be used but it seems that some JobSpecs are still using it.
+// Should be removed after all JobSpecs migrate to the dynamic price getter. It uses a legacy pipeline component of
+// chainlink core.
 type PipelineGetter struct {
-	source        string
-	runner        pipeline.Runner
-	jobID         int32
-	externalJobID uuid.UUID
-	name          string
-	lggr          logger.Logger
+	source                string
+	runner                pipeline.Runner
+	jobID                 int32
+	externalJobID         uuid.UUID
+	name                  string
+	lggr                  logger.Logger
+	sourceNativeTokenAddr cciptypes.Address
+	sourceChainSelector   uint64
+	destChainSelector     uint64
 }
 
-func NewPipelineGetter(source string, runner pipeline.Runner, jobID int32, externalJobID uuid.UUID, name string, lggr logger.Logger) (*PipelineGetter, error) {
+func NewPipelineGetter(
+	source string,
+	runner pipeline.Runner,
+	jobID int32,
+	externalJobID uuid.UUID,
+	name string,
+	lggr logger.Logger,
+	sourceNativeTokenAddr cciptypes.Address,
+	sourceChainSelector uint64,
+	destChainSelector uint64,
+) (*PipelineGetter, error) {
 	_, err := pipeline.Parse(source)
 	if err != nil {
 		return nil, err
 	}
 
 	return &PipelineGetter{
-		source:        source,
-		runner:        runner,
-		jobID:         jobID,
-		externalJobID: externalJobID,
-		name:          name,
-		lggr:          lggr,
+		source:                source,
+		runner:                runner,
+		jobID:                 jobID,
+		externalJobID:         externalJobID,
+		name:                  name,
+		lggr:                  lggr,
+		sourceNativeTokenAddr: sourceNativeTokenAddr,
+		sourceChainSelector:   sourceChainSelector,
+		destChainSelector:     destChainSelector,
 	}, nil
 }
 
@@ -62,7 +82,30 @@ func (d *PipelineGetter) FilterConfiguredTokens(ctx context.Context, tokens []cc
 }
 
 func (d *PipelineGetter) GetJobSpecTokenPricesUSD(ctx context.Context) (map[ccipcommon.TokenID]*big.Int, error) {
-	panic("GetJobSpecTokenPricesUSD not supported by pipeline price getter migrate to dynamic price getter via jobSpec config")
+	prices, err := d.getPricesFromRunner(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// if the token address equals source native token then chain selector is source else it is dest
+
+	tokenPrices := make(map[ccipcommon.TokenID]*big.Int)
+	for tokenAddressStr, rawPrice := range prices {
+		tokenAddr := ccipcalc.HexToAddress(tokenAddressStr)
+		castedPrice, err1 := parseutil.ParseBigIntFromAny(rawPrice)
+		if err1 != nil {
+			return nil, fmt.Errorf("failed to parse price %s for token %s: %w", rawPrice, tokenAddr, err1)
+		}
+
+		tokenID := ccipcommon.TokenID{TokenAddress: tokenAddr, ChainSelector: d.destChainSelector}
+		if tokenAddr == d.sourceNativeTokenAddr {
+			tokenID.ChainSelector = d.sourceChainSelector
+		}
+
+		tokenPrices[tokenID] = castedPrice
+	}
+
+	return tokenPrices, nil
 }
 
 func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
@@ -97,7 +140,26 @@ func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.
 }
 
 func (d *PipelineGetter) GetTokenPricesUSD(ctx context.Context, tokens []ccipcommon.TokenID) (map[ccipcommon.TokenID]*big.Int, error) {
-	panic("GetTokenPricesUSD not supported by pipeline price getter migrate to dynamic price getter via jobSpec config")
+	tokenAddresses := make([]cciptypes.Address, len(tokens))
+	for i, token := range tokens {
+		tokenAddresses[i] = token.TokenAddress
+	}
+
+	tokenPrices, err := d.TokenPricesUSD(ctx, tokenAddresses)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get token prices %v: %w", tokenAddresses, err)
+	}
+
+	tokenPricesMap := make(map[ccipcommon.TokenID]*big.Int)
+	for tokenAddr, price := range tokenPrices {
+		tokenID := ccipcommon.TokenID{TokenAddress: tokenAddr, ChainSelector: d.destChainSelector}
+		if tokenAddr == d.sourceNativeTokenAddr {
+			tokenID.ChainSelector = d.sourceChainSelector
+		}
+		tokenPricesMap[tokenID] = price
+	}
+
+	return tokenPricesMap, nil
 }
 
 func (d *PipelineGetter) getPricesFromRunner(ctx context.Context) (map[string]interface{}, error) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/datastore"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -67,6 +68,10 @@ func NewNoopEnvironment(t *testing.T) deployment.Environment {
 		"noop",
 		logger.TestLogger(t),
 		deployment.NewMemoryAddressBook(),
+		datastore.NewMemoryDataStore[
+			datastore.DefaultMetadata,
+			datastore.DefaultMetadata,
+		]().Seal(),
 		map[uint64]deployment.Chain{},
 		map[uint64]deployment.SolChain{},
 		map[uint64]deployment.AptosChain{},
