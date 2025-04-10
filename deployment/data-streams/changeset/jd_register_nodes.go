@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"errors"
 	"fmt"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -12,25 +11,18 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 )
 
+var RegisterNodesWithJDChangeset = deployment.CreateChangeSet(registerNodesWithJDLogic, registerNodesWithJDPrecondition)
+
 type RegisterNodesInput struct {
-	EnvLabel    string
-	ProductName string
-	// Will be deleted after migration to DONConfigMap
-	DONs     DONConfigMap `json:"dons,omitempty"`
-	DONsList []DONConfig  `json:"dons_list,omitempty"`
+	BaseLabels map[string]string
+	DONsList   []DONConfig `json:"dons_list,omitempty"`
 }
 
-type DONConfigMap map[string]DONConfig
-
 type DONConfig struct {
-	ID                 uint64    `json:"id"`
-	ChainSelector      string    `json:"chainSelector"`
-	Name               string    `json:"name"`
-	ChannelConfigStore string    `json:"channelConfigStore"`
-	Verifier           string    `json:"verifier"`
-	Configurator       string    `json:"configurator"`
-	Nodes              []NodeCfg `json:"nodes"`
-	BootstrapNodes     []NodeCfg `json:"bootstrapNodes"`
+	ID             uint64    `json:"id"`
+	Name           string    `json:"name"`
+	Nodes          []NodeCfg `json:"nodes"`
+	BootstrapNodes []NodeCfg `json:"bootstrapNodes"`
 }
 
 type NodeCfg struct {
@@ -78,16 +70,13 @@ func registerNodesForDON(e deployment.Environment, donName string, donID uint64,
 	}
 }
 
-func RegisterNodesWithJD(e deployment.Environment, cfg RegisterNodesInput) (deployment.ChangesetOutput, error) {
-	baseLabels := []*ptypes.Label{
-		{
-			Key:   "product",
-			Value: &cfg.ProductName,
-		},
-		{
-			Key:   "environment",
-			Value: &cfg.EnvLabel,
-		},
+func registerNodesWithJDLogic(e deployment.Environment, cfg RegisterNodesInput) (deployment.ChangesetOutput, error) {
+	baseLabels := make([]*ptypes.Label, 0, len(cfg.BaseLabels)+1)
+	for key, value := range cfg.BaseLabels {
+		baseLabels = append(baseLabels, &ptypes.Label{
+			Key:   key,
+			Value: &value,
+		})
 	}
 
 	for _, don := range cfg.DONsList {
@@ -99,13 +88,11 @@ func RegisterNodesWithJD(e deployment.Environment, cfg RegisterNodesInput) (depl
 }
 
 func (cfg RegisterNodesInput) Validate() error {
-	if cfg.EnvLabel == "" {
-		return errors.New("EnvLabel must not be empty")
+	for key, value := range cfg.BaseLabels {
+		if key == "" || value == "" {
+			return fmt.Errorf("common node labels have empty key or value")
+		}
 	}
-	if cfg.ProductName == "" {
-		return errors.New("ProductName must not be empty")
-	}
-
 	for i, don := range cfg.DONsList {
 		if don.Name == "" {
 			return fmt.Errorf("DON[%d] has empty Name", i)
@@ -121,4 +108,8 @@ func (cfg RegisterNodesInput) Validate() error {
 		}
 	}
 	return nil
+}
+
+func registerNodesWithJDPrecondition(_ deployment.Environment, cfg RegisterNodesInput) error {
+	return cfg.Validate()
 }
