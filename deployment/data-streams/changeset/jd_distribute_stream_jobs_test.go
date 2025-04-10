@@ -27,6 +27,17 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 		ShouldDeployLinkToken: false,
 		NumNodes:              1,
 		NodeLabels:            testutil.GetNodeLabels(donID, donName, env),
+		CustomDBSetup: []string{
+			// Setup the database with the list of bridges we're using.
+			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
+				" VALUES ('bridge-api1', 'http://url', 0, '', '', '', now(), now());",
+			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
+				" VALUES ('bridge-api2', 'http://url', 0, '', '', '', now(), now());",
+			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
+				" VALUES ('bridge-api3', 'http://url', 0, '', '', '', now(), now());",
+			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
+				" VALUES ('bridge-api4', 'http://url', 0, '', '', '', now(), now());",
+		},
 	})
 
 	// pick the first EVM chain selector
@@ -42,38 +53,36 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	renderedSpec := `type = "stream"
+	renderedSpec := `name = 'ICP/USD-RefPrice | 1000001038'
+type = 'stream'
 schemaVersion = 1
-name = "ICP/USD-RefPrice | 1000001038"
-externalJobID = "%s"
-forwardingAllowed = false
-maxTaskDuration = "0s"
-streamID = "1000001038"
+externalJobID = 'a818bfcb-28cd-4eb2-a4af-6ff9e35b0fb0'
+streamID = 1000001038
 observationSource = """
 // data source 1
-ds1_payload [type=bridge name="bridge-api1" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
+ds1_payload [type=bridge name=\"bridge-api1\" timeout=\"50s\" requestData=\"{\\\"data\\\":{\\\"endpoint\\\":\\\"cryptolwba\\\",\\\"from\\\":\\\"ICP\\\",\\\"to\\\":\\\"USD\\\"}}\"];
 
-ds1_benchmark [type=jsonparse path="data,mid"];
-ds1_bid [type=jsonparse path="data,bid"];
-ds1_ask [type=jsonparse path="data,ask"];
+ds1_benchmark [type=jsonparse path=\"data,mid\"];
+ds1_bid [type=jsonparse path=\"data,bid\"];
+ds1_ask [type=jsonparse path=\"data,ask\"];
 // data source 2
-ds2_payload [type=bridge name="bridge-api2" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
+ds2_payload [type=bridge name=\"bridge-api2\" timeout=\"50s\" requestData=\"{\\\"data\\\":{\\\"endpoint\\\":\\\"cryptolwba\\\",\\\"from\\\":\\\"ICP\\\",\\\"to\\\":\\\"USD\\\"}}\"];
 
-ds2_benchmark [type=jsonparse path="data,mid"];
-ds2_bid [type=jsonparse path="data,bid"];
-ds2_ask [type=jsonparse path="data,ask"];
+ds2_benchmark [type=jsonparse path=\"data,mid\"];
+ds2_bid [type=jsonparse path=\"data,bid\"];
+ds2_ask [type=jsonparse path=\"data,ask\"];
 // data source 3
-ds3_payload [type=bridge name="bridge-api3" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
+ds3_payload [type=bridge name=\"bridge-api3\" timeout=\"50s\" requestData=\"{\\\"data\\\":{\\\"endpoint\\\":\\\"cryptolwba\\\",\\\"from\\\":\\\"ICP\\\",\\\"to\\\":\\\"USD\\\"}}\"];
 
-ds3_benchmark [type=jsonparse path="data,mid"];
-ds3_bid [type=jsonparse path="data,bid"];
-ds3_ask [type=jsonparse path="data,ask"];
+ds3_benchmark [type=jsonparse path=\"data,mid\"];
+ds3_bid [type=jsonparse path=\"data,bid\"];
+ds3_ask [type=jsonparse path=\"data,ask\"];
 // data source 4
-ds4_payload [type=bridge name="bridge-api4" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
+ds4_payload [type=bridge name=\"bridge-api4\" timeout=\"50s\" requestData=\"{\\\"data\\\":{\\\"endpoint\\\":\\\"cryptolwba\\\",\\\"from\\\":\\\"ICP\\\",\\\"to\\\":\\\"USD\\\"}}\"];
 
-ds4_benchmark [type=jsonparse path="data,mid"];
-ds4_bid [type=jsonparse path="data,bid"];
-ds4_ask [type=jsonparse path="data,ask"];
+ds4_benchmark [type=jsonparse path=\"data,mid\"];
+ds4_bid [type=jsonparse path=\"data,bid\"];
+ds4_ask [type=jsonparse path=\"data,ask\"];
 ds1_payload -> ds1_benchmark -> benchmark_price;
 ds2_payload -> ds2_benchmark -> benchmark_price;
 ds3_payload -> ds3_benchmark -> benchmark_price;
@@ -92,7 +101,7 @@ ds3_payload -> ds3_ask -> ask_price;
 ds4_payload -> ds4_ask -> ask_price;
 ask_price [type=median allowedFaults=3 index=2];
 """
-"""`
+`
 
 	config := CsDistributeStreamJobSpecsConfig{
 		ChainSelectorEVM: chainSelector,

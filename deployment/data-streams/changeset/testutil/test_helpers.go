@@ -76,6 +76,7 @@ type MemoryEnvConfig struct {
 	ShouldDeployLinkToken bool
 	NumNodes              int
 	NodeLabels            []*ptypes.Label
+	CustomDBSetup         []string // SQL queries to run after DB creation
 }
 
 type MemoryEnv struct {
@@ -89,8 +90,9 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 	lggr := logger.TestLogger(t)
 
 	memEnvConf := memory.MemoryEnvironmentConfig{
-		Chains: 1,
-		Nodes:  cfg.NumNodes,
+		Chains:        1,
+		Nodes:         cfg.NumNodes,
+		CustomDBSetup: cfg.CustomDBSetup,
 	}
 
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memEnvConf)

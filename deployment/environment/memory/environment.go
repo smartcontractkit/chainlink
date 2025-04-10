@@ -51,6 +51,7 @@ type MemoryEnvironmentConfig struct {
 	Nodes              int
 	Bootstraps         int
 	RegistryConfig     deployment.CapabilityRegistryConfig
+	CustomDBSetup      []string // SQL queries to run after DB creation
 }
 
 // For placeholders like aptos
@@ -166,6 +167,7 @@ func NewNodes(
 	numNodes,
 	numBootstraps int,
 	registryConfig deployment.CapabilityRegistryConfig,
+	customDBSetup []string, // SQL queries to run after DB creation
 	configOpts ...ConfigOpt,
 ) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
@@ -177,13 +179,13 @@ func NewNodes(
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
 	for i := 0; i < numBootstraps; i++ {
-		node := NewNode(t, ports[i], chains, solChains, logLevel, true /* bootstrap */, registryConfig, configOpts...)
+		node := NewNode(t, ports[i], chains, solChains, logLevel, true /* bootstrap */, registryConfig, customDBSetup, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
 	for i := 0; i < numNodes; i++ {
 		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, ports[numBootstraps+i], chains, solChains, logLevel, false /* bootstrap */, registryConfig, configOpts...)
+		node := NewNode(t, ports[numBootstraps+i], chains, solChains, logLevel, false /* bootstrap */, registryConfig, customDBSetup, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
@@ -218,7 +220,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
 	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
 	solChains := NewMemoryChainsSol(t, config.SolChains)
-	nodes := NewNodes(t, logLevel, chains, solChains, config.Nodes, config.Bootstraps, config.RegistryConfig)
+	nodes := NewNodes(t, logLevel, chains, solChains, config.Nodes, config.Bootstraps, config.RegistryConfig, config.CustomDBSetup)
 	var nodeIDs []string
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)

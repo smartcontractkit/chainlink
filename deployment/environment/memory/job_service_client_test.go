@@ -21,7 +21,7 @@ func TestJobClientProposeJob(t *testing.T) {
 	ctx := testutils.Context(t)
 	chains, _ := memory.NewMemoryChains(t, 1, 1)
 	ports := freeport.GetN(t, 1)
-	testNode := memory.NewNode(t, ports[0], chains, nil, zapcore.DebugLevel, false, deployment.CapabilityRegistryConfig{})
+	testNode := memory.NewNode(t, ports[0], chains, nil, zapcore.DebugLevel, false, deployment.CapabilityRegistryConfig{}, nil)
 
 	// Set up the JobClient with a mock node
 	nodeID := "node-1"
@@ -114,7 +114,7 @@ func TestJobClientJobAPI(t *testing.T) {
 	ctx := testutils.Context(t)
 	chains, _ := memory.NewMemoryChains(t, 1, 1)
 	ports := freeport.GetN(t, 1)
-	testNode := memory.NewNode(t, ports[0], chains, nil, zapcore.DebugLevel, false, deployment.CapabilityRegistryConfig{})
+	testNode := memory.NewNode(t, ports[0], chains, nil, zapcore.DebugLevel, false, deployment.CapabilityRegistryConfig{}, nil)
 
 	// Set up the JobClient with a mock node
 	nodeID := "node-1"
