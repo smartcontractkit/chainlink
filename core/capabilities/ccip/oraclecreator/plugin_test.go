@@ -3,7 +3,7 @@ package oraclecreator
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -39,11 +39,11 @@ func TestPluginTypeToTelemetryType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := pluginTypeToTelemetryType(tt.pluginType)
 			if tt.expectErr {
-				assert.Error(t, err, "Expected an error for plugin type %d", tt.pluginType)
-				assert.Equal(t, synchronization.TelemetryType(""), result, "Expected empty result for plugin type %d", tt.pluginType)
+				require.Error(t, err, "Expected an error for plugin type %d", tt.pluginType)
+				require.Equal(t, synchronization.TelemetryType(""), result, "Expected empty result for plugin type %d", tt.pluginType)
 			} else {
-				assert.NoError(t, err, "Unexpected error for plugin type %d", tt.pluginType)
-				assert.Equal(t, tt.expected, result, "Unexpected telemetry type for plugin type %d", tt.pluginType)
+				require.NoError(t, err, "Unexpected error for plugin type %d", tt.pluginType)
+				require.Equal(t, tt.expected, result, "Unexpected telemetry type for plugin type %d", tt.pluginType)
 			}
 		})
 	}
