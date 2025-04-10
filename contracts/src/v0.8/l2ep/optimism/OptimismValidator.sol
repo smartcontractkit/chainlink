@@ -24,9 +24,9 @@ contract OptimismValidator is BaseValidator {
   /// @dev A message is sent using the L1CrossDomainMessenger. This method is accessed controlled.
   /// @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
   function validate(
-    uint256 /* previousRoundId */,
-    int256 /* previousAnswer */,
-    uint256 /* currentRoundId */,
+    uint256 previousRoundId,
+    int256 previousAnswer,
+    uint256 currentRoundId,
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
     // Encode the OptimismSequencerUptimeFeed call
@@ -41,6 +41,7 @@ contract OptimismValidator is BaseValidator {
       message,
       s_gasLimit
     );
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // return success
     return true;
   }

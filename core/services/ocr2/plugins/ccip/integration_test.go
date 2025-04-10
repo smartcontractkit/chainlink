@@ -11,7 +11,7 @@ import (
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 
@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -38,14 +38,14 @@ func TestIntegration_CCIP(t *testing.T) {
 		allowOutOfOrderExecution bool
 	}{
 		{
-			name:                     "with pipeline allowOutOfOrderExecution true",
-			withPipeline:             true,
-			allowOutOfOrderExecution: true,
-		},
-		{
 			name:                     "with dynamic price getter allowOutOfOrderExecution false",
 			withPipeline:             false,
 			allowOutOfOrderExecution: false,
+		},
+		{
+			name:                     "with pipeline allowOutOfOrderExecution true",
+			withPipeline:             true,
+			allowOutOfOrderExecution: true,
 		},
 	}
 
@@ -662,10 +662,42 @@ func TestReorg(t *testing.T) {
 		ccip.DefaultSourceFinalityDepth,
 		destinationFinalityDepth,
 	)
-	testPricePipeline, linkUSD, ethUSD := ccipTH.CreatePricesPipeline(t)
-	defer linkUSD.Close()
-	defer ethUSD.Close()
-	ccipTH.SetUpNodesAndJobs(t, testPricePipeline, "", "")
+
+	// Set up a test price getter.
+	// Set up the aggregators here to avoid modifying ccipTH.
+	aggSrcNatAddr, _, aggSrcNat, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain.Client(), 18, big.NewInt(2e18))
+	require.NoError(t, err)
+	ccipTH.Source.Chain.Commit()
+	_, err = aggSrcNat.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(17000000), big.NewInt(1000), big.NewInt(1000))
+	require.NoError(t, err)
+	ccipTH.Source.Chain.Commit()
+	aggDstLnkAddr, _, aggDstLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Dest.User, ccipTH.Dest.Chain.Client(), 18, big.NewInt(3e18))
+	require.NoError(t, err)
+	ccipTH.Dest.Chain.Commit()
+	_, err = aggDstLnk.UpdateRoundData(ccipTH.Dest.User, big.NewInt(50), big.NewInt(8000000), big.NewInt(1000), big.NewInt(1000))
+	require.NoError(t, err)
+	ccipTH.Dest.Chain.Commit()
+	priceGetterConfig := config.DynamicPriceGetterConfig{
+		AggregatorPrices: map[common.Address]config.AggregatorPriceConfig{
+			ccipTH.Source.WrappedNative.Address(): {
+				ChainID:                   ccipTH.Source.ChainID,
+				AggregatorContractAddress: aggSrcNatAddr,
+			},
+			ccipTH.Dest.LinkToken.Address(): {
+				ChainID:                   ccipTH.Dest.ChainID,
+				AggregatorContractAddress: aggDstLnkAddr,
+			},
+			ccipTH.Dest.WrappedNative.Address(): {
+				ChainID:                   ccipTH.Dest.ChainID,
+				AggregatorContractAddress: aggDstLnkAddr,
+			},
+		},
+		StaticPrices: map[common.Address]config.StaticPriceConfig{},
+	}
+	priceGetterConfigBytes, err := json.MarshalIndent(priceGetterConfig, "", " ")
+	require.NoError(t, err)
+	priceGetterConfigJSON := string(priceGetterConfigBytes)
+	ccipTH.SetUpNodesAndJobs(t, "", priceGetterConfigJSON, "")
 
 	gasLimit := big.NewInt(200_00)
 	tokenAmount := big.NewInt(1)

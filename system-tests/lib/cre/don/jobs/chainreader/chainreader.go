@@ -11,6 +11,20 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
+var ChainReaderJobSpecFactoryFn = func(chainID int, networkFamily, logEventTriggerBinaryPath, readContractBinaryPath string) types.JobSpecFactoryFn {
+	return func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
+		return GenerateJobSpecs(input.DonTopology, chainID, networkFamily, logEventTriggerBinaryPath, readContractBinaryPath)
+	}
+}
+
+var LogEventTriggerJobName = func(chainID int) string {
+	return fmt.Sprintf("log-event-trigger-%d", chainID)
+}
+
+var ReadContractJobName = func(chainID int) string {
+	return fmt.Sprintf("read-contract-%d", chainID)
+}
+
 func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily, logEventTriggerBinaryPath, readContractBinaryPath string) (types.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
@@ -34,7 +48,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily
 					return nil, errors.New("log event trigger binary path is empty")
 				}
 
-				jobSpec := libjobs.WorkerStandardCapability(nodeID, fmt.Sprintf("log-event-trigger-capability-%d", chainID), logEventTriggerBinaryPath, fmt.Sprintf(`'{"chainId":"%d","network":"%s","lookbackBlocks":1000,"pollPeriod":1000}'`, chainID, networkFamily))
+				jobSpec := libjobs.WorkerStandardCapability(nodeID, LogEventTriggerJobName(chainID), logEventTriggerBinaryPath, fmt.Sprintf(`'{"chainId":"%d","network":"%s","lookbackBlocks":1000,"pollPeriod":1000}'`, chainID, networkFamily))
 
 				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
 					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
@@ -48,7 +62,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily
 					return nil, errors.New("read contract binary path is empty")
 				}
 
-				jobSpec := libjobs.WorkerStandardCapability(nodeID, fmt.Sprintf("read-contract-capability-%d", chainID), readContractBinaryPath, fmt.Sprintf(`'{"chainId":%d,"network":"%s"}'`, chainID, networkFamily))
+				jobSpec := libjobs.WorkerStandardCapability(nodeID, ReadContractJobName(chainID), readContractBinaryPath, fmt.Sprintf(`'{"chainId":%d,"network":"%s"}'`, chainID, networkFamily))
 
 				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
 					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)

@@ -51,6 +51,8 @@ MaxRequestBytes = 20_000
 ReadTimeoutMillis = 1000
 RequestTimeoutMillis = 1000
 WriteTimeoutMillis = 1000
+CORSEnabled = true
+CORSAllowedOrigins = ["https://remix.ethereum.org"]
 
 [[Dons]]
 DonId = "test_don"

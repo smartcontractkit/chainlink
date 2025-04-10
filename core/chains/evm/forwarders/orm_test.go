@@ -11,8 +11,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 // Tests the atomicity of cleanup function passed to DeleteForwarder, during DELETE operation
