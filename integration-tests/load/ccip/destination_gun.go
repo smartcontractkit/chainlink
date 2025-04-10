@@ -130,9 +130,10 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
-	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
+	//otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
 	// todo: uncomment to enable solana as a source chain
-	// otherCS := m.env.AllChainSelectorsAllFamilliesExcluding([]uint64{m.chainSelector})
+	//otherCS := m.env.AllChainSelectorsAllFamiliesExcluding([]uint64{m.chainSelector})
+	otherCS := m.env.AllChainSelectorsSolana()
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
 	}
@@ -286,7 +287,7 @@ func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) 
 func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 	acc := m.solanaSourceKeys[src]
 	s := m.state.SolChains[src]
-	sourceKey := m.solanaSourceKeys[src]
+	sourceKey := m.solanaSourceKeys[m.chainSelector]
 
 	msg, err := m.getSolanaMessage(src, acc)
 	if err != nil {
@@ -335,6 +336,14 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 	if err != nil {
 		return err
 	}
+	rmnRemoteCursesPDA, _, err := solstate.FindRMNRemoteCursesPDA(s.RMNRemote)
+	if err != nil {
+		return err
+	}
+	externalTokenPoolsSignerPDA, _, err := solstate.FindExternalTokenPoolsSignerPDA(s.Router)
+	if err != nil {
+		return err
+	}
 
 	base := ccip_router.NewCcipSendInstruction(
 		m.chainSelector,
@@ -355,10 +364,10 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 		fqDestChainPDA,
 		feeTokenFqBillingConfigPDA,
 		linkFqBillingConfigPDA,
-		solana.PublicKey{},
-		solana.PublicKey{},
-		solana.PublicKey{},
-		solana.PublicKey{},
+		s.RMNRemote,
+		rmnRemoteCursesPDA,
+		s.RMNRemoteConfigPDA,
+		externalTokenPoolsSignerPDA,
 	)
 	base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
 	instruction, err := base.ValidateAndBuild()

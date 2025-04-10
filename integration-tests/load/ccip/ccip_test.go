@@ -13,7 +13,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -58,7 +57,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
-	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey, "")
+	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey, solTestKey)
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
@@ -67,7 +66,12 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// initialize additional accounts on other chains
 	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
-	// todo: fund keys on solana
+	solanaSourceKeys := make(map[uint64]*solana.PrivateKey)
+	for _, cs := range env.AllChainSelectors() {
+		solKey, err := solana.PrivateKeyFromBase58(solTestKey)
+		require.NoError(t, err)
+		solanaSourceKeys[cs] = &solKey
+	}
 	require.NoError(t, err)
 	// todo: defer returning funds
 
@@ -75,6 +79,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	startBlocks := make(map[uint64]*uint64)
 	state, err := ccipchangeset.LoadOnchainState(*env)
 	require.NoError(t, err)
+
+	for chainSel, _ := range state.SolChains {
+		SetProgramIDsSafe(state.SolChains[chainSel])
+	}
 
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
 	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
@@ -115,8 +123,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		cs := env.AllChainSelectors()[ind]
 
 		evmSourceKeys := make(map[uint64]*bind.TransactOpts)
-		solanaSourceKeys := make(map[uint64]*solana.PrivateKey)
-		// todo: make solana source keys
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
 		var mu sync.Mutex
 		var wg2 sync.WaitGroup
@@ -127,13 +133,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				mu.Lock()
 				evmSourceKeys[src] = transmitKeys[src][ind]
 				mu.Unlock()
-				assert.NoError(t, prepareAccountToSendLink(
-					t,
-					state,
-					*env,
-					src,
-					evmSourceKeys[src],
-				))
 			}(src)
 		}
 		wg2.Wait()
