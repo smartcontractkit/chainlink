@@ -657,6 +657,20 @@ jobs:
             exit 0
           fi
 
+          if [ "$GITHUB_EVENT_NAME" == "schedule" ]; then
+            echo "Using self-hosted runners for scheduled events"
+            echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            echo "Not using self-hosted runners for event ${GITHUB_EVENT_NAME}"
+            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # PR Events
+
           if [ "$RUNS_ON_OPT_OUT" == "true" ]; then
             echo "Not using self-hosted runners for PR with 'runs-on-opt-out' label"
             echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
@@ -669,13 +683,6 @@ jobs:
             exit 0
           fi
 
-          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
-            echo "Not using self-hosted runners for event ${GITHUB_EVENT_NAME}"
-            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # PR Events
           # generate a deterministic random number based on the branch name
           branch_name="${GITHUB_HEAD_REF:-$(echo $GITHUB_REF | sed 's/refs\/heads\///')}"
           hash=$(echo -n "$branch_name" | sha256sum | cut -d' ' -f1)
