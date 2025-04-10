@@ -71,17 +71,17 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		// Get the first block
 		block1, err := env.Chains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(1))
 		require.NoError(t, err)
-		time1 := time.Unix(int64(block1.Time), 0)
+		time1 := time.Unix(int64(block1.Time), 0) //nolint:gosec // G115
 
 		// Get the second block
 		block2, err := env.Chains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(2))
 		require.NoError(t, err)
-		time2 := time.Unix(int64(block2.Time), 0)
+		time2 := time.Unix(int64(block2.Time), 0) //nolint:gosec // G115
 
 		blockTimeDiff := int64(time2.Sub(time1))
 		blockNumberDiff := new(big.Int).Sub(block2.Number, block1.Number).Int64()
 		blockTime := blockTimeDiff / blockNumberDiff / int64(time.Second)
-		blockTimes[cs] = uint64(blockTime)
+		blockTimes[cs] = uint64(blockTime) //nolint:gosec // G115
 		lggr.Infow("Chain block time", "chainSelector", cs, "blockTime", blockTime)
 	}
 

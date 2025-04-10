@@ -89,8 +89,8 @@ func (mm *MetricManager) Start(ctx context.Context) {
 				commitDuration, execDuration := uint64(0), uint64(0)
 				timestamps := metricState.timestamps
 				if timestamps[committed] != 0 && timestamps[transmitted] != 0 {
-					commitDuration = timestamps[committed] - timestamps[transmitted] -
-						mm.blockTimes[srcDstSeqNum.src]*FinalityDepth
+					commitDuration =
+						timestamps[committed] - timestamps[transmitted] - mm.getChainFinalityTime(srcDstSeqNum.src)
 				}
 				if timestamps[executed] != 0 && timestamps[committed] != 0 {
 					execDuration = timestamps[executed] - timestamps[committed]
@@ -147,8 +147,8 @@ func (mm *MetricManager) Start(ctx context.Context) {
 			// only add commit and exec durations if we have correct timestamps to calculate them
 			commitDuration := uint64(0)
 			if state.timestamps[committed] != 0 && state.timestamps[transmitted] != 0 {
-				commitDuration = state.timestamps[committed] - state.timestamps[transmitted] -
-					mm.blockTimes[data.src]*FinalityDepth
+				commitDuration =
+					state.timestamps[committed] - state.timestamps[transmitted] - mm.getChainFinalityTime(data.src)
 			}
 			execDuration := uint64(0)
 			if state.timestamps[executed] != 0 && state.timestamps[committed] != 0 {
@@ -176,6 +176,13 @@ func SendMetricsToLoki(l logger.Logger, lc *wasp.LokiClient, updatedLabels map[s
 	}
 }
 
+func (mm MetricManager) getChainFinalityTime(chainSelector uint64) uint64 {
+	if blockTime, ok := mm.blockTimes[chainSelector]; ok {
+		return blockTime * FinalityDepth
+	}
+	mm.lggr.Error("block time not found for chainSelector", "chainSelector", chainSelector)
+	return 0
+}
 func setLokiLabels(src, dst uint64, testLabel string) (map[string]string, error) {
 	srcChainID, err := chainselectors.GetChainIDFromSelector(src)
 	if err != nil {
