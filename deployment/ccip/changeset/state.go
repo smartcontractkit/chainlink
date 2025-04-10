@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
@@ -111,6 +112,7 @@ var (
 
 	// Pools
 	BurnMintToken                  deployment.ContractType = "BurnMintToken"
+	FactoryBurnMintERC20Token      deployment.ContractType = "FactoryBurnMintERC20Token"
 	ERC20Token                     deployment.ContractType = "ERC20Token"
 	ERC677Token                    deployment.ContractType = "ERC677Token"
 	BurnMintTokenPool              deployment.ContractType = "BurnMintTokenPool"
@@ -150,6 +152,7 @@ type CCIPChainState struct {
 	// and the respective token / token pool contract(s) (only one of which would be active on the registry).
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
 	ERC20Tokens                map[TokenSymbol]*erc20.ERC20
+	FactoryBurnMintERC20Token  *factory_burn_mint_erc20.FactoryBurnMintERC20
 	ERC677Tokens               map[TokenSymbol]*erc677.ERC677
 	BurnMintTokens677          map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
 	BurnMintTokenPools         map[TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
@@ -185,6 +188,9 @@ type CCIPChainState struct {
 
 func (c CCIPChainState) TokenAddressBySymbol() (map[TokenSymbol]common.Address, error) {
 	tokenAddresses := make(map[TokenSymbol]common.Address)
+	if c.FactoryBurnMintERC20Token != nil {
+		tokenAddresses[FactoryBurnMintERC20Symbol] = c.FactoryBurnMintERC20Token.Address()
+	}
 	for symbol, token := range c.ERC20Tokens {
 		tokenAddresses[symbol] = token.Address()
 	}
@@ -209,6 +215,9 @@ func (c CCIPChainState) TokenAddressBySymbol() (map[TokenSymbol]common.Address, 
 // TokenDetailsBySymbol get token mapping from the state. It contains only tokens that we have in address book
 func (c CCIPChainState) TokenDetailsBySymbol() (map[TokenSymbol]TokenDetails, error) {
 	tokenDetails := make(map[TokenSymbol]TokenDetails)
+	if c.FactoryBurnMintERC20Token != nil {
+		tokenDetails[FactoryBurnMintERC20Symbol] = c.FactoryBurnMintERC20Token
+	}
 	for symbol, token := range c.ERC20Tokens {
 		tokenDetails[symbol] = token
 	}
@@ -1089,6 +1098,13 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.ERC20Tokens[TokenSymbol(symbol)] = tok
 			state.ABIByAddress[address] = erc20.ERC20ABI
+		case deployment.NewTypeAndVersion(FactoryBurnMintERC20Token, deployment.Version1_0_0).String():
+			tok, err := factory_burn_mint_erc20.NewFactoryBurnMintERC20(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.FactoryBurnMintERC20Token = tok
+			state.ABIByAddress[address] = factory_burn_mint_erc20.FactoryBurnMintERC20ABI
 		case deployment.NewTypeAndVersion(ERC677Token, deployment.Version1_0_0).String():
 			tok, err := erc677.NewERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
