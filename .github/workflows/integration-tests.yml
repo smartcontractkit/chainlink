@@ -788,6 +788,7 @@ jobs:
 
   # DEBUG:
   debug-ref-and-status:
+    needs: [check-e2e-test-results, solana-smoke-tests]
     name: Debug Ref and Status
     if: always()
     runs-on: ubuntu-latest
@@ -802,8 +803,8 @@ jobs:
   # TODO: Use other Slack Channel for this notification
   notify-test-failure:
     name: Notify Test Failure
-    # TODO: Need to switch to github.ref_name for develop
-    if: ${{ github.head_ref == 'testNotif' && failure() }}
+    # TODO: Switch to develop
+    if: ${{ github.ref_name == '17222/merge' && failure() }}
     needs: [check-e2e-test-results, solana-smoke-tests]
     runs-on: ubuntu-latest
     steps:
