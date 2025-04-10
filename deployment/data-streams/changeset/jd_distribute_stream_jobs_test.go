@@ -51,25 +51,25 @@ maxTaskDuration = "0s"
 streamID = "1000001038"
 observationSource = """
 // data source 1
-ds1_payload [type=bridge name="bridge-elwood" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
+ds1_payload [type=bridge name="bridge-api1" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
 
 ds1_benchmark [type=jsonparse path="data,mid"];
 ds1_bid [type=jsonparse path="data,bid"];
 ds1_ask [type=jsonparse path="data,ask"];
 // data source 2
-ds2_payload [type=bridge name="bridge-gsr" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
+ds2_payload [type=bridge name="bridge-api2" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
 
 ds2_benchmark [type=jsonparse path="data,mid"];
 ds2_bid [type=jsonparse path="data,bid"];
 ds2_ask [type=jsonparse path="data,ask"];
 // data source 3
-ds3_payload [type=bridge name="bridge-ncfx" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
+ds3_payload [type=bridge name="bridge-api3" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
 
 ds3_benchmark [type=jsonparse path="data,mid"];
 ds3_bid [type=jsonparse path="data,bid"];
 ds3_ask [type=jsonparse path="data,ask"];
 // data source 4
-ds4_payload [type=bridge name="bridge-tiingo" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
+ds4_payload [type=bridge name="bridge-api4" timeout="50s" requestData="{\\"data\\":{\\"endpoint\\":\\"cryptolwba\\",\\"from\\":\\"ICP\\",\\"to\\":\\"USD\\"}}"];
 
 ds4_benchmark [type=jsonparse path="data,mid"];
 ds4_bid [type=jsonparse path="data,bid"];
@@ -123,7 +123,7 @@ ask_price [type=median allowedFaults=3 index=2];
 					From:     "ICP",
 					To:       "USD",
 				},
-				APIs: []string{"elwood", "gsr", "ncfx", "tiingo"},
+				APIs: []string{"api1", "api2", "api3", "api4"},
 			},
 		},
 	}
