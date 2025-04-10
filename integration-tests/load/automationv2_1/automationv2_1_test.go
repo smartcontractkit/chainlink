@@ -24,7 +24,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/ethereum"
@@ -154,7 +153,7 @@ func setUpDataStreamsWireMock(ctx context.Context, url string) error {
 }
 
 func TestLogTrigger(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	l := logging.GetTestLogger(t)
 	registryVersion := contractseth.RegistryVersion_2_1
 
