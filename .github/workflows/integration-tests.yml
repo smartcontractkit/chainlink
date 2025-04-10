@@ -794,7 +794,7 @@ jobs:
     steps:
       - name: Debug Ref and Status
         run: |
-          echo "github.ref: ${{ github.ref }}"
+          echo "github.head_ref: ${{ github.head_ref }}"
           echo "github.ref_name: ${{ github.ref_name }}"
           echo "job.status: ${{ job.status }}"
           echo "steps.*.result: ${{ toJSON(steps.*.result) }}"
@@ -802,8 +802,8 @@ jobs:
   # TODO: Use other Slack Channel for this notification
   notify-test-failure:
     name: Notify Test Failure
-    # DEBUG: Checking if this is working
-    if: ${{ github.ref == 'refs/heads/testNotif' && failure() }}
+    # TODO: Need to switch to github.ref_name for develop
+    if: ${{ github.head_ref == 'testNotif' && failure() }}
     needs: [check-e2e-test-results, solana-smoke-tests]
     runs-on: ubuntu-latest
     steps:
