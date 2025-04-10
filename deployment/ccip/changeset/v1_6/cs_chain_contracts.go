@@ -1247,7 +1247,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 		return fmt.Errorf("failed to check if MCMS is enforced in environment: %w", err)
 	}
 	if isEnforced && cfg.MCMS == nil {
-		return fmt.Errorf("MCMS is enforced for environment, but no MCMS config was provided")
+		return errors.New("MCMS is enforced for environment, but no MCMS config was provided")
 	}
 	supportedChains := state.SupportedChains()
 	for chainSel, update := range cfg.UpdatesByChain {

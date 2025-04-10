@@ -530,11 +530,11 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 	}
 	switch family {
 	case chain_selectors.FamilyEVM:
-		c, ok := c.Chains[selector]
+		chain, ok := c.Chains[selector]
 		if !ok {
 			return 0, fmt.Errorf("chain %d not found in the state", selector)
 		}
-		offRamp := c.OffRamp
+		offRamp := chain.OffRamp
 		if offRamp == nil {
 			return 0, fmt.Errorf("offramp not found in the state for chain %d", selector)
 		}
@@ -546,7 +546,7 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		}
 		return dCfg.PermissionLessExecutionThresholdSeconds, nil
 	case chain_selectors.FamilySolana:
-		c, ok := c.SolChains[selector]
+		chainState, ok := c.SolChains[selector]
 		if !ok {
 			return 0, fmt.Errorf("chain %d not found in the state", selector)
 		}
@@ -554,11 +554,11 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		if !ok {
 			return 0, fmt.Errorf("solana chain %d not found in the environment", selector)
 		}
-		if c.OffRamp.IsZero() {
+		if chainState.OffRamp.IsZero() {
 			return 0, fmt.Errorf("offramp not found in existing state, deploy the offramp first for chain %d", selector)
 		}
 		var offRampConfig solOffRamp.Config
-		offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(c.OffRamp)
+		offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(chainState.OffRamp)
 		err := chain.GetAccountDataBorshInto(context.Background(), offRampConfigPDA, &offRampConfig)
 		if err != nil {
 			return 0, fmt.Errorf("offramp config not found in existing state, initialize the offramp first %d", chain.Selector)
@@ -633,13 +633,13 @@ func (c CCIPOnChainState) IsMCMSEnforced(ctx context.Context) (bool, error) {
 			continue
 		}
 		if ccipHome != nil {
-			return false, fmt.Errorf("multiple CCIPHome contracts found")
+			return false, errors.New("multiple CCIPHome contracts found")
 		}
 		ccipHome = chain.CCIPHome
 		homeChainSelector = selector
 	}
 	if ccipHome == nil {
-		return false, fmt.Errorf("CCIP home not found")
+		return false, errors.New("CCIP home not found")
 	}
 	// If the timelock contract is not found on the home chain,
 	// we know that MCMS is not enforced.
