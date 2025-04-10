@@ -1202,7 +1202,7 @@ func (e *Engine) heartbeat(ctx context.Context) {
 func (e *Engine) sendMeteringReportToBilling(ctx context.Context, report *MeteringReport, workflowID string, executionID string) error {
 	if e.billingClient != nil {
 		req := billing.SubmitWorkflowReceiptRequest{
-			AccountId:           "", // TODO: not sure what to do with the AccountID
+			AccountId:           e.workflow.owner,
 			WorkflowId:          workflowID,
 			WorkflowExecutionId: executionID,
 			Metering:            report.Message(),
