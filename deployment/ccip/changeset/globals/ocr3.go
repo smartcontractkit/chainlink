@@ -69,8 +69,8 @@ var (
 		DeltaProgress:               120 * time.Second,
 		DeltaResend:                 30 * time.Second,
 		DeltaInitial:                20 * time.Second,
-		DeltaRound:                  700 * time.Millisecond,
-		DeltaGrace:                  2 * time.Second,
+		DeltaRound:                  2 * time.Second,
+		DeltaGrace:                  5 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
 		DeltaStage: 25 * time.Second,
