@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	dftypes "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds"
-	dfevm "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/evm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/report/platform"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -176,7 +176,7 @@ func TestEvmWrite(t *testing.T) {
 		ReportID:            reportID,
 	}
 
-	feedReports := dfevm.Reports{
+	feedReports := dftypes.Reports{
 		{
 			FeedID:    [32]byte{0x01},
 			Price:     big.NewInt(1234567890123456789),
@@ -184,10 +184,10 @@ func TestEvmWrite(t *testing.T) {
 		},
 	}
 
-	feedReportsEncoded, err := dfevm.GetSchema().Pack(feedReports)
+	feedReportsEncoded, err := dftypes.GetSchema().Pack(feedReports)
 	require.NoError(t, err)
 
-	report := dfevm.Report{
+	report := platform.Report{
 		Metadata: reportMetadata,
 		Data:     feedReportsEncoded,
 	}
