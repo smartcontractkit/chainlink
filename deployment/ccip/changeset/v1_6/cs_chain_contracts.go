@@ -1242,6 +1242,13 @@ type UpdateRouterRampsConfig struct {
 }
 
 func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+	isEnforced, err := state.IsMCMSEnforced(e.GetContext())
+	if err != nil {
+		return fmt.Errorf("failed to check if MCMS is enforced in environment: %w", err)
+	}
+	if isEnforced && cfg.MCMS == nil {
+		return fmt.Errorf("MCMS is enforced for environment, but no MCMS config was provided")
+	}
 	supportedChains := state.SupportedChains()
 	for chainSel, update := range cfg.UpdatesByChain {
 		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
@@ -1260,11 +1267,6 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		/*
-			if !cfg.TestRouter && cfg.MCMS == nil {
-				return errors.New("must provide an MCMS config if activating ramps on the main router")
-			}
-		*/
 		if !cfg.SkipOwnershipCheck {
 			if cfg.TestRouter {
 				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {

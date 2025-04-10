@@ -153,7 +153,7 @@ func TestIsMCMSEnforced(t *testing.T) {
 			state, err := changeset.LoadOnchainState(e)
 			require.NoError(t, err, "failed to load onchain state")
 
-			isEnforced, err := state.IsMCMSEnforced(e.GetContext(), homeChainSelector)
+			isEnforced, err := state.IsMCMSEnforced(e.GetContext())
 			if test.ExpectedErr != "" {
 				require.Error(t, err, "expected error but got nil")
 				require.Contains(t, err.Error(), test.ExpectedErr, "error message mismatch")

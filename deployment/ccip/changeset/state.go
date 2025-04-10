@@ -523,14 +523,14 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithT
 	return mcmsStateByChain
 }
 
-func (s CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env deployment.Environment, selector uint64) (uint32, error) {
+func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env deployment.Environment, selector uint64) (uint32, error) {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
 		return 0, err
 	}
 	switch family {
 	case chain_selectors.FamilyEVM:
-		c, ok := s.Chains[selector]
+		c, ok := c.Chains[selector]
 		if !ok {
 			return 0, fmt.Errorf("chain %d not found in the state", selector)
 		}
@@ -546,7 +546,7 @@ func (s CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		}
 		return dCfg.PermissionLessExecutionThresholdSeconds, nil
 	case chain_selectors.FamilySolana:
-		c, ok := s.SolChains[selector]
+		c, ok := c.SolChains[selector]
 		if !ok {
 			return 0, fmt.Errorf("chain %d not found in the state", selector)
 		}
@@ -569,8 +569,8 @@ func (s CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 	return 0, fmt.Errorf("unsupported chain family %s", family)
 }
 
-func (s CCIPOnChainState) Validate() error {
-	for sel, chain := range s.Chains {
+func (c CCIPOnChainState) Validate() error {
+	for sel, chain := range c.Chains {
 		// cannot have static link and link together
 		if chain.LinkToken != nil && chain.StaticLinkToken != nil {
 			return fmt.Errorf("cannot have both link and static link token on the same chain %d", sel)
@@ -579,10 +579,10 @@ func (s CCIPOnChainState) Validate() error {
 	return nil
 }
 
-func (s CCIPOnChainState) GetAllProposerMCMSForChains(chains []uint64) (map[uint64]*gethwrappers.ManyChainMultiSig, error) {
+func (c CCIPOnChainState) GetAllProposerMCMSForChains(chains []uint64) (map[uint64]*gethwrappers.ManyChainMultiSig, error) {
 	multiSigs := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	for _, chain := range chains {
-		chainState, ok := s.Chains[chain]
+		chainState, ok := c.Chains[chain]
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chain)
 		}
@@ -594,10 +594,10 @@ func (s CCIPOnChainState) GetAllProposerMCMSForChains(chains []uint64) (map[uint
 	return multiSigs, nil
 }
 
-func (s CCIPOnChainState) GetAllTimeLocksForChains(chains []uint64) (map[uint64]common.Address, error) {
+func (c CCIPOnChainState) GetAllTimeLocksForChains(chains []uint64) (map[uint64]common.Address, error) {
 	timelocks := make(map[uint64]common.Address)
 	for _, chain := range chains {
-		chainState, ok := s.Chains[chain]
+		chainState, ok := c.Chains[chain]
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chain)
 		}
@@ -609,12 +609,12 @@ func (s CCIPOnChainState) GetAllTimeLocksForChains(chains []uint64) (map[uint64]
 	return timelocks, nil
 }
 
-func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
+func (c CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	chains := make(map[uint64]struct{})
-	for chain := range s.Chains {
+	for chain := range c.Chains {
 		chains[chain] = struct{}{}
 	}
-	for chain := range s.SolChains {
+	for chain := range c.SolChains {
 		chains[chain] = struct{}{}
 	}
 	return chains
@@ -622,25 +622,37 @@ func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 
 // IsMCMSEnforced determines if MCMS should be enforced for this particular environment.
 // It checks if the CCIPHome contract is owned by the Timelock. All other contracts should follow this precedent.
-func (s CCIPOnChainState) IsMCMSEnforced(ctx context.Context, homeChainSel uint64) (bool, error) {
-	homeChain, ok := s.Chains[homeChainSel]
-	if !ok {
-		return false, fmt.Errorf("home chain with selector %d not found", homeChainSel)
+func (c CCIPOnChainState) IsMCMSEnforced(ctx context.Context) (bool, error) {
+	// Instead of accepting a homeChainSelector, we simply look for the CCIPHome contract in state.
+	// This is because the home chain selector is not always available in the input to a changeset.
+	// Also, if the underlying rules to IsMCMSEnforced change, we can simply update the function body without worrying about the function signature.
+	var ccipHome *ccip_home.CCIPHome
+	var homeChainSelector uint64
+	for selector, chain := range c.Chains {
+		if chain.CCIPHome == nil {
+			continue
+		}
+		if ccipHome != nil {
+			return false, fmt.Errorf("multiple CCIPHome contracts found")
+		}
+		ccipHome = chain.CCIPHome
+		homeChainSelector = selector
 	}
-	if homeChain.CCIPHome == nil {
-		return false, fmt.Errorf("CCIP home not found on chain with selector %d", homeChainSel)
+	if ccipHome == nil {
+		return false, fmt.Errorf("CCIP home not found")
 	}
 	// If the timelock contract is not found on the home chain,
 	// we know that MCMS is not enforced.
-	if homeChain.Timelock == nil {
+	timelock := c.Chains[homeChainSelector].Timelock
+	if timelock == nil {
 		return false, nil
 	}
-	owner, err := homeChain.CCIPHome.Owner(&bind.CallOpts{Context: ctx})
+	owner, err := ccipHome.Owner(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return false, fmt.Errorf("failed to get CCIP home owner: %w", err)
 	}
 	// If the timelock contract is the owner of CCIP home, then MCMS is enforced.
-	return owner == homeChain.Timelock.Address(), nil
+	return owner == timelock.Address(), nil
 }
 
 func (s CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
