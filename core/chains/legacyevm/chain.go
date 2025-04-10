@@ -271,7 +271,6 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if cfg.EVM().ChainType() == chaintype.ChainTron {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for tron based chains %d", chainID)}
-		gasEstimator.Start(context.Background()) // Still need gas estimator to be working for the OCR2 plugin
 	} else if !cfg.EVM().Transactions().Enabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for chain %d", chainID)}
 	} else {
@@ -344,6 +343,11 @@ func (c *chain) Start(ctx context.Context) error {
 		if err := ms.Start(ctx, c.txm, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
 			return err
 		}
+
+		if c.cfg.EVM().ChainType() == chaintype.ChainTron {
+			c.gasEstimator.Start(ctx) // Still need gas estimator to be working for the OCR2 plugin
+		}
+
 		if c.balanceMonitor != nil {
 			if err := ms.Start(ctx, c.balanceMonitor); err != nil {
 				return err
