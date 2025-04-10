@@ -7,13 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
-	"golang.org/x/sync/errgroup"
 
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -1287,18 +1287,30 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 					"rmnProxy":           chainState.RMNProxy,
 					"tokenAdminRegistry": chainState.TokenAdminRegistry,
 				}
-				eg := new(errgroup.Group)
+				var wg sync.WaitGroup
+				errs := make(chan error, len(ownedContracts))
 				for contractName, contract := range ownedContracts {
-					if contract == nil {
-						return fmt.Errorf("missing %s contract for chain with selector %d", contractName, chainSel)
-					}
-					eg.Go(func() error {
-						return commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), contract)
-					})
+					wg.Add(1)
+					go func(name string, c commoncs.Ownable) {
+						defer wg.Done()
+						if c == nil {
+							errs <- fmt.Errorf("missing %s contract for chain with selector %d", name, chainSel)
+							return
+						}
+						err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), contract)
+						if err != nil {
+							errs <- fmt.Errorf("failed to validate ownership of %s contract for chain with selector %d: %w", name, chainSel, err)
+						}
+					}(contractName, contract)
 				}
-				err := eg.Wait()
-				if err != nil {
-					return fmt.Errorf("failed to validate ownership of contracts on chain with selector %d: %w", chainSel, err)
+				wg.Wait()
+				close(errs)
+				var multiErr error
+				for err := range errs {
+					multiErr = errors.Join(multiErr, err)
+				}
+				if multiErr != nil {
+					return fmt.Errorf("failed to validate ownership of contracts on chain with selector %d: %w", chainSel, multiErr)
 				}
 			}
 		}
