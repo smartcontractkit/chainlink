@@ -1426,8 +1426,7 @@ func ValidateCCIPHomeConfigSetUp(
 }
 
 type DeployDonIDClaimerConfig struct {
-	HomeChainSelector  uint64         `json:"homeChainSelector"`
-	CapabilityRegistry common.Address `json:"capabilityRegistry"`
+	HomeChainSelector uint64 `json:"homeChainSelector"`
 }
 
 func DeployDonIDClaimerChangeset(e deployment.Environment, cfg DeployDonIDClaimerConfig) (deployment.ChangesetOutput, error) {

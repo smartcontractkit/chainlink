@@ -4,6 +4,12 @@ go 1.24.1
 
 toolchain go1.24.2
 
+replace (
+	github.com/smartcontractkit/chainlink-ccip => ../chainlink-ccip 
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250327092605-1990b9f79aa3 => ../chainlink-ccip/chains/solana
+	github.com/smartcontractkit/chainlink/v2 => ../
+)
+
 require (
 	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.3.1

@@ -6,7 +6,7 @@ toolchain go1.24.2
 
 // Make sure we're working with the latest chainlink libs
 replace (
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250408103656-875e982e6437 => ../../chainlink-ccip
+	github.com/smartcontractkit/chainlink-ccip => ../../chainlink-ccip
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250408172557-9bce44d32d44 => ../../chainlink-ccip/chains/solana
 	github.com/smartcontractkit/chainlink/v2 => ../
 )
