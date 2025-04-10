@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
 
 func TestDistributeStreamJobSpecs(t *testing.T) {
@@ -22,7 +23,7 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 	const donName = "don"
 	const env = "env"
 
-	memEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
+	e := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
 		ShouldDeployLinkToken: false,
 		NumNodes:              1,
@@ -38,14 +39,14 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
 				" VALUES ('bridge-api4', 'http://url', 0, '', '', '', now(), now());",
 		},
-	})
+	}).Environment
 
 	// pick the first EVM chain selector
-	chainSelector := memEnv.Environment.AllChainSelectors()[0]
+	chainSelector := e.AllChainSelectors()[0]
 
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
-	err := memEnv.Environment.ExistingAddresses.Save(chainSelector, configuratorAddr,
+	err := e.ExistingAddresses.Save(chainSelector, configuratorAddr,
 		deployment.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
@@ -139,7 +140,6 @@ ask_price [type=median allowedFaults=3 index=2];
 
 	tests := []struct {
 		name       string
-		env        deployment.Environment
 		config     CsDistributeStreamJobSpecsConfig
 		prepConfFn func(CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig
 		wantErr    *string
@@ -147,14 +147,19 @@ ask_price [type=median allowedFaults=3 index=2];
 	}{
 		{
 			name:     "success",
-			env:      memEnv.Environment,
 			config:   config,
 			wantSpec: renderedSpec,
 		},
-		// TODO: Cover all failure cases.
+		// TODO add more tests
 	}
 
-	cs := CsDistributeStreamJobSpecs{}
+	// Remove the externalJobID line from the spec. This is needed because the externalJobID is generated randomly
+	// and we want to exclude it from the comparison.
+	stripExternalJobID := func(spec string) string {
+		idx := strings.Index(spec, "externalJobID = ")
+		strLen := len(fmt.Sprintf(`externalJobID = "%s"`, uuid.New()))
+		return spec[:idx] + spec[idx+strLen:]
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -163,9 +168,9 @@ ask_price [type=median allowedFaults=3 index=2];
 				conf = tt.prepConfFn(tt.config)
 			}
 			_, out, err := changeset.ApplyChangesetsV2(t,
-				tt.env,
+				e,
 				[]changeset.ConfiguredChangeSet{
-					changeset.Configure(cs, conf),
+					changeset.Configure(CsDistributeStreamJobSpecs{}, conf),
 				},
 			)
 
@@ -182,10 +187,232 @@ ask_price [type=median allowedFaults=3 index=2];
 	}
 }
 
-// Remove the externalJobID line from the spec. This is needed because the externalJobID is generated randomly
-// and we want to exclude it from the comparison.
-func stripExternalJobID(spec string) string {
-	idx := strings.Index(spec, "externalJobID = ")
-	strLen := len(fmt.Sprintf(`externalJobID = "%s"`, uuid.New()))
-	return spec[:idx] + spec[idx+strLen:]
+func TestValidatePreconditions(t *testing.T) {
+	t.Parallel()
+
+	e := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{}).Environment
+
+	config := CsDistributeStreamJobSpecsConfig{
+		ChainSelectorEVM: 1,
+		Filter: &jd.ListFilter{
+			DONID:    1,
+			DONName:  "don",
+			EnvLabel: "env",
+			Size:     1,
+		},
+		Streams: []StreamSpecConfig{
+			{
+				StreamID:   1000001038,
+				Name:       "ICP/USD-RefPrice",
+				StreamType: jobs.StreamTypeQuote,
+				ReportFields: jobs.QuoteReportFields{
+					Bid: jobs.ReportFieldLLO{
+						ResultPath: "data,bid",
+					},
+					Benchmark: jobs.ReportFieldLLO{
+						ResultPath: "data,mid",
+					},
+					Ask: jobs.ReportFieldLLO{
+						ResultPath: "data,ask",
+					},
+				},
+				EARequestParams: EARequestParams{
+					Endpoint: "cryptolwba",
+					From:     "ICP",
+					To:       "USD",
+				},
+				APIs: []string{"api1", "api2", "api3", "api4"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name       string
+		config     CsDistributeStreamJobSpecsConfig
+		prepConfFn func(CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig
+		wantErr    *string
+	}{
+		{
+			name:    "valid config",
+			config:  config,
+			wantErr: nil,
+		},
+		{
+			name:   "no chain selector",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.ChainSelectorEVM = 0
+				return c
+			},
+			wantErr: pointer.To("chain selector is required"),
+		},
+		{
+			name:   "no filter",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Filter = nil
+				return c
+			},
+			wantErr: pointer.To("filter is required"),
+		},
+		{
+			name:   "no streams",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Streams = nil
+				return c
+			},
+			wantErr: pointer.To("streams are required"),
+		},
+		{
+			name:   "empty streams",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Streams = []StreamSpecConfig{}
+				return c
+			},
+			wantErr: pointer.To("streams are required"),
+		},
+		{
+			name:   "no streamID",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Streams = []StreamSpecConfig{{}}
+				return c
+			},
+			wantErr: pointer.To("streamID is required for each stream"),
+		},
+		{
+			name:   "no name",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Streams = []StreamSpecConfig{
+					{
+						StreamID: 1000001038,
+					},
+				}
+				return c
+			},
+			wantErr: pointer.To("name is required for each stream"),
+		},
+		{
+			name:   "invalid stream type",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Streams = []StreamSpecConfig{
+					{
+						StreamID: 1000001038,
+						Name:     "ICP/USD-RefPrice",
+					},
+				}
+				return c
+			},
+			wantErr: pointer.To("stream type is not valid"),
+		},
+		{
+			name:   "no report fields",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Streams = []StreamSpecConfig{
+					{
+						StreamID:   1000001038,
+						Name:       "ICP/USD-RefPrice",
+						StreamType: jobs.StreamTypeQuote,
+					},
+				}
+				return c
+			},
+			wantErr: pointer.To("report fields are required for each stream"),
+		},
+		{
+			name:   "no EARequestParams",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Streams = []StreamSpecConfig{
+					{
+						StreamID:     1000001038,
+						Name:         "ICP/USD-RefPrice",
+						StreamType:   jobs.StreamTypeQuote,
+						ReportFields: jobs.QuoteReportFields{},
+					},
+				}
+				return c
+			},
+			wantErr: pointer.To("endpoint is required for each EARequestParam on each stream"),
+		},
+		{
+			name:   "no endpoint",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Streams = []StreamSpecConfig{
+					{
+						StreamID:        1000001038,
+						Name:            "ICP/USD-RefPrice",
+						StreamType:      jobs.StreamTypeQuote,
+						ReportFields:    jobs.QuoteReportFields{},
+						EARequestParams: EARequestParams{},
+					},
+				}
+				return c
+			},
+			wantErr: pointer.To("endpoint is required for each EARequestParam on each stream"),
+		},
+		{
+			name:   "no APIs",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Streams = []StreamSpecConfig{
+					{
+						StreamID:     1000001038,
+						Name:         "ICP/USD-RefPrice",
+						StreamType:   jobs.StreamTypeQuote,
+						ReportFields: jobs.QuoteReportFields{},
+						EARequestParams: EARequestParams{
+							Endpoint: "cryptolwba",
+						},
+					},
+				}
+				return c
+			},
+			wantErr: pointer.To("at least one API is required for each stream"),
+		},
+		{
+			name:   "empty APIs",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Streams = []StreamSpecConfig{
+					{
+						StreamID:     1000001038,
+						Name:         "ICP/USD-RefPrice",
+						StreamType:   jobs.StreamTypeQuote,
+						ReportFields: jobs.QuoteReportFields{},
+						EARequestParams: EARequestParams{
+							Endpoint: "cryptolwba",
+						},
+						APIs: []string{},
+					},
+				}
+				return c
+
+			},
+			wantErr: pointer.To("at least one API is required for each stream"),
+		},
+	}
+
+	cs := CsDistributeStreamJobSpecs{}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepConfFn != nil {
+				tt.config = tt.prepConfFn(tt.config)
+			}
+			err := cs.VerifyPreconditions(e, tt.config)
+			if tt.wantErr != nil {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), *tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
 }
