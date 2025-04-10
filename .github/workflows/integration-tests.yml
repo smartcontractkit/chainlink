@@ -789,7 +789,8 @@ jobs:
   # TODO: Use other Slack Channel for this notification
   notify-test-failure:
     name: Notify Test Failure
-    if: ${{ github.ref == 'refs/heads/develop' && failure() }}
+    # DEBUG: Checking if this is working
+    if: ${{ github.ref == 'refs/heads/testNotif' && failure() }}
     needs: [check-e2e-test-results, solana-smoke-tests]
     runs-on: ubuntu-latest
     steps:
@@ -799,7 +800,7 @@ jobs:
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
-            channel: "C08FN09RS80"
+            channel: "C049X3353K2"
             text: "E2E Tests Failed Post-Merge, Immediate Action Required"
             blocks: |
               - type: section
