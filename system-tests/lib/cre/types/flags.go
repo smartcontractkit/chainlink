@@ -17,9 +17,14 @@ const (
 	WriteEVMCapability      CapabilityFlag = "write-evm"
 
 	ReadContractCapability  CapabilityFlag = "read-contract"
-	LogTriggerCapability    CapabilityFlag = "log_trigger"
-	WebAPITargetCapability  CapabilityFlag = "web_api_target"
-	WebAPITriggerCapability CapabilityFlag = "web_api_trigger"
+	LogTriggerCapability    CapabilityFlag = "log-trigger"
+	WebAPITargetCapability  CapabilityFlag = "web-api-target"
+	WebAPITriggerCapability CapabilityFlag = "web-api-trigger"
+	MockCapability          CapabilityFlag = "mock"
 	// Add more capabilities as needed
-	MockCapability CapabilityFlag = "mock"
+)
+
+// Job names for which there are no specific capabilities
+const (
+	GatewayJobName = "gateway"
 )

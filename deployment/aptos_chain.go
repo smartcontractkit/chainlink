@@ -9,4 +9,5 @@ type AptosChain struct {
 	Selector       uint64
 	Client         aptos.AptosRpcClient
 	DeployerSigner aptos.TransactionSigner
+	URL            string
 }

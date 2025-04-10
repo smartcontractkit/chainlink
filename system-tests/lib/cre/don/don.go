@@ -1,14 +1,11 @@
 package don
 
 import (
-	"regexp"
 	"slices"
 	"strconv"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
@@ -230,68 +227,8 @@ func GenereteKeys(input *cretypes.GenerateKeysInput) (*cretypes.GenerateKeysOutp
 	return output, nil
 }
 
-// In order to whitelist host IP in the gateway, we need to resolve the host.docker.internal to the host IP,
-// and since CL image doesn't have dig or nslookup, we need to use curl.
-func ResolveHostDockerInternaIP(testLogger zerolog.Logger, containerName string) (string, error) {
-	if isCurlInstalled(containerName) {
-		return resolveDockerHostWithCurl(containerName)
-	} else if isNsLookupInstalled(containerName) {
-		return resolveDockerHostWithNsLookup(containerName)
-	}
-
-	return "", errors.New("neither curl nor nslookup is installed")
-}
-
-func isNsLookupInstalled(containerName string) bool {
-	cmd := []string{"which", "nslookup"}
-	output, err := framework.ExecContainer(containerName, cmd)
-
-	if err != nil || output == "" {
-		return false
-	}
-
-	return true
-}
-
-func resolveDockerHostWithNsLookup(containerName string) (string, error) {
-	cmd := []string{"nslookup", "host.docker.internal"}
-	output, err := framework.ExecContainer(containerName, cmd)
-	if err != nil {
-		return "", err
-	}
-
-	re := regexp.MustCompile(`host.docker.internal(\n|\r)Address:\s+([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)`)
-	matches := re.FindStringSubmatch(output)
-	if len(matches) < 2 {
-		return "", errors.New("failed to extract IP address from curl output")
-	}
-
-	return matches[2], nil
-}
-
-func isCurlInstalled(containerName string) bool {
-	cmd := []string{"which", "curl"}
-	output, err := framework.ExecContainer(containerName, cmd)
-
-	if err != nil || output == "" {
-		return false
-	}
-
-	return true
-}
-
-func resolveDockerHostWithCurl(containerName string) (string, error) {
-	cmd := []string{"curl", "-v", "http://host.docker.internal"}
-	output, err := framework.ExecContainer(containerName, cmd)
-	if err != nil {
-		return "", err
-	}
-
-	re := regexp.MustCompile(`.*Trying ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*`)
-	matches := re.FindStringSubmatch(output)
-	if len(matches) < 2 {
-		return "", errors.New("failed to extract IP address from curl output")
-	}
-
-	return matches[1], nil
+func NodeNeedsGateway(nodeFlags []cretypes.CapabilityFlag) bool {
+	return flags.HasFlag(nodeFlags, cretypes.CustomComputeCapability) ||
+		flags.HasFlag(nodeFlags, cretypes.WebAPITriggerCapability) ||
+		flags.HasFlag(nodeFlags, cretypes.WebAPITargetCapability)
 }

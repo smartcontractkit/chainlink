@@ -61,6 +61,7 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		]().Seal(),
 		chains,
 		nil, // sending nil for solana chains right now, we can build this when we need it
+		nil, // sending nil for aptos chains right now, we can build this when we need it
 		nodeIDs,
 		offChain,
 		ctx,
