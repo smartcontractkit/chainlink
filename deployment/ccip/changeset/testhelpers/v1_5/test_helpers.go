@@ -2,10 +2,8 @@ package v1_5
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"math/big"
-	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"testing"
 	"time"
@@ -18,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	config2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
@@ -78,7 +77,7 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 		require.NoError(t, err)
 		require.NotNil(t, destChainState.RMNProxy)
 		require.NotNil(t, destChainState.TokenAdminRegistry)
-		tokenPrice, _, _ := CreatePricesPipeline(t, state, src, dest)
+		priceGetterConfig := CreatePriceGetterConfig(t, state, src, dest)
 		block, err := env.Chains[dest].Client.HeaderByNumber(context.Background(), nil)
 		require.NoError(t, err)
 		destEVMChainIdStr, err := chain_selectors.GetChainIDFromSelector(dest)
@@ -89,7 +88,7 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 			SourceChainSelector:      src,
 			DestinationChainSelector: dest,
 			DestEVMChainID:           destEVMChainId,
-			TokenPricesUSDPipeline:   tokenPrice,
+			PriceGetterConfigJson:    priceGetterConfig,
 			DestinationStartBlock:    block.Number.Uint64(),
 		})
 		srcLinkTokenAddr, err := sourceChainState.LinkTokenAddress()
@@ -209,39 +208,49 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 	return addLanesCfg, commitOCR2Configs, execOCR2Configs, jobSpecs
 }
 
-func CreatePricesPipeline(t *testing.T, state changeset.CCIPOnChainState, source, dest uint64) (string, *httptest.Server, *httptest.Server) {
+// CreatePriceGetterConfig returns price getter config as json string.
+func CreatePriceGetterConfig(t *testing.T, state changeset.CCIPOnChainState, source, dest uint64) string {
 	sourceRouter := state.Chains[source].Router
 	destRouter := state.Chains[dest].Router
 	destLinkAddr, err := state.Chains[dest].LinkTokenAddress()
 	require.NoError(t, err)
-	linkUSD := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, err := w.Write([]byte(`{"UsdPerLink": "8000000000000000000"}`))
-		require.NoError(t, err)
-	}))
-	t.Cleanup(linkUSD.Close)
 
-	ethUSD := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, err := w.Write([]byte(`{"UsdPerETH": "1700000000000000000000"}`))
-		require.NoError(t, err)
-	}))
-	t.Cleanup(ethUSD.Close)
+	linkPriceDest, ok := big.NewInt(0).SetString("8000000000000000000", 10)
+	require.True(t, ok)
+
+	ethPrice, ok := big.NewInt(0).SetString("1700000000000000000000", 10)
+	require.True(t, ok)
 
 	sourceWrappedNative, err := sourceRouter.GetWrappedNative(nil)
 	require.NoError(t, err)
+
 	destWrappedNative, err := destRouter.GetWrappedNative(nil)
 	require.NoError(t, err)
-	tokenPricesUSDPipeline := fmt.Sprintf(`
-// Price 1
-link [type=http method=GET url="%s"];
-link_parse [type=jsonparse path="UsdPerLink"];
-link->link_parse;
-eth [type=http method=GET url="%s"];
-eth_parse [type=jsonparse path="UsdPerETH"];
-eth->eth_parse;
-merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_parse), \\\"%s\\\":$(eth_parse)}"];`,
-		linkUSD.URL, ethUSD.URL, destLinkAddr, sourceWrappedNative, destWrappedNative)
 
-	return tokenPricesUSDPipeline, linkUSD, ethUSD
+	cfg := config2.DynamicPriceGetterConfig{
+		TokenPrices: []config2.TokenPriceConfig{
+			{
+				TokenAddress:  destLinkAddr,
+				ChainSelector: dest,
+				StaticConfig:  &config2.StaticPriceConfig{ChainID: dest, Price: linkPriceDest},
+			},
+			{
+				TokenAddress:  sourceWrappedNative, // eth
+				ChainSelector: source,
+				StaticConfig:  &config2.StaticPriceConfig{ChainID: source, Price: ethPrice},
+			},
+			{
+				TokenAddress:  destWrappedNative, // eth
+				ChainSelector: dest,
+				StaticConfig:  &config2.StaticPriceConfig{ChainID: dest, Price: ethPrice},
+			},
+		},
+	}
+
+	cfgJSON, err := json.Marshal(cfg)
+	require.NoError(t, err)
+
+	return string(cfgJSON)
 }
 
 func DefaultOCRParams() confighelper.PublicConfig {

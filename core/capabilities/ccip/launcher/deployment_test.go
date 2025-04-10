@@ -7,7 +7,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	mocktypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
 )
 
