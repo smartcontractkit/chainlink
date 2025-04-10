@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -90,7 +91,7 @@ func registerNodesWithJDLogic(e deployment.Environment, cfg RegisterNodesInput) 
 func (cfg RegisterNodesInput) Validate() error {
 	for key, value := range cfg.BaseLabels {
 		if key == "" || value == "" {
-			return fmt.Errorf("common node labels have empty key or value")
+			return errors.New("common node labels have empty key or value")
 		}
 	}
 	for i, don := range cfg.DONsList {
