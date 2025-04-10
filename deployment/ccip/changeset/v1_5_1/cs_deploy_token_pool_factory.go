@@ -11,6 +11,9 @@ import (
 )
 
 // DeployTokenPoolFactoryChangeset is a changeset that deploys the TokenPoolFactory contract on multiple chains.
+// In most cases, running DeployPrerequisitesChangeset will be sufficient to deploy the TokenPoolFactory.
+// However, if a chain has multiple registry modules with version 1.6.0 and you want to specify which one to use,
+// you can use this changeset to do so.
 var DeployTokenPoolFactoryChangeset = deployment.CreateChangeSet(deployTokenPoolFactoryLogic, deployTokenPoolFactoryPrecondition)
 
 type DeployTokenPoolFactoryConfig struct {
