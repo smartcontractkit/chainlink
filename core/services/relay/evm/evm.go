@@ -43,9 +43,9 @@ import (
 
 	tronsdk "github.com/fbsobreira/gotron-sdk/pkg/address"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
-	tron "github.com/smartcontractkit/chainlink-internal-integrations/tron/relayer/ocr2"
-	tronclient "github.com/smartcontractkit/chainlink-internal-integrations/tron/relayer/sdk"
-	trontxm "github.com/smartcontractkit/chainlink-internal-integrations/tron/relayer/txm"
+	tron "github.com/smartcontractkit/chainlink-tron/relayer/ocr2"
+	tronclient "github.com/smartcontractkit/chainlink-tron/relayer/sdk"
+	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
