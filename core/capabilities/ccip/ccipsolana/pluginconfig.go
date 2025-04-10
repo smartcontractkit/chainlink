@@ -2,6 +2,7 @@ package ccipsolana
 
 import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
