@@ -26,6 +26,7 @@ type ChainView struct {
 	Router map[string]v1_2.RouterView `json:"router,omitempty"`
 	// v1.5
 	TokenAdminRegistry map[string]v1_5.TokenAdminRegistryView `json:"tokenAdminRegistry,omitempty"`
+	TokenPoolFactory   map[string]v1_5_1.TokenPoolFactoryView `json:"tokenPoolFactory,omitempty"`
 	TokenPools         map[string]map[string]v1_5_1.PoolView  `json:"poolByTokens,omitempty"` // TokenSymbol => TokenPool Address => PoolView
 	CommitStore        map[string]v1_5.CommitStoreView        `json:"commitStore,omitempty"`
 	PriceRegistry      map[string]v1_2.PriceRegistryView      `json:"priceRegistry,omitempty"`
@@ -60,6 +61,7 @@ func NewChain() ChainView {
 		PriceRegistry: make(map[string]v1_2.PriceRegistryView),
 		// v1.5
 		TokenAdminRegistry: make(map[string]v1_5.TokenAdminRegistryView),
+		TokenPoolFactory:   make(map[string]v1_5_1.TokenPoolFactoryView),
 		CommitStore:        make(map[string]v1_5.CommitStoreView),
 		EVM2EVMOnRamp:      make(map[string]v1_5.OnRampView),
 		EVM2EVMOffRamp:     make(map[string]v1_5.OffRampView),

@@ -278,6 +278,13 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
 	}
+	if c.TokenPoolFactory != nil {
+		tpfView, err := viewv1_5_1.GenerateTokenPoolFactoryView(c.TokenPoolFactory)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate token pool factory view for token pool factory %s", c.TokenPoolFactory.Address().String())
+		}
+		chainView.TokenPoolFactory[c.TokenPoolFactory.Address().Hex()] = tpfView
+	}
 	tpUpdateGrp := errgroup.Group{}
 	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
 		for _, tokenPool := range versionToPool {

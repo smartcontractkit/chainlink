@@ -377,7 +377,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	if tokenPoolFactory == nil {
 		_, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
-				tpfAddr, tx2, tokenPoolFactory, err2 := token_pool_factory.DeployTokenPoolFactory(
+				tpfAddr, tx2, contract, err2 := token_pool_factory.DeployTokenPoolFactory(
 					chain.DeployerKey,
 					chain.Client,
 					tokenAdminReg.Address(),
@@ -389,7 +389,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					r.Address(),
 				)
 				return deployment.ContractDeploy[*token_pool_factory.TokenPoolFactory]{
-					Address: tpfAddr, Contract: tokenPoolFactory, Tx: tx2, Tv: deployment.NewTypeAndVersion(TokenPoolFactory, deployment.Version1_5_1), Err: err2,
+					Address: tpfAddr, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(TokenPoolFactory, deployment.Version1_5_1), Err: err2,
 				}
 			},
 		)
@@ -405,7 +405,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	if factoryBurnMintERC20 == nil {
 		_, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20] {
-				factoryBurnMintERC20Addr, tx2, factoryBurnMintERC20, err2 := factory_burn_mint_erc20.DeployFactoryBurnMintERC20(
+				factoryBurnMintERC20Addr, tx2, contract, err2 := factory_burn_mint_erc20.DeployFactoryBurnMintERC20(
 					chain.DeployerKey,
 					chain.Client,
 					string(FactoryBurnMintERC20Symbol),
@@ -416,7 +416,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.DeployerKey.From,
 				)
 				return deployment.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20]{
-					Address: factoryBurnMintERC20Addr, Contract: factoryBurnMintERC20, Tx: tx2, Tv: deployment.NewTypeAndVersion(FactoryBurnMintERC20Token, deployment.Version1_0_0), Err: err2,
+					Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(FactoryBurnMintERC20Token, deployment.Version1_0_0), Err: err2,
 				}
 			},
 		)
