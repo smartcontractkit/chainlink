@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-const IDL_IX_TAG uint64 = 0x0a69e9a778bcf440
+const IdlIxTag uint64 = 0x0a69e9a778bcf440
 
 // IDL
 type IDLConfig struct {
@@ -49,6 +49,9 @@ func updateToml(e deployment.Environment) error {
 		return errors.New("anchor-cli not installed in path")
 	}
 	anchorVersion, err := parseAnchorVersion(output)
+	if err != nil {
+		return fmt.Errorf("error parsing anchor version: %w", err)
+	}
 
 	anchorTomlPath := filepath.Join(cloneDir, anchorDir, "Anchor.toml")
 
@@ -190,7 +193,7 @@ func parseIdlBuffer(output string) (string, error) {
 			return strings.TrimSpace(strings.TrimPrefix(line, prefix)), nil
 		}
 	}
-	return "", fmt.Errorf("failed to find IDL buffer in output")
+	return "", errors.New("failed to find IDL buffer in output")
 }
 
 func writeBuffer(e deployment.Environment, chain deployment.SolChain, programID string) (solana.PublicKey, error) {
@@ -198,8 +201,14 @@ func writeBuffer(e deployment.Environment, chain deployment.SolChain, programID 
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("error getting IDL: %w", err)
 	}
+	e.Logger.Infow("Writing IDL buffer", "programID", programID)
 	args := []string{"idl", "write-buffer", "--filepath", idlFile, "--provider.wallet", chain.KeypairPath, "--provider.cluster", chain.URL, programID}
+	e.Logger.Info(args)
 	output, err := runCommand("anchor", args, filepath.Join(cloneDir, anchorDir))
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("error writing IDL buffer: %w", err)
+	}
+	e.Logger.Infow("Parsing IDL buffer", "programID", programID)
 	buffer, err := parseIdlBuffer(output)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("error parsing IDL buffer: %w", err)
@@ -216,7 +225,7 @@ func setBufferIx(e deployment.Environment, programID, buffer, authority solana.P
 	if err != nil {
 		return solana.GenericInstruction{}, fmt.Errorf("error getting idl address for %s: %w", programID.String(), err)
 	}
-	data := binary.LittleEndian.AppendUint64([]byte{}, IDL_IX_TAG) // 4-byte Extend instruction identifier
+	data := binary.LittleEndian.AppendUint64([]byte{}, IdlIxTag) // 4-byte Extend instruction identifier
 	data = append(data, byte(3))
 
 	instruction := solana.NewInstruction(
@@ -283,7 +292,7 @@ func (c IDLConfig) Validate(e deployment.Environment) error {
 		return fmt.Errorf("burnMintTokenPool not deployed for chain %d, cannot upload idl", c.ChainSelector)
 	}
 	if c.LockReleaseTokenPool && chainState.OffRamp.IsZero() {
-		return fmt.Errorf("lockReleaseTokenPool not deployed for chain ")
+		return fmt.Errorf("lockReleaseTokenPool not deployed for chain %d, cannot upload idl", c.ChainSelector)
 	}
 	return nil
 }
@@ -295,7 +304,7 @@ func UploadIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutpu
 	}
 	chain := e.SolChains[c.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
-	chainState, _ := state.SolChains[c.ChainSelector]
+	chainState := state.SolChains[c.ChainSelector]
 
 	if err := repoSetup(e, c); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error setting up anchor workspace: %w", err)
@@ -348,7 +357,7 @@ func SetAuthorityIDL(e deployment.Environment, c IDLConfig) (deployment.Changese
 	}
 	chain := e.SolChains[c.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
-	chainState, _ := state.SolChains[c.ChainSelector]
+	chainState := state.SolChains[c.ChainSelector]
 
 	timelockSignerPDA, err := getTimelockSignerPDA(e, c.ChainSelector)
 	if err != nil {
@@ -397,13 +406,17 @@ func SetAuthorityIDL(e deployment.Environment, c IDLConfig) (deployment.Changese
 }
 
 // changeset to upgrade idl for a program via timelock
+// write buffer using anchor cli
+// set buffer authority to timelock using anchor cli
+// generate set buffer ix using solana-go sdk
+// build mcms txn to upgrade idl
 func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
 	chain := e.SolChains[c.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
-	chainState, _ := state.SolChains[c.ChainSelector]
+	chainState := state.SolChains[c.ChainSelector]
 
 	timelockSignerPDA, err := getTimelockSignerPDA(e, c.ChainSelector)
 	if err != nil {
@@ -458,9 +471,9 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
+
 	// do we need to batch this ?
 	return deployment.ChangesetOutput{
 		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 	}, nil
-
 }
