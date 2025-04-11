@@ -80,13 +80,13 @@ func (b *telemetryConfig) EmitterExportTimeout() time.Duration {
 	return b.s.EmitterExportTimeout.Duration()
 }
 
-func (tc telemetryConfig) ChipIngressEnabled() bool {
-    return tc.s.ChipIngressEnabled != nil && *tc.s.ChipIngressEnabled
+func (b *telemetryConfig) ChipIngressEnabled() bool {
+	return b.s.ChipIngressEnabled != nil && *b.s.ChipIngressEnabled
 }
 
-func (tc telemetryConfig) ChipIngressEndpoint() string {
-    if tc.s.ChipIngressEndpoint == nil {
-        return ""
-    }
-    return *tc.s.ChipIngressEndpoint
+func (b *telemetryConfig) ChipIngressEndpoint() string {
+	if b.s.ChipIngressEndpoint == nil {
+		return ""
+	}
+	return *b.s.ChipIngressEndpoint
 }
