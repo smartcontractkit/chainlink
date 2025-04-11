@@ -1049,6 +1049,8 @@ github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411080200-312ba1e
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411080200-312ba1e8e8c6/go.mod h1:gfqSF/Hu7dhhh9mHEVeW8mA/0RjzMRUxLIi5k6JwVSY=
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411083531-d0eb296a49de h1:RjGz3vrhJ6Ei1cqVNEpI2QV4ApYp2P78Q6I3gBr+YKQ=
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411083531-d0eb296a49de/go.mod h1:gfqSF/Hu7dhhh9mHEVeW8mA/0RjzMRUxLIi5k6JwVSY=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411104747-b56e10909413 h1:cNG9KqViGqno9RxDF5Y11Lfn6zmfvRZARdmk2ccrWwc=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411104747-b56e10909413/go.mod h1:gfqSF/Hu7dhhh9mHEVeW8mA/0RjzMRUxLIi5k6JwVSY=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.0-20250410125428-8c2971092e2e h1:3f3mdNrGJHNKbvBpo+DdXcn5HRqd7tdo3c4UOYLiV2M=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.0-20250410125428-8c2971092e2e/go.mod h1:4WhGgCA0smBbBud5mK+jnDb2wwndMvoqaWBJ3OV/7Bw=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
