@@ -206,6 +206,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR CRE E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go download all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-cre-evm-simulated
@@ -225,6 +226,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR CRE E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go download all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-capabilities-evm-simulated
@@ -244,6 +246,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR CRE E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go download all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-capabilities-evm-simulated
@@ -1051,6 +1054,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPTokenPriceUpdates$ -timeout 18m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1066,6 +1070,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPGasPriceUpdatesWriteFrequency$ -timeout 18m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1081,6 +1086,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPGasPriceUpdatesDeviation$ -timeout 18m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1096,6 +1102,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$ -timeout 30m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
@@ -1259,6 +1266,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestDeleteCCIPJobs$ -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1274,6 +1282,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestRevokeJobs$ -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
