@@ -100,7 +100,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 	}
 	require.NoError(t, err)
 	remoteConfig := solBaseTokenPool.RemoteConfig{
-		PoolAddresses: []solTestTokenPool.RemoteAddress{{Address: []byte{1, 2, 3}}},
+		PoolAddresses: []solTestTokenPool.RemoteAddress{},
 		TokenAddress:  solTestTokenPool.RemoteAddress{Address: []byte{4, 5, 6}},
 		Decimals:      9,
 	}
@@ -156,6 +156,20 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 						OutboundRateLimit:   &outboundConfig,
 						PoolType:            testCase.poolType,
 						MCMSSolana:          mcmsConfig,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AppendRemoteTokenPool),
+					ccipChangesetSolana.AppendRemoteTokenPoolConfig{
+						SolChainSelector:    solChain,
+						RemoteChainSelector: evmChain,
+						SolTokenPubKey:      tokenAddress.String(),
+						RemoteConfig: &solBaseTokenPool.RemoteConfig{
+							PoolAddresses: []solTestTokenPool.RemoteAddress{{Address: []byte{1, 2, 3}}},
+							TokenAddress:  solTestTokenPool.RemoteAddress{Address: []byte{4, 5, 6}},
+						},
+						PoolType:   testCase.poolType,
+						MCMSSolana: mcmsConfig,
 					},
 				),
 			},
