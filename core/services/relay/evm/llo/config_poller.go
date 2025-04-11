@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
 type InstanceType string

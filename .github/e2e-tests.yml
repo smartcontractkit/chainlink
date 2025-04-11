@@ -207,7 +207,7 @@ runner-test-matrix:
     triggers:
       - PR CRE E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go download all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-cre-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
@@ -226,7 +226,7 @@ runner-test-matrix:
     triggers:
       - PR CRE E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go download all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
@@ -245,7 +245,7 @@ runner-test-matrix:
     triggers:
       - PR CRE E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go download all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
@@ -1018,6 +1018,32 @@ runner-test-matrix:
   # END: Other tests
 
   # START: CCIPv1.6 tests
+
+  - id: smoke/ccip/ccip_reorg_test.go:LessThanFinalityTests
+    path: integration-tests/smoke/ccip/ccip_reorg_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPReorg_BelowFinality_OnSource|Test_CCIPReorg_BelowFinality_OnDest" ccip_reorg_test.go -timeout 25m -test.parallel=1 -count=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1_DEEPER_FINALITY,SIMULATED_2_DEEPER_FINALITY
+      E2E_JD_VERSION: 0.9.0
+      CCIP_V16_TEST_ENV: docker
+
+  - id: smoke/ccip/ccip_reorg_test.go:GreaterThanFinalityTests
+    path: integration-tests/smoke/ccip/ccip_reorg_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPReorg_GreaterThanFinality_OnSource|Test_CCIPReorg_GreaterThanFinality_OnDest" ccip_reorg_test.go -timeout 25m -test.parallel=1 -count=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2,SIMULATED_3
+      E2E_JD_VERSION: 0.9.0
+      CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_token_price_updates_test.go:*
     path: integration-tests/smoke/ccip/ccip_token_price_updates_test.go

@@ -22,6 +22,12 @@ type Report[IN, OUT any] struct {
 	ChildOperationReports []string `json:"childOperationReports"`
 }
 
+// ToGenericReport converts the Report to a generic Report.
+// This is useful when we want to return the report as a generic type in the changeset.output.
+func (r Report[IN, OUT]) ToGenericReport() Report[any, any] {
+	return genericReport(r)
+}
+
 // SequenceReport is a report for a sequence.
 // It contains a report for the sequence itself and also a list of reports
 // for all the operations executed as part of the sequence.
@@ -32,6 +38,15 @@ type SequenceReport[IN, OUT any] struct {
 
 	// ExecutionReports is a list of report all the operations & sequence that was executed as part of this sequence.
 	ExecutionReports []Report[any, any]
+}
+
+// ToGenericSequenceReport converts the SequenceReport to a generic SequenceReport.
+// This is useful when we want to return the report as a generic type in the changeset.output.
+func (r SequenceReport[IN, OUT]) ToGenericSequenceReport() SequenceReport[any, any] {
+	return SequenceReport[any, any]{
+		Report:           genericReport[IN, OUT](r.Report),
+		ExecutionReports: r.ExecutionReports,
+	}
 }
 
 // NewReport creates a new report.

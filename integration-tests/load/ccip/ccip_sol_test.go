@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
@@ -24,12 +25,11 @@ import (
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	soltesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/solana"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -258,7 +258,7 @@ func TestCCIPEvm2SolCRIB(t *testing.T) {
 		receiverProgram := state.SolChains[destChain].Receiver
 		receiver := receiverProgram.Bytes()
 		receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
-		receiverExternalExecutionConfigPDA, _, _ := solstate.FindExternalExecutionConfigPDA(receiverProgram)
+		receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
 
 		accounts := [][32]byte{
 			receiverProgram,
@@ -553,7 +553,7 @@ func TestTokenTransfer_Solana2EVMCRIB(t *testing.T) {
 	userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, srcToken, ownerSourceChain)
 	require.NoError(t, err)
 
-	externalTokenPoolsSignerPDA, _, err := solstate.FindExternalTokenPoolsSignerPDA(state.SolChains[sourceChain].Router)
+	externalTokenPoolsSignerPDA, _, err := solstate.FindExternalTokenPoolsSignerPDA(state.SolChains[sourceChain].BurnMintTokenPool, state.SolChains[sourceChain].Router)
 	require.NoError(t, err)
 
 	ixApprove2, err := soltokens.TokenApproveChecked(1000, 9, solana.Token2022ProgramID, userTokenAccount, srcToken, externalTokenPoolsSignerPDA, ownerSourceChain, nil)

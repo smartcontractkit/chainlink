@@ -34,14 +34,14 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"

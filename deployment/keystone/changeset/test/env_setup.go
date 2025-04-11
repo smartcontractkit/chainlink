@@ -17,6 +17,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/datastore"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -387,7 +388,12 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		"view only nodes",
 		logger.Test(t),
 		deployment.NewMemoryAddressBook(),
+		datastore.NewMemoryDataStore[
+			datastore.DefaultMetadata,
+			datastore.DefaultMetadata,
+		]().Seal(),
 		chains,
+		nil,
 		nil,
 		dons.NodeList().IDs(),
 		envtest.NewJDService(dons.NodeList()),
@@ -409,17 +415,17 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 
 	wfChains := map[uint64]deployment.Chain{}
 	wfChains[registryChainSel] = chains[registryChainSel]
-	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, nil, c.WFDonConfig.N, 0, crConfig)
+	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, nil, nil, c.WFDonConfig.N, 0, crConfig)
 	require.Len(t, wfNodes, c.WFDonConfig.N)
 
 	writerChains := map[uint64]deployment.Chain{}
 	maps.Copy(writerChains, chains)
-	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, nil, c.WriterDonConfig.N, 0, crConfig)
+	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, nil, nil, c.WriterDonConfig.N, 0, crConfig)
 	require.Len(t, cwNodes, c.WriterDonConfig.N)
 
 	assetChains := map[uint64]deployment.Chain{}
 	assetChains[registryChainSel] = chains[registryChainSel]
-	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, c.AssetDonConfig.N, 0, crConfig)
+	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, nil, c.AssetDonConfig.N, 0, crConfig)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
 
 	dons := newMemoryDons()
@@ -427,7 +433,7 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	dons.Put(newMemoryDon(c.AssetDonConfig.Name, assetNodes))
 	dons.Put(newMemoryDon(c.WriterDonConfig.Name, cwNodes))
 
-	env := memory.NewMemoryEnvironmentFromChainsNodes(t.Context, lggr, chains, nil, dons.AllNodes())
+	env := memory.NewMemoryEnvironmentFromChainsNodes(t.Context, lggr, chains, nil, nil, dons.AllNodes())
 	return dons, env
 }
 
