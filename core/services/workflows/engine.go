@@ -509,7 +509,7 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
 	e.meterReports.Add(executionID, NewMeteringReport())
 
-	err := emitExecutionStartedEvent(ctx, e.cma, triggerID)
+	err := emitExecutionStartedEvent(ctx, e.cma, triggerID, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution started event: %+v", err)
 	}
@@ -685,7 +685,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 	}
 	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d (seconds)", executionDuration), l)
 	l.Infof("execution duration: %d (seconds)", executionDuration)
-	err = emitExecutionFinishedEvent(ctx, cma, status)
+	err = emitExecutionFinishedEvent(ctx, cma, status, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution finished event: %+v", err)
 	}
@@ -1394,6 +1394,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
 		platform.KeyWorkflowName, cfg.WorkflowName.String(),
+		platform.KeyWorkflowVersion, platform.ValueWorkflowVersion,
 		platform.KeyDonID, strconv.Itoa(int(nodeState.WorkflowDON.ID)),
 		platform.KeyDonF, strconv.Itoa(int(nodeState.WorkflowDON.F)),
 		platform.KeyDonN, strconv.Itoa(len(nodeState.WorkflowDON.Members)),
@@ -1492,6 +1493,7 @@ func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log
 func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
 	m := &pb.WorkflowMetadata{}
 
+	m.WorkflowOwner = kvs[platform.KeyWorkflowOwner]
 	m.WorkflowName = kvs[platform.KeyWorkflowName]
 	m.Version = kvs[platform.KeyWorkflowVersion]
 	m.WorkflowID = kvs[platform.KeyWorkflowID]
@@ -1559,7 +1561,8 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 		"beholder_entity", entity) // required
 }
 
-func emitExecutionStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, triggerID string) error {
+func emitExecutionStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, triggerID string, executionID string) error {
+	cma = cma.With(platform.KeyWorkflowExecutionID, executionID)
 	metadata := buildWorkflowMetadata(cma.Labels())
 
 	event := &pb.WorkflowExecutionStarted{
@@ -1571,7 +1574,8 @@ func emitExecutionStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, 
 	return emitProtoMessage(ctx, event)
 }
 
-func emitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, status string) error {
+func emitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, status string, executionID string) error {
+	cma = cma.With(platform.KeyWorkflowExecutionID, executionID)
 	metadata := buildWorkflowMetadata(cma.Labels())
 
 	event := &pb.WorkflowExecutionFinished{
