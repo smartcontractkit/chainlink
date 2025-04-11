@@ -67,7 +67,7 @@ func updateToml(e deployment.Environment) error {
 	content = strings.Replace(content, `anchor_version = "0.29.0"`, replaceText, 1)
 
 	// Write it back
-	if err := os.WriteFile(anchorTomlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(anchorTomlPath, []byte(content), 0600); err != nil {
 		return fmt.Errorf("failed to write Anchor.toml: %w", err)
 	}
 	return nil
@@ -119,7 +119,7 @@ func updateIDL(e deployment.Environment, idlFile string, programID string) error
 	}
 	e.Logger.Debug("Writing updated IDL")
 	// Write updated IDL back to file
-	if err := os.WriteFile(idlFile, updatedIDLBytes, 0644); err != nil {
+	if err := os.WriteFile(idlFile, updatedIDLBytes, 0600); err != nil {
 		return fmt.Errorf("failed to write updated IDL: %w", err)
 	}
 	return nil
@@ -127,6 +127,9 @@ func updateIDL(e deployment.Environment, idlFile string, programID string) error
 
 func getIDL(e deployment.Environment, programID string, programName string) (string, error) {
 	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("error getting cwd: %w", err)
+	}
 	idlFile := filepath.Join(cwd, cloneDir, anchorDir, "target", "idl", programName+".json")
 	if _, err := os.Stat(idlFile); err != nil {
 		return "", fmt.Errorf("idl file not found: %w", err)

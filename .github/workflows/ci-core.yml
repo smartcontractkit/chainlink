@@ -696,4 +696,3 @@ jobs:
             gh pr edit --repo "${GITHUB_REPOSITORY}" "${PULL_REQUEST_NUMBER}" --add-label "runs-on"
             echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
           fi
-          
