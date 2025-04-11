@@ -12,7 +12,7 @@ import (
 
 	time "time"
 
-	toml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 
 	uuid "github.com/google/uuid"
 

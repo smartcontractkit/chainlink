@@ -1159,9 +1159,7 @@ func CCIPDefaultTestSetUp(
 	// set up mock server for price pipeline and usdc attestation if not using existing deployment
 	if !pointer.GetBool(setUpArgs.Cfg.TestGroupInput.ExistingDeployment) {
 		if setUpArgs.Cfg.TestGroupInput.TokenConfig.IsPipelineSpec() {
-			// set up mock server for price pipeline. need to set it once for all the lanes as the price pipeline path uses
-			// regex to match the path for all tokens across all lanes
-			actions.SetMockserverWithTokenPriceValue(setUpArgs.Env.LocalCluster.MockAdapter)
+			t.Fatal("pipeline spec is deprecated, use dynamic price getter instead")
 		}
 		if pointer.GetBool(setUpArgs.Cfg.TestGroupInput.USDCMockDeployment) {
 			// if it's a new USDC deployment, set up mock server for attestation,

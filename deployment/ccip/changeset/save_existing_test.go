@@ -46,7 +46,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(4)).String(),
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.RegistryModule, deployment.Version1_5_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(changeset.RegistryModule, deployment.Version1_6_0),
 				ChainSelector:  chain2,
 			},
 			{
@@ -66,6 +66,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 	require.Equal(t, state.Chains[chain1].LinkToken.Address(), common.BigToAddress(big.NewInt(1)))
 	require.Equal(t, state.Chains[chain1].Weth9.Address(), common.BigToAddress(big.NewInt(2)))
 	require.Equal(t, state.Chains[chain1].TokenAdminRegistry.Address(), common.BigToAddress(big.NewInt(3)))
-	require.Equal(t, state.Chains[chain2].RegistryModule.Address(), common.BigToAddress(big.NewInt(4)))
+	require.NotEmpty(t, state.Chains[chain2].RegistryModules1_6)
+	require.Equal(t, state.Chains[chain2].RegistryModules1_6[0].Address(), common.BigToAddress(big.NewInt(4)))
 	require.Equal(t, state.Chains[chain2].Router.Address(), common.BigToAddress(big.NewInt(5)))
 }

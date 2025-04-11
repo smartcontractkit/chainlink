@@ -14,14 +14,31 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput,
-	customJobsFn func(types.DonJobs, *types.DonWithMetadata) (types.DonJobs, error)) (types.DonsToJobSpecs, error) {
+var PoRJobSpecFactoryFn = func(cronBinaryPath string, extraAllowedPorts []int, extraAllowedIps, extraAllowedIPsCIDR []string) types.JobSpecFactoryFn {
+	return func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
+		return GenerateJobSpecs(
+			&types.GeneratePoRJobSpecsInput{
+				BlockchainOutput:       input.BlockchainOutput,
+				DonsWithMetadata:       input.DonTopology.DonsWithMetadata,
+				OCR3CapabilityAddress:  input.KeystoneContractsOutput.OCR3CapabilityAddress,
+				ExtraAllowedPorts:      extraAllowedPorts,
+				ExtraAllowedIPs:        extraAllowedIps,
+				ExtraAllowedIPsCIDR:    extraAllowedIPsCIDR,
+				CronCapBinPath:         cronBinaryPath,
+				GatewayConnectorOutput: *input.DonTopology.GatewayConnectorOutput,
+			},
+		)
+	}
+}
+
+func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput) (types.DonsToJobSpecs, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -33,10 +50,10 @@ func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput,
 	gatewayConnectorData := input.GatewayConnectorOutput
 
 	// we need to iterate over all DONs to see which need gateway connector and create a map of Don IDs and ETH addresses (which identify nodes that can use the connector)
-	// This map will be used to configure the gateway job on the node that runs it. Ccurrently, we support only a single gateway connector, even if CRE supports multiple
+	// This map will be used to configure the gateway job on the node that runs it. Currently, we support only a single gateway connector, even if CRE supports multiple
 	for _, donWithMetadata := range input.DonsWithMetadata {
 		// if it's a workflow DON or it has custom compute capability, it needs access to gateway connector
-		if creflags.HasFlag(donWithMetadata.Flags, types.WorkflowDON) || creflags.HasFlag(donWithMetadata.Flags, types.CustomComputeCapability) {
+		if creflags.HasFlag(donWithMetadata.Flags, types.WorkflowDON) || don.NodeNeedsGateway(donWithMetadata.Flags) {
 			workflowNodeSet, err := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.WorkerNode}, node.EqualLabels)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to find worker nodes")
@@ -67,7 +84,6 @@ func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput,
 			input.ExtraAllowedIPs,
 			input.ExtraAllowedIPsCIDR,
 			gatewayConnectorData,
-			customJobsFn,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate job specs for don %d", donWithMetadata.DonMetadata.ID)
@@ -91,7 +107,6 @@ func generateDonJobSpecs(
 	extraAllowedIPs []string,
 	extraAllowedIPsCIDR []string,
 	gatewayConnectorOutput types.GatewayConnectorOutput,
-	customJobsFn func(types.DonJobs, *types.DonWithMetadata) (types.DonJobs, error),
 ) (types.DonJobs, error) {
 	jobSpecs := make(types.DonJobs, 0)
 
@@ -185,7 +200,7 @@ func generateDonJobSpecs(
 		}
 
 		if creflags.HasFlag(donWithMetadata.Flags, types.CronCapability) {
-			jobSpecs = append(jobSpecs, jobs.WorkerStandardCapability(nodeID, "cron-capability", cronCapBinPath, jobs.EmptyStdCapConfig))
+			jobSpecs = append(jobSpecs, jobs.WorkerStandardCapability(nodeID, types.CronCapability, cronCapBinPath, jobs.EmptyStdCapConfig))
 		}
 
 		if creflags.HasFlag(donWithMetadata.Flags, types.CustomComputeCapability) {
@@ -197,15 +212,7 @@ func generateDonJobSpecs(
 				perSenderRPS = 1.0
 				perSenderBurst = 5
 				"""`
-			jobSpecs = append(jobSpecs, jobs.WorkerStandardCapability(nodeID, "custom-compute", "__builtin_custom-compute-action", config))
-		}
-
-		// Insert custom jobs, test specific
-		if customJobsFn != nil {
-			jobSpecs, err = customJobsFn(jobSpecs, donWithMetadata)
-			if err != nil {
-				return nil, err
-			}
+			jobSpecs = append(jobSpecs, jobs.WorkerStandardCapability(nodeID, types.CustomComputeCapability, "__builtin_custom-compute-action", config))
 		}
 	}
 

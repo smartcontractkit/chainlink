@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	tutils "github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -32,6 +33,9 @@ func TestGenericOps(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
+			if test.Msg == "with mcms" {
+				tutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-437")
+			}
 			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 			solChain := tenv.Env.AllChainSelectorsSolana()[0]
 			e := tenv.Env

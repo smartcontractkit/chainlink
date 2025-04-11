@@ -3,7 +3,7 @@ package v1_6
 import (
 	"encoding/hex"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )

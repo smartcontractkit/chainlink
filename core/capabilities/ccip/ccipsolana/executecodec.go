@@ -94,8 +94,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			return nil, fmt.Errorf("failed to decode extra args: %w", err)
 		}
 
-		var extraArgs ccip_offramp.Any2SVMRampExtraArgs
-		extraArgs, _, err = parseExtraArgsMapWithAccounts(extraDataDecodedMap)
+		ed, err := parseExtraDataMap(extraDataDecodedMap)
 		if err != nil {
 			return nil, fmt.Errorf("invalid extra args map: %w", err)
 		}
@@ -114,9 +113,9 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			},
 			Sender:        msg.Sender,
 			Data:          msg.Data,
-			TokenReceiver: solana.PublicKeyFromBytes(msg.Receiver),
+			TokenReceiver: ed.tokenReceiver,
 			TokenAmounts:  tokenAmounts,
-			ExtraArgs:     extraArgs,
+			ExtraArgs:     ed.extraArgs,
 		}
 
 		// should only have an offchain token data if there are tokens as part of the message
