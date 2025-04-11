@@ -764,6 +764,7 @@ func TestConfig_Marshal(t *testing.T) {
 				FeeBumpPeriod:             commoncfg.MustNewDuration(time.Minute),
 				BlockHistoryPollPeriod:    commoncfg.MustNewDuration(time.Minute),
 				BlockHistorySize:          ptr[uint64](1),
+				BlockHistoryBatchLoadSize: ptr[uint64](20),
 				ComputeUnitLimitDefault:   ptr[uint32](100_000),
 				EstimateComputeUnitLimit:  ptr(false),
 				LogPollerStartingLookback: commoncfg.MustNewDuration(24 * time.Hour),
@@ -1240,6 +1241,7 @@ ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
 BlockHistorySize = 1
+BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'

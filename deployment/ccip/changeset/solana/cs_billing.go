@@ -190,15 +190,7 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e deployment.Environmen
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return fmt.Errorf("fee quoter validation failed: %w", err)
 	}
-	// check if desired state already exists
-	remoteBillingPDA, _, err := solState.FindFqPerChainPerTokenConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.FeeQuoter)
-	if err != nil {
-		return fmt.Errorf("failed to find remote billing token config pda for (remoteSelector: %d, mint: %s, feeQuoter: %s): %w", cfg.RemoteChainSelector, tokenPubKey.String(), chainState.FeeQuoter.String(), err)
-	}
-	var remoteBillingAccount solFeeQuoter.PerChainPerTokenConfig
-	if err := chain.GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount); err == nil {
-		return fmt.Errorf("billing token config already exists for (remoteSelector: %d, mint: %s, feeQuoter: %s)", cfg.RemoteChainSelector, tokenPubKey.String(), chainState.FeeQuoter.String())
-	}
+
 	return nil
 }
 

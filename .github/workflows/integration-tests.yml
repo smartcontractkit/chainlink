@@ -5,6 +5,7 @@ run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_
 on:
   merge_group:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   push:
     tags:
       - "*"
@@ -82,11 +83,11 @@ jobs:
           module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
           enforce-semantic-tag: "true"
   changes:
+    # Don't run E2E tests on PR, unless it's tagged with "run-e2e-tests"
+    if: ${{ github.event_name != 'pull_request' || contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests') }}
     environment: integration
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -120,8 +121,8 @@ jobs:
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
-      - name: Ignore Filter On Workflow Dispatch or PR Label
-        if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-e2e')) || github.event_name == 'workflow_dispatch' }}
+      - name: Ignore Filter On Workflow Dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
         run: echo "changes=true" >> $GITHUB_OUTPUT
     outputs:
@@ -788,7 +789,9 @@ jobs:
 
   notify-test-failure:
     name: Notify Test Failure
-    if: ${{ github.ref_name == 'develop' && failure() }}
+    # TODO: uncomment this when we want to notify on test failures post-merge, if Phase 3 is necessary
+    if: false 
+    # if: ${{ github.ref_name == 'develop' && failure() }}
     needs: [check-e2e-test-results, solana-smoke-tests]
     runs-on: ubuntu-latest
     steps:
