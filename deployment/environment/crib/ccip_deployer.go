@@ -447,7 +447,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel, fe
 	}
 
 	buildConfig := ccipChangesetSolana.BuildSolanaConfig{
-		GitCommitSha:   "d2fd3633f4854492d233a0b545dd17895cfcdc4e",
+		GitCommitSha:   "25933500528d30f13d12fd813c2da28e9db08468",
 		DestinationDir: deployedEnv.Env.SolChains[solChainSelectors[0]].ProgramsPath,
 		LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 			BuildLocally: true,
@@ -715,6 +715,7 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 		tokenInfo[cciptypes.UnknownEncodedAddress(solana.SolMint.String())] = tokenConfig.TokenSymbolToInfo[changeset.WethSymbol]
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, tokenInfo, nil)
 		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, tokenDataProviders, nil)
+		commitOCRConfigPerSelector[selector].CommitOffChainConfig.RMNEnabled = false
 	}
 
 	var commitChangeset commonchangeset.ConfiguredChangeSet
