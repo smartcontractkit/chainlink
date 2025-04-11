@@ -14,7 +14,7 @@ const (
 	ConfigTypeActive    ConfigType = "active"
 	ConfigTypeCandidate ConfigType = "candidate"
 	// ========= Changeset Defaults =========
-	PermissionLessExecutionThreshold  = 8 * time.Hour
+	PermissionLessExecutionThreshold  = 1 * time.Hour
 	RemoteGasPriceBatchWriteFrequency = 30 * time.Minute
 	TokenPriceBatchWriteFrequency     = 30 * time.Minute
 	// Building batches with 6.5m and transmit with 8m to account for overhead.
@@ -74,7 +74,7 @@ var (
 		BatchGasLimit:               BatchGasLimit,
 		InflightCacheExpiry:         *config.MustNewDuration(InflightCacheExpiry),
 		RootSnoozeTime:              *config.MustNewDuration(RootSnoozeTime),
-		MessageVisibilityInterval:   *config.MustNewDuration(PermissionLessExecutionThreshold),
+		MessageVisibilityInterval:   *config.MustNewDuration(8 * time.Hour),
 		BatchingStrategyID:          BatchingStrategyID,
 		TransmissionDelayMultiplier: TransmissionDelayMultiplier,
 		MaxReportMessages:           0,
