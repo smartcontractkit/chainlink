@@ -788,7 +788,9 @@ jobs:
 
   notify-test-failure:
     name: Notify Test Failure
-    if: ${{ github.ref_name == 'develop' && failure() }}
+    # TODO: uncomment this when we want to notify on test failures post-merge, if Phase 3 is necessary
+    if: false 
+    # if: ${{ github.ref_name == 'develop' && failure() }}
     needs: [check-e2e-test-results, solana-smoke-tests]
     runs-on: ubuntu-latest
     steps:
