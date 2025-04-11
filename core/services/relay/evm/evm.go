@@ -820,62 +820,7 @@ type configTransmitterOpts struct {
 // newOnChainContractTransmitter creates a new contract transmitter.
 func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
 	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
-		// On TRON, get the (extra) nodes information from the chain
-		chain, ok := configWatcher.chain.(legacyevm.ChainTronSupport)
-		if !ok {
-			return nil, fmt.Errorf("chain %s does not support TRON", configWatcher.chain.ID())
-		}
-
-		// Check there is at least one node
-		if len(chain.Nodes()) == 0 {
-			return nil, fmt.Errorf("no nodes found for chain %s", configWatcher.chain.ID())
-		}
-
-		// Use an (extra) write-specific node URL for the Tron client
-		// Notice: TronClient is not multinode aware, so we need to use the first node
-		nodeURL := (*chain.Nodes()[0]).HTTPURLExtraWrite.URL()
-		tronClient, err := tronclient.CreateFullNodeClient(nodeURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create Tron client: %w", err)
-		}
-
-		// Start the Tron TXM
-		tronTXM := trontxm.New(lggr, tronkeystore.NewLoopKeystoreAdapter(ethKeystore), tronClient, trontxm.TronTxmConfig{
-			EnergyMultiplier: 3, // TODO: Determine if we're creating a new commit txm or an exec txm. values should maybe be different?
-		})
-		tronTXM.Start(ctx)
-
-		transmitted, ok := transmissionContractABI.Events["Transmitted"]
-		if !ok {
-			return nil, errors.New("invalid ABI, missing transmitted")
-		}
-
-		evmCache := tron.NewEVMTransmissionsCache(ctx, lggr, configWatcher.contractAddress, configWatcher.chain.Client(), transmissionContractABI, configWatcher.chain.LogPoller(), transmitted.ID)
-
-		senderAddress, err := ethKeystore.GetNextAddress(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		transmitter := tron.NewOCRContractTransmitter(ctx, evmCache, tronsdk.EVMAddressToAddress(configWatcher.contractAddress), tronsdk.EVMAddressToAddress(senderAddress), tronTXM, lggr).WithEthereumKeystore()
-
-		transmitterOptions := &transmitterOps{
-			reportToEvmTxMeta: reportToEvmTxMetaNoop,
-			excludeSigs:       false,
-			retention:         0,
-			maxLogsKept:       0,
-		}
-
-		for _, opt := range ocrTransmitterOpts {
-			opt(transmitterOptions)
-		}
-
-		if transmitterOptions.excludeSigs {
-			lggr.Info("Excluding signatures from transmissions")
-			transmitter = transmitter.WithExcludeSignatures()
-		}
-
-		return transmitter, nil
+		return newTronContractTransmitter(ctx, lggr, rargs, ethKeystore, configWatcher, opts, transmissionContractABI, ocrTransmitterOpts...)
 	}
 
 	transmitter, err := generateTransmitterFrom(ctx, rargs, ethKeystore, configWatcher, opts)
@@ -894,6 +839,69 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		ethKeystore,
 		ocrTransmitterOpts...,
 	)
+}
+
+func newTronContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
+	// On TRON, get the (extra) nodes information from the chain
+	chain, ok := configWatcher.chain.(legacyevm.ChainTronSupport)
+	if !ok {
+		return nil, fmt.Errorf("chain %s does not support TRON", configWatcher.chain.ID())
+	}
+
+	// Check there is at least one node
+	if len(chain.Nodes()) == 0 {
+		return nil, fmt.Errorf("no nodes found for chain %s", configWatcher.chain.ID())
+	}
+
+	// Use an (extra) write-specific node URL for the Tron client
+	// Notice: TronClient is not multinode aware, so we need to use the first node
+	nodeURL := (*chain.Nodes()[0]).HTTPURLExtraWrite.URL()
+	tronClient, err := tronclient.CreateFullNodeClient(nodeURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Tron client: %w", err)
+	}
+
+	// Start the Tron TXM
+	tronTXM := trontxm.New(lggr, tronkeystore.NewLoopKeystoreAdapter(ethKeystore), tronClient, trontxm.TronTxmConfig{
+		EnergyMultiplier: 3, // TODO: Determine if we're creating a new commit txm or an exec txm. values should maybe be different?
+	})
+	tronTXM.Start(ctx)
+
+	transmitted, ok := transmissionContractABI.Events["Transmitted"]
+	if !ok {
+		return nil, errors.New("invalid ABI, missing transmitted")
+	}
+
+	evmCache := tron.NewEVMTransmissionsCache(ctx, lggr, configWatcher.contractAddress, configWatcher.chain.Client(), transmissionContractABI, configWatcher.chain.LogPoller(), transmitted.ID)
+	senderAddress, err := ethKeystore.GetNextAddress(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct the Tron contract transmitter, it's slightly different from the EVM contract transmitter and due to mismatching types we have to apply the transmitter options manually
+	transmitter := tron.NewOCRContractTransmitter(ctx, evmCache, tronsdk.EVMAddressToAddress(configWatcher.contractAddress), tronsdk.EVMAddressToAddress(senderAddress), tronTXM, lggr).WithEthereumKeystore()
+	transmitterOptions := &transmitterOps{
+		reportToEvmTxMeta: nil,
+		excludeSigs:       false,
+		retention:         0,
+		maxLogsKept:       0,
+	}
+
+	for _, opt := range ocrTransmitterOpts {
+		opt(transmitterOptions)
+	}
+
+	if transmitterOptions.excludeSigs {
+		lggr.Info("Excluding signatures from transmissions")
+		transmitter = transmitter.WithExcludeSignatures()
+	}
+
+	if transmitterOptions.reportToEvmTxMeta != nil {
+		lggr.Info("Using EVM TxMeta for Tron Transmissions")
+		transmitter = transmitter.WithReportToEthMetadata(transmitterOptions.reportToEvmTxMeta)
+	}
+
+	return transmitter, nil
 }
 
 // newOnChainDualContractTransmitter creates a new dual contract transmitter.

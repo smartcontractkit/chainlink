@@ -1051,6 +1051,14 @@ github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411083531-d0eb296
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411083531-d0eb296a49de/go.mod h1:gfqSF/Hu7dhhh9mHEVeW8mA/0RjzMRUxLIi5k6JwVSY=
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411104747-b56e10909413 h1:cNG9KqViGqno9RxDF5Y11Lfn6zmfvRZARdmk2ccrWwc=
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411104747-b56e10909413/go.mod h1:gfqSF/Hu7dhhh9mHEVeW8mA/0RjzMRUxLIi5k6JwVSY=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411110207-efabd29891c0 h1:OHjjOcXKAQnFf8mjNmnDrYKKa6pkIUd+/LctgsSpVxo=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411110207-efabd29891c0/go.mod h1:gfqSF/Hu7dhhh9mHEVeW8mA/0RjzMRUxLIi5k6JwVSY=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411111020-9b1dc3230157 h1:K51aZq3Pooh/Gjq0d0tJWWXMhcauIb1b3ODXlKO3Nkw=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411111020-9b1dc3230157/go.mod h1:gfqSF/Hu7dhhh9mHEVeW8mA/0RjzMRUxLIi5k6JwVSY=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411112320-3aaf4d88a7b1 h1:xwAVNkQqAO9p/c5u/nHJG7ekwIDtNfUUjVtCck76I0E=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411112320-3aaf4d88a7b1/go.mod h1:gfqSF/Hu7dhhh9mHEVeW8mA/0RjzMRUxLIi5k6JwVSY=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411112552-6988c061badf h1:dRPz/u03zmU/brEtusg7GtE+d3OGrqv/mLofDXw3X5M=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.0-20250411112552-6988c061badf/go.mod h1:gfqSF/Hu7dhhh9mHEVeW8mA/0RjzMRUxLIi5k6JwVSY=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.0-20250410125428-8c2971092e2e h1:3f3mdNrGJHNKbvBpo+DdXcn5HRqd7tdo3c4UOYLiV2M=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.0-20250410125428-8c2971092e2e/go.mod h1:4WhGgCA0smBbBud5mK+jnDb2wwndMvoqaWBJ3OV/7Bw=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
