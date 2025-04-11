@@ -3,7 +3,6 @@ package solana
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -360,99 +358,4 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 	}
 
 	return nil
-}
-
-type IDLConfig struct {
-	ChainSelector uint64
-}
-
-func updateToml(e deployment.Environment) error {
-	anchorTomlPath := filepath.Join(cloneDir, anchorDir, "Anchor.toml")
-
-	// Read the whole file as text
-	contentBytes, err := os.ReadFile(anchorTomlPath)
-	if err != nil {
-		return fmt.Errorf("failed to read Anchor.toml: %w", err)
-	}
-	content := string(contentBytes)
-
-	// Replace exact version string
-	content = strings.Replace(content, `anchor_version = "0.29.0"`, `anchor_version = "0.31.0"`, 1)
-
-	// Write it back
-	if err := os.WriteFile(anchorTomlPath, []byte(content), 0644); err != nil {
-		return fmt.Errorf("failed to write Anchor.toml: %w", err)
-	}
-	return nil
-}
-
-func updateIDL(e deployment.Environment, idlFile string, programID string) error {
-	e.Logger.Debug("Reading IDL")
-	idlBytes, err := os.ReadFile(idlFile)
-	if err != nil {
-		return fmt.Errorf("failed to read IDL: %w", err)
-	}
-	e.Logger.Debug("Parsing IDL")
-	var idl map[string]interface{}
-	if err := json.Unmarshal(idlBytes, &idl); err != nil {
-		return fmt.Errorf("failed to parse legacy IDL: %w", err)
-	}
-	e.Logger.Debug("Updating IDL with program ID", "programID", programID)
-	idl["metadata"] = map[string]interface{}{
-		"address": programID,
-	}
-	// Marshal updated IDL back to JSON
-	e.Logger.Debug("Marshalling updated IDL")
-	updatedIDLBytes, err := json.MarshalIndent(idl, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal updated IDL: %w", err)
-	}
-	e.Logger.Debug("Writing updated IDL")
-	// Write updated IDL back to file
-	if err := os.WriteFile(idlFile, updatedIDLBytes, 0644); err != nil {
-		return fmt.Errorf("failed to write updated IDL: %w", err)
-	}
-	return nil
-}
-
-func UploadIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutput, error) {
-	version, err := memory.GetSha()
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error getting sha: %w", err)
-	}
-	if err := cloneRepo(e, version, false); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %w", err)
-	}
-
-	// e.Logger.Debug("Updating Anchor.toml")
-	// err = updateToml(e)
-	// if err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("error updating Anchor.toml: %w", err)
-	// }
-
-	chain := e.SolChains[c.ChainSelector]
-	existingState, _ := ccipChangeset.LoadOnchainState(e)
-	programID := existingState.SolChains[c.ChainSelector].RMNRemote
-	programName := "rmn_remote"
-	cwd, err := os.Getwd()
-	idlFile := filepath.Join(cwd, cloneDir, anchorDir, "target", "idl", programName+".json")
-	if _, err := os.Stat(idlFile); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("idl file not found: %w", err)
-	}
-	e.Logger.Debug("Updating IDL")
-	err = updateIDL(e, idlFile, programID.String())
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error updating IDL: %w", err)
-	}
-	output, err := runCommand("anchor", []string{"--version"}, ".")
-	fmt.Println(output)
-	e.Logger.Debug("Uploading IDL")
-	args := []string{"idl", "init", "--filepath", idlFile, "--provider.wallet", chain.KeypairPath, "--provider.cluster", chain.URL, programID.String()}
-	fmt.Println(args)
-	output, err = runCommand("anchor", args, filepath.Join(cloneDir, anchorDir))
-	fmt.Println(output)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error uploading idl: %w", err)
-	}
-	return deployment.ChangesetOutput{}, nil
 }

@@ -1,13 +1,6 @@
 package solana_test
 
 import (
-	"bytes"
-	"compress/zlib"
-	"context"
-	"encoding/binary"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -29,9 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
-	"github.com/gagliardetto/solana-go/programs/system"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -374,242 +364,279 @@ func TestUpgrade(t *testing.T) {
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 }
 
-func TestIDLUpgrade(t *testing.T) {
-	ci := os.Getenv("CI") == "true"
-	if ci {
-		return
-	}
-	programID := solana.MustPublicKeyFromBase58("AacpQtBFpfVDWqacCqBPj59GChahCYUNLNb4Wsvft83M")
+// func TestIDLUpgrade(t *testing.T) {
+// 	ci := os.Getenv("CI") == "true"
+// 	if ci {
+// 		return
+// 	}
+// 	programID := solana.MustPublicKeyFromBase58("AacpQtBFpfVDWqacCqBPj59GChahCYUNLNb4Wsvft83M")
 
-	deployerKey, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/yashvardhan/.config/solana/id_devnet.json")
-	require.NoError(t, err)
-	// currentUpgradeAuthority := solana.MustPublicKeyFromBase58("7oZnxiocDK1aa9XAQC3CZ1VHKFkKwLuwRK8NddhU3FT2")
-	// require.Equal(t, deployerKey.PublicKey().String(), currentUpgradeAuthority.String())
+// 	deployerKey, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/yashvardhan/.config/solana/id_devnet.json")
+// 	require.NoError(t, err)
+// 	// currentUpgradeAuthority := solana.MustPublicKeyFromBase58("7oZnxiocDK1aa9XAQC3CZ1VHKFkKwLuwRK8NddhU3FT2")
+// 	// require.Equal(t, deployerKey.PublicKey().String(), currentUpgradeAuthority.String())
 
-	// derive idl address
-	base, _, err := solana.FindProgramAddress([][]byte{}, programID)
-	require.NoError(t, err)
-	idlAddress, err := solana.CreateWithSeed(base, "anchor:idl", programID)
-	require.NoError(t, err)
-	fmt.Println("IDL Address:  ", idlAddress.String())
+// 	// derive idl address
+// 	base, _, err := solana.FindProgramAddress([][]byte{}, programID)
+// 	require.NoError(t, err)
+// 	idlAddress, err := solana.CreateWithSeed(base, "anchor:idl", programID)
+// 	require.NoError(t, err)
+// 	fmt.Println("IDL Address:  ", idlAddress.String())
 
-	// build set authority instruction data
-	newAuthority := solana.MustPublicKeyFromBase58("FxghvBLeWky3gxXYnDP2sHa2MuFbJ7WWiSzFT96sMZqi")
-	data := binary.LittleEndian.AppendUint64([]byte{}, IDL_IX_TAG) // 4-byte Extend instruction identifier
-	data = append(data, byte(4))
-	data = append(data, newAuthority.Bytes()...)
-	fmt.Println("Data:         ", hex.EncodeToString(data))
+// 	// build set authority instruction data
+// 	newAuthority := solana.MustPublicKeyFromBase58("FxghvBLeWky3gxXYnDP2sHa2MuFbJ7WWiSzFT96sMZqi")
+// 	data := binary.LittleEndian.AppendUint64([]byte{}, IDL_IX_TAG) // 4-byte Extend instruction identifier
+// 	data = append(data, byte(4))
+// 	data = append(data, newAuthority.Bytes()...)
+// 	fmt.Println("Data:         ", hex.EncodeToString(data))
 
-	instruction := solana.NewInstruction(
-		programID,
-		solana.AccountMetaSlice{
-			solana.NewAccountMeta(idlAddress, true, false),
-			solana.NewAccountMeta(deployerKey.PublicKey(), false, true), // Current upgrade authority (signer)
-		},
-		data,
-	)
-	client := solRpc.New(solRpc.DevNet.RPC)
-	_, err = solCommonUtil.SendAndConfirm(
-		context.Background(), client, []solana.Instruction{instruction}, deployerKey, solRpc.CommitmentConfirmed,
-	)
-	require.NoError(t, err)
-}
+// 	instruction := solana.NewInstruction(
+// 		programID,
+// 		solana.AccountMetaSlice{
+// 			solana.NewAccountMeta(idlAddress, true, false),
+// 			solana.NewAccountMeta(deployerKey.PublicKey(), false, true), // Current upgrade authority (signer)
+// 		},
+// 		data,
+// 	)
+// 	client := solRpc.New(solRpc.DevNet.RPC)
+// 	_, err = solCommonUtil.SendAndConfirm(
+// 		context.Background(), client, []solana.Instruction{instruction}, deployerKey, solRpc.CommitmentConfirmed,
+// 	)
+// 	require.NoError(t, err)
+// }
 
-// Sha256("anchor:idl")[..8] = 0x0a69e9a778bcf440
-const IDL_IX_TAG uint64 = 0x0a69e9a778bcf440
+// func getCompressedIDL(t *testing.T) ([]byte, error) {
+// 	idlBytes, err := os.ReadFile("/Users/yashvardhan/chainlink/deployment/ccip/changeset/internal/solana_contracts/access_controller.json")
+// 	require.NoError(t, err)
+// 	var idl ccipChangesetSolana.IDL
+// 	err = json.Unmarshal(idlBytes, &idl)
+// 	require.NoError(t, err)
+// 	compressedIDL, err := serializeIdl(idl)
+// 	require.NoError(t, err)
+// 	return compressedIDL, nil
+// }
 
-func getCompressedIDL(t *testing.T) ([]byte, error) {
-	idlBytes, err := os.ReadFile("/Users/yashvardhan/chainlink/deployment/ccip/changeset/internal/solana_contracts/access_controller.json")
-	require.NoError(t, err)
-	var idl ccipChangesetSolana.IDL
-	err = json.Unmarshal(idlBytes, &idl)
-	require.NoError(t, err)
-	compressedIDL, err := serializeIdl(idl)
-	require.NoError(t, err)
-	return compressedIDL, nil
-}
+// func TestIDLSetBuffer(t *testing.T) {
+// 	ci := os.Getenv("CI") == "true"
+// 	if ci {
+// 		return
+// 	}
+// 	// These are placeholder IDs — replace with your actual ones
+// 	programID := solana.MustPublicKeyFromBase58("GnpXUEvp4Uu5qzTRDHzDT5oRh7oY7g5GDRagc6zJo7M5")
+// 	payer, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/yashvardhan/.config/solana/id.json")
+// 	require.NoError(t, err)
 
-func TestIDLSetBuffer(t *testing.T) {
-	ci := os.Getenv("CI") == "true"
-	if ci {
-		return
-	}
-	// These are placeholder IDs — replace with your actual ones
-	programID := solana.MustPublicKeyFromBase58("GnpXUEvp4Uu5qzTRDHzDT5oRh7oY7g5GDRagc6zJo7M5")
-	payer, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/yashvardhan/.config/solana/id.json")
-	require.NoError(t, err)
+// 	compressedIDL, err := getCompressedIDL(t)
+// 	require.NoError(t, err)
+// 	fmt.Println("Compressed IDL length: ", len(compressedIDL))
 
-	compressedIDL, err := getCompressedIDL(t)
-	require.NoError(t, err)
-	fmt.Println("Compressed IDL length: ", len(compressedIDL))
+// 	buffer := solana.NewWallet() // new keypair
+// 	fmt.Println("Buffer Public Key: ", buffer.PublicKey().String())
+// 	space := (8 + 32 + 4 + len(compressedIDL)) * 2
 
-	buffer := solana.NewWallet() // new keypair
-	fmt.Println("Buffer Public Key: ", buffer.PublicKey().String())
-	space := (8 + 32 + 4 + len(compressedIDL)) * 2
+// 	// Step 1: Fetch rent-exempt lamports
+// 	client := solRpc.New(solRpc.LocalNet_RPC)
+// 	lamports, err := client.GetMinimumBalanceForRentExemption(
+// 		context.Background(), uint64(space), solRpc.CommitmentFinalized,
+// 	)
+// 	require.NoError(t, err)
 
-	// Step 1: Fetch rent-exempt lamports
-	client := solRpc.New(solRpc.LocalNet_RPC)
-	lamports, err := client.GetMinimumBalanceForRentExemption(
-		context.Background(), uint64(space), solRpc.CommitmentFinalized,
-	)
-	require.NoError(t, err)
+// 	// CREATE ACCOUNT
+// 	createAccountIx, err := system.NewCreateAccountInstruction(
+// 		lamports,
+// 		uint64(space),
+// 		programID,
+// 		payer.PublicKey(),
+// 		buffer.PublicKey(),
+// 	).ValidateAndBuild()
+// 	require.NoError(t, err)
 
-	// CREATE ACCOUNT
-	createAccountIx, err := system.NewCreateAccountInstruction(
-		lamports,
-		uint64(space),
-		programID,
-		payer.PublicKey(),
-		buffer.PublicKey(),
-	).ValidateAndBuild()
-	require.NoError(t, err)
+// 	// INITIALIZE BUFFER ACCOUNT
+// 	data, err := buildCreateBufferData()
+// 	require.NoError(t, err)
+// 	createBufferIx := solana.NewInstruction(
+// 		programID,
+// 		solana.AccountMetaSlice{
+// 			solana.NewAccountMeta(buffer.PublicKey(), true, false),
+// 			solana.NewAccountMeta(payer.PublicKey(), false, true),
+// 		},
+// 		data,
+// 	)
+// 	_, err = solCommonUtil.SendAndConfirm(
+// 		context.Background(), client, []solana.Instruction{createAccountIx, createBufferIx}, payer, solRpc.CommitmentConfirmed, solCommonUtil.AddSigners(buffer.PrivateKey),
+// 	)
+// 	require.NoError(t, err)
 
-	// INITIALIZE BUFFER ACCOUNT
-	data, err := buildCreateBufferData()
-	require.NoError(t, err)
-	createBufferIx := solana.NewInstruction(
-		programID,
-		solana.AccountMetaSlice{
-			solana.NewAccountMeta(buffer.PublicKey(), true, false),
-			solana.NewAccountMeta(payer.PublicKey(), false, true),
-		},
-		data,
-	)
-	_, err = solCommonUtil.SendAndConfirm(
-		context.Background(), client, []solana.Instruction{createAccountIx, createBufferIx}, payer, solRpc.CommitmentConfirmed, solCommonUtil.AddSigners(buffer.PrivateKey),
-	)
-	require.NoError(t, err)
+// 	// write idl to buffer
+// 	chunk := compressedIDL[0:100]
+// 	require.NoError(t, err)
+// 	data = binary.LittleEndian.AppendUint64([]byte{}, IDL_IX_TAG) // 4-byte Extend instruction identifier
+// 	data = append(data, byte(2))
+// 	data = append(data, chunk...)
+// 	fmt.Println("Data:         ", hex.EncodeToString(data))
 
-	// write idl to buffer
-	chunk := compressedIDL[0:100]
-	require.NoError(t, err)
-	data = binary.LittleEndian.AppendUint64([]byte{}, IDL_IX_TAG) // 4-byte Extend instruction identifier
-	data = append(data, byte(2))
-	data = append(data, chunk...)
-	fmt.Println("Data:         ", hex.EncodeToString(data))
+// 	writeIx := solana.NewInstruction(
+// 		programID,
+// 		solana.AccountMetaSlice{
+// 			solana.NewAccountMeta(buffer.PublicKey(), true, false),
+// 			solana.NewAccountMeta(payer.PublicKey(), false, true),
+// 		},
+// 		data,
+// 	)
+// 	_, err = solCommonUtil.SendAndConfirm(
+// 		context.Background(), client, []solana.Instruction{writeIx}, payer, solRpc.CommitmentConfirmed, // <- show logs
+// 	)
+// 	require.NoError(t, err)
 
-	writeIx := solana.NewInstruction(
-		programID,
-		solana.AccountMetaSlice{
-			solana.NewAccountMeta(buffer.PublicKey(), true, false),
-			solana.NewAccountMeta(payer.PublicKey(), false, true),
-		},
-		data,
-	)
-	_, err = solCommonUtil.SendAndConfirm(
-		context.Background(), client, []solana.Instruction{writeIx}, payer, solRpc.CommitmentConfirmed, // <- show logs
-	)
-	require.NoError(t, err)
+// }
 
-}
+// // Build instruction data for IdlInstruction::CreateBuffer
+// func buildCreateBufferData() ([]byte, error) {
+// 	buf := new(bytes.Buffer)
 
-// Build instruction data for IdlInstruction::CreateBuffer
-func buildCreateBufferData() ([]byte, error) {
-	buf := new(bytes.Buffer)
+// 	// Step 1: Write the IDL_IX_TAG (8 bytes LE)
+// 	if err := binary.Write(buf, binary.LittleEndian, IDL_IX_TAG); err != nil {
+// 		return nil, err
+// 	}
 
-	// Step 1: Write the IDL_IX_TAG (8 bytes LE)
-	if err := binary.Write(buf, binary.LittleEndian, IDL_IX_TAG); err != nil {
-		return nil, err
-	}
+// 	// Step 2: Write the discriminator for "CreateBuffer"
+// 	discriminator := byte(1)
+// 	buf.Write([]byte{discriminator})
 
-	// Step 2: Write the discriminator for "CreateBuffer"
-	discriminator := byte(1)
-	buf.Write([]byte{discriminator})
+// 	return buf.Bytes(), nil
+// }
 
-	return buf.Bytes(), nil
-}
+// func TestConvertLegacyIdl(t *testing.T) {
+// 	ci := os.Getenv("CI") == "true"
+// 	if ci {
+// 		return
+// 	}
+// 	idlBytes, err := os.ReadFile("/Users/yashvardhan/chainlink/deployment/ccip/changeset/internal/solana_contracts/access_controller.json")
+// 	require.NoError(t, err)
+// 	var idl ccipChangesetSolana.IDL
+// 	if err := json.Unmarshal(idlBytes, &idl); err != nil {
+// 		fmt.Errorf("failed to parse legacy IDL: %w", err)
+// 	}
+// 	fmt.Println(idl)
+// 	serialized, err := serializeIdl(idl)
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-func TestConvertLegacyIdl(t *testing.T) {
-	ci := os.Getenv("CI") == "true"
-	if ci {
-		return
-	}
-	idlBytes, err := os.ReadFile("/Users/yashvardhan/chainlink/deployment/ccip/changeset/internal/solana_contracts/access_controller.json")
-	require.NoError(t, err)
-	var idl ccipChangesetSolana.IDL
-	if err := json.Unmarshal(idlBytes, &idl); err != nil {
-		fmt.Errorf("failed to parse legacy IDL: %w", err)
-	}
-	fmt.Println(idl)
-	serialized, err := serializeIdl(idl)
-	if err != nil {
-		panic(err)
-	}
+// 	fmt.Printf("Serialized & compressed IDL (%d bytes): %x\n", len(serialized), serialized)
+// }
 
-	fmt.Printf("Serialized & compressed IDL (%d bytes): %x\n", len(serialized), serialized)
-}
+// func serializeIdl(idl any) ([]byte, error) {
+// 	// Step 1: JSON encode
+// 	jsonBytes, err := json.Marshal(idl)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("json marshal failed: %w", err)
+// 	}
 
-func serializeIdl(idl any) ([]byte, error) {
-	// Step 1: JSON encode
-	jsonBytes, err := json.Marshal(idl)
-	if err != nil {
-		return nil, fmt.Errorf("json marshal failed: %w", err)
-	}
+// 	// Step 2: Compress using zlib (default compression level)
+// 	var buf bytes.Buffer
+// 	zw := zlib.NewWriter(&buf)
+// 	if _, err := zw.Write(jsonBytes); err != nil {
+// 		return nil, fmt.Errorf("zlib write failed: %w", err)
+// 	}
+// 	if err := zw.Close(); err != nil {
+// 		return nil, fmt.Errorf("zlib close failed: %w", err)
+// 	}
 
-	// Step 2: Compress using zlib (default compression level)
-	var buf bytes.Buffer
-	zw := zlib.NewWriter(&buf)
-	if _, err := zw.Write(jsonBytes); err != nil {
-		return nil, fmt.Errorf("zlib write failed: %w", err)
-	}
-	if err := zw.Close(); err != nil {
-		return nil, fmt.Errorf("zlib close failed: %w", err)
-	}
+// 	return buf.Bytes(), nil
+// }
 
-	return buf.Bytes(), nil
-}
+// func TestIDLSetAuthorityLocal(t *testing.T) {
+// 	ci := os.Getenv("CI") == "true"
+// 	if ci {
+// 		return
+// 	}
+// 	programID := solana.MustPublicKeyFromBase58("GnpXUEvp4Uu5qzTRDHzDT5oRh7oY7g5GDRagc6zJo7M5")
 
-func TestIDLSetAuthorityLocal(t *testing.T) {
-	ci := os.Getenv("CI") == "true"
-	if ci {
-		return
-	}
-	programID := solana.MustPublicKeyFromBase58("GnpXUEvp4Uu5qzTRDHzDT5oRh7oY7g5GDRagc6zJo7M5")
+// 	// derive idl address
+// 	base, _, err := solana.FindProgramAddress([][]byte{}, programID)
+// 	require.NoError(t, err)
+// 	idlAddress, err := solana.CreateWithSeed(base, "anchor:idl", programID)
+// 	require.NoError(t, err)
+// 	fmt.Println("IDL Address:  ", idlAddress.String())
 
-	// derive idl address
-	base, _, err := solana.FindProgramAddress([][]byte{}, programID)
-	require.NoError(t, err)
-	idlAddress, err := solana.CreateWithSeed(base, "anchor:idl", programID)
-	require.NoError(t, err)
-	fmt.Println("IDL Address:  ", idlAddress.String())
+// 	deployerPrivKey, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/yashvardhan/.config/solana/id.json")
+// 	require.NoError(t, err)
+// 	deployerKey := deployerPrivKey.PublicKey()
+// 	newAuthorityPrivKey, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/yashvardhan/.config/solana/id_devnet.json")
+// 	require.NoError(t, err)
+// 	newAuthority := newAuthorityPrivKey.PublicKey()
 
-	deployerPrivKey, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/yashvardhan/.config/solana/id.json")
-	require.NoError(t, err)
-	deployerKey := deployerPrivKey.PublicKey()
-	newAuthorityPrivKey, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/yashvardhan/.config/solana/id_devnet.json")
-	require.NoError(t, err)
-	newAuthority := newAuthorityPrivKey.PublicKey()
+// 	data := binary.LittleEndian.AppendUint64([]byte{}, IDL_IX_TAG) // 4-byte Extend instruction identifier
+// 	data = append(data, byte(4))
+// 	data = append(data, newAuthority.Bytes()...)
+// 	fmt.Println("Data:         ", hex.EncodeToString(data))
 
-	data := binary.LittleEndian.AppendUint64([]byte{}, IDL_IX_TAG) // 4-byte Extend instruction identifier
-	data = append(data, byte(4))
-	data = append(data, newAuthority.Bytes()...)
-	fmt.Println("Data:         ", hex.EncodeToString(data))
+// 	instruction := solana.NewInstruction(
+// 		programID,
+// 		solana.AccountMetaSlice{
+// 			solana.NewAccountMeta(idlAddress, true, false),
+// 			solana.NewAccountMeta(deployerKey, false, true), // Current upgrade authority (signer)
+// 		},
+// 		data,
+// 	)
+// 	client := solRpc.New(solRpc.LocalNet_RPC)
+// 	_, err = solCommonUtil.SendAndConfirm(
+// 		context.Background(), client, []solana.Instruction{instruction}, deployerPrivKey, solRpc.CommitmentConfirmed,
+// 	)
+// 	require.NoError(t, err)
+// }
 
-	instruction := solana.NewInstruction(
-		programID,
-		solana.AccountMetaSlice{
-			solana.NewAccountMeta(idlAddress, true, false),
-			solana.NewAccountMeta(deployerKey, false, true), // Current upgrade authority (signer)
-		},
-		data,
-	)
-	client := solRpc.New(solRpc.LocalNet_RPC)
-	_, err = solCommonUtil.SendAndConfirm(
-		context.Background(), client, []solana.Instruction{instruction}, deployerPrivKey, solRpc.CommitmentConfirmed,
-	)
-	require.NoError(t, err)
-}
-
-func TestUploadIDL(t *testing.T) {
+func TestIDL(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-
-	// evmChain := tenv.Env.AllChainSelectors()[0]
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
-	_, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+	e, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
 			ccipChangesetSolana.IDLConfig{
 				ChainSelector: solChain,
+				GitCommitSha:  "",
+				Router:        true,
+				// FeeQuoter:            true,
+				// OffRamp:              true,
+				// RMNRemote:            true,
+				// BurnMintTokenPool:    true,
+				// LockReleaseTokenPool: true,
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// deploy timelock
+	_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		ccipChangesetSolana.CCIPContractsToTransfer{
+			Router: true,
+		})
+
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				Router:        true,
+				// FeeQuoter:            true,
+				// OffRamp:              true,
+				// RMNRemote:            true,
+				// BurnMintTokenPool:    true,
+				// LockReleaseTokenPool: true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				GitCommitSha:  "",
+				Router:        true,
+				// FeeQuoter:            true,
+				// OffRamp:              true,
+				// RMNRemote:            true,
+				// BurnMintTokenPool:    true,
+				// LockReleaseTokenPool: true,
 			},
 		),
 	})
