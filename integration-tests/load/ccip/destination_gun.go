@@ -130,7 +130,8 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
-	otherCS := m.env.AllChainSelectorsAllFamiliesExcluding([]uint64{m.chainSelector})
+	//otherCS := m.env.AllChainSelectorsAllFamiliesExcluding([]uint64{m.chainSelector})
+	otherCS := m.env.AllChainSelectorsSolana()
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
 	}

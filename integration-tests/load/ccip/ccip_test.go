@@ -2,6 +2,8 @@ package ccip
 
 import (
 	"context"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
+	selectors "github.com/smartcontractkit/chain-selectors"
 	"math/big"
 	"sync"
 	"testing"
@@ -103,26 +105,49 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	p := wasp.NewProfile()
 
 	// potential source chains need a subscription
-	for _, cs := range env.AllChainSelectors() {
-		latesthdr, err := env.Chains[cs].Client.HeaderByNumber(ctx, nil)
+	for _, cs := range env.AllChainSelectorsAllFamilies() {
+		otherChains := env.AllChainSelectorsAllFamiliesExcluding([]uint64{cs})
+		selectorFamily, err := selectors.GetSelectorFamily(cs)
 		require.NoError(t, err)
-		block := latesthdr.Number.Uint64()
-		startBlocks[cs] = &block
-		other := env.AllChainSelectorsExcluding([]uint64{cs})
 		wg.Add(1)
-		go subscribeTransmitEvents(
-			ctx,
-			lggr,
-			state.Chains[cs].OnRamp,
-			other,
-			startBlocks[cs],
-			cs,
-			loadFinished,
-			env.Chains[cs].Client,
-			&wg,
-			mm.InputChan,
-			finalSeqNrCommitChannels,
-			finalSeqNrExecChannels)
+		switch selectorFamily {
+		case selectors.FamilyEVM:
+			latesthdr, err := env.Chains[cs].Client.HeaderByNumber(ctx, nil)
+			require.NoError(t, err)
+			block := latesthdr.Number.Uint64()
+			startBlocks[cs] = &block
+			go subscribeTransmitEvents(
+				ctx,
+				lggr,
+				state.Chains[cs].OnRamp,
+				otherChains,
+				startBlocks[cs],
+				cs,
+				loadFinished,
+				env.Chains[cs].Client,
+				&wg,
+				mm.InputChan,
+				finalSeqNrCommitChannels,
+				finalSeqNrExecChannels)
+		case selectors.FamilySolana:
+			client := env.SolChains[cs].Client
+			block, err := client.GetBlockHeight(ctx, solrpc.CommitmentConfirmed)
+			require.NoError(t, err)
+			startBlocks[cs] = &block
+			go subscribeSolTransmitEvents(
+				ctx,
+				lggr,
+				state.SolChains[cs].Router,
+				otherChains,
+				block,
+				cs,
+				loadFinished,
+				env.SolChains[cs].Client,
+				&wg,
+				mm.InputChan,
+				finalSeqNrCommitChannels,
+				finalSeqNrExecChannels)
+		}
 	}
 
 	// confirmed dest chains need a subscription
