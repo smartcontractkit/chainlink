@@ -928,6 +928,28 @@ To configure a live data source, use the following TOML settings:
   url = "api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD"
 ```
 
+### Blockchain Configuration
+
+Tests are working with `Anvil` by default. All the configurations are using `0s` blocks when deploying contracts but `DeployFeedsConsumer` requires blocks to be mined so `custom_anvil_miner` controls the speed of blocks after the initial deployment is complete.
+
+This allows us to test changes faster.
+```
+[blockchain_a]
+  type = "anvil"
+  chain_id = "1337"
+
+[custom_anvil_miner]
+  block_speed_seconds = 5
+```
+
+If you need to switch to a slow chain you can do it like this, `-b` controls block production speed.
+```
+[blockchain_a]
+  chain_id = "1337"
+  docker_cmd_params = ["-b", "5"]
+  type = "anvil"
+```
+
 ### Mocked Data Source
 
 A mocked data source has been introduced to:

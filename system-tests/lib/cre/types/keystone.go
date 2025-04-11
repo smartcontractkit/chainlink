@@ -93,13 +93,13 @@ type WorkflowRegistryOutput struct {
 	WorkflowOwners []common.Address `toml:"workflow_owners"`
 }
 
-type DeployFeedConsumerInput struct {
-	ChainSelector uint64                    `toml:"-"`
-	CldEnv        *deployment.Environment   `toml:"-"`
-	Out           *DeployFeedConsumerOutput `toml:"out"`
+type DeployDataFeedsCacheInput struct {
+	ChainSelector uint64                      `toml:"-"`
+	CldEnv        *deployment.Environment     `toml:"-"`
+	Out           *DeployDataFeedsCacheOutput `toml:"out"`
 }
 
-func (i *DeployFeedConsumerInput) Validate() error {
+func (i *DeployDataFeedsCacheInput) Validate() error {
 	if i.ChainSelector == 0 {
 		return errors.New("chain selector not set")
 	}
@@ -109,25 +109,48 @@ func (i *DeployFeedConsumerInput) Validate() error {
 	return nil
 }
 
-type DeployFeedConsumerOutput struct {
-	UseCache            bool           `toml:"use_cache"`
-	FeedConsumerAddress common.Address `toml:"feed_consumer_address"`
+type DeployDataFeedsCacheOutput struct {
+	UseCache              bool           `toml:"use_cache"`
+	DataFeedsCacheAddress common.Address `toml:"data_feeds_cache_address"`
+}
+type ConfigureDataFeedsCacheOutput struct {
+	UseCache              bool             `toml:"use_cache"`
+	DataFeedsCacheAddress common.Address   `toml:"data_feeds_cache_address"`
+	FeedIDs               []string         `toml:"feed_is"`
+	Descriptions          []string         `toml:"descriptions"`
+	AdminAddress          common.Address   `toml:"admin_address"`
+	AllowedSenders        []common.Address `toml:"allowed_senders"`
+	AllowedWorkflowOwners []common.Address `toml:"allowed_workflow_owners"`
+	AllowedWorkflowNames  []string         `toml:"allowed_workflow_names"`
 }
 
-type ConfigureFeedConsumerInput struct {
-	SethClient            *seth.Client                 `toml:"-"`
-	FeedConsumerAddress   common.Address               `toml:"-"`
-	AllowedSenders        []common.Address             `toml:"-"`
-	AllowedWorkflowOwners []common.Address             `toml:"-"`
-	AllowedWorkflowNames  []string                     `toml:"-"`
-	Out                   *ConfigureFeedConsumerOutput `toml:"out"`
+type ConfigureDataFeedsCacheInput struct {
+	CldEnv                *deployment.Environment        `toml:"-"`
+	ChainSelector         uint64                         `toml:"-"`
+	FeedIDs               []string                       `toml:"-"`
+	Descriptions          []string                       `toml:"-"`
+	DataFeedsCacheAddress common.Address                 `toml:"-"`
+	AdminAddress          common.Address                 `toml:"-"`
+	AllowedSenders        []common.Address               `toml:"-"`
+	AllowedWorkflowOwners []common.Address               `toml:"-"`
+	AllowedWorkflowNames  []string                       `toml:"-"`
+	Out                   *ConfigureDataFeedsCacheOutput `toml:"out"`
 }
 
-func (c *ConfigureFeedConsumerInput) Validate() error {
-	if c.SethClient == nil {
-		return errors.New("seth client not set")
+func (c *ConfigureDataFeedsCacheInput) Validate() error {
+	if c.CldEnv == nil {
+		return errors.New("chainlink deployment env not set")
 	}
-	if c.FeedConsumerAddress == (common.Address{}) {
+	if len(c.FeedIDs) == 0 {
+		return errors.New("feed ids not set")
+	}
+	if len(c.Descriptions) == 0 {
+		return errors.New("descriptions not set")
+	}
+	if c.ChainSelector == 0 {
+		return errors.New("chain selector not set")
+	}
+	if c.DataFeedsCacheAddress == (common.Address{}) {
 		return errors.New("feed consumer address not set")
 	}
 	if len(c.AllowedSenders) == 0 {
@@ -140,15 +163,11 @@ func (c *ConfigureFeedConsumerInput) Validate() error {
 		return errors.New("allowed workflow names not set")
 	}
 
-	return nil
-}
+	if (len(c.AllowedWorkflowNames) != len(c.AllowedWorkflowOwners)) || (len(c.AllowedWorkflowNames) != len(c.AllowedSenders)) {
+		return errors.New("allowed workflow names, owners and senders must have the same length")
+	}
 
-type ConfigureFeedConsumerOutput struct {
-	UseCache              bool             `toml:"use_cache"`
-	FeedConsumerAddress   common.Address   `toml:"feed_consumer_address"`
-	AllowedSenders        []common.Address `toml:"allowed_senders"`
-	AllowedWorkflowOwners []common.Address `toml:"allowed_workflow_owners"`
-	AllowedWorkflowNames  []string         `toml:"allowed_workflow_names"`
+	return nil
 }
 
 type WrappedNodeOutput struct {
