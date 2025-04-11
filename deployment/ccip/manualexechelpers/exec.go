@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -30,6 +31,13 @@ const (
 
 	// DefaultLookbackCommitReport is the default lookback for commit reports.
 	DefaultLookbackCommitReport = 14 * 24 * time.Hour
+
+	// DefaultStepDuration is the default duration for each filter logs query performed.
+	// For lookbacks that are really far back, we need to break it up into smaller chunks.
+	// This is the duration of each chunk.
+	// For example, if the lookback is 14 days and the step duration is 24 hours,
+	// we will make 14 queries, each for 24 hours worth of blocks.
+	DefaultStepDuration = 24 * time.Hour
 )
 
 var (
@@ -99,6 +107,11 @@ func durationToBlocks(srcChainSel uint64, lookbackDuration time.Duration) uint64
 	return uint64(lookbackDuration.Seconds()) / blockTimeSeconds
 }
 
+// getCommitRootAcceptedEvent retrieves the CommitRootAccepted event for the provided
+// (srcChainSel, destChainSel, msgSeqNr) triplet.
+// If the commit root is not found, it returns an error.
+// The lookback duration is used to determine how far back to look for the event.
+// Queries are performed in steps of stepDuration worth of blocks.
 func getCommitRootAcceptedEvent(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -107,30 +120,22 @@ func getCommitRootAcceptedEvent(
 	srcChainSel uint64,
 	destChainSel uint64,
 	msgSeqNr uint64,
-	lookbackDuration time.Duration,
+	lookbackDuration,
+	stepDuration time.Duration,
 ) (offramp.InternalMerkleRoot, error) {
 	hdr, err := env.Chains[destChainSel].Client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return offramp.InternalMerkleRoot{}, fmt.Errorf("failed to get header: %w", err)
 	}
 
+	// TODO: we might be able to optimize this further by starting from the last block
+	// from the previous batch?
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
-	step := durationToBlocks(destChainSel, 24*time.Hour)
+	step := durationToBlocks(destChainSel, stepDuration)
+
 	lggr.Debugw("Getting commit root accepted event", "startBlock", start, "step", step)
-
-	var countMerkleRoots int
-	var countNoRoots int
-	for {
-		if start > hdr.Number.Uint64() {
-			// Probably didn't find everything
-			lggr.Debugw("start block is greater than current head, stopping")
-			break
-		}
-
-		end := start + step
-		if end > hdr.Number.Uint64() {
-			end = hdr.Number.Uint64()
-		}
+	for start <= hdr.Number.Uint64() {
+		end := min(start+step, hdr.Number.Uint64())
 		lggr.Debugw("Querying with", "startBlock", start, "endBlock", end, "step", step)
 
 		iter, err := state.Chains[destChainSel].OffRamp.FilterCommitReportAccepted(
@@ -145,40 +150,76 @@ func getCommitRootAcceptedEvent(
 
 		for iter.Next() {
 			if len(iter.Event.BlessedMerkleRoots) == 0 && len(iter.Event.UnblessedMerkleRoots) == 0 {
-				countNoRoots++
+				// price updates only, can skip this event.
 				continue
 			}
 
-			countMerkleRoots++
-			for _, root := range iter.Event.BlessedMerkleRoots {
-				if root.SourceChainSelector == srcChainSel {
-					lggr.Debugw("checking commit root", "minSeqNr", root.MinSeqNr, "maxSeqNr", root.MaxSeqNr, "txHash", iter.Event.Raw.TxHash.String())
-					if msgSeqNr >= root.MinSeqNr && msgSeqNr <= root.MaxSeqNr {
-						lggr.Debugw("found commit root", "root", root, "txHash", iter.Event.Raw.TxHash.String())
-						return root, nil
-					}
-				}
+			// Check BlessedMerkleRoots
+			if root, found := findCommitRoot(
+				lggr,
+				iter.Event.BlessedMerkleRoots,
+				srcChainSel,
+				msgSeqNr,
+				iter.Event.Raw.TxHash,
+				"blessed",
+			); found {
+				return root, nil
 			}
 
-			for _, root := range iter.Event.UnblessedMerkleRoots {
-				if root.SourceChainSelector == srcChainSel {
-					lggr.Debugw("checking commit root", "minSeqNr", root.MinSeqNr, "maxSeqNr", root.MaxSeqNr, "txHash", iter.Event.Raw.TxHash.String())
-					if msgSeqNr >= root.MinSeqNr && msgSeqNr <= root.MaxSeqNr {
-						lggr.Debugw("found commit root", "root", root, "txHash", iter.Event.Raw.TxHash.String())
-						return root, nil
-					}
-				}
+			// Check UnblessedMerkleRoots
+			if root, found := findCommitRoot(
+				lggr,
+				iter.Event.UnblessedMerkleRoots,
+				srcChainSel,
+				msgSeqNr,
+				iter.Event.Raw.TxHash,
+				"unblessed",
+			); found {
+				return root, nil
 			}
 		}
 
 		start = end + 1
 	}
 
-	lggr.Debugw("didn't find commit root", "countMerkleRoots", countMerkleRoots, "countNoRoots", countNoRoots)
+	lggr.Debugw("didn't find commit root, maybe increase lookback duration")
 
 	return offramp.InternalMerkleRoot{}, errors.New("commit root not found")
 }
 
+// Helper function to find a commit root in a list of merkle roots
+func findCommitRoot(
+	lggr logger.Logger,
+	roots []offramp.InternalMerkleRoot,
+	srcChainSel uint64,
+	msgSeqNr uint64,
+	txHash common.Hash,
+	rootType string,
+) (offramp.InternalMerkleRoot, bool) {
+	for _, root := range roots {
+		if root.SourceChainSelector == srcChainSel {
+			lggr.Debugw("checking commit root",
+				"rootType", rootType,
+				"minSeqNr", root.MinSeqNr,
+				"maxSeqNr", root.MaxSeqNr,
+				"txHash", txHash.Hex(),
+			)
+			if msgSeqNr >= root.MinSeqNr && msgSeqNr <= root.MaxSeqNr {
+				lggr.Debugw("found commit root",
+					"rootType", rootType,
+					"root", root,
+					"txHash", txHash.Hex(),
+				)
+				return root, true
+			}
+		}
+	}
+	return offramp.InternalMerkleRoot{}, false
+}
+
+// getCCIPMessageSentEvents retrieves the CCIPMessageSent events for the provided
+// (srcChainSel, destChainSel, merkleRoot) triplet.
+// It returns a list of CCIPMessageSent events whose sequence numbers match the range in the provided root.
 func getCCIPMessageSentEvents(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -187,15 +228,18 @@ func getCCIPMessageSentEvents(
 	srcChainSel uint64,
 	destChainSel uint64,
 	merkleRoot offramp.InternalMerkleRoot,
-	lookbackDuration time.Duration,
+	lookbackDuration,
+	stepDuration time.Duration,
 ) ([]onramp.OnRampCCIPMessageSent, error) {
 	hdr, err := env.Chains[srcChainSel].Client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get header: %w", err)
 	}
 
+	// TODO: we might be able to optimize this further by starting from the last block
+	// from the previous batch?
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
-	step := durationToBlocks(srcChainSel, 24*time.Hour)
+	step := durationToBlocks(srcChainSel, stepDuration)
 
 	var seqNrs []uint64
 	for i := merkleRoot.MinSeqNr; i <= merkleRoot.MaxSeqNr; i++ {
@@ -207,26 +251,21 @@ func getCCIPMessageSentEvents(
 		"minSeqNr", merkleRoot.MinSeqNr,
 		"maxSeqNr", merkleRoot.MaxSeqNr,
 		"startBlock", start,
-		"step", step,
+		"stepBlocks", step,
 	)
 
-	var ret []onramp.OnRampCCIPMessageSent
-	var count int
-	var toDestCount int
-	merkleRootSize := merkleRoot.MaxSeqNr - merkleRoot.MinSeqNr + 1
-	for uint64(len(ret)) < merkleRootSize {
-		if start > hdr.Number.Uint64() {
-			// Probably didn't find everything
-			lggr.Debugw("start block is greater than current head, stopping")
-			break
-		}
+	var (
+		ret            []onramp.OnRampCCIPMessageSent
+		merkleRootSize = merkleRoot.MaxSeqNr - merkleRoot.MinSeqNr + 1
+	)
 
-		end := start + step
-		if end > hdr.Number.Uint64() {
-			end = hdr.Number.Uint64()
-		}
-
-		lggr.Debugw("Querying with", "startBlock", start, "endBlock", end, "step", step)
+	// scan the chain until either:
+	// 1. we find all the messages in the merkle root.
+	// 2. we reach the current head block.
+	// Usually (1) is completed before (2) but (2) is still needed to terminate the loop.
+	for uint64(len(ret)) < merkleRootSize && start <= hdr.Number.Uint64() {
+		end := min(start+step, hdr.Number.Uint64())
+		lggr.Debugw("Querying for messages with", "startBlock", start, "endBlock", end, "stepBlocks", step)
 		iter, err := state.Chains[srcChainSel].OnRamp.FilterCCIPMessageSent(
 			&bind.FilterOpts{
 				Start: start,
@@ -240,9 +279,7 @@ func getCCIPMessageSentEvents(
 		}
 
 		for iter.Next() {
-			count++
 			if iter.Event.DestChainSelector == destChainSel {
-				toDestCount++
 				lggr.Debugw("checking message",
 					"seqNr", iter.Event.SequenceNumber,
 					"destChain", iter.Event.DestChainSelector,
@@ -257,15 +294,16 @@ func getCCIPMessageSentEvents(
 		start = end + 1
 	}
 
-	lggr.Debugw("found messages", "count", count, "toDestCount", toDestCount)
-
 	if len(ret) != len(seqNrs) {
 		return nil, fmt.Errorf("not all messages found, got: %d, expected: %d", len(ret), len(seqNrs))
 	}
 
+	lggr.Debugw("found all messages for root", "merkleRoot", merkleRoot, "messages", len(ret))
+
 	return ret, nil
 }
 
+// manuallyExecuteSingle manually executes a single message on the destination chain.
 func manuallyExecuteSingle(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -275,7 +313,8 @@ func manuallyExecuteSingle(
 	destChainSel uint64,
 	msgSeqNr uint64,
 	lookbackDuration,
-	lookbackDurationCommitReport time.Duration,
+	lookbackDurationCommitReport,
+	stepDuration time.Duration,
 	reExecuteIfFailed bool,
 	extraDataCodec ccipcommon.ExtraDataCodec,
 	messageSentCache map[uint64]onramp.OnRampCCIPMessageSent,
@@ -296,7 +335,7 @@ func manuallyExecuteSingle(
 		return nil
 	}
 
-	lggr.Debugw("addresses",
+	lggr.Debugw("contract addresses",
 		"offRampAddress", state.Chains[destChainSel].OffRamp.Address(),
 		"onRampAddress", onRampAddress,
 		"execState", execState,
@@ -315,6 +354,7 @@ func manuallyExecuteSingle(
 			destChainSel,
 			msgSeqNr,
 			lookbackDurationCommitReport,
+			stepDuration,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to get merkle root: %w", err)
@@ -353,6 +393,7 @@ func manuallyExecuteSingle(
 				destChainSel,
 				merkleRoot,
 				lookbackDuration,
+				stepDuration,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to get ccip message sent event: %w", err)
@@ -370,6 +411,7 @@ func manuallyExecuteSingle(
 			destChainSel,
 			merkleRoot,
 			lookbackDuration,
+			stepDuration,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to get ccip message sent event: %w", err)
@@ -418,6 +460,8 @@ func manuallyExecuteSingle(
 		return fmt.Errorf("no message found for seqNr %d", msgSeqNr)
 	}
 
+	// TODO: further throughput speedups can be achieved if we batch, but that requires
+	// some rejigging of the current code.
 	execReport, err := manualexeclib.CreateExecutionReport(
 		srcChainSel,
 		onRampAddress,
@@ -463,7 +507,8 @@ func manuallyExecuteSingle(
 }
 
 // ManuallyExecuteAll will manually execute the provided messages if they were not already executed.
-// At the moment offchain token data (i.e USDC/Lombard attestations) is not supported.
+// At the moment offchain token data (i.e USDC/Lombard attestations) is not supported,
+// and only EVM is supported as a source or dest chain.
 func ManuallyExecuteAll(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -473,10 +518,14 @@ func ManuallyExecuteAll(
 	destChainSel uint64,
 	msgSeqNrs []int64,
 	lookbackDurationMsgs,
-	lookbackDurationCommitReport time.Duration,
+	lookbackDurationCommitReport,
+	stepDuration time.Duration,
 	reExecuteIfFailed bool,
 ) error {
 	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}))
+
+	// for large backfills, these caches can speed things up because we don't need to query
+	// the chain multiple times for the same root/messages.
 	messageSentCache := make(map[uint64]onramp.OnRampCCIPMessageSent)
 	commitRootCache := NewRootCache()
 	for _, seqNr := range msgSeqNrs {
@@ -490,6 +539,7 @@ func ManuallyExecuteAll(
 			uint64(seqNr), //nolint:gosec // seqNr is never <= 0.
 			lookbackDurationMsgs,
 			lookbackDurationCommitReport,
+			stepDuration,
 			reExecuteIfFailed,
 			extraDataCodec,
 			messageSentCache,
