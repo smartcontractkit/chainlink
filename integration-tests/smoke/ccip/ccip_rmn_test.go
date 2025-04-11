@@ -1078,7 +1078,7 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover(t *testing.T) {
 
 	sourceSelector, destSelector := performReorgTest(t, e, l, dockerEnv, state, nonBootstrapP2PIDs)
 
-	err := rmnCluster.Restart()
+	err := rmnCluster.Restart(t.Context())
 	require.NoError(t, err)
 
 	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(

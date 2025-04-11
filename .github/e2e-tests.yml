@@ -1253,6 +1253,54 @@ runner-test-matrix:
       CCIP_V16_TEST_ENV: docker
     test_go_project_path: integration-tests
 
+  - id: smoke/ccip/ccip_rmn_test.go:^Test_CCIPReorg_BelowFinality_OnSource_WithRMN$
+    path: integration-tests/smoke/ccip/ccip_rmn_test.go
+    test_env_type: docker
+    runs_on: ubuntu24.04-8cores-32GB
+    triggers:
+      - Nightly E2E Tests
+    test_cmd: cd smoke/ccip && go test -test.run ^Test_CCIPReorg_BelowFinality_OnSource_WithRMN$ -timeout 30m -test.parallel=1 -count=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.9.0
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
+      CCIP_V16_TEST_ENV: docker
+    test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_rmn_test.go:^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover$
+    path: integration-tests/smoke/ccip/ccip_rmn_test.go
+    test_env_type: docker
+    runs_on: ubuntu24.04-8cores-32GB
+    triggers:
+      - Nightly E2E Tests
+    test_cmd: cd smoke/ccip && go test -test.run ^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover$ -timeout 30m -test.parallel=1 -count=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.9.0
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
+      CCIP_V16_TEST_ENV: docker
+    test_go_project_path: integration-tests
+  
+  - id: smoke/ccip/ccip_rmn_test.go:^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block$
+    path: integration-tests/smoke/ccip/ccip_rmn_test.go
+    test_env_type: docker
+    runs_on: ubuntu24.04-8cores-32GB
+    triggers:
+      - Nightly E2E Tests
+    test_cmd: cd smoke/ccip && go test -test.run ^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block$ -timeout 30m -test.parallel=1 -count=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.9.0
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
+      CCIP_V16_TEST_ENV: docker
+    test_go_project_path: integration-tests
+
   - id: smoke/ccip/ccip_jobspec_test.go.go:TestDeleteCCIPJobs
     path: integration-tests/smoke/ccip/ccip_jobspec_test.go
     test_env_type: docker
