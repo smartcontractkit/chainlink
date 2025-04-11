@@ -957,12 +957,12 @@ func configureAndPromoteRMNHome(
 	return onChainState
 }
 
-func performReorgTest(t *testing.T, e testhelpers.DeployedEnv, l logging.Logger, dockerEnv *testsetups.DeployedLocalDevEnvironment, state changeset.CCIPOnChainState, nonBootstrapP2PIDs []string) (uint64, uint64) {
+func performReorgTest(t *testing.T, e testhelpers.DeployedEnv, l logging.Logger, dockerEnv *testsetups.DeployedLocalDevEnvironment, state changeset.CCIPOnChainState, nonBootstrapP2PIDs []string) (sourceSelector uint64, destSelector uint64) {
 	// Chain setup
 	allChains := e.Env.AllChainSelectors()
 	require.GreaterOrEqual(t, len(allChains), 2)
-	sourceSelector := allChains[0]
-	destSelector := allChains[1]
+	sourceSelector = allChains[0]
+	destSelector = allChains[1]
 
 	// Build RPC map and get clients
 	chainSelToRPCURL := buildChainSelectorToRPCURLMap(t, dockerEnv)
