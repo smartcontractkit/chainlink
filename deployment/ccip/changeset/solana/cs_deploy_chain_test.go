@@ -29,8 +29,8 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	OldSha = "aa0756b72e7b70640a6a6235fbbd13aff407402a"
-	NewSha = "f1ced171b7538afc6c9f488803f90d10ac0f0b52"
+	OldSha = "3f2255c2bf22194f4856cb3b0b168af14e59a47c"
+	NewSha = "34a541118d89c346e2c642b089a63c3f2b2df320"
 )
 
 func verifyProgramSizes(t *testing.T, e deployment.Environment) {
@@ -212,6 +212,7 @@ func TestUpgrade(t *testing.T) {
 				ChainSelector:         solChainSelectors[0],
 				NewUpgradeAuthority:   upgradeAuthority,
 				SetAfterInitialDeploy: true,
+				SetOffRamp:            true,
 				SetMCMSPrograms:       true,
 			},
 		),
@@ -225,9 +226,11 @@ func TestUpgrade(t *testing.T) {
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewFeeQuoterVersion: &deployment.Version1_1_0,
 					NewRouterVersion:    &deployment.Version1_1_0,
-					NewMCMVersion:       &deployment.Version1_1_0,
-					UpgradeAuthority:    upgradeAuthority,
-					SpillAddress:        upgradeAuthority,
+					// test offramp upgrade in place
+					NewOffRampVersion: &deployment.Version1_0_0,
+					NewMCMVersion:     &deployment.Version1_1_0,
+					UpgradeAuthority:  upgradeAuthority,
+					SpillAddress:      upgradeAuthority,
 					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
@@ -245,6 +248,7 @@ func TestUpgrade(t *testing.T) {
 							ccipChangeset.FeeQuoter:            state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
 							ccipChangeset.BurnMintTokenPool:    state.SolChains[solChainSelectors[0]].BurnMintTokenPool.String(),
 							ccipChangeset.LockReleaseTokenPool: state.SolChains[solChainSelectors[0]].LockReleaseTokenPool.String(),
+							ccipChangeset.OffRamp:              state.SolChains[solChainSelectors[0]].OffRamp.String(),
 							types.AccessControllerProgram:      chainState.AccessControllerProgram.String(),
 							types.RBACTimelockProgram:          chainState.TimelockProgram.String(),
 							types.ManyChainMultisigProgram:     chainState.McmProgram.String(),
