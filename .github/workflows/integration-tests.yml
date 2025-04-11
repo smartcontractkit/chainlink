@@ -1,7 +1,7 @@
 # N/B: ci-core, which runs on PRs, will trigger linting for affected directories/modules
 # no need to run lint twice
 name: Integration Tests
-run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}`
+run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 on:
   merge_group:
   pull_request:
