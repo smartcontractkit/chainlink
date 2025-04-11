@@ -565,6 +565,8 @@ func TestConfig_Marshal(t *testing.T) {
 		TraceSampleRatio:      ptr(0.01),
 		EmitterBatchProcessor: ptr(true),
 		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
+		ChipIngressEnabled:    ptr(true),
+		ChipIngressEndpoint:   ptr("example.com/chip-ingress"),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
