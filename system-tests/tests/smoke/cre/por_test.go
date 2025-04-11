@@ -43,6 +43,7 @@ import (
 	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	keystoneporcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli/por"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
@@ -204,7 +205,7 @@ type registerPoRWorkflowInput struct {
 	sethClient              *seth.Client
 	deployerPrivateKey      string
 	creCLIAbsPath           string
-	settingsFile            *os.File
+	creCLIsettingsFile      *os.File
 }
 
 type configureDataFeedsCacheInput struct {
@@ -281,11 +282,19 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 }
 
 func registerPoRWorkflow(input registerPoRWorkflowInput) error {
-	// Register workflow directly using the provided binary and config URLs
+	// Register workflow directly using the provided binary URL and optionally config and secrets URLs
 	// This is a legacy solution, probably we can remove it soon, but there's still quite a lot of people
 	// who have no access to dev-platform repo, so they cannot use the CRE CLI
 	if !input.WorkflowConfig.ShouldCompileNewWorkflow && !input.WorkflowConfig.UseCRECLI {
-		err := libcontracts.RegisterWorkflow(input.sethClient, input.workflowRegistryAddress, input.workflowDonID, input.WorkflowConfig.WorkflowName, input.WorkflowConfig.CompiledWorkflowConfig.BinaryURL, input.WorkflowConfig.CompiledWorkflowConfig.ConfigURL)
+		err := libcontracts.RegisterWorkflow(
+			input.sethClient,
+			input.workflowRegistryAddress,
+			input.workflowDonID,
+			input.WorkflowConfig.WorkflowName,
+			input.WorkflowConfig.CompiledWorkflowConfig.BinaryURL,
+			&input.WorkflowConfig.CompiledWorkflowConfig.ConfigURL,
+			nil, // TODO pass secrets URL once support for them has been added
+		)
 		if err != nil {
 			return errors.Wrap(err, "failed to register workflow")
 		}
@@ -293,37 +302,47 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 		return nil
 	}
 
-	// These two env vars are required by the CRE CLI
+	// This env var is required by the CRE CLI
 	err := os.Setenv("CRE_ETH_PRIVATE_KEY", input.deployerPrivateKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to set CRE_ETH_PRIVATE_KEY")
 	}
 
-	var workflowURL string
-	var workflowConfigURL string
-
+	// create workflow-specific config file
 	workflowConfigFile, configErr := keystoneporcrecli.CreateConfigFile(input.dataFeedsCacheAddress, input.feedID, input.priceProvider.URL(), input.writeTargetName)
 	if configErr != nil {
 		return errors.Wrap(configErr, "failed to create workflow config file")
 	}
 
-	// compile and upload the workflow, if we are not using an existing one
-	if input.WorkflowConfig.ShouldCompileNewWorkflow {
-		compilationResult, err := libcrecli.CompileWorkflow(input.creCLIAbsPath, *input.WorkflowConfig.WorkflowFolderLocation, workflowConfigFile, input.settingsFile)
-		if err != nil {
-			return errors.Wrap(err, "failed to compile workflow")
-		}
+	workflowConfigFilePath := workflowConfigFile.Name()
 
-		workflowURL = compilationResult.WorkflowURL
-		workflowConfigURL = compilationResult.ConfigURL
-	} else {
-		workflowURL = input.WorkflowConfig.CompiledWorkflowConfig.BinaryURL
-		workflowConfigURL = input.WorkflowConfig.CompiledWorkflowConfig.ConfigURL
+	registerWorkflowInput := keystonetypes.RegisterWorkflowWithCRECLIInput{
+		ChainSelector:            input.chainSelector,
+		WorkflowDonID:            input.workflowDonID,
+		WorkflowRegistryAddress:  input.workflowRegistryAddress,
+		WorkflowOwnerAddress:     input.sethClient.MustGetRootKeyAddress(),
+		CRECLIPrivateKey:         input.deployerPrivateKey,
+		CRECLIAbsPath:            input.creCLIAbsPath,
+		CRESettingsFile:          input.creCLIsettingsFile,
+		WorkflowName:             input.WorkflowConfig.WorkflowName,
+		ShouldCompileNewWorkflow: input.WorkflowConfig.ShouldCompileNewWorkflow,
 	}
 
-	registerErr := libcrecli.DeployWorkflow(input.creCLIAbsPath, input.WorkflowName, workflowURL, workflowConfigURL, input.settingsFile)
+	if input.WorkflowConfig.ShouldCompileNewWorkflow {
+		registerWorkflowInput.NewWorkflow = &keystonetypes.NewWorkflow{
+			FolderLocation: *input.WorkflowConfig.WorkflowFolderLocation,
+			ConfigFilePath: &workflowConfigFilePath,
+		}
+	} else {
+		registerWorkflowInput.ExistingWorkflow = &keystonetypes.ExistingWorkflow{
+			BinaryURL: input.WorkflowConfig.CompiledWorkflowConfig.BinaryURL,
+			ConfigURL: &input.WorkflowConfig.CompiledWorkflowConfig.ConfigURL,
+		}
+	}
+
+	registerErr := creworkflow.RegisterWithCRECLI(registerWorkflowInput)
 	if registerErr != nil {
-		return errors.Wrap(registerErr, "failed to register workflow")
+		return errors.Wrap(registerErr, "failed to register workflow with CRE CLI")
 	}
 
 	return nil
@@ -451,7 +470,7 @@ func setupPoRTestEnvironment(
 		sethClient:              universalSetupOutput.BlockchainOutput.SethClient,
 		deployerPrivateKey:      universalSetupOutput.BlockchainOutput.DeployerPrivateKey,
 		creCLIAbsPath:           creCLIAbsPath,
-		settingsFile:            creCLISettingsFile,
+		creCLIsettingsFile:      creCLISettingsFile,
 		writeTargetName:         corevm.GenerateWriteTargetName(universalSetupOutput.BlockchainOutput.ChainID),
 	}
 
