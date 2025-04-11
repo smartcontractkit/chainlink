@@ -3,16 +3,15 @@
 ```mermaid
 flowchart LR
   subgraph chains
+    chainlink-aptos
     chainlink-cosmos
+    chainlink-evm
     chainlink-solana
     chainlink-starknet/relayer
-    chainlink-integrations/evm
   end
 
   subgraph products
     chainlink-automation
-    chainlink-ccip
-    chainlink-ccip/chains/solana
     chainlink-data-streams
     chainlink-feeds
     chainlink-functions
@@ -38,7 +37,7 @@ flowchart LR
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-evm --> chainlink-framework/capabilities
-	chainlink-evm --> chainlink-integrations/evm
+	chainlink-evm --> chainlink-framework/chains
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
@@ -113,16 +112,15 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph chains
+    chainlink-aptos
     chainlink-cosmos
+    chainlink-evm
     chainlink-solana
     chainlink-starknet/relayer
-    chainlink-integrations/evm
   end
 
   subgraph products
     chainlink-automation
-    chainlink-ccip
-    chainlink-ccip/chains/solana
     chainlink-data-streams
     chainlink-feeds
     chainlink-functions
@@ -150,7 +148,7 @@ flowchart LR
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-evm --> chainlink-framework/capabilities
-	chainlink-evm --> chainlink-integrations/evm
+	chainlink-evm --> chainlink-framework/chains
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"

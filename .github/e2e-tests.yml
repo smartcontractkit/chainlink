@@ -1019,12 +1019,39 @@ runner-test-matrix:
 
   # START: CCIPv1.6 tests
 
+  - id: smoke/ccip/ccip_reorg_test.go:LessThanFinalityTests
+    path: integration-tests/smoke/ccip/ccip_reorg_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPReorg_BelowFinality_OnSource|Test_CCIPReorg_BelowFinality_OnDest" ccip_reorg_test.go -timeout 25m -test.parallel=1 -count=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1_DEEPER_FINALITY,SIMULATED_2_DEEPER_FINALITY
+      E2E_JD_VERSION: 0.9.0
+      CCIP_V16_TEST_ENV: docker
+
+  - id: smoke/ccip/ccip_reorg_test.go:GreaterThanFinalityTests
+    path: integration-tests/smoke/ccip/ccip_reorg_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPReorg_GreaterThanFinality_OnSource|Test_CCIPReorg_GreaterThanFinality_OnDest" ccip_reorg_test.go -timeout 25m -test.parallel=1 -count=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2,SIMULATED_3
+      E2E_JD_VERSION: 0.9.0
+      CCIP_V16_TEST_ENV: docker
+
   - id: smoke/ccip/ccip_token_price_updates_test.go:*
     path: integration-tests/smoke/ccip/ccip_token_price_updates_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPTokenPriceUpdates$ -timeout 18m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1040,6 +1067,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPGasPriceUpdatesWriteFrequency$ -timeout 18m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1055,6 +1083,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPGasPriceUpdatesDeviation$ -timeout 18m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1070,6 +1099,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$ -timeout 30m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
@@ -1233,6 +1263,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestDeleteCCIPJobs$ -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1248,6 +1279,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestRevokeJobs$ -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated

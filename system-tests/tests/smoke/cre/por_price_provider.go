@@ -83,6 +83,7 @@ func NewTrueUSDPriceProvider(testLogger zerolog.Logger) PriceProvider {
 func (l *TrueUSDPriceProvider) NextPrice(price *big.Int, elapsed time.Duration) bool {
 	// if price is nil or 0 it means that the feed hasn't been updated yet
 	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
+		l.testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
 		return true
 	}
 
@@ -156,6 +157,7 @@ func (f *FakePriceProvider) priceAlreadyFound(price *big.Int) bool {
 func (f *FakePriceProvider) NextPrice(price *big.Int, elapsed time.Duration) bool {
 	// if price is nil or 0 it means that the feed hasn't been updated yet
 	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
+		f.testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
 		return true
 	}
 

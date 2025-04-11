@@ -43,9 +43,9 @@ func (c CommitPluginConfig) Encode() ([]byte, error) {
 
 // DynamicPriceGetterConfig specifies which configuration to use for getting the price of tokens (map keys).
 type DynamicPriceGetterConfig struct {
-	// Deprecated: use TokenPrices instead.
+	// use TokenPrices instead this is Deprecated
 	AggregatorPrices map[common.Address]AggregatorPriceConfig `json:"aggregatorPrices"`
-	// Deprecated: use TokenPrices instead.
+	// use TokenPrices instead this is Deprecated
 	StaticPrices map[common.Address]StaticPriceConfig `json:"staticPrices"`
 
 	TokenPrices []TokenPriceConfig `json:"tokenPrices"`

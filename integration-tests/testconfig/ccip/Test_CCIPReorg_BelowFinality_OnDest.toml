@@ -1,0 +1,12 @@
+#! These are intended to be overrides for the test Test_CCIPReorg_BelowFinality_OnDest.
+[NodeConfig.ChainConfigTOMLByChainID]
+#! FinalityDepth on 2337 overridden to 10.
+2337 = """
+AutoCreateKey = true
+FinalityDepth = 10
+MinContractPayment = 0
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
