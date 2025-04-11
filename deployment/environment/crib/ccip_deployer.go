@@ -447,7 +447,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel, fe
 	}
 
 	buildConfig := ccipChangesetSolana.BuildSolanaConfig{
-		GitCommitSha:   "25933500528d30f13d12fd813c2da28e9db08468",
+		GitCommitSha:   "1990b9f79aa3a71944852c913eb4197e769257b0",
 		DestinationDir: deployedEnv.Env.SolChains[solChainSelectors[0]].ProgramsPath,
 		LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 			BuildLocally: true,

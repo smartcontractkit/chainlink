@@ -261,7 +261,6 @@ func TestCCIPEvm2SolCRIB(t *testing.T) {
 		receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
 
 		accounts := [][32]byte{
-			receiverProgram,
 			receiverExternalExecutionConfigPDA,
 			receiverTargetAccountPDA,
 			solana.SystemProgramID,
