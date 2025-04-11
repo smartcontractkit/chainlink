@@ -691,6 +691,25 @@ func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (deployme
 	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
+// AddOrUpdateNopsConfig is the configuration for adding, updating or removing node operators
+// For adding or updating node operators, ExistingNops should be empty
+// For removing node operators, NopUpdates should be empty
+// For updating node operators, ExistingNops should contain the existing node operators and
+// NopUpdates should contain the node operators to update, it's a map of the existing node operator name to the new node operator
+//
+// For example,
+//
+// when updating nops -
+// ExistingNops: [ { Name: "nop1", Admin: "0x123" }, { Name: "nop2", Admin: "0x456" } ]
+// NopUpdates: { "nop1": { Name: "nop1New", Admin: "0x345" }, "nop2": { Name: "nop2New", Admin: "0x789" } }
+//
+// For adding nops -
+// ExistingNops: []
+// NopUpdates: { "nop1": { Name: "nop1", Admin: "0x123" }, "nop2": { Name: "nop2", Admin: "0x456" } }
+//
+// For removing nops -
+// ExistingNops: [ { Name: "nop1", Admin: "0x123" }, { Name: "nop2", Admin: "0x456" } ]
+// NopUpdates: []
 type AddOrUpdateNopsConfig struct {
 	HomeChainSel uint64
 	ExistingNops []capabilities_registry.CapabilitiesRegistryNodeOperator          // existing node operators, will be empty in case of adding new node operators
@@ -746,27 +765,43 @@ func updateNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deplo
 	// ensure that all node operators exist
 	homeChainState := state.Chains[c.HomeChainSel]
 	homeChain := env.Chains[c.HomeChainSel]
-	nopsByID, err := nodeOperatorsByID(env.GetContext(), homeChainState.CapabilityRegistry)
+	if len(c.NopUpdates) != len(c.ExistingNops) {
+		return deployment.ChangesetOutput{}, errors.New("number of existing node operators and node operators to update must be same and should follow same order")
+	}
+	// fetch all the node operators from the CapabilitiesRegistry contract
+	nopsByID, err := allNodeOperatorsByID(env.GetContext(), homeChainState.CapabilityRegistry)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get node operators from Capreg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
 	}
-	nopsToUpdatebyID := make(map[uint32]capabilities_registry.CapabilitiesRegistryNodeOperator)
+	if len(nopsByID) == 0 {
+		return deployment.ChangesetOutput{}, errors.New("no node operators found in cap reg")
+	}
+	// filter the node operators from the CapabilitiesRegistry contract to contain only the provided node operators in ExistingNops
+	// and find their ids by nop name
+	nopsIDByName := make(map[string]uint32)
 	for _, nop := range c.ExistingNops {
 		id := nodeOperatorIDByNop(nopsByID, nop)
 		if id == 0 {
 			return deployment.ChangesetOutput{}, fmt.Errorf("node operator %s does not exist in cap reg %s", nop.Name, homeChainState.CapabilityRegistry.Address().String())
 		}
-		nopsToUpdatebyID[id] = nop
+		nopsIDByName[nop.Name] = id
 	}
-	if len(nopsToUpdatebyID) != len(c.ExistingNops) {
-		return deployment.ChangesetOutput{}, fmt.Errorf("not all node operators exist in cap reg %s", homeChainState.CapabilityRegistry.Address().String())
+	// check if the number of node operators to update is same as the number of existing node operators found in the CapabilitiesRegistry contract
+	if len(nopsIDByName) != len(c.NopUpdates) {
+		return deployment.ChangesetOutput{}, errors.New("number of existing node operators found in cap reg and node operators to update must be same")
 	}
-	nops := make([]capabilities_registry.CapabilitiesRegistryNodeOperator, 0, len(nopsToUpdatebyID))
-	nopIDs := make([]uint32, 0, len(nopsToUpdatebyID))
-	for id, nop := range nopsToUpdatebyID {
+	nops := make([]capabilities_registry.CapabilitiesRegistryNodeOperator, 0, len(c.NopUpdates))
+	nopIDs := make([]uint32, 0, len(c.NopUpdates))
+	for name, nop := range c.NopUpdates {
+		id, ok := nopsIDByName[name]
+		if !ok {
+			return deployment.ChangesetOutput{}, fmt.Errorf("node operator %s does not exist in cap reg %s", name, homeChainState.CapabilityRegistry.Address().String())
+		}
 		nops = append(nops, nop)
 		nopIDs = append(nopIDs, id)
-		err = validateAccess(env.GetContext(), homeChain, homeChainState, homeChainState.CapabilityRegistry, nop, c.MCMSConfig != nil, false)
+		// validate that the sender is the owner of the CapabilitiesRegistry or the admin of the existing node operator
+		existingNop := nopsByID[id]
+		err = validateAccess(env.GetContext(), homeChain, homeChainState, homeChainState.CapabilityRegistry, existingNop, c.MCMSConfig != nil, false)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate access for node operator %s: %w", nop.Name, err)
 		}
@@ -832,9 +867,9 @@ func nodeOperatorIDByNop(allNops map[uint32]capabilities_registry.CapabilitiesRe
 	return 0
 }
 
-// nodeOperatorsByID returns a map of node operator IDs to node operator structs
+// allNodeOperatorsByID returns a map of node operator IDs to node operator structs
 // It fetches all node operators from the CapabilitiesRegistry contract
-func nodeOperatorsByID(ctx context.Context, capReg *capabilities_registry.CapabilitiesRegistry) (map[uint32]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
+func allNodeOperatorsByID(ctx context.Context, capReg *capabilities_registry.CapabilitiesRegistry) (map[uint32]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
 	nopIdByName := make(map[uint32]capabilities_registry.CapabilitiesRegistryNodeOperator)
 	operators, err := capReg.GetNodeOperators(&bind.CallOpts{
 		Context: ctx,
@@ -861,13 +896,16 @@ func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deployme
 	// ensure that all node operators exist
 	homeChainState := state.Chains[c.HomeChainSel]
 	homeChain := env.Chains[c.HomeChainSel]
-	nopsByID, err := nodeOperatorsByID(env.GetContext(), homeChainState.CapabilityRegistry)
+	if len(c.NopUpdates) == 0 {
+		return deployment.ChangesetOutput{}, errors.New("no node operators to add")
+	}
+	nopsByID, err := allNodeOperatorsByID(env.GetContext(), homeChainState.CapabilityRegistry)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get node operators from Capreg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
 	}
 	nops := make([]capabilities_registry.CapabilitiesRegistryNodeOperator, 0, len(c.ExistingNops))
 	// verify if node operator already exists
-	for _, nop := range c.ExistingNops {
+	for _, nop := range c.NopUpdates {
 		id := nodeOperatorIDByNop(nopsByID, nop)
 		// if id is non-zero, it means the node operator already exists with same admin and name. In that case it's no-op
 		if id != 0 {
@@ -875,6 +913,7 @@ func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deployme
 				nop.Name, nop.Admin, homeChainState.CapabilityRegistry.Address().String())
 			continue
 		}
+		// validate that the sender is the owner of the CapabilitiesRegistry
 		err = validateAccess(env.GetContext(), homeChain, homeChainState, homeChainState.CapabilityRegistry, nop,
 			c.MCMSConfig != nil, true)
 		if err != nil {
@@ -907,10 +946,14 @@ func removeNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deplo
 	}
 	homeChainState := state.Chains[c.HomeChainSel]
 	homeChain := env.Chains[c.HomeChainSel]
-	nopsByID, err := nodeOperatorsByID(env.GetContext(), homeChainState.CapabilityRegistry)
+	if len(c.ExistingNops) == 0 {
+		return deployment.ChangesetOutput{}, errors.New("no node operators to remove")
+	}
+	nopsByID, err := allNodeOperatorsByID(env.GetContext(), homeChainState.CapabilityRegistry)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get node operators from Capreg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
 	}
+	// if no node operators exist in the CapabilitiesRegistry contract, there is nothing to remove, skip
 	if len(nopsByID) == 0 {
 		env.Logger.Infof("No node operators found in cap reg %s", homeChainState.CapabilityRegistry.Address().String())
 		return deployment.ChangesetOutput{}, nil
@@ -918,10 +961,11 @@ func removeNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deplo
 	nopIDsToRemove := make([]uint32, 0, len(c.ExistingNops))
 	for _, nop := range c.ExistingNops {
 		id := nodeOperatorIDByNop(nopsByID, nop)
-		// if id is zero, it means the node operator does not exist, skip
+		// if id is zero, it means the node operator does not exist, nothing to remove, skip
 		if id == 0 {
 			continue
 		}
+		// validate that the sender is the owner of the CapabilitiesRegistry
 		err = validateAccess(env.GetContext(), homeChain, homeChainState, homeChainState.CapabilityRegistry, nop, c.MCMSConfig != nil, true)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate access for node operator %s: %w", nop.Name, err)

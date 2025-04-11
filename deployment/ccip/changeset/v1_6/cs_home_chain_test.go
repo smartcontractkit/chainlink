@@ -350,12 +350,13 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 				require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), owner)
 			}
 			randomAddr := utils.RandomAddress()
+			nopName := "NodeOperatorNew"
 			nopToAdd := capabilities_registry.CapabilitiesRegistryNodeOperator{
-				Name:  "NewNop",
+				Name:  nopName,
 				Admin: randomAddr,
 			}
 			nopAfterUpdate := capabilities_registry.CapabilitiesRegistryNodeOperator{
-				Name:  "NewNop",
+				Name:  nopName + "Updated",
 				Admin: randomAddr,
 			}
 			e.Env, err = commoncs.Apply(t, e.Env,
@@ -368,8 +369,8 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 				commoncs.Configure(v1_6.AddNopsToCapRegChangeset,
 					v1_6.AddOrUpdateNopsConfig{
 						HomeChainSel: e.HomeChainSel,
-						ExistingNops: []capabilities_registry.CapabilitiesRegistryNodeOperator{
-							nopToAdd,
+						NopUpdates: map[string]capabilities_registry.CapabilitiesRegistryNodeOperator{
+							nopName: nopToAdd,
 						},
 						MCMSConfig: mcmsConfig,
 					}))
@@ -394,12 +395,43 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 				commoncs.Configure(v1_6.UpdateNopsInCapRegChangeset,
 					v1_6.AddOrUpdateNopsConfig{
 						HomeChainSel: e.HomeChainSel,
-						ExistingNops: []capabilities_registry.CapabilitiesRegistryNodeOperator{
-							nopToAdd,
+						ExistingNops: []capabilities_registry.CapabilitiesRegistryNodeOperator{nopToAdd},
+						NopUpdates: map[string]capabilities_registry.CapabilitiesRegistryNodeOperator{
+							nopName: nopAfterUpdate,
 						},
 						MCMSConfig: mcmsConfig,
 					}))
 			require.NoError(t, err)
+			// get all nodes
+			nops, err = homeChain.CapabilityRegistry.GetNodeOperators(&bind.CallOpts{
+				Context: ctx,
+			})
+			require.NoError(t, err)
+			require.NotEmpty(t, nops)
+			require.Contains(t, nops, nopAfterUpdate)
+			require.NotContains(t, nops, nopToAdd)
+
+			// now remove the node operator
+			e.Env, err = commoncs.Apply(t, e.Env,
+				map[uint64]*proposalutils.TimelockExecutionContracts{
+					e.HomeChainSel: {
+						Timelock:  state.Chains[e.HomeChainSel].Timelock,
+						CallProxy: state.Chains[e.HomeChainSel].CallProxy,
+					},
+				},
+				commoncs.Configure(v1_6.RemoveNopsFromCapRegChangeset,
+					v1_6.AddOrUpdateNopsConfig{
+						HomeChainSel: e.HomeChainSel,
+						ExistingNops: []capabilities_registry.CapabilitiesRegistryNodeOperator{nopAfterUpdate},
+						MCMSConfig:   mcmsConfig,
+					}))
+			require.NoError(t, err)
+			// get all nodes
+			nops, err = homeChain.CapabilityRegistry.GetNodeOperators(&bind.CallOpts{
+				Context: ctx,
+			})
+			require.NoError(t, err)
+			require.NotContains(t, nops, nopAfterUpdate)
 		})
 	}
 }
