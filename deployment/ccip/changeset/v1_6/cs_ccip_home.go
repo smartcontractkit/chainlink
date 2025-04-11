@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -1270,11 +1271,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 	}
 	var adds []ccip_home.CCIPHomeChainConfigArgs
 	for chain, ccfg := range cfg.RemoteChainAdds {
-		encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
-			GasPriceDeviationPPB:    ccfg.EncodableChainConfig.GasPriceDeviationPPB,
-			DAGasPriceDeviationPPB:  ccfg.EncodableChainConfig.DAGasPriceDeviationPPB,
-			OptimisticConfirmations: ccfg.EncodableChainConfig.OptimisticConfirmations,
-		})
+		encodedChainConfig, err := chainconfig.EncodeChainConfig(ccfg.EncodableChainConfig)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("encoding chain config: %w", err)
 		}
