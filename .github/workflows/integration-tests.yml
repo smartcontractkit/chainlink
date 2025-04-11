@@ -5,6 +5,7 @@ run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_
 on:
   merge_group:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   push:
     tags:
       - "*"
@@ -82,8 +83,8 @@ jobs:
           module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
           enforce-semantic-tag: "true"
   changes:
-    # Don't run E2E tests on PR, unless it's tagged with "run-e2e"
-    if: ${{ github.event_name != 'pull_request' || contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e') }}
+    # Don't run E2E tests on PR, unless it's tagged with "run-e2e-tests"
+    if: ${{ github.event_name != 'pull_request' || contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests') }}
     environment: integration
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
