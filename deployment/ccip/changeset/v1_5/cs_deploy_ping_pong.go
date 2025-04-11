@@ -24,13 +24,16 @@ type DeployPingPongDemoContractsConfig struct {
 func validateDeployPingPongConfig(env deployment.Environment, config DeployPingPongDemoContractsConfig) error {
 	state, err := changeset.LoadOnchainState(env)
 
+	env.Logger.Info("validating PingPongDemo contracts...")
 	if err != nil {
+		env.Logger.Info("fail1")
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	for _, chainToDeploy := range config.ChainsToDeploy {
 		err = changeset.ValidateChain(env, state, chainToDeploy.ChainSelector, nil)
 		if err != nil {
+			env.Logger.Infof("fail2 %d", chainToDeploy.ChainSelector)
 			return fmt.Errorf("failed to validate chain for %d: %w", chainToDeploy.ChainSelector, err)
 		}
 
@@ -42,14 +45,18 @@ func validateDeployPingPongConfig(env deployment.Environment, config DeployPingP
 		}
 
 		if router == nil {
+			env.Logger.Infof("fail3 %d", chainToDeploy.ChainSelector)
 			return fmt.Errorf("router address is empty for chain %d", chainToDeploy.ChainSelector)
 		}
 
-		if chainState.LinkToken == nil {
-			return fmt.Errorf("link token address is empty for chain %d", chainToDeploy.ChainSelector)
+		_, err := chainState.LinkTokenAddress()
+		if err != nil {
+			env.Logger.Infof("fail4 %d", chainToDeploy.ChainSelector)
+			return fmt.Errorf("failed to get link token address for chain: %d %w", chainToDeploy.ChainSelector, err)
 		}
 	}
 
+	env.Logger.Info("validated PingPongDemo contracts...")
 	return nil
 }
 
@@ -59,6 +66,7 @@ func deployPingPongDemoContractsChangeset(env deployment.Environment, c DeployPi
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
+	env.Logger.Info("Deploying PingPongDemo contracts...")
 	newAB := deployment.NewMemoryAddressBook()
 
 	for _, chainToDeploy := range c.ChainsToDeploy {
@@ -92,6 +100,8 @@ func deployPingPongDemoContractsChangeset(env deployment.Environment, c DeployPi
 		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, dep.Tx, ping_pong_demo.PingPongDemoABI, err); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm ping pong demo contract deployment tx: %w", err)
 		}
+
+		env.Logger.Info("Deployed PingPongDemo contract", "address", dep.Address, "tx", dep.Tx.Hash().Hex())
 	}
 
 	return deployment.ChangesetOutput{
