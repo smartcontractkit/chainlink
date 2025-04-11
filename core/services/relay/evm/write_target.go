@@ -20,8 +20,8 @@ import (
 	dftypes "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds"
 	processor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/report/monitor"
-	"github.com/smartcontractkit/chainlink-evm/pkg/report/pb/data-feeds/on-chain/registry"
+	monitor "github.com/smartcontractkit/chainlink-evm/pkg/monitor/beholder"
+	"github.com/smartcontractkit/chainlink-evm/pkg/monitoring/pb/data-feeds/on-chain/registry"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writetarget"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"

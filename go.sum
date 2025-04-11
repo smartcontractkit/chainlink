@@ -1017,10 +1017,8 @@ github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407100046-dfdf9600557
 github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407100046-dfdf9600557b/go.mod h1:ASXpANdCfcKd+LF3Vhz37q4rmJ/XYQKEQ3La1k7idp0=
 github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250325191518-036bb568a69d h1:RQgBFCrgmB+pkh7yvIUgwVqP6GIl8WA7AIkV9tCONr8=
 github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250325191518-036bb568a69d/go.mod h1:lruVSCt+o5Lez400O0f+oNp+MOpN3/nI23Z4ah9qyBg=
-github.com/smartcontractkit/chainlink-evm v0.0.0-20250410221758-e4b60b508695 h1:eh6QQci1437Nx1wkDwiWpTaCydl2dsCSjDzxQ3GZrYE=
-github.com/smartcontractkit/chainlink-evm v0.0.0-20250410221758-e4b60b508695/go.mod h1:8lZxhUXic+58IT/v4PTvbBVHSfr/Vrb+brcv6nwCiDQ=
-github.com/smartcontractkit/chainlink-evm v0.0.0-20250411125901-b38a23b88715 h1:YkOBaDMw1fB1Wz9SGpteC0VUWZSiE5KxeMoBj8toa2M=
-github.com/smartcontractkit/chainlink-evm v0.0.0-20250411125901-b38a23b88715/go.mod h1:8lZxhUXic+58IT/v4PTvbBVHSfr/Vrb+brcv6nwCiDQ=
+github.com/smartcontractkit/chainlink-evm v0.0.0-20250411131642-f136742ee690 h1:YRowl/iH5r3cvAsE5GU+IzAAdLwR8k8IZaHRHHllY0U=
+github.com/smartcontractkit/chainlink-evm v0.0.0-20250411131642-f136742ee690/go.mod h1:8lZxhUXic+58IT/v4PTvbBVHSfr/Vrb+brcv6nwCiDQ=
 github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 h1:8u9xUrC+yHrTDexOKDd+jrA6LCzFFHeX1G82oj2fsSI=
 github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135/go.mod h1:NkvE4iQgiT7dMCP6U3xPELHhWhN5Xr6rHC0axRebyMU=
 github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250408161305-721208f43882 h1:teDwTZ0GXlxQ65lgVbB44ffbIHlEh4N8wW7zav4lt9c=
