@@ -109,7 +109,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				EmitterExportTimeout:           cfgTelemetry.EmitterExportTimeout(),
 				AuthPublicKeyHex:               csaPubKeyHex,
 				AuthHeaders:                    beholderAuthHeaders,
-				ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEnabled(),
+				ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEndpoint() != "",
 				ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
 			}
 			// note: due to the OTEL specification, all histogram buckets

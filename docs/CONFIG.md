@@ -2066,8 +2066,7 @@ InsecureConnection = false # Default
 TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
-ChipIngressEnabled = false # Default
-ChipIngressEndpoint = 'example.com/chip-ingress' # Example
+ChipIngressEndpoint = '' # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2117,17 +2116,11 @@ EmitterExportTimeout = '1s' # Default
 ```
 EmitterExportTimeout sets timeout for exporting telemetry events
 
-### ChipIngressEnabled
-```toml
-ChipIngressEnabled = false # Default
-```
-ChipIngressEnabled enables sending custom messages to CHIP Ingress.
-
 ### ChipIngressEndpoint
 ```toml
-ChipIngressEndpoint = 'example.com/chip-ingress' # Example
+ChipIngressEndpoint = '' # Default
 ```
-ChipIngressEndpoint is required if ChipIngressEnabled is true.
+ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 
 ## Telemetry.ResourceAttributes
 ```toml

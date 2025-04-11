@@ -318,7 +318,6 @@ InsecureConnection = true
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
-ChipIngressEnabled = true
 ChipIngressEndpoint = 'example.com/chip-ingress'
 
 [Telemetry.ResourceAttributes]

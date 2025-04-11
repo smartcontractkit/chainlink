@@ -80,10 +80,6 @@ func (b *telemetryConfig) EmitterExportTimeout() time.Duration {
 	return b.s.EmitterExportTimeout.Duration()
 }
 
-func (b *telemetryConfig) ChipIngressEnabled() bool {
-	return b.s.ChipIngressEnabled != nil && *b.s.ChipIngressEnabled
-}
-
 func (b *telemetryConfig) ChipIngressEndpoint() string {
 	if b.s.ChipIngressEndpoint == nil {
 		return ""

@@ -1908,7 +1908,6 @@ type Telemetry struct {
 	TraceSampleRatio      *float64
 	EmitterBatchProcessor *bool
 	EmitterExportTimeout  *commonconfig.Duration
-	ChipIngressEnabled    *bool
 	ChipIngressEndpoint   *string
 }
 
@@ -1937,9 +1936,6 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.EmitterExportTimeout; v != nil {
 		b.EmitterExportTimeout = v
 	}
-	if v := f.ChipIngressEnabled; v != nil {
-		b.ChipIngressEnabled = v
-	}
 	if v := f.ChipIngressEndpoint; v != nil {
 		b.ChipIngressEndpoint = v
 	}
@@ -1961,12 +1957,6 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
 	}
-	if b.ChipIngressEnabled != nil && *b.ChipIngressEnabled {
-		if b.ChipIngressEndpoint == nil || *b.ChipIngressEndpoint == "" {
-			err = multierr.Append(err, configutils.ErrMissing{Name: "ChipIngressEndpoint", Msg: "must be set when ChipIngressEnabled is true"})
-		}
-	}
-
 	return err
 }
 

@@ -143,7 +143,6 @@ func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
 	}
 }
 
-// add tests for EmitterBatchProcessor, EmitterExportTimeout, ChipIngressEnabled, ChipIngressEndpoint
 func TestTelemetryConfig_EmitterBatchProcessor(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -180,23 +179,7 @@ func TestTelemetryConfig_EmitterExportTimeout(t *testing.T) {
 		})
 	}
 }
-func TestTelemetryConfig_ChipIngressEnabled(t *testing.T) {
-	tests := []struct {
-		name      string
-		telemetry toml.Telemetry
-		expected  bool
-	}{
-		{"ChipIngressEnabledTrue", toml.Telemetry{ChipIngressEnabled: ptr(true)}, true},
-		{"ChipIngressEnabledFalse", toml.Telemetry{ChipIngressEnabled: ptr(false)}, false},
-	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tc := telemetryConfig{s: tt.telemetry}
-			assert.Equal(t, tt.expected, tc.ChipIngressEnabled())
-		})
-	}
-}
 func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -205,6 +188,7 @@ func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
 	}{
 		{"ChipIngressEndpointSet", toml.Telemetry{ChipIngressEndpoint: ptr("localhost:8080")}, "localhost:8080"},
 		{"ChipIngressEndpointNil", toml.Telemetry{ChipIngressEndpoint: nil}, ""},
+		{"ChipIngressEndpointEmpty", toml.Telemetry{ChipIngressEndpoint: ptr("")}, ""},
 	}
 
 	for _, tt := range tests {
