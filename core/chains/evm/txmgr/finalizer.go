@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 	"sync"
 	"time"
 
@@ -14,8 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -28,29 +25,6 @@ import (
 )
 
 var _ Finalizer = (*evmFinalizer)(nil)
-
-var (
-	promNumSuccessfulTxs = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "tx_manager_num_successful_transactions",
-		Help: "Total number of successful transactions. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
-	}, []string{"chainID"})
-	promRevertedTxCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "tx_manager_num_tx_reverted",
-		Help: "Number of times a transaction reverted on-chain. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
-	}, []string{"chainID"})
-	promFwdTxCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "tx_manager_fwd_tx_count",
-		Help: "The number of forwarded transaction attempts labeled by status",
-	}, []string{"chainID", "successful"})
-	promTxAttemptCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "tx_manager_tx_attempt_count",
-		Help: "The number of transaction attempts that are currently being processed by the transaction manager",
-	}, []string{"chainID"})
-	promNumFinalizedTxs = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "tx_manager_num_finalized_transactions",
-		Help: "Total number of finalized transactions",
-	}, []string{"chainID"})
-)
 
 var (
 	// ErrCouldNotGetReceipt is the error string we save if we reach our LatestFinalizedBlockNum for a confirmed transaction
@@ -87,6 +61,14 @@ type finalizerHeadTracker interface {
 	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *types.Head, err error)
 }
 
+type finalizerMetrics interface {
+	IncrementNumSuccessfulTxs(ctx context.Context)
+	IncrementNumRevertedTxs(ctx context.Context)
+	IncrementFwdTxCount(ctx context.Context, successful bool)
+	RecordTxAttemptCount(ctx context.Context, value float64)
+	IncrementNumFinalizedTxs(ctx context.Context)
+}
+
 type resumeCallback = func(context.Context, uuid.UUID, interface{}, error) error
 
 // Finalizer handles processing new finalized blocks and marking transactions as finalized accordingly in the TXM DB
@@ -96,6 +78,7 @@ type evmFinalizer struct {
 	chainID           *big.Int
 	rpcBatchSize      int
 	forwardersEnabled bool
+	metrics           finalizerMetrics
 
 	txStore     finalizerTxStore
 	client      finalizerChainClient
@@ -120,6 +103,7 @@ func NewEvmFinalizer(
 	txStore finalizerTxStore,
 	client finalizerChainClient,
 	headTracker finalizerHeadTracker,
+	metrics finalizerMetrics,
 ) *evmFinalizer {
 	lggr = logger.Named(lggr, "Finalizer")
 	return &evmFinalizer{
@@ -133,6 +117,7 @@ func NewEvmFinalizer(
 		mb:                    mailbox.NewSingle[*types.Head](),
 		resumeCallback:        nil,
 		attemptsCacheHitCount: attemptsCacheRefreshThreshold, // start hit count at threshold to refresh cache on first run
+		metrics:               metrics,
 	}
 }
 
@@ -310,7 +295,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	f.lastProcessedFinalizedBlockNum = latestFinalizedHead.BlockNumber()
 
 	// add newly finalized transactions to the prom metric
-	promNumFinalizedTxs.WithLabelValues(f.chainID.String()).Add(float64(len(txHashes)))
+	f.metrics.IncrementNumFinalizedTxs(ctx)
 
 	return nil
 }
@@ -392,7 +377,7 @@ func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFi
 	if len(attempts) == 0 {
 		return nil
 	}
-	promTxAttemptCount.WithLabelValues(f.chainID.String()).Set(float64(len(attempts)))
+	f.metrics.RecordTxAttemptCount(ctx, float64(len(attempts)))
 
 	f.lggr.Debugw(fmt.Sprintf("Fetching receipts for %v transaction attempts", len(attempts)))
 
@@ -518,9 +503,9 @@ func (f *evmFinalizer) validateReceipt(ctx context.Context, receipt *types.Recei
 			}
 		}
 		// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
-		promRevertedTxCount.WithLabelValues(f.chainID.String()).Add(1)
+		f.metrics.IncrementNumRevertedTxs(ctx)
 	} else {
-		promNumSuccessfulTxs.WithLabelValues(f.chainID.String()).Add(1)
+		f.metrics.IncrementNumSuccessfulTxs(ctx)
 	}
 
 	// This is only recording forwarded tx that were mined and have a status.
@@ -529,7 +514,7 @@ func (f *evmFinalizer) validateReceipt(ctx context.Context, receipt *types.Recei
 		meta, metaErr := attempt.Tx.GetMeta()
 		if metaErr == nil && meta != nil && meta.FwdrDestAddress != nil {
 			// promFwdTxCount takes two labels, chainID and a boolean of whether a tx was successful or not.
-			promFwdTxCount.WithLabelValues(f.chainID.String(), strconv.FormatBool(receipt.GetStatus() != 0)).Add(1)
+			f.metrics.IncrementFwdTxCount(ctx, receipt.GetStatus() != 0)
 		}
 	}
 	return true
