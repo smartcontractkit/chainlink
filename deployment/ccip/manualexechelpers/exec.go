@@ -374,6 +374,7 @@ func manuallyExecuteSingle(
 		"sourceChainSel", merkleRoot.SourceChainSelector,
 	)
 
+	merkleRootSize := merkleRoot.MaxSeqNr - merkleRoot.MinSeqNr + 1
 	var ccipMessageSentEvents []onramp.OnRampCCIPMessageSent
 	if _, ok := messageSentCache[msgSeqNr]; ok {
 		lggr.Debugw("found message in cache, fetching the rest", "msgSeqNr", msgSeqNr)
@@ -381,7 +382,7 @@ func manuallyExecuteSingle(
 			ccipMessageSentEvents = append(ccipMessageSentEvents, messageSentCache[start])
 		}
 
-		if len(ccipMessageSentEvents) != int(merkleRoot.MaxSeqNr-merkleRoot.MinSeqNr+1) {
+		if uint64(len(ccipMessageSentEvents)) != merkleRootSize {
 			lggr.Debugw("not all messages found in cache, fetching from the chain", "msgSeqNr", msgSeqNr)
 			var err error
 			ccipMessageSentEvents, err = getCCIPMessageSentEvents(
