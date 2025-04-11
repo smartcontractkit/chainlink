@@ -786,32 +786,47 @@ jobs:
           path: .covdata
           retention-days: 1
 
-  # TODO: Use other Slack Channel for this notification
   notify-test-failure:
     name: Notify Test Failure
-    if: ${{ github.ref == 'refs/heads/develop' && failure() }}
+    if: ${{ github.ref_name == 'develop' && failure() }}
     needs: [check-e2e-test-results, solana-smoke-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Send slack notification for failed migration tests
+        id: send-slack-notification
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
+          errors: "true"
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
-            channel: "C08FN09RS80"
-            text: "E2E Tests Failed Post-Merge, Immediate Action Required"
-            blocks: |
-              - type: section
-                text:
-                  type: mrkdwn
-                  text: "*:rotating_light: E2E Tests Failed Post-Merge, Immediate Action Required :rotating_light:*"
-              - type: section
-                text:
-                  type: mrkdwn
-                  text: "Alerting @devex-cicd-oncall, E2E tests failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop by user ${{ github.actor }}. Please follow instructions below to remedy the issue."
-              - type: divider
-              - type: section
-                text:
-                  type: mrkdwn
-                  text: "1. Use the `/gh-lookup ${{ github.actor }}` command to find the who made the commit.\n2. <https://smartcontract-it.atlassian.net/wiki/spaces/ENG/pages/597262421/Raising+an+Incident|Raise a Pager Duty Incident> with that engineer to fix the issue.\n3. Start a 1 hour timer. If the E2E tests cannot be made passing on `develop` branch by then, please use `git revert <last-green-commit>` to revert the `develop` branch back to a happy state.\n4. Write a quick summary of the actions taken and post it in a thread to this message."
+            {
+              "channel": "C023GJUSQ0H",
+              "text": "E2E Tests Failed Post-Merge, Immediate Action Required",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*:rotating_light: E2E Tests Failed Post-Merge, Immediate Action Required :rotating_light:*"
+                  }
+                },
+                {
+                  "type": "section", 
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Alerting <!subteam^S04SLH4V4JJ|devex-cicd-oncall> and <@U01Q4N37KFG>, E2E tests failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop by user `${{ github.actor }}`. Please follow instructions below to remedy the issue."
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn", 
+                    "text": "1. Use the `/gh-lookup ${{ github.actor }}` command to find the who made the commit.\n2. <https://smartcontract-it.atlassian.net/wiki/spaces/ENG/pages/597262421/Raising+an+Incident|Raise a Pager Duty Incident> with that engineer to fix the issue.\n3. Start a 1 hour timer. If the E2E tests cannot be made passing on `develop` branch by then, please use `git revert <last-green-commit>` to revert the `develop` branch back to a happy state.\n4. Write a quick summary of the actions taken and post it in a thread to this message."
+                  }
+                }
+              ]
+            }

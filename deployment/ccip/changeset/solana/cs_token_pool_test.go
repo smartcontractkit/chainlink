@@ -104,16 +104,13 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 		TokenAddress:  solTestTokenPool.RemoteAddress{Address: []byte{4, 5, 6}},
 		Decimals:      9,
 	}
-	inboundConfig := solBaseTokenPool.RateLimitConfig{
-		Enabled:  true,
-		Capacity: uint64(1000),
-		Rate:     1,
-	}
-	outboundConfig := solBaseTokenPool.RateLimitConfig{
+	rateLimitConfig := solBaseTokenPool.RateLimitConfig{
 		Enabled:  false,
 		Capacity: 0,
 		Rate:     0,
 	}
+	inboundConfig := rateLimitConfig
+	outboundConfig := rateLimitConfig
 
 	tokenMap := map[deployment.ContractType]solana.PublicKey{
 		ccipChangeset.SPL2022Tokens: newTokenAddress,
@@ -154,9 +151,9 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 						SolChainSelector:    solChain,
 						RemoteChainSelector: evmChain,
 						SolTokenPubKey:      tokenAddress.String(),
-						RemoteConfig:        remoteConfig,
-						InboundRateLimit:    inboundConfig,
-						OutboundRateLimit:   outboundConfig,
+						RemoteConfig:        &remoteConfig,
+						InboundRateLimit:    &inboundConfig,
+						OutboundRateLimit:   &outboundConfig,
 						PoolType:            testCase.poolType,
 						MCMSSolana:          mcmsConfig,
 					},
@@ -176,25 +173,27 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
 			require.NoError(t, err)
 			require.Equal(t, uint8(9), remoteChainConfigAccount.Base.Remote.Decimals)
+			e.Logger.Infof("Pool addresses: %v", remoteChainConfigAccount.Base.Remote.PoolAddresses)
+			require.Len(t, remoteChainConfigAccount.Base.Remote.PoolAddresses, 1)
+			require.Equal(t, inboundConfig.Enabled, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Enabled)
+			require.Equal(t, outboundConfig.Enabled, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Enabled)
 
 			allowedAccount1, _ := solana.NewRandomPrivateKey()
 			allowedAccount2, _ := solana.NewRandomPrivateKey()
 
 			newRemoteConfig := solBaseTokenPool.RemoteConfig{
 				PoolAddresses: []solTestTokenPool.RemoteAddress{{Address: []byte{7, 8, 9}}},
-				TokenAddress:  solTestTokenPool.RemoteAddress{Address: []byte{10, 11, 12}},
-				Decimals:      9,
+				// same token, new pool address
+				TokenAddress: solTestTokenPool.RemoteAddress{Address: []byte{4, 5, 6}},
+				Decimals:     9,
 			}
-			newOutboundConfig := solBaseTokenPool.RateLimitConfig{
+			newRateLimitConfig := solBaseTokenPool.RateLimitConfig{
 				Enabled:  true,
 				Capacity: uint64(1000),
 				Rate:     1,
 			}
-			newInboundConfig := solBaseTokenPool.RateLimitConfig{
-				Enabled:  false,
-				Capacity: 0,
-				Rate:     0,
-			}
+			newOutboundConfig := newRateLimitConfig
+			newInboundConfig := newRateLimitConfig
 
 			if mcms {
 				e.Logger.Debugf("Configuring MCMS for token pool %v", testCase.poolType)
@@ -265,23 +264,54 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 						MCMSSolana:       mcmsConfig,
 					},
 				),
+				// outbound update only
 				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
 					ccipChangesetSolana.RemoteChainTokenPoolConfig{
 						SolChainSelector:    solChain,
 						RemoteChainSelector: evmChain,
 						SolTokenPubKey:      tokenAddress.String(),
-						RemoteConfig:        newRemoteConfig,
-						InboundRateLimit:    newInboundConfig,
-						OutboundRateLimit:   newOutboundConfig,
+						OutboundRateLimit:   &newOutboundConfig,
 						PoolType:            testCase.poolType,
 						MCMSSolana:          mcmsConfig,
 						IsUpdate:            true,
 					},
 				),
+				// inbound update only
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
+					ccipChangesetSolana.RemoteChainTokenPoolConfig{
+						SolChainSelector:    solChain,
+						RemoteChainSelector: evmChain,
+						SolTokenPubKey:      tokenAddress.String(),
+						InboundRateLimit:    &newInboundConfig,
+						PoolType:            testCase.poolType,
+						MCMSSolana:          mcmsConfig,
+						IsUpdate:            true,
+					},
+				),
+				// append remote pool address
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AppendRemoteTokenPool),
+					ccipChangesetSolana.AppendRemoteTokenPoolConfig{
+						SolChainSelector:    solChain,
+						RemoteChainSelector: evmChain,
+						SolTokenPubKey:      tokenAddress.String(),
+						RemoteConfig:        &newRemoteConfig,
+						PoolType:            testCase.poolType,
+						MCMSSolana:          mcmsConfig,
+					},
+				),
 			},
 			)
 			require.NoError(t, err)
+
+			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
+			require.NoError(t, err)
+			require.Equal(t, newInboundConfig.Enabled, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Enabled)
+			require.Equal(t, newOutboundConfig.Enabled, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Enabled)
+			require.Len(t, remoteChainConfigAccount.Base.Remote.PoolAddresses, 2)
+
 			if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType && tokenAddress == newTokenAddress {
 				e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
