@@ -228,6 +228,7 @@ func TestUpgrade(t *testing.T) {
 					NewRouterVersion:    &deployment.Version1_1_0,
 					// test offramp upgrade in place
 					NewOffRampVersion: &deployment.Version1_0_0,
+					NewMCMVersion:     &deployment.Version1_1_0,
 					UpgradeAuthority:  upgradeAuthority,
 					SpillAddress:      upgradeAuthority,
 					MCMS: &proposalutils.TimelockConfig{
@@ -286,7 +287,6 @@ func TestUpgrade(t *testing.T) {
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewAccessControllerVersion: &deployment.Version1_1_0,
 					NewTimelockVersion:         &deployment.Version1_1_0,
-					NewMCMVersion:              &deployment.Version1_1_0,
 					UpgradeAuthority:           upgradeAuthority,
 					SpillAddress:               upgradeAuthority,
 					MCMS: &proposalutils.TimelockConfig{
