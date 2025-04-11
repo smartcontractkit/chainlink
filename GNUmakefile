@@ -6,21 +6,8 @@ GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 # Set to true to install private plugins (will require GitHub auth).
+# TODO: needed?
 CL_INSTALL_PRIVATE_PLUGINS ?= false
-
-# LOOP Plugin version defaults
-ifndef COSMOS_SHA
-override COSMOS_SHA = "f740e9ae54e79762991bdaf8ad6b50363261c056"
-endif
-ifndef STARKNET_SHA
-override STARKNET_SHA = "9a780650af4708e4bd9b75495feff2c5b4054e46"
-endif
-ifndef APTOS_RELAYER_GIT_REF
-override APTOS_RELAYER_GIT_REF = "2.21.0-beta16-aptos"
-endif
-ifndef CAPABILITIES_GIT_REF
-override CAPABILITIES_GIT_REF = "cf8a3317f89784ff2bf51c04e65b4afcb6eb4363"
-endif
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -73,41 +60,23 @@ chainlink-dev: ## Build a dev build of chainlink binary.
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
-.PHONY: install-medianpoc
-install-medianpoc: ## Build & install the chainlink-medianpoc binary.
+.PHONE: install-loopinstall
+install-loopinstall:
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-common) && \
+	go install $(GOFLAGS) ./pkg/loop/loopinstall
+
+.PHONY: install-plugins-public
+install-plugins-public: ## Build & install public remote LOOPP binaries (plugins).
+	loopinstall --concurrency 5 ./plugins/plugins.public.yaml
+
+.PHONE: install-plugins-private
+install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
+	loopinstall --concurrency 5 ./plugins/plugins.private.yaml
+
+.PHONE: install-plugins-local
+install-plugins-local: ## Build & install local plugins.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
-
-.PHONY: install-ocr3-capability
-install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
-
-.PHONY: install-plugins
-install-plugins: ## Build & install LOOPP binaries for products and chains.
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds) && \
-	go install $(GOFLAGS) ./cmd/chainlink-feeds
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams) && \
-	go install $(GOFLAGS) ./mercury/cmd/chainlink-mercury
-	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-cosmos@$(COSMOS_SHA) | jq -r .Dir) && \
-	go install $(GOFLAGS) ./pkg/cosmos/cmd/chainlink-cosmos
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana) && \
-	go install $(GOFLAGS) ./pkg/solana/cmd/chainlink-solana
-	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-starknet/relayer@$(STARKNET_SHA) | jq -r .Dir) && \
-	go install $(GOFLAGS) ./pkg/chainlink/cmd/chainlink-starknet
-	@if [ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ]; then \
-		echo "Installing private plugins..."; \
-		echo "Aptos..."; \
-		cd $(shell GOPRIVATE=github.com/smartcontractkit/chainlink-internal-integrations go mod download -json github.com/smartcontractkit/chainlink-internal-integrations/aptos/relayer@$(APTOS_RELAYER_GIT_REF) | jq -r .Dir) && \
-		go install $(GOFLAGS) ./cmd/chainlink-aptos; \
-		echo "Cron..."; \
-		cd $(shell GOPRIVATE=github.com/smartcontractkit/capabilities go mod download -json github.com/smartcontractkit/capabilities/cron@$(CAPABILITIES_GIT_REF) | jq -r .Dir) && \
-		go install $(GOFLAGS) .; \
-		echo "Readcontract..."; \
-		cd $(shell GOPRIVATE=github.com/smartcontractkit/capabilities go mod download -json github.com/smartcontractkit/capabilities/readcontract@$(CAPABILITIES_GIT_REF) | jq -r .Dir) && \
-		go install $(GOFLAGS) .; \
-		echo "Installed private plugins"; \
-	else \
-		echo "Skipping private plugin installation (set CL_INSTALL_PRIVATE_PLUGINS=true to install)"; \
-	fi
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -125,13 +94,15 @@ docker-ccip:
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f ccip/ccip.Dockerfile .
 
+# Define a comma variable for use in $(eval) (needed for the PRIVATE_PLUGIN_ARGS)
+comma := ,
 .PHONY: docker-plugins ## Build the chainlink-plugins docker image
 docker-plugins:
 	@if [ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] && [ -z "$(GITHUB_TOKEN)" ]; then \
 		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true"; \
 		exit 1; \
 	fi
-	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN --target final-private-plugins,))
+	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN))
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg APTOS_RELAYER_GIT_REF=$(APTOS_RELAYER_GIT_REF) \
@@ -141,9 +112,6 @@ docker-plugins:
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	$(PRIVATE_PLUGIN_ARGS) \
 	-f plugins/chainlink.Dockerfile .
-
-# Define a comma variable for use in $(eval) (needed for the PRIVATE_PLUGIN_ARGS)
-comma := ,
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend

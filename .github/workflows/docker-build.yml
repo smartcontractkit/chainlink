@@ -87,7 +87,6 @@ jobs:
       docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
-      docker-target: final-private-plugins
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -144,7 +143,6 @@ jobs:
       docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
-      docker-target: final-private-plugins
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}

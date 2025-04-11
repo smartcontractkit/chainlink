@@ -49,12 +49,11 @@ before_hook() {
 }
 
 install_local_plugins() {
-  make install-medianpoc
-  make install-ocr3-capability
+  make install-local-plugins
 }
 
 install_remote_plugins() {
-  make install-plugins
+  make install-public-plugins
 }
 
 # binary build post hook
