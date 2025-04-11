@@ -10,7 +10,7 @@ import (
 
 	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
-	keys "github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	keys "github.com/smartcontractkit/chainlink-evm/pkg/keys"
 
 	mock "github.com/stretchr/testify/mock"
 )

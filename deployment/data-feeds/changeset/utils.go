@@ -7,6 +7,7 @@ import (
 	"io/fs"
 
 	workflowUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 func FeedIDsToBytes16(feedIDs []string) ([][16]byte, error) {
@@ -60,4 +61,65 @@ func LoadJSON[T any](pth string, fs fs.ReadFileFS) (T, error) {
 		return dflt, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 	return v, nil
+}
+
+func GetDecimalsFromFeedID(feedID string) (uint8, error) {
+	err := ValidateFeedID(feedID)
+	if err != nil {
+		return 0, fmt.Errorf("invalid feed ID: %w", err)
+	}
+	feedIDBytes, err := ConvertHexToBytes16(feedID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to convert feed ID to bytes: %w", err)
+	}
+
+	if feedIDBytes[7] >= 0x20 && feedIDBytes[7] <= 0x60 {
+		return feedIDBytes[7] - 32, nil
+	}
+
+	return 0, nil
+}
+
+func GetDataFeedsCacheAddress(ab deployment.AddressBook, chainSelector uint64, label *string) string {
+	dataFeedsCacheAddress := ""
+	cacheTV := deployment.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
+	if label != nil {
+		cacheTV.Labels.Add(*label)
+	} else {
+		cacheTV.Labels.Add("data-feeds")
+	}
+
+	address, err := ab.AddressesForChain(chainSelector)
+	if err != nil {
+		return ""
+	}
+
+	for addr, tv := range address {
+		if tv.String() == cacheTV.String() {
+			dataFeedsCacheAddress = addr
+		}
+	}
+
+	return dataFeedsCacheAddress
+}
+
+type WrappedChangeSet[C any] struct {
+	operation deployment.ChangeSetV2[C]
+}
+
+// RunChangeset is used to run a changeset in another changeset
+// It executes VerifyPreconditions internally to handle changeset errors.
+func RunChangeset[C any](
+	operation deployment.ChangeSetV2[C],
+	env deployment.Environment,
+	config C,
+) (deployment.ChangesetOutput, error) {
+	cs := WrappedChangeSet[C]{operation: operation}
+
+	err := cs.operation.VerifyPreconditions(env, config)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run precondition: %w", err)
+	}
+
+	return cs.operation.Apply(env, config)
 }

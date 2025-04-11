@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 type key struct {

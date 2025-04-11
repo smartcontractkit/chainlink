@@ -13,10 +13,10 @@ type EstimateProvider struct {
 
 // CalculateMerkleTreeGas is not implemented
 func (gp EstimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
-	return 0
+	return 1
 }
 
 // CalculateMessageMaxGas is not implemented.
 func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 {
-	return 0
+	return 1
 }

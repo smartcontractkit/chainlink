@@ -37,7 +37,7 @@ import (
 
 	"golang.org/x/mod/modfile"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 )
@@ -267,7 +267,13 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	for i := 0; i < maxRetries; i++ {
 		port := freeport.GetOne(t)
 
+		image := ""
+		if runtime.GOOS == "linux" {
+			image = "solanalabs/solana:v1.18.26" // TODO: workaround on linux
+		}
+
 		bcInput := &blockchain.Input{
+			Image:          image,
 			Type:           "solana",
 			ChainID:        strconv.FormatUint(chainID, 10),
 			PublicKey:      adminKey.PublicKey().String(),
@@ -284,8 +290,8 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		}
 		require.NoError(t, err)
 		testcontainers.CleanupContainer(t, output.Container)
-		url = output.Nodes[0].HostHTTPUrl
-		wsURL = output.Nodes[0].HostWSUrl
+		url = output.Nodes[0].ExternalHTTPUrl
+		wsURL = output.Nodes[0].ExternalWSUrl
 		break
 	}
 	require.NoError(t, err)

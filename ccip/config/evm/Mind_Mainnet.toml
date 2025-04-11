@@ -1,0 +1,7 @@
+ChainID = '228'
+
+[GasEstimator]
+FeeCapDefault = '1 gwei'
+LimitDefault = 100_000_000
+LimitMax = 1_000_000_000
+PriceMax = '1 gwei' # DS&A recommended value

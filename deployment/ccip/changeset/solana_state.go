@@ -35,6 +35,7 @@ const (
 	SPL2022Tokens             deployment.ContractType = "SPL2022Tokens"
 	SPLTokens                 deployment.ContractType = "SPLTokens"
 	WSOL                      deployment.ContractType = "WSOL"
+	CCIPCommon                deployment.ContractType = "CCIPCommon"
 	// for PDAs from AddRemoteChainToSolana
 	RemoteSource deployment.ContractType = "RemoteSource"
 	RemoteDest   deployment.ContractType = "RemoteDest"
@@ -315,7 +316,6 @@ func ValidateOwnershipSolana(
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
 		if err != nil {
-			e.Logger.Warnf("BurnMintTokenPool not configured with this token address: %s", tokenAddress.String())
 			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
@@ -326,7 +326,6 @@ func ValidateOwnershipSolana(
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
 		if err != nil {
-			e.Logger.Warnf("LockReleaseTokenPool not configured with this token address: %s", tokenAddress.String())
 			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {

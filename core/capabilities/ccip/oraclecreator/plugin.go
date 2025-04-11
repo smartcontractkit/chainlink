@@ -181,7 +181,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 	destRelayID := types.NewRelayID(destChainFamily, destChainID)
 
-	configTracker := ocrimpls.NewConfigTracker(config)
+	configTracker := ocrimpls.NewConfigTracker(config, i.addressCodec)
 	publicConfig, err := configTracker.PublicConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
@@ -253,6 +253,11 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
 
+	telemetryType, err := pluginTypeToTelemetryType(pluginType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get telemetry type: %w", err)
+	}
+
 	oracleArgs := libocr3.OCR3OracleArgs[[]byte]{
 		BinaryNetworkEndpointFactory: i.peerWrapper.Peer2,
 		Database:                     i.db,
@@ -273,8 +278,8 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		MonitoringEndpoint: i.monitoringEndpointGen.GenMonitoringEndpoint(
 			destChainFamily,
 			destRelayID.ChainID,
-			string(config.Config.OfframpAddress),
-			synchronization.OCR3CCIPCommit,
+			offrampAddrStr,
+			telemetryType,
 		),
 		OffchainConfigDigester: ocrimpls.NewConfigDigester(config.ConfigDigest),
 		OffchainKeyring:        keybundle,
@@ -438,7 +443,12 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
 		}
 
-		chainReaderConfig, err1 := getChainReaderConfig(i.lggr, chainID, destChainID, homeChainID, ofc, chainSelector, destChainFamily)
+		if _, exists := plugins[relayChainFamily]; !exists {
+			i.lggr.Debugw("createReadersAndWriters: skipping unsupported relayer", "chainID", chainID, "family", relayChainFamily)
+			continue
+		}
+
+		chainReaderConfig, err1 := getChainReaderConfig(i.lggr, chainID, destChainID, homeChainID, ofc, chainSelector, relayChainFamily)
 		if err1 != nil {
 			return nil, nil, fmt.Errorf("failed to get chain reader config: %w", err1)
 		}
@@ -599,7 +609,7 @@ func createChainWriter(
 	transmitters map[types.RelayID][]string,
 	execBatchGasLimit uint64,
 	chainFamily string,
-	offrampProgramAddress []byte,
+	offrampAddress []byte,
 ) (types.ContractWriter, error) {
 	var err error
 	var chainWriterConfig []byte
@@ -608,11 +618,13 @@ func createChainWriter(
 	switch chainFamily {
 	case relay.NetworkSolana:
 		var solConfig chainwriter.ChainWriterConfig
-		if solana.PublicKeyLength != len(offrampProgramAddress) {
-			return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(offrampProgramAddress))
+		var offrampProgramAddress solana.PublicKey
+		// NOTE: this function can still be called with EVM inputs, and PublicKeyFromBytes will panic on addresses with len=20
+		// technically we only need the writer to do fee estimation so this doesn't matter and we can use a zero address
+		if len(offrampAddress) == solana.PublicKeyLength {
+			offrampProgramAddress = solana.PublicKeyFromBytes(offrampAddress)
 		}
-		offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
-		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0]); err != nil {
+		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0]); err != nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {
@@ -686,5 +698,16 @@ func defaultLocalConfig() ocrtypes.LocalConfig {
 		DatabaseTimeout:                    10 * time.Second,
 		MinOCR2MaxDurationQuery:            1 * time.Second,
 		DevelopmentMode:                    "false",
+	}
+}
+
+func pluginTypeToTelemetryType(pluginType cctypes.PluginType) (synchronization.TelemetryType, error) {
+	switch pluginType {
+	case cctypes.PluginTypeCCIPCommit:
+		return synchronization.OCR3CCIPCommit, nil
+	case cctypes.PluginTypeCCIPExec:
+		return synchronization.OCR3CCIPExec, nil
+	default:
+		return "", fmt.Errorf("unknown plugin type %d", pluginType)
 	}
 }

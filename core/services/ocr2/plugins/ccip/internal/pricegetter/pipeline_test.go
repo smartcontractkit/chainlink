@@ -11,7 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
 	config2 "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -29,67 +29,6 @@ import (
 	config "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
-
-func TestDataSource(t *testing.T) {
-	ctx := testutils.Context(t)
-	linkEth := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, err := w.Write([]byte(`{"JuelsPerETH": "200000000000000000000"}`))
-		require.NoError(t, err)
-	}))
-	defer linkEth.Close()
-	usdcEth := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, err := w.Write([]byte(`{"USDCWeiPerETH": "1000000000000000000000"}`)) // 1000 USDC / ETH
-		require.NoError(t, err)
-	}))
-	defer usdcEth.Close()
-	linkTokenAddress := ccipcalc.HexToAddress("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e05")
-	usdcTokenAddress := ccipcalc.HexToAddress("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e10")
-	source := fmt.Sprintf(`
-	// Price 1
-	link [type=http method=GET url="%s"];
-	link_parse [type=jsonparse path="JuelsPerETH"];
-	link->link_parse;
-	// Price 2
-	usdc [type=http method=GET url="%s"];
-	usdc_parse [type=jsonparse path="USDCWeiPerETH"];
-	usdc->usdc_parse;
-	merge [type=merge left="{}" right="{\"%s\":$(link_parse), \"%s\":$(usdc_parse)}"];
-`, linkEth.URL, usdcEth.URL, linkTokenAddress, usdcTokenAddress)
-
-	priceGetter := newTestPipelineGetter(t, source)
-
-	// Ask for all prices present in spec.
-	prices, err := priceGetter.GetJobSpecTokenPricesUSD(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, map[cciptypes.Address]*big.Int{
-		linkTokenAddress: big.NewInt(0).Mul(big.NewInt(200), big.NewInt(1000000000000000000)),
-		usdcTokenAddress: big.NewInt(0).Mul(big.NewInt(1000), big.NewInt(1000000000000000000)),
-	}, prices)
-
-	// Specifically ask for all prices
-	pricesWithInput, errWithInput := priceGetter.TokenPricesUSD(ctx, []cciptypes.Address{
-		linkTokenAddress,
-		usdcTokenAddress,
-	})
-	require.NoError(t, errWithInput)
-	assert.Equal(t, map[cciptypes.Address]*big.Int{
-		linkTokenAddress: big.NewInt(0).Mul(big.NewInt(200), big.NewInt(1000000000000000000)),
-		usdcTokenAddress: big.NewInt(0).Mul(big.NewInt(1000), big.NewInt(1000000000000000000)),
-	}, pricesWithInput)
-
-	// Ask a non-existent price.
-	_, err = priceGetter.TokenPricesUSD(ctx, []cciptypes.Address{
-		ccipcalc.HexToAddress("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e11"),
-	})
-	require.Error(t, err)
-
-	// Ask only one price
-	prices, err = priceGetter.TokenPricesUSD(ctx, []cciptypes.Address{linkTokenAddress})
-	require.NoError(t, err)
-	assert.Equal(t, map[cciptypes.Address]*big.Int{
-		linkTokenAddress: big.NewInt(0).Mul(big.NewInt(200), big.NewInt(1000000000000000000)),
-	}, prices)
-}
 
 func TestParsingDifferentFormats(t *testing.T) {
 	tests := []struct {
@@ -176,7 +115,11 @@ func newTestPipelineGetter(t *testing.T, source string) *pricegetter.PipelineGet
 	bridgeORM := bridges.NewORM(db)
 	runner := pipeline.NewRunner(pipeline.NewORM(db, lggr, config.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
 		bridgeORM, cfg, nil, nil, nil, nil, lggr, &http.Client{}, &http.Client{})
-	ds, err := pricegetter.NewPipelineGetter(source, runner, 1, uuid.New(), "test", lggr)
+	sourceNative := ccipcalc.EvmAddrToGeneric(common.HexToAddress("0x"))
+	sourceChain := chainsel.TEST_1000
+	destChain := chainsel.TEST_1338
+	ds, err := pricegetter.NewPipelineGetter(source, runner, 1, uuid.New(), "test",
+		lggr, sourceNative, sourceChain.Selector, destChain.Selector)
 	require.NoError(t, err)
 	return ds
 }

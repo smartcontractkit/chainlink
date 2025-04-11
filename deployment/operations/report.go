@@ -12,14 +12,20 @@ import (
 // Report is the result of an operation.
 // It contains the inputs and other metadata that was used to execute the operation.
 type Report[IN, OUT any] struct {
-	ID        string       `json:"ID"`
-	Def       Definition   `json:"Definition"`
-	Output    OUT          `json:"Output"`
-	Input     IN           `json:"Input"`
-	Timestamp *time.Time   `json:"Timestamp"`
-	Err       *ReportError `json:"Error"`
+	ID        string       `json:"id"`
+	Def       Definition   `json:"definition"`
+	Output    OUT          `json:"output"`
+	Input     IN           `json:"input"`
+	Timestamp *time.Time   `json:"timestamp"`
+	Err       *ReportError `json:"error"`
 	// stores a list of report ID for an operation that was executed as part of a sequence.
-	ChildOperationReports []string `json:"ChildOperationReports"`
+	ChildOperationReports []string `json:"childOperationReports"`
+}
+
+// ToGenericReport converts the Report to a generic Report.
+// This is useful when we want to return the report as a generic type in the changeset.output.
+func (r Report[IN, OUT]) ToGenericReport() Report[any, any] {
+	return genericReport(r)
 }
 
 // SequenceReport is a report for a sequence.
@@ -32,6 +38,15 @@ type SequenceReport[IN, OUT any] struct {
 
 	// ExecutionReports is a list of report all the operations & sequence that was executed as part of this sequence.
 	ExecutionReports []Report[any, any]
+}
+
+// ToGenericSequenceReport converts the SequenceReport to a generic SequenceReport.
+// This is useful when we want to return the report as a generic type in the changeset.output.
+func (r SequenceReport[IN, OUT]) ToGenericSequenceReport() SequenceReport[any, any] {
+	return SequenceReport[any, any]{
+		Report:           genericReport[IN, OUT](r.Report),
+		ExecutionReports: r.ExecutionReports,
+	}
 }
 
 // NewReport creates a new report.
@@ -59,7 +74,7 @@ func NewReport[IN, OUT any](
 // Its purpose is to have an exported field `Message` for marshalling as the
 // native error cant be marshaled to JSON.
 type ReportError struct {
-	Message string
+	Message string `json:"message"`
 }
 
 // Error implements the error interface.

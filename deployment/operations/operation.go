@@ -38,9 +38,9 @@ type OperationHandler[IN, OUT, DEP any] func(e Bundle, deps DEP, input IN) (outp
 // This definition and OperationHandler together form the composite keys for an Operation.
 // 2 Operations are considered the same if they have the Definition and OperationHandler.
 type Definition struct {
-	ID          string
-	Version     *semver.Version
-	Description string
+	ID          string          `json:"id"`
+	Version     *semver.Version `json:"version"`
+	Description string          `json:"description"`
 }
 
 // Operation is the low level building blocks of the Operations API.

@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
@@ -39,7 +39,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 			}
 			extraData, err := cciptypes.NewBytesFromString("0x1234")
 			require.NoError(t, err)
-
+			tokenReceiver := solanago.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF")
 			destGasAmount := uint32(10)
 			destExecData := make([]byte, 4)
 			binary.LittleEndian.PutUint32(destExecData, destGasAmount)
@@ -77,7 +77,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 				},
 				Sender:         cciptypes.UnknownAddress(key.PublicKey().String()),
 				Data:           extraData,
-				Receiver:       key.PublicKey().Bytes(),
+				Receiver:       tokenReceiver.Bytes(),
 				ExtraArgs:      buf.Bytes(),
 				FeeToken:       cciptypes.UnknownAddress(key.PublicKey().String()),
 				FeeTokenAmount: cciptypes.NewBigInt(big.NewInt(rand.Int63())),
@@ -175,6 +175,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
 		"ComputeUnits":            uint32(1000),
 		"accountIsWritableBitmap": uint64(2),
+		"TokenReceiver":           [32]byte(solanago.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF").Bytes()),
 	}, nil).Maybe()
 
 	for _, tc := range testCases {
@@ -264,7 +265,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		require.Equal(t, cciptypes.UnknownAddress(tokenReceiver.Bytes()), msg.Receiver)
 		require.Equal(t, cciptypes.Bytes(extraArgsBuf.Bytes()), msg.ExtraArgs)
 		require.Equal(t, tokenAmount, msg.TokenAmounts[0].Amount.Int)
-		require.Equal(t, destGasAmount, bytesToUint32LE(msg.TokenAmounts[0].DestExecData))
+		require.Equal(t, destGasAmount, binary.LittleEndian.Uint32(msg.TokenAmounts[0].DestExecData))
 	})
 
 	t.Run("decode Borsh encoded execute report", func(t *testing.T) {
@@ -295,7 +296,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		originTokenAmount := originMsg.TokenAmounts[0]
 		require.Equal(t, originTokenAmount.Amount, decodeLEToBigInt(executeReport.Message.TokenAmounts[0].Amount.LeBytes[:]))
 		require.Equal(t, originTokenAmount.DestTokenAddress, cciptypes.UnknownAddress(executeReport.Message.TokenAmounts[0].DestTokenAddress.Bytes()))
-		require.Equal(t, bytesToUint32LE(originTokenAmount.DestExecData), executeReport.Message.TokenAmounts[0].DestGasAmount)
+		require.Equal(t, binary.LittleEndian.Uint32(originTokenAmount.DestExecData), executeReport.Message.TokenAmounts[0].DestGasAmount)
 		require.Equal(t, originMsg.Sender, cciptypes.UnknownAddress(executeReport.Message.Sender))
 	})
 }

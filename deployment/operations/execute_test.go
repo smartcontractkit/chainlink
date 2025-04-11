@@ -2,7 +2,6 @@ package operations
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"math"
 	"testing"
@@ -177,6 +176,63 @@ func Test_ExecuteOperation_WithPreviousRun(t *testing.T) {
 	assert.Equal(t, 2, handlerWithErrorCalledTimes)
 }
 
+func Test_ExecuteOperation_Unserializable_Data(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		input     any
+		output    any
+		wantError string
+	}{
+		{
+			name:   "both input and output are serializable",
+			input:  1,
+			output: 2,
+		},
+		{
+			name:      "input is serializable, output is not",
+			input:     1,
+			output:    func() bool { return true },
+			wantError: "operation example output: data cannot be safely written to disk without data lost, avoid type that can't be serialized",
+		},
+		{
+			name: "input is not serializable, output is",
+			input: struct {
+				A            int
+				privateField string
+			}{
+				A:            1,
+				privateField: "private",
+			},
+			output:    2,
+			wantError: "operation example input: data cannot be safely written to disk without data lost, avoid type that can't be serialized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			op := NewOperation("example", semver.MustParse("1.0.0"), "test operation",
+				func(e Bundle, deps any, input any) (output any, err error) {
+					return tt.output, nil
+				})
+
+			e := NewBundle(context.Background, logger.Test(t), NewMemoryReporter())
+
+			res, err := ExecuteOperation(e, op, nil, tt.input)
+			if len(tt.wantError) != 0 {
+				require.Error(t, err)
+				require.ErrorContains(t, err, tt.wantError)
+			} else {
+				require.NoError(t, err)
+				require.Nil(t, res.Err)
+			}
+		})
+	}
+}
+
 func Test_ExecuteSequence(t *testing.T) {
 	t.Parallel()
 
@@ -290,9 +346,6 @@ func Test_ExecuteSequence_WithPreviousRun(t *testing.T) {
 	assert.Len(t, res.ExecutionReports, 2) // 1 seq report + 1 op report
 	assert.Equal(t, 1, handlerCalledTimes)
 
-	marshal, err := json.MarshalIndent(res.ExecutionReports, "", "  ")
-	require.NoError(t, err)
-	t.Log(string(marshal))
 	// rerun should return previous report
 	res, err = ExecuteSequence(bundle, sequence, nil, 1)
 	require.NoError(t, err)
@@ -404,6 +457,73 @@ func Test_ExecuteSequence_ErrorReporter(t *testing.T) {
 			_, err := ExecuteSequence(e, sequence, OpDeps{}, 1)
 			require.Error(t, err)
 			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+func Test_ExecuteSequence_Unserializable_Data(t *testing.T) {
+	t.Parallel()
+
+	version := semver.MustParse("1.0.0")
+	op := NewOperation("test", version, "test description",
+		func(b Bundle, deps OpDeps, input any) (output any, err error) {
+			return 1, nil
+		})
+
+	tests := []struct {
+		name      string
+		input     any
+		output    any
+		wantError string
+	}{
+		{
+			name:   "both input and output are serializable",
+			input:  1,
+			output: 2,
+		},
+		{
+			name:      "input is serializable, output is not",
+			input:     1,
+			output:    func() bool { return true },
+			wantError: "sequence seq-example output: data cannot be safely written to disk without data lost, avoid type that can't be serialized",
+		},
+		{
+			name: "input is not serializable, output is",
+			input: struct {
+				A            int
+				privateField string
+			}{
+				A:            1,
+				privateField: "private",
+			},
+			output:    2,
+			wantError: "sequence seq-example input: data cannot be safely written to disk without data lost, avoid type that can't be serialized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			sequence := NewSequence("seq-example", version, "test operation",
+				func(e Bundle, deps any, _ any) (output any, err error) {
+					_, err = ExecuteOperation(e, op, OpDeps{}, 1)
+					if err != nil {
+						return 0, err
+					}
+					return tt.output, nil
+				})
+
+			e := NewBundle(context.Background, logger.Test(t), NewMemoryReporter())
+
+			res, err := ExecuteSequence(e, sequence, nil, tt.input)
+			if len(tt.wantError) != 0 {
+				require.Error(t, err)
+				require.ErrorContains(t, err, tt.wantError)
+			} else {
+				require.NoError(t, err)
+				require.Nil(t, res.Err)
+			}
 		})
 	}
 }

@@ -80,7 +80,7 @@ func (c SolChain) Name() string {
 func GetSolanaProgramBytes() map[string]int {
 	return map[string]int{
 		RouterProgramName:               5 * 1024 * 1024,
-		OffRampProgramName:              0 * 1024 * 1024, // router should be redeployed but it does support upgrades if required (big fixes etc.)
+		OffRampProgramName:              1.5 * 1024 * 1024, // router should be redeployed but it does support upgrades if required (big fixes etc.)
 		FeeQuoterProgramName:            5 * 1024 * 1024,
 		BurnMintTokenPoolProgramName:    3 * 1024 * 1024,
 		LockReleaseTokenPoolProgramName: 3 * 1024 * 1024,

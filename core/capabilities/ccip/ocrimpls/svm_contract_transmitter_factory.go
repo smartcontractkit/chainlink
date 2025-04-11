@@ -97,8 +97,8 @@ func NewSVMCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataF
 		}
 
 		method := defaultMethod
-		// Switch to price-only method if no Merkle roots and there are token price updates.
-		if priceOnlyMethod != "" && len(info.MerkleRoots) == 0 && len(info.TokenPriceUpdates) > 0 {
+		// Switch to price-only method if no Merkle roots and there are token or gas price updates.
+		if priceOnlyMethod != "" && len(info.MerkleRoots) == 0 && (len(info.TokenPriceUpdates) > 0 || len(info.GasPriceUpdates) > 0) {
 			method = priceOnlyMethod
 		}
 

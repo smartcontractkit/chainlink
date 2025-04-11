@@ -25,7 +25,7 @@ func BootstrapOCR3(nodeID string, ocr3CapabilityAddress common.Address, chainID 
 	type = "bootstrap"
 	schemaVersion = 1
 	externalJobID = "%s"
-	name = "Botostrap-%s"
+	name = "%s"
 	contractID = "%s"
 	contractConfigTrackerPollInterval = "1s"
 	contractConfigConfirmations = 1
@@ -35,7 +35,7 @@ func BootstrapOCR3(nodeID string, ocr3CapabilityAddress common.Address, chainID 
 	providerType = "ocr3-capability"
 `,
 			uuid,
-			uuid[0:8],
+			types.OCR3Capability,
 			ocr3CapabilityAddress.Hex(),
 			chainID),
 	}
@@ -79,7 +79,7 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllow
 	type = "gateway"
 	schemaVersion = 1
 	externalJobID = "%s"
-	name = "Gateway-%s"
+	name = "%s"
 	forwardingAllowed = false
 	[gatewayConfig.ConnectionManagerConfig]
 	AuthChallengeLen = 10
@@ -105,11 +105,13 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllow
 	ReadTimeoutMillis = 1_000
 	RequestTimeoutMillis = 10_000
 	WriteTimeoutMillis = 1_000
+	CORSEnabled = false
+	CORSAllowedOrigins = []
 	[gatewayConfig.HTTPClientConfig]
 	MaxResponseBytes = 100_000_000
 `,
 		uuid,
-		uuid[0:8],
+		types.GatewayJobName,
 		gatewayDons,
 		gatewayConnectorData.Path,
 		gatewayConnectorData.Port,
@@ -177,7 +179,7 @@ func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.Propo
 	config = %s
 `,
 			uuid,
-			name+"-"+uuid[0:8],
+			name,
 			command,
 			config),
 	}
@@ -192,7 +194,7 @@ func WorkerOCR3(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddr
 	type = "offchainreporting2"
 	schemaVersion = 1
 	externalJobID = "%s"
-	name = "ocr3-consensus-%s"
+	name = "%s"
 	contractID = "%s"
 	ocrKeyBundleID = "%s"
 	p2pv2Bootstrappers = [
@@ -215,7 +217,7 @@ func WorkerOCR3(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddr
 	evm = "%s"
 `,
 			uuid,
-			uuid[0:8],
+			types.OCR3Capability,
 			ocr3CapabilityAddress,
 			ocr2KeyBundleID,
 			ocrPeeringData.OCRBootstraperPeerID,

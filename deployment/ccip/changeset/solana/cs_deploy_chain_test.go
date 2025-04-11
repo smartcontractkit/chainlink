@@ -29,8 +29,8 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	OldSha = "712ce04f688b"
-	NewSha = "879d53b3d4ce"
+	OldSha = "aa0756b72e7b70640a6a6235fbbd13aff407402a"
+	NewSha = "f1ced171b7538afc6c9f488803f90d10ac0f0b52"
 )
 
 func verifyProgramSizes(t *testing.T, e deployment.Environment) {
@@ -167,7 +167,9 @@ func TestUpgrade(t *testing.T) {
 			DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally:        true,
-				CleanDestinationDir: true},
+				CleanDestinationDir: true,
+				GenerateVanityKeys:  true,
+			},
 		},
 	))
 	require.NoError(t, err)
@@ -192,6 +194,7 @@ func TestUpgrade(t *testing.T) {
 			OffRamp:   true,
 		})
 	upgradeAuthority := timelockSignerPDA
+	// upgradeAuthority := e.SolChains[solChainSelectors[0]].DeployerKey.PublicKey()
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	verifyProgramSizes(t, e)

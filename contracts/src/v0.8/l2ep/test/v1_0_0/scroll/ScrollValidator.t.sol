@@ -8,6 +8,7 @@ import {MockScrollL2CrossDomainMessenger} from "../../mocks/scroll/MockScrollL2C
 import {MockScrollL1MessageQueue} from "../../mocks/scroll/MockScrollL1MessageQueue.sol";
 import {ScrollSequencerUptimeFeed} from "../../../scroll/ScrollSequencerUptimeFeed.sol";
 import {ScrollValidator} from "../../../scroll/ScrollValidator.sol";
+import {BaseValidator} from "../../../base/BaseValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ScrollValidator_Setup is L2EPTest {
@@ -81,6 +82,10 @@ contract ScrollValidator_Validate is ScrollValidator_Setup {
     // Gives access to the s_eoaValidator
     s_scrollValidator.addAccess(s_eoaValidator);
 
+    uint256 previousRoundId = 0;
+    int256 previousAnswer = 0;
+    uint256 currentRoundId = 0;
+    int256 currentAnswer = 0;
     // Sets block.timestamp to a later date
     uint256 futureTimestampInSeconds = block.timestamp + 5000;
     vm.startPrank(s_eoaValidator);
@@ -96,9 +101,10 @@ contract ScrollValidator_Validate is ScrollValidator_Setup {
       INIT_GAS_LIMIT, // gas limit
       abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, false, futureTimestampInSeconds) // message
     );
-
+    vm.expectEmit(address(s_scrollValidator));
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
-    s_scrollValidator.validate(0, 0, 0, 0);
+    s_scrollValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
   }
 
   /// @notice Posts sequencer offline status
@@ -106,6 +112,10 @@ contract ScrollValidator_Validate is ScrollValidator_Setup {
     // Gives access to the s_eoaValidator
     s_scrollValidator.addAccess(s_eoaValidator);
 
+    uint256 previousRoundId = 0;
+    int256 previousAnswer = 0;
+    uint256 currentRoundId = 1;
+    int256 currentAnswer = 1;
     // Sets block.timestamp to a later date
     uint256 futureTimestampInSeconds = block.timestamp + 10000;
     vm.startPrank(s_eoaValidator);
@@ -122,7 +132,9 @@ contract ScrollValidator_Validate is ScrollValidator_Setup {
       abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds) // message
     );
 
+    vm.expectEmit(address(s_scrollValidator));
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
-    s_scrollValidator.validate(0, 0, 1, 1);
+    s_scrollValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
   }
 }

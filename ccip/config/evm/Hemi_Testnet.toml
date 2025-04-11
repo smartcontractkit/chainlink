@@ -1,0 +1,4 @@
+ChainID = '743111'
+
+[GasEstimator]
+PriceMax = '120 gwei'

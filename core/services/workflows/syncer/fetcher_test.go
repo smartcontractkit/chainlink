@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -57,7 +58,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		fetcher := NewFetcherService(lggr, wrapper)
+		fetcher := NewFetcherService(lggr, wrapper, webapi.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -84,7 +85,7 @@ func TestNewFetcherService(t *testing.T) {
 	t.Run("fails with invalid payload response", func(t *testing.T) {
 		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
-		fetcher := NewFetcherService(lggr, wrapper)
+		fetcher := NewFetcherService(lggr, wrapper, webapi.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -109,7 +110,7 @@ func TestNewFetcherService(t *testing.T) {
 	t.Run("fails due to invalid gateway response", func(t *testing.T) {
 		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
-		fetcher := NewFetcherService(lggr, wrapper)
+		fetcher := NewFetcherService(lggr, wrapper, webapi.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -150,7 +151,7 @@ func TestNewFetcherService(t *testing.T) {
 
 		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
-		fetcher := NewFetcherService(lggr, wrapper)
+		fetcher := NewFetcherService(lggr, wrapper, webapi.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -175,7 +176,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		fetcher := NewFetcherService(lggr, wrapper)
+		fetcher := NewFetcherService(lggr, wrapper, webapi.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -206,7 +207,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		fetcher := NewFetcherService(lggr, wrapper)
+		fetcher := NewFetcherService(lggr, wrapper, webapi.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -234,7 +235,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		fetcher := NewFetcherService(lggr, wrapper)
+		fetcher := NewFetcherService(lggr, wrapper, webapi.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 

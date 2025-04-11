@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -80,7 +82,7 @@ func TestSignAndExecute_ContractInteraction(t *testing.T) {
 	addresses, err := e.ExistingAddresses.AddressesForChain(testChain)
 	require.NoError(t, err)
 
-	linkState, err := commonchangeset.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	require.NoError(t, err)
 
 	// Mint some funds
