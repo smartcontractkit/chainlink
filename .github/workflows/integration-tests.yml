@@ -1,7 +1,7 @@
 # N/B: ci-core, which runs on PRs, will trigger linting for affected directories/modules
 # no need to run lint twice
 name: Integration Tests
-run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}`
 on:
   merge_group:
   pull_request:
@@ -82,8 +82,8 @@ jobs:
           module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
           enforce-semantic-tag: "true"
   changes:
-    # Don't run E2E tests on PR
-    if: ${{ github.event_name != 'pull_request' }} 
+    # Don't run E2E tests on PR, unless it's tagged with "run-e2e"
+    if: ${{ github.event_name != 'pull_request' || contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e') }}
     environment: integration
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
@@ -120,8 +120,8 @@ jobs:
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
-      - name: Ignore Filter On Workflow Dispatch or PR Label
-        if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-e2e')) || github.event_name == 'workflow_dispatch' }}
+      - name: Ignore Filter On Workflow Dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
         run: echo "changes=true" >> $GITHUB_OUTPUT
     outputs:
