@@ -3,7 +3,6 @@ package evm
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -25,17 +24,19 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
-	// CommitExecLogsRetention defines the duration for which logs critical for Commit/Exec plugins processing are retained.
+	// DefaultCCIPLogsRetentions defines the duration for which logs critical for Commit/Exec plugins processing are retained.
 	// Although Exec relies on permissionlessExecThreshold which is lower than 24hours for picking eligible CommitRoots,
 	// Commit still can reach to older logs because it filters them by sequence numbers. For instance, in case of RMN curse on chain,
 	// we might have logs waiting in OnRamp to be committed first. When outage takes days we still would
 	// be able to bring back processing without replaying any logs from chain. You can read that param as
 	// "how long CCIP can be down and still be able to process all the messages after getting back to life".
 	// Breaching this threshold would require replaying chain using LogPoller from the beginning of the outage.
-	CommitExecLogsRetention = 30 * 24 * time.Hour // 30 days
+	// Using same configs as v1.5 https://github.com/smartcontractkit/ccip/pull/530/files
+	DefaultCCIPLogsRetentions = 30 * 24 * time.Hour // 30 days
 )
 
 var (
@@ -73,7 +74,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					mustGetEventName(consts.EventNameCommitReportAccepted, offrampABI),
 				},
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -134,7 +135,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: nonce_manager.NonceManagerABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -152,7 +153,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: fee_quoter.FeeQuoterABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -202,7 +203,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: rmn_remote.RMNRemoteABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -224,7 +225,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: rmn_proxy_contract.RMNProxyABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -238,7 +239,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: router.RouterABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -261,7 +262,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					consts.EventNameCCIPMessageSent,
 				},
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -308,7 +309,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: router.RouterABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -322,7 +323,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: fee_quoter.FeeQuoterABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -352,7 +353,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: rmn_remote.RMNRemoteABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -381,7 +382,7 @@ var FeedReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: aggregator_v3_interface.AggregatorV3InterfaceABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -403,7 +404,7 @@ var USDCReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				GenericEventNames: []string{consts.EventNameCCTPMessageSent},
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -433,7 +434,7 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			ContractABI: kcr.CapabilitiesRegistryABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -446,7 +447,7 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			ContractABI: ccip_home.CCIPHomeABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -462,7 +463,7 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			ContractABI: rmn_home.RMNHomeABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(CommitExecLogsRetention),
+					Retention: models.Interval(DefaultCCIPLogsRetentions),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
