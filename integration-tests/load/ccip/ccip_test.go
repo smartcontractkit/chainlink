@@ -64,24 +64,31 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	require.NotNil(t, env)
 	userOverrides.Validate(t, env)
 
+	destinationChains := env.AllChainSelectorsAllFamilies()[:*userOverrides.NumDestinationChains]
+
 	// initialize additional accounts on other chains
-	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
-	solanaSourceKeys := make(map[uint64]*solana.PrivateKey)
-	for _, cs := range env.AllChainSelectors() {
-		solKey, err := solana.PrivateKeyFromBase58(solTestKey)
-		require.NoError(t, err)
-		solanaSourceKeys[cs] = &solKey
+	evmSenders, err := fundAdditionalKeys(lggr, *env, destinationChains)
+	solanaSenders := make(map[uint64][]solana.PrivateKey)
+	for _, solSel := range env.AllChainSelectorsSolana() {
+		solanaSenders[solSel] = make([]solana.PrivateKey, 0, len(destinationChains))
+		for range len(destinationChains) {
+			newPk, err := solana.NewRandomPrivateKey()
+			require.NoError(t, err)
+			solanaSenders[solSel] = append(solanaSenders[solSel], newPk)
+		}
 	}
+
 	require.NoError(t, err)
-	// todo: defer returning funds
 
 	// Keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	state, err := ccipchangeset.LoadOnchainState(*env)
 	require.NoError(t, err)
 
-	for chainSel, _ := range state.SolChains {
+	for chainSel := range state.SolChains {
 		SetProgramIDsSafe(state.SolChains[chainSel])
+		err := prepSolAccount(ctx, t, lggr, env, solanaSenders[chainSel], chainSel, state.SolChains[chainSel].Router)
+		require.NoError(t, err)
 	}
 
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
@@ -123,6 +130,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		cs := env.AllChainSelectors()[ind]
 
 		evmSourceKeys := make(map[uint64]*bind.TransactOpts)
+		solSourceKeys := make(map[uint64]*solana.PrivateKey)
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
 		var mu sync.Mutex
 		var wg2 sync.WaitGroup
@@ -131,11 +139,18 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			go func(src uint64) {
 				defer wg2.Done()
 				mu.Lock()
-				evmSourceKeys[src] = transmitKeys[src][ind]
+				evmSourceKeys[src] = evmSenders[src][ind]
 				mu.Unlock()
 			}(src)
 		}
 		wg2.Wait()
+
+		for _, src := range env.AllChainSelectorsSolana() {
+			if src == cs {
+				continue
+			}
+			solSourceKeys[src] = &solanaSenders[src][ind]
+		}
 
 		gunMap[cs], err = NewDestinationGun(
 			env.Logger,
@@ -145,7 +160,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			state.Chains[cs].Receiver.Address(),
 			userOverrides,
 			evmSourceKeys,
-			solanaSourceKeys,
+			solSourceKeys,
 			ind,
 			mm.InputChan,
 		)

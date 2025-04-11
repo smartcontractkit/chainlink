@@ -130,10 +130,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
-	//otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
-	// todo: uncomment to enable solana as a source chain
-	//otherCS := m.env.AllChainSelectorsAllFamiliesExcluding([]uint64{m.chainSelector})
-	otherCS := m.env.AllChainSelectorsSolana()
+	otherCS := m.env.AllChainSelectorsAllFamiliesExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
 	}
@@ -287,7 +284,7 @@ func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) 
 func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 	acc := m.solanaSourceKeys[src]
 	s := m.state.SolChains[src]
-	sourceKey := m.solanaSourceKeys[m.chainSelector]
+	sourceKey := m.solanaSourceKeys[src]
 
 	msg, err := m.getSolanaMessage(src, acc)
 	if err != nil {

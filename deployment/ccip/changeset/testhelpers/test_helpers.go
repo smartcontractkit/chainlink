@@ -765,8 +765,7 @@ func AddLaneSolanaChangesets(e *DeployedEnv, solChainSelector, remoteChainSelect
 				UpdatesByChain: map[uint64]ccipChangeSetSolana.RouterConfig{
 					remoteChainSelector: {
 						RouterDestinationConfig: solRouter.DestChainConfig{
-							AllowListEnabled: true,
-							AllowedSenders:   []solana.PublicKey{e.Env.SolChains[solChainSelector].DeployerKey.PublicKey()},
+							AllowListEnabled: false,
 						},
 					},
 				},
