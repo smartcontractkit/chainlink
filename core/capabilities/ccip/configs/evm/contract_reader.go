@@ -132,6 +132,11 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 		},
 		consts.ContractNameNonceManager: {
 			ContractABI: nonce_manager.NonceManagerABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetInboundNonce: {
 					ChainSpecificName: mustGetMethodName("getInboundNonce", nonceManagerABI),
@@ -145,6 +150,11 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 		},
 		consts.ContractNameFeeQuoter: {
 			ContractABI: fee_quoter.FeeQuoterABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameFeeQuoterGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", feeQuoterABI),
@@ -190,6 +200,11 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 		},
 		consts.ContractNameRMNRemote: {
 			ContractABI: rmn_remote.RMNRemoteABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetVersionedConfig: {
 					ChainSpecificName: mustGetMethodName("getVersionedConfig", rmnRemoteABI),
@@ -207,6 +222,11 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 		},
 		consts.ContractNameRMNProxy: {
 			ContractABI: rmn_proxy_contract.RMNProxyABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetARM: {
 					ChainSpecificName: mustGetMethodName("getARM", rmnProxyABI),
@@ -216,6 +236,11 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 		},
 		consts.ContractNameRouter: {
 			ContractABI: router.RouterABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameRouterGetWrappedNative: {
 					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
@@ -234,6 +259,9 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				GenericEventNames: []string{
 					consts.EventNameCCIPMessageSent,
+				},
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -278,6 +306,11 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 		},
 		consts.ContractNameRouter: {
 			ContractABI: router.RouterABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameRouterGetWrappedNative: {
 					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
@@ -287,6 +320,11 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 		},
 		consts.ContractNameFeeQuoter: {
 			ContractABI: fee_quoter.FeeQuoterABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameFeeQuoterGetTokenPrices: {
 					ChainSpecificName: mustGetMethodName("getTokenPrices", feeQuoterABI),
@@ -312,6 +350,11 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 		},
 		consts.ContractNameRMNRemote: {
 			ContractABI: rmn_remote.RMNRemoteABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetVersionedConfig: {
 					ChainSpecificName: mustGetMethodName("getVersionedConfig", rmnRemoteABI),
@@ -336,6 +379,11 @@ var FeedReaderConfig = evmrelaytypes.ChainReaderConfig{
 	Contracts: map[string]evmrelaytypes.ChainContractReader{
 		consts.ContractNamePriceAggregator: {
 			ContractABI: aggregator_v3_interface.AggregatorV3InterfaceABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetLatestRoundData: {
 					ChainSpecificName: mustGetMethodName(consts.MethodNameGetLatestRoundData, priceFeedABI),
@@ -354,6 +402,9 @@ var USDCReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: MessageTransmitterABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				GenericEventNames: []string{consts.EventNameCCTPMessageSent},
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.EventNameCCTPMessageSent: {
@@ -380,6 +431,11 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 	Contracts: map[string]evmrelaytypes.ChainContractReader{
 		consts.ContractNameCapabilitiesRegistry: {
 			ContractABI: kcr.CapabilitiesRegistryABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetCapability: {
 					ChainSpecificName: mustGetMethodName("getCapability", capabilitiesRegistryABI),
@@ -388,6 +444,11 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 		},
 		consts.ContractNameCCIPConfig: {
 			ContractABI: ccip_home.CCIPHomeABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetAllChainConfigs: {
 					ChainSpecificName: mustGetMethodName("getAllChainConfigs", ccipHomeABI),
@@ -399,6 +460,11 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 		},
 		consts.ContractNameRMNHome: {
 			ContractABI: rmn_home.RMNHomeABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				PollingFilter: evmrelaytypes.PollingFilter{
+					Retention: models.Interval(CommitExecLogsRetention),
+				},
+			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetAllConfigs: {
 					ChainSpecificName: mustGetMethodName("getAllConfigs", rmnHomeABI),
