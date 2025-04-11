@@ -44,15 +44,14 @@ type GetChainReaderWriter interface {
 type CRCW struct {
 	EVMCRCW    GetChainReaderWriter
 	SolanaCRCW GetChainReaderWriter
-	lggr       logger.Logger
+	Lggr       logger.Logger
 }
 
 // NewCRCW is a constructor for CRCW.
-func NewCRCW(evmCRCW, solanaCRCW GetChainReaderWriter, lggr logger.Logger) *CRCW {
+func NewCRCW(evmCRCW, solanaCRCW GetChainReaderWriter) *CRCW {
 	return &CRCW{
 		EVMCRCW:    evmCRCW,
 		SolanaCRCW: solanaCRCW,
-		lggr:       lggr,
 	}
 }
 

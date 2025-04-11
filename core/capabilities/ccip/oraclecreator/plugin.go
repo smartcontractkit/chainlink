@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	defaults "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/default"
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -361,7 +362,8 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		return nil, nil, fmt.Errorf("failed to get chain ID from chain selector %d: %w", i.homeChainSelector, err)
 	}
 
-	crcw := ccipcommon.NewCRCW(ccipevm.GetCRCW{}, ccipsolana.GetCRCW{}, i.lggr)
+	crcw := defaults.DefaultCRCW
+	crcw.Lggr = i.lggr
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for relayID, relayer := range i.relayers {
@@ -459,7 +461,7 @@ func decodeAndValidateOffchainConfig(
 
 // initializerPluginConfig initializes the plugin config for the given chain family.
 func initializerPluginConfig(destChainFamily string, lggr logger.Logger) (ccipcommon.PluginConfig, error) {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataCodec{}, ccipsolana.ExtraDataCodec{})
+	extraDataCodec := defaults.DefaultExtraDataCodec
 	pluginConfig, err := ccipcommon.NewPluginConfigFactory(
 		ccipevm.NewPluginConfig(extraDataCodec),
 		ccipsolana.NewPluginConfig(extraDataCodec),

@@ -10,9 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	defaults "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/default"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
@@ -373,7 +372,7 @@ func ManuallyExecuteAll(
 	lookbackDuration time.Duration,
 	reExecuteIfFailed bool,
 ) error {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataCodec{}, ccipsolana.ExtraDataCodec{})
+	extraDataCodec := defaults.DefaultExtraDataCodec
 	for _, seqNr := range msgSeqNrs {
 		err := manuallyExecuteSingle(
 			ctx,
