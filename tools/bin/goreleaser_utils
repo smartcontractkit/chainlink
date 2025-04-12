@@ -49,7 +49,7 @@ before_hook() {
 }
 
 install_local_plugins() {
-  make install-local-plugins
+  make install-plugins-local
 }
 
 install_remote_plugins() {
