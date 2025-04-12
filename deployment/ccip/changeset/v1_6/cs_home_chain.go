@@ -852,7 +852,6 @@ func validateAccess(
 	if nop.Admin != sender && sender != owner {
 		return fmt.Errorf("tx sender %s is not the owner %s of CapabilitiesRegistry %s or admin %s of nop %s",
 			sender.String(), owner.String(), capReg.Address().String(), nop.Admin.String(), nop.Name)
-
 	}
 	return nil
 }
@@ -870,7 +869,7 @@ func nodeOperatorIDByNop(allNops map[uint32]capabilities_registry.CapabilitiesRe
 // allNodeOperatorsByID returns a map of node operator IDs to node operator structs
 // It fetches all node operators from the CapabilitiesRegistry contract
 func allNodeOperatorsByID(ctx context.Context, capReg *capabilities_registry.CapabilitiesRegistry) (map[uint32]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
-	nopIdByName := make(map[uint32]capabilities_registry.CapabilitiesRegistryNodeOperator)
+	nopIDByName := make(map[uint32]capabilities_registry.CapabilitiesRegistryNodeOperator)
 	operators, err := capReg.GetNodeOperators(&bind.CallOpts{
 		Context: ctx,
 	})
@@ -883,9 +882,9 @@ func allNodeOperatorsByID(ctx context.Context, capReg *capabilities_registry.Cap
 		if err != nil {
 			return nil, err
 		}
-		nopIdByName[i] = operator
+		nopIDByName[i] = operator
 	}
-	return nopIdByName, nil
+	return nopIDByName, nil
 }
 
 func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deployment.ChangesetOutput, error) {
