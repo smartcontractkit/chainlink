@@ -53,7 +53,8 @@ install_local_plugins() {
 }
 
 install_remote_plugins() {
-  make install-public-plugins
+  make install-loopinstall
+  make install-plugins-public
 }
 
 # binary build post hook

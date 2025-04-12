@@ -307,7 +307,9 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        run: make install-public-plugins
+        run: |
+          make install-loopinstall
+          make install-plugins-public
 
       - name: Go mod tidy
         shell: bash

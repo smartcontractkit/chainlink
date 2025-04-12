@@ -8,10 +8,6 @@ tools/bin/abigen
 /chainlink
 core/chainlink
 
-# plugins
-plugins/docker/output_manifests/*
-!plugins/docker/output_manifests/.gitkeep
-
 # SQLite
 tools/clroot/db.sqlite3-shm
 tools/clroot/db.sqlite3-wal

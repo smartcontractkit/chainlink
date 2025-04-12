@@ -40,4 +40,6 @@ runs:
 
     - name: Install LOOP Plugins
       shell: bash
-      run: make install-public-plugins
+      run: |
+        make install-loopinstall
+        make install-plugins-public

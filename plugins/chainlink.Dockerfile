@@ -1,4 +1,6 @@
+##
 # Build image: Chainlink binary with plugins.
+##
 FROM golang:1.24-bullseye AS buildgo
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
@@ -9,11 +11,14 @@ COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 COPY . .
 
-# Install Delve for debugging.
-RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.2
+# Install Delve for debugging with cache mounts
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go install github.com/go-delve/delve/cmd/dlv@v1.24.2
 
 # Flag to control installation of private plugins (default: false).
 ARG CL_INSTALL_PRIVATE_PLUGINS=false
@@ -21,42 +26,34 @@ ARG CL_INSTALL_PRIVATE_PLUGINS=false
 ARG GO_GCFLAGS
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
-ARG COSMOS_SHA
-ARG STARKNET_SHA
 
-# Flags for Go Delve debugger.
-ARG GO_GCFLAGS
-
-# Install plugins to a specific directory to make it easier to copy to final image.
-RUN GOBIN=/go/bin make install-loopinstall
-
-RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
-
-RUN --mount=type=secret,id=GIT_AUTH_TOKEN ./plugins/scripts/setup_git_auth.sh && \
-    mkdir -p /gobins && \
-    GOBIN=/gobins make install-plugins-local install-plugins-public && \
+ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output
+RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    ./plugins/scripts/setup_git_auth.sh && \
+    mkdir -p /gobins && mkdir -p "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
+    GOBIN=/go/bin make install-loopinstall && \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-local install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins make install-plugins-private; \
+        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
     fi
 
-# Build the golang binaries.
-RUN GOBIN=/gobins make GO_GCFLAGS="${GO_GCFLAGS}" install-chainlink
+# Copy any shared libraries.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    mkdir -p /tmp/lib && \
+    ./plugins/scripts/copy_loopinstall_libs.sh \
+    "$CL_LOOPINSTALL_OUTPUT_DIR" \
+    /tmp/lib
 
-# TODO: name build-manifest to account for different plugin paths to support multiple plugin files.
-# Copy any additional files specified in the build manifest.
-RUN if [ -f "./plugins/docker/output_manifests/build-manifest.json" ]; then \
-        echo "Processing build manifest for additional files..." && \
-        jq -r '.plugins | to_entries[] | select(.value.additionalFiles != null) | .value.additionalFiles[] | "\(.src):\(.dest)"' \
-        ./plugins/docker/output_manifests/build-manifest.json > /tmp/additional_files.txt && \
-        if [ -s "/tmp/additional_files.txt" ]; then \
-            cat /tmp/additional_files.txt && \
-            ./plugins/scripts/copy_additional_files.sh /tmp/additional_files.txt || true; \
-        else \
-            echo "No additional files to copy"; \
-        fi \
-    fi
+# Build chainlink.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOBIN=/gobins make GO_GCFLAGS="${GO_GCFLAGS}" install-chainlink
 
-# Final image: ubuntu with chainlink binary
+##
+# Final Image
+##
 FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
@@ -70,6 +67,7 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && rm -rf /var/lib/apt/lists/*
 
 RUN if [ ${CHAINLINK_USER} != root ]; then useradd --uid 14933 --create-home ${CHAINLINK_USER}; fi
+USER ${CHAINLINK_USER}
 
 # Copy Delve debugger from build stage.
 COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
@@ -82,21 +80,18 @@ ARG CL_APTOS_CMD
 ENV CL_APTOS_CMD=${CL_APTOS_CMD}
 
 # Copy the binaries from the build stage (plugins + chainlink).
-COPY --from=buildgo --chown=${CHAINLINK_USER}:${CHAINLINK_USER} /gobins /usr/local/bin/
-# Copy the additional libs based on the manifests from the build stage.
-COPY --from=buildgo --chown=${CHAINLINK_USER}:${CHAINLINK_USER} /usr/lib/ /usr/lib/
-
-
+COPY --from=buildgo /gobins/ /usr/local/bin/
+# Copy shared libraries from the build stage.
+COPY --from=buildgo /tmp/lib /usr/lib/
 
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
-# explicit set the cache dir. needed so both root and non-root user has an explicit location
+
+# Explicitly set the cache dir. Needed so both root and non-root user has an explicit location.
 ENV XDG_CACHE_HOME=/home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]
-
 HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
-
 CMD ["local", "node"]

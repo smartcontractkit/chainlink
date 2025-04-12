@@ -6,8 +6,9 @@ GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 # Set to true to install private plugins (will require GitHub auth).
-# TODO: needed?
 CL_INSTALL_PRIVATE_PLUGINS ?= false
+# Output directory for loopinstall plugin manifests (set by caller)
+CL_LOOPINSTALL_OUTPUT_DIR ?=
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -61,17 +62,25 @@ chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
 .PHONE: install-loopinstall
+# TODO: update this to the commit on trunk when chainlink-common PR is merged.
 install-loopinstall:
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-common) && \
-	go install $(GOFLAGS) ./pkg/loop/loopinstall
+	go install $(GOFLAGS) github.com/smartcontractkit/chainlink-common/pkg/loop/loopinstall@e9459196f613f538e1a2592f7102224759524966
 
 .PHONY: install-plugins-public
 install-plugins-public: ## Build & install public remote LOOPP binaries (plugins).
-	loopinstall --concurrency 5 ./plugins/plugins.public.yaml
+	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json ./plugins/plugins.public.yaml; \
+	else \
+		loopinstall --concurrency 5 ./plugins/plugins.public.yaml; \
+	fi
 
 .PHONE: install-plugins-private
 install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
-	loopinstall --concurrency 5 ./plugins/plugins.private.yaml
+	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
+	else \
+		loopinstall --concurrency 5 ./plugins/plugins.private.yaml; \
+	fi
 
 .PHONE: install-plugins-local
 install-plugins-local: ## Build & install local plugins.
@@ -105,13 +114,11 @@ docker-plugins:
 	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN))
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-	--build-arg APTOS_RELAYER_GIT_REF=$(APTOS_RELAYER_GIT_REF) \
-	--build-arg CAPABILITIES_GIT_REF=$(CAPABILITIES_GIT_REF) \
-	--build-arg COSMOS_SHA=$(COSMOS_SHA) \
-	--build-arg STARKNET_SHA=$(STARKNET_SHA) \
+	--build-arg CL_APTOS_CMD=chainlink-aptos \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	$(PRIVATE_PLUGIN_ARGS) \
-	-f plugins/chainlink.Dockerfile .
+	-f plugins/chainlink.Dockerfile . \
+	-t chainlink-plugins:latest
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
