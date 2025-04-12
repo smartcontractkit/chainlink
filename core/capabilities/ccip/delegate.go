@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	defaults "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/default"
 	"golang.org/x/exp/maps"
+
+	defaults "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/default"
 
 	"github.com/avast/retry-go/v4"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
