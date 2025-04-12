@@ -7,7 +7,8 @@ COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
@@ -20,15 +21,24 @@ COPY . .
 RUN apt-get update && apt-get install -y jq
 
 # Build the golang binary
-RUN if [ "$GO_COVER_FLAG" = "true" ]; then \
+RUN --mount=type=cache,target=/go/pkg/mod \
+  --mount=type=cache,target=/root/.cache/go-build \
+  if [ "$GO_COVER_FLAG" = "true" ]; then \
         make install-chainlink-cover; \
     else \
         make install-chainlink; \
     fi
 
 # Link LOOP Plugin source dirs with simple names
-RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds | xargs -I % ln -s % /chainlink-feeds
-RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana | xargs -I % ln -s % /chainlink-solana
+RUN --mount=type=cache,target=/go/pkg/mod \
+  mkdir -p /chainlink-feeds && \
+  GO_PACKAGE_PATH=$(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds) && \
+  cp -r $GO_PACKAGE_PATH/* /chainlink-feeds/
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+  mkdir -p /chainlink-solana && \
+  GO_PACKAGE_PATH=$(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana) && \
+  cp -r $GO_PACKAGE_PATH/* /chainlink-solana/
 
 # Build image: Plugins
 FROM golang:1.24-bullseye AS buildplugins
