@@ -263,7 +263,7 @@ jobs:
         uses: ./.github/actions/setup-go
         with:
           # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
-          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' }}
+          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' || matrix.type.cmd == 'go_core_race_tests' }}
           build-cache-version: ${{ matrix.type.cmd }}
 
       - name: Setup Solana
