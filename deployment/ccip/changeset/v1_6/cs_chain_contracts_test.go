@@ -545,7 +545,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 			mcmsEnabled:            true,
 			transferHomeContracts:  true,
 			transferChainContracts: false,
-			expectedErr:            "failed to validate ownership of contracts on chain",
+			expectedErr:            "failed to validate ownership of contracts",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

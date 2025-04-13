@@ -716,7 +716,7 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e deployment.Environment, cha
 		multiErr = std_errors.Join(multiErr, err)
 	}
 	if multiErr != nil {
-		return fmt.Errorf("failed to validate ownership of contracts on %s: %w", chain, multiErr)
+		return multiErr
 	}
 
 	return nil
