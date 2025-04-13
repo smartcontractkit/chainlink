@@ -89,14 +89,17 @@ func registerNodesWithJDLogic(e deployment.Environment, cfg RegisterNodesInput) 
 }
 
 func (cfg RegisterNodesInput) Validate() error {
-	for key, value := range cfg.BaseLabels {
-		if key == "" || value == "" {
-			return errors.New("common node labels have empty key or value")
+	for key := range cfg.BaseLabels {
+		if key == "" {
+			return errors.New("common node labels have empty key")
 		}
 	}
 	for i, don := range cfg.DONsList {
 		if don.Name == "" {
 			return fmt.Errorf("DON[%d] has empty Name", i)
+		}
+		if don.ID == 0 {
+			return fmt.Errorf("DON[%d] has empty ID", i)
 		}
 		if err := validateNodeSlice(don.Nodes, "node", i); err != nil {
 			return err
