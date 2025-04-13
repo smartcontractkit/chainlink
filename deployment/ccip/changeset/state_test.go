@@ -48,7 +48,7 @@ func TestMCMSState(t *testing.T) {
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].CancellerMcm.Address().String())
 }
 
-func TestValidateMCMSConfig(t *testing.T) {
+func TestMaybeEnforceMCMSUsage(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -188,7 +188,7 @@ func TestValidateMCMSConfig(t *testing.T) {
 			state, err := changeset.LoadOnchainState(e)
 			require.NoError(t, err, "failed to load onchain state")
 
-			err = state.ValidateMCMSConfig(e.GetContext(), test.MCMSConfig)
+			err = state.MaybeEnforceMCMSUsage(e.GetContext(), test.MCMSConfig)
 			if test.ExpectedErr != "" {
 				require.Error(t, err, "expected error but got nil")
 				require.Contains(t, err.Error(), test.ExpectedErr, "error message mismatch")

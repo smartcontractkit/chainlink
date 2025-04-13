@@ -1241,9 +1241,12 @@ type UpdateRouterRampsConfig struct {
 }
 
 func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
-	err := state.ValidateMCMSConfig(e.GetContext(), cfg.MCMS)
-	if err != nil {
-		return fmt.Errorf("failed to validate MCMS config: %w", err)
+	if !cfg.TestRouter {
+		// If not using the test router, we need to enforce MCMS usage if the state calls for it.
+		err := state.MaybeEnforceMCMSUsage(e.GetContext(), cfg.MCMS)
+		if err != nil {
+			return err
+		}
 	}
 	supportedChains := state.SupportedChains()
 	for chainSel, update := range cfg.UpdatesByChain {

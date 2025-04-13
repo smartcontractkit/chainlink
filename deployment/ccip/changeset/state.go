@@ -621,13 +621,13 @@ func (c CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	return chains
 }
 
-// ValidateMCMSConfig determines if an MCMS config should be enforced for this particular environment.
+// MaybeEnforceMCMSUsage determines if an MCMS config should be enforced for this particular environment.
 // It checks if the CCIPHome contract is owned by the Timelock because all other contracts should follow this precedent.
 // If CCIPHome is owned by the Timelock and no mcmsConfig is provided, this function will return an error.
-func (c CCIPOnChainState) ValidateMCMSConfig(ctx context.Context, mcmsConfig *proposalutils.TimelockConfig) error {
+func (c CCIPOnChainState) MaybeEnforceMCMSUsage(ctx context.Context, mcmsConfig *proposalutils.TimelockConfig) error {
 	// Instead of accepting a homeChainSelector, we simply look for the CCIPHome contract in state.
 	// This is because the home chain selector is not always available in the input to a changeset.
-	// Also, if the underlying rules to ValidateMCMSConfig change, we can simply update the function body without worrying about the function signature.
+	// Also, if the underlying rules to MaybeEnforceMCMSUsage change, we can simply update the function body without worrying about the function signature.
 	var ccipHome *ccip_home.CCIPHome
 	var homeChainSelector uint64
 	for selector, chain := range c.Chains {

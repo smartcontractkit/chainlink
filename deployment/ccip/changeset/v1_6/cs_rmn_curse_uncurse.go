@@ -35,9 +35,9 @@ type RMNCurseConfig struct {
 
 func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 	state, err := changeset.LoadOnchainState(e)
-	err = state.ValidateMCMSConfig(e.GetContext(), c.MCMS)
+	err = state.MaybeEnforceMCMSUsage(e.GetContext(), c.MCMS)
 	if err != nil {
-		return fmt.Errorf("failed to validate MCMS config: %w", err)
+		return err
 	}
 
 	if err != nil {
