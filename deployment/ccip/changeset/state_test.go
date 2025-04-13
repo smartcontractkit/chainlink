@@ -48,45 +48,80 @@ func TestMCMSState(t *testing.T) {
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].CancellerMcm.Address().String())
 }
 
-func TestIsMCMSEnforced(t *testing.T) {
+func TestValidateMCMSConfig(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		Msg                string
-		DeployCCIPHome     bool
-		DeployMCMS         bool
-		TransferToMCMS     bool
-		ExpectedIsEnforced bool
-		ExpectedErr        string
+		Msg            string
+		DeployCCIPHome bool
+		DeployMCMS     bool
+		TransferToMCMS bool
+		ExpectedErr    string
+		MCMSConfig     *proposalutils.TimelockConfig
 	}{
 		{
-			Msg:                "MCMS owned",
-			DeployCCIPHome:     true,
-			DeployMCMS:         true,
-			TransferToMCMS:     true,
-			ExpectedIsEnforced: true,
+			Msg:            "CCIPHome MCMS owned & MCMS config provided",
+			DeployCCIPHome: true,
+			DeployMCMS:     true,
+			TransferToMCMS: true,
+			MCMSConfig:     &proposalutils.TimelockConfig{},
+			ExpectedErr:    "",
 		},
 		{
-			Msg:                "Not MCMS owned",
-			DeployCCIPHome:     true,
-			DeployMCMS:         true,
-			TransferToMCMS:     false,
-			ExpectedIsEnforced: false,
+			Msg:            "CCIPHome MCMS owned & MCMS config not provided",
+			DeployCCIPHome: true,
+			DeployMCMS:     true,
+			TransferToMCMS: true,
+			MCMSConfig:     nil,
+			ExpectedErr:    "MCMS is enforced for environment",
 		},
 		{
-			Msg:                "MCMS not deployed",
-			DeployCCIPHome:     true,
-			DeployMCMS:         false,
-			TransferToMCMS:     false,
-			ExpectedIsEnforced: false,
+			Msg:            "CCIPHome not MCMS owned & MCMS config provided",
+			DeployCCIPHome: true,
+			DeployMCMS:     true,
+			TransferToMCMS: false,
+			MCMSConfig:     &proposalutils.TimelockConfig{},
+			ExpectedErr:    "",
 		},
 		{
-			Msg:                "CCIPHome not deployed",
-			DeployCCIPHome:     false,
-			DeployMCMS:         false,
-			TransferToMCMS:     false,
-			ExpectedIsEnforced: false,
-			ExpectedErr:        "CCIP home not found",
+			Msg:            "CCIPHome not MCMS owned & MCMS config not provided",
+			DeployCCIPHome: true,
+			DeployMCMS:     true,
+			TransferToMCMS: false,
+			MCMSConfig:     nil,
+			ExpectedErr:    "",
+		},
+		{
+			Msg:            "CCIPHome not deployed & MCMS config provided",
+			DeployCCIPHome: false,
+			DeployMCMS:     false,
+			TransferToMCMS: false,
+			MCMSConfig:     &proposalutils.TimelockConfig{},
+			ExpectedErr:    "",
+		},
+		{
+			Msg:            "CCIPHome not deployed & MCMS config not provided",
+			DeployCCIPHome: false,
+			DeployMCMS:     false,
+			TransferToMCMS: false,
+			MCMSConfig:     nil,
+			ExpectedErr:    "",
+		},
+		{
+			Msg:            "MCMS not deployed & MCMS config provided",
+			DeployCCIPHome: true,
+			DeployMCMS:     false,
+			TransferToMCMS: false,
+			MCMSConfig:     &proposalutils.TimelockConfig{},
+			ExpectedErr:    "",
+		},
+		{
+			Msg:            "MCMS not deployed & MCMS config not provided",
+			DeployCCIPHome: true,
+			DeployMCMS:     false,
+			TransferToMCMS: false,
+			MCMSConfig:     nil,
+			ExpectedErr:    "",
 		},
 	}
 
@@ -153,14 +188,13 @@ func TestIsMCMSEnforced(t *testing.T) {
 			state, err := changeset.LoadOnchainState(e)
 			require.NoError(t, err, "failed to load onchain state")
 
-			isEnforced, err := state.IsMCMSEnforced(e.GetContext())
+			err = state.ValidateMCMSConfig(e.GetContext(), test.MCMSConfig)
 			if test.ExpectedErr != "" {
 				require.Error(t, err, "expected error but got nil")
 				require.Contains(t, err.Error(), test.ExpectedErr, "error message mismatch")
 				return
 			}
-			require.NoError(t, err, "failed to check if MCMS is enforced")
-			require.Equal(t, test.ExpectedIsEnforced, isEnforced, "isEnforced mismatch")
+			require.NoError(t, err, "failed to validate MCMS config")
 		})
 	}
 }

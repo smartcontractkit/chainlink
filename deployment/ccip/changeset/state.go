@@ -620,39 +620,49 @@ func (c CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	return chains
 }
 
-// IsMCMSEnforced determines if MCMS should be enforced for this particular environment.
-// It checks if the CCIPHome contract is owned by the Timelock. All other contracts should follow this precedent.
-func (c CCIPOnChainState) IsMCMSEnforced(ctx context.Context) (bool, error) {
+// ValidateMCMSConfig determines if an MCMS config should be enforced for this particular environment.
+// It checks if the CCIPHome contract is owned by the Timelock because all other contracts should follow this precedent.
+// If CCIPHome is owned by the Timelock and no mcmsConfig is provided, this function will return an error.
+func (c CCIPOnChainState) ValidateMCMSConfig(ctx context.Context, mcmsConfig *proposalutils.TimelockConfig) error {
 	// Instead of accepting a homeChainSelector, we simply look for the CCIPHome contract in state.
 	// This is because the home chain selector is not always available in the input to a changeset.
-	// Also, if the underlying rules to IsMCMSEnforced change, we can simply update the function body without worrying about the function signature.
+	// Also, if the underlying rules to ValidateMCMSConfig change, we can simply update the function body without worrying about the function signature.
 	var ccipHome *ccip_home.CCIPHome
 	var homeChainSelector uint64
 	for selector, chain := range c.Chains {
 		if chain.CCIPHome == nil {
 			continue
 		}
+		// This condition impacts the ability of this function to determine MCMS enforcement.
+		// As such, we return an error if we find multiple CCIPHome contracts.
 		if ccipHome != nil {
-			return false, errors.New("multiple CCIPHome contracts found")
+			return errors.New("multiple CCIPHome contracts found")
 		}
 		ccipHome = chain.CCIPHome
 		homeChainSelector = selector
 	}
+	// It is not the job of this function to enforce the existence of CCIPHome.
+	// Some tests don't deploy CCIPHome, and we don't want to fail them.
+	// We simply say that MCMS is not enforced in such environments.
 	if ccipHome == nil {
-		return false, errors.New("CCIP home not found")
+		return nil
 	}
 	// If the timelock contract is not found on the home chain,
 	// we know that MCMS is not enforced.
 	timelock := c.Chains[homeChainSelector].Timelock
 	if timelock == nil {
-		return false, nil
+		return nil
 	}
-	owner, err := ccipHome.Owner(&bind.CallOpts{Context: ctx})
+	ccipHomeOwner, err := ccipHome.Owner(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return false, fmt.Errorf("failed to get CCIP home owner: %w", err)
+		return fmt.Errorf("failed to get CCIP home owner: %w", err)
 	}
-	// If the timelock contract is the owner of CCIP home, then MCMS is enforced.
-	return owner == timelock.Address(), nil
+	// If CCIPHome is owned by timelock, then MCMS is enforced.
+	if ccipHomeOwner == timelock.Address() && mcmsConfig == nil {
+		return errors.New("MCMS is enforced for environment (i.e. CCIPHome is owned by timelock), but no MCMS config was provided")
+	}
+
+	return nil
 }
 
 func (s CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {

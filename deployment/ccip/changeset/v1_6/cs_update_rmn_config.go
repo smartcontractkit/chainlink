@@ -38,12 +38,9 @@ type SetRMNRemoteOnRMNProxyConfig struct {
 }
 
 func (c SetRMNRemoteOnRMNProxyConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
-	isEnforced, err := state.IsMCMSEnforced(e.GetContext())
+	err := state.ValidateMCMSConfig(e.GetContext(), c.MCMSConfig)
 	if err != nil {
-		return fmt.Errorf("failed to check if MCMS is enforced in environment: %w", err)
-	}
-	if isEnforced && c.MCMSConfig == nil {
-		return errors.New("MCMS is enforced for environment, but no MCMS config was provided")
+		return fmt.Errorf("failed to validate MCMS config: %w", err)
 	}
 	for _, chain := range c.ChainSelectors {
 		err := deployment.IsValidChainSelector(chain)

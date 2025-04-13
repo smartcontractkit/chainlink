@@ -2,7 +2,6 @@ package changeset
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -232,12 +231,9 @@ func (c TokenAdminRegistryChangesetConfig) Validate(
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	isEnforced, err := state.IsMCMSEnforced(env.GetContext())
+	err = state.ValidateMCMSConfig(env.GetContext(), c.MCMS)
 	if err != nil {
-		return fmt.Errorf("failed to check if MCMS is enforced in environment: %w", err)
-	}
-	if isEnforced && c.MCMS == nil {
-		return errors.New("MCMS is enforced for environment, but no MCMS config was provided")
+		return fmt.Errorf("failed to validate MCMS config: %w", err)
 	}
 	for chainSelector, symbolToPoolInfo := range c.Pools {
 		err := ValidateChain(env, state, chainSelector, c.MCMS)
