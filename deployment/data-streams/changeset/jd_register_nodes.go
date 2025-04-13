@@ -72,7 +72,7 @@ func registerNodesForDON(e deployment.Environment, donName string, donID uint64,
 }
 
 func registerNodesWithJDLogic(e deployment.Environment, cfg RegisterNodesInput) (deployment.ChangesetOutput, error) {
-	baseLabels := make([]*ptypes.Label, 0, len(cfg.BaseLabels)+1)
+	baseLabels := make([]*ptypes.Label, 0, len(cfg.BaseLabels))
 	for key, value := range cfg.BaseLabels {
 		baseLabels = append(baseLabels, &ptypes.Label{
 			Key:   key,
