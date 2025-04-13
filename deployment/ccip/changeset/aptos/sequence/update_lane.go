@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/operations"
-	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/types"
 )
 
@@ -31,45 +30,46 @@ var UpdateAptosLanesSequence = operations.NewSequence(
 	updateAptosLanesSequence,
 )
 
-func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in UpdateAptosLanesSeqInput) ([]mcms.Proposal, error) {
-	var mcmsOperations []types.Operation
+func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in UpdateAptosLanesSeqInput) (types.BatchOperation, error) {
+	var mcmsTxs []types.Transaction
 
 	// 1. Update FeeQuoters with destination configs
 	b.Logger.Info("Updating destination configs on FeeQuoters")
 	feeQuoterDestReport, err := operations.ExecuteOperation(b, operation.UpdateFeeQuoterDestsOp, deps, in.UpdateFeeQuoterDestsConfig)
 	if err != nil {
-		return []mcms.Proposal{}, fmt.Errorf("failed to update FeeQuoter destinations: %w", err)
+		return types.BatchOperation{}, fmt.Errorf("failed to update FeeQuoter destinations: %w", err)
 	}
-	mcmsOperations = append(mcmsOperations, feeQuoterDestReport.Output...)
+	mcmsTxs = append(mcmsTxs, feeQuoterDestReport.Output...)
 
-	// 2. Update FeeQuoters with gas prices
-	b.Logger.Info("Updating gas prices on FeeQuoters")
-	feeQuoterPricesReport, err := operations.ExecuteOperation(b, operation.UpdateFeeQuoterPricesOp, deps, in.UpdateFeeQuoterPricesConfig)
-	if err != nil {
-		return []mcms.Proposal{}, fmt.Errorf("failed to update FeeQuoter prices: %w", err)
-	}
-	mcmsOperations = append(mcmsOperations, feeQuoterPricesReport.Output...)
-
-	// 3. Configure destinations on OnRamps
+	// 2. Configure destinations on OnRamps
 	b.Logger.Info("Updating destination configs on OnRamps")
 	onRampReport, err := operations.ExecuteOperation(b, operation.UpdateOnRampDestsOp, deps, in.UpdateOnRampDestsConfig)
 	if err != nil {
-		return []mcms.Proposal{}, fmt.Errorf("failed to update OnRamp destinations: %w", err)
+		return types.BatchOperation{}, fmt.Errorf("failed to update OnRamp destinations: %w", err)
 	}
-	mcmsOperations = append(mcmsOperations, onRampReport.Output...)
+	mcmsTxs = append(mcmsTxs, onRampReport.Output...)
 
-	// 4. Configure sources on OffRamps
+	// 3. Configure sources on OffRamps
 	b.Logger.Info("Updating source configs on OffRamps")
 	offRampReport, err := operations.ExecuteOperation(b, operation.UpdateOffRampSourcesOp, deps, in.UpdateOffRampSourcesConfig)
 	if err != nil {
-		return []mcms.Proposal{}, fmt.Errorf("failed to update OffRamp sources: %w", err)
+		return types.BatchOperation{}, fmt.Errorf("failed to update OffRamp sources: %w", err)
 	}
-	mcmsOperations = append(mcmsOperations, offRampReport.Output...)
+	mcmsTxs = append(mcmsTxs, offRampReport.Output...)
 
-	var proposals []mcms.Proposal
-	// TODO: Build proposal
+	// TODO: This is not working
+	// 4. Update FeeQuoters with gas prices
+	b.Logger.Info("Updating gas prices on FeeQuoters")
+	feeQuoterPricesReport, err := operations.ExecuteOperation(b, operation.UpdateFeeQuoterPricesOp, deps, in.UpdateFeeQuoterPricesConfig)
+	if err != nil {
+		return types.BatchOperation{}, fmt.Errorf("failed to update FeeQuoter prices: %w", err)
+	}
+	mcmsTxs = append(mcmsTxs, feeQuoterPricesReport.Output...)
 
-	return proposals, nil
+	return types.BatchOperation{
+		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  mcmsTxs,
+	}, nil
 }
 
 // Convert config.UpdateAptosLanesConfig into a map[uint64]UpdateAptosLanesSeqInput

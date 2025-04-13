@@ -4,14 +4,16 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/operations"
+	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // Deploy MCMS Sequence
 type DeployMCMSSeqOutput struct {
-	MCMSAddress    aptos.AccountAddress
-	MCMSOperations []mcmstypes.Operation
+	MCMSAddress   aptos.AccountAddress
+	MCMSOperation mcmstypes.BatchOperation
 }
 
 var DeployMCMSSequence = operations.NewSequence(
@@ -21,9 +23,9 @@ var DeployMCMSSequence = operations.NewSequence(
 	deployMCMSSequence,
 )
 
-func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCMS mcmstypes.Config) (DeployMCMSSeqOutput, error) {
+func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCMS types.MCMSWithTimelockConfigV2) (DeployMCMSSeqOutput, error) {
 	// Check if MCMS package is already deployed
-	if deps.OnChainState.MCMSAddress != aptos.AccountZero {
+	if deps.OnChainState.MCMSAddress != (aptos.AccountAddress{}) {
 		b.Logger.Infow("MCMS Package already deployed", "addr", deps.OnChainState.MCMSAddress.String())
 		return DeployMCMSSeqOutput{}, nil
 	}
@@ -33,14 +35,34 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 		return DeployMCMSSeqOutput{}, err
 	}
 	// Configure MCMS
-	configureMCMSInput := operation.ConfigureMCMSInput{
+	configureMCMSBypassers := operation.ConfigureMCMSInput{
 		AddressMCMS: deployMCMSReport.Output.AddressMCMS,
-		MCMSConfigs: configMCMS,
+		MCMSConfigs: configMCMS.Bypasser,
+		MCMSRole:    aptosmcms.TimelockRoleBypasser,
 	}
-	_, err = operations.ExecuteOperation(b, operation.ConfigureMCMSOp, deps, configureMCMSInput)
+	_, err = operations.ExecuteOperation(b, operation.ConfigureMCMSOp, deps, configureMCMSBypassers)
 	if err != nil {
 		return DeployMCMSSeqOutput{}, err
 	}
+	configureMCMSCancellers := operation.ConfigureMCMSInput{
+		AddressMCMS: deployMCMSReport.Output.AddressMCMS,
+		MCMSConfigs: configMCMS.Canceller,
+		MCMSRole:    aptosmcms.TimelockRoleCanceller,
+	}
+	_, err = operations.ExecuteOperation(b, operation.ConfigureMCMSOp, deps, configureMCMSCancellers)
+	if err != nil {
+		return DeployMCMSSeqOutput{}, err
+	}
+	configureMCMSProposers := operation.ConfigureMCMSInput{
+		AddressMCMS: deployMCMSReport.Output.AddressMCMS,
+		MCMSConfigs: configMCMS.Proposer,
+		MCMSRole:    aptosmcms.TimelockRoleProposer,
+	}
+	_, err = operations.ExecuteOperation(b, operation.ConfigureMCMSOp, deps, configureMCMSProposers)
+	if err != nil {
+		return DeployMCMSSeqOutput{}, err
+	}
+	// TODO: Should set MinDelay to timelock
 	// Transfer ownership to self
 	_, err = operations.ExecuteOperation(b, operation.TransferOwnershipToSelfOp, deps, deployMCMSReport.Output.ContractMCMS)
 	if err != nil {
@@ -57,7 +79,7 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 	}
 
 	return DeployMCMSSeqOutput{
-		MCMSAddress:    deployMCMSReport.Output.AddressMCMS,
-		MCMSOperations: gaopReport.Output,
+		MCMSAddress:   deployMCMSReport.Output.AddressMCMS,
+		MCMSOperation: gaopReport.Output,
 	}, nil
 }

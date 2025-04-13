@@ -50,6 +50,7 @@ func deployMCMS(b operations.Bundle, deps AptosDeps, input operations.EmptyInput
 type ConfigureMCMSInput struct {
 	AddressMCMS aptos.AccountAddress
 	MCMSConfigs mcmstypes.Config
+	MCMSRole    aptosmcms.TimelockRole
 }
 
 var ConfigureMCMSOp = operations.NewOperation(
@@ -60,7 +61,7 @@ var ConfigureMCMSOp = operations.NewOperation(
 )
 
 func configureMCMS(b operations.Bundle, deps AptosDeps, in ConfigureMCMSInput) (any, error) {
-	configurer := aptosmcms.NewConfigurer(deps.AptosChain.Client, deps.AptosChain.DeployerSigner)
+	configurer := aptosmcms.NewConfigurer(deps.AptosChain.Client, deps.AptosChain.DeployerSigner, in.MCMSRole)
 	setCfgTx, err := configurer.SetConfig(context.Background(), in.AddressMCMS.StringLong(), &in.MCMSConfigs, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setConfig in MCMS contract: %w", err)
@@ -103,10 +104,10 @@ var GenerateAcceptOwnershipProposalOp = operations.NewOperation(
 	generateAcceptOwnershipProposal,
 )
 
-func generateAcceptOwnershipProposal(b operations.Bundle, deps AptosDeps, in GenerateAcceptOwnershipProposalInput) ([]mcmstypes.Operation, error) {
+func generateAcceptOwnershipProposal(b operations.Bundle, deps AptosDeps, in GenerateAcceptOwnershipProposalInput) (mcmstypes.BatchOperation, error) {
 	moduleInfo, function, _, args, err := (*in.ContractMCMS).MCMSAccount().Encoder().AcceptOwnership()
 	if err != nil {
-		return []mcmstypes.Operation{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)
 	}
 	additionalFields := aptosmcms.AdditionalFields{
 		PackageName: moduleInfo.PackageName,
@@ -115,16 +116,15 @@ func generateAcceptOwnershipProposal(b operations.Bundle, deps AptosDeps, in Gen
 	}
 	callOneAdditionalFields, err := json.Marshal(additionalFields)
 	if err != nil {
-		return []mcmstypes.Operation{}, fmt.Errorf("failed to marshal additionalFields: %w", err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to marshal additionalFields: %w", err)
 	}
-	mcmsOps := []mcmstypes.Operation{{
+
+	return mcmstypes.BatchOperation{
 		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
-		Transaction: mcmstypes.Transaction{
+		Transactions: []mcmstypes.Transaction{{
 			To:               in.AddressMCMS.StringLong(),
 			Data:             aptosmcms.ArgsToData(args),
 			AdditionalFields: callOneAdditionalFields,
-		},
-	}}
-
-	return mcmsOps, err
+		}},
+	}, err
 }

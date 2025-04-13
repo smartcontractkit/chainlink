@@ -1,13 +1,15 @@
 package aptos
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,7 +20,6 @@ const (
 	mockLinkAddress = "0xa"
 	mockBadAddress  = "0xinvalid"
 
-	mockMCMSSigner       = "0x2A9685F653192edBac9F2405D95087c752fF6cd3"
 	sepChainSelector     = 11155111
 	sepMockOnRampAddress = "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59"
 )
@@ -61,20 +62,18 @@ func GetMockChainContractParams(t *testing.T, chainSelector uint64) config.Chain
 			SourceChainsOnRamp:               [][]byte{common.HexToAddress(sepMockOnRampAddress).Bytes()},
 		},
 		OnRampParams: config.OnRampParams{
-			ChainSelector:             chainSelector,
-			AllowlistAdmin:            mockParsedAddress,
-			DestChainSelectors:        []uint64{},
-			DestChainEnabled:          []bool{},
-			DestChainAllowlistEnabled: []bool{},
+			ChainSelector:  chainSelector,
+			AllowlistAdmin: mockParsedAddress,
+			FeeAggregator:  mockParsedAddress,
 		},
 	}
 }
 
-func getMockMCMSConfig(t *testing.T) mcmstypes.Config {
-	parsedAddress := common.HexToAddress(mockMCMSSigner)
-	return mcmstypes.Config{
-		Quorum:       1,
-		Signers:      []common.Address{parsedAddress},
-		GroupSigners: []mcmstypes.Config{},
+func getMockMCMSConfig(t *testing.T) types.MCMSWithTimelockConfigV2 {
+	return types.MCMSWithTimelockConfigV2{
+		Canceller:        proposalutils.SingleGroupMCMSV2(t),
+		Proposer:         proposalutils.SingleGroupMCMSV2(t),
+		Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+		TimelockMinDelay: big.NewInt(0),
 	}
 }

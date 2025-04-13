@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -12,8 +11,8 @@ import (
 // ConfirmTx confirms aptos transactions
 //
 // Optional arguments:
-//   - PollPeriod: time.Duration, how often to poll for the transaction. Default 100ms.
-//   - PollTimeout: time.Duration, how long to wait for the transaction. Default 10s.
+//   - aptos.PollPeriod: time.Duration, how often to poll for the transaction. Default 100ms.
+//   - aptos.PollTimeout: time.Duration, how long to wait for the transaction. Default 10s.
 func ConfirmTx(chain deployment.AptosChain, txHash string, opts ...any) error {
 	userTx, err := chain.Client.WaitForTransaction(txHash, opts...)
 	if err != nil {
@@ -22,7 +21,6 @@ func ConfirmTx(chain deployment.AptosChain, txHash string, opts ...any) error {
 	if !userTx.Success {
 		return fmt.Errorf("transaction failed: %s", userTx.VmStatus)
 	}
-	time.Sleep(time.Second * 1)
 	return nil
 }
 

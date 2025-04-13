@@ -5,12 +5,12 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/chainlink/deployment"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // DeployAptosChainConfig is a configuration for deploying CCIP Package for Aptos chains
 type DeployAptosChainConfig struct {
-	MCMSConfigPerChain     map[uint64]mcmstypes.Config
+	MCMSConfigPerChain     map[uint64]types.MCMSWithTimelockConfigV2
 	ContractParamsPerChain map[uint64]ChainContractParams
 }
 
@@ -55,7 +55,7 @@ type FeeQuoterParams struct {
 }
 
 func (f FeeQuoterParams) Validate() error {
-	if f.LinkToken == aptos.AccountZero {
+	if f.LinkToken == (aptos.AccountAddress{}) {
 		return fmt.Errorf("LinkToken is required")
 	}
 	if f.TokenPriceStalenessThreshold == 0 {
@@ -90,25 +90,17 @@ func (o OffRampParams) Validate() error {
 }
 
 type OnRampParams struct {
-	ChainSelector             uint64
-	AllowlistAdmin            aptos.AccountAddress
-	DestChainSelectors        []uint64
-	DestChainEnabled          []bool
-	DestChainAllowlistEnabled []bool
+	ChainSelector  uint64
+	AllowlistAdmin aptos.AccountAddress
+	FeeAggregator  aptos.AccountAddress
 }
 
 func (o OnRampParams) Validate() error {
 	if err := deployment.IsValidChainSelector(o.ChainSelector); err != nil {
 		return fmt.Errorf("invalid chain selector: %d - %w", o.ChainSelector, err)
 	}
-	if o.AllowlistAdmin == aptos.AccountZero {
+	if o.AllowlistAdmin == (aptos.AccountAddress{}) {
 		return fmt.Errorf("AllowlistAdmin is required")
-	}
-	if len(o.DestChainSelectors) != len(o.DestChainEnabled) {
-		return fmt.Errorf("DestChainSelectors and DestChainEnabled must have the same length")
-	}
-	if len(o.DestChainSelectors) != len(o.DestChainAllowlistEnabled) {
-		return fmt.Errorf("DestChainSelectors and DestChainAllowlistEnabled must have the same length")
 	}
 	return nil
 }

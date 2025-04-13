@@ -2,7 +2,6 @@ package aptos_test
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -10,46 +9,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptosfeequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 
-	// "github.com/smartcontractkit/chainlink/deployment"
-
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
-	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/operations"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-func TestInputSerializable(t *testing.T) {
-	input := seq.UpdateAptosLanesSeqInput{
-		UpdateFeeQuoterDestsConfig: operation.UpdateFeeQuoterDestsInput{
-			MCMSAddress: aptos.AccountAddress{},
-			Updates:     map[uint64]aptosfeequoter.DestChainConfig{},
-		},
-		UpdateFeeQuoterPricesConfig: operation.UpdateFeeQuoterPricesInput{
-			MCMSAddress: aptos.AccountAddress{},
-			Prices:      operation.FeeQuoterPriceUpdatePerSource{},
-		},
-		UpdateOnRampDestsConfig: operation.UpdateOnRampDestsInput{
-			MCMSAddress: aptos.AccountAddress{},
-			Updates:     map[uint64]v1_6.OnRampDestinationUpdate{},
-		},
-		UpdateOffRampSourcesConfig: operation.UpdateOffRampSourcesInput{
-			MCMSAddress: aptos.AccountAddress{},
-			Updates:     map[uint64]v1_6.OffRampSourceUpdate{},
-		},
-	}
-	isSer := operations.IsSerializable(logger.TestLogger(t), input)
-	fmt.Println(isSer)
-}
 
 func TestAddAptosLanes_Apply(t *testing.T) {
 	// Setup environment and config
@@ -83,19 +55,24 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 
 	// bind ccip aptos
 	aptosCCIPAddr := state.AptosChains[aptosSelector].CCIPAddress
-	aptosCCIP := ccip.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
+	aptosOnRamp := ccip_onramp.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
+	aptosOffRamp := ccip_offramp.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
 
-	is_enabled1, sequence_number1, allowlist_enabled1, err := aptosCCIP.Onramp().GetDestChainConfig(nil, emvSelector)
+	dynCfg, err := aptosOffRamp.Offramp().GetDynamicConfig(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.True(t, is_enabled1)
-	require.True(t, sequence_number1 > 0)
-	require.True(t, allowlist_enabled1)
+	require.True(t, dynCfg.PermissionlessExecutionThresholdSeconds > 0)
 
-	is_enabled2, sequence_number2, allowlist_enabled2, err := aptosCCIP.Onramp().GetDestChainConfig(nil, emvSelector2)
+	isSupported, err := aptosOnRamp.Onramp().IsChainSupported(&bind.CallOpts{}, emvSelector)
 	require.NoError(t, err)
-	require.True(t, is_enabled2)
-	require.True(t, sequence_number2 > 0)
-	require.True(t, allowlist_enabled2)
+	require.True(t, isSupported)
+
+	_, _, router, err := aptosOnRamp.Onramp().GetDestChainConfig(&bind.CallOpts{}, emvSelector)
+	require.NoError(t, err)
+	require.NotEqual(t, router, aptos.AccountAddress{})
+
+	_, _, router2, err := aptosOnRamp.Onramp().GetDestChainConfig(&bind.CallOpts{}, emvSelector2)
+	require.NoError(t, err)
+	require.NotEqual(t, router2, aptos.AccountAddress{})
 }
 
 func getMockUpdateConfig(
@@ -157,7 +134,7 @@ func getMockUpdateConfig(
 				IsDisabled: false,
 			},
 		},
-		TestRouter: true,
+		TestRouter: false,
 	}
 }
 

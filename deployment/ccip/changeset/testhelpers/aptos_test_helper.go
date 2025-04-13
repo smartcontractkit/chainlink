@@ -1,6 +1,7 @@
 package testhelpers
 
 import (
+	"math/big"
 	"testing"
 
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
@@ -8,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector uint64) commonchangeset.ConfiguredChangeSet {
@@ -17,8 +18,13 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
 			chainSelector: mockCCIPParams,
 		},
-		MCMSConfigPerChain: map[uint64]mcmstypes.Config{
-			chainSelector: proposalutils.SingleGroupMCMSV2(t),
+		MCMSConfigPerChain: map[uint64]commontypes.MCMSWithTimelockConfigV2{
+			chainSelector: {
+				Canceller:        proposalutils.SingleGroupMCMSV2(t),
+				Proposer:         proposalutils.SingleGroupMCMSV2(t),
+				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+				TimelockMinDelay: big.NewInt(0),
+			},
 		},
 	}
 

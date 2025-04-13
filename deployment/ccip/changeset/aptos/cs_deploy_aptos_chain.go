@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/operations"
 	"github.com/smartcontractkit/mcms"
+	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
@@ -42,10 +43,12 @@ func (cs DeployAptosChain) VerifyPreconditions(env deployment.Environment, confi
 			errs = append(errs, fmt.Errorf("aptos chain %d not found in state", chainSel))
 			continue
 		}
-		if chainState.MCMSAddress == aptos.AccountZero {
+		if chainState.MCMSAddress == (aptos.AccountAddress{}) {
 			mcmsConfig := config.MCMSConfigPerChain[chainSel]
-			if err := mcmsConfig.Validate(); err != nil {
-				errs = append(errs, fmt.Errorf("invalid mcms configs for Aptos chain %d: %w", chainSel, err))
+			for _, cfg := range []mcmstypes.Config{mcmsConfig.Bypasser, mcmsConfig.Canceller, mcmsConfig.Proposer} {
+				if err := cfg.Validate(); err != nil {
+					errs = append(errs, fmt.Errorf("invalid mcms configs for Aptos chain %d: %w", chainSel, err))
+				}
 			}
 		}
 	}
@@ -61,11 +64,11 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 
 	ab := deployment.NewMemoryAddressBook()
 	seqReports := make([]operations.Report[any, any], 0)
-	proposals := make([]mcms.Proposal, 0)
+	proposals := make([]mcms.TimelockProposal, 0)
 
 	// Deploy CCIP on each Aptos chain in config
 	for chainSel := range config.ContractParamsPerChain {
-		mcmsOperations := []mcmstypes.Operation{}
+		mcmsOperations := []mcmstypes.BatchOperation{}
 		chainState := state[chainSel]
 		aptosChain := env.AptosChains[chainSel]
 
@@ -81,7 +84,7 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 			return deployment.ChangesetOutput{}, err
 		}
 		seqReports = append(seqReports, mcmsSeqReport.ExecutionReports...)
-		mcmsOperations = append(mcmsOperations, mcmsSeqReport.Output.MCMSOperations...)
+		mcmsOperations = append(mcmsOperations, mcmsSeqReport.Output.MCMSOperation)
 
 		// CCIP Deploy operations
 		ccipSeqInput := seq.DeployCCIPSeqInput{
@@ -96,15 +99,22 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 		mcmsOperations = append(mcmsOperations, ccipSeqReport.Output.MCMSOperations...)
 
 		// Generate MCMS proposals
-		proposal, err := utils.GenerateProposal(aptosChain.Client, mcmsSeqReport.Output.MCMSAddress, chainSel, mcmsOperations, "Deploy Aptos MCMS and CCIP")
+		proposal, err := utils.GenerateProposal(
+			aptosChain.Client,
+			mcmsSeqReport.Output.MCMSAddress,
+			chainSel,
+			mcmsOperations,
+			"Deploy Aptos MCMS and CCIP",
+			aptosmcms.TimelockRoleProposer,
+		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", chainSel, err)
 		}
 		proposals = append(proposals, *proposal)
 	}
 	return deployment.ChangesetOutput{
-		AddressBook:   ab,
-		MCMSProposals: proposals,
-		Reports:       seqReports,
+		AddressBook:           ab,
+		MCMSTimelockProposals: proposals,
+		Reports:               seqReports,
 	}, nil
 }
