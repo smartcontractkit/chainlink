@@ -5,15 +5,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/operations"
-	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // Deploy MCMS Sequence
 type DeployMCMSSeqOutput struct {
-	MCMSAddress  aptos.AccountAddress
-	MCMSProposal *mcms.Proposal
-	NextOpCount  uint64
+	MCMSAddress    aptos.AccountAddress
+	MCMSOperations []mcmstypes.Operation
 }
 
 var DeployMCMSSequence = operations.NewSequence(
@@ -59,8 +57,7 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 	}
 
 	return DeployMCMSSeqOutput{
-		MCMSAddress:  deployMCMSReport.Output.AddressMCMS,
-		MCMSProposal: gaopReport.Output.MCMSProposal,
-		NextOpCount:  gaopReport.Output.NextOpCount,
+		MCMSAddress:    deployMCMSReport.Output.AddressMCMS,
+		MCMSOperations: gaopReport.Output,
 	}, nil
 }

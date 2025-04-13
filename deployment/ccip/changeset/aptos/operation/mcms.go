@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
-	"github.com/smartcontractkit/mcms"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -97,11 +96,6 @@ type GenerateAcceptOwnershipProposalInput struct {
 	ContractMCMS *mcmsbind.MCMS // TODO: outputs should be serializable
 }
 
-type GenerateAcceptOwnershipProposalOutput struct {
-	MCMSProposal *mcms.Proposal
-	NextOpCount  uint64
-}
-
 var GenerateAcceptOwnershipProposalOp = operations.NewOperation(
 	"generate-accept-ownership-proposal-op",
 	Version1_0_0,
@@ -109,10 +103,10 @@ var GenerateAcceptOwnershipProposalOp = operations.NewOperation(
 	generateAcceptOwnershipProposal,
 )
 
-func generateAcceptOwnershipProposal(b operations.Bundle, deps AptosDeps, in GenerateAcceptOwnershipProposalInput) (GenerateAcceptOwnershipProposalOutput, error) {
+func generateAcceptOwnershipProposal(b operations.Bundle, deps AptosDeps, in GenerateAcceptOwnershipProposalInput) ([]mcmstypes.Operation, error) {
 	moduleInfo, function, _, args, err := (*in.ContractMCMS).MCMSAccount().Encoder().AcceptOwnership()
 	if err != nil {
-		return GenerateAcceptOwnershipProposalOutput{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)
+		return []mcmstypes.Operation{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)
 	}
 	additionalFields := aptosmcms.AdditionalFields{
 		PackageName: moduleInfo.PackageName,
@@ -121,7 +115,7 @@ func generateAcceptOwnershipProposal(b operations.Bundle, deps AptosDeps, in Gen
 	}
 	callOneAdditionalFields, err := json.Marshal(additionalFields)
 	if err != nil {
-		return GenerateAcceptOwnershipProposalOutput{}, fmt.Errorf("failed to marshal additionalFields: %w", err)
+		return []mcmstypes.Operation{}, fmt.Errorf("failed to marshal additionalFields: %w", err)
 	}
 	mcmsOps := []mcmstypes.Operation{{
 		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
@@ -131,14 +125,6 @@ func generateAcceptOwnershipProposal(b operations.Bundle, deps AptosDeps, in Gen
 			AdditionalFields: callOneAdditionalFields,
 		},
 	}}
-	mcmsProposal, nextOpCount, err := utils.GenerateProposal(
-		deps.AptosChain.Client,
-		(*in.ContractMCMS).Address(),
-		deps.AptosChain.Selector,
-		mcmsOps,
-		AcceptOwnershipProposalDescription,
-		0,
-	)
 
-	return GenerateAcceptOwnershipProposalOutput{mcmsProposal, nextOpCount}, err
+	return mcmsOps, err
 }

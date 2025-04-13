@@ -14,21 +14,14 @@ import (
 	aptoscfg "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/operations"
-	"github.com/smartcontractkit/mcms"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
-
-// Shared types
-type MCMSProposalOutput struct {
-	MCMSProposal *mcms.Proposal
-	NextOpCount  uint64
-}
 
 // CleanupStagingArea Operation
 type CleanupStagingAreaInput struct {
 	MCMSAddress aptos.AccountAddress
-	MCMSOpCount uint64
 }
 
 var CleanupStagingAreaOp = operations.NewOperation(
@@ -38,15 +31,15 @@ var CleanupStagingAreaOp = operations.NewOperation(
 	cleanupStagingArea,
 )
 
-func cleanupStagingArea(b operations.Bundle, deps AptosDeps, in CleanupStagingAreaInput) (MCMSProposalOutput, error) {
+func cleanupStagingArea(b operations.Bundle, deps AptosDeps, in CleanupStagingAreaInput) ([]mcmstypes.Operation, error) {
 	// Check resources first to see if staging is clean
 	IsMCMSStagingAreaClean, err := utils.IsMCMSStagingAreaClean(deps.AptosChain.Client, in.MCMSAddress)
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to check if MCMS staging area is clean: %w", err)
+		return nil, fmt.Errorf("failed to check if MCMS staging area is clean: %w", err)
 	}
 	if IsMCMSStagingAreaClean {
 		b.Logger.Infow("MCMS Staging Area already clean", "addr", in.MCMSAddress.String())
-		return MCMSProposalOutput{}, nil
+		return nil, nil
 	}
 
 	// Bind MCMS contract
@@ -57,7 +50,7 @@ func cleanupStagingArea(b operations.Bundle, deps AptosDeps, in CleanupStagingAr
 	var operations []types.Operation
 	moduleInfo, function, _, args, err := mcmsContract.MCMSDeployer().Encoder().CleanupStagingArea()
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to EncodeCleanupStagingArea: %w", err)
+		return nil, fmt.Errorf("failed to EncodeCleanupStagingArea: %w", err)
 	}
 	additionalFields := aptosmcms.AdditionalFields{
 		PackageName: moduleInfo.PackageName,
@@ -66,7 +59,7 @@ func cleanupStagingArea(b operations.Bundle, deps AptosDeps, in CleanupStagingAr
 	}
 	afBytes, err := json.Marshal(additionalFields)
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to marshal additional fields: %w", err)
+		return nil, fmt.Errorf("failed to marshal additional fields: %w", err)
 	}
 	operations = append(operations, types.Operation{
 		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),
@@ -77,31 +70,17 @@ func cleanupStagingArea(b operations.Bundle, deps AptosDeps, in CleanupStagingAr
 		},
 	})
 
-	// Generate cleanup proposal
-	proposal, nextOpCount, err := utils.GenerateProposal(
-		deps.AptosChain.Client,
-		mcmsContract.Address(),
-		deps.AptosChain.Selector,
-		operations,
-		"Cleanup Staging Area",
-		in.MCMSOpCount,
-	)
-	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to create deploy proposal: %w", err)
-	}
-
-	return MCMSProposalOutput{proposal, nextOpCount}, nil
+	return operations, nil
 }
 
 // GenerateDeployCCIPProposal Operation generates deployment MCMS operations for the CCIP package
 type DeployCCIPInput struct {
 	MCMSAddress aptos.AccountAddress
-	MCMSOpCount uint64
 }
 
 type DeployCCIPOutput struct {
-	CCIPAddress aptos.AccountAddress
-	MCMSProposalOutput
+	CCIPAddress    aptos.AccountAddress
+	MCMSOperations []mcmstypes.Operation
 }
 
 var GenerateDeployCCIPProposalOp = operations.NewOperation(
@@ -115,7 +94,7 @@ func generateDeployCCIPProposal(b operations.Bundle, deps AptosDeps, in DeployCC
 	// Validate there's no package deployed
 	if deps.OnChainState.CCIPAddress != aptos.AccountZero {
 		b.Logger.Infow("CCIP Package already deployed", "addr", deps.OnChainState.CCIPAddress.String())
-		return DeployCCIPOutput{CCIPAddress: deps.OnChainState.CCIPAddress, MCMSProposalOutput: MCMSProposalOutput{NextOpCount: in.MCMSOpCount}}, nil
+		return DeployCCIPOutput{CCIPAddress: deps.OnChainState.CCIPAddress}, nil
 	}
 
 	// Compile, chunk and get CCIP deploy operations
@@ -130,18 +109,9 @@ func generateDeployCCIPProposal(b operations.Bundle, deps AptosDeps, in DeployCC
 	deps.AB.Save(deps.AptosChain.Selector, ccipObjectAddress.String(), typeAndVersion)
 	deps.OnChainState.CCIPAddress = ccipObjectAddress
 
-	// Generate deploy proposal
-	proposal, nextOpCount, err := utils.GenerateProposal(deps.AptosChain.Client, mcmsContract.Address(), deps.AptosChain.Selector, operations, "Deploy CCIP Package", in.MCMSOpCount)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to create deploy proposal: %w", err)
-	}
-
 	return DeployCCIPOutput{
-		CCIPAddress: ccipObjectAddress,
-		MCMSProposalOutput: MCMSProposalOutput{
-			MCMSProposal: proposal,
-			NextOpCount:  nextOpCount,
-		},
+		CCIPAddress:    ccipObjectAddress,
+		MCMSOperations: operations,
 	}, nil
 }
 
@@ -171,7 +141,6 @@ func getCCIPDeployMCMSOps(mcmsContract mcmsbind.MCMS, chainSel uint64) (aptos.Ac
 type DeployRouterInput struct {
 	MCMSAddress aptos.AccountAddress
 	CCIPAddress aptos.AccountAddress
-	MCMSOpCount uint64
 }
 
 var GenerateDeployRouterProposalOp = operations.NewOperation(
@@ -181,32 +150,16 @@ var GenerateDeployRouterProposalOp = operations.NewOperation(
 	generateDeployRouterProposal,
 )
 
-func generateDeployRouterProposal(b operations.Bundle, deps AptosDeps, in DeployRouterInput) (MCMSProposalOutput, error) {
+func generateDeployRouterProposal(b operations.Bundle, deps AptosDeps, in DeployRouterInput) ([]mcmstypes.Operation, error) {
 	// TODO: is there a way to check if module exists?
 	// Compile, chunk and get Router deploy operations
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	operations, err := getRouterDeployMCMSOps(mcmsContract, in.CCIPAddress, deps.AptosChain.Selector)
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to compile and create deploy operations: %w", err)
+		return nil, fmt.Errorf("failed to compile and create deploy operations: %w", err)
 	}
 
-	// Generate deploy proposal
-	proposal, nextOpCount, err := utils.GenerateProposal(
-		deps.AptosChain.Client,
-		mcmsContract.Address(),
-		deps.AptosChain.Selector,
-		operations,
-		"Deploy Router Package",
-		in.MCMSOpCount,
-	)
-	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to create deploy proposal: %w", err)
-	}
-
-	return MCMSProposalOutput{
-		MCMSProposal: proposal,
-		NextOpCount:  nextOpCount,
-	}, nil
+	return operations, nil
 }
 
 func getRouterDeployMCMSOps(
@@ -234,7 +187,6 @@ type InitializeCCIPInput struct {
 	MCMSAddress aptos.AccountAddress
 	CCIPAddress aptos.AccountAddress
 	CCIPConfig  aptoscfg.ChainContractParams
-	MCMSOpCount uint64
 }
 
 var InitializeCCIPOp = operations.NewOperation(
@@ -244,7 +196,7 @@ var InitializeCCIPOp = operations.NewOperation(
 	generateInitializeCCIPProposal,
 )
 
-func generateInitializeCCIPProposal(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput) (MCMSProposalOutput, error) {
+func generateInitializeCCIPProposal(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput) ([]types.Operation, error) {
 	var operations []types.Operation
 	ccipBind := ccip.Bind(in.CCIPAddress, deps.AptosChain.Client)
 
@@ -257,11 +209,11 @@ func generateInitializeCCIPProposal(b operations.Bundle, deps AptosDeps, in Init
 		in.CCIPConfig.OnRampParams.DestChainAllowlistEnabled,
 	)
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to encode onramp initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode onramp initialize: %w", err)
 	}
 	mcmsOp, err := generateMCMSOperation(deps.AptosChain.Selector, in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to generate MCMS operations for OnRamp Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for OnRamp Initialize: %w", err)
 	}
 	operations = append(operations, mcmsOp)
 
@@ -275,11 +227,11 @@ func generateInitializeCCIPProposal(b operations.Bundle, deps AptosDeps, in Init
 		in.CCIPConfig.OffRampParams.SourceChainsOnRamp,
 	)
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to encode offramp initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode offramp initialize: %w", err)
 	}
 	mcmsOp, err = generateMCMSOperation(deps.AptosChain.Selector, in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to generate MCMS operations for OffRamp Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for OffRamp Initialize: %w", err)
 	}
 	operations = append(operations, mcmsOp)
 
@@ -291,42 +243,26 @@ func generateInitializeCCIPProposal(b operations.Bundle, deps AptosDeps, in Init
 		in.CCIPConfig.FeeQuoterParams.FeeTokens,
 	)
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to encode feequoter initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode feequoter initialize: %w", err)
 	}
 	mcmsOp, err = generateMCMSOperation(deps.AptosChain.Selector, in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to generate MCMS operations for FeeQuoter Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for FeeQuoter Initialize: %w", err)
 	}
 	operations = append(operations, mcmsOp)
 
 	// Config RMNRemote
 	moduleInfo, function, _, args, err = ccipBind.RMNRemote().Encoder().Initialize(deps.AptosChain.Selector)
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to encode rmnremote initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode rmnremote initialize: %w", err)
 	}
 	mcmsOp, err = generateMCMSOperation(deps.AptosChain.Selector, in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to generate MCMS operations for RMNRemote Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for RMNRemote Initialize: %w", err)
 	}
 	operations = append(operations, mcmsOp)
 
-	// Generate config proposal
-	proposal, nextOpCount, err := utils.GenerateProposal(
-		deps.AptosChain.Client,
-		in.MCMSAddress,
-		deps.AptosChain.Selector,
-		operations,
-		"Initialize CCIP Package",
-		in.MCMSOpCount,
-	)
-	if err != nil {
-		return MCMSProposalOutput{}, fmt.Errorf("failed to create deploy proposal: %w", err)
-	}
-
-	return MCMSProposalOutput{
-		MCMSProposal: proposal,
-		NextOpCount:  nextOpCount,
-	}, nil
+	return operations, nil
 
 }
 

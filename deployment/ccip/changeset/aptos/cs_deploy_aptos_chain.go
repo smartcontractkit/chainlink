@@ -11,8 +11,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/operations"
 	"github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 var _ deployment.ChangeSetV2[config.DeployAptosChainConfig] = DeployAptosChain{}
@@ -58,11 +60,12 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 	}
 
 	ab := deployment.NewMemoryAddressBook()
-	proposals := []mcms.Proposal{}
 	seqReports := make([]operations.Report[any, any], 0)
+	proposals := make([]mcms.Proposal, 0)
 
 	// Deploy CCIP on each Aptos chain in config
 	for chainSel := range config.ContractParamsPerChain {
+		mcmsOperations := []mcmstypes.Operation{}
 		chainState := state[chainSel]
 		aptosChain := env.AptosChains[chainSel]
 
@@ -78,12 +81,11 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 			return deployment.ChangesetOutput{}, err
 		}
 		seqReports = append(seqReports, mcmsSeqReport.ExecutionReports...)
-		proposals = append(proposals, *mcmsSeqReport.Output.MCMSProposal)
+		mcmsOperations = append(mcmsOperations, mcmsSeqReport.Output.MCMSOperations...)
 
 		// CCIP Deploy operations
 		ccipSeqInput := seq.DeployCCIPSeqInput{
 			MCMSAddress: mcmsSeqReport.Output.MCMSAddress,
-			MCMSOpCount: mcmsSeqReport.Output.NextOpCount,
 			CCIPConfig:  config.ContractParamsPerChain[chainSel],
 		}
 		ccipSeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployCCIPSequence, deps, ccipSeqInput)
@@ -91,11 +93,15 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy CCIP for Aptos chain %d: %w", chainSel, err)
 		}
 		seqReports = append(seqReports, ccipSeqReport.ExecutionReports...)
-		for _, proposal := range ccipSeqReport.Output.MCMSProposals {
-			proposals = append(proposals, *proposal)
-		}
-	}
+		mcmsOperations = append(mcmsOperations, ccipSeqReport.Output.MCMSOperations...)
 
+		// Generate MCMS proposals
+		proposal, err := utils.GenerateProposal(aptosChain.Client, mcmsSeqReport.Output.MCMSAddress, chainSel, mcmsOperations, "Deploy Aptos MCMS and CCIP")
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", chainSel, err)
+		}
+		proposals = append(proposals, *proposal)
+	}
 	return deployment.ChangesetOutput{
 		AddressBook:   ab,
 		MCMSProposals: proposals,

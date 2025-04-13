@@ -26,17 +26,14 @@ func GenerateProposal(
 	chainSel uint64,
 	operations []types.Operation,
 	description string,
-	opCount uint64,
-) (*mcms.Proposal, uint64, error) {
-	if opCount == 0 {
-		// Create MCMS inspector
-		inspector := aptosmcms.NewInspector(client)
-		startingOpCount, err := inspector.GetOpCount(context.Background(), mcmsAddress.StringLong())
-		if err != nil {
-			return nil, 0, fmt.Errorf("failed to get starting op count: %w", err)
-		}
-		opCount = startingOpCount
+) (*mcms.Proposal, error) {
+	// Create MCMS inspector
+	inspector := aptosmcms.NewInspector(client)
+	startingOpCount, err := inspector.GetOpCount(context.Background(), mcmsAddress.StringLong())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get starting op count: %w", err)
 	}
+	opCount := startingOpCount
 
 	// Create proposal builder
 	validUntil := time.Now().Add(time.Hour * ValidUntilHours).Unix()
@@ -59,10 +56,10 @@ func GenerateProposal(
 	}
 	proposal, err := proposalBuilder.Build()
 	if err != nil {
-		return nil, opCount, fmt.Errorf("failed to build proposal: %w", err)
+		return nil, fmt.Errorf("failed to build proposal: %w", err)
 	}
 
-	return proposal, opCount + uint64(len(operations)), nil
+	return proposal, nil
 }
 
 // CreateChunksAndStage creates chunks from the compiled packages and build MCMS operations to stages them within the MCMS contract
