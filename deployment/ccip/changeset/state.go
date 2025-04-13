@@ -621,29 +621,32 @@ func (c CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	return chains
 }
 
-// MaybeEnforceMCMSUsage determines if an MCMS config should be enforced for this particular environment.
-// It checks if the CCIPHome contract is owned by the Timelock because all other contracts should follow this precedent.
-// If CCIPHome is owned by the Timelock and no mcmsConfig is provided, this function will return an error.
-func (c CCIPOnChainState) MaybeEnforceMCMSUsage(ctx context.Context, mcmsConfig *proposalutils.TimelockConfig) error {
-	// Instead of accepting a homeChainSelector, we simply look for the CCIPHome contract in state.
+// EnforceMCMSUsageIfProd determines if an MCMS config should be enforced for this particular environment.
+// It checks if the CCIPHome and CapabilitiesRegistry contracts are owned by the Timelock because all other contracts should follow this precedent.
+// If the home chain contracts are owned by the Timelock and no mcmsConfig is provided, this function will return an error.
+func (c CCIPOnChainState) EnforceMCMSUsageIfProd(ctx context.Context, mcmsConfig *proposalutils.TimelockConfig) error {
+	// Instead of accepting a homeChainSelector, we simply look for the CCIPHome and CapabilitiesRegistry in state.
 	// This is because the home chain selector is not always available in the input to a changeset.
-	// Also, if the underlying rules to MaybeEnforceMCMSUsage change, we can simply update the function body without worrying about the function signature.
+	// Also, if the underlying rules to EnforceMCMSUsageIfProd change (i.e. what determines "prod" changes),
+	// we can simply update the function body without worrying about the function signature.
 	var ccipHome *ccip_home.CCIPHome
+	var capReg *capabilities_registry.CapabilitiesRegistry
 	var homeChainSelector uint64
 	for selector, chain := range c.Chains {
-		if chain.CCIPHome == nil {
+		if chain.CCIPHome == nil || chain.CapabilityRegistry == nil {
 			continue
 		}
 		// This condition impacts the ability of this function to determine MCMS enforcement.
-		// As such, we return an error if we find multiple CCIPHome contracts.
+		// As such, we return an error if we find multiple chains with home chain contracts.
 		if ccipHome != nil {
-			return errors.New("multiple CCIPHome contracts found")
+			return errors.New("multiple chains with CCIPHome and CapabilitiesRegistry contracts found")
 		}
 		ccipHome = chain.CCIPHome
+		capReg = chain.CapabilityRegistry
 		homeChainSelector = selector
 	}
-	// It is not the job of this function to enforce the existence of CCIPHome.
-	// Some tests don't deploy CCIPHome, and we don't want to fail them.
+	// It is not the job of this function to enforce the existence of home chain contracts.
+	// Some tests don't deploy these contracts, and we don't want to fail them.
 	// We simply say that MCMS is not enforced in such environments.
 	if ccipHome == nil {
 		return nil
@@ -658,9 +661,16 @@ func (c CCIPOnChainState) MaybeEnforceMCMSUsage(ctx context.Context, mcmsConfig 
 	if err != nil {
 		return fmt.Errorf("failed to get CCIP home owner: %w", err)
 	}
-	// If CCIPHome is owned by timelock, then MCMS is enforced.
+	capRegOwner, err := capReg.Owner(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get capabilities registry owner: %w", err)
+	}
+	if ccipHomeOwner != capRegOwner {
+		return fmt.Errorf("CCIPHome and CapabilitiesRegistry owners do not match: %s != %s", ccipHomeOwner.String(), capRegOwner.String())
+	}
+	// If CCIPHome & CapabilitiesRegistry are owned by timelock, then MCMS is enforced.
 	if ccipHomeOwner == timelock.Address() && mcmsConfig == nil {
-		return errors.New("MCMS is enforced for environment (i.e. CCIPHome is owned by timelock), but no MCMS config was provided")
+		return errors.New("MCMS is enforced for environment (i.e. CCIPHome & CapReg are owned by timelock), but no MCMS config was provided")
 	}
 
 	return nil

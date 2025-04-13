@@ -35,7 +35,7 @@ type RMNCurseConfig struct {
 
 func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 	state, err := changeset.LoadOnchainState(e)
-	err = state.MaybeEnforceMCMSUsage(e.GetContext(), c.MCMS)
+	err = state.EnforceMCMSUsageIfProd(e.GetContext(), c.MCMS)
 	if err != nil {
 		return err
 	}

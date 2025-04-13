@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -48,80 +49,108 @@ func TestMCMSState(t *testing.T) {
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].CancellerMcm.Address().String())
 }
 
-func TestMaybeEnforceMCMSUsage(t *testing.T) {
+func TestEnforceMCMSUsageIfProd(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		Msg            string
-		DeployCCIPHome bool
-		DeployMCMS     bool
-		TransferToMCMS bool
-		ExpectedErr    string
-		MCMSConfig     *proposalutils.TimelockConfig
+		Msg                    string
+		DeployCCIPHome         bool
+		DeployCapReg           bool
+		DeployMCMS             bool
+		TransferCCIPHomeToMCMS bool
+		TransferCapRegToMCMS   bool
+		ExpectedErr            string
+		MCMSConfig             *proposalutils.TimelockConfig
 	}{
 		{
-			Msg:            "CCIPHome MCMS owned & MCMS config provided",
-			DeployCCIPHome: true,
-			DeployMCMS:     true,
-			TransferToMCMS: true,
-			MCMSConfig:     &proposalutils.TimelockConfig{},
-			ExpectedErr:    "",
+			Msg:                    "CCIPHome & CapReg ownership mismatch",
+			DeployCCIPHome:         true,
+			DeployCapReg:           true,
+			DeployMCMS:             true,
+			TransferCCIPHomeToMCMS: true,
+			TransferCapRegToMCMS:   false,
+			MCMSConfig:             &proposalutils.TimelockConfig{},
+			ExpectedErr:            "CCIPHome and CapabilitiesRegistry owners do not match",
 		},
 		{
-			Msg:            "CCIPHome MCMS owned & MCMS config not provided",
-			DeployCCIPHome: true,
-			DeployMCMS:     true,
-			TransferToMCMS: true,
-			MCMSConfig:     nil,
-			ExpectedErr:    "MCMS is enforced for environment",
+			Msg:                    "CCIPHome MCMS owned & MCMS config provided",
+			DeployCCIPHome:         true,
+			DeployCapReg:           true,
+			DeployMCMS:             true,
+			TransferCCIPHomeToMCMS: true,
+			TransferCapRegToMCMS:   true,
+			MCMSConfig:             &proposalutils.TimelockConfig{},
+			ExpectedErr:            "",
 		},
 		{
-			Msg:            "CCIPHome not MCMS owned & MCMS config provided",
-			DeployCCIPHome: true,
-			DeployMCMS:     true,
-			TransferToMCMS: false,
-			MCMSConfig:     &proposalutils.TimelockConfig{},
-			ExpectedErr:    "",
+			Msg:                    "CCIPHome MCMS owned & MCMS config not provided",
+			DeployCCIPHome:         true,
+			DeployCapReg:           true,
+			DeployMCMS:             true,
+			TransferCCIPHomeToMCMS: true,
+			TransferCapRegToMCMS:   true,
+			MCMSConfig:             nil,
+			ExpectedErr:            "MCMS is enforced for environment",
 		},
 		{
-			Msg:            "CCIPHome not MCMS owned & MCMS config not provided",
-			DeployCCIPHome: true,
-			DeployMCMS:     true,
-			TransferToMCMS: false,
-			MCMSConfig:     nil,
-			ExpectedErr:    "",
+			Msg:                    "CCIPHome not MCMS owned & MCMS config provided",
+			DeployCCIPHome:         true,
+			DeployCapReg:           true,
+			DeployMCMS:             true,
+			TransferCCIPHomeToMCMS: false,
+			TransferCapRegToMCMS:   false,
+			MCMSConfig:             &proposalutils.TimelockConfig{},
+			ExpectedErr:            "",
 		},
 		{
-			Msg:            "CCIPHome not deployed & MCMS config provided",
-			DeployCCIPHome: false,
-			DeployMCMS:     false,
-			TransferToMCMS: false,
-			MCMSConfig:     &proposalutils.TimelockConfig{},
-			ExpectedErr:    "",
+			Msg:                    "CCIPHome not MCMS owned & MCMS config not provided",
+			DeployCCIPHome:         true,
+			DeployCapReg:           true,
+			DeployMCMS:             true,
+			TransferCCIPHomeToMCMS: false,
+			TransferCapRegToMCMS:   false,
+			MCMSConfig:             nil,
+			ExpectedErr:            "",
 		},
 		{
-			Msg:            "CCIPHome not deployed & MCMS config not provided",
-			DeployCCIPHome: false,
-			DeployMCMS:     false,
-			TransferToMCMS: false,
-			MCMSConfig:     nil,
-			ExpectedErr:    "",
+			Msg:                    "CCIPHome not deployed & MCMS config provided",
+			DeployCCIPHome:         false,
+			DeployCapReg:           true,
+			DeployMCMS:             false,
+			TransferCCIPHomeToMCMS: false,
+			TransferCapRegToMCMS:   false,
+			MCMSConfig:             &proposalutils.TimelockConfig{},
+			ExpectedErr:            "",
 		},
 		{
-			Msg:            "MCMS not deployed & MCMS config provided",
-			DeployCCIPHome: true,
-			DeployMCMS:     false,
-			TransferToMCMS: false,
-			MCMSConfig:     &proposalutils.TimelockConfig{},
-			ExpectedErr:    "",
+			Msg:                    "CCIPHome not deployed & MCMS config not provided",
+			DeployCCIPHome:         false,
+			DeployCapReg:           true,
+			DeployMCMS:             false,
+			TransferCCIPHomeToMCMS: false,
+			TransferCapRegToMCMS:   false,
+			MCMSConfig:             nil,
+			ExpectedErr:            "",
 		},
 		{
-			Msg:            "MCMS not deployed & MCMS config not provided",
-			DeployCCIPHome: true,
-			DeployMCMS:     false,
-			TransferToMCMS: false,
-			MCMSConfig:     nil,
-			ExpectedErr:    "",
+			Msg:                    "MCMS not deployed & MCMS config provided",
+			DeployCCIPHome:         true,
+			DeployCapReg:           true,
+			DeployMCMS:             false,
+			TransferCCIPHomeToMCMS: false,
+			TransferCapRegToMCMS:   false,
+			MCMSConfig:             &proposalutils.TimelockConfig{},
+			ExpectedErr:            "",
+		},
+		{
+			Msg:                    "MCMS not deployed & MCMS config not provided",
+			DeployCCIPHome:         true,
+			DeployCapReg:           true,
+			DeployMCMS:             false,
+			TransferCCIPHomeToMCMS: false,
+			TransferCapRegToMCMS:   false,
+			MCMSConfig:             nil,
+			ExpectedErr:            "",
 		},
 	}
 
@@ -149,6 +178,20 @@ func TestMaybeEnforceMCMSUsage(t *testing.T) {
 				require.NoError(t, err, "failed to deploy CCIP home")
 			}
 
+			if test.DeployCapReg {
+				_, err = deployment.DeployContract(e.Logger, e.Chains[homeChainSelector], e.ExistingAddresses,
+					func(chain deployment.Chain) deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+						address, tx2, contract, err2 := capabilities_registry.DeployCapabilitiesRegistry(
+							chain.DeployerKey,
+							chain.Client,
+						)
+						return deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
+							Address: address, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0), Err: err2,
+						}
+					})
+				require.NoError(t, err, "failed to deploy capability registry")
+			}
+
 			if test.DeployMCMS {
 				e, err = commonchangeset.Apply(t, e, nil,
 					commonchangeset.Configure(deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
@@ -159,7 +202,14 @@ func TestMaybeEnforceMCMSUsage(t *testing.T) {
 				state, err := changeset.LoadOnchainState(e)
 				require.NoError(t, err, "failed to load onchain state")
 
-				if test.TransferToMCMS {
+				addrs := make([]common.Address, 0, 2)
+				if test.TransferCCIPHomeToMCMS {
+					addrs = append(addrs, state.Chains[homeChainSelector].CCIPHome.Address())
+				}
+				if test.TransferCapRegToMCMS {
+					addrs = append(addrs, state.Chains[homeChainSelector].CapabilityRegistry.Address())
+				}
+				if len(addrs) > 0 {
 					e, err = commonchangeset.Apply(t, e,
 						map[uint64]*proposalutils.TimelockExecutionContracts{
 							homeChainSelector: &proposalutils.TimelockExecutionContracts{
@@ -171,9 +221,7 @@ func TestMaybeEnforceMCMSUsage(t *testing.T) {
 							deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 							commonchangeset.TransferToMCMSWithTimelockConfig{
 								ContractsByChain: map[uint64][]common.Address{
-									homeChainSelector: {
-										state.Chains[homeChainSelector].CCIPHome.Address(),
-									},
+									homeChainSelector: addrs,
 								},
 								MCMSConfig: proposalutils.TimelockConfig{
 									MinDelay: 0 * time.Second,
@@ -181,14 +229,14 @@ func TestMaybeEnforceMCMSUsage(t *testing.T) {
 							},
 						),
 					)
-					require.NoError(t, err, "failed to transfer CCIP home to MCMS")
+					require.NoError(t, err, "failed to transfer contracts to MCMS")
 				}
 			}
 
 			state, err := changeset.LoadOnchainState(e)
 			require.NoError(t, err, "failed to load onchain state")
 
-			err = state.MaybeEnforceMCMSUsage(e.GetContext(), test.MCMSConfig)
+			err = state.EnforceMCMSUsageIfProd(e.GetContext(), test.MCMSConfig)
 			if test.ExpectedErr != "" {
 				require.Error(t, err, "expected error but got nil")
 				require.Contains(t, err.Error(), test.ExpectedErr, "error message mismatch")

@@ -1243,7 +1243,7 @@ type UpdateRouterRampsConfig struct {
 func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
 	if !cfg.TestRouter {
 		// If not using the test router, we need to enforce MCMS usage if the state calls for it.
-		err := state.MaybeEnforceMCMSUsage(e.GetContext(), cfg.MCMS)
+		err := state.EnforceMCMSUsageIfProd(e.GetContext(), cfg.MCMS)
 		if err != nil {
 			return err
 		}
