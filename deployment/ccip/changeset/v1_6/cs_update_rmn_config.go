@@ -38,10 +38,6 @@ type SetRMNRemoteOnRMNProxyConfig struct {
 }
 
 func (c SetRMNRemoteOnRMNProxyConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
-	err := state.ValidateMCMSConfig(e.GetContext(), c.MCMSConfig)
-	if err != nil {
-		return fmt.Errorf("failed to validate MCMS config: %w", err)
-	}
 	for _, chain := range c.ChainSelectors {
 		err := deployment.IsValidChainSelector(chain)
 		if err != nil {
@@ -57,12 +53,8 @@ func (c SetRMNRemoteOnRMNProxyConfig) Validate(e deployment.Environment, state c
 		if chainState.RMNProxy == nil {
 			return fmt.Errorf("RMNProxy not found for chain %d", chain)
 		}
-		chain := e.Chains[chain]
 
-		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMSConfig != nil, chain.DeployerKey.From, chainState.Timelock.Address(), chainState.RMNRemote); err != nil {
-			return fmt.Errorf("failed to validate ownership of RMNRemote on %s: %w", chain, err)
-		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMSConfig != nil, chain.DeployerKey.From, chainState.Timelock.Address(), chainState.RMNProxy); err != nil {
+		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMSConfig != nil, e.Chains[chain].DeployerKey.From, chainState.Timelock.Address(), chainState.RMNProxy); err != nil {
 			return fmt.Errorf("failed to validate ownership of RMNProxy on %s: %w", chain, err)
 		}
 	}
