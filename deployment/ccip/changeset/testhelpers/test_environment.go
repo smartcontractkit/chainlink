@@ -71,6 +71,7 @@ type TestConfigs struct {
 	Nodes                      int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	Bootstraps                 int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	IsUSDC                     bool
+	IsTokenPoolFactory         bool
 	IsUSDCAttestationMissing   bool
 	IsMultiCall3               bool
 	IsStaticLink               bool
@@ -223,6 +224,12 @@ func WithUSDCAttestationMissing() TestOps {
 func WithUSDC() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsUSDC = true
+	}
+}
+
+func WithTokenPoolFactory() TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.IsTokenPoolFactory = true
 	}
 }
 
@@ -488,6 +495,9 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	for _, chain := range evmChains {
 		var opts []changeset.PrerequisiteOpt
 		if tc != nil {
+			if tc.IsTokenPoolFactory {
+				opts = append(opts, changeset.WithTokenPoolFactoryEnabled())
+			}
 			if tc.IsUSDC {
 				opts = append(opts, changeset.WithUSDCEnabled())
 			}

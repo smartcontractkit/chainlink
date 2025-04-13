@@ -24,6 +24,9 @@ func TestDeployPrerequisites(t *testing.T) {
 		Configs: []changeset.DeployPrerequisiteConfigPerChain{
 			{
 				ChainSelector: newChain,
+				Opts: []changeset.PrerequisiteOpt{
+					changeset.WithTokenPoolFactoryEnabled(),
+				},
 			},
 		},
 	}

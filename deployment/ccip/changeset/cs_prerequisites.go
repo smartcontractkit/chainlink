@@ -61,9 +61,10 @@ func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequi
 }
 
 type DeployPrerequisiteContractsOpts struct {
-	USDCEnabled         bool
-	Multicall3Enabled   bool
-	LegacyDeploymentCfg *V1_5DeploymentConfig
+	USDCEnabled             bool
+	Multicall3Enabled       bool
+	TokenPoolFactoryEnabled bool
+	LegacyDeploymentCfg     *V1_5DeploymentConfig
 }
 
 type V1_5DeploymentConfig struct {
@@ -93,6 +94,12 @@ func (c DeployPrerequisiteConfig) Validate() error {
 }
 
 type PrerequisiteOpt func(o *DeployPrerequisiteContractsOpts)
+
+func WithTokenPoolFactoryEnabled() PrerequisiteOpt {
+	return func(o *DeployPrerequisiteContractsOpts) {
+		o.TokenPoolFactoryEnabled = true
+	}
+}
 
 func WithUSDCEnabled() PrerequisiteOpt {
 	return func(o *DeployPrerequisiteContractsOpts) {
@@ -374,58 +381,60 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	} else {
 		e.Logger.Infow("router already deployed", "chain", chain.String(), "addr", chainState.Router.Address)
 	}
-	if tokenPoolFactory == nil {
-		_, err := deployment.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
-				tpfAddr, tx2, contract, err2 := token_pool_factory.DeployTokenPoolFactory(
-					chain.DeployerKey,
-					chain.Client,
-					tokenAdminReg.Address(),
-					// There will always be at least one registry module deployed at this point.
-					// We just use the first one here. If a different RegistryModule is desired,
-					// users can run DeployTokenPoolFactoryChangeset with the desired address.
-					registryModules[0].Address(),
-					rmnProxy.Address(),
-					r.Address(),
-				)
-				return deployment.ContractDeploy[*token_pool_factory.TokenPoolFactory]{
-					Address: tpfAddr, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(TokenPoolFactory, deployment.Version1_5_1), Err: err2,
-				}
-			},
-		)
-		if err != nil {
-			e.Logger.Errorw("Failed to deploy token pool factory", "chain", chain.String(), "err", err)
-			return err
+	if deployOpts.TokenPoolFactoryEnabled {
+		if tokenPoolFactory == nil {
+			_, err := deployment.DeployContract(e.Logger, chain, ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
+					tpfAddr, tx2, contract, err2 := token_pool_factory.DeployTokenPoolFactory(
+						chain.DeployerKey,
+						chain.Client,
+						tokenAdminReg.Address(),
+						// There will always be at least one registry module deployed at this point.
+						// We just use the first one here. If a different RegistryModule is desired,
+						// users can run DeployTokenPoolFactoryChangeset with the desired address.
+						registryModules[0].Address(),
+						rmnProxy.Address(),
+						r.Address(),
+					)
+					return deployment.ContractDeploy[*token_pool_factory.TokenPoolFactory]{
+						Address: tpfAddr, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(TokenPoolFactory, deployment.Version1_5_1), Err: err2,
+					}
+				},
+			)
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy token pool factory", "chain", chain.String(), "err", err)
+				return err
+			}
+		} else {
+			e.Logger.Infow("Token pool factory already deployed", "chain", chain.String(), "addr", tokenPoolFactory.Address)
 		}
-	} else {
-		e.Logger.Infow("Token pool factory already deployed", "chain", chain.String(), "addr", tokenPoolFactory.Address)
-	}
-	// FactoryBurnMintERC20 is a contract that gets deployed by the TokenPoolFactory.
-	// We deploy it here so that we can verify it. All subsequent user deployments would then be verified.
-	if factoryBurnMintERC20 == nil {
-		_, err := deployment.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20] {
-				factoryBurnMintERC20Addr, tx2, contract, err2 := factory_burn_mint_erc20.DeployFactoryBurnMintERC20(
-					chain.DeployerKey,
-					chain.Client,
-					string(FactoryBurnMintERC20Symbol),
-					string(FactoryBurnMintERC20Symbol),
-					18,
-					big.NewInt(0),
-					big.NewInt(0),
-					chain.DeployerKey.From,
-				)
-				return deployment.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20]{
-					Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(FactoryBurnMintERC20Token, deployment.Version1_0_0), Err: err2,
-				}
-			},
-		)
-		if err != nil {
-			e.Logger.Errorw("Failed to deploy factory burn mint erc20", "chain", chain.String(), "err", err)
-			return err
+		// FactoryBurnMintERC20 is a contract that gets deployed by the TokenPoolFactory.
+		// We deploy it here so that we can verify it. All subsequent user deployments would then be verified.
+		if factoryBurnMintERC20 == nil {
+			_, err := deployment.DeployContract(e.Logger, chain, ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20] {
+					factoryBurnMintERC20Addr, tx2, contract, err2 := factory_burn_mint_erc20.DeployFactoryBurnMintERC20(
+						chain.DeployerKey,
+						chain.Client,
+						string(FactoryBurnMintERC20Symbol),
+						string(FactoryBurnMintERC20Symbol),
+						18,
+						big.NewInt(0),
+						big.NewInt(0),
+						chain.DeployerKey.From,
+					)
+					return deployment.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20]{
+						Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(FactoryBurnMintERC20Token, deployment.Version1_0_0), Err: err2,
+					}
+				},
+			)
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy factory burn mint erc20", "chain", chain.String(), "err", err)
+				return err
+			}
+		} else {
+			e.Logger.Infow("factory burn mint erc20 already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
 		}
-	} else {
-		e.Logger.Infow("factory burn mint erc20 already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
 	}
 	if deployOpts.Multicall3Enabled && mc3 == nil {
 		_, err := deployment.DeployContract(e.Logger, chain, ab,
