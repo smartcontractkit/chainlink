@@ -8,6 +8,8 @@ import (
 )
 
 func TestMemoryDataStore_Merge(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		setup         func() (*MemoryDataStore[DefaultMetadata, DefaultMetadata], *MemoryDataStore[DefaultMetadata, DefaultMetadata])
@@ -65,6 +67,8 @@ func TestMemoryDataStore_Merge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			dataStore1, dataStore2 := tt.setup()
 
 			// Merge dataStore2 into dataStore1

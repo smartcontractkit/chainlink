@@ -7,12 +7,18 @@ import (
 )
 
 func TestNewLabelSet(t *testing.T) {
+	t.Parallel()
+
 	t.Run("no labels", func(t *testing.T) {
+		t.Parallel()
+
 		ms := NewLabelSet()
 		assert.Empty(t, ms, "expected empty set")
 	})
 
 	t.Run("some labels", func(t *testing.T) {
+		t.Parallel()
+
 		ms := NewLabelSet("foo", "bar")
 		assert.Len(t, ms, 2)
 		assert.True(t, ms.Contains("foo"))
@@ -22,6 +28,8 @@ func TestNewLabelSet(t *testing.T) {
 }
 
 func TestLabelSet_Add(t *testing.T) {
+	t.Parallel()
+
 	ms := NewLabelSet("initial")
 	ms.Add("new")
 
@@ -35,6 +43,8 @@ func TestLabelSet_Add(t *testing.T) {
 }
 
 func TestLabelSet_Remove(t *testing.T) {
+	t.Parallel()
+
 	ms := NewLabelSet("remove_me", "keep")
 	ms.Remove("remove_me")
 
@@ -48,6 +58,8 @@ func TestLabelSet_Remove(t *testing.T) {
 }
 
 func TestLabelSet_Contains(t *testing.T) {
+	t.Parallel()
+
 	ms := NewLabelSet("foo", "bar")
 
 	assert.True(t, ms.Contains("foo"))
@@ -56,7 +68,11 @@ func TestLabelSet_Contains(t *testing.T) {
 }
 
 func TestLabelSet_List(t *testing.T) {
+	t.Parallel()
+
 	t.Run("list with items", func(t *testing.T) {
+		t.Parallel()
+
 		ms := NewLabelSet("foo", "bar", "baz")
 
 		labels := ms.List()
@@ -68,6 +84,8 @@ func TestLabelSet_List(t *testing.T) {
 	})
 
 	t.Run("empty list", func(t *testing.T) {
+		t.Parallel()
+
 		ms := NewLabelSet()
 
 		labels := ms.List()
@@ -78,6 +96,8 @@ func TestLabelSet_List(t *testing.T) {
 
 // TestLabelSet_String tests the String() method of the LabelSet type.
 func TestLabelSet_String(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		labels   LabelSet
@@ -123,6 +143,8 @@ func TestLabelSet_String(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.labels.String()
 			assert.Equal(t, tt.expected, result, "LabelSet.String() should return the expected sorted string")
 		})
@@ -130,6 +152,8 @@ func TestLabelSet_String(t *testing.T) {
 }
 
 func TestLabelSet_Equal(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		set1     LabelSet

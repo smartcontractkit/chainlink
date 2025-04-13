@@ -7,6 +7,8 @@ import (
 )
 
 func TestContractMetadataKey_Equals(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		key1     ContractMetadataKey
@@ -41,12 +43,16 @@ func TestContractMetadataKey_Equals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			require.Equal(t, tt.expected, tt.key1.Equals(tt.key2))
 		})
 	}
 }
 
 func TestContractMetadataKey(t *testing.T) {
+	t.Parallel()
+
 	chainSelector := uint64(1)
 	address := "0x1234567890abcdef"
 
