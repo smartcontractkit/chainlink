@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	std_errors "errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -660,6 +661,62 @@ func (c CCIPOnChainState) ValidateMCMSConfig(ctx context.Context, mcmsConfig *pr
 	// If CCIPHome is owned by timelock, then MCMS is enforced.
 	if ccipHomeOwner == timelock.Address() && mcmsConfig == nil {
 		return errors.New("MCMS is enforced for environment (i.e. CCIPHome is owned by timelock), but no MCMS config was provided")
+	}
+
+	return nil
+}
+
+// ValidateOwnershipOfChain validates the ownership of every CCIP contract on a chain.
+// If mcmsConfig is nil, the expected owner of each contract is the chain's deployer key.
+// If provided, the expected owner is the Timelock contract.
+func (s CCIPOnChainState) ValidateOwnershipOfChain(e deployment.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig) error {
+	chain, ok := e.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("chain with selector %d not found in the environment", chainSel)
+	}
+
+	chainState, ok := s.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("%s not found in the state", chain)
+	}
+	if chainState.Timelock == nil {
+		return fmt.Errorf("timelock not found on %s", chain)
+	}
+
+	ownedContracts := map[string]commoncs.Ownable{
+		"router":             chainState.Router,
+		"feeQuoter":          chainState.FeeQuoter,
+		"offRamp":            chainState.OffRamp,
+		"onRamp":             chainState.OnRamp,
+		"nonceManager":       chainState.NonceManager,
+		"rmnRemote":          chainState.RMNRemote,
+		"rmnProxy":           chainState.RMNProxy,
+		"tokenAdminRegistry": chainState.TokenAdminRegistry,
+	}
+	var wg sync.WaitGroup
+	errs := make(chan error, len(ownedContracts))
+	for contractName, contract := range ownedContracts {
+		wg.Add(1)
+		go func(name string, c commoncs.Ownable) {
+			defer wg.Done()
+			if c == nil {
+				errs <- fmt.Errorf("missing %s contract on %s", name, chain)
+				return
+			}
+			err := commoncs.ValidateOwnership(e.GetContext(), mcmsConfig != nil, chain.DeployerKey.From, chainState.Timelock.Address(), contract)
+			if err != nil {
+				errs <- fmt.Errorf("failed to validate ownership of %s contract on %s: %w", name, chain, err)
+			}
+		}(contractName, contract)
+	}
+	wg.Wait()
+	close(errs)
+	var multiErr error
+	for err := range errs {
+		multiErr = std_errors.Join(multiErr, err)
+	}
+	if multiErr != nil {
+		return fmt.Errorf("failed to validate ownership of contracts on %s: %w", chain, multiErr)
 	}
 
 	return nil

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -1274,40 +1273,10 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 				//   1. All expected CCIP contracts exist on the chain.
 				//   2. All contracts have the expected owner.
 				// That way, if cfg.MCMS exists, we ensure that every contract is owned by MCMS.
-				ownedContracts := map[string]commoncs.Ownable{
-					"router":             chainState.Router,
-					"feeQuoter":          chainState.FeeQuoter,
-					"offRamp":            chainState.OffRamp,
-					"onRamp":             chainState.OnRamp,
-					"nonceManager":       chainState.NonceManager,
-					"rmnRemote":          chainState.RMNRemote,
-					"rmnProxy":           chainState.RMNProxy,
-					"tokenAdminRegistry": chainState.TokenAdminRegistry,
-				}
-				var wg sync.WaitGroup
-				errs := make(chan error, len(ownedContracts))
-				for contractName, contract := range ownedContracts {
-					wg.Add(1)
-					go func(name string, c commoncs.Ownable) {
-						defer wg.Done()
-						if c == nil {
-							errs <- fmt.Errorf("missing %s contract for chain with selector %d", name, chainSel)
-							return
-						}
-						err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), contract)
-						if err != nil {
-							errs <- fmt.Errorf("failed to validate ownership of %s contract for chain with selector %d: %w", name, chainSel, err)
-						}
-					}(contractName, contract)
-				}
-				wg.Wait()
-				close(errs)
-				var multiErr error
-				for err := range errs {
-					multiErr = errors.Join(multiErr, err)
-				}
-				if multiErr != nil {
-					return fmt.Errorf("failed to validate ownership of contracts on chain with selector %d: %w", chainSel, multiErr)
+				// Calling this function will ensure that both these checks are done.
+				err := state.ValidateOwnershipOfChain(e, chainSel, cfg.MCMS)
+				if err != nil {
+					return fmt.Errorf("failed to validate ownership of contracts on %d: %w", e.Chains[chainSel], err)
 				}
 			}
 		}

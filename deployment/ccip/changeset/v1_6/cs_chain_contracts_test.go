@@ -538,7 +538,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 			mcmsEnabled:            false,
 			transferHomeContracts:  true,
 			transferChainContracts: false,
-			expectedErr:            "MCMS is enforced for environment, but no MCMS config was provided",
+			expectedErr:            "MCMS is enforced for environment",
 		},
 		{
 			name:                   "MCMS enabled & enforced, but chain contracts not transferred",
