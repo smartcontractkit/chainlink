@@ -98,9 +98,6 @@ func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64
 	if cfg.NewFeeQuoterVersion == nil && cfg.NewRouterVersion == nil && cfg.NewOffRampVersion == nil {
 		return nil
 	}
-	if cfg.MCMS == nil {
-		return errors.New("MCMS config must be set for upgrades")
-	}
 	if cfg.SpillAddress.IsZero() {
 		return errors.New("spill address must be set for fee quoter and router upgrades")
 	}
@@ -536,27 +533,38 @@ func deployChainContractsSolana(
 			if err != nil {
 				return txns, fmt.Errorf("failed to deploy program: %w", err)
 			}
-		}
+			offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+			fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
+			feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 
-		offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
-		fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
-		feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
-
-		priceUpdaterix, err := solFeeQuoter.NewAddPriceUpdaterInstruction(
-			offRampBillingSignerPDA,
-			fqAllowedPriceUpdaterOfframpPDA,
-			feeQuoterConfigPDA,
-			config.UpgradeConfig.UpgradeAuthority,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return txns, fmt.Errorf("failed to build instruction: %w", err)
+			priceUpdaterix, err := solFeeQuoter.NewAddPriceUpdaterInstruction(
+				offRampBillingSignerPDA,
+				fqAllowedPriceUpdaterOfframpPDA,
+				feeQuoterConfigPDA,
+				config.UpgradeConfig.UpgradeAuthority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return txns, fmt.Errorf("failed to build instruction: %w", err)
+			}
+			if config.UpgradeConfig.MCMS != nil {
+				priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), ccipChangeset.FeeQuoter)
+				if err != nil {
+					return txns, fmt.Errorf("failed to create price updater transaction: %w", err)
+				}
+				txns = append(txns, *priceUpdaterTx)
+			} else {
+				if err := chain.Confirm([]solana.Instruction{priceUpdaterix}); err != nil {
+					return txns, fmt.Errorf("failed to confirm initializeFeeQuoter: %w", err)
+				}
+			}
+		} else {
+			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewOffRampVersion, chainState.OffRamp, ccipChangeset.OffRamp)
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+			}
+			txns = append(txns, newTxns...)
 		}
-		priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), ccipChangeset.FeeQuoter)
-		if err != nil {
-			return txns, fmt.Errorf("failed to create price updater transaction: %w", err)
-		}
-		txns = append(txns, *priceUpdaterTx)
 	} else {
 		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
 		offRampAddress = chainState.OffRamp

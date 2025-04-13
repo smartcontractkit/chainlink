@@ -98,7 +98,7 @@ func Run(tc TestCase) TestCaseOutput {
 	}
 
 	msgSentEvent, err := testhelpers.SendRequest(
-		tc.T, tc.Env, tc.OnchainState,
+		tc.Env, tc.OnchainState,
 		testhelpers.WithSourceChain(tc.SrcChain),
 		testhelpers.WithDestChain(tc.DestChain),
 		testhelpers.WithTestRouter(tc.TestRouter),
