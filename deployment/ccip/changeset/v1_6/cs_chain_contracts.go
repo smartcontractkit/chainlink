@@ -1276,7 +1276,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 				// Calling this function will ensure that both these checks are done.
 				err := state.ValidateOwnershipOfChain(e, chainSel, cfg.MCMS)
 				if err != nil {
-					return fmt.Errorf("failed to validate ownership of contracts on %d: %w", e.Chains[chainSel], err)
+					return fmt.Errorf("failed to validate ownership of contracts on %s: %w", e.Chains[chainSel], err)
 				}
 			}
 		}

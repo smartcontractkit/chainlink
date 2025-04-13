@@ -54,8 +54,9 @@ func (c SetRMNRemoteOnRMNProxyConfig) Validate(e deployment.Environment, state c
 			return fmt.Errorf("RMNProxy not found for chain %d", chain)
 		}
 
-		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMSConfig != nil, e.Chains[chain].DeployerKey.From, chainState.Timelock.Address(), chainState.RMNProxy); err != nil {
-			return fmt.Errorf("failed to validate ownership of RMNProxy on %s: %w", chain, err)
+		chainEnv := e.Chains[chain]
+		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMSConfig != nil, chainEnv.DeployerKey.From, chainState.Timelock.Address(), chainState.RMNProxy); err != nil {
+			return fmt.Errorf("failed to validate ownership of RMNProxy on %s: %w", chainEnv, err)
 		}
 	}
 	return nil
