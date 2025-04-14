@@ -56,11 +56,11 @@ var (
 		MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
 		MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
 		ChainFeeAsyncObserverDisabled:      false,
-		ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
-		ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
+		ChainFeeAsyncObserverSyncFreq:      1*time.Second + 500*time.Millisecond,
+		ChainFeeAsyncObserverSyncTimeout:   1 * time.Second,
 		TokenPriceAsyncObserverDisabled:    false,
-		TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(10 * time.Second),
-		TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(12 * time.Second),
+		TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(1*time.Second + 500*time.Millisecond),
+		TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(1 * time.Second),
 
 		// Remaining fields cannot be statically set:
 		// PriceFeedChainSelector: , // Must be configured in CLD
