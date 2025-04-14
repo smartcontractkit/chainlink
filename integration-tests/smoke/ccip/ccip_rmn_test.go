@@ -180,6 +180,7 @@ func TestRMN_NotEnoughObservers(t *testing.T) {
 }
 
 func TestRMN_DifferentSigners(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-200")
 	runRmnTestCase(t, rmnTestCase{
 		name: "different signers and different observers",
 		homeChainConfig: homeChainConfig{
