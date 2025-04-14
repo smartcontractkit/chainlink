@@ -29,6 +29,7 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -743,27 +744,30 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
 			Chain: solcfg.Chain{
-				BalancePollPeriod:        commoncfg.MustNewDuration(time.Minute),
-				ConfirmPollPeriod:        commoncfg.MustNewDuration(time.Second),
-				OCR2CachePollPeriod:      commoncfg.MustNewDuration(time.Minute),
-				OCR2CacheTTL:             commoncfg.MustNewDuration(time.Hour),
-				TxTimeout:                commoncfg.MustNewDuration(time.Hour),
-				TxRetryTimeout:           commoncfg.MustNewDuration(time.Minute),
-				TxConfirmTimeout:         commoncfg.MustNewDuration(time.Second),
-				TxExpirationRebroadcast:  ptr(false),
-				TxRetentionTimeout:       commoncfg.MustNewDuration(0 * time.Second),
-				SkipPreflight:            ptr(true),
-				Commitment:               ptr("banana"),
-				MaxRetries:               ptr[int64](7),
-				FeeEstimatorMode:         ptr("fixed"),
-				ComputeUnitPriceMax:      ptr[uint64](1000),
-				ComputeUnitPriceMin:      ptr[uint64](10),
-				ComputeUnitPriceDefault:  ptr[uint64](100),
-				FeeBumpPeriod:            commoncfg.MustNewDuration(time.Minute),
-				BlockHistoryPollPeriod:   commoncfg.MustNewDuration(time.Minute),
-				BlockHistorySize:         ptr[uint64](1),
-				ComputeUnitLimitDefault:  ptr[uint32](100_000),
-				EstimateComputeUnitLimit: ptr(false),
+				BlockTime:                 commoncfg.MustNewDuration(500 * time.Millisecond),
+				BalancePollPeriod:         commoncfg.MustNewDuration(time.Minute),
+				ConfirmPollPeriod:         commoncfg.MustNewDuration(time.Second),
+				OCR2CachePollPeriod:       commoncfg.MustNewDuration(time.Minute),
+				OCR2CacheTTL:              commoncfg.MustNewDuration(time.Hour),
+				TxTimeout:                 commoncfg.MustNewDuration(time.Hour),
+				TxRetryTimeout:            commoncfg.MustNewDuration(time.Minute),
+				TxConfirmTimeout:          commoncfg.MustNewDuration(time.Second),
+				TxExpirationRebroadcast:   ptr(false),
+				TxRetentionTimeout:        commoncfg.MustNewDuration(0 * time.Second),
+				SkipPreflight:             ptr(true),
+				Commitment:                ptr("banana"),
+				MaxRetries:                ptr[int64](7),
+				FeeEstimatorMode:          ptr("fixed"),
+				ComputeUnitPriceMax:       ptr[uint64](1000),
+				ComputeUnitPriceMin:       ptr[uint64](10),
+				ComputeUnitPriceDefault:   ptr[uint64](100),
+				FeeBumpPeriod:             commoncfg.MustNewDuration(time.Minute),
+				BlockHistoryPollPeriod:    commoncfg.MustNewDuration(time.Minute),
+				BlockHistorySize:          ptr[uint64](1),
+				BlockHistoryBatchLoadSize: ptr[uint64](20),
+				ComputeUnitLimitDefault:   ptr[uint32](100_000),
+				EstimateComputeUnitLimit:  ptr(false),
+				LogPollerStartingLookback: commoncfg.MustNewDuration(24 * time.Hour),
 			},
 			MultiNode: mnCfg.MultiNodeConfig{
 				MultiNode: mnCfg.MultiNode{
@@ -1217,6 +1221,7 @@ SendOnly = true
 		{"Solana", Config{Solana: full.Solana}, `[[Solana]]
 ChainID = 'mainnet'
 Enabled = false
+BlockTime = '500ms'
 BalancePollPeriod = '1m0s'
 ConfirmPollPeriod = '1s'
 OCR2CachePollPeriod = '1m0s'
@@ -1236,8 +1241,10 @@ ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
 BlockHistorySize = 1
+BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
+LogPollerStartingLookback = '24h0m0s'
 
 [Solana.MultiNode]
 Enabled = false

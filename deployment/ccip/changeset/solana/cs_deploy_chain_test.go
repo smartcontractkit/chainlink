@@ -332,6 +332,13 @@ func TestUpgrade(t *testing.T) {
 						MinDelay: 1 * time.Second,
 					},
 				},
+				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
+					GitCommitSha:   NewSha,
+					DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
+					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+						BuildLocally: true,
+					},
+				},
 			},
 		),
 	})
