@@ -22,7 +22,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/smartcontractkit/chain-selectors v1.0.49
 	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407100046-dfdf9600557b
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250414140442-bacf85ceefd9
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250414150920-65865fc9d1a8
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.2
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.0
