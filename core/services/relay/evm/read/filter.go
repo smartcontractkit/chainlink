@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -61,6 +62,10 @@ func (r *syncedFilter) Register(ctx context.Context, registrar Registrar) error 
 
 func (r *syncedFilter) register(ctx context.Context, registrar Registrar) error {
 	if !registrar.HasFilter(r.filter.Name) {
+		// Set default retention if unset
+		if r.filter.Retention == time.Duration(0) {
+			r.filter.Retention = time.Minute * 30
+		}
 		if err := registrar.RegisterFilter(ctx, r.filter); err != nil {
 			return FilterError{
 				Err:    fmt.Errorf("%w: %s", types.ErrInternal, err.Error()),
