@@ -1009,6 +1009,8 @@ github.com/smartcontractkit/chain-selectors v1.0.48-0.20250410113230-7b2cb012b94
 github.com/smartcontractkit/chain-selectors v1.0.48-0.20250410113230-7b2cb012b943/go.mod h1:xsKM0aN3YGcQKTPRPDDtPx2l4mlTN1Djmg0VVXV40b8=
 github.com/smartcontractkit/chain-selectors v1.0.49 h1:ADxT4hYMO2TjMXyUo3QIf7MZVy9GtNNTXrvj4dyMNOE=
 github.com/smartcontractkit/chain-selectors v1.0.49/go.mod h1:xsKM0aN3YGcQKTPRPDDtPx2l4mlTN1Djmg0VVXV40b8=
+github.com/smartcontractkit/chain-selectors v1.0.50 h1:p/1FKI2X/fZqxIHn7P9tlkmSaoYIsTxmPGGkLuWoYy0=
+github.com/smartcontractkit/chain-selectors v1.0.50/go.mod h1:xsKM0aN3YGcQKTPRPDDtPx2l4mlTN1Djmg0VVXV40b8=
 github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgBc2xpDKBco/Q4h4ydl6+UUU=
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20250408103656-875e982e6437 h1:b5UAoRhTv7cXCh1G3JzgASIIf+zw+aLxQYDvOMaAU1s=
