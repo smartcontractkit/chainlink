@@ -896,7 +896,6 @@ func newTronContractTransmitter(ctx context.Context, lggr logger.Logger, rargs c
 		lggr.Info("Excluding signatures from transmissions")
 		transmitter = transmitter.WithExcludeSignatures()
 	}
-
 	if transmitterOptions.reportToEvmTxMeta != nil {
 		lggr.Info("Using EVM TxMeta for Tron Transmissions")
 		transmitter = transmitter.WithReportToEthMetadata(transmitterOptions.reportToEvmTxMeta)
