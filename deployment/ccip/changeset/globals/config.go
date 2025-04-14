@@ -105,8 +105,26 @@ var (
 // withCommitOffchainOverrides applies the overrides to the base CommitOffchainConfig
 func withCommitOffchainOverrides(base pluginconfig.CommitOffchainConfig, overrides pluginconfig.CommitOffchainConfig) pluginconfig.CommitOffchainConfig {
 	outcome := base
+
+	baseDurationFields := struct {
+		TokenPriceAsyncObserverSyncFreq    config.Duration
+		TokenPriceAsyncObserverSyncTimeout config.Duration
+	}{
+		TokenPriceAsyncObserverSyncFreq:    base.TokenPriceAsyncObserverSyncFreq,
+		TokenPriceAsyncObserverSyncTimeout: base.TokenPriceAsyncObserverSyncTimeout,
+	}
+
 	if err := mergo.Merge(&outcome, overrides, mergo.WithOverride); err != nil {
 		panic(fmt.Sprintf("error while building a CommitOffchainConfig %v", err))
 	}
+
+	if overrides.TokenPriceAsyncObserverSyncFreq.Duration() == 0 {
+		outcome.TokenPriceAsyncObserverSyncFreq = baseDurationFields.TokenPriceAsyncObserverSyncFreq
+	}
+
+	if overrides.TokenPriceAsyncObserverSyncTimeout.Duration() == 0 {
+		outcome.TokenPriceAsyncObserverSyncTimeout = baseDurationFields.TokenPriceAsyncObserverSyncTimeout
+	}
+
 	return outcome
 }
