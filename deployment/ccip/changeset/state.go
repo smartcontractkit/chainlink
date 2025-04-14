@@ -516,7 +516,7 @@ func (c CCIPOnChainState) HomeChainSelector() (uint64, error) {
 			return selector, nil
 		}
 	}
-	return 0, fmt.Errorf("no home chain found")
+	return 0, errors.New("no home chain found")
 }
 
 func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithTimelockState {

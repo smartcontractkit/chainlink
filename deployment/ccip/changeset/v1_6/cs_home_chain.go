@@ -722,13 +722,14 @@ func addUpdateOrRemoveNopsPrecondition(env deployment.Environment, c AddOrUpdate
 	if err != nil {
 		return err
 	}
-	if err := changeset.ValidateChain(env, state, c.homeChainSel, c.MCMSConfig); err != nil {
-		return err
-	}
 	c.homeChainSel, err = state.HomeChainSelector()
 	if err != nil {
 		return fmt.Errorf("failed to get home chain selector: %w", err)
 	}
+	if err := changeset.ValidateChain(env, state, c.homeChainSel, c.MCMSConfig); err != nil {
+		return err
+	}
+
 	if state.Chains[c.homeChainSel].Timelock == nil {
 		return fmt.Errorf("timelock does not exist for home chain %d", c.homeChainSel)
 	}
