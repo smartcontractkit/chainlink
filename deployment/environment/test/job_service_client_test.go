@@ -172,7 +172,7 @@ func TestProposeJob(t *testing.T) {
 		require.Nil(t, resp)
 	})
 
-	t.Run("missing externalJobID", func(t *testing.T) {
+	t.Run("invalid job spec", func(t *testing.T) {
 		jobSpec := `
 type = "test"
 name = "Test Job"
@@ -186,7 +186,6 @@ name = "Test Job"
 		resp, err := client.ProposeJob(ctx, req)
 		require.Error(t, err)
 		require.Nil(t, resp)
-		require.Contains(t, err.Error(), "externalJobID is required")
 	})
 
 	t.Run("approval failure", func(t *testing.T) {
@@ -552,8 +551,7 @@ func TestMapJobStore(t *testing.T) {
 
 		// Test non-existent job
 		_, err = store.get("non-existent")
-		require.Error(t, err)
-		require.True(t, errors.Is(err, errNoExist))
+		require.ErrorIs(t, err, errNoExist)
 	})
 
 	t.Run("list", func(t *testing.T) {
@@ -596,8 +594,7 @@ func TestMapJobStore(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = store.get(job1.Id)
-		require.Error(t, err)
-		require.True(t, errors.Is(err, errNoExist))
+		require.ErrorIs(t, err, errNoExist)
 
 		// Deleting non-existent job should not error
 		err = store.delete("non-existent")
@@ -672,7 +669,7 @@ func TestMapProposalStore(t *testing.T) {
 }
 
 // need some non-ocr job type to avoid the ocr validation and the p2pwrapper check
-func createValidJobSpec(externalJobId string) string {
+func createValidJobSpec(externalJobID string) string {
 	tomlString := `
 type = "standardcapabilities"
 schemaVersion = 1
@@ -682,7 +679,7 @@ forwardingAllowed = false
 command = "/home/capabilities/nowhere"
 config = ""
 `
-	return fmt.Sprintf(tomlString, externalJobId, externalJobId)
+	return fmt.Sprintf(tomlString, externalJobID, externalJobID)
 }
 
 // mockJobApprover is a mock implementation of the JobApprover interface

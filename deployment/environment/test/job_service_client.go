@@ -375,13 +375,13 @@ var _ proposalStore = &mapProposalStore{}
 type mapProposalStore struct {
 	mu                sync.Mutex
 	proposals         map[string]*jobv1.Proposal
-	jobIdToProposalId map[string]string
+	jobIDToProposalID map[string]string
 }
 
 func newMapProposalStore() *mapProposalStore {
 	return &mapProposalStore{
 		proposals:         make(map[string]*jobv1.Proposal),
-		jobIdToProposalId: make(map[string]string),
+		jobIDToProposalID: make(map[string]string),
 	}
 }
 
@@ -391,11 +391,11 @@ func (m *mapProposalStore) put(proposalID string, proposal *jobv1.Proposal) erro
 	if m.proposals == nil {
 		m.proposals = make(map[string]*jobv1.Proposal)
 	}
-	if m.jobIdToProposalId == nil {
-		m.jobIdToProposalId = make(map[string]string)
+	if m.jobIDToProposalID == nil {
+		m.jobIDToProposalID = make(map[string]string)
 	}
 	m.proposals[proposalID] = proposal
-	m.jobIdToProposalId[proposal.JobId] = proposalID
+	m.jobIDToProposalID[proposal.JobId] = proposalID
 	return nil
 }
 func (m *mapProposalStore) get(proposalID string) (*jobv1.Proposal, error) {
@@ -432,8 +432,8 @@ func (m *mapProposalStore) list(filter *jobv1.ListProposalsRequest_Filter) ([]*j
 	wantedProposalIDs := filter.GetIds()
 	if wantedProposalIDs == nil {
 		wantedProposalIDs = make([]string, 0)
-		for _, jobId := range filter.GetJobIds() {
-			proposalID, ok := m.jobIdToProposalId[jobId]
+		for _, jobID := range filter.GetJobIds() {
+			proposalID, ok := m.jobIDToProposalID[jobID]
 			if !ok {
 				continue
 			}

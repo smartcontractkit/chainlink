@@ -10,10 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
-type getter[T any] interface {
-	Get(string) (T, error)
-}
-
 type JobApprover interface {
 	AutoApproveJob(ctx context.Context, p *feeds.ProposeJobArgs) error
 }

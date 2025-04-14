@@ -59,7 +59,6 @@ func TestGenerateNopsView(t *testing.T) {
 	jdService := test.NewJDService(deploymentNodes)
 
 	t.Run("successful view generation", func(t *testing.T) {
-
 		// Generate view
 		nopsView, err := GenerateNopsView(nodeIDs, jdService)
 		require.NoError(t, err)
@@ -90,8 +89,8 @@ func TestGenerateNopsView(t *testing.T) {
 
 	t.Run("node not found in JD", func(t *testing.T) {
 		v, err := GenerateNopsView([]string{"unknown_node"}, jdService)
-		require.Nil(t, err)
-		assert.Len(t, v, 0)
+		require.NoError(t, err)
+		assert.Empty(t, v)
 	})
 
 	t.Run("error from ListNodes", func(t *testing.T) {
@@ -102,10 +101,9 @@ func TestGenerateNopsView(t *testing.T) {
 		}
 		// Should return the error from ListNodes
 		_, err := GenerateNopsView(nodeIDs, errorJDService)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to list nodes from JD")
 	})
-
 }
 
 // Helper function to check if a label with expected key/value exists
