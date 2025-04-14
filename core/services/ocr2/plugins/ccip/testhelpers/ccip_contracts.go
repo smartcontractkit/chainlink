@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/gagliardetto/solana-go"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
@@ -1304,6 +1305,36 @@ func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) 
 	EVMV2Tag := hexutil.MustDecode("0x181dcf10")
 
 	encodedArgs, err := utils.ABIEncode(`[{"type":"uint256"},{"type":"bool"}]`, gasLimit, allowOutOfOrder)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(EVMV2Tag, encodedArgs...), nil
+}
+
+func GetSVMExtraArgsV1(computeUnits uint32, accountIsWrittable uint64, accounts []solana.PublicKey) ([]byte, error) {
+	// see Client.sol.
+	EVMV2Tag := hexutil.MustDecode("0x1f3b3aba")
+
+	accountsBytes := make([][]byte, len(accounts))
+	for i, account := range accounts {
+		accountsBytes[i] = account[:]
+	}
+
+	encodedArgs, err := utils.ABIEncode(`[
+		{"type":"uint32"}, 
+		{"type":"uint64"}, 
+		{"type":"bool"}, 
+		{"type":"bytes32"}, 
+		{"type":"bytes32[]"}
+	]`,
+		computeUnits,
+		uint64(0),
+		true,
+		[32]byte{0},
+		accountsBytes,
+	)
+
 	if err != nil {
 		return nil, err
 	}

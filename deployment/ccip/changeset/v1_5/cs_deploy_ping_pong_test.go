@@ -93,7 +93,7 @@ func TestDeployPingPongDemoContractsChangeset(t *testing.T) {
 			selectorA := allChains[0]
 			selectorB := allChains[1]
 
-			changesetsToRun := make([]deployment.ChangeSetV2[C any], 0)
+			// changesetsToRun := make([]deployment.ChangeSetV2[any], 0)
 			tEnv, err := commonchangeset.Apply(t, tenv, nil,
 				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),

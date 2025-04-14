@@ -2,11 +2,16 @@ package v1_5
 
 import (
 	"fmt"
+	"math/big"
 
+	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/ping_pong_demo"
+	solanaStateUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/ping_pong_demo"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
 var DeployPingPongDemoContractChangeset = deployment.CreateChangeSet(deployPingPongDemoContractsChangeset, validateDeployPingPongConfig)
@@ -165,10 +170,20 @@ func setPausedPingPongDemoContractsChangeset(env deployment.Environment, c SetPa
 	return deployment.ChangesetOutput{}, nil
 }
 
+type SetEVMCounterpartExtraArgsPingPongDemoContracts struct {
+	GasLimit                 *big.Int
+	AllowOutOfOrderExecution bool
+}
+type SetSolanaCounterpartExtraArgsPingPongDemoContracts struct {
+	ComputeUnits            uint32
+	AccountIsWritableBitMap uint64
+}
 type SetCounterpartPingPongDemoContractsConfig struct {
 	ChainSelector            uint64
 	CounterpartChainSelector uint64
 	CounterpartAddress       []byte
+	ExtraArgsEVM             *SetEVMCounterpartExtraArgsPingPongDemoContracts
+	ExtraArgsSolana          *SetSolanaCounterpartExtraArgsPingPongDemoContracts
 }
 
 func validateSetCounterpartPingPongContractAddress(env deployment.Environment, config SetCounterpartPingPongDemoContractsConfig) error {
@@ -193,7 +208,23 @@ func setCounterpartPingPongDemoContractsChangeset(env deployment.Environment, c 
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transactor for ping pong demo: %w", err)
 	}
 
-	tx, err := transactor.SetCounterpart(chain.DeployerKey, c.CounterpartChainSelector, c.CounterpartAddress)
+	extraArgsBytes := make([]byte, 0)
+
+	if c.ExtraArgsEVM != nil {
+		extraArgsBytes, err = getEVMExtraArgs(env, c)
+	}
+
+	if c.ExtraArgsSolana != nil {
+		extraArgsBytes, err = getSolanaExtraArgs(env, c)
+	}
+
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get EVM extra args: %w", err)
+	}
+
+	extraArgsBytes = append(extraArgsBytes, b...)
+
+	tx, err := transactor.SetCounterpart(chain.DeployerKey, c.CounterpartChainSelector, c.CounterpartAddress, extraArgsBytes)
 	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, ping_pong_demo.PingPongDemoABI, err); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm ping pong demo contract set counterpart tx: %w", err)
 	}
@@ -214,4 +245,106 @@ func validatePingPongContractAddress(env deployment.Environment, chainSelector u
 	}
 
 	return nil
+}
+
+func getEVMExtraArgs(env deployment.Environment, c SetCounterpartPingPongDemoContractsConfig) ([]byte, error) {
+	b, err := testhelpers.GetEVMExtraArgsV2(c.ExtraArgsEVM.GasLimit, c.ExtraArgsEVM.AllowOutOfOrderExecution)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal extra args for solana: %w", err)
+	}
+
+	return b, nil
+}
+func getSolanaExtraArgs(env deployment.Environment, c SetCounterpartPingPongDemoContractsConfig) ([]byte, error) {
+	s, err := ccipChangeset.LoadOnchainStateSolana(env)
+	if err != nil {
+		env.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return nil, err
+	}
+
+	destChainState := s.SolChains[c.CounterpartChainSelector]
+
+	ppConfigPDA, _, err := solanaStateUtils.FindPingPongDemoConfigPDA(destChainState.PingPong)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	ppSendSignerPDA, _, err := solanaStateUtils.FindPingPongCCIPSendSignerPDA(destChainState.PingPong)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	destChainStatePDA, err := solanaStateUtils.FindDestChainStatePDA(c.ChainSelector, destChainState.Router)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	routerNoncePDA, err := solanaStateUtils.FindNoncePDA(c.ChainSelector, ppSendSignerPDA, destChainState.Router)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	feeBillingSignerPDA, _, err := solanaStateUtils.FindFeeBillingSignerPDA(destChainState.Router)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	fqBillingTokenConfigPDA, _, err := solanaStateUtils.FindFqBillingTokenConfigPDA(destChainState.LinkToken, destChainState.FeeQuoter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	rmnRemoteConfigPDA, _, err := solanaStateUtils.FindRMNRemoteConfigPDA(destChainState.RMNRemote)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	rmnRemoteCursesPDA, _, err := solanaStateUtils.FindRMNRemoteCursesPDA(destChainState.RMNRemote)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	ppFeeTokenAta, _, err := tokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, destChainState.LinkToken, ppSendSignerPDA)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	routerFeeTokenReceiver, _, err := tokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, destChainState.LinkToken, feeBillingSignerPDA)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find router fee token receiver: %w", err)
+	}
+
+	fqDestChainPDA, _, err := solanaStateUtils.FindFqDestChainPDA(c.ChainSelector, destChainState.FeeQuoter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find fq dest chain pda: %w", err)
+	}
+
+	fqLinkTokenConfigPDA, _, err := solanaStateUtils.FindFqBillingTokenConfigPDA(destChainState.LinkToken, destChainState.FeeQuoter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find link config pda: %w", err)
+	}
+
+	accounts := []solana.PublicKey{
+		ppConfigPDA,
+		ppSendSignerPDA,
+		destChainStatePDA,
+		routerNoncePDA,
+		feeBillingSignerPDA,
+		fqBillingTokenConfigPDA,
+		rmnRemoteConfigPDA,
+		rmnRemoteCursesPDA,
+		ppFeeTokenAta,
+		routerFeeTokenReceiver,
+		fqDestChainPDA,
+		fqLinkTokenConfigPDA,
+	}
+
+	b, err := testhelpers.GetSVMExtraArgsV1(c.ExtraArgsSolana.ComputeUnits, c.ExtraArgsSolana.AccountIsWritableBitMap, accounts)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal extra args for solana: %w", err)
+	}
+
+	return b, nil
 }

@@ -63,6 +63,7 @@ type SolCCIPChainState struct {
 
 	// test programs
 	Receiver solana.PublicKey
+	PingPong solana.PublicKey
 
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
@@ -137,6 +138,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case Receiver:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
+		case PingPongDemo:
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.PingPong = pub
 		case SPL2022Tokens:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.SPL2022Tokens = append(state.SPL2022Tokens, pub)

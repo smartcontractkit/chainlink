@@ -35,6 +35,7 @@ const (
 	McmProgramName                  = "mcm"
 	RMNRemoteProgramName            = "rmn_remote"
 	ReceiverProgramName             = "test_ccip_receiver"
+	PingPongDemoProgramName         = "ping_pong_demo"
 )
 
 // SolChain represents a Solana chain.
