@@ -863,7 +863,7 @@ func newTronContractTransmitter(ctx context.Context, lggr logger.Logger, rargs c
 
 	// Start the Tron TXM
 	tronTXM := trontxm.New(lggr, tronkeystore.NewLoopKeystoreAdapter(ethKeystore), tronClient, trontxm.TronTxmConfig{
-		EnergyMultiplier: 3, // TODO: Determine if we're creating a new commit txm or an exec txm. values should maybe be different?
+		EnergyMultiplier: 3,
 	})
 	tronTXM.Start(ctx)
 
