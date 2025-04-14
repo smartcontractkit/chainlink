@@ -122,7 +122,8 @@ func DeployPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
-	ppNameVersion, _, err := solanaStateUtils.FindNameAndVersionPDA(programAddress)
+	ppNameVersion, _, err := solana.FindProgramAddress([][]byte{[]byte("name_version")}, chainState.PingPong)
+
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong name version pda: %w", err)
 	}
