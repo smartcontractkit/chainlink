@@ -210,6 +210,10 @@ func setCounterpartPingPongDemoContractsChangeset(env deployment.Environment, c 
 
 	extraArgsBytes := make([]byte, 0)
 
+	if (c.ExtraArgsEVM != nil) == (c.ExtraArgsSolana != nil) {
+		return deployment.ChangesetOutput{}, fmt.Errorf("exactly one of ExtraArgsEVM or ExtraArgsSolana must be set")
+	}
+
 	if c.ExtraArgsEVM != nil {
 		extraArgsBytes, err = getEVMExtraArgs(env, c)
 	}
@@ -221,8 +225,6 @@ func setCounterpartPingPongDemoContractsChangeset(env deployment.Environment, c 
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get EVM extra args: %w", err)
 	}
-
-	extraArgsBytes = append(extraArgsBytes, b...)
 
 	tx, err := transactor.SetCounterpart(chain.DeployerKey, c.CounterpartChainSelector, c.CounterpartAddress, extraArgsBytes)
 	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, ping_pong_demo.PingPongDemoABI, err); err != nil {
