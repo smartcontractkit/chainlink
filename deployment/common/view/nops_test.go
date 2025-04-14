@@ -62,7 +62,7 @@ func TestGenerateNopsView(t *testing.T) {
 
 	t.Run("successful view generation", func(t *testing.T) {
 		// Generate view
-		nopsView, err := GenerateNopsViewV2(lggr, nodeIDs, jdService)
+		nopsView, err := GenerateNopsView(lggr, nodeIDs, jdService)
 		require.NoError(t, err)
 
 		// Check that we have all 3 nodes in the view
@@ -90,7 +90,7 @@ func TestGenerateNopsView(t *testing.T) {
 	})
 
 	t.Run("node not found in JD", func(t *testing.T) {
-		v, err := GenerateNopsViewV2(lggr, []string{"unknown_node"}, jdService)
+		v, err := GenerateNopsView(lggr, []string{"unknown_node"}, jdService)
 		require.NoError(t, err)
 		assert.Empty(t, v)
 	})
@@ -102,7 +102,7 @@ func TestGenerateNopsView(t *testing.T) {
 			listNodesError:    errors.New("failed to list nodes from JD"),
 		}
 		// Should return the error from ListNodes
-		_, err := GenerateNopsViewV2(lggr, nodeIDs, errorJDService)
+		_, err := GenerateNopsView(lggr, nodeIDs, errorJDService)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to list nodes from JD")
 	})

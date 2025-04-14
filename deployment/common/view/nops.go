@@ -50,16 +50,8 @@ type OCRKeyView struct {
 	KeyBundleID               string `json:"keyBundleID"`
 }
 
-// Deprecated: use GenerateNopsViewV2
-func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[string]NopView, error) {
-	lggr, err := logger.New()
-	if err != nil {
-		return nil, err
-	}
-	return GenerateNopsViewV2(lggr, nodeIDs, oc)
-}
-
-func GenerateNopsViewV2(lggr logger.Logger, nodeIDs []string, oc deployment.OffchainClient) (map[string]NopView, error) {
+// GenerateNopsView generates a view of nodes with their details
+func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc deployment.OffchainClient) (map[string]NopView, error) {
 	nv := make(map[string]NopView)
 	nodes, err := deployment.NodeInfo(nodeIDs, oc)
 	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
