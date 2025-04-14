@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -19,6 +20,7 @@ import (
 
 func TestGenerateNopsView(t *testing.T) {
 	t.Parallel()
+	lggr := logger.Test(t)
 	// Create 3 node IDs
 	nodeIDs := []string{"node1", "node2", "node3"}
 
@@ -60,7 +62,7 @@ func TestGenerateNopsView(t *testing.T) {
 
 	t.Run("successful view generation", func(t *testing.T) {
 		// Generate view
-		nopsView, err := GenerateNopsView(nodeIDs, jdService)
+		nopsView, err := GenerateNopsViewV2(lggr, nodeIDs, jdService)
 		require.NoError(t, err)
 
 		// Check that we have all 3 nodes in the view
@@ -88,7 +90,7 @@ func TestGenerateNopsView(t *testing.T) {
 	})
 
 	t.Run("node not found in JD", func(t *testing.T) {
-		v, err := GenerateNopsView([]string{"unknown_node"}, jdService)
+		v, err := GenerateNopsViewV2(lggr, []string{"unknown_node"}, jdService)
 		require.NoError(t, err)
 		assert.Empty(t, v)
 	})
@@ -100,7 +102,7 @@ func TestGenerateNopsView(t *testing.T) {
 			listNodesError:    errors.New("failed to list nodes from JD"),
 		}
 		// Should return the error from ListNodes
-		_, err := GenerateNopsView(nodeIDs, errorJDService)
+		_, err := GenerateNopsViewV2(lggr, nodeIDs, errorJDService)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to list nodes from JD")
 	})

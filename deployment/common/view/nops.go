@@ -8,6 +8,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
@@ -49,11 +50,20 @@ type OCRKeyView struct {
 	KeyBundleID               string `json:"keyBundleID"`
 }
 
+// Deprecated: use GenerateNopsViewV2
 func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[string]NopView, error) {
+	lggr, err := logger.New()
+	if err != nil {
+		return nil, err
+	}
+	return GenerateNopsViewV2(lggr, nodeIDs, oc)
+}
+
+func GenerateNopsViewV2(lggr logger.Logger, nodeIDs []string, oc deployment.OffchainClient) (map[string]NopView, error) {
 	nv := make(map[string]NopView)
 	nodes, err := deployment.NodeInfo(nodeIDs, oc)
 	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
-		fmt.Printf("WARNING: Missing node metadata:\n%s", err.Error())
+		lggr.Warnf("Missing node metadata: %s", err.Error())
 	} else if err != nil {
 		return nv, fmt.Errorf("failed to get node info: %w", err)
 	}
@@ -74,10 +84,10 @@ func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[strin
 		}
 		return nil
 	}
-	jobspecs, err := approvedJobspecs(context.Background(), nodeIDs, oc)
+	jobspecs, err := approvedJobspecs(context.Background(), lggr, nodeIDs, oc)
 	if err != nil {
 		// best effort on job specs
-		fmt.Printf("WARNING: Failed to get approved jobspecs: %v\n", err)
+		lggr.Warnf("Failed to get approved jobspecs: %v", err)
 	}
 
 	for _, node := range nodes {
@@ -124,7 +134,7 @@ func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[strin
 	return nv, nil
 }
 
-func approvedJobspecs(ctx context.Context, nodeIDs []string, oc deployment.OffchainClient) (nodeJobsView map[string]map[string]JobView, verr error) {
+func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc deployment.OffchainClient) (nodeJobsView map[string]map[string]JobView, verr error) {
 	nodeJobsView = make(map[string]map[string]JobView)
 
 	jobs, err := oc.ListJobs(ctx, &jobv1.ListJobsRequest{
@@ -157,7 +167,7 @@ func approvedJobspecs(ctx context.Context, nodeIDs []string, oc deployment.Offch
 		})
 		if err != nil {
 			// don't block on single node error
-			fmt.Printf("failed to list job proposals on node %s: %v/n", nodeID, err)
+			lggr.Warnf("failed to list job proposals on node %s: %v", nodeID, err)
 			verr = errors.Join(verr, fmt.Errorf("failed to list job proposals on node %s: %w", nodeID, err))
 			continue
 		}
