@@ -1051,6 +1051,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPTokenPriceUpdates$ -timeout 18m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1066,6 +1067,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPGasPriceUpdatesWriteFrequency$ -timeout 18m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1081,6 +1083,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPGasPriceUpdatesDeviation$ -timeout 18m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1096,6 +1099,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$ -timeout 30m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
@@ -1259,6 +1263,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestDeleteCCIPJobs$ -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1274,6 +1279,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd smoke/ccip && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestRevokeJobs$ -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated

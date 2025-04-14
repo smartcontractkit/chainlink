@@ -7,25 +7,16 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/chainreader"
@@ -45,32 +36,6 @@ var EnvironmentCmd = &cobra.Command{
 func init() {
 	EnvironmentCmd.AddCommand(startCmd)
 	EnvironmentCmd.AddCommand(stopCmd)
-	EnvironmentCmd.AddCommand(DeployAndSetupKeystoneConsumerCmd)
-
-	// add flags to the command
-	DeployAndSetupKeystoneConsumerCmd.Flags().StringVar(&rpcHTTPURL, "rpc-http-url", "", "RPC HTTP URL")
-	DeployAndSetupKeystoneConsumerCmd.Flags().StringVar(&rpcWSURL, "rpc-ws-url", "", "RPC WS URL")
-	DeployAndSetupKeystoneConsumerCmd.Flags().StringVar(&forwarderAddress, "forwarder-address", "", "Forwarder address")
-	DeployAndSetupKeystoneConsumerCmd.Flags().StringVar(&workflowName, "workflow-name", "", "Workflow name")
-	DeployAndSetupKeystoneConsumerCmd.Flags().Uint64Var(&chainID, "chain-id", 1337, "Chain ID")
-
-	// add required flags
-	flagErr := DeployAndSetupKeystoneConsumerCmd.MarkFlagRequired("rpc-http-url")
-	if flagErr != nil {
-		panic(flagErr)
-	}
-	flagErr = DeployAndSetupKeystoneConsumerCmd.MarkFlagRequired("rpc-ws-url")
-	if flagErr != nil {
-		panic(flagErr)
-	}
-	flagErr = DeployAndSetupKeystoneConsumerCmd.MarkFlagRequired("forwarder-address")
-	if flagErr != nil {
-		panic(flagErr)
-	}
-	flagErr = DeployAndSetupKeystoneConsumerCmd.MarkFlagRequired("workflow-name")
-	if flagErr != nil {
-		panic(flagErr)
-	}
 }
 
 const manualCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
@@ -273,115 +238,4 @@ func startCLIEnvironment() (*creenv.SetupOutput, error) {
 	}
 
 	return universalSetupOutput, nil
-}
-
-var (
-	rpcHTTPURL, rpcWSURL, forwarderAddress, workflowName string
-	chainID                                              uint64
-)
-
-var DeployAndSetupKeystoneConsumerCmd = &cobra.Command{
-	Use:   "deploy-keystone-consumer",
-	Short: "Deploy and setup keystone consumer",
-	Long:  `Deploy and setup keystone consumer`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		pkey := os.Getenv("PRIVATE_KEY")
-		if pkey == "" {
-			return errors.New("PRIVATE_KEY environment variable is not set")
-		}
-
-		chainSelector, err := chainselectors.SelectorFromChainId(chainID)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get chain selector for chain id %d", chainID)
-		}
-
-		sethClient, err := seth.NewClientBuilder().
-			WithRpcUrl(rpcWSURL).
-			WithPrivateKeys([]string{pkey}).
-			// do not check if there's a pending nonce nor check node's health
-			WithProtections(false, false, seth.MustMakeDuration(time.Second)).
-			Build()
-		if err != nil {
-			return errors.Wrap(err, "failed to create seth client")
-		}
-
-		chainsConfig := []devenv.ChainConfig{
-			{
-				ChainID:   chainID,
-				ChainName: "doesn't matter",
-				ChainType: "evm",
-				WSRPCs: []devenv.CribRPCs{{
-					External: rpcWSURL,
-					Internal: rpcWSURL,
-				}},
-				HTTPRPCs: []devenv.CribRPCs{{
-					External: rpcHTTPURL,
-					Internal: rpcHTTPURL,
-				}},
-				DeployerKey: sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
-			},
-		}
-
-		singeFileLogger := cldlogger.NewSingleFileLogger(nil)
-
-		chains, chainsErr := devenv.NewChains(singeFileLogger, chainsConfig)
-		if chainsErr != nil {
-			return errors.Wrap(chainsErr, "failed to create chains")
-		}
-
-		chainsOnlyCld := &deployment.Environment{
-			Logger:            singeFileLogger,
-			Chains:            chains,
-			ExistingAddresses: deployment.NewMemoryAddressBook(),
-			GetContext:        context.Background,
-		}
-
-		addr, err := DeployAndSetupKeystoneConsumer(
-			framework.L,
-			sethClient,
-			common.HexToAddress(forwarderAddress),
-			chainsOnlyCld,
-			chainSelector,
-			workflowName,
-		)
-
-		if err != nil {
-			return errors.Wrap(err, "failed to deploy keystone consumer")
-		}
-		fmt.Printf("Deployed keystone consumer at %s\n", addr.Hex())
-
-		return nil
-	},
-}
-
-func DeployAndSetupKeystoneConsumer(
-	testLogger zerolog.Logger,
-	sethClient *seth.Client,
-	forwarderAddress common.Address,
-	cldEnv *deployment.Environment,
-	chainSelector uint64,
-	workflowName string,
-) (*common.Address, error) {
-	deployFeedConsumerInput := &cretypes.DeployFeedConsumerInput{
-		ChainSelector: chainSelector,
-		CldEnv:        cldEnv,
-	}
-	deployFeedsConsumerOutput, err := libcontracts.DeployFeedsConsumer(testLogger, deployFeedConsumerInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deploy feeds consumer")
-	}
-
-	configureFeedConsumerInput := &cretypes.ConfigureFeedConsumerInput{
-		SethClient:            sethClient,
-		FeedConsumerAddress:   deployFeedsConsumerOutput.FeedConsumerAddress,
-		AllowedSenders:        []common.Address{forwarderAddress},
-		AllowedWorkflowOwners: []common.Address{sethClient.MustGetRootKeyAddress()},
-		AllowedWorkflowNames:  []string{workflowName},
-	}
-	_, err = libcontracts.ConfigureFeedsConsumer(testLogger, configureFeedConsumerInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to configure feeds consumer")
-	}
-
-	return &deployFeedsConsumerOutput.FeedConsumerAddress, nil
 }
