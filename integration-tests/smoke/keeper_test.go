@@ -700,6 +700,9 @@ func TestKeeperRemove(t *testing.T) {
 	for _, rv := range registryVersions {
 		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			if registryVersion == ethereum.RegistryVersion_1_1 {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-521")
+			}
 			if registryVersion == ethereum.RegistryVersion_1_2 {
 				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-435")
 			}
