@@ -81,9 +81,6 @@ var (
 			ChainFeeAsyncObserverSyncTimeout:   3 * time.Second,
 			TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(4 * time.Second),
 			TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(3 * time.Second),
-			// Since Ethereum blocks are slower, we can afford to set a higher transmission delay
-			// to match the Ethereum-specific OCR parameters
-			TransmissionDelayMultiplier: 45 * time.Second,
 		},
 	)
 
