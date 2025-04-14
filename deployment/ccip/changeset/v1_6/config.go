@@ -23,7 +23,7 @@ var (
 
 	DefaultOCRParamsForCommitForETH = CCIPOCRParams{
 		OCRParameters:        globals.CommitOCRParamsForEthereum,
-		CommitOffChainConfig: &globals.DefaultCommitOffChainCfg,
+		CommitOffChainConfig: &globals.CommitOffChainCfgForEthereum,
 	}
 
 	DefaultOCRParamsForExecForNonETH = CCIPOCRParams{
@@ -150,25 +150,4 @@ func DeriveOCRParamsForExec(
 		return params
 	}
 	return override(params)
-}
-
-// DeriveCommitSyncTimeoutForEthereumChains creates an override function for optimizing cache sync timeouts
-// for Ethereum chains where OCR rounds occur every ~6 seconds
-func DeriveCommitSyncTimeoutForEthereumChains(
-	baseOverride func(params CCIPOCRParams) CCIPOCRParams) func(params CCIPOCRParams) CCIPOCRParams {
-	return func(params CCIPOCRParams) CCIPOCRParams {
-		// Optimize cache timing for Ethereum chains (4s refresh with 3s timeout)
-		params.CommitOffChainConfig.ChainFeeAsyncObserverSyncFreq = 4 * time.Second
-		params.CommitOffChainConfig.ChainFeeAsyncObserverSyncTimeout = 3 * time.Second
-
-		params.CommitOffChainConfig.TokenPriceAsyncObserverSyncFreq = *config.MustNewDuration(4 * time.Second)
-		params.CommitOffChainConfig.TokenPriceAsyncObserverSyncTimeout = *config.MustNewDuration(3 * time.Second)
-
-		// Apply any additional chain-specific overrides if provided
-		if baseOverride != nil {
-			params = baseOverride(params)
-		}
-
-		return params
-	}
 }

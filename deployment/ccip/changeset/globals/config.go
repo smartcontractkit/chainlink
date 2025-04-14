@@ -1,7 +1,10 @@
 package globals
 
 import (
+	"fmt"
 	"time"
+
+	"dario.cat/mergo"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -67,6 +70,23 @@ var (
 		// TokenInfo: , // Must be configured in CLD
 	}
 
+	// CommitOffChainCfgForEthereum represents a dedicated CommitOffchainConfig for Ethereum.
+	// It's driven by the fact that Ethereum block time is slower (12 seconds) and chain is considered
+	// more expensive compared to other EVM compatible chains
+	CommitOffChainCfgForEthereum = withCommitOffchainOverrides(
+		DefaultCommitOffChainCfg,
+		pluginconfig.CommitOffchainConfig{
+			// Adjusted for longer block times on Ethereum
+			ChainFeeAsyncObserverSyncFreq:      4 * time.Second,
+			ChainFeeAsyncObserverSyncTimeout:   3 * time.Second,
+			TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(4 * time.Second),
+			TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(3 * time.Second),
+			// Since Ethereum blocks are slower, we can afford to set a higher transmission delay
+			// to match the Ethereum-specific OCR parameters
+			TransmissionDelayMultiplier: 45 * time.Second,
+		},
+	)
+
 	// DefaultExecuteOffChainCfg represents the default offchain configuration for the Execute plugin
 	// on _most_ chains. This should be used as a base for all chains, with overrides only where necessary.
 	// Notable overrides are for Ethereum, which has a slower block time.
@@ -84,3 +104,12 @@ var (
 		// TokenDataObservers: , // Must be configured in CLD
 	}
 )
+
+// withCommitOffchainOverrides applies the overrides to the base CommitOffchainConfig
+func withCommitOffchainOverrides(base pluginconfig.CommitOffchainConfig, overrides pluginconfig.CommitOffchainConfig) pluginconfig.CommitOffchainConfig {
+	outcome := base
+	if err := mergo.Merge(&outcome, overrides, mergo.WithOverride); err != nil {
+		panic(fmt.Sprintf("error while building a CommitOffchainConfig %v", err))
+	}
+	return outcome
+}
