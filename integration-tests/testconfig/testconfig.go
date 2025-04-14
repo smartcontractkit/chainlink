@@ -293,7 +293,22 @@ const (
 	Base64OverrideEnvVarName = k8s_config.EnvBase64ConfigOverride
 )
 
-func GetConfig(configurationNames []string, product Product) (TestConfig, error) {
+// GetConfig returns a TestConfig struct with the given configuration names
+// and product. It reads the configuration from the default.toml, <product>.toml,
+// and overrides.toml files. It also reads the configuration from the
+// environment variables.
+// If extraFileNames are provided, it will read the configuration from those files
+// as well.
+// If the Base64OverrideEnvVarName environment variable is set, it will override
+// the configuration with the base64 encoded TOML config.
+// If the configuration is embedded, it will read the configuration from the
+// embedded files.
+// If the configuration is not embedded, it will read the configuration from
+// the file system.
+// If the configuration is not found, it will return an error.
+// If the configuration is found, it will validate the configuration and return
+// the TestConfig struct.
+func GetConfig(configurationNames []string, product Product, extraFileNames ...string) (TestConfig, error) {
 	logger := logging.GetTestLogger(nil)
 
 	for idx, configurationName := range configurationNames {
@@ -313,6 +328,9 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		fmt.Sprintf("%s.toml", product),
 		"overrides.toml",
 	}
+	// add extra file names to the list
+	// no-op if nothing is provided.
+	fileNames = append(fileNames, extraFileNames...)
 
 	testConfig := TestConfig{}
 	testConfig.ConfigurationNames = configurationNames
@@ -352,7 +370,7 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 			} else if err != nil {
 				return TestConfig{}, errors.Wrapf(err, "error looking for file %s", filePath)
 			}
-			logger.Debug().Str("location", filePath).Msgf("Found config file %s", fileName)
+			logger.Info().Str("location", filePath).Msgf("Found config file %s", fileName)
 
 			content, err := readFile(filePath)
 			if err != nil {

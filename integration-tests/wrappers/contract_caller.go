@@ -17,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	evmClient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmClient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 )

@@ -68,8 +68,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/upkeep_transcoder"
-	cltypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
 // EthereumUpkeepTranscoder represents the transcoder which is used to perform migrations

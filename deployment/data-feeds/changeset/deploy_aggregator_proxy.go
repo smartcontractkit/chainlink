@@ -20,17 +20,8 @@ func deployAggregatorProxyLogic(env deployment.Environment, c types.DeployAggreg
 
 	for index, chainSelector := range c.ChainsToDeploy {
 		chain := env.Chains[chainSelector]
-		addressMap, _ := env.ExistingAddresses.AddressesForChain(chainSelector)
 
-		var dataFeedsCacheAddress string
-		cacheTV := deployment.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
-		cacheTV.Labels.Add("data-feeds")
-		for addr, tv := range addressMap {
-			if tv.String() == cacheTV.String() {
-				dataFeedsCacheAddress = addr
-			}
-		}
-
+		dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, chainSelector, nil)
 		if dataFeedsCacheAddress == "" {
 			return deployment.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract address not found in addressbook for chain %d", chainSelector)
 		}

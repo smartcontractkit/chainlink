@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -146,4 +147,125 @@ func Test_typeReport(t *testing.T) {
 	// incorrect output type
 	_, ok = typeReport[int, string](report)
 	assert.False(t, ok)
+}
+
+var reportJSON = `
+{
+	"id": "6c5d66ad-f1e8-45b6-b83b-4f289b04045f",
+	"definition": {
+	  "id": "op1",
+	  "version": "1.0.0",
+	  "description": "test operation"
+	},
+	"output": "2",
+	"input": 1,
+	"timestamp": "2025-04-03T17:24:27.079966+11:00",
+	"error": {
+      "message": "test error"
+    },
+	"childOperationReports": ["157b4a77-bdcb-497d-899d-1e8bb44ced58"]
+}`
+
+func Test_Report_Marshal(t *testing.T) {
+	t.Parallel()
+
+	timestamp, err := time.Parse(time.RFC3339, "2025-04-03T17:24:27.079966+11:00")
+	require.NoError(t, err)
+
+	report := Report[any, any]{
+		ID: "6c5d66ad-f1e8-45b6-b83b-4f289b04045f",
+		Def: Definition{
+			ID:          "op1",
+			Version:     semver.MustParse("1.0.0"),
+			Description: "test operation",
+		},
+		Output:                "2",
+		Input:                 1,
+		Timestamp:             &timestamp,
+		Err:                   &ReportError{Message: "test error"},
+		ChildOperationReports: []string{"157b4a77-bdcb-497d-899d-1e8bb44ced58"},
+	}
+
+	bytes, err := json.MarshalIndent(report, "", "  ")
+	require.NoError(t, err)
+
+	assert.JSONEq(t, reportJSON, string(bytes))
+}
+
+func Test_Report_Unmarshal(t *testing.T) {
+	t.Parallel()
+
+	var report Report[int, string]
+	err := json.Unmarshal([]byte(reportJSON), &report)
+	require.NoError(t, err)
+
+	assert.Equal(t, "6c5d66ad-f1e8-45b6-b83b-4f289b04045f", report.ID)
+	assert.Equal(t, Definition{
+		ID:          "op1",
+		Version:     semver.MustParse("1.0.0"),
+		Description: "test operation",
+	}, report.Def)
+	assert.Equal(t, 1, report.Input)
+	assert.Equal(t, "2", report.Output)
+	require.ErrorContains(t, report.Err, "test error")
+	assert.Len(t, report.ChildOperationReports, 1)
+	assert.Equal(t, "157b4a77-bdcb-497d-899d-1e8bb44ced58", report.ChildOperationReports[0])
+	assert.NotNil(t, report.Timestamp)
+}
+
+func Test_Report_ToGenericReport(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	report := Report[int, string]{
+		ID:                    "1",
+		Def:                   Definition{},
+		Output:                "2",
+		Input:                 1,
+		Timestamp:             &now,
+		Err:                   nil,
+		ChildOperationReports: []string{uuid.New().String()},
+	}
+
+	r := report.ToGenericReport()
+	assert.Equal(t, report.ID, r.ID)
+	assert.Equal(t, report.Def, r.Def)
+	assert.Equal(t, report.Output, r.Output)
+	assert.Equal(t, report.Input, r.Input)
+	assert.Equal(t, report.Timestamp, r.Timestamp)
+	assert.Equal(t, report.Err, r.Err)
+	assert.Equal(t, report.ChildOperationReports, r.ChildOperationReports)
+}
+
+func Test_SequenceReport_ToGenericReport(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	report := SequenceReport[int, string]{
+		Report: Report[int, string]{
+			ID:                    "1",
+			Def:                   Definition{},
+			Output:                "2",
+			Input:                 1,
+			Timestamp:             &now,
+			Err:                   nil,
+			ChildOperationReports: []string{uuid.New().String()},
+		},
+		ExecutionReports: []Report[any, any]{
+			{
+				ID: "2",
+			},
+		},
+	}
+
+	r := report.ToGenericSequenceReport()
+	assert.Equal(t, report.ID, r.ID)
+	assert.Equal(t, report.Def, r.Def)
+	assert.Equal(t, report.Output, r.Output)
+	assert.Equal(t, report.Input, r.Input)
+	assert.Equal(t, report.Timestamp, r.Timestamp)
+	assert.Equal(t, report.Err, r.Err)
+	assert.Equal(t, report.ChildOperationReports, r.ChildOperationReports)
+	assert.Len(t, r.ExecutionReports, 1)
+	assert.Equal(t, report.ExecutionReports[0].ID, r.ExecutionReports[0].ID)
 }

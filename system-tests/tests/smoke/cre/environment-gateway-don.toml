@@ -1,11 +1,14 @@
 
 [blockchain_a]
   type = "anvil"
-  docker_cmd_params = ["-b", "5"]
+  chain_id = "1337"
+
+[custom_anvil_miner]
+  block_speed_seconds = 5
 
 [jd]
   # change to your version
-  image = "jd-test-1:latest"
+  image = "job-distributor:0.9.0"
 
 # fake data provider used as a mocked price source
 [fake]
@@ -17,7 +20,8 @@
 
 [workflow_config]
 	workflow_name = "abcdefgasd"
-  feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
+  # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
+  feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
   should_compile_new_workflow = true
@@ -31,7 +35,7 @@
 
 [[nodesets]]
   nodes = 5
-  override_mode = "each"
+  override_mode = "all"
   http_port_range_start = 10100
   name = "workflow"
 
@@ -64,97 +68,9 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
 [[nodesets]]
   nodes = 1
-  override_mode = "each"
+  override_mode = "all"
   http_port_range_start = 10300
   name = "gateway"
 

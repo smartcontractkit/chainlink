@@ -90,16 +90,13 @@ type UpgradeConfig struct {
 	// SpillAddress and UpgradeAuthority must be set
 	SpillAddress     solana.PublicKey
 	UpgradeAuthority solana.PublicKey
-	// MCMS config must be set for upgrades and offramp redploys (to configure the fee quoter after redeploy)
+	// MCMS config must be set for upgrades and offramp redeploys (to configure the fee quoter after redeploy)
 	MCMS *proposalutils.TimelockConfig
 }
 
 func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64) error {
 	if cfg.NewFeeQuoterVersion == nil && cfg.NewRouterVersion == nil && cfg.NewOffRampVersion == nil {
 		return nil
-	}
-	if cfg.MCMS == nil {
-		return errors.New("MCMS config must be set for upgrades")
 	}
 	if cfg.SpillAddress.IsZero() {
 		return errors.New("spill address must be set for fee quoter and router upgrades")
@@ -281,7 +278,6 @@ func initializeRouter(
 	}
 	// addressing errcheck in the next PR
 	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
-	externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 
 	instruction, err := solRouter.NewInitializeInstruction(
 		chain.Selector, // chain selector
@@ -295,7 +291,6 @@ func initializeRouter(
 		solana.SystemProgramID,
 		ccipRouterProgram,
 		programData.Address,
-		externalTokenPoolsSignerPDA,
 	).ValidateAndBuild()
 
 	if err != nil {
@@ -377,8 +372,6 @@ func initializeOffRamp(
 	offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
 	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
 	offRampStatePDA, _, _ := solState.FindOfframpStatePDA(offRampAddress)
-	offRampExternalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(offRampAddress)
-	offRampTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(offRampAddress)
 
 	initIx, err := solOffRamp.NewInitializeInstruction(
 		offRampReferenceAddressesPDA,
@@ -387,8 +380,6 @@ func initializeOffRamp(
 		rmnRemoteAddress,
 		addressLookupTable,
 		offRampStatePDA,
-		offRampExternalExecutionConfigPDA,
-		offRampTokenPoolsSignerPDA,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		offRampAddress,
@@ -542,27 +533,38 @@ func deployChainContractsSolana(
 			if err != nil {
 				return txns, fmt.Errorf("failed to deploy program: %w", err)
 			}
-		}
+			offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+			fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
+			feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 
-		offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
-		fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
-		feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
-
-		priceUpdaterix, err := solFeeQuoter.NewAddPriceUpdaterInstruction(
-			offRampBillingSignerPDA,
-			fqAllowedPriceUpdaterOfframpPDA,
-			feeQuoterConfigPDA,
-			config.UpgradeConfig.UpgradeAuthority,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return txns, fmt.Errorf("failed to build instruction: %w", err)
+			priceUpdaterix, err := solFeeQuoter.NewAddPriceUpdaterInstruction(
+				offRampBillingSignerPDA,
+				fqAllowedPriceUpdaterOfframpPDA,
+				feeQuoterConfigPDA,
+				config.UpgradeConfig.UpgradeAuthority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return txns, fmt.Errorf("failed to build instruction: %w", err)
+			}
+			if config.UpgradeConfig.MCMS != nil {
+				priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), ccipChangeset.FeeQuoter)
+				if err != nil {
+					return txns, fmt.Errorf("failed to create price updater transaction: %w", err)
+				}
+				txns = append(txns, *priceUpdaterTx)
+			} else {
+				if err := chain.Confirm([]solana.Instruction{priceUpdaterix}); err != nil {
+					return txns, fmt.Errorf("failed to confirm initializeFeeQuoter: %w", err)
+				}
+			}
+		} else {
+			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewOffRampVersion, chainState.OffRamp, ccipChangeset.OffRamp)
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+			}
+			txns = append(txns, newTxns...)
 		}
-		priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), ccipChangeset.FeeQuoter)
-		if err != nil {
-			return txns, fmt.Errorf("failed to create price updater transaction: %w", err)
-		}
-		txns = append(txns, *priceUpdaterTx)
 	} else {
 		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
 		offRampAddress = chainState.OffRamp
@@ -757,7 +759,7 @@ func deployChainContractsSolana(
 
 	// LOOKUP TABLE
 	if createLookupTable {
-		// fee quoter enteries
+		// fee quoter entries
 		linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)
 		wsolFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.WSOL, feeQuoterAddress)
 		feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
@@ -770,15 +772,11 @@ func deployChainContractsSolana(
 		}...)
 
 		// router entries
-		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
-		externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 		routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
 		feeBillingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(ccipRouterProgram)
 		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
 			ccipRouterProgram,
 			routerConfigPDA,
-			externalExecutionConfigPDA,
-			externalTokenPoolsSignerPDA,
 			feeBillingSignerPDA,
 		}...)
 
@@ -1157,7 +1155,7 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 	}
 
 	solTestReceiver.SetProgramID(receiverAddress)
-	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(receiverAddress)
+	externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
 	instruction, ixErr := solTestReceiver.NewInitializeInstruction(
 		chainState.Router,
 		ccipChangeset.FindReceiverTargetAccount(receiverAddress),

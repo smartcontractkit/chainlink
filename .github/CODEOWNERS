@@ -152,6 +152,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 # CI/CD
 /.github/** @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 /.github/CODEOWNERS @smartcontractkit/core @smartcontractkit/foundations
+/.github/workflows/build-publish.yml @smartcontractkit/devex-cicd
 /.github/workflows/performance-tests.yml @smartcontractkit/devex-tooling
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/dev-services

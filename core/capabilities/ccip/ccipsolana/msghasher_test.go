@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
@@ -99,7 +99,7 @@ func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 
 	sender := abiEncodedAddress(t)
 	receiver := solana.MustPublicKeyFromBase58("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb")
-
+	tokenReceiver := solana.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF")
 	extraArgs := ccip_offramp.Any2SVMRampExtraArgs{
 		ComputeUnits:     uint32(10000),
 		IsWritableBitmap: uint64(4),
@@ -138,7 +138,7 @@ func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 			Nonce:               nonce,
 		},
 		Sender:        sender,
-		TokenReceiver: receiver,
+		TokenReceiver: tokenReceiver,
 		Data:          messageData,
 		TokenAmounts:  solTokenAmounts,
 		ExtraArgs:     extraArgs,
@@ -162,6 +162,7 @@ func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 	}
 
 	msgAccounts := []solana.PublicKey{
+		receiver,
 		solana.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF"),
 	}
 	return any2AnyMsg, any2SolanaMsg, msgAccounts

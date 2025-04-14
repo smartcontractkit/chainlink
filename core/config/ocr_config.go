@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
 // OCR is a subset of global config relevant to OCR v1.
