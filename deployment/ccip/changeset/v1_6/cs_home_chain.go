@@ -763,6 +763,10 @@ func updateNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deplo
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+	c.homeChainSel, err = state.HomeChainSelector()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get home chain selector: %w", err)
+	}
 	// ensure that all node operators exist
 	homeChainState := state.Chains[c.homeChainSel]
 	homeChain := env.Chains[c.homeChainSel]
@@ -893,6 +897,10 @@ func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deployme
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+	c.homeChainSel, err = state.HomeChainSelector()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get home chain selector: %w", err)
+	}
 	// ensure that all node operators exist
 	homeChainState := state.Chains[c.homeChainSel]
 	homeChain := env.Chains[c.homeChainSel]
@@ -943,6 +951,10 @@ func removeNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deplo
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
+	}
+	c.homeChainSel, err = state.HomeChainSelector()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get home chain selector: %w", err)
 	}
 	homeChainState := state.Chains[c.homeChainSel]
 	homeChain := env.Chains[c.homeChainSel]
