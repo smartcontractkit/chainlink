@@ -864,6 +864,7 @@ func newTronContractTransmitter(ctx context.Context, lggr logger.Logger, rargs c
 	// Start the Tron TXM
 	tronTXM := trontxm.New(lggr, tronkeystore.NewLoopKeystoreAdapter(ethKeystore), tronClient, trontxm.TronTxmConfig{
 		EnergyMultiplier: 3,
+		StatusChecker:    true,
 	})
 	tronTXM.Start(ctx)
 
