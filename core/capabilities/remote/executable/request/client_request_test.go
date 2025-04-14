@@ -364,6 +364,10 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		err = request.OnMessage(ctx, msg)
 		require.NoError(t, err)
 
+		msg.Sender = capPeers[2][:]
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
 		response := <-request.ResponseChan()
 		capResponse, err := pb.UnmarshalCapabilityResponse(response.Result)
 		require.NoError(t, err)
@@ -440,6 +444,10 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		msg.Sender = capPeers[1][:]
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		msg.Sender = capPeers[2][:]
 		err = request.OnMessage(ctx, msg)
 		require.NoError(t, err)
 
