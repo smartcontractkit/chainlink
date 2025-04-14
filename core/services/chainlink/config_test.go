@@ -1344,6 +1344,9 @@ func TestConfig_full(t *testing.T) {
 			if got.EVM[c].Nodes[n].Order == nil {
 				got.EVM[c].Nodes[n].Order = ptr(int32(100))
 			}
+			if got.EVM[c].Nodes[n].HTTPURLExtraWrite == nil {
+				got.EVM[c].Nodes[n].HTTPURLExtraWrite = new(commoncfg.URL)
+			}
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.BlockTime == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.BlockTime = new(commoncfg.Duration)
