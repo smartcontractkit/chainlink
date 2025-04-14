@@ -369,7 +369,6 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 				},
 				commoncs.Configure(v1_6.AddNopsToCapRegChangeset,
 					v1_6.AddOrUpdateNopsConfig{
-						HomeChainSel: e.HomeChainSel,
 						NopUpdates: map[string]capabilities_registry.CapabilitiesRegistryNodeOperator{
 							nopName: nopToAdd,
 						},
@@ -395,7 +394,6 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 				},
 				commoncs.Configure(v1_6.UpdateNopsInCapRegChangeset,
 					v1_6.AddOrUpdateNopsConfig{
-						HomeChainSel: e.HomeChainSel,
 						ExistingNops: []capabilities_registry.CapabilitiesRegistryNodeOperator{nopToAdd},
 						NopUpdates: map[string]capabilities_registry.CapabilitiesRegistryNodeOperator{
 							nopName: nopAfterUpdate,
@@ -422,7 +420,6 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 				},
 				commoncs.Configure(v1_6.RemoveNopsFromCapRegChangeset,
 					v1_6.AddOrUpdateNopsConfig{
-						HomeChainSel: e.HomeChainSel,
 						ExistingNops: []capabilities_registry.CapabilitiesRegistryNodeOperator{nopAfterUpdate},
 						MCMSConfig:   mcmsConfig,
 					}))

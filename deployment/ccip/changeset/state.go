@@ -509,6 +509,16 @@ type CCIPOnChainState struct {
 	AptosChains map[uint64]AptosCCIPChainState
 }
 
+// HomeChainSelector returns the selector of the home chain based on the presence of RMNHome, CapabilityRegistry and CCIPHome contracts.
+func (c CCIPOnChainState) HomeChainSelector() (uint64, error) {
+	for selector, chain := range c.Chains {
+		if chain.RMNHome != nil && chain.CapabilityRegistry != nil && chain.CCIPHome != nil {
+			return selector, nil
+		}
+	}
+	return 0, fmt.Errorf("no home chain found")
+}
+
 func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithTimelockState {
 	mcmsStateByChain := make(map[uint64]commonstate.MCMSWithTimelockState)
 	for chainSelector, chain := range c.Chains {

@@ -711,7 +711,7 @@ func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (deployme
 // ExistingNops: [ { Name: "nop1", Admin: "0x123" }, { Name: "nop2", Admin: "0x456" } ]
 // NopUpdates: []
 type AddOrUpdateNopsConfig struct {
-	HomeChainSel uint64
+	homeChainSel uint64
 	ExistingNops []capabilities_registry.CapabilitiesRegistryNodeOperator          // existing node operators, will be empty in case of adding new node operators
 	NopUpdates   map[string]capabilities_registry.CapabilitiesRegistryNodeOperator // node operators to add or update, key nop name, will be empty in case of removing node operators
 	MCMSConfig   *proposalutils.TimelockConfig
@@ -722,19 +722,19 @@ func addUpdateOrRemoveNopsPrecondition(env deployment.Environment, c AddOrUpdate
 	if err != nil {
 		return err
 	}
-	if err := changeset.ValidateChain(env, state, c.HomeChainSel, c.MCMSConfig); err != nil {
+	if err := changeset.ValidateChain(env, state, c.homeChainSel, c.MCMSConfig); err != nil {
 		return err
 	}
-	// Cap reg must exist
-	if state.Chains[c.HomeChainSel].CapabilityRegistry == nil {
-		return fmt.Errorf("cap reg does not exist for home chain %d", c.HomeChainSel)
+	c.homeChainSel, err = state.HomeChainSelector()
+	if err != nil {
+		return fmt.Errorf("failed to get home chain selector: %w", err)
 	}
-	if state.Chains[c.HomeChainSel].Timelock == nil {
-		return fmt.Errorf("timelock does not exist for home chain %d", c.HomeChainSel)
+	if state.Chains[c.homeChainSel].Timelock == nil {
+		return fmt.Errorf("timelock does not exist for home chain %d", c.homeChainSel)
 	}
 	err = commoncs.ValidateOwnership(env.GetContext(), c.MCMSConfig != nil,
-		env.Chains[c.HomeChainSel].DeployerKey.From, state.Chains[c.HomeChainSel].Timelock.Address(),
-		state.Chains[c.HomeChainSel].CapabilityRegistry)
+		env.Chains[c.homeChainSel].DeployerKey.From, state.Chains[c.homeChainSel].Timelock.Address(),
+		state.Chains[c.homeChainSel].CapabilityRegistry)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
@@ -763,8 +763,8 @@ func updateNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deplo
 		return deployment.ChangesetOutput{}, err
 	}
 	// ensure that all node operators exist
-	homeChainState := state.Chains[c.HomeChainSel]
-	homeChain := env.Chains[c.HomeChainSel]
+	homeChainState := state.Chains[c.homeChainSel]
+	homeChain := env.Chains[c.homeChainSel]
 	if len(c.NopUpdates) != len(c.ExistingNops) {
 		return deployment.ChangesetOutput{}, errors.New("number of existing node operators and node operators to update must be same and should follow same order")
 	}
@@ -893,8 +893,8 @@ func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deployme
 		return deployment.ChangesetOutput{}, err
 	}
 	// ensure that all node operators exist
-	homeChainState := state.Chains[c.HomeChainSel]
-	homeChain := env.Chains[c.HomeChainSel]
+	homeChainState := state.Chains[c.homeChainSel]
+	homeChain := env.Chains[c.homeChainSel]
 	if len(c.NopUpdates) == 0 {
 		return deployment.ChangesetOutput{}, errors.New("no node operators to add")
 	}
@@ -943,8 +943,8 @@ func removeNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deplo
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	homeChainState := state.Chains[c.HomeChainSel]
-	homeChain := env.Chains[c.HomeChainSel]
+	homeChainState := state.Chains[c.homeChainSel]
+	homeChain := env.Chains[c.homeChainSel]
 	if len(c.ExistingNops) == 0 {
 		return deployment.ChangesetOutput{}, errors.New("no node operators to remove")
 	}
@@ -962,6 +962,8 @@ func removeNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deplo
 		id := nodeOperatorIDByNop(nopsByID, nop)
 		// if id is zero, it means the node operator does not exist, nothing to remove, skip
 		if id == 0 {
+			env.Logger.Infof("Node operator with name %s admin %s does not exist in cap reg %s, skipping",
+				nop.Name, nop.Admin, homeChainState.CapabilityRegistry.Address().String())
 			continue
 		}
 		// validate that the sender is the owner of the CapabilitiesRegistry
