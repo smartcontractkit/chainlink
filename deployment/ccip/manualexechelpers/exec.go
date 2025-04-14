@@ -128,8 +128,7 @@ func getCommitRootAcceptedEvent(
 		return offramp.InternalMerkleRoot{}, fmt.Errorf("failed to get header: %w", err)
 	}
 
-	// TODO: we might be able to optimize this further by starting from the last block
-	// from the previous batch?
+	// TODO: CCIP-5700
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
 	step := durationToBlocks(destChainSel, stepDuration)
 
@@ -154,26 +153,12 @@ func getCommitRootAcceptedEvent(
 				continue
 			}
 
-			// Check BlessedMerkleRoots
 			if root, found := findCommitRoot(
 				lggr,
-				iter.Event.BlessedMerkleRoots,
+				append(iter.Event.BlessedMerkleRoots, iter.Event.UnblessedMerkleRoots...),
 				srcChainSel,
 				msgSeqNr,
 				iter.Event.Raw.TxHash,
-				"blessed",
-			); found {
-				return root, nil
-			}
-
-			// Check UnblessedMerkleRoots
-			if root, found := findCommitRoot(
-				lggr,
-				iter.Event.UnblessedMerkleRoots,
-				srcChainSel,
-				msgSeqNr,
-				iter.Event.Raw.TxHash,
-				"unblessed",
 			); found {
 				return root, nil
 			}
@@ -194,19 +179,16 @@ func findCommitRoot(
 	srcChainSel uint64,
 	msgSeqNr uint64,
 	txHash common.Hash,
-	rootType string,
 ) (offramp.InternalMerkleRoot, bool) {
 	for _, root := range roots {
 		if root.SourceChainSelector == srcChainSel {
 			lggr.Debugw("checking commit root",
-				"rootType", rootType,
 				"minSeqNr", root.MinSeqNr,
 				"maxSeqNr", root.MaxSeqNr,
 				"txHash", txHash.Hex(),
 			)
 			if msgSeqNr >= root.MinSeqNr && msgSeqNr <= root.MaxSeqNr {
 				lggr.Debugw("found commit root",
-					"rootType", rootType,
 					"root", root,
 					"txHash", txHash.Hex(),
 				)
@@ -236,8 +218,7 @@ func getCCIPMessageSentEvents(
 		return nil, fmt.Errorf("failed to get header: %w", err)
 	}
 
-	// TODO: we might be able to optimize this further by starting from the last block
-	// from the previous batch?
+	// TODO: CCIP-5700
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
 	step := durationToBlocks(srcChainSel, stepDuration)
 
@@ -461,8 +442,7 @@ func manuallyExecuteSingle(
 		return fmt.Errorf("no message found for seqNr %d", msgSeqNr)
 	}
 
-	// TODO: further throughput speedups can be achieved if we batch, but that requires
-	// some rejigging of the current code.
+	// TODO: CCIP-5702
 	execReport, err := manualexeclib.CreateExecutionReport(
 		srcChainSel,
 		onRampAddress,
