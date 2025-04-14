@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -72,11 +73,14 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			Nodes:   toml.EVMNodes{&node2_1},
 		})
 
+		solChainCfg := solcfg.Chain{}
+		solChainCfg.SetDefaults()
+
 		c.Solana = solcfg.TOMLConfigs{
 			&solcfg.TOMLConfig{
 				ChainID: &solanaChainID1,
 				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
+				Chain:   solChainCfg,
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 1 node 1"),
 					URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
@@ -85,7 +89,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			&solcfg.TOMLConfig{
 				ChainID: &solanaChainID2,
 				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
+				Chain:   solChainCfg,
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 2 node 1"),
 					URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8527").URL())),

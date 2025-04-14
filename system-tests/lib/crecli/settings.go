@@ -41,6 +41,7 @@ type McmsConfig struct {
 
 type Contracts struct {
 	ContractRegistry []ContractRegistry `yaml:"registries"`
+	DataFeeds        []ContractRegistry `yaml:"data-feeds"`
 }
 
 type ContractRegistry struct {
@@ -61,7 +62,7 @@ type PoRWorkflowConfig struct {
 	WriteTargetName string `json:"write_target_name"`
 }
 
-func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr common.Address, donID uint32, chainSelector uint64, rpcHTTPURL string) (*os.File, error) {
+func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr common.Address, dataFeedsCacheAddress *common.Address, donID uint32, chainSelector uint64, rpcHTTPURL string) (*os.File, error) {
 	settingsFile, err := os.CreateTemp("", CRECLISettingsFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create CRE CLI settings file")
@@ -100,6 +101,16 @@ func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr c
 				URL:           rpcHTTPURL,
 			},
 		},
+	}
+
+	if dataFeedsCacheAddress != nil {
+		settings.Contracts.DataFeeds = []ContractRegistry{
+			{
+				Name:          "DataFeedsCache",
+				Address:       dataFeedsCacheAddress.Hex(),
+				ChainSelector: chainSelector,
+			},
+		}
 	}
 
 	settingsMarshalled, err := yaml.Marshal(settings)

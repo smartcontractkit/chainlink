@@ -212,3 +212,60 @@ func Test_Report_Unmarshal(t *testing.T) {
 	assert.Equal(t, "157b4a77-bdcb-497d-899d-1e8bb44ced58", report.ChildOperationReports[0])
 	assert.NotNil(t, report.Timestamp)
 }
+
+func Test_Report_ToGenericReport(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	report := Report[int, string]{
+		ID:                    "1",
+		Def:                   Definition{},
+		Output:                "2",
+		Input:                 1,
+		Timestamp:             &now,
+		Err:                   nil,
+		ChildOperationReports: []string{uuid.New().String()},
+	}
+
+	r := report.ToGenericReport()
+	assert.Equal(t, report.ID, r.ID)
+	assert.Equal(t, report.Def, r.Def)
+	assert.Equal(t, report.Output, r.Output)
+	assert.Equal(t, report.Input, r.Input)
+	assert.Equal(t, report.Timestamp, r.Timestamp)
+	assert.Equal(t, report.Err, r.Err)
+	assert.Equal(t, report.ChildOperationReports, r.ChildOperationReports)
+}
+
+func Test_SequenceReport_ToGenericReport(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	report := SequenceReport[int, string]{
+		Report: Report[int, string]{
+			ID:                    "1",
+			Def:                   Definition{},
+			Output:                "2",
+			Input:                 1,
+			Timestamp:             &now,
+			Err:                   nil,
+			ChildOperationReports: []string{uuid.New().String()},
+		},
+		ExecutionReports: []Report[any, any]{
+			{
+				ID: "2",
+			},
+		},
+	}
+
+	r := report.ToGenericSequenceReport()
+	assert.Equal(t, report.ID, r.ID)
+	assert.Equal(t, report.Def, r.Def)
+	assert.Equal(t, report.Output, r.Output)
+	assert.Equal(t, report.Input, r.Input)
+	assert.Equal(t, report.Timestamp, r.Timestamp)
+	assert.Equal(t, report.Err, r.Err)
+	assert.Equal(t, report.ChildOperationReports, r.ChildOperationReports)
+	assert.Len(t, r.ExecutionReports, 1)
+	assert.Equal(t, report.ExecutionReports[0].ID, r.ExecutionReports[0].ID)
+}

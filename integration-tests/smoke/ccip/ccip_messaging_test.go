@@ -179,8 +179,10 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			[]int64{
 				int64(out.MsgSentEvent.Message.Header.SequenceNumber), //nolint:gosec // seqNr fits in int64
 			},
-			24*time.Hour,
-			true, // reExecuteIfFailed
+			24*time.Hour, // lookbackDurationMsgs
+			24*time.Hour, // lookbackDurationCommitReport
+			24*time.Hour, // stepDuration
+			true,         // reExecuteIfFailed
 		)
 		require.NoError(t, err)
 
