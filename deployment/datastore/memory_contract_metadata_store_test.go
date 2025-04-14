@@ -114,7 +114,7 @@ func TestMemoryContractMetadataStore_Add(t *testing.T) {
 	}
 }
 
-func TestMemoryContractMetadataStore_AddOrUpdate(t *testing.T) {
+func TestMemoryContractMetadataStore_Upsert(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -164,7 +164,7 @@ func TestMemoryContractMetadataStore_AddOrUpdate(t *testing.T) {
 			store := MemoryContractMetadataStore[DefaultMetadata]{Records: tt.givenState}
 			// Check the error for the in-memory store, which will always be nil for the
 			// in memory implementation, to satisfy the linter
-			err := store.AddOrUpdate(tt.giveRecord)
+			err := store.Upsert(tt.giveRecord)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedState, store.Records)
 		})

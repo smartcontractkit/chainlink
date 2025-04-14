@@ -130,7 +130,7 @@ func TestMemoryAddressRefStore_Add(t *testing.T) {
 	}
 }
 
-func TestMemoryAddressRefStore_AddOrUpdate(t *testing.T) {
+func TestMemoryAddressRefStore_Upsert(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -189,7 +189,7 @@ func TestMemoryAddressRefStore_AddOrUpdate(t *testing.T) {
 			store := MemoryAddressRefStore{Records: tt.givenState}
 			// Check the error, which will always be nil for the
 			// in memory implementation, to satisfy the linter
-			err := store.AddOrUpdate(tt.giveRecord)
+			err := store.Upsert(tt.giveRecord)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedState, store.Records)
 		})
