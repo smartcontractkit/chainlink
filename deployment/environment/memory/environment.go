@@ -57,14 +57,18 @@ type MemoryEnvironmentConfig struct {
 }
 
 type NewNodesConfig struct {
-	LogLevel       zapcore.Level
-	Chains         map[uint64]deployment.Chain
-	SolChains      map[uint64]deployment.SolChain
+	LogLevel zapcore.Level
+	// EVM chains to be configured. Optional.
+	Chains map[uint64]deployment.Chain
+	// Solana chains to be configured. Optional.
+	SolChains map[uint64]deployment.SolChain
+	// Aptos chains to be configured. Optional.
 	AptosChains    map[uint64]deployment.AptosChain
 	NumNodes       int
 	NumBootstraps  int
 	RegistryConfig deployment.CapabilityRegistryConfig
-	CustomDBSetup  []string // SQL queries to run after DB creation
+	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
+	CustomDBSetup []string
 }
 
 // For placeholders like aptos

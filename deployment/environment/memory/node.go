@@ -220,14 +220,19 @@ func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
 }
 
 type NewNodeConfig struct {
-	Port           int // Port for the P2P V2 listener.
-	Chains         map[uint64]deployment.Chain
-	Solchains      map[uint64]deployment.SolChain
+	// Port for the P2P V2 listener.
+	Port int
+	// EVM chains to be configured. Optional.
+	Chains map[uint64]deployment.Chain
+	// Solana chains to be configured. Optional.
+	Solchains map[uint64]deployment.SolChain
+	// Aptos chains to be configured. Optional.
 	Aptoschains    map[uint64]deployment.AptosChain
 	LogLevel       zapcore.Level
 	Bootstrap      bool
 	RegistryConfig deployment.CapabilityRegistryConfig
-	CustomDBSetup  []string // SQL queries to run after DB creation
+	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
+	CustomDBSetup []string
 }
 
 // Creates a CL node which is:
