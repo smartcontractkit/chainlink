@@ -592,7 +592,6 @@ func TestBilling(t *testing.T) {
 			require.Equal(t, feeAggResult+1000, newFeeAggResult)
 		})
 	}
-
 }
 
 func TestTokenAdminRegistry(t *testing.T) {

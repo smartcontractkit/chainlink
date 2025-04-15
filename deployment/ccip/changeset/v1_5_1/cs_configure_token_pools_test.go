@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -682,9 +683,9 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 
 	addressBook := deployment.NewMemoryAddressBook()
 
-	///////////////////////////
+	// /////////////////////////
 	// DEPLOY EVM TOKEN POOL //
-	///////////////////////////
+	// /////////////////////////
 	for _, selector := range evmSelectors {
 		token, err := deployment.DeployContract(e.Logger, e.Chains[selector], addressBook,
 			func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
@@ -715,9 +716,9 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		}, false)
 	}
 
-	//////////////////////////////
+	// ////////////////////////////
 	// DEPLOY SOLANA TOKEN POOL //
-	//////////////////////////////
+	// ////////////////////////////
 	for _, selector := range solanaSelectors {
 		e, err = commonchangeset.Apply(t, e, nil,
 			commonchangeset.Configure(
@@ -734,7 +735,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		state, err := changeset.LoadOnchainState(e)
 		require.NoError(t, err)
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
-		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPool),
 				changeset_solana.TokenPoolConfig{
@@ -750,9 +751,9 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	/////////////////////////////
+	// ///////////////////////////
 	// ADD SOLANA CHAIN CONFIG //
-	/////////////////////////////
+	// ///////////////////////////
 	for _, selector := range evmSelectors {
 		solChainUpdates := make(map[uint64]v1_5_1.SolChainUpdate)
 		for _, remoteSelector := range solanaSelectors {
@@ -784,9 +785,9 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		}
 	}
 
-	////////////////////////////////
+	// //////////////////////////////
 	// UPDATE SOLANA CHAIN CONFIG //
-	////////////////////////////////
+	// //////////////////////////////
 	for _, selector := range evmSelectors {
 		solChainUpdates := make(map[uint64]v1_5_1.SolChainUpdate)
 		for _, remoteSelector := range solanaSelectors {

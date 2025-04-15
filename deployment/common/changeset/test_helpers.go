@@ -58,7 +58,6 @@ func Apply(t *testing.T, e deployment.Environment, timelockContractsPerChain map
 func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, changesetApplications []ConfiguredChangeSet) (deployment.Environment, error) {
 	currentEnv := e
 	for i, csa := range changesetApplications {
-
 		out, err := csa.Apply(currentEnv)
 		if err != nil {
 			return e, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
