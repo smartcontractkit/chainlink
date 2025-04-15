@@ -41,12 +41,12 @@ import (
 	libdevenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/devenv"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
-	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
+	libinfra "github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
@@ -69,14 +69,14 @@ type SetupOutput struct {
 }
 
 type SetupInput struct {
-	ExtraAllowedPorts          []int
-	CapabilitiesAwareNodeSets  []*keystonetypes.CapabilitiesAwareNodeSet
-	CapabilityFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
-	JobSpecFactoryFunctions    []cretypes.JobSpecFactoryFn
-	BlockchainsInput           blockchain.Input
-	JdInput                    jd.Input
-	InfraInput                 libtypes.InfraInput
-	CustomBinariesPaths        map[cretypes.CapabilityFlag]string
+	ExtraAllowedPorts                    []int
+	CapabilitiesAwareNodeSets            []*keystonetypes.CapabilitiesAwareNodeSet
+	CapabilitiesContractFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
+	JobSpecFactoryFunctions              []cretypes.JobSpecFactoryFn
+	BlockchainsInput                     blockchain.Input
+	JdInput                              jd.Input
+	InfraInput                           libtypes.InfraInput
+	CustomBinariesPaths                  map[cretypes.CapabilityFlag]string
 }
 
 func SetupTestEnvironment(
@@ -431,7 +431,7 @@ func SetupTestEnvironment(
 		Topology:      topology,
 	}
 
-	keystoneErr := libcontracts.ConfigureKeystone(configureKeystoneInput, input.CapabilityFactoryFunctions)
+	keystoneErr := libcontracts.ConfigureKeystone(configureKeystoneInput, input.CapabilitiesContractFactoryFunctions)
 	if keystoneErr != nil {
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
@@ -501,7 +501,7 @@ func CreateBlockchains(
 		return nil, pkgerrors.New("PRIVATE_KEY env var must be set")
 	}
 
-	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+	err = libinfra.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "RPC endpoint not available")
 	}
