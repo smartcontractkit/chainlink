@@ -7,6 +7,8 @@ import (
 )
 
 func TestContractMetadata_Clone(t *testing.T) {
+	t.Parallel()
+
 	original := ContractMetadata[DefaultMetadata]{
 		ChainSelector: 1,
 		Address:       "0x123",
@@ -30,6 +32,8 @@ func TestContractMetadata_Clone(t *testing.T) {
 }
 
 func TestContractMetadata_Key(t *testing.T) {
+	t.Parallel()
+
 	metadata := ContractMetadata[DefaultMetadata]{
 		ChainSelector: 1,
 		Address:       "0x123",

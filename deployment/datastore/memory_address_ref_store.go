@@ -97,9 +97,9 @@ func (s *MemoryAddressRefStore) Add(record AddressRef) error {
 	return nil
 }
 
-// AddOrUpdate inserts a new record into the store if no record with the same key already exists.
+// Upsert inserts a new record into the store if no record with the same key already exists.
 // If a record with the same key already exists, it is updated.
-func (s *MemoryAddressRefStore) AddOrUpdate(record AddressRef) error {
+func (s *MemoryAddressRefStore) Upsert(record AddressRef) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

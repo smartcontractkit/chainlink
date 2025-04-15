@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -67,14 +68,7 @@ func validateExecOffchainConfig(e deployment.Environment, c *pluginconfig.Execut
 	if err := state.ValidateRamp(selector, changeset.OffRamp); err != nil {
 		return fmt.Errorf("validate offRamp: %w", err)
 	}
-	permissionLessExecutionThresholdSeconds, err := state.OffRampPermissionLessExecutionThresholdSeconds(e.GetContext(), e, selector)
-	if err != nil {
-		return fmt.Errorf("fetch permissionLessExecutionThresholdSeconds: %w", err)
-	}
-	if uint32(c.MessageVisibilityInterval.Duration().Seconds()) != permissionLessExecutionThresholdSeconds {
-		return fmt.Errorf("MessageVisibilityInterval=%s does not match the permissionlessExecutionThresholdSeconds in dynamic config =%d for chain %d",
-			c.MessageVisibilityInterval.Duration(), permissionLessExecutionThresholdSeconds, selector)
-	}
+
 	for _, observerConfig := range c.TokenDataObservers {
 		switch observerConfig.Type {
 		case pluginconfig.USDCCCTPHandlerType:
@@ -1270,11 +1264,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 	}
 	var adds []ccip_home.CCIPHomeChainConfigArgs
 	for chain, ccfg := range cfg.RemoteChainAdds {
-		encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
-			GasPriceDeviationPPB:    ccfg.EncodableChainConfig.GasPriceDeviationPPB,
-			DAGasPriceDeviationPPB:  ccfg.EncodableChainConfig.DAGasPriceDeviationPPB,
-			OptimisticConfirmations: ccfg.EncodableChainConfig.OptimisticConfirmations,
-		})
+		encodedChainConfig, err := chainconfig.EncodeChainConfig(ccfg.EncodableChainConfig)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("encoding chain config: %w", err)
 		}

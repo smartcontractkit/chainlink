@@ -7,6 +7,8 @@ import (
 )
 
 func TestMemoryEnvMetadataStore_Get(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = EnvMetadata[DefaultMetadata]{
 			Domain:      "example.com",
@@ -41,6 +43,8 @@ func TestMemoryEnvMetadataStore_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			store := MemoryEnvMetadataStore[DefaultMetadata]{Record: tt.givenState}
 
 			record, err := store.Get()
@@ -56,6 +60,8 @@ func TestMemoryEnvMetadataStore_Get(t *testing.T) {
 }
 
 func TestMemoryEnvMetadataStore_Set(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = EnvMetadata[DefaultMetadata]{
 			Domain:      "example.com",
@@ -90,6 +96,8 @@ func TestMemoryEnvMetadataStore_Set(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			store := MemoryEnvMetadataStore[DefaultMetadata]{Record: tt.initialState}
 
 			err := store.Set(tt.updateRecord)

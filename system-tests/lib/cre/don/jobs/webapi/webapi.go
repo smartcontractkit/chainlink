@@ -31,7 +31,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, err
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			if flags.HasFlag(donWithMetadata.Flags, types.WebAPITargetCapability) {
+			if flags.HasFlag(donWithMetadata.Flags, types.WebAPITriggerCapability) {
 				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
 					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
 				}
