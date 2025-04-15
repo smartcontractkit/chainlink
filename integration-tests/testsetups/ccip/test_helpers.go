@@ -664,7 +664,7 @@ func CreateChainConfigFromNetworks(
 		networkPvtKeys[uint64(net.ChainID)] = net.PrivateKeys
 	}
 	type chainDetails struct {
-		chainId  string
+		chainID  string
 		wsRPCs   []string
 		httpRPCs []string
 	}
@@ -672,40 +672,40 @@ func CreateChainConfigFromNetworks(
 	var chaindetails []chainDetails
 	if len(privateEthereumNetworks) == 0 {
 		for _, net := range evmNetworks {
-			chainId := net.ChainID
-			if chainId < 0 {
-				t.Fatalf("negative chain ID: %d", chainId)
+			chainID := net.ChainID
+			if chainID < 0 {
+				t.Fatalf("negative chain ID: %d", chainID)
 			}
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  strconv.FormatInt(chainId, 10),
+				chainID:  strconv.FormatInt(chainID, 10),
 				wsRPCs:   net.URLs,
 				httpRPCs: net.HTTPURLs,
 			})
 		}
 	} else {
 		for _, net := range privateEthereumNetworks {
-			chainId := net.EthereumChainConfig.ChainID
-			if chainId < 0 {
-				t.Fatalf("negative chain ID: %d", chainId)
+			chainID := net.EthereumChainConfig.ChainID
+			if chainID < 0 {
+				t.Fatalf("negative chain ID: %d", chainID)
 			}
-			rpcProvider, err := env.GetRpcProvider(int64(chainId))
+			rpcProvider, err := env.GetRpcProvider(int64(chainID))
 			require.NoError(t, err, "Error getting rpc provider")
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  strconv.Itoa(chainId),
+				chainID:  strconv.Itoa(chainID),
 				wsRPCs:   rpcProvider.PublicWsUrls(),
 				httpRPCs: rpcProvider.PublicHttpUrls(),
 			})
 		}
 	}
 	for _, cd := range chaindetails {
-		chainId := cd.chainId
-		cID, err := strconv.ParseUint(chainId, 10, 0)
+		chainID := cd.chainID
+		cID, err := strconv.ParseUint(chainID, 10, 0)
 		require.NoError(t, err, "Error getting chain name")
 
 		chainName, err := chainsel.NameFromChainId(cID)
 		require.NoError(t, err, "Error getting chain name")
 		chainCfg := devenv.ChainConfig{
-			ChainID:   chainId,
+			ChainID:   chainID,
 			ChainName: chainName,
 			ChainType: "EVM",
 			WSRPCs: []devenv.CribRPCs{
@@ -754,11 +754,11 @@ func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 		if err != nil {
 			return nil, "", err
 		}
-		chainId, err := strconv.ParseInt(k, 10, 64)
+		chainID, err := strconv.ParseInt(k, 10, 64)
 		if err != nil {
 			return nil, "", err
 		}
-		configByChainMap[chainId] = chain
+		configByChainMap[chainID] = chain
 	}
 	if nodeConfig == "" {
 		tomlCfg = integrationnodes.NewConfig(
