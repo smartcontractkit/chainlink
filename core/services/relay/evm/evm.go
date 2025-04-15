@@ -42,11 +42,6 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
-	tronsdk "github.com/fbsobreira/gotron-sdk/pkg/address"
-	tronkeystore "github.com/smartcontractkit/chainlink-tron/relayer/keystore"
-	tron "github.com/smartcontractkit/chainlink-tron/relayer/ocr2"
-	tronclient "github.com/smartcontractkit/chainlink-tron/relayer/sdk"
-	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -530,11 +525,25 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 		return nil, err
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
+
+	var contractTransmitter ContractTransmitter
+	evmContractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
 	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
 	if err != nil {
 		return nil, err
+	}
+
+	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
+		tronTransmitter, err := NewTronContractTransmitter(ctx, r.lggr, evmContractTransmitter, r.evmKeystore, configWatcher, configTransmitterOpts{
+			subjectID: &subjectID,
+		}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
+		if err != nil {
+			return nil, err
+		}
+		contractTransmitter = tronTransmitter
+	} else {
+		contractTransmitter = evmContractTransmitter
 	}
 
 	return NewDstCommitProvider(
@@ -614,11 +623,25 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 		return nil, err
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
+
+	var contractTransmitter ContractTransmitter
+	evmContractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
 	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0), WithExcludeSignatures())
 	if err != nil {
 		return nil, err
+	}
+
+	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
+		tronTransmitter, err := NewTronContractTransmitter(ctx, r.lggr, evmContractTransmitter, r.evmKeystore, configWatcher, configTransmitterOpts{
+			subjectID: &subjectID,
+		}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0), WithExcludeSignatures())
+		if err != nil {
+			return nil, err
+		}
+		contractTransmitter = tronTransmitter
+	} else {
+		contractTransmitter = evmContractTransmitter
 	}
 
 	return NewDstExecProvider(
@@ -819,10 +842,6 @@ type configTransmitterOpts struct {
 
 // newOnChainContractTransmitter creates a new contract transmitter.
 func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
-	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
-		return newTronContractTransmitter(ctx, lggr, rargs, ethKeystore, configWatcher, opts, transmissionContractABI, ocrTransmitterOpts...)
-	}
-
 	transmitter, err := generateTransmitterFrom(ctx, rargs, ethKeystore, configWatcher, opts)
 	if err != nil {
 		return nil, err
@@ -839,69 +858,6 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		ethKeystore,
 		ocrTransmitterOpts...,
 	)
-}
-
-func newTronContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
-	// On TRON, get the (extra) nodes information from the chain
-	chain, ok := configWatcher.chain.(legacyevm.ChainTronSupport)
-	if !ok {
-		return nil, fmt.Errorf("chain %s does not support TRON", configWatcher.chain.ID())
-	}
-
-	// Check there is at least one node
-	if len(chain.Nodes()) == 0 {
-		return nil, fmt.Errorf("no nodes found for chain %s", configWatcher.chain.ID())
-	}
-
-	// Use an (extra) write-specific node URL for the Tron client
-	// Notice: TronClient is not multinode aware, so we need to use the first node
-	nodeURL := (*chain.Nodes()[0]).HTTPURLExtraWrite.URL()
-	tronClient, err := tronclient.CreateFullNodeClient(nodeURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Tron client: %w", err)
-	}
-
-	// Start the Tron TXM
-	tronTXM := trontxm.New(lggr, tronkeystore.NewLoopKeystoreAdapter(ethKeystore), tronClient, trontxm.TronTxmConfig{
-		EnergyMultiplier: 3,
-		StatusChecker:    true,
-	})
-	tronTXM.Start(ctx)
-
-	transmitted, ok := transmissionContractABI.Events["Transmitted"]
-	if !ok {
-		return nil, errors.New("invalid ABI, missing transmitted")
-	}
-
-	evmCache := tron.NewEVMTransmissionsCache(ctx, lggr, configWatcher.contractAddress, configWatcher.chain.Client(), transmissionContractABI, configWatcher.chain.LogPoller(), transmitted.ID)
-	senderAddress, err := ethKeystore.GetNextAddress(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct the Tron contract transmitter, it's slightly different from the EVM contract transmitter and due to mismatching types we have to apply the transmitter options manually
-	transmitter := tron.NewOCRContractTransmitter(ctx, evmCache, tronsdk.EVMAddressToAddress(configWatcher.contractAddress), tronsdk.EVMAddressToAddress(senderAddress), tronTXM, lggr).WithEthereumKeystore()
-	transmitterOptions := &transmitterOps{
-		reportToEvmTxMeta: nil,
-		excludeSigs:       false,
-		retention:         0,
-		maxLogsKept:       0,
-	}
-
-	for _, opt := range ocrTransmitterOpts {
-		opt(transmitterOptions)
-	}
-
-	if transmitterOptions.excludeSigs {
-		lggr.Info("Excluding signatures from transmissions")
-		transmitter = transmitter.WithExcludeSignatures()
-	}
-	if transmitterOptions.reportToEvmTxMeta != nil {
-		lggr.Info("Using EVM TxMeta for Tron Transmissions")
-		transmitter = transmitter.WithReportToEthMetadata(transmitterOptions.reportToEvmTxMeta)
-	}
-
-	return transmitter, nil
 }
 
 // newOnChainDualContractTransmitter creates a new dual contract transmitter.
