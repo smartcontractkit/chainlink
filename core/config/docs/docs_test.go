@@ -127,18 +127,18 @@ func assertTOML[T any](t *testing.T, fallback, docs T) {
 
 func assertFieldsNotNil(t *testing.T, c chainlink.Config) {
 	// Create a copy of the config
-	copy := c
+	copiedConfig := c
 
 	// Replace any nil HTTPURLExtraWrite fields with non-nil values
-	for i := range copy.EVM {
-		for j := range copy.EVM[i].Nodes {
-			if copy.EVM[i].Nodes[j].HTTPURLExtraWrite == nil {
+	for i := range copiedConfig.EVM {
+		for j := range copiedConfig.EVM[i].Nodes {
+			if copiedConfig.EVM[i].Nodes[j].HTTPURLExtraWrite == nil {
 				// Set to non-nil to pass the check
-				copy.EVM[i].Nodes[j].HTTPURLExtraWrite = new(config.URL)
+				copiedConfig.EVM[i].Nodes[j].HTTPURLExtraWrite = new(config.URL)
 			}
 		}
 	}
 
 	// Run the regular nil check on the modified copy
-	cfgtest.AssertFieldsNotNil(t, copy)
+	cfgtest.AssertFieldsNotNil(t, copiedConfig)
 }
