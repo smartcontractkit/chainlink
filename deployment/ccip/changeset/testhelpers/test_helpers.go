@@ -2271,6 +2271,8 @@ func GenTestTransferOwnershipConfig(
 			state.Chains[chain].RMNRemote.Address(),
 			state.Chains[chain].TestRouter.Address(),
 			state.Chains[chain].Router.Address(),
+			state.Chains[chain].TokenAdminRegistry.Address(),
+			state.Chains[chain].RMNProxy.Address(),
 		}
 	}
 

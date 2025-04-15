@@ -435,7 +435,7 @@ func setupPoRTestEnvironment(
 			universalSetupOutput.BlockchainOutput.SethClient.MustGetRootKeyAddress(),
 			universalSetupOutput.KeystoneContractsOutput.CapabilitiesRegistryAddress,
 			universalSetupOutput.KeystoneContractsOutput.WorkflowRegistryAddress,
-			deployDataFeedsCacheOutput.DataFeedsCacheAddress,
+			&deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 			universalSetupOutput.DonTopology.WorkflowDonID,
 			universalSetupOutput.BlockchainOutput.ChainSelector,
 			universalSetupOutput.BlockchainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl)

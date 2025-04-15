@@ -20,6 +20,7 @@ import (
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -358,24 +359,26 @@ func TestSetupSolanaRelayer(t *testing.T) {
 
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
+	chainCfg := solcfg.Chain{}
+	chainCfg.SetDefaults()
 	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = solcfg.TOMLConfigs{
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("solana-id-1"),
 				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
+				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("solana-id-2"),
 				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
+				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("disabled-solana-id-1"),
 				Enabled: ptr(false),
-				Chain:   solcfg.Chain{},
+				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 		}
@@ -428,13 +431,13 @@ func TestSetupSolanaRelayer(t *testing.T) {
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
+				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
+				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 		}

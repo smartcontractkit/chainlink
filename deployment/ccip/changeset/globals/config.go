@@ -1,7 +1,10 @@
 package globals
 
 import (
+	"fmt"
 	"time"
+
+	"dario.cat/mergo"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -14,7 +17,7 @@ const (
 	ConfigTypeActive    ConfigType = "active"
 	ConfigTypeCandidate ConfigType = "candidate"
 	// ========= Changeset Defaults =========
-	PermissionLessExecutionThreshold  = 8 * time.Hour
+	PermissionLessExecutionThreshold  = 1 * time.Hour
 	RemoteGasPriceBatchWriteFrequency = 30 * time.Minute
 	TokenPriceBatchWriteFrequency     = 30 * time.Minute
 	// Building batches with 6.5m and transmit with 8m to account for overhead.
@@ -56,16 +59,30 @@ var (
 		MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
 		MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
 		ChainFeeAsyncObserverDisabled:      false,
-		ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
-		ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
+		ChainFeeAsyncObserverSyncFreq:      1*time.Second + 500*time.Millisecond,
+		ChainFeeAsyncObserverSyncTimeout:   1 * time.Second,
 		TokenPriceAsyncObserverDisabled:    false,
-		TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(10 * time.Second),
-		TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(12 * time.Second),
+		TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(1*time.Second + 500*time.Millisecond),
+		TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(1 * time.Second),
 
 		// Remaining fields cannot be statically set:
 		// PriceFeedChainSelector: , // Must be configured in CLD
 		// TokenInfo: , // Must be configured in CLD
 	}
+
+	// CommitOffChainCfgForEthereum represents a dedicated CommitOffchainConfig for Ethereum.
+	// It's driven by the fact that Ethereum block time is slower (12 seconds) and chain is considered
+	// more expensive compared to other EVM compatible chains
+	CommitOffChainCfgForEthereum = withCommitOffchainOverrides(
+		DefaultCommitOffChainCfg,
+		pluginconfig.CommitOffchainConfig{
+			// Adjusted for longer block times on Ethereum
+			ChainFeeAsyncObserverSyncFreq:      4 * time.Second,
+			ChainFeeAsyncObserverSyncTimeout:   3 * time.Second,
+			TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(4 * time.Second),
+			TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(3 * time.Second),
+		},
+	)
 
 	// DefaultExecuteOffChainCfg represents the default offchain configuration for the Execute plugin
 	// on _most_ chains. This should be used as a base for all chains, with overrides only where necessary.
@@ -74,7 +91,7 @@ var (
 		BatchGasLimit:               BatchGasLimit,
 		InflightCacheExpiry:         *config.MustNewDuration(InflightCacheExpiry),
 		RootSnoozeTime:              *config.MustNewDuration(RootSnoozeTime),
-		MessageVisibilityInterval:   *config.MustNewDuration(PermissionLessExecutionThreshold),
+		MessageVisibilityInterval:   *config.MustNewDuration(8 * time.Hour),
 		BatchingStrategyID:          BatchingStrategyID,
 		TransmissionDelayMultiplier: TransmissionDelayMultiplier,
 		MaxReportMessages:           0,
@@ -84,3 +101,30 @@ var (
 		// TokenDataObservers: , // Must be configured in CLD
 	}
 )
+
+// withCommitOffchainOverrides applies the overrides to the base CommitOffchainConfig
+func withCommitOffchainOverrides(base pluginconfig.CommitOffchainConfig, overrides pluginconfig.CommitOffchainConfig) pluginconfig.CommitOffchainConfig {
+	outcome := base
+
+	baseDurationFields := struct {
+		TokenPriceAsyncObserverSyncFreq    config.Duration
+		TokenPriceAsyncObserverSyncTimeout config.Duration
+	}{
+		TokenPriceAsyncObserverSyncFreq:    base.TokenPriceAsyncObserverSyncFreq,
+		TokenPriceAsyncObserverSyncTimeout: base.TokenPriceAsyncObserverSyncTimeout,
+	}
+
+	if err := mergo.Merge(&outcome, overrides, mergo.WithOverride); err != nil {
+		panic(fmt.Sprintf("error while building a CommitOffchainConfig %v", err))
+	}
+
+	if overrides.TokenPriceAsyncObserverSyncFreq.Duration() == 0 {
+		outcome.TokenPriceAsyncObserverSyncFreq = baseDurationFields.TokenPriceAsyncObserverSyncFreq
+	}
+
+	if overrides.TokenPriceAsyncObserverSyncTimeout.Duration() == 0 {
+		outcome.TokenPriceAsyncObserverSyncTimeout = baseDurationFields.TokenPriceAsyncObserverSyncTimeout
+	}
+
+	return outcome
+}

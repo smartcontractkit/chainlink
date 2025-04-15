@@ -177,12 +177,12 @@ jobs:
         type:
           - cmd: go_core_tests
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_tests_integration
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_fuzz
@@ -192,13 +192,13 @@ jobs:
 
           - cmd: go_core_race_tests
             os: 'ubuntu-latest-32cores-128GB'
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=64+128/ram=128+256/family=c7+m7/disk=large/spot=false/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
             os: ubuntu22.04-32cores-128GB
             # Use "*d" instances because they have NVME storage which improves performance for this test suite
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
             build-solana-artifacts: 'true'
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
 
@@ -263,7 +263,7 @@ jobs:
         uses: ./.github/actions/setup-go
         with:
           # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
-          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' }}
+          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' || matrix.type.cmd == 'go_core_race_tests' }}
           build-cache-version: ${{ matrix.type.cmd }}
 
       - name: Setup Solana
@@ -703,8 +703,8 @@ jobs:
           echo "Branch name: $branch_name"
           echo "Deterministic number: $deterministic_number"
 
-          # 25% of the time, use self-hosted runners
-          if [ "$deterministic_number" -lt 25 ]; then
+          # 50% of the time, use self-hosted runners
+          if [ "$deterministic_number" -lt 50 ]; then
             gh pr edit --repo "${GITHUB_REPOSITORY}" "${PULL_REQUEST_NUMBER}" --add-label "runs-on"
             echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
           fi

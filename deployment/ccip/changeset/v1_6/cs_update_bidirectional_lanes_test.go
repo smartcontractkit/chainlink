@@ -329,6 +329,10 @@ func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
 						state.Chains[selector].OffRamp.Address(),
 						state.Chains[selector].Router.Address(),
 						state.Chains[selector].FeeQuoter.Address(),
+						state.Chains[selector].TokenAdminRegistry.Address(),
+						state.Chains[selector].RMNRemote.Address(),
+						state.Chains[selector].RMNProxy.Address(),
+						state.Chains[selector].NonceManager.Address(),
 					}
 				}
 				e, err = commonchangeset.Apply(t, e, timelockContracts,

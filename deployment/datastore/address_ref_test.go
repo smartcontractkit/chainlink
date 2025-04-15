@@ -8,6 +8,8 @@ import (
 )
 
 func TestAddressRef_Clone(t *testing.T) {
+	t.Parallel()
+
 	original := AddressRef{
 		Address:       "0x123",
 		ChainSelector: 1,
@@ -24,6 +26,8 @@ func TestAddressRef_Clone(t *testing.T) {
 }
 
 func TestAddressRef_Key(t *testing.T) {
+	t.Parallel()
+
 	ref := AddressRef{
 		Address:       "0x123",
 		ChainSelector: 1,

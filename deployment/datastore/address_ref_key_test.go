@@ -8,6 +8,8 @@ import (
 )
 
 func TestAddressRefKey_Equals(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		key1     AddressRefKey
@@ -48,12 +50,16 @@ func TestAddressRefKey_Equals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			assert.Equal(t, tt.expected, tt.key1.Equals(tt.key2))
 		})
 	}
 }
 
 func TestNewAddressRefKey(t *testing.T) {
+	t.Parallel()
+
 	version := semver.MustParse("1.0.0")
 	key := NewAddressRefKey(1, ContractType("typeA"), version, "qualifier1")
 
