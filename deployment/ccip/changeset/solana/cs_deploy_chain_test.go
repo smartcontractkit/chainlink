@@ -101,12 +101,7 @@ func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipCh
 				},
 				MCMSWithTimelockConfig: &mcmsConfig,
 				BuildConfig:            buildConfig,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployReceiverForTest),
-			ccipChangesetSolana.DeployForTestConfig{
-				ChainSelector: solChainSelectors[0],
+				DeployTestReceiver:     true,
 			},
 		),
 		commonchangeset.Configure(

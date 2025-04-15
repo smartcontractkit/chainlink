@@ -13,7 +13,6 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
@@ -465,47 +464,4 @@ func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
 	chain := e.SolChains[cfg.ChainSelector]
 
 	return validateRouterConfig(chain, chainState)
-}
-
-func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-
-	state, _ := ccipChangeset.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
-	ab := deployment.NewMemoryAddressBook()
-
-	var receiverAddress solana.PublicKey
-	var err error
-	if chainState.Receiver.IsZero() {
-		receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
-		}
-	} else {
-		e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
-		receiverAddress = chainState.Receiver
-	}
-
-	solTestReceiver.SetProgramID(receiverAddress)
-	externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
-	instruction, ixErr := solTestReceiver.NewInitializeInstruction(
-		chainState.Router,
-		ccipChangeset.FindReceiverTargetAccount(receiverAddress),
-		externalExecutionConfigPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-	if ixErr != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", ixErr)
-	}
-	if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-	}
-
-	return deployment.ChangesetOutput{
-		AddressBook: ab,
-	}, nil
 }

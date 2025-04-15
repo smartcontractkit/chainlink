@@ -29,6 +29,7 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
+	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
@@ -60,6 +61,7 @@ type DeployChainContractsConfig struct {
 	BuildConfig            *BuildSolanaConfig
 	// TODO: add validation for this
 	MCMSWithTimelockConfig *types.MCMSWithTimelockConfigV2
+	DeployTestReceiver     bool
 }
 
 type ChainContractParams struct {
@@ -613,6 +615,36 @@ func deployChainContractsSolana(
 		e.Logger.Debugw("Populating lookup table", "keys", lookupTableKeys)
 		if err := extendLookupTable(e, chain, offRampAddress, lookupTableKeys); err != nil {
 			return txns, fmt.Errorf("failed to extend lookup table: %w", err)
+		}
+	}
+
+	if config.DeployTestReceiver {
+		var receiverAddress solana.PublicKey
+		var err error
+		if chainState.Receiver.IsZero() {
+			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
+			if err != nil {
+				return txns, fmt.Errorf("failed to deploy program: %w", err)
+			}
+		} else {
+			e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
+			receiverAddress = chainState.Receiver
+		}
+
+		solTestReceiver.SetProgramID(receiverAddress)
+		externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
+		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
+			chainState.Router,
+			ccipChangeset.FindReceiverTargetAccount(receiverAddress),
+			externalExecutionConfigPDA,
+			chain.DeployerKey.PublicKey(),
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if ixErr != nil {
+			return txns, fmt.Errorf("failed to build instruction: %w", ixErr)
+		}
+		if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
+			return txns, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
 	}
 
