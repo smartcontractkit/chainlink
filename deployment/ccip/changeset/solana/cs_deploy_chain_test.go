@@ -29,8 +29,8 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	OldSha = "aa0756b72e7b70640a6a6235fbbd13aff407402a"
-	NewSha = "f1ced171b7538afc6c9f488803f90d10ac0f0b52"
+	OldSha = "3f2255c2bf22194f4856cb3b0b168af14e59a47c"
+	NewSha = "34a541118d89c346e2c642b089a63c3f2b2df320"
 )
 
 func verifyProgramSizes(t *testing.T, e deployment.Environment) {
@@ -54,7 +54,7 @@ func verifyProgramSizes(t *testing.T, e deployment.Environment) {
 	for program, sizeBytes := range deployment.GetSolanaProgramBytes() {
 		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
 		programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programsToState[program].Bytes()}, solana.BPFLoaderUpgradeableProgramID)
-		programDataSize, err := ccipChangesetSolana.SolProgramSize(&e, e.SolChains[e.AllChainSelectorsSolana()[0]], programDataAccount)
+		programDataSize, err := ccipChangesetSolana.GetSolProgramSize(&e, e.SolChains[e.AllChainSelectorsSolana()[0]], programDataAccount)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, programDataSize, sizeBytes)
 	}
@@ -212,6 +212,7 @@ func TestUpgrade(t *testing.T) {
 				ChainSelector:         solChainSelectors[0],
 				NewUpgradeAuthority:   upgradeAuthority,
 				SetAfterInitialDeploy: true,
+				SetOffRamp:            true,
 				SetMCMSPrograms:       true,
 			},
 		),
@@ -225,9 +226,11 @@ func TestUpgrade(t *testing.T) {
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewFeeQuoterVersion: &deployment.Version1_1_0,
 					NewRouterVersion:    &deployment.Version1_1_0,
-					NewMCMVersion:       &deployment.Version1_1_0,
-					UpgradeAuthority:    upgradeAuthority,
-					SpillAddress:        upgradeAuthority,
+					// test offramp upgrade in place
+					NewOffRampVersion: &deployment.Version1_0_0,
+					NewMCMVersion:     &deployment.Version1_1_0,
+					UpgradeAuthority:  upgradeAuthority,
+					SpillAddress:      upgradeAuthority,
 					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
@@ -245,6 +248,7 @@ func TestUpgrade(t *testing.T) {
 							ccipChangeset.FeeQuoter:            state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
 							ccipChangeset.BurnMintTokenPool:    state.SolChains[solChainSelectors[0]].BurnMintTokenPool.String(),
 							ccipChangeset.LockReleaseTokenPool: state.SolChains[solChainSelectors[0]].LockReleaseTokenPool.String(),
+							ccipChangeset.OffRamp:              state.SolChains[solChainSelectors[0]].OffRamp.String(),
 							types.AccessControllerProgram:      chainState.AccessControllerProgram.String(),
 							types.RBACTimelockProgram:          chainState.TimelockProgram.String(),
 							types.ManyChainMultisigProgram:     chainState.McmProgram.String(),
@@ -328,6 +332,13 @@ func TestUpgrade(t *testing.T) {
 						MinDelay: 1 * time.Second,
 					},
 				},
+				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
+					GitCommitSha:   NewSha,
+					DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
+					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+						BuildLocally: true,
+					},
+				},
 			},
 		),
 	})
@@ -362,4 +373,66 @@ func TestUpgrade(t *testing.T) {
 	require.NoError(t, err)
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+}
+
+func TestIDL(t *testing.T) {
+	ci := os.Getenv("CI") == "true"
+	// turning off in CI for now because this requires anchor setup
+	// and we want to optimize CI setup based on labels instead of setting up anchor/solana for every test
+	if ci {
+		return
+	}
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+	e, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				GitCommitSha:  "",
+				Router:        true,
+				// FeeQuoter:            true,
+				// OffRamp:              true,
+				// RMNRemote:            true,
+				// BurnMintTokenPool:    true,
+				// LockReleaseTokenPool: true,
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// deploy timelock
+	_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		ccipChangesetSolana.CCIPContractsToTransfer{
+			Router: true,
+		})
+
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				Router:        true,
+				// FeeQuoter:            true,
+				// OffRamp:              true,
+				// RMNRemote:            true,
+				// BurnMintTokenPool:    true,
+				// LockReleaseTokenPool: true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				GitCommitSha:  "",
+				Router:        true,
+				// FeeQuoter:            true,
+				// OffRamp:              true,
+				// RMNRemote:            true,
+				// BurnMintTokenPool:    true,
+				// LockReleaseTokenPool: true,
+			},
+		),
+	})
+	require.NoError(t, err)
 }

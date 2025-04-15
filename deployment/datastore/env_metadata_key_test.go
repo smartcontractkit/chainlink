@@ -7,6 +7,8 @@ import (
 )
 
 func TestEnvMetadataKey(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		domain         string
@@ -43,6 +45,8 @@ func TestEnvMetadataKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			key := NewEnvMetadataKey(tt.domain, tt.environment)
 			otherKey := NewEnvMetadataKey(tt.otherDomain, tt.otherEnv)
 

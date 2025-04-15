@@ -71,7 +71,7 @@ var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DO
 var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-	if flags.HasFlag(donFlags, types.LogTriggerCapability) {
+	if flags.HasFlag(donFlags, types.WebAPITriggerCapability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "web-api-trigger",

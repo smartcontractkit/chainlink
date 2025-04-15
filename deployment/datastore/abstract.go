@@ -63,9 +63,9 @@ type MutableStore[K Comparable[K], R Record[K, R]] interface {
 	// Add inserts a new record into the MutableStore.
 	Add(record R) error
 
-	// AddOrUpdate behaves like Add where there is not already a record with the same composite primary key as the
+	// Upsert behaves like Add where there is not already a record with the same composite primary key as the
 	// supplied record, otherwise it behaves like an update.
-	AddOrUpdate(record R) error
+	Upsert(record R) error
 
 	// Update edits an existing record whose fields match the primary key elements of the supplied AddressRecord, with
 	// the non-primary-key values of the supplied AddressRecord.
