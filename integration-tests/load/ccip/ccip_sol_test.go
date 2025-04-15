@@ -1,3 +1,5 @@
+// nolint
+// Will be deleted only tmp file for testing message passing with CRIB
 package ccip
 
 import (
