@@ -1312,34 +1312,28 @@ func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) 
 	return append(EVMV2Tag, encodedArgs...), nil
 }
 
-func GetSVMExtraArgsV1(computeUnits uint32, accountIsWrittable uint64, accounts []solana.PublicKey) ([]byte, error) {
+func GetSVMExtraArgsV1(computeUnits uint32, accountIsWritable uint64, accounts []solana.PublicKey) ([]byte, error) {
 	// see Client.sol.
-	EVMV2Tag := hexutil.MustDecode("0x1f3b3aba")
+	SVMV1Tag := hexutil.MustDecode("0x1f3b3aba")
 
-	accountsBytes := make([][]byte, len(accounts))
+	accountsBytes := make([][32]byte, len(accounts))
 	for i, account := range accounts {
-		accountsBytes[i] = account[:]
+		accountsBytes[i] = [32]byte(account.Bytes())
 	}
 
-	encodedArgs, err := utils.ABIEncode(`[
-		{"type":"uint32"}, 
-		{"type":"uint64"}, 
-		{"type":"bool"}, 
-		{"type":"bytes32"}, 
-		{"type":"bytes32[]"}
-	]`,
-		computeUnits,
-		uint64(0),
-		true,
-		[32]byte{0},
-		accountsBytes,
+	encodedArgs, err := utils.ABIEncode(`[{"type":"uint32"},{"type":"uint64"},{"type":"bool"},{"type":"bytes32"},{"type":"bytes32[]"}]`,
+		computeUnits,      // compute units
+		accountIsWritable, // account writable bitmap
+		true,              // allow out of order exec
+		[32]byte{0},       // token receiver, not needed for only messge passing
+		accountsBytes,     // accounts
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return append(EVMV2Tag, encodedArgs...), nil
+	return append(SVMV1Tag, encodedArgs...), nil
 }
 
 type ManualExecArgs struct {
