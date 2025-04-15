@@ -57,13 +57,13 @@ jobs:
     strategy:
       matrix:
         image:
-          - name: ""
-            dockerfile: core/chainlink.Dockerfile
-            tag-suffix: ""
+#          - name: ""
+#            dockerfile: core/chainlink.Dockerfile
+#            tag-suffix: ""
           # uncomment in the future if we end up needing to soak test the plugins image
-          # - name: (plugins)
-          #   dockerfile: plugins/chainlink.Dockerfile
-          #   tag-suffix: -plugins
+           - name: (plugins)
+             dockerfile: plugins/chainlink.Dockerfile
+             tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu22.04-8cores-32GB
     steps:
