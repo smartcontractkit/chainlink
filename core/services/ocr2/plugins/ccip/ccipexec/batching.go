@@ -314,7 +314,7 @@ func isSkipFeeBoostingSelector(selector uint64) bool {
 }
 
 func isTronSelector(selector uint64) bool {
-	return selector == chainsel.TRON_MAINNET.Selector || selector == chainsel.TRON_TESTNET_NILE.Selector || selector == chainsel.TRON_TESTNET_SHASTA.Selector
+	return selector == chainsel.TRON_MAINNET_EVM.Selector || selector == chainsel.TRON_TESTNET_NILE_EVM.Selector || selector == chainsel.TRON_TESTNET_SHASTA_EVM.Selector
 }
 
 // isHederaSelector returns true if the selector is for Hedera mainnet or testnet.
