@@ -118,6 +118,7 @@ func newTronTransmitterWrapper(transmitter tron.ContractTransmitter, txm *trontx
 	}
 }
 
+// The Tron Transmitter doesn't close the txm, so we'll close it here
 func (t *TronTransmitterWrapper) Close() error {
 	err := t.txm.Close()
 	if err != nil {
@@ -147,6 +148,7 @@ func (t *TronTransmitterWrapper) Ready() error {
 	return t.transmitter.Ready()
 }
 
+// As the Tron Transmitter doesn't start the txm, we need to start it within the start hook
 func (t *TronTransmitterWrapper) Start(ctx context.Context) error {
 	err := t.txm.Start(ctx)
 	if err != nil {
