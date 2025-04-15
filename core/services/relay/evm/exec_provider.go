@@ -307,6 +307,10 @@ func (d *DstExecProvider) Name() string {
 }
 
 func (d *DstExecProvider) Start(ctx context.Context) error {
+	if err := d.contractTransmitter.Start(ctx); err != nil {
+		return err
+	}
+
 	if d.startBlock != 0 {
 		d.lggr.Infow("start replaying dst chain", "fromBlock", d.startBlock)
 		return d.lp.Replay(ctx, int64(d.startBlock))
@@ -339,6 +343,11 @@ func (d *DstExecProvider) Close() error {
 			multiErr = multierr.Append(multiErr, err)
 		}
 	}
+
+	if err := d.contractTransmitter.Close(); err != nil {
+		multiErr = multierr.Append(multiErr, err)
+	}
+
 	return multiErr
 }
 

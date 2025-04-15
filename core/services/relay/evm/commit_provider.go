@@ -189,6 +189,9 @@ func (p *DstCommitProvider) Close() error {
 		}
 		return ccip.CloseOffRampReader(ctx, p.lggr, versionFinder, *p.seenOffRampAddress, p.client, p.lp, nil, big.NewInt(0), p.feeEstimatorConfig)
 	})
+	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
+		return p.contractTransmitter.Close()
+	})
 
 	var multiErr error
 	for _, fn := range unregisterFuncs {
@@ -196,6 +199,7 @@ func (p *DstCommitProvider) Close() error {
 			multiErr = multierr.Append(multiErr, err)
 		}
 	}
+
 	return multiErr
 }
 
@@ -239,6 +243,10 @@ func (p *SrcCommitProvider) Start(ctx context.Context) error {
 }
 
 func (p *DstCommitProvider) Start(ctx context.Context) error {
+	if err := p.contractTransmitter.Start(ctx); err != nil {
+		return err
+	}
+
 	if p.startBlock != 0 {
 		p.lggr.Infow("start replaying dst chain", "fromBlock", p.startBlock)
 		if p.startBlock > math.MaxInt64 {
