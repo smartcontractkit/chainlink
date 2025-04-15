@@ -52,18 +52,16 @@ var topologyFlag string
 var waitOnErrorTimeoutFlag string
 var extraAllowedPortsFlag []int
 
-var waitOnErrorTimeoutDurationFn = func() error {
+var waitOnErrorTimeoutDurationFn = func() {
 	if waitOnErrorTimeoutFlag != "" {
 		waitOnErrorTimeoutDuration, err := time.ParseDuration(waitOnErrorTimeoutFlag)
 		if err != nil {
-			return fmt.Errorf("failed to parse wait-on-error-timeout: %w", err)
+			return
 		}
 
-		fmt.Printf("Waiting %s on error\n", waitOnErrorTimeoutFlag)
+		fmt.Printf("Waiting %s on error before cleanup\n", waitOnErrorTimeoutFlag)
 		time.Sleep(waitOnErrorTimeoutDuration)
 	}
-
-	return nil
 }
 
 var startCmd = &cobra.Command{
@@ -208,7 +206,7 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 	}
 
 	capabilitiesBinaryPaths := map[cretypes.CapabilityFlag]string{}
-	capabilitiesAwareNodeSets := []*cretypes.CapabilitiesAwareNodeSet{}
+	var capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet
 
 	if topologyFlag == TopologySimplified {
 		if len(in.NodeSets) != 1 {
