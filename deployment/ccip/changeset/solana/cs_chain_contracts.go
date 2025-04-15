@@ -501,6 +501,7 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
 		} else if cfg.ReceiverVersion != nil {
+			// this block is for re-deploying with a new version
 			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, *cfg.ReceiverVersion, false)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
@@ -527,7 +528,7 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 	} else if cfg.IsUpgrade {
 		e.Logger.Infow("Deploying new receiver", "addr", chainState.Receiver.String())
 		receiverAddress = chainState.Receiver
-		// only support
+		// only support deployer key as upgrade authority. never transfer to timelock
 		_, err := generateUpgradeTxns(e, chain, ab, DeployChainContractsConfig{
 			UpgradeConfig: UpgradeConfig{
 				SpillAddress:     chain.DeployerKey.PublicKey(),
