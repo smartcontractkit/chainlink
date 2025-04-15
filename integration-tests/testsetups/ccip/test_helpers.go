@@ -89,7 +89,10 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	l.devEnvCfg = envConfig
 	users := make(map[uint64][]*bind.TransactOpts)
 	for _, chain := range envConfig.Chains {
-		details, found := chainsel.ChainByEvmChainID(chain.ChainID)
+		cId, err := strconv.ParseUint(chain.ChainID, 10, 0)
+		require.NoError(t, err, "Error getting chain name")
+
+		details, found := chainsel.ChainByEvmChainID(cId)
 		require.Truef(t, found, "chain not found")
 		users[details.Selector] = chain.Users
 	}
@@ -97,7 +100,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
 	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	chains, err := devenv.NewChains(lggr, envConfig.Chains)
+	chains, _, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
 	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.DeployedEnv.Env)
 	require.NoError(t, err)
@@ -606,7 +609,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 				return fmt.Errorf("negative chain ID: %d", evmNetwork.ChainID)
 			}
 			for _, node := range nodes {
-				nodeAddr, ok := node.AccountAddr[uint64(evmNetwork.ChainID)]
+				nodeAddr, ok := node.AccountAddr[string(evmNetwork.ChainID)]
 				if !ok {
 					return fmt.Errorf("account address not found for chain %d", evmNetwork.ChainID)
 				}
@@ -661,7 +664,7 @@ func CreateChainConfigFromNetworks(
 		networkPvtKeys[uint64(net.ChainID)] = net.PrivateKeys
 	}
 	type chainDetails struct {
-		chainId  uint64
+		chainId  string
 		wsRPCs   []string
 		httpRPCs []string
 	}
@@ -674,7 +677,7 @@ func CreateChainConfigFromNetworks(
 				t.Fatalf("negative chain ID: %d", chainId)
 			}
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  uint64(chainId),
+				chainId:  string(chainId),
 				wsRPCs:   net.URLs,
 				httpRPCs: net.HTTPURLs,
 			})
@@ -688,7 +691,7 @@ func CreateChainConfigFromNetworks(
 			rpcProvider, err := env.GetRpcProvider(int64(chainId))
 			require.NoError(t, err, "Error getting rpc provider")
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  uint64(chainId),
+				chainId:  string(chainId),
 				wsRPCs:   rpcProvider.PublicWsUrls(),
 				httpRPCs: rpcProvider.PublicHttpUrls(),
 			})
@@ -696,7 +699,10 @@ func CreateChainConfigFromNetworks(
 	}
 	for _, cd := range chaindetails {
 		chainId := cd.chainId
-		chainName, err := chainsel.NameFromChainId(chainId)
+		cId, err := strconv.ParseUint(chainId, 10, 0)
+		require.NoError(t, err, "Error getting chain name")
+
+		chainName, err := chainsel.NameFromChainId(cId)
 		require.NoError(t, err, "Error getting chain name")
 		chainCfg := devenv.ChainConfig{
 			ChainID:   chainId,
@@ -716,13 +722,13 @@ func CreateChainConfigFromNetworks(
 		var pvtKey *string
 		// if private keys are provided, use the first private key as deployer key
 		// otherwise it will try to load the private key from KMS
-		if len(networkPvtKeys[chainId]) > 0 {
-			pvtKey = ptr.Ptr(networkPvtKeys[chainId][0])
+		if len(networkPvtKeys[cId]) > 0 {
+			pvtKey = ptr.Ptr(networkPvtKeys[cId][0])
 		}
 		require.NoError(t, chainCfg.SetDeployerKey(pvtKey), "Error setting deployer key")
 		var additionalPvtKeys []string
-		if len(networkPvtKeys[chainId]) > 1 {
-			additionalPvtKeys = networkPvtKeys[chainId][1:]
+		if len(networkPvtKeys[cId]) > 1 {
+			additionalPvtKeys = networkPvtKeys[cId][1:]
 		}
 		// if no additional private keys are provided, this will set the users to default deployer key
 		require.NoError(t, chainCfg.SetUsers(additionalPvtKeys), "Error setting users")
