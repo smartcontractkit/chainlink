@@ -3,6 +3,7 @@ package ccipaptos
 import (
 	"context"
 	"fmt"
+	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
@@ -13,6 +14,8 @@ import (
 // CommitPluginCodecV1 is a codec for encoding and decoding commit plugin reports.
 // Compatible with ccip::offramp version 1.6.0
 type CommitPluginCodecV1 struct{}
+
+var _ cciptypes.CommitPluginCodec = (*CommitPluginCodecV1)(nil)
 
 func NewCommitPluginCodecV1() *CommitPluginCodecV1 {
 	return &CommitPluginCodecV1{}
@@ -28,14 +31,22 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 			return
 		}
 		s.Struct(&sourceToken)
-		s.U256(*item.Price.Int)
+		if item.Price.IsEmpty() {
+			s.U256(*big.NewInt(0))
+		} else {
+			s.U256(*item.Price.Int)
+		}
 	})
 	if s.Error() != nil {
 		return nil, fmt.Errorf("failed to serialize TokenPriceUpdates: %w", s.Error())
 	}
 	bcs.SerializeSequenceWithFunction(report.PriceUpdates.GasPriceUpdates, s, func(s *bcs.Serializer, item cciptypes.GasPriceChain) {
 		s.U64(uint64(item.ChainSel))
-		s.U256(*item.GasPrice.Int)
+		if item.GasPrice.IsEmpty() {
+			s.U256(*big.NewInt(0))
+		} else {
+			s.U256(*item.GasPrice.Int)
+		}
 	})
 	if s.Error() != nil {
 		return nil, fmt.Errorf("failed to serialize GasPriceUpdates: %w", s.Error())
@@ -86,7 +97,19 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, data []byte) (cciptype
 		if des.Error() != nil {
 			return
 		}
-		item.Price = cciptypes.NewBigInt(&price)
+
+		// we need this clause because the zero token price test fails otherwise:
+		// -      abs: (big.nat) <nil>
+		// +      abs: (big.nat) {
+		// +      }
+		// the reason is because big.NewInt(0) ends up not setting the `abs` field at all, while big.NewInt().SetBytes(..) will
+		// set the `abs` value to 0.
+		// ref: https://cs.opensource.google/go/go/+/master:src/math/big/int.go;drc=432fd9c60fac4485d0473173171206f1ef558829;l=85
+		if price.Sign() == 0 {
+			item.Price = cciptypes.NewBigInt(big.NewInt(0))
+		} else {
+			item.Price = cciptypes.NewBigInt(&price)
+		}
 	})
 
 	if des.Error() != nil {
@@ -102,7 +125,11 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, data []byte) (cciptype
 		if des.Error() != nil {
 			return
 		}
-		item.GasPrice = cciptypes.NewBigInt(&gasPrice)
+		if gasPrice.Sign() == 0 {
+			item.GasPrice = cciptypes.NewBigInt(big.NewInt(0))
+		} else {
+			item.GasPrice = cciptypes.NewBigInt(&gasPrice)
+		}
 	})
 	if des.Error() != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("failed to deserialize GasPriceUpdates: %w", des.Error())
@@ -163,6 +190,3 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, data []byte) (cciptype
 
 	return report, nil
 }
-
-// Ensure CommitPluginCodec implements the CommitPluginCodec interface
-var _ cciptypes.CommitPluginCodec = (*CommitPluginCodecV1)(nil)
