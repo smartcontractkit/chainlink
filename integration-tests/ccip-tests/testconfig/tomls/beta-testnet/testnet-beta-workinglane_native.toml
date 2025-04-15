@@ -136,12 +136,12 @@ selected_networks = [
 [CCIP.Groups.smoke]
 # these are all the valid network pairs
 NetworkPairs = [
-  #  'ARBITRUM_SEPOLIA,AVALANCHE_FUJI',
+    'ARBITRUM_SEPOLIA,AVALANCHE_FUJI',
   'ARBITRUM_SEPOLIA,OPTIMISM_SEPOLIA',
   #  'BASE_SEPOLIA,OPTIMISM_SEPOLIA'
 ]
 
-BiDirectionalLane = false
+BiDirectionalLane = true
 PhaseTimeout = '40m'
 LocalCluster = false
 ExistingDeployment = true
@@ -162,6 +162,7 @@ AmountPerToken = 1
 [CCIP.Groups.load]
 NetworkPairs = [
   'ARBITRUM_SEPOLIA,OPTIMISM_SEPOLIA',
+  'ARBITRUM_SEPOLIA,AVALANCHE_FUJI',
 ]
 
 BiDirectionalLane = true
