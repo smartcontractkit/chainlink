@@ -2126,7 +2126,7 @@ func ValidateSolanaState(e deployment.Environment, solChainSelectors []uint64) e
 			return fmt.Errorf("RMNRemote address is zero for chain %d", sel)
 		}
 
-		ctx := context.Background()
+		ctx := e.GetContext()
 
 		// Get router config
 		var routerConfigAccount solRouter.Config

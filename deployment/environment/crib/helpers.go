@@ -18,25 +18,70 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
+const solFundingLamports = 10000000
+const evmFundingEth = 100
+
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) error {
-	transmittersStr := make([]common.Address, 0)
-	fundingAmount := new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 ETH
+	evmFundingAmount := new(big.Int).Mul(deployment.UBigInt(evmFundingEth), deployment.UBigInt(1e18))
 
 	g := new(errgroup.Group)
-	for sel, chain := range env.Chains {
-		sel, chain := sel, chain
-		g.Go(func() error {
-			for _, n := range nodeInfo {
-				chainID, err := chainsel.GetChainIDFromSelector(sel)
+
+	// Handle EVM funding
+	if len(env.Chains) > 0 {
+		for sel, chain := range env.Chains {
+			sel, chain := sel, chain
+			g.Go(func() error {
+				var evmAccounts []common.Address
+				for _, n := range nodeInfo {
+					chainID, err := chainsel.GetChainIDFromSelector(sel)
+					if err != nil {
+						lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
+						return err
+					}
+					addr := common.HexToAddress(n.AccountAddr[chainID])
+					evmAccounts = append(evmAccounts, addr)
+				}
+
+				err := SendFundsToAccounts(env.GetContext(), lggr, chain, evmAccounts, evmFundingAmount, sel)
 				if err != nil {
-					lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
+					lggr.Errorw("error funding evm accounts", "selector", sel, "err", err)
 					return err
 				}
-				addr := common.HexToAddress(n.AccountAddr[chainID])
-				transmittersStr = append(transmittersStr, addr)
-			}
-			return SendFundsToAccounts(env.GetContext(), lggr, chain, transmittersStr, fundingAmount, sel)
-		})
+				return nil
+			})
+		}
+	}
+
+	// Handle Solana funding
+	if len(env.SolChains) > 0 {
+		for sel, chain := range env.SolChains {
+			sel, chain := sel, chain
+			g.Go(func() error {
+				var solanaAddrs []solana.PublicKey
+				for _, n := range nodeInfo {
+					chainID, err := chainsel.GetChainIDFromSelector(sel)
+					if err != nil {
+						lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
+						return err
+					}
+					base58Addr := n.AccountAddr[chainID]
+
+					pk, err := solana.PublicKeyFromBase58(base58Addr)
+					if err != nil {
+						lggr.Errorw("error converting base58 to solana PublicKey", "err", err, "address", base58Addr)
+						return err
+					}
+					solanaAddrs = append(solanaAddrs, pk)
+				}
+
+				err := memory.FundSolanaAccounts(env.GetContext(), solanaAddrs, solFundingLamports, chain.Client)
+				if err != nil {
+					lggr.Errorw("error funding solana accounts", "err", err, "selector", sel)
+					return err
+				}
+				return nil
+			})
+		}
 	}
 
 	return g.Wait()
