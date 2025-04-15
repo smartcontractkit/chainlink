@@ -447,21 +447,3 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 
 	return deployment.ChangesetOutput{}, nil
 }
-
-type DeployForTestConfig struct {
-	ChainSelector uint64
-}
-
-func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
-	chainState, chainExists := state.SolChains[cfg.ChainSelector]
-	if !chainExists {
-		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
-	}
-	chain := e.SolChains[cfg.ChainSelector]
-
-	return validateRouterConfig(chain, chainState)
-}
