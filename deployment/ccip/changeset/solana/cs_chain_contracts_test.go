@@ -245,7 +245,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChains []ui
 	offRampUpdates = make(map[uint64]ccipChangesetSolana.OffRampConfig)
 	for _, evmChain := range evmChains {
 		offRampUpdates[evmChain] = ccipChangesetSolana.OffRampConfig{
-			EnabledAsSource: true,
+			EnabledAsSource: false,
 			IsUpdate:        true,
 		}
 	}
