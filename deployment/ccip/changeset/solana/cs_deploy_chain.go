@@ -634,7 +634,7 @@ func deployChainContractsSolana(
 		solTestReceiver.SetProgramID(receiverAddress)
 		externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
 		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
-			chainState.Router,
+			ccipRouterProgram,
 			ccipChangeset.FindReceiverTargetAccount(receiverAddress),
 			externalExecutionConfigPDA,
 			chain.DeployerKey.PublicKey(),
