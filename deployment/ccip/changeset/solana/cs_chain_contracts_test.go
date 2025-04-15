@@ -237,7 +237,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChains []ui
 	for _, evmChain := range evmChains {
 		routerUpdates[evmChain] = ccipChangesetSolana.RouterConfig{
 			RouterDestinationConfig: solRouter.DestChainConfig{
-				AllowListEnabled: true,
+				AllowListEnabled: false,
 			},
 			IsUpdate: true,
 		}
@@ -245,7 +245,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChains []ui
 	offRampUpdates = make(map[uint64]ccipChangesetSolana.OffRampConfig)
 	for _, evmChain := range evmChains {
 		offRampUpdates[evmChain] = ccipChangesetSolana.OffRampConfig{
-			EnabledAsSource: false,
+			EnabledAsSource: true,
 			IsUpdate:        true,
 		}
 	}
