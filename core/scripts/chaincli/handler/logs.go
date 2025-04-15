@@ -14,9 +14,9 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/moby/moby/api/types/container"
-	"github.com/moby/moby/client"
-	"github.com/moby/moby/pkg/stdcopy"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 func (k *Keeper) PrintLogs(ctx context.Context, pattern string, grep, vgrep []string) {
