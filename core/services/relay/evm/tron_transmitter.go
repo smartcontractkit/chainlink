@@ -1,3 +1,4 @@
+// TODO: Move this to chainlink-tron once chainlink-evm is fully extracted
 package evm
 
 import (
@@ -6,7 +7,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	tronsdk "github.com/fbsobreira/gotron-sdk/pkg/address"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -17,6 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
+
+// We implement the TRON TXM cache API using EVM's contract transmitter
+var _ tron.TransmissionsCache = (*tronEVMTransmitterWrapper)(nil)
 
 type tronEVMTransmitterWrapper struct {
 	evmTransmitter ContractTransmitter
@@ -30,16 +33,25 @@ func (t *tronEVMTransmitterWrapper) LatestTransmissionDetails(ctx context.Contex
 	return configDigest, epoch, 0, nil, time.Time{}, nil
 }
 
-func NewTronContractTransmitter(ctx context.Context, lggr logger.Logger, evmTransmitter ContractTransmitter, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
+// TronContractTransmitterOpts contains the configuration options for creating a Tron contract transmitter
+type TronContractTransmitterOpts struct {
+	EVMTransmitter        ContractTransmitter
+	Keystore              keys.Store
+	ConfigWatcher         *configWatcher
+	ConfigTransmitterOpts configTransmitterOpts
+}
+
+// NewTronContractTransmitter creates a new ContractTransmitter for Tron chains
+func NewTronContractTransmitter(ctx context.Context, lggr logger.Logger, opts TronContractTransmitterOpts, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
 	// On TRON, get the (extra) nodes information from the chain
-	chain, ok := configWatcher.chain.(legacyevm.ChainTronSupport)
+	chain, ok := opts.ConfigWatcher.chain.(legacyevm.ChainTronSupport)
 	if !ok {
-		return nil, fmt.Errorf("chain %s does not support TRON", configWatcher.chain.ID())
+		return nil, fmt.Errorf("chain %s does not support TRON", opts.ConfigWatcher.chain.ID())
 	}
 
 	// Check there is at least one node
 	if len(chain.Nodes()) == 0 {
-		return nil, fmt.Errorf("no nodes found for chain %s", configWatcher.chain.ID())
+		return nil, fmt.Errorf("no nodes found for chain %s", opts.ConfigWatcher.chain.ID())
 	}
 
 	// Use an (extra) write-specific node URL for the Tron client
@@ -51,23 +63,23 @@ func NewTronContractTransmitter(ctx context.Context, lggr logger.Logger, evmTran
 	}
 
 	// Start the Tron TXM
-	tronTXM := trontxm.New(lggr, tronkeystore.NewLoopKeystoreAdapter(ethKeystore), tronClient, trontxm.TronTxmConfig{
+	tronTXM := trontxm.New(lggr, tronkeystore.NewLoopKeystoreAdapter(opts.Keystore), tronClient, trontxm.TronTxmConfig{
 		EnergyMultiplier: 3,
 		StatusChecker:    true,
 	})
 	tronTXM.Start(ctx)
 
 	tronEVMTransmitterWrapper := &tronEVMTransmitterWrapper{
-		evmTransmitter: evmTransmitter,
+		evmTransmitter: opts.EVMTransmitter,
 	}
 
-	senderAddress, err := ethKeystore.GetNextAddress(ctx)
+	senderAddress, err := opts.Keystore.GetNextAddress(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct the Tron contract transmitter, it's slightly different from the EVM contract transmitter and due to mismatching types we have to apply the transmitter options manually
-	transmitter := tron.NewOCRContractTransmitter(ctx, tronEVMTransmitterWrapper, tronsdk.EVMAddressToAddress(configWatcher.contractAddress), tronsdk.EVMAddressToAddress(senderAddress), tronTXM, lggr).WithEthereumKeystore()
+	transmitter := tron.NewOCRContractTransmitter(ctx, tronEVMTransmitterWrapper, tronsdk.EVMAddressToAddress(opts.ConfigWatcher.contractAddress), tronsdk.EVMAddressToAddress(senderAddress), tronTXM, lggr).WithEthereumKeystore()
 	transmitterOptions := &transmitterOps{
 		reportToEvmTxMeta: nil,
 		excludeSigs:       false,
@@ -88,5 +100,62 @@ func NewTronContractTransmitter(ctx context.Context, lggr logger.Logger, evmTran
 		transmitter = transmitter.WithReportToEthMetadata(transmitterOptions.reportToEvmTxMeta)
 	}
 
-	return transmitter, nil
+	return newTronTransmitterWrapper(transmitter, tronTXM), nil
+}
+
+var _ ContractTransmitter = (*TronTransmitterWrapper)(nil)
+
+// Simple wrapper around the tron.ContractTransmitter to provide start / stop hooks to the tron txm
+type TronTransmitterWrapper struct {
+	transmitter tron.ContractTransmitter
+	txm         *trontxm.TronTxm
+}
+
+func newTronTransmitterWrapper(transmitter tron.ContractTransmitter, txm *trontxm.TronTxm) *TronTransmitterWrapper {
+	return &TronTransmitterWrapper{
+		transmitter: transmitter,
+		txm:         txm,
+	}
+}
+
+func (t *TronTransmitterWrapper) Close() error {
+	err := t.txm.Close()
+	if err != nil {
+		return err
+	}
+
+	return t.transmitter.Close()
+}
+
+func (t *TronTransmitterWrapper) FromAccount(ctx context.Context) (types.Account, error) {
+	return t.transmitter.FromAccount(ctx)
+}
+
+func (t *TronTransmitterWrapper) HealthReport() map[string]error {
+	return t.transmitter.HealthReport()
+}
+
+func (t *TronTransmitterWrapper) LatestConfigDigestAndEpoch(ctx context.Context) (types.ConfigDigest, uint32, error) {
+	return t.transmitter.LatestConfigDigestAndEpoch(ctx)
+}
+
+func (t *TronTransmitterWrapper) Name() string {
+	return t.transmitter.Name()
+}
+
+func (t *TronTransmitterWrapper) Ready() error {
+	return t.transmitter.Ready()
+}
+
+func (t *TronTransmitterWrapper) Start(ctx context.Context) error {
+	err := t.txm.Start(ctx)
+	if err != nil {
+		return err
+	}
+
+	return t.transmitter.Start(ctx)
+}
+
+func (t *TronTransmitterWrapper) Transmit(ctx context.Context, reportCtx types.ReportContext, report types.Report, signatures []types.AttributedOnchainSignature) error {
+	return t.transmitter.Transmit(ctx, reportCtx, report, signatures)
 }

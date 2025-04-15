@@ -535,9 +535,12 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	}
 
 	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
-		tronTransmitter, err := NewTronContractTransmitter(ctx, r.lggr, evmContractTransmitter, r.evmKeystore, configWatcher, configTransmitterOpts{
-			subjectID: &subjectID,
-		}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
+		tronTransmitter, err := NewTronContractTransmitter(ctx, r.lggr, TronContractTransmitterOpts{
+			EVMTransmitter:        evmContractTransmitter,
+			Keystore:              r.evmKeystore,
+			ConfigWatcher:         configWatcher,
+			ConfigTransmitterOpts: configTransmitterOpts{subjectID: &subjectID},
+		}, WithReportToEthMetadata(fn), WithRetention(0))
 		if err != nil {
 			return nil, err
 		}
@@ -633,9 +636,12 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	}
 
 	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
-		tronTransmitter, err := NewTronContractTransmitter(ctx, r.lggr, evmContractTransmitter, r.evmKeystore, configWatcher, configTransmitterOpts{
-			subjectID: &subjectID,
-		}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0), WithExcludeSignatures())
+		tronTransmitter, err := NewTronContractTransmitter(ctx, r.lggr, TronContractTransmitterOpts{
+			EVMTransmitter:        evmContractTransmitter,
+			Keystore:              r.evmKeystore,
+			ConfigWatcher:         configWatcher,
+			ConfigTransmitterOpts: configTransmitterOpts{subjectID: &subjectID},
+		}, WithReportToEthMetadata(fn), WithRetention(0), WithExcludeSignatures())
 		if err != nil {
 			return nil, err
 		}
