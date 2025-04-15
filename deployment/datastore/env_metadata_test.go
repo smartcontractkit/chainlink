@@ -7,6 +7,8 @@ import (
 )
 
 func TestEnvMetadata_Clone(t *testing.T) {
+	t.Parallel()
+
 	original := EnvMetadata[DefaultMetadata]{
 		Domain:      "example.com",
 		Environment: "production",
@@ -22,6 +24,8 @@ func TestEnvMetadata_Clone(t *testing.T) {
 }
 
 func TestEnvMetadata_Key(t *testing.T) {
+	t.Parallel()
+
 	envMetadata := EnvMetadata[DefaultMetadata]{
 		Domain:      "example.com",
 		Environment: "production",

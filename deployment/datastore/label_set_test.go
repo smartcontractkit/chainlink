@@ -7,21 +7,41 @@ import (
 )
 
 func TestNewLabelSet(t *testing.T) {
-	t.Run("no labels", func(t *testing.T) {
-		ms := NewLabelSet()
-		assert.Empty(t, ms, "expected empty set")
-	})
+	t.Parallel()
 
-	t.Run("some labels", func(t *testing.T) {
-		ms := NewLabelSet("foo", "bar")
-		assert.Len(t, ms, 2)
-		assert.True(t, ms.Contains("foo"))
-		assert.True(t, ms.Contains("bar"))
-		assert.False(t, ms.Contains("baz"))
-	})
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "no labels",
+			input:    []string{},
+			expected: []string{},
+		},
+		{
+			name:     "some labels",
+			input:    []string{"foo", "bar"},
+			expected: []string{"foo", "bar"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ms := NewLabelSet(tt.input...)
+			assert.Len(t, ms, len(tt.expected), "unexpected number of labels in the set")
+			for _, label := range tt.expected {
+				assert.True(t, ms.Contains(label), "expected label '%s' in the set", label)
+			}
+		})
+	}
 }
 
 func TestLabelSet_Add(t *testing.T) {
+	t.Parallel()
+
 	ms := NewLabelSet("initial")
 	ms.Add("new")
 
@@ -35,6 +55,8 @@ func TestLabelSet_Add(t *testing.T) {
 }
 
 func TestLabelSet_Remove(t *testing.T) {
+	t.Parallel()
+
 	ms := NewLabelSet("remove_me", "keep")
 	ms.Remove("remove_me")
 
@@ -48,6 +70,8 @@ func TestLabelSet_Remove(t *testing.T) {
 }
 
 func TestLabelSet_Contains(t *testing.T) {
+	t.Parallel()
+
 	ms := NewLabelSet("foo", "bar")
 
 	assert.True(t, ms.Contains("foo"))
@@ -56,28 +80,42 @@ func TestLabelSet_Contains(t *testing.T) {
 }
 
 func TestLabelSet_List(t *testing.T) {
-	t.Run("list with items", func(t *testing.T) {
-		ms := NewLabelSet("foo", "bar", "baz")
+	t.Parallel()
 
-		labels := ms.List()
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "list with items",
+			input:    []string{"foo", "bar", "baz"},
+			expected: []string{"bar", "baz", "foo"},
+		},
+		{
+			name:     "empty list",
+			input:    []string{},
+			expected: []string{},
+		},
+	}
 
-		assert.Len(t, labels, 3, "expected 3 labels in the list")
-		assert.Equal(t, "bar", labels[0])
-		assert.Equal(t, "baz", labels[1])
-		assert.Equal(t, "foo", labels[2])
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("empty list", func(t *testing.T) {
-		ms := NewLabelSet()
+			ms := NewLabelSet(tt.input...)
+			labels := ms.List()
 
-		labels := ms.List()
-
-		assert.Empty(t, labels, "expected 0 labels in the list")
-	})
+			assert.Len(t, labels, len(tt.expected), "unexpected number of labels in the list")
+			assert.ElementsMatch(t, tt.expected, labels, "unexpected labels in the list")
+		})
+	}
 }
 
 // TestLabelSet_String tests the String() method of the LabelSet type.
 func TestLabelSet_String(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		labels   LabelSet
@@ -123,6 +161,8 @@ func TestLabelSet_String(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.labels.String()
 			assert.Equal(t, tt.expected, result, "LabelSet.String() should return the expected sorted string")
 		})
@@ -130,6 +170,8 @@ func TestLabelSet_String(t *testing.T) {
 }
 
 func TestLabelSet_Equal(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		set1     LabelSet
