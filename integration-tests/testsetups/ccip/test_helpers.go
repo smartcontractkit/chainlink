@@ -609,7 +609,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 				return fmt.Errorf("negative chain ID: %d", evmNetwork.ChainID)
 			}
 			for _, node := range nodes {
-				nodeAddr, ok := node.AccountAddr[string(evmNetwork.ChainID)]
+				nodeAddr, ok := node.AccountAddr[strconv.FormatInt(evmNetwork.ChainID, 10)]
 				if !ok {
 					return fmt.Errorf("account address not found for chain %d", evmNetwork.ChainID)
 				}
@@ -677,7 +677,7 @@ func CreateChainConfigFromNetworks(
 				t.Fatalf("negative chain ID: %d", chainId)
 			}
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  string(chainId),
+				chainId:  strconv.FormatInt(chainId, 10),
 				wsRPCs:   net.URLs,
 				httpRPCs: net.HTTPURLs,
 			})
@@ -691,7 +691,7 @@ func CreateChainConfigFromNetworks(
 			rpcProvider, err := env.GetRpcProvider(int64(chainId))
 			require.NoError(t, err, "Error getting rpc provider")
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  string(chainId),
+				chainId:  strconv.Itoa(chainId),
 				wsRPCs:   rpcProvider.PublicWsUrls(),
 				httpRPCs: rpcProvider.PublicHttpUrls(),
 			})
