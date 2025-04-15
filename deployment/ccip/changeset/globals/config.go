@@ -106,12 +106,17 @@ var (
 func withCommitOffchainOverrides(base pluginconfig.CommitOffchainConfig, overrides pluginconfig.CommitOffchainConfig) pluginconfig.CommitOffchainConfig {
 	outcome := base
 
+	// config.Duration fields are not correctly overridden/merged by the mergo library.
 	baseDurationFields := struct {
 		TokenPriceAsyncObserverSyncFreq    config.Duration
 		TokenPriceAsyncObserverSyncTimeout config.Duration
+		RemoteGasPriceBatchWriteFrequency  config.Duration
+		TokenPriceBatchWriteFrequency      config.Duration
 	}{
 		TokenPriceAsyncObserverSyncFreq:    base.TokenPriceAsyncObserverSyncFreq,
 		TokenPriceAsyncObserverSyncTimeout: base.TokenPriceAsyncObserverSyncTimeout,
+		RemoteGasPriceBatchWriteFrequency:  base.RemoteGasPriceBatchWriteFrequency,
+		TokenPriceBatchWriteFrequency:      base.TokenPriceBatchWriteFrequency,
 	}
 
 	if err := mergo.Merge(&outcome, overrides, mergo.WithOverride); err != nil {
@@ -124,6 +129,14 @@ func withCommitOffchainOverrides(base pluginconfig.CommitOffchainConfig, overrid
 
 	if overrides.TokenPriceAsyncObserverSyncTimeout.Duration() == 0 {
 		outcome.TokenPriceAsyncObserverSyncTimeout = baseDurationFields.TokenPriceAsyncObserverSyncTimeout
+	}
+
+	if overrides.RemoteGasPriceBatchWriteFrequency.Duration() == 0 {
+		outcome.RemoteGasPriceBatchWriteFrequency = baseDurationFields.RemoteGasPriceBatchWriteFrequency
+	}
+
+	if overrides.TokenPriceBatchWriteFrequency.Duration() == 0 {
+		outcome.TokenPriceBatchWriteFrequency = baseDurationFields.TokenPriceBatchWriteFrequency
 	}
 
 	return outcome

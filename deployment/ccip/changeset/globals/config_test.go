@@ -93,4 +93,36 @@ func TestCommitOffChainCfgForEthereum(t *testing.T) {
 	assert.Equal(t, DefaultCommitOffChainCfg.RMNEnabled, CommitOffChainCfgForEthereum.RMNEnabled)
 	assert.Equal(t, DefaultCommitOffChainCfg.MaxReportTransmissionCheckAttempts,
 		CommitOffChainCfgForEthereum.MaxReportTransmissionCheckAttempts)
+	assert.Equal(t, DefaultCommitOffChainCfg.RemoteGasPriceBatchWriteFrequency,
+		CommitOffChainCfgForEthereum.RemoteGasPriceBatchWriteFrequency)
+	assert.Equal(t, DefaultCommitOffChainCfg.TokenPriceBatchWriteFrequency,
+		CommitOffChainCfgForEthereum.TokenPriceBatchWriteFrequency)
+	assert.Equal(t, DefaultCommitOffChainCfg.NewMsgScanBatchSize,
+		CommitOffChainCfgForEthereum.NewMsgScanBatchSize)
+	assert.Equal(t, DefaultCommitOffChainCfg.MaxReportTransmissionCheckAttempts,
+		CommitOffChainCfgForEthereum.MaxReportTransmissionCheckAttempts)
+	assert.Equal(t, DefaultCommitOffChainCfg.RMNSignaturesTimeout,
+		CommitOffChainCfgForEthereum.RMNSignaturesTimeout)
+	assert.Equal(t, DefaultCommitOffChainCfg.MaxMerkleTreeSize,
+		CommitOffChainCfgForEthereum.MaxMerkleTreeSize)
+	assert.Equal(t, DefaultCommitOffChainCfg.SignObservationPrefix,
+		CommitOffChainCfgForEthereum.SignObservationPrefix)
+	assert.Equal(t, DefaultCommitOffChainCfg.MerkleRootAsyncObserverDisabled,
+		CommitOffChainCfgForEthereum.MerkleRootAsyncObserverDisabled)
+	assert.Equal(t, DefaultCommitOffChainCfg.ChainFeeAsyncObserverDisabled,
+		CommitOffChainCfgForEthereum.ChainFeeAsyncObserverDisabled)
+	assert.Equal(t, DefaultCommitOffChainCfg.TokenPriceAsyncObserverDisabled,
+		CommitOffChainCfgForEthereum.TokenPriceAsyncObserverDisabled)
+	assert.Equal(t, DefaultCommitOffChainCfg.MaxMerkleRootsPerReport,
+		CommitOffChainCfgForEthereum.MaxMerkleRootsPerReport)
+	assert.Equal(t, DefaultCommitOffChainCfg.MaxPricesPerReport,
+		CommitOffChainCfgForEthereum.MaxPricesPerReport)
+	assert.Equal(t, DefaultCommitOffChainCfg.MultipleReportsEnabled,
+		CommitOffChainCfgForEthereum.MultipleReportsEnabled)
+	assert.Equal(t, DefaultCommitOffChainCfg.InflightPriceCheckRetries,
+		CommitOffChainCfgForEthereum.InflightPriceCheckRetries)
+	assert.Equal(t, DefaultCommitOffChainCfg.MerkleRootAsyncObserverSyncFreq,
+		CommitOffChainCfgForEthereum.MerkleRootAsyncObserverSyncFreq)
+	assert.Equal(t, DefaultCommitOffChainCfg.MerkleRootAsyncObserverSyncTimeout,
+		CommitOffChainCfgForEthereum.MerkleRootAsyncObserverSyncTimeout)
 }
