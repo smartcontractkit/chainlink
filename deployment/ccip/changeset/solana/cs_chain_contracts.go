@@ -454,6 +454,7 @@ type DeployForTestConfig struct {
 	ChainSelector   uint64
 	BuildConfig     *BuildSolanaConfig
 	ReceiverVersion *semver.Version // leave unset to default to v1.0.0
+	IsUpgrade       bool
 }
 
 func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
@@ -490,31 +491,31 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 	chain := e.SolChains[cfg.ChainSelector]
 	ab := deployment.NewMemoryAddressBook()
 
-	var receiverAddress solana.PublicKey
-	var err error
 	version := deployment.Version1_0_0
 	if cfg.ReceiverVersion != nil {
 		version = *cfg.ReceiverVersion
 	}
-	receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, version, false)
+	receiverAddress, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, version, false)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
 
-	solTestReceiver.SetProgramID(receiverAddress)
-	externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
-	instruction, ixErr := solTestReceiver.NewInitializeInstruction(
-		chainState.Router,
-		ccipChangeset.FindReceiverTargetAccount(receiverAddress),
-		externalExecutionConfigPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-	if ixErr != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", ixErr)
-	}
-	if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+	if !cfg.IsUpgrade {
+		solTestReceiver.SetProgramID(receiverAddress)
+		externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
+		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
+			chainState.Router,
+			ccipChangeset.FindReceiverTargetAccount(receiverAddress),
+			externalExecutionConfigPDA,
+			chain.DeployerKey.PublicKey(),
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if ixErr != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", ixErr)
+		}
+		if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
 	}
 
 	return deployment.ChangesetOutput{
