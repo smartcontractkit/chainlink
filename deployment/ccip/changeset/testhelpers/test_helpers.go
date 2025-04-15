@@ -1306,12 +1306,8 @@ func DeployTransferableTokenSolana(
 				SolTokenPubKey:      solTokenAddress.String(),
 				PoolType:            solTestTokenPool.BurnAndMint_PoolType,
 				RemoteConfig: &solTestTokenPool.RemoteConfig{
-					// this can be potentially read from the state if we are given the token symbol
-					PoolAddresses: []solTestTokenPool.RemoteAddress{
-						{
-							Address: evmPool.Address().Bytes(),
-						},
-					},
+					// Needs to be empty on the initial setup
+					PoolAddresses: []solTestTokenPool.RemoteAddress{},
 					TokenAddress: solTestTokenPool.RemoteAddress{
 						Address: evmToken.Address().Bytes(),
 					},
@@ -1326,6 +1322,26 @@ func DeployTransferableTokenSolana(
 					Enabled:  true,
 					Capacity: uint64(1000e9),
 					Rate:     1,
+				},
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AppendRemoteTokenPool),
+			ccipChangeSetSolana.AppendRemoteTokenPoolConfig{
+				SolChainSelector:    solChainSel,
+				RemoteChainSelector: evmChainSel,
+				SolTokenPubKey:      solTokenAddress.String(),
+				PoolType:            solTestTokenPool.BurnAndMint_PoolType,
+				RemoteConfig: &solTestTokenPool.RemoteConfig{
+					// this can be potentially read from the state if we are given the token symbol
+					PoolAddresses: []solTestTokenPool.RemoteAddress{
+						{
+							Address: evmPool.Address().Bytes(),
+						},
+					},
+					TokenAddress: solTestTokenPool.RemoteAddress{
+						Address: evmToken.Address().Bytes(),
+					},
 				},
 			},
 		),
@@ -2215,6 +2231,8 @@ func GenTestTransferOwnershipConfig(
 			state.Chains[chain].RMNRemote.Address(),
 			state.Chains[chain].TestRouter.Address(),
 			state.Chains[chain].Router.Address(),
+			state.Chains[chain].TokenAdminRegistry.Address(),
+			state.Chains[chain].RMNProxy.Address(),
 		}
 	}
 
