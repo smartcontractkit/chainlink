@@ -65,11 +65,11 @@ func (c *ChainConfig) SetUsers(pvtkeys []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to convert private key to ECDSA: %w", err)
 		}
-		chainId, success := new(big.Int).SetString(c.ChainID, 10)
+		chainID, success := new(big.Int).SetString(c.ChainID, 10)
 		if !success {
-			return fmt.Errorf("invalid chainId %s", c.ChainID)
+			return fmt.Errorf("invalid chainID %s", c.ChainID)
 		}
-		user, err := bind.NewKeyedTransactorWithChainID(pvtKey, chainId)
+		user, err := bind.NewKeyedTransactorWithChainID(pvtKey, chainID)
 		if err != nil {
 			return fmt.Errorf("failed to create transactor: %w", err)
 		}
@@ -85,12 +85,12 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		if err != nil {
 			return fmt.Errorf("failed to convert private key to ECDSA: %w", err)
 		}
-		chainId, success := new(big.Int).SetString(c.ChainID, 10)
+		chainID, success := new(big.Int).SetString(c.ChainID, 10)
 		if !success {
-			return fmt.Errorf("invalid chainId %s", c.ChainID)
+			return fmt.Errorf("invalid chainID %s", c.ChainID)
 		}
 
-		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, chainId)
+		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, chainID)
 		if err != nil {
 			return fmt.Errorf("failed to create transactor: %w", err)
 		}
@@ -106,11 +106,11 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		return fmt.Errorf("failed to create KMS client: %w", err)
 	}
 	evmKMSClient := deployment.NewEVMKMSClient(kmsClient, kmsConfig.KmsDeployerKeyId)
-	chainId, success := new(big.Int).SetString(c.ChainID, 10)
+	chainID, success := new(big.Int).SetString(c.ChainID, 10)
 	if !success {
-		return fmt.Errorf("invalid chainId %s", c.ChainID)
+		return fmt.Errorf("invalid chainID %s", c.ChainID)
 	}
-	c.DeployerKey, err = evmKMSClient.GetKMSTransactOpts(context.Background(), chainId)
+	c.DeployerKey, err = evmKMSClient.GetKMSTransactOpts(context.Background(), chainID)
 	if err != nil {
 		return fmt.Errorf("failed to get transactor from KMS client: %w", err)
 	}
@@ -118,7 +118,7 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 }
 func (c *ChainConfig) SetSolDeployerKey(keyString *string) error {
 	if keyString == nil || *keyString == "" {
-		return fmt.Errorf("no Solana private key provided")
+		return errors.New("no Solana private key provided")
 	}
 
 	solKey, err := solana.PrivateKeyFromBase58(*keyString)
@@ -224,6 +224,9 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 				logger.Infof("Deployer newChains %v", chainCfg.DeployerKey)
 				logger.Infof("Deployer newChains %v", chainCfg.DeployerKey)
 				keyPairPath, err := generateSolanaKeypair(chainCfg.SolDeployerKey, keyPairDir)
+				if err != nil {
+					return err
+				}
 				sc := solRpc.New(chainCfg.HTTPRPCs[0].External)
 				solSyncMap.Store(chainDetails.ChainSelector, deployment.SolChain{
 					Selector:    chainDetails.ChainSelector,
