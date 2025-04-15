@@ -99,7 +99,15 @@ func NewTronContractTransmitter(ctx context.Context, lggr logger.Logger, opts Tr
 		transmitter = transmitter.WithReportToEthMetadata(transmitterOptions.reportToEvmTxMeta)
 	}
 
-	return newTronTransmitterWrapper(transmitter, tronTXM), nil
+	tronTransmitter := newTronTransmitterWrapper(transmitter, tronTXM)
+
+	// NOTE: Ideally we'd call the Start() method within a service hook, however the commit or exec providers aren't always started unless a new job is created
+	// To protect against this, we start the Tron Transmitter here, however Closing it is handled by the providers themselves
+	if err := tronTransmitter.Start(ctx); err != nil {
+		return nil, err
+	}
+
+	return tronTransmitter, nil
 }
 
 var _ ContractTransmitter = (*TronTransmitterWrapper)(nil)
@@ -118,6 +126,7 @@ func newTronTransmitterWrapper(transmitter tron.ContractTransmitter, txm *trontx
 }
 
 // The Tron Transmitter doesn't close the txm, so we'll close it here
+// NOTE: This is called by the Close() method of either the CommitProvider or the ExecProvider
 func (t *TronTransmitterWrapper) Close() error {
 	err := t.txm.Close()
 	if err != nil {
@@ -149,6 +158,7 @@ func (t *TronTransmitterWrapper) Ready() error {
 
 // As the Tron Transmitter doesn't start the txm, we need to start it within the start hook
 func (t *TronTransmitterWrapper) Start(ctx context.Context) error {
+	t.txm.Logger.Info("Starting Tron TXM")
 	err := t.txm.Start(ctx)
 	if err != nil {
 		return err

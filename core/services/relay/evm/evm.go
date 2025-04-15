@@ -544,6 +544,11 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 		if err != nil {
 			return nil, err
 		}
+
+		if err := tronTransmitter.Start(ctx); err != nil {
+			return nil, err
+		}
+
 		contractTransmitter = tronTransmitter
 	} else {
 		contractTransmitter = evmContractTransmitter

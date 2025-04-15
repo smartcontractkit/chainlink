@@ -243,10 +243,6 @@ func (p *SrcCommitProvider) Start(ctx context.Context) error {
 }
 
 func (p *DstCommitProvider) Start(ctx context.Context) error {
-	if err := p.contractTransmitter.Start(ctx); err != nil {
-		return err
-	}
-
 	if p.startBlock != 0 {
 		p.lggr.Infow("start replaying dst chain", "fromBlock", p.startBlock)
 		if p.startBlock > math.MaxInt64 {
