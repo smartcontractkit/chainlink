@@ -494,6 +494,7 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 	var receiverAddress solana.PublicKey
 	var err error
 	if !cfg.IsUpgrade {
+		//nolint:gocritic // this is a false positive, we need to check if the address is zero
 		if chainState.Receiver.IsZero() {
 			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
 			if err != nil {
