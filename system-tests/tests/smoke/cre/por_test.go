@@ -153,7 +153,7 @@ func init() {
 // When test runs in CI hardcoded versions will be downloaded before the test starts
 // Command that downloads them is part of "test_cmd" in .github/e2e-tests.yml file
 type DependenciesConfig struct {
-	CronCapabilityBinaryPath string `toml:"cron_capability_binary_path" validate:"required"`
+	CronCapabilityBinaryPath string `toml:"cron_capability_binary_path"`
 	CRECLIBinaryPath         string `toml:"cre_cli_binary_path" validate:"required"`
 }
 
