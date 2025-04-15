@@ -67,7 +67,6 @@ func NewTronContractTransmitter(ctx context.Context, lggr logger.Logger, opts Tr
 		EnergyMultiplier: 3,
 		StatusChecker:    true,
 	})
-	tronTXM.Start(ctx)
 
 	tronEVMTransmitterWrapper := &tronEVMTransmitterWrapper{
 		evmTransmitter: opts.EVMTransmitter,
