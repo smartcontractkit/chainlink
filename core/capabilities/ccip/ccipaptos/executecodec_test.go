@@ -12,7 +12,6 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_aptos_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
@@ -30,7 +29,8 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
 			for z := 0; z < numTokensPerMsg; z++ {
-				encodedDestExecData, err2 := abiEncodeUint32(destGasAmount)
+				// Use the predefined ABI arguments to pack destGasAmount
+				encodedDestExecData, err2 := destGasAmountArguments.Pack(destGasAmount)
 				require.NoError(t, err2)
 
 				tokenAmounts[z] = cciptypes.RampTokenAmount{
@@ -42,13 +42,12 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 				}
 			}
 
-			extraArgs, err := aptosUtilsABI.Pack("exposeEVMExtraArgsV1", ccip_aptos_utils.AptosUtilsEVMExtraArgsV1{
-				GasLimit: gasLimit,
-			})
-			if err != nil {
-				t.Fatalf("failed to pack extra args: %v", err)
-			}
-			extraArgs = append(evmExtraArgsV1Tag, extraArgs[4:]...)
+			// Use the predefined ABI arguments to pack EVM V1 fields
+			encodedExtraArgsFields, err := evmExtraArgsV1Fields.Pack(gasLimit)
+			require.NoError(t, err, "failed to pack extra args fields")
+
+			// Prepend the tag
+			extraArgs := append(evmExtraArgsV1Tag, encodedExtraArgsFields...)
 
 			reportMessages[j] = cciptypes.Message{
 				Header: cciptypes.RampMessageHeader{
@@ -92,12 +91,15 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	mockExtraDataCodec := &mocks.ExtraDataCodec{}
 	destGasAmount := rand.Uint32()
 	gasLimit := utils.RandUint256()
+
+	// Update mock return values to use the correct keys expected by the codec
+	// The codec uses the ExtraDataDecoder internally, which returns maps like these.
 	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
-		"destgasamount": destGasAmount,
+		aptosDestExecDataKey: destGasAmount, // Use the constant defined in the decoder
 	}, nil)
 	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
-		"gasLimit":                utils.RandUint256(),
-		"accountIsWritableBitmap": gasLimit,
+		"gasLimit": gasLimit, // Match the key used in the decoder for EVM V1/V2 gasLimit
+		// "allowOutOfOrderExecution": false, // Optionally mock other fields if needed by codec logic
 	}, nil)
 
 	testCases := []struct {
@@ -109,7 +111,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 		gasLimit      *big.Int
 	}{
 		{
-			name:          "base report",
+			name:          "base report EVM chain",
 			report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
 			expErr:        false,
 			chainSelector: 5009297550715157269, // ETH mainnet chain selector
@@ -117,7 +119,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			destGasAmount: destGasAmount,
 		},
 		{
-			name:          "base report",
+			name:          "base report non-EVM chain", // Name updated for clarity
 			report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
 			expErr:        false,
 			chainSelector: 124615329519749607, // Solana mainnet chain selector
@@ -131,7 +133,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 				return report
 			},
 			expErr:        true,
-			chainSelector: 5009297550715157269, // ETH mainnet chain selector
+			chainSelector: 5009297550715157269,
 			gasLimit:      gasLimit,
 			destGasAmount: destGasAmount,
 		},
@@ -142,7 +144,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 				return report
 			},
 			expErr:        true,
-			chainSelector: 5009297550715157269, // ETH mainnet chain selector
+			chainSelector: 5009297550715157269,
 			gasLimit:      gasLimit,
 			destGasAmount: destGasAmount,
 		},
@@ -151,6 +153,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			codec := NewExecutePluginCodecV1(mockExtraDataCodec)
+			// randomExecuteReport now uses the new encoding internally
 			report := tc.report(randomExecuteReport(t, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
 			bytes, err := codec.Encode(ctx, report)
 			if tc.expErr {
@@ -159,7 +162,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			// ignore unavailable fields in comparison
+			// ignore unavailable fields in comparison - This part remains the same
 			for i := range report.ChainReports {
 				for j := range report.ChainReports[i].Messages {
 					report.ChainReports[i].Messages[j].Header.MsgHash = cciptypes.Bytes32{}
@@ -173,7 +176,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			// decode using the codec
 			codecDecoded, err := codec.Decode(ctx, bytes)
 			require.NoError(t, err)
-			require.Equal(t, report, codecDecoded)
+			require.Equal(t, report, codecDecoded) // Comparison should still work
 		})
 	}
 }
