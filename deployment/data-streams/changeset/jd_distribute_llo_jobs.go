@@ -22,8 +22,8 @@ import (
 var _ deployment.ChangeSetV2[CsDistributeLLOJobSpecsConfig] = CsDistributeLLOJobSpecs{}
 
 const (
-	lloJobMaxTaskDuration             = time.Second
-	contractConfigTrackerPollInterval = time.Second
+	lloJobMaxTaskDuration             = jobs.TOMLDuration(time.Second)
+	contractConfigTrackerPollInterval = jobs.TOMLDuration(time.Second)
 )
 
 type CsDistributeLLOJobSpecsConfig struct {
@@ -100,13 +100,17 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get node chain configs: %w", err)
 	}
 
+	bootstrapMultiaddr, err := getBootstrapMultiAddr(ctx, e, cfg)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get bootstrap bootstrapMultiaddr: %w", err)
+	}
+
 	var proposals []*jobv1.ProposeJobRequest
 	for _, n := range oracleNodes {
 		lloSpec.TransmitterID = n.GetPublicKey() // CSAKey
 		lloSpec.OCRKeyBundleID = &nodeConfigMap[n.Id].OcrKeyBundle.BundleId
 
-		p2p := nodeConfigMap[n.Id].P2PKeyBundle
-		lloSpec.P2PV2Bootstrappers = []string{fmt.Sprintf("%s:%s", p2p.GetPublicKey(), p2p.GetPeerId())}
+		lloSpec.P2PV2Bootstrappers = []string{bootstrapMultiaddr}
 		lloSpec.PluginConfig.Servers = cfg.Servers
 
 		renderedSpec, err := lloSpec.MarshalTOML()
@@ -151,6 +155,35 @@ func chainConfigs(ctx context.Context, e deployment.Environment, chainID string,
 	}
 
 	return nodeConfigMap, nil
+}
+
+// getBootstrapMultiAddr fetches the bootstrap node from Job Distributor and returns its multiaddr.
+func getBootstrapMultiAddr(ctx context.Context, e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig) (string, error) {
+	filter := &jd.ListFilter{
+		DONID:    cfg.Filter.DONID,
+		DONName:  cfg.Filter.DONName,
+		EnvLabel: cfg.Filter.EnvLabel,
+		Size:     1,
+	}
+	boots, err := jd.FetchDONBootstrappersFromJD(ctx, e.Offchain, filter)
+	if err != nil {
+		return "", fmt.Errorf("failed to get bootstrap nodes: %w", err)
+	}
+	if len(boots) == 0 {
+		return "", errors.New("no bootstrap nodes found")
+	}
+	resp, err := e.Offchain.ListNodeChainConfigs(ctx, &node.ListNodeChainConfigsRequest{
+		Filter: &node.ListNodeChainConfigsRequest_Filter{
+			NodeIds: []string{boots[0].Id},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to get chain config: %w", err)
+	}
+	if resp == nil || len(resp.ChainConfigs) == 0 {
+		return "", errors.New("no chain configs found")
+	}
+	return resp.ChainConfigs[0].Ocr2Config.Multiaddr, nil
 }
 
 func (f CsDistributeLLOJobSpecs) VerifyPreconditions(_ deployment.Environment, config CsDistributeLLOJobSpecsConfig) error {
