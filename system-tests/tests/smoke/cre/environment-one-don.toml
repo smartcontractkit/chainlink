@@ -30,7 +30,7 @@
   workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
 
   [workflow_config.dependencies]
-  cron_capability_binary_path = "./cron"
+  cron_capability_binary_path = "/Users/bartektofel/Desktop/repos/capabilities-compiled/cron"
   cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
 
 [[nodesets]]
@@ -53,17 +53,17 @@
       # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
-            [Telemetry]
-            Enabled = true
-            Endpoint = 'host.docker.internal:4317'
-            InsecureConnection = true
-            TraceSampleRatio = 1
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      InsecureConnection = true
+      TraceSampleRatio = 1
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
-            [Feature]
+      [Feature]
 			LogPoller = true
 
 			[OCR2]
