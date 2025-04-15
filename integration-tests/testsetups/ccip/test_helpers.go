@@ -89,10 +89,10 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	l.devEnvCfg = envConfig
 	users := make(map[uint64][]*bind.TransactOpts)
 	for _, chain := range envConfig.Chains {
-		cId, err := strconv.ParseUint(chain.ChainID, 10, 0)
+		cID, err := strconv.ParseUint(chain.ChainID, 10, 0)
 		require.NoError(t, err, "Error getting chain name")
 
-		details, found := chainsel.ChainByEvmChainID(cId)
+		details, found := chainsel.ChainByEvmChainID(cID)
 		require.Truef(t, found, "chain not found")
 		users[details.Selector] = chain.Users
 	}
@@ -699,10 +699,10 @@ func CreateChainConfigFromNetworks(
 	}
 	for _, cd := range chaindetails {
 		chainId := cd.chainId
-		cId, err := strconv.ParseUint(chainId, 10, 0)
+		cID, err := strconv.ParseUint(chainId, 10, 0)
 		require.NoError(t, err, "Error getting chain name")
 
-		chainName, err := chainsel.NameFromChainId(cId)
+		chainName, err := chainsel.NameFromChainId(cID)
 		require.NoError(t, err, "Error getting chain name")
 		chainCfg := devenv.ChainConfig{
 			ChainID:   chainId,
@@ -722,13 +722,13 @@ func CreateChainConfigFromNetworks(
 		var pvtKey *string
 		// if private keys are provided, use the first private key as deployer key
 		// otherwise it will try to load the private key from KMS
-		if len(networkPvtKeys[cId]) > 0 {
-			pvtKey = ptr.Ptr(networkPvtKeys[cId][0])
+		if len(networkPvtKeys[cID]) > 0 {
+			pvtKey = ptr.Ptr(networkPvtKeys[cID][0])
 		}
 		require.NoError(t, chainCfg.SetDeployerKey(pvtKey), "Error setting deployer key")
 		var additionalPvtKeys []string
-		if len(networkPvtKeys[cId]) > 1 {
-			additionalPvtKeys = networkPvtKeys[cId][1:]
+		if len(networkPvtKeys[cID]) > 1 {
+			additionalPvtKeys = networkPvtKeys[cID][1:]
 		}
 		// if no additional private keys are provided, this will set the users to default deployer key
 		require.NoError(t, chainCfg.SetUsers(additionalPvtKeys), "Error setting users")
