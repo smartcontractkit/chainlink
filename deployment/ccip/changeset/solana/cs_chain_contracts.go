@@ -491,16 +491,23 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 	chain := e.SolChains[cfg.ChainSelector]
 	ab := deployment.NewMemoryAddressBook()
 
-	version := deployment.Version1_0_0
-	if cfg.ReceiverVersion != nil {
-		version = *cfg.ReceiverVersion
-	}
-	receiverAddress, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, version, false)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
-	}
-
+	var receiverAddress solana.PublicKey
+	var err error
 	if !cfg.IsUpgrade {
+		if chainState.Receiver.IsZero() {
+			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
+			}
+		} else if cfg.ReceiverVersion != nil {
+			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, *cfg.ReceiverVersion, false)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
+			}
+		} else {
+			e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
+			receiverAddress = chainState.Receiver
+		}
 		solTestReceiver.SetProgramID(receiverAddress)
 		externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
 		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
@@ -515,6 +522,19 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 		}
 		if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
+	} else if cfg.IsUpgrade {
+		e.Logger.Infow("Deploying new receiver", "addr", chainState.Receiver.String())
+		receiverAddress = chainState.Receiver
+		// only support
+		_, err := generateUpgradeTxns(e, chain, ab, DeployChainContractsConfig{
+			UpgradeConfig: UpgradeConfig{
+				SpillAddress:     chain.DeployerKey.PublicKey(),
+				UpgradeAuthority: chain.DeployerKey.PublicKey(),
+			},
+		}, cfg.ReceiverVersion, chainState.Receiver, ccipChangeset.Receiver)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
 	}
 
