@@ -492,14 +492,13 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 
 	var receiverAddress solana.PublicKey
 	var err error
-	if chainState.Receiver.IsZero() {
-		receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
-		}
-	} else {
-		e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
-		receiverAddress = chainState.Receiver
+	version := deployment.Version1_0_0
+	if cfg.ReceiverVersion != nil {
+		version = *cfg.ReceiverVersion
+	}
+	receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, version, false)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
 
 	solTestReceiver.SetProgramID(receiverAddress)
