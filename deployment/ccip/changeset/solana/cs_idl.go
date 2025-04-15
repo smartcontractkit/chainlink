@@ -156,8 +156,10 @@ func idlInit(e deployment.Environment, programsPath, programID, programName stri
 	e.Logger.Infow("Uploading IDL", "programName", programName)
 	args := []string{"idl", "init", "--filepath", idlFile, programID}
 	e.Logger.Info(args)
-	_, err = runCommand("anchor", args, programsPath)
+	output, err := runCommand("anchor", args, programsPath)
+	e.Logger.Debugw("IDL init output", "output", output)
 	if err != nil {
+		e.Logger.Debugw("IDL init error", "error", err)
 		return fmt.Errorf("error uploading idl: %w", err)
 	}
 	e.Logger.Infow("IDL uploaded", "programName", programName)
