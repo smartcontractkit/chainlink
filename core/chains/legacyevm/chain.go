@@ -374,6 +374,12 @@ func (c *chain) Close() error {
 		merr = multierr.Combine(merr, c.headBroadcaster.Close())
 		c.logger.Debug("Chain: stopping evmTxm")
 		merr = multierr.Combine(merr, c.txm.Close())
+
+		// Tron doesn't use the EVM TXM but still uses the gas estimator, we'll close it here
+		if c.cfg.EVM().ChainType() == chaintype.ChainTron {
+			merr = multierr.Combine(merr, c.gasEstimator.Close())
+		}
+
 		c.logger.Debug("Chain: stopping client")
 		c.client.Close()
 		c.logger.Debug("Chain: stopped")
