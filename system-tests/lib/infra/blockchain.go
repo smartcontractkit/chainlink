@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// TODO remove once https://smartcontract-it.atlassian.net/browse/CLO-1097 is done
 func WaitForRPCEndpoint(lggr zerolog.Logger, url string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
