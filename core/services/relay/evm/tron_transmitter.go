@@ -159,9 +159,13 @@ func (t *TronTransmitterWrapper) Ready() error {
 // As the Tron Transmitter doesn't start the txm, we need to start it within the start hook
 func (t *TronTransmitterWrapper) Start(ctx context.Context) error {
 	t.txm.Logger.Info("Starting Tron TXM")
-	err := t.txm.Start(ctx)
-	if err != nil {
-		return err
+
+	// NOTE: The txm needs to be started before the contract transmitter, so we check if it's ready and start it if it's not already started
+	if err := t.txm.Ready(); err != nil {
+		err = t.txm.Start(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	return t.transmitter.Start(ctx)
