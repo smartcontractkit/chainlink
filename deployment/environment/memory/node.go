@@ -280,7 +280,7 @@ func NewNode(
 		// Enable Capabilities, This is a pre-requisite for registrySyncer to work.
 		if nodecfg.RegistryConfig.Contract != common.HexToAddress("0x0") {
 			c.Capabilities.ExternalRegistry.NetworkID = ptr(relay.NetworkEVM)
-			c.Capabilities.ExternalRegistry.ChainID = ptr(strconv.FormatUint(uint64(nodecfg.RegistryConfig.EVMChainID), 10))
+			c.Capabilities.ExternalRegistry.ChainID = ptr(strconv.FormatUint(nodecfg.RegistryConfig.EVMChainID, 10))
 			c.Capabilities.ExternalRegistry.Address = ptr(nodecfg.RegistryConfig.Contract.String())
 		}
 
