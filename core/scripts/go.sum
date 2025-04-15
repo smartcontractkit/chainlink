@@ -1159,8 +1159,8 @@ github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250415030126-e5318e4a924
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250415030126-e5318e4a9248/go.mod h1:yEF+XSuGQkZpGyfA38ykPt7vITkmNktwfR2CuFxDfpI=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.2 h1:NkaqepHish3/WXY+cFTs/GqJ506AyWDASjqLmvexB3g=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.2/go.mod h1:zw3QH/GTvPl/7Cjyw+y4cJYnP16QHTEh7wWLJQd9lM8=
-github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22 h1:W3doYLVoZN8VwJb/kAZsbDjW+6cgZPgNTcQHJUH9JrA=
-github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22/go.mod h1:70JLBXQncNHyW63ik4PvPQGjQGZ1xK67MKrDanVAk2w=
+github.com/smartcontractkit/chainlink-testing-framework/lib v1.53.0 h1:VEV9YGIoZEvWR4me2k+l/zc+UfuKJmKXNQhPCk9/67A=
+github.com/smartcontractkit/chainlink-testing-framework/lib v1.53.0/go.mod h1:MB8WQJ9m4uqWPHRBEEySu2Iq7Xp/FuJ1n457VPBNV8Y=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
 github.com/smartcontractkit/libocr v0.0.0-20250408131511-c90716988ee0 h1:yGD0bRNoIQ9vOILzlYg4AiGKMKpJNqi7eIMpW7QIO9Y=
