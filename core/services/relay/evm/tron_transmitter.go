@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	tron "github.com/smartcontractkit/chainlink-tron/relayer/ocr2"
-	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
@@ -81,69 +80,5 @@ func NewTronContractTransmitter(ctx context.Context, opts TronContractTransmitte
 		transmitter = transmitter.WithReportToEthMetadata(transmitterOptions.reportToEvmTxMeta)
 	}
 
-	tronTransmitter := newTronTransmitterWrapper(transmitter, chain.GetTronTXM())
-
-	return tronTransmitter, nil
-}
-
-var _ ContractTransmitter = (*tronTransmitterWrapper)(nil)
-
-// Simple wrapper around the tron.ContractTransmitter to provide start / stop hooks to the tron txm
-type tronTransmitterWrapper struct {
-	transmitter tron.ContractTransmitter
-	txm         *trontxm.TronTxm
-}
-
-func newTronTransmitterWrapper(transmitter tron.ContractTransmitter, txm *trontxm.TronTxm) ContractTransmitter {
-	return &tronTransmitterWrapper{
-		transmitter: transmitter,
-		txm:         txm,
-	}
-}
-
-// The Tron Transmitter doesn't close the txm, so we'll close it here
-// NOTE: This is called by the Close() method of either the CommitProvider or the ExecProvider
-func (t *tronTransmitterWrapper) Close() error {
-	err := t.txm.Close()
-	if err != nil {
-		return err
-	}
-
-	return t.transmitter.Close()
-}
-
-func (t *tronTransmitterWrapper) FromAccount(ctx context.Context) (types.Account, error) {
-	return t.transmitter.FromAccount(ctx)
-}
-
-func (t *tronTransmitterWrapper) HealthReport() map[string]error {
-	return t.transmitter.HealthReport()
-}
-
-func (t *tronTransmitterWrapper) LatestConfigDigestAndEpoch(ctx context.Context) (types.ConfigDigest, uint32, error) {
-	return t.transmitter.LatestConfigDigestAndEpoch(ctx)
-}
-
-func (t *tronTransmitterWrapper) Name() string {
-	return t.transmitter.Name()
-}
-
-func (t *tronTransmitterWrapper) Ready() error {
-	return t.transmitter.Ready()
-}
-
-// As the Tron Transmitter doesn't start the txm, we need to start it within the start hook
-func (t *tronTransmitterWrapper) Start(ctx context.Context) error {
-	t.txm.Logger.Info("Starting Tron TXM")
-
-	// NOTE: The txm needs to be started before the contract transmitter, so we check if it's ready and start it if it's not already started
-	if err := t.txm.Start(ctx); err != nil {
-		return err
-	}
-
-	return t.transmitter.Start(ctx)
-}
-
-func (t *tronTransmitterWrapper) Transmit(ctx context.Context, reportCtx types.ReportContext, report types.Report, signatures []types.AttributedOnchainSignature) error {
-	return t.transmitter.Transmit(ctx, reportCtx, report, signatures)
+	return transmitter, nil
 }

@@ -332,9 +332,6 @@ func (d *DstExecProvider) Close() error {
 	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
 		return ccip.CloseOffRampReader(ctx, d.lggr, versionFinder, d.offRampAddress, d.client, d.lp, nil, big.NewInt(0), d.feeEstimatorConfig)
 	})
-	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
-		return d.contractTransmitter.Close()
-	})
 
 	var multiErr error
 	for _, fn := range unregisterFuncs {
