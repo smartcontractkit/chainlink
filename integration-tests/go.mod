@@ -39,7 +39,7 @@ require (
 	github.com/onsi/gomega v1.36.2
 	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/common v0.62.0
+	github.com/prometheus/common v0.63.0
 	github.com/rs/zerolog v1.33.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/segmentio/ksuid v1.0.4
@@ -49,8 +49,8 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250416111541-d25d5d65b1ff
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250411163110-21a13ceb3ac4
-	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407100046-dfdf9600557b
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250409172733-a9b441035629
+	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250415235644-8703639403c7
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250416143528-61465bca61a6
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.53.0
@@ -159,6 +159,8 @@ require (
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/cli/safeexec v1.0.0 // indirect
+	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.15.2 // indirect
+	github.com/cloudevents/sdk-go/v2 v2.16.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
@@ -355,7 +357,7 @@ require (
 	github.com/linxGnu/grocksdb v1.9.3 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/lufia/plan9stats v0.0.0-20240226150601-1dcf7310316a // indirect
-	github.com/magiconair/properties v1.8.7 // indirect
+	github.com/magiconair/properties v1.8.9 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/marcboeker/go-duckdb v1.8.3 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -398,7 +400,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil v0.116.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/deltatocumulativeprocessor v0.116.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0 // indirect
+	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/opentracing-contrib/go-grpc v0.1.1 // indirect
 	github.com/opentracing-contrib/go-stdlib v1.1.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect
@@ -419,10 +421,10 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/pressly/goose/v3 v3.21.1 // indirect
 	github.com/prometheus/alertmanager v0.28.0 // indirect
-	github.com/prometheus/client_golang v1.21.1 // indirect
+	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/exporter-toolkit v0.13.2 // indirect
-	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/prometheus/procfs v0.16.0 // indirect
 	github.com/prometheus/prometheus v0.302.0 // indirect
 	github.com/prometheus/sigv4 v0.1.1 // indirect
 	github.com/redis/go-redis/v9 v9.7.0 // indirect
@@ -449,11 +451,12 @@ require (
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250408161305-721208f43882 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250325121830-cfa9bf24c4f5 // indirect
+	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250416142349-44f812078171 // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250415030126-e5318e4a9248 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250416143238-f7ec6b07efae // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.2 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/mcms v0.16.1 // indirect
@@ -474,7 +477,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tjhop/slog-gokit v0.1.3 // indirect
 	github.com/tklauser/go-sysconf v0.3.13 // indirect
-	github.com/tklauser/numcpus v0.7.0 // indirect
+	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/uber/jaeger-client-go v2.30.0+incompatible // indirect
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
