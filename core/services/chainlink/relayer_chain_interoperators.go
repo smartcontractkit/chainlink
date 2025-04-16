@@ -360,10 +360,14 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 	if totalErr != nil {
 		return nil, 0, totalErr
 	}
-	if len(result) > limit && limit > 0 {
-		return result[offset : offset+limit], count, nil
+	if len(result) < offset {
+		return nil, 0, nil
 	}
-	return result[offset:], count, nil
+	result = result[offset:]
+	if len(result) > limit && limit > 0 {
+		return result[:limit], count, nil
+	}
+	return result, count, nil
 }
 
 type FilterFn func(id types.RelayID) bool
