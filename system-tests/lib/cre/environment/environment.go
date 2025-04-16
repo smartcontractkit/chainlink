@@ -472,6 +472,8 @@ func CreateBlockchains(
 		return nil, pkgerrors.New("blockchain input is nil")
 	}
 
+	var blockchainOutput *blockchain.Output
+	var blockchainOutputErr error
 	if input.infraInput.InfraType == libtypes.CRIB {
 		if input.nixShell == nil {
 			return nil, pkgerrors.New("nix shell is nil")
@@ -483,17 +485,14 @@ func CreateBlockchains(
 			CribConfigsDir:  cribConfigsDir,
 		}
 
-		var blockchainErr error
-		input.blockchainInput.Out, blockchainErr = crib.DeployBlockchain(deployCribBlockchainInput)
-		if blockchainErr != nil {
-			return nil, pkgerrors.Wrap(blockchainErr, "failed to deploy blockchain")
-		}
+		blockchainOutput, blockchainOutputErr = crib.DeployBlockchain(deployCribBlockchainInput)
+	} else {
+		// Create a new blockchain network and Seth client to interact with it
+		blockchainOutput, blockchainOutputErr = blockchain.NewBlockchainNetwork(input.blockchainInput)
 	}
 
-	// Create a new blockchain network and Seth client to interact with it
-	blockchainOutput, err := blockchain.NewBlockchainNetwork(input.blockchainInput)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create blockchain network")
+	if blockchainOutputErr != nil {
+		return nil, pkgerrors.Wrap(blockchainOutputErr, "failed to deploy blockchain")
 	}
 
 	pkey := os.Getenv("PRIVATE_KEY")
@@ -501,7 +500,7 @@ func CreateBlockchains(
 		return nil, pkgerrors.New("PRIVATE_KEY env var must be set")
 	}
 
-	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+	err := keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "RPC endpoint not available")
 	}
