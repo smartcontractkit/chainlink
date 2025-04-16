@@ -300,9 +300,6 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 			// Energy estimation doesn't seem to account for more complex smart contract execution.
 			// Given that Tron has static gas prices, we don't expect this to be a problem as this multiplier is sufficiently high.
 			EnergyMultiplier: 3,
-			// StatusChecker is only enforced for exec messages. Logic inside the TXM handles the difference.
-			// NOTE: The status checker is not product agnostic and only works for CCIP 1.5. However if a nil txmeta is provided it should work for all products.
-			StatusChecker: true,
 		})
 	}
 
