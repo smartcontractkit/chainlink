@@ -135,6 +135,15 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 			state.RouterConfigPDA = routerConfigPDA
 		case Receiver:
+			receiverVersion, ok := versions[OffRamp]
+			// if we have an receiver version, we need to make sure it's a newer version
+			if ok {
+				// if the version is not newer, skip this address
+				if receiverVersion.GreaterThan(&tvStr.Version) {
+					log.Debug().Str("address", address).Str("type", string(tvStr.Type)).Msg("Skipping receiver address, already loaded newer version")
+					continue
+				}
+			}
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
 		case SPL2022Tokens:
@@ -316,7 +325,6 @@ func ValidateOwnershipSolana(
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
 		if err != nil {
-			e.Logger.Warnf("BurnMintTokenPool not configured with this token address: %s", tokenAddress.String())
 			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
@@ -327,7 +335,6 @@ func ValidateOwnershipSolana(
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
 		if err != nil {
-			e.Logger.Warnf("LockReleaseTokenPool not configured with this token address: %s", tokenAddress.String())
 			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {

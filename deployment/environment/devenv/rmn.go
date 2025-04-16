@@ -435,6 +435,26 @@ type RMNCluster struct {
 	l     zerolog.Logger
 }
 
+func (rmn *RMNCluster) Restart(ctx context.Context) error {
+	for _, node := range rmn.Nodes {
+		_, _, err := node.RMN.Container.Exec(ctx, []string{"rm", "-f", "/app/cache/v4/*"})
+		if err != nil {
+			return err
+		}
+
+		err = node.RMN.Container.Stop(ctx, nil)
+		if err != nil {
+			return err
+		}
+
+		err = node.RMN.Container.Start(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // NewRMNCluster creates a new RMNCluster with the given configuration
 // and starts it.
 func NewRMNCluster(

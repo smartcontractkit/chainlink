@@ -916,6 +916,10 @@ func AssertTimelockOwnership(
 			state.Chains[chain].FeeQuoter.Address(),
 			state.Chains[chain].NonceManager.Address(),
 			state.Chains[chain].RMNRemote.Address(),
+			state.Chains[chain].TestRouter.Address(),
+			state.Chains[chain].Router.Address(),
+			state.Chains[chain].TokenAdminRegistry.Address(),
+			state.Chains[chain].RMNProxy.Address(),
 		} {
 			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[chain].Client)
 			require.NoError(t, err)
