@@ -203,7 +203,7 @@ func subscribeSolCommitEvents(
 			return
 
 		case finalSeqNrUpdate, ok := <-finalSeqNrs:
-			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 {
+			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 || finalSeqNrUpdate.expectedSeqNrRange.End() == 0 {
 				delete(completedSrcChains, finalSeqNrUpdate.sourceChainSelector)
 				delete(seenMessages, finalSeqNrUpdate.sourceChainSelector)
 			} else if ok {
@@ -323,7 +323,7 @@ func subscribeSolExecutionEvents(
 			return
 
 		case finalSeqNrUpdate := <-finalSeqNrs:
-			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 {
+			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 || finalSeqNrUpdate.expectedSeqNrRange.End() == 0 {
 				delete(completedSrcChains, finalSeqNrUpdate.sourceChainSelector)
 				delete(seenMessages, finalSeqNrUpdate.sourceChainSelector)
 			} else {

@@ -251,7 +251,7 @@ func subscribeCommitEvents(
 			return
 
 		case finalSeqNrUpdate, ok := <-finalSeqNrs:
-			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 {
+			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 || finalSeqNrUpdate.expectedSeqNrRange.End() == 0 {
 				delete(completedSrcChains, finalSeqNrUpdate.sourceChainSelector)
 				delete(seenMessages, finalSeqNrUpdate.sourceChainSelector)
 			} else if ok {
@@ -343,8 +343,8 @@ func subscribeExecutionEvents(
 			return
 		case event := <-sink:
 			lggr.Debugw("received execution event for",
-				"destChain", chainSelector,
 				"sourceChain", event.SourceChainSelector,
+				"destChain", chainSelector,
 				"sequenceNumber", event.SequenceNumber,
 				"blockNumber", event.Raw.BlockNumber)
 			// push metrics to loki here
@@ -377,7 +377,7 @@ func subscribeExecutionEvents(
 			return
 
 		case finalSeqNrUpdate := <-finalSeqNrs:
-			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 {
+			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 || finalSeqNrUpdate.expectedSeqNrRange.End() == 0 {
 				delete(completedSrcChains, finalSeqNrUpdate.sourceChainSelector)
 				delete(seenMessages, finalSeqNrUpdate.sourceChainSelector)
 			} else {

@@ -70,7 +70,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			cs,
 			*env,
 			&state,
-			state.Chains[cs].Receiver.Address(),
+			state.Chains[cs].Receiver.Address().Bytes(),
 			userOverrides,
 			messageKeys,
 			nil,
