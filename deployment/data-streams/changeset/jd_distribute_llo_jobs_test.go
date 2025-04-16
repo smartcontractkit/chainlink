@@ -16,7 +16,12 @@ import (
 func TestDistributeLLOJobSpecs(t *testing.T) {
 	t.Parallel()
 
-	e := testutil.NewMemoryEnv(t, false, 1)
+	e := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
+		ShouldDeployMCMS:      false,
+		ShouldDeployLinkToken: false,
+		NumNodes:              1,
+		NumBootstrapNodes:     1,
+	}).Environment
 
 	// pick the first EVM chain selector
 	chainSelector := e.AllChainSelectors()[0]

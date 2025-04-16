@@ -5,10 +5,14 @@ import (
 	"testing"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -69,7 +73,11 @@ func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deploy
 type MemoryEnvConfig struct {
 	ShouldDeployMCMS      bool
 	ShouldDeployLinkToken bool
+	NodeLabels            []*ptypes.Label
 	NumNodes              int
+	// NumBootstrapNodes defines how many bootstrap nodes to create, in addition to the number of oracle nodes defined
+	// in NumNodes.
+	NumBootstrapNodes int
 }
 
 type MemoryEnv struct {
@@ -83,13 +91,53 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 	lggr := logger.TestLogger(t)
 
 	memEnvConf := memory.MemoryEnvironmentConfig{
-		Chains: 1,
-		Nodes:  cfg.NumNodes,
+		Chains:     1,
+		Nodes:      cfg.NumNodes,
+		Bootstraps: cfg.NumBootstrapNodes,
 	}
 
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memEnvConf)
 	chainSelector := env.AllChainSelectors()[0]
 	chain := env.Chains[chainSelector]
+
+	// Apply labels to nodes.
+	oracleNodesAddedCounter := 0
+	for _, nid := range env.NodeIDs {
+		r, err := env.Offchain.GetNode(t.Context(), &node.GetNodeRequest{
+			Id: nid,
+		})
+		require.NoError(t, err)
+		// Add oracle nodes until we cover the number of nodes specified in the config.
+		// Then start adding bootstrap nodes.
+		if oracleNodesAddedCounter < cfg.NumNodes {
+			oracleNodesAddedCounter++
+
+			nodeLabels := append(cfg.NodeLabels, &ptypes.Label{
+				Key:   "nodeType",
+				Value: pointer.To(jd.NodeTypeOracle.String()),
+			})
+
+			_, err = env.Offchain.UpdateNode(t.Context(), &node.UpdateNodeRequest{
+				Id:        r.Node.Id,
+				Name:      r.Node.Name,
+				PublicKey: r.Node.PublicKey,
+				Labels:    nodeLabels,
+			})
+		} else {
+			nodeLabels := append(cfg.NodeLabels, &ptypes.Label{
+				Key:   "nodeType",
+				Value: pointer.To(jd.NodeTypeBootstrap.String()),
+			})
+
+			_, err = env.Offchain.UpdateNode(t.Context(), &node.UpdateNodeRequest{
+				Id:        r.Node.Id,
+				Name:      r.Node.Name,
+				PublicKey: r.Node.PublicKey,
+				Labels:    nodeLabels,
+			})
+		}
+		require.NoError(t, err)
+	}
 
 	var linkTokenState *commonstate.LinkTokenState
 	if cfg.ShouldDeployLinkToken {
