@@ -108,8 +108,6 @@ func setupLoadTestEnvironment(
 	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
 	jobSpecFactoryFns []keystonetypes.JobSpecFactoryFn,
 ) *loadTestSetupOutput {
-	absMockCapabilityBinaryPath, err := filepath.Abs(in.BinariesConfig.MockCapabilityBinaryPath)
-	require.NoError(t, err, "failed to get absolute path for mock capability binary")
 
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:  mustSetCapabilitiesFn(in.NodeSets),
@@ -117,8 +115,16 @@ func setupLoadTestEnvironment(
 		BlockchainsInput:           *in.BlockchainA,
 		JdInput:                    *in.JD,
 		InfraInput:                 *in.Infra,
-		CustomBinariesPaths:        map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath},
 		JobSpecFactoryFunctions:    jobSpecFactoryFns,
+	}
+
+	if in.BinariesConfig != nil {
+		absMockCapabilityBinaryPath, err := filepath.Abs(in.BinariesConfig.MockCapabilityBinaryPath)
+		require.NoError(t, err, "failed to get absolute path for mock capability binary")
+		universalSetupInput.CustomBinariesPaths = map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath}
+	} else {
+		// assume that if mock binary is already in the image it is in the default location and has default name
+		universalSetupInput.CustomBinariesPaths = map[string]string{}
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)

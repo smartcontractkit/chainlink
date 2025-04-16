@@ -4,7 +4,7 @@
   docker_cmd_params = ["-b", "5"]
 
 [binaries_config]
-  mock_capability_binary_path = "./amd64_mock"
+mock_capability_binary_path = "/Users/ionita/chainlink/plugins/amd64_mock"
 
 [jd]
   image = "job-distributor:0.9.0"
@@ -29,15 +29,15 @@
   type = "crib"
 
 [infra.crib]
-  namespace = "crib-workflow-don-load-test"
-  folder_location = "/Users/ionita/crib/deployments/cre"
-  provider = "aws"
+namespace = "crib-workflow-don-load-test"
+folder_location = "/Users/ionita/crib/deployments/cre"
+provider = "aws"
 
-  [infra.crib.team_input]
-    team="cre"
-    product="workflow-don"
-    component="workflow-don"
-    cost_center="capabilities-df-migration-performance-tests"
+[infra.crib.team_input]
+team="cre"
+product="workflow-don"
+component="workflow-don"
+cost_center="capabilities-df-migration-performance-tests"
 
 [[nodesets]]
 nodes = 17
@@ -52,7 +52,7 @@ volume_name = "workflow_volume"
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "***.dkr.ecr.***.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:pr-17294-e8367b7-plugins-amd64"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -64,8 +64,6 @@ user_config_overrides = """
         [P2P.V2]
         Enabled = true
         ListenAddresses = ['0.0.0.0:5001']
-			[LOG]
-			Level='debug'
       """
 [[nodesets]]
 nodes = 5
@@ -79,16 +77,16 @@ port = 13200
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "***.dkr.ecr.***.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:pr-17294-e8367b7-plugins-amd64"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
-      [Feature]
-			LogPoller = true
+        [Feature]
+        LogPoller = true
         FeedsManager = true
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
       """
