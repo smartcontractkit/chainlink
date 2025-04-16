@@ -91,7 +91,7 @@ func deleteJobsPrecondition(env deployment.Environment, jobIDs []string) error {
 // DeleteJobChangeset sends the delete job request to nodes for the given jobID.
 // nops needs to cancel the job once the request is sent by JD.
 func deleteJobsLogic(env deployment.Environment, jobIDs []string) (deployment.ChangesetOutput, error) {
-	jobIDsToDelete, err := jobIdsToDelete(env, jobIDs)
+	jobIDsToDelete, err := jobsToDelete(env, jobIDs)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get jobIDs to delete: %w", err)
 	}
@@ -113,7 +113,7 @@ func deleteJobsLogic(env deployment.Environment, jobIDs []string) (deployment.Ch
 	return deployment.ChangesetOutput{}, nil
 }
 
-func jobIdsToDelete(env deployment.Environment, jobIDs []string) ([]string, error) {
+func jobsToDelete(env deployment.Environment, jobIDs []string) ([]string, error) {
 	jobs, err := env.Offchain.ListProposals(env.GetContext(), &jobv1.ListProposalsRequest{
 		Filter: &jobv1.ListProposalsRequest_Filter{
 			JobIds: jobIDs,
