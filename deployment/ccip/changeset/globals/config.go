@@ -55,12 +55,18 @@ var (
 		MerkleRootAsyncObserverDisabled:    false,
 		MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
 		MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
-		ChainFeeAsyncObserverDisabled:      false,
-		ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
-		ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
-		TokenPriceAsyncObserverDisabled:    false,
-		TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(10 * time.Second),
-		TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(12 * time.Second),
+
+		// Disabling the chainfee + tokenprice async observers because the low cache TTL + low timeout
+		// is currently not a viable combo.
+		// Super aggressive frequency and timeout causes rpc timeouts more frequently.
+		ChainFeeAsyncObserverDisabled: true,
+		// TODO: revisit
+		// ChainFeeAsyncObserverSyncFreq:      1*time.Second + 500*time.Millisecond,
+		// ChainFeeAsyncObserverSyncTimeout:   1 * time.Second,
+		TokenPriceAsyncObserverDisabled: true,
+		// TODO: revisit
+		// TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(1*time.Second + 500*time.Millisecond),
+		// TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(1 * time.Second),
 
 		// Remaining fields cannot be statically set:
 		// PriceFeedChainSelector: , // Must be configured in CLD

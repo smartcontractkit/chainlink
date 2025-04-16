@@ -15,7 +15,7 @@
      - [Defining a CapabilityFlag for the Capability](#defining-a-capabilityflag-for-the-capability)
      - [Defining Additional Node Configuration](#defining-additional-node-configuration)
      - [Defining a Job Spec for the New Capability](#defining-a-job-spec-for-the-new-capability)
-     - [Registering the Capability in the Capabilities Registry Contract](#registering-the-capability-in-the-capabilities-registry-contract)
+     - [Registering the Capability in the Capabilities Registry contract](#registering-the-capability-in-the-capabilities-registry-contract)
 3. [Using a New Workflow](#using-a-new-workflow)
    - [Test Uploads the Binary](#test-uploads-the-binary)
    - [Workflow Configuration](#workflow-configuration)
@@ -45,6 +45,7 @@
 13. [CRIB Deployment Flow](#crib-deployment-flow)
 14. [Switching from kind to AWS provider](#switching-from-kind-to-aws-provider)
 15. [CRIB Limitations & Considerations](#crib-limitations--considerations)
+16. [CLI Usage](#cli-usage)
 
 ---
 
@@ -108,7 +109,7 @@ If you have access to the production ECR, you can also pull the image from there
 
 ### CRE CLI Binary
 
-Download the CRE CLI binary compiled for your host machine’s architecture from the [smartcontractkit/dev-platform](https://github.com/smartcontractkit/dev-platform) repository. Alternatively, build it on your local machine for operating system and architecture matching yours.
+Download the CRE CLI binary compiled for your host machine's architecture from the [smartcontractkit/dev-platform](https://github.com/smartcontractkit/dev-platform) repository. Alternatively, build it on your local machine for operating system and architecture matching yours.
 
 **Supported version**: v0.1.5
 
@@ -148,7 +149,7 @@ Ensure the binary is built for **Linux** and **amd64** architecture.
 
 By default, the test compiles the workflow each time it runs. Therefore, you must clone the [smartcontractkit/proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test) repository.
 
-Then, update the TOML config to point to the workflow’s location (relative or absolute paths are supported):
+Then, update the TOML config to point to the workflow's location (relative or absolute paths are supported):
 
 ```toml
 [workflow_config]
@@ -420,7 +421,7 @@ kubectl logs <POD_NAME>
 
 To add a new capability to the test, follow these steps:
 
-1. Copy the capability binary to the Chainlink node’s Docker container (must be in `linux/amd64` format).
+1. Copy the capability binary to the Chainlink node's Docker container (must be in `linux/amd64` format).
    - You can skip this step if the capability is already included in the Chainlink image you are using or if it's built-in.
 2. Add support for the new capability in the testing code:
    - Define a new `CapabilityFlag` representing the capability.
@@ -448,7 +449,7 @@ Config part that's effectively modified:
       capabilities = ["./aptos_linux_amd64"]
 ```
 
-This instructs the framework to copy `./aptos_linux_amd64` to the container’s `/home/capabilities/` directory, making it available as `/home/capabilities/aptos_linux_amd64`.
+This instructs the framework to copy `./aptos_linux_amd64` to the container's `/home/capabilities/` directory, making it available as `/home/capabilities/aptos_linux_amd64`.
 
 > **Note:** Copying the binary to the bootstrap node is unnecessary since it does not handle capability-related tasks.
 
@@ -787,7 +788,7 @@ To enable multi-DON support, update the configuration file by:
 - Explicitly assigning capabilities to each nodeset.
 - Copying the required capabilities to the containers (if they are not built into the image already).
 
-Here’s an example configuration for a nodeset that only supports writing to an EVM chain:
+Here's an example configuration for a nodeset that only supports writing to an EVM chain:
 
 ```toml
 [[nodesets]]
@@ -1003,3 +1004,62 @@ If you have the `ctf` CLI you can use following command: `ctf d rm`.
 ### Chainlink image not found in local Docker registry
 
 If you are building the Chainlink image using the Dockerfile, image is successfuly built and yet nodes do not start, because image cannot be found in the local machine, simply restart your computer and try again.
+
+## CLI Usage
+
+The CRE CLI provides commands to manage the local environment. The main commands are:
+
+### Start Environment
+
+```bash
+ctf cre env start [flags]
+```
+
+Flags:
+- `-t, --topology string` - Topology to use for the environment (simplified or full) (default "simplified")
+- `-w, --wait-on-error-timeout string` - Wait on error timeout duration (e.g. 10s, 1m, 1h)
+- `-e, --extra-allowed-ports intSlice` - Extra allowed ports (e.g. 8080,8081)
+
+Example:
+```bash
+cd cmd
+go run main.go env start -t simplified -w 5m -e 8080,8081
+```
+
+Simplified topology will lanuch a single DON with all capabilities. Full topology will start 3 DONs:
+- workflow DON (5 nodes)
+- capabilities DON (2 nodes)
+- gateway DON (1 node)
+
+Wait on error timeout flag is useful if you want to wait until containers are removed during a failed startup. For example if containers failed to start it allows you to inspect the failure reason.
+
+Extra allowed ports are useful if your gateway needs to access servces running on ports different than `80` and `443`.
+
+### Stop Environment
+
+```bash
+cd cmd
+go run main.go env stop
+```
+
+This command stops the local CRE environment. If the environment is not running, it will simply fall through.
+
+### Environment Variables
+
+The CLI uses the following environment variables:
+
+- `CTF_CONFIGS` - Path to the TOML configuration file. If not set, defaults to:
+  - `configs/single-don.toml` for simplified topology
+  - `configs/workflow-capabilities-don.toml` for full topology
+- `PRIVATE_KEY` - Private key used for contract deployments and node funding. If not set, defaults to a test key.
+- `TESTCONTAINERS_RYUK_DISABLED` - Set to "true" to disable Ryuk container cleanup
+
+### Cleanup
+
+If the environment encounters an unexpected error during startup, you may need to manually clean up resources. Use the following command:
+
+```bash
+ctf d rm
+```
+
+This will remove all containers with the 'ctf' label and their associated volumes.
