@@ -1,7 +1,9 @@
 package testutil
 
 import (
+	"fmt"
 	"math/big"
+	"regexp"
 	"testing"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -261,4 +263,14 @@ func GetNodeLabels(donID uint64, donName string, env string) []*ptypes.Label {
 			Value: pointer.To(jd.ProductLabel),
 		},
 	}
+}
+
+// Remove the externalJobID line from the spec. This is needed because the externalJobID is generated randomly
+// and we want to exclude it from the comparison.
+func StripLineContaining(spec string, ss []string) string {
+	for _, s := range ss {
+		pattern := fmt.Sprintf(`%s.*\n`, s)
+		spec = regexp.MustCompile(pattern).ReplaceAllString(spec, "")
+	}
+	return spec
 }

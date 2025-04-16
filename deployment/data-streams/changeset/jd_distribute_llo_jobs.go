@@ -42,6 +42,9 @@ type CsDistributeLLOJobSpecsConfig struct {
 	// Example:
 	// 	"mercury-pipeline-testnet-producer.stage-2.cldev.cloud:1340": "11a34b5187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c"
 	Servers map[string]string
+
+	// NodePublicKeys specifies on which nodes to distribute the job specs.
+	NodePublicKeys []string
 }
 
 type CsDistributeLLOJobSpecs struct{}
@@ -61,6 +64,58 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
 		})
 
+	bootstrapProposals, err := generateBootstrapProposals(ctx, e, cfg, chainID, labels)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate bootstrap proposals: %w", err)
+	}
+	oracleProposals, err := generateOracleProposals(ctx, e, cfg, chainID, labels)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate oracle proposals: %w", err)
+	}
+
+	proposedJobs, err := proposeAllOrNothing(ctx, e.Offchain, append(bootstrapProposals, oracleProposals...))
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose all jobs: %w", err)
+	}
+
+	return deployment.ChangesetOutput{
+		Jobs: proposedJobs,
+	}, nil
+}
+
+func generateBootstrapProposals(ctx context.Context, e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig, chainID string, labels []*ptypes.Label) ([]*jobv1.ProposeJobRequest, error) {
+	bootstrapSpec := jobs.NewBootstrapSpec(
+		cfg.ConfiguratorAddress,
+		cfg.Filter.DONID,
+		jobs.RelayTypeEVM,
+		jobs.RelayConfig{
+			ChainID: chainID,
+		},
+	)
+
+	renderedSpec, err := bootstrapSpec.MarshalTOML()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal bootstrap spec: %w", err)
+	}
+
+	bootstrapNodes, err := jd.FetchDONBootstrappersFromJD(ctx, e.Offchain, cfg.Filter, cfg.NodePublicKeys)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow don nodes: %w", err)
+	}
+
+	var proposals []*jobv1.ProposeJobRequest
+	for _, node := range bootstrapNodes {
+		proposals = append(proposals, &jobv1.ProposeJobRequest{
+			NodeId: node.Id,
+			Spec:   string(renderedSpec),
+			Labels: labels,
+		})
+	}
+
+	return proposals, nil
+}
+
+func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig, chainID string, labels []*ptypes.Label) ([]*jobv1.ProposeJobRequest, error) {
 	// nils will be filled out later with n-specific values:
 	lloSpec := &jobs.LLOJobSpec{
 		Base: jobs.Base{
@@ -90,19 +145,19 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 		},
 	}
 
-	oracleNodes, err := jd.FetchDONOraclesFromJD(ctx, e.Offchain, cfg.Filter)
+	oracleNodes, err := jd.FetchDONOraclesFromJD(ctx, e.Offchain, cfg.Filter, cfg.NodePublicKeys)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get workflow don nodes: %w", err)
+		return nil, fmt.Errorf("failed to get workflow don nodes: %w", err)
 	}
 
 	nodeConfigMap, err := chainConfigs(ctx, e, chainID, oracleNodes)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get node chain configs: %w", err)
+		return nil, fmt.Errorf("failed to get node chain configs: %w", err)
 	}
 
 	bootstrapMultiaddr, err := getBootstrapMultiAddr(ctx, e, cfg)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get bootstrap bootstrapMultiaddr: %w", err)
+		return nil, fmt.Errorf("failed to get bootstrap bootstrapMultiaddr: %w", err)
 	}
 
 	var proposals []*jobv1.ProposeJobRequest
@@ -116,7 +171,7 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 
 		renderedSpec, err := lloSpec.MarshalTOML()
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to marshal llo spec: %w", err)
+			return nil, fmt.Errorf("failed to marshal llo spec: %w", err)
 		}
 
 		proposals = append(proposals, &jobv1.ProposeJobRequest{
@@ -125,14 +180,8 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 			Labels: labels,
 		})
 	}
-	proposedJobs, err := proposeAllOrNothing(ctx, e.Offchain, proposals)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose all oracle jobs: %w", err)
-	}
 
-	return deployment.ChangesetOutput{
-		Jobs: proposedJobs,
-	}, nil
+	return proposals, nil
 }
 
 // chainConfigs returns a map of node IDs to their chain configs for the given chain ID.
@@ -166,7 +215,7 @@ func getBootstrapMultiAddr(ctx context.Context, e deployment.Environment, cfg Cs
 		EnvLabel: cfg.Filter.EnvLabel,
 		Size:     1,
 	}
-	boots, err := jd.FetchDONBootstrappersFromJD(ctx, e.Offchain, filter)
+	boots, err := jd.FetchDONBootstrappersFromJD(ctx, e.Offchain, filter, cfg.NodePublicKeys)
 	if err != nil {
 		return "", fmt.Errorf("failed to get bootstrap nodes: %w", err)
 	}
@@ -187,6 +236,7 @@ func getBootstrapMultiAddr(ctx context.Context, e deployment.Environment, cfg Cs
 	return resp.ChainConfigs[0].Ocr2Config.Multiaddr, nil
 }
 
+// TODO verify pubkeys and make them obligatory
 func (f CsDistributeLLOJobSpecs) VerifyPreconditions(_ deployment.Environment, config CsDistributeLLOJobSpecsConfig) error {
 	if config.ChainSelectorEVM == 0 {
 		return errors.New("chain selector is required")

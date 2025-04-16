@@ -21,6 +21,9 @@ var _ deployment.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStr
 type CsDistributeStreamJobSpecsConfig struct {
 	Filter  *jd.ListFilter
 	Streams []StreamSpecConfig
+
+	// NodePublicKeys specifies on which nodes to distribute the job specs.
+	NodePublicKeys []string
 }
 
 type StreamSpecConfig struct {
@@ -51,7 +54,7 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
 		})
 
-	oracleNodes, err := jd.FetchDONOraclesFromJD(ctx, e.Offchain, cfg.Filter)
+	oracleNodes, err := jd.FetchDONOraclesFromJD(ctx, e.Offchain, cfg.Filter, cfg.NodePublicKeys)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get workflow don nodes: %w", err)
 	}
@@ -120,6 +123,7 @@ func generateDatasources(cc StreamSpecConfig) []jobs.Datasource {
 	return dss
 }
 
+// TODO verify pubkeys and make them obligatory
 func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ deployment.Environment, config CsDistributeStreamJobSpecsConfig) error {
 	if config.Filter == nil {
 		return errors.New("filter is required")

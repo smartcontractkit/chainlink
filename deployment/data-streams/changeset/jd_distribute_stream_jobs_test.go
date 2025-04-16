@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -148,12 +147,7 @@ ask_price [type=median allowedFaults=3 index=2];
 			wantSpec: renderedSpec,
 		},
 		// TODO add more tests
-	}
-
-	// Remove the externalJobID line from the spec. This is needed because the externalJobID is generated randomly
-	// and we want to exclude it from the comparison.
-	stripExternalJobID := func(spec string) string {
-		return regexp.MustCompile(`externalJobID = '[a-fA-F0-9\-]+'`).ReplaceAllString(spec, "")
+		// TODO add a test which ensures that only nodes whose pubkeys are specified will get jobs
 	}
 
 	for _, tt := range tests {
@@ -177,7 +171,10 @@ ask_price [type=median allowedFaults=3 index=2];
 			require.NoError(t, err)
 			require.Len(t, out, 1)
 			require.Len(t, out[0].Jobs, 1)
-			require.Equal(t, stripExternalJobID(tt.wantSpec), stripExternalJobID(out[0].Jobs[0].Spec))
+			require.Equal(t,
+				testutil.StripLineContaining(tt.wantSpec, []string{"externalJobID"}),
+				testutil.StripLineContaining(out[0].Jobs[0].Spec, []string{"externalJobID"}),
+			)
 		})
 	}
 }

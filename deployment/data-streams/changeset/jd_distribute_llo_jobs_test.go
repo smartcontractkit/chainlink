@@ -2,7 +2,7 @@ package changeset
 
 import (
 	"context"
-	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -65,13 +65,10 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	oracleSpec := `don | 1'
+	oracleSpec := `name = 'don | 1'
 type = 'offchainreporting2'
 schemaVersion = 1
-externalJobID = '0bd63fab-f4c3-4db4-afa2-d38d00c3110d'
 contractID = '0x4170ed0880ac9a755fd29b2688956bd959f923f4'
-transmitterID = 'a7e05aecaba04a5437a1ae488d79a35a6b32067545a3d00ad96f3759c894b802'
-p2pv2Bootstrappers = ['12D3KooWEbh9jvyfxa3sRMZRm1zTKERqC6YmmUQjiqzAYrNYvqpD@127.0.0.1:26501']
 ocrKeyBundleID = 'cee9d802bf0e28bc74c78d7512e44b25ce6580bf5c45ed15186ae871a3437eb1'
 maxTaskDuration = '1s'
 contractConfigTrackerPollInterval = '1s'
@@ -90,7 +87,15 @@ donID = 1
 servers = {'mercury-pipeline-testnet-producer.TEST.cldev.cloud:1340' = '0000005187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c'}
 `
 
-	bootstrapSpec := `
+	bootstrapSpec := `name = 'bootstrap'
+type = 'bootstrap'
+schemaVersion = 1
+contractID = '0x4170ed0880ac9a755fd29b2688956bd959f923f4'
+donID = 1
+relay = 'evm'
+
+[relayConfig]
+chainID = '90000001'
 `
 
 	config := CsDistributeLLOJobSpecsConfig{
@@ -169,16 +174,23 @@ servers = {'mercury-pipeline-testnet-producer.TEST.cldev.cloud:1340' = '00000051
 			}
 			require.NoError(t, err)
 			require.Len(t, out, 1)
+			require.Len(t, out[0].Jobs, 2)
 
-			if tt.wantErr == nil {
-				require.Len(t, out[0].Jobs, 2)
-				// We don't expect an error, so we want to verify the specs are what we expect.
-				// The issue is that we don't know in which order the specs will be returned.
-				spec1 := out[0].Jobs[0].Spec
-				spec2 := out[0].Jobs[1].Spec
-				require.True(t, spec1 == tt.wantOracleSpec || spec1 == tt.wantBootstrapSpec, fmt.Sprintf("Spec1: %s", spec1))
-				require.True(t, spec2 == tt.wantOracleSpec || spec2 == tt.wantBootstrapSpec, fmt.Sprintf("Spec2: %s", spec2))
-				require.NotEqual(t, spec1, spec2)
+			t.Log(out[0].Jobs[0].Spec)
+			t.Log(out[0].Jobs[1].Spec)
+			// These are lines with dynamic values which we cannot compare.
+			linesToStrip := []string{"externalJobID", "transmitterID", "p2pv2Bootstrappers", "ocrKeyBundleID"}
+			spec1 := testutil.StripLineContaining(out[0].Jobs[0].Spec, linesToStrip)
+			spec2 := testutil.StripLineContaining(out[0].Jobs[1].Spec, linesToStrip)
+			wantBootstrapSpec := testutil.StripLineContaining(tt.wantBootstrapSpec, linesToStrip)
+			wantOracleSpec := testutil.StripLineContaining(tt.wantOracleSpec, linesToStrip)
+
+			if strings.Contains(spec1, "bootstrap") {
+				require.Equal(t, wantBootstrapSpec, spec1)
+				require.Equal(t, wantOracleSpec, spec2)
+			} else {
+				require.Equal(t, wantOracleSpec, spec1)
+				require.Equal(t, wantBootstrapSpec, spec2)
 			}
 		})
 	}

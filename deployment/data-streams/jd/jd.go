@@ -26,8 +26,9 @@ type ListFilter struct {
 	Size     int // Expected number of nodes in the result
 }
 
-func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
+func (f *ListFilter) bootstrappersFilter(pubKeys []string) *nodeapiv1.ListNodesRequest_Filter {
 	return &nodeapiv1.ListNodesRequest_Filter{
+		PublicKeys: pubKeys,
 		Selectors: []*jdtypesv1.Selector{
 			{
 				Key: utils.DonIdentifier(f.DONID, f.DONName),
@@ -53,8 +54,9 @@ func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 }
 
 // oraclesFilter is used to fetch all oracle (non-bootstrap) nodes in a DON.
-func (f *ListFilter) oraclesFilter() *nodeapiv1.ListNodesRequest_Filter {
+func (f *ListFilter) oraclesFilter(pubKeys []string) *nodeapiv1.ListNodesRequest_Filter {
 	return &nodeapiv1.ListNodesRequest_Filter{
+		PublicKeys: pubKeys,
 		Selectors: []*jdtypesv1.Selector{
 			{
 				Key: utils.DonIdentifier(f.DONID, f.DONName),
@@ -79,8 +81,8 @@ func (f *ListFilter) oraclesFilter() *nodeapiv1.ListNodesRequest_Filter {
 	}
 }
 
-func FetchDONBootstrappersFromJD(ctx context.Context, jd deployment.OffchainClient, filter *ListFilter) (nodes []*nodeapiv1.Node, err error) {
-	jdFilter := filter.bootstrappersFilter()
+func FetchDONBootstrappersFromJD(ctx context.Context, jd deployment.OffchainClient, filter *ListFilter, pubKeys []string) (nodes []*nodeapiv1.Node, err error) {
+	jdFilter := filter.bootstrappersFilter(pubKeys)
 	resp, err := jd.ListNodes(ctx, &nodeapiv1.ListNodesRequest{Filter: jdFilter})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list bootstrap nodes for DON %d - %s: %w", filter.DONID, filter.DONName, err)
@@ -94,8 +96,8 @@ func FetchDONBootstrappersFromJD(ctx context.Context, jd deployment.OffchainClie
 }
 
 // FetchDONOraclesFromJD fetches all oracle nodes.
-func FetchDONOraclesFromJD(ctx context.Context, jd deployment.OffchainClient, filter *ListFilter) (nodes []*nodeapiv1.Node, err error) {
-	jdFilter := filter.oraclesFilter()
+func FetchDONOraclesFromJD(ctx context.Context, jd deployment.OffchainClient, filter *ListFilter, pubKeys []string) (nodes []*nodeapiv1.Node, err error) {
+	jdFilter := filter.oraclesFilter(pubKeys)
 	resp, err := jd.ListNodes(ctx, &nodeapiv1.ListNodesRequest{Filter: jdFilter})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes for DON %d - %s: %w", filter.DONID, filter.DONName, err)
