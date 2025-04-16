@@ -24,7 +24,10 @@ import (
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/chainreader"
-	crepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
+	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
+	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
+	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
+	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
@@ -323,24 +326,25 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.ReadContractBinaryPath)),
 	)
 
-	porJobSpecFactoryFn := crepor.PoRJobSpecFactoryFn(
-		filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.CronCapabilityBinaryPath)),
-		extraAllowedPorts,
-		[]string{},
-		[]string{"0.0.0.0/0"}, // allow all IPs
-	)
+	jobSpecFactoryFunctions := []cretypes.JobSpecFactoryFn{
+		// add support for more job spec factory functions if needed
 
-	// add support for more job spec factory functions if needed
-	jobSpecFactoryFns := []cretypes.JobSpecFactoryFn{chainReaderJobSpecFactoryFn, webapi.WebAPIJobSpecFactoryFn, porJobSpecFactoryFn}
+		chainReaderJobSpecFactoryFn,
+		webapi.WebAPIJobSpecFactoryFn,
+		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(chainIDInt))),
+		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.CronCapabilityBinaryPath))),
+		cregateway.GatewayJobSpecFactoryFn(libc.MustSafeUint64(int64(chainIDInt)), []int{}, []string{}, []string{"0.0.0.0/0"}),
+		crecompute.ComputeJobSpecFactoryFn,
+	}
 
 	universalSetupInput := creenv.SetupInput{
-		CapabilitiesAwareNodeSets:  capabilitiesAwareNodeSets,
-		CapabilityFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:           *in.Blockchain,
-		JdInput:                    *in.JD,
-		InfraInput:                 *in.Infra,
-		CustomBinariesPaths:        capabilitiesBinaryPaths,
-		JobSpecFactoryFunctions:    jobSpecFactoryFns,
+		CapabilitiesAwareNodeSets:            capabilitiesAwareNodeSets,
+		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
+		BlockchainsInput:                     *in.Blockchain,
+		JdInput:                              *in.JD,
+		InfraInput:                           *in.Infra,
+		CustomBinariesPaths:                  capabilitiesBinaryPaths,
+		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(context.Background(), testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)

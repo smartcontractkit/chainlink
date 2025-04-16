@@ -606,7 +606,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 				return fmt.Errorf("negative chain ID: %d", evmNetwork.ChainID)
 			}
 			for _, node := range nodes {
-				nodeAddr, ok := node.AccountAddr[uint64(evmNetwork.ChainID)]
+				nodeAddr, ok := node.AccountAddr[strconv.FormatInt(evmNetwork.ChainID, 10)]
 				if !ok {
 					return fmt.Errorf("account address not found for chain %d", evmNetwork.ChainID)
 				}

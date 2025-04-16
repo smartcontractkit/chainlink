@@ -25,7 +25,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 		sel, chain := sel, chain
 		g.Go(func() error {
 			for _, n := range nodeInfo {
-				chainID, err := chainsel.ChainIdFromSelector(sel)
+				chainID, err := chainsel.GetChainIDFromSelector(sel)
 				if err != nil {
 					lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
 					return err
