@@ -464,7 +464,6 @@ func SolEventEmitter[T any](
 	ch := make(chan eventWithTxn[T])
 	errorCh := make(chan error)
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 		var until solana.Signature
 		for {
@@ -483,7 +482,7 @@ func SolEventEmitter[T any](
 					},
 				)
 				if err != nil {
-					errorCh <- err
+					errorCh <- fmt.Errorf("failed to get signatures for address %s: %w", address, err)
 					return
 				}
 
@@ -512,7 +511,7 @@ func SolEventEmitter[T any](
 						},
 					)
 					if err != nil {
-						errorCh <- err
+						errorCh <- fmt.Errorf("failed to get transaction %s: %w", txSig.Signature, err)
 						return
 					}
 
@@ -521,7 +520,7 @@ func SolEventEmitter[T any](
 						continue
 					}
 					if err != nil {
-						errorCh <- err
+						errorCh <- fmt.Errorf("failed to parse events from transaction %s: %w", txSig.Signature, err)
 						return
 					}
 
