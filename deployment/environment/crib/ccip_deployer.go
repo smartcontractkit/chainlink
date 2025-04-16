@@ -352,6 +352,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel, feedChainSel uint64) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
 	solChainSelectors := e.AllChainSelectorsSolana()
+	allChainSelectors := e.AllChainSelectorsAllFamilies()
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 
@@ -406,11 +407,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel, fe
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			chainSelectors,
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			e.AllChainSelectorsSolana(),
+			allChainSelectors,
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
