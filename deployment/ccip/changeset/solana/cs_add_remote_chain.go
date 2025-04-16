@@ -157,6 +157,8 @@ func doAddRemoteChainToRouter(
 		if update.IsUpdate {
 			routerIx, err = solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
+				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
+				// right now, the user will have to send the final version of the config.
 				update.RouterDestinationConfig,
 				routerRemoteStatePDA,
 				routerConfigPDA,
@@ -366,6 +368,8 @@ func doAddRemoteChainToFeeQuoter(
 		if update.IsUpdate {
 			feeQuoterIx, err = solFeeQuoter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
+				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
+				// right now, the user will have to send the final version of the config.
 				update.FeeQuoterDestinationConfig,
 				s.SolChains[chainSel].FeeQuoterConfigPDA,
 				fqRemoteChainPDA,
