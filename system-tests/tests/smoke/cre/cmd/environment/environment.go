@@ -170,7 +170,7 @@ var startCmd = &cobra.Command{
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to get current directory: %s", err)
 			} else {
-				targetPath := filepath.Join(currentDir, ".cre.settings.yaml")
+				targetPath := filepath.Join(currentDir, "cre.settings.yaml")
 				input, err := os.ReadFile(creCLISettingsFile.Name())
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "failed to read temporary settings file: %s", err)
