@@ -177,12 +177,12 @@ jobs:
         type:
           - cmd: go_core_tests
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/spot=false/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_tests_integration
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/spot=false/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_fuzz
@@ -192,13 +192,13 @@ jobs:
 
           - cmd: go_core_race_tests
             os: 'ubuntu-latest-32cores-128GB'
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=64+128/ram=128+256/family=c7+m7/disk=large/spot=false/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
             os: ubuntu22.04-32cores-128GB
             # Use "*d" instances because they have NVME storage which improves performance for this test suite
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+256/family=c6id+m6id+m6idn+c5ad+r6id/spot=false/extras=s3-cache
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
             build-solana-artifacts: 'true'
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
 
@@ -218,23 +218,35 @@ jobs:
         if: ${{ needs.run-frequency.outputs.should-use-self-hosted == 'true' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
-      - name: Mount /tmp
-        # For self-hosted runners - the volume mounted to / is too small to handle flakeguard
-        # outputs to /tmp. If we are using an SSD backed volume, we can mount /mnt/ephemeral/tmp.
-        # Otherwise, we will need to use `disk=large` label for the runner.
+      - name: Setup self-hosted directory mounts
+        # For self-hosted runners - the volume mounted to / is too small to handle everything stored in
+        # /home/runner. So we mount certain directories to the larger volume.
         if: ${{ needs.run-frequency.outputs.should-use-self-hosted == 'true' }}
         run: |
-          if [ -d "/mnt/ephemeral" ]; then
-            if [ ! -d "/mnt/ephemeral/tmp" ]; then
-              sudo mkdir -p /mnt/ephemeral/tmp
-              sudo chmod 1777 /mnt/ephemeral/tmp
-            fi
-
-            sudo mount --bind /mnt/ephemeral/tmp /tmp
-            echo "Successfully mounted /mnt/ephemeral/tmp to /tmp"
-          else
-            echo "/mnt/ephemeral does not exist, using default /tmp"
+          if [ ! -d "/home/runner/_work" ]; then
+            echo "::warning::/home/runner/_work does not exist, skipping mount."
+            exit 0
           fi
+
+          # Define the directories to mount as tuples of source:destination
+          DIRS=(
+            "/home/runner/_work/runner-go:/home/runner/go"
+            "/home/runner/_work/runner-cache:/home/runner/.cache"
+          )
+
+          # Process each directory pair
+          for DIR_PAIR in "${DIRS[@]}"; do
+            SRC_DIR=$(echo $DIR_PAIR | cut -d':' -f1)
+            DEST_DIR=$(echo $DIR_PAIR | cut -d':' -f2)
+
+            sudo mkdir -m 755 "$SRC_DIR"
+            sudo chown -R $(id -u):$(id -g) "$SRC_DIR"
+
+            mkdir -p "$DEST_DIR"
+            sudo mount --bind "$SRC_DIR" "$DEST_DIR"
+            echo "Successfully mounted $SRC_DIR to $DEST_DIR"
+          done
+
 
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -251,7 +263,7 @@ jobs:
         uses: ./.github/actions/setup-go
         with:
           # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
-          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' }}
+          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' || matrix.type.cmd == 'go_core_race_tests' }}
           build-cache-version: ${{ matrix.type.cmd }}
 
       - name: Setup Solana
@@ -657,6 +669,20 @@ jobs:
             exit 0
           fi
 
+          if [ "$GITHUB_EVENT_NAME" == "schedule" ]; then
+            echo "Using self-hosted runners for scheduled events"
+            echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            echo "Not using self-hosted runners for event ${GITHUB_EVENT_NAME}"
+            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # PR Events
+
           if [ "$RUNS_ON_OPT_OUT" == "true" ]; then
             echo "Not using self-hosted runners for PR with 'runs-on-opt-out' label"
             echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
@@ -669,13 +695,6 @@ jobs:
             exit 0
           fi
 
-          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
-            echo "Not using self-hosted runners for event ${GITHUB_EVENT_NAME}"
-            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # PR Events
           # generate a deterministic random number based on the branch name
           branch_name="${GITHUB_HEAD_REF:-$(echo $GITHUB_REF | sed 's/refs\/heads\///')}"
           hash=$(echo -n "$branch_name" | sha256sum | cut -d' ' -f1)
@@ -684,8 +703,8 @@ jobs:
           echo "Branch name: $branch_name"
           echo "Deterministic number: $deterministic_number"
 
-          # 10% of the time, use self-hosted runners
-          if [ "$deterministic_number" -lt 10 ]; then
+          # 75% of the time, use self-hosted runners
+          if [ "$deterministic_number" -lt 75 ]; then
             gh pr edit --repo "${GITHUB_REPOSITORY}" "${PULL_REQUEST_NUMBER}" --add-label "runs-on"
             echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
           fi

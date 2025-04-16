@@ -23,15 +23,16 @@ const (
 
 type WorkflowMetadata struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
-	WorkflowName        string                 `protobuf:"bytes,1,opt,name=workflowName,proto3" json:"workflowName,omitempty"`
-	Version             string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	WorkflowID          string                 `protobuf:"bytes,3,opt,name=workflowID,proto3" json:"workflowID,omitempty"`
-	WorkflowExecutionID string                 `protobuf:"bytes,4,opt,name=workflowExecutionID,proto3" json:"workflowExecutionID,omitempty"`
-	DonID               int32                  `protobuf:"varint,5,opt,name=donID,proto3" json:"donID,omitempty"`
-	DonF                int32                  `protobuf:"varint,6,opt,name=donF,proto3" json:"donF,omitempty"`
-	DonN                int32                  `protobuf:"varint,7,opt,name=donN,proto3" json:"donN,omitempty"`
-	DonQ                int32                  `protobuf:"varint,8,opt,name=donQ,proto3" json:"donQ,omitempty"`
-	P2PID               string                 `protobuf:"bytes,9,opt,name=p2pID,proto3" json:"p2pID,omitempty"`
+	WorkflowOwner       string                 `protobuf:"bytes,1,opt,name=workflowOwner,proto3" json:"workflowOwner,omitempty"`
+	WorkflowName        string                 `protobuf:"bytes,2,opt,name=workflowName,proto3" json:"workflowName,omitempty"`
+	Version             string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	WorkflowID          string                 `protobuf:"bytes,4,opt,name=workflowID,proto3" json:"workflowID,omitempty"`
+	WorkflowExecutionID string                 `protobuf:"bytes,5,opt,name=workflowExecutionID,proto3" json:"workflowExecutionID,omitempty"`
+	DonID               int32                  `protobuf:"varint,6,opt,name=donID,proto3" json:"donID,omitempty"`
+	DonF                int32                  `protobuf:"varint,7,opt,name=donF,proto3" json:"donF,omitempty"`
+	DonN                int32                  `protobuf:"varint,8,opt,name=donN,proto3" json:"donN,omitempty"`
+	DonQ                int32                  `protobuf:"varint,9,opt,name=donQ,proto3" json:"donQ,omitempty"`
+	P2PID               string                 `protobuf:"bytes,10,opt,name=p2pID,proto3" json:"p2pID,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -64,6 +65,13 @@ func (x *WorkflowMetadata) ProtoReflect() protoreflect.Message {
 // Deprecated: Use WorkflowMetadata.ProtoReflect.Descriptor instead.
 func (*WorkflowMetadata) Descriptor() ([]byte, []int) {
 	return file_events_metadata_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *WorkflowMetadata) GetWorkflowOwner() string {
+	if x != nil {
+		return x.WorkflowOwner
+	}
+	return ""
 }
 
 func (x *WorkflowMetadata) GetWorkflowName() string {
@@ -133,19 +141,21 @@ var File_events_metadata_proto protoreflect.FileDescriptor
 
 const file_events_metadata_proto_rawDesc = "" +
 	"\n" +
-	"\x15events-metadata.proto\x12\x02pb\"\x8a\x02\n" +
-	"\x10WorkflowMetadata\x12\"\n" +
-	"\fworkflowName\x18\x01 \x01(\tR\fworkflowName\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1e\n" +
+	"\x15events-metadata.proto\x12\x02pb\"\xb0\x02\n" +
+	"\x10WorkflowMetadata\x12$\n" +
+	"\rworkflowOwner\x18\x01 \x01(\tR\rworkflowOwner\x12\"\n" +
+	"\fworkflowName\x18\x02 \x01(\tR\fworkflowName\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\x12\x1e\n" +
 	"\n" +
-	"workflowID\x18\x03 \x01(\tR\n" +
+	"workflowID\x18\x04 \x01(\tR\n" +
 	"workflowID\x120\n" +
-	"\x13workflowExecutionID\x18\x04 \x01(\tR\x13workflowExecutionID\x12\x14\n" +
-	"\x05donID\x18\x05 \x01(\x05R\x05donID\x12\x12\n" +
-	"\x04donF\x18\x06 \x01(\x05R\x04donF\x12\x12\n" +
-	"\x04donN\x18\a \x01(\x05R\x04donN\x12\x12\n" +
-	"\x04donQ\x18\b \x01(\x05R\x04donQ\x12\x14\n" +
-	"\x05p2pID\x18\t \x01(\tR\x05p2pIDBCZAgithub.com/smartcontractkit/chainlink/core/services/workflows/pb/b\x06proto3"
+	"\x13workflowExecutionID\x18\x05 \x01(\tR\x13workflowExecutionID\x12\x14\n" +
+	"\x05donID\x18\x06 \x01(\x05R\x05donID\x12\x12\n" +
+	"\x04donF\x18\a \x01(\x05R\x04donF\x12\x12\n" +
+	"\x04donN\x18\b \x01(\x05R\x04donN\x12\x12\n" +
+	"\x04donQ\x18\t \x01(\x05R\x04donQ\x12\x14\n" +
+	"\x05p2pID\x18\n" +
+	" \x01(\tR\x05p2pIDBCZAgithub.com/smartcontractkit/chainlink/core/services/workflows/pb/b\x06proto3"
 
 var (
 	file_events_metadata_proto_rawDescOnce sync.Once

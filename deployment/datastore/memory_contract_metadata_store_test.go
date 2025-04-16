@@ -8,6 +8,8 @@ import (
 )
 
 func TestMemoryContractMetadataStore_indexOf(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
@@ -49,6 +51,8 @@ func TestMemoryContractMetadataStore_indexOf(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			store := MemoryContractMetadataStore[DefaultMetadata]{Records: tt.givenState}
 			idx := store.indexOf(tt.giveKey)
 			assert.Equal(t, tt.expectedIndex, idx)
@@ -57,6 +61,8 @@ func TestMemoryContractMetadataStore_indexOf(t *testing.T) {
 }
 
 func TestMemoryContractMetadataStore_Add(t *testing.T) {
+	t.Parallel()
+
 	var (
 		record = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
@@ -92,6 +98,8 @@ func TestMemoryContractMetadataStore_Add(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			store := MemoryContractMetadataStore[DefaultMetadata]{Records: tt.givenState}
 			err := store.Add(tt.giveRecord)
 
@@ -106,7 +114,9 @@ func TestMemoryContractMetadataStore_Add(t *testing.T) {
 	}
 }
 
-func TestMemoryContractMetadataStore_AddOrUpdate(t *testing.T) {
+func TestMemoryContractMetadataStore_Upsert(t *testing.T) {
+	t.Parallel()
+
 	var (
 		oldRecord = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
@@ -149,10 +159,12 @@ func TestMemoryContractMetadataStore_AddOrUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			store := MemoryContractMetadataStore[DefaultMetadata]{Records: tt.givenState}
 			// Check the error for the in-memory store, which will always be nil for the
 			// in memory implementation, to satisfy the linter
-			err := store.AddOrUpdate(tt.giveRecord)
+			err := store.Upsert(tt.giveRecord)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedState, store.Records)
 		})
@@ -160,6 +172,8 @@ func TestMemoryContractMetadataStore_AddOrUpdate(t *testing.T) {
 }
 
 func TestMemoryContractMetadataStore_Update(t *testing.T) {
+	t.Parallel()
+
 	var (
 		oldRecord = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
@@ -201,6 +215,8 @@ func TestMemoryContractMetadataStore_Update(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			store := MemoryContractMetadataStore[DefaultMetadata]{Records: tt.givenState}
 			err := store.Update(tt.giveRecord)
 
@@ -216,6 +232,8 @@ func TestMemoryContractMetadataStore_Update(t *testing.T) {
 }
 
 func TestMemoryMemoryContractMetadataStore_Delete(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
@@ -269,6 +287,8 @@ func TestMemoryMemoryContractMetadataStore_Delete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			store := MemoryContractMetadataStore[DefaultMetadata]{Records: tt.givenState}
 			err := store.Delete(tt.giveKey)
 
@@ -284,6 +304,8 @@ func TestMemoryMemoryContractMetadataStore_Delete(t *testing.T) {
 }
 
 func TestMemoryContractMetadataStore_Fetch(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
@@ -326,6 +348,8 @@ func TestMemoryContractMetadataStore_Fetch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			store := MemoryContractMetadataStore[DefaultMetadata]{Records: tt.givenState}
 			records, err := store.Fetch()
 
@@ -341,6 +365,8 @@ func TestMemoryContractMetadataStore_Fetch(t *testing.T) {
 }
 
 func TestMemoryContractMetadataStore_Get(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
@@ -382,6 +408,8 @@ func TestMemoryContractMetadataStore_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			store := MemoryContractMetadataStore[DefaultMetadata]{Records: tt.givenState}
 			record, err := store.Get(tt.giveKey)
 
@@ -397,6 +425,8 @@ func TestMemoryContractMetadataStore_Get(t *testing.T) {
 }
 
 func TestMemoryContractMetadataStore_Filter(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
@@ -460,6 +490,8 @@ func TestMemoryContractMetadataStore_Filter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			store := MemoryContractMetadataStore[DefaultMetadata]{Records: tt.givenState}
 			filteredRecords := store.Filter(tt.giveFilters...)
 			assert.Equal(t, tt.expectedResult, filteredRecords)

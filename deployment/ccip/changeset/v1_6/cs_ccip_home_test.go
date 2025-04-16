@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
-
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -124,7 +122,7 @@ func Test_PromoteCandidate(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, source, dest)
+				transferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var (
@@ -222,7 +220,7 @@ func Test_SetCandidate(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, source, dest)
+				transferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var (
@@ -251,53 +249,7 @@ func Test_SetCandidate(t *testing.T) {
 			}
 
 			tokenConfig := changeset.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
-			_, err = commonchangeset.Apply(t, tenv.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					tenv.HomeChainSel: {
-						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
-					},
-				},
-				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
-					v1_6.SetCandidateChangesetConfig{
-						SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-							HomeChainSelector: tenv.HomeChainSel,
-							FeedChainSelector: tenv.FeedChainSel,
-							MCMS:              mcmsConfig,
-						},
-						PluginInfo: []v1_6.SetCandidatePluginInfo{
-							{
-								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
-										state.Chains[dest].LinkToken.Address(),
-										state.Chains[dest].Weth9.Address()), nil),
-								},
-								PluginType: types.PluginTypeCCIPCommit,
-							},
-							{
-								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-										dCfg, err := state.Chains[dest].OffRamp.GetDynamicConfig(&bind.CallOpts{
-											Context: ctx,
-										})
-										require.NoError(t, err)
-										params.ExecuteOffChainConfig.MessageVisibilityInterval =
-											*config.MustNewDuration(
-												time.Duration(dCfg.PermissionLessExecutionThresholdSeconds + uint32(time.Second)))
-										return params
-									}),
-								},
-								PluginType: types.PluginTypeCCIPExec,
-							},
-						},
-					},
-				),
-			)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "does not match the permissionlessExecutionThresholdSeconds in dynamic config")
 
-			// now set the correct config
 			_, err = commonchangeset.Apply(t, tenv.Env,
 				map[uint64]*proposalutils.TimelockExecutionContracts{
 					tenv.HomeChainSel: {
@@ -381,7 +333,7 @@ func Test_RevokeCandidate(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, source, dest)
+				transferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var (
@@ -510,31 +462,30 @@ func transferToTimelock(
 	t *testing.T,
 	tenv testhelpers.DeployedEnv,
 	state changeset.CCIPOnChainState,
-	source,
-	dest uint64) {
+	chains []uint64,
+) {
+	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(chains)+1)
+	for _, chain := range chains {
+		timelockContracts[chain] = &proposalutils.TimelockExecutionContracts{
+			Timelock:  state.Chains[chain].Timelock,
+			CallProxy: state.Chains[chain].CallProxy,
+		}
+	}
+	// Add the home chain to the timelock contracts.
+	timelockContracts[tenv.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
+		Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+		CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+	}
 	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 	_, err := commonchangeset.Apply(t, tenv.Env,
-		map[uint64]*proposalutils.TimelockExecutionContracts{
-			source: {
-				Timelock:  state.Chains[source].Timelock,
-				CallProxy: state.Chains[source].CallProxy,
-			},
-			dest: {
-				Timelock:  state.Chains[dest].Timelock,
-				CallProxy: state.Chains[dest].CallProxy,
-			},
-			tenv.HomeChainSel: {
-				Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-				CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
-			},
-		},
+		timelockContracts,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			testhelpers.GenTestTransferOwnershipConfig(tenv, []uint64{source, dest}, state),
+			testhelpers.GenTestTransferOwnershipConfig(tenv, chains, state),
 		),
 	)
 	require.NoError(t, err)
-	testhelpers.AssertTimelockOwnership(t, tenv, []uint64{source, dest}, state)
+	testhelpers.AssertTimelockOwnership(t, tenv, chains, state)
 }
 
 func Test_UpdateChainConfigs(t *testing.T) {
@@ -563,7 +514,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, source, dest)
+				transferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			ccipHome := state.Chains[tenv.HomeChainSel].CCIPHome

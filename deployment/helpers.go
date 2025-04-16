@@ -57,10 +57,15 @@ func GetErrorReasonFromTx(client bind.ContractBackend, from common.Address, tx *
 		Gas:      tx.Gas(),
 		GasPrice: tx.GasPrice(),
 	}
-	_, err := client.CallContract(context.Background(), call, receipt.BlockNumber)
-	if err != nil {
-		errorReason, err := parseError(err)
-		if err == nil {
+	_, callContractErr := client.CallContract(context.Background(), call, receipt.BlockNumber)
+	if callContractErr != nil {
+		errorReason, parsingErr := parseError(callContractErr)
+		// If we get no information from parsing the error, we return the original error from CallContract
+		if errorReason == "" {
+			return callContractErr.Error(), nil
+		}
+		// If the errorReason exists and we had no issues parsing it, we return it
+		if parsingErr == nil {
 			return errorReason, nil
 		}
 	}

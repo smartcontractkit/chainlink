@@ -5,13 +5,14 @@ option go_package = "github.com/smartcontractkit/chainlink/core/services/workflo
 package pb;
 
 message WorkflowMetadata {
-  string workflowName = 1;
-  string version = 2;
-  string workflowID = 3;
-  string workflowExecutionID = 4;
-  int32 donID = 5;
-  int32 donF = 6;
-  int32 donN = 7;
-  int32 donQ = 8;
-  string p2pID = 9;
+  string workflowOwner = 1;
+  string workflowName = 2;
+  string version = 3;
+  string workflowID = 4;
+  string workflowExecutionID = 5;
+  int32 donID = 6;
+  int32 donF = 7;
+  int32 donN = 8;
+  int32 donQ = 9;
+  string p2pID = 10;
 } 
