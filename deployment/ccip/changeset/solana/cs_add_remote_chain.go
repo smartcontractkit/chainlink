@@ -123,7 +123,6 @@ func doAddRemoteChainToRouter(
 	cfg AddRemoteChainToRouterConfig,
 	ab deployment.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
-	ixns := make([]solana.Instruction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
 	chain := e.SolChains[chainSel]
@@ -131,7 +130,19 @@ func doAddRemoteChainToRouter(
 	offRampID := s.SolChains[chainSel].OffRamp
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
 	lookUpTableEntries := make([]solana.PublicKey, 0)
+	// router setup
+	solRouter.SetProgramID(ccipRouterID)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.Router,
+		solana.PublicKey{})
+	if err != nil {
+		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
 	for remoteChainSel, update := range updates {
+		ixns := make([]solana.Instruction, 0)
 		// verified while loading state
 		routerRemoteStatePDA, _ := solState.FindDestChainStatePDA(remoteChainSel, ccipRouterID)
 		allowedOffRampRemotePDA, _ := solState.FindAllowedOfframpPDA(remoteChainSel, offRampID, ccipRouterID)
@@ -142,18 +153,7 @@ func doAddRemoteChainToRouter(
 			)
 		}
 
-		// router setup
-		solRouter.SetProgramID(ccipRouterID)
 		var routerIx solana.Instruction
-		authority, err := GetAuthorityForIxn(
-			&e,
-			chain,
-			cfg.MCMSSolana,
-			ccipChangeset.Router,
-			solana.PublicKey{})
-		if err != nil {
-			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
-		}
 		if update.IsUpdate {
 			routerIx, err = solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
@@ -334,7 +334,6 @@ func doAddRemoteChainToFeeQuoter(
 	cfg AddRemoteChainToFeeQuoterConfig,
 	ab deployment.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
-	ixns := make([]solana.Instruction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
 	chain := e.SolChains[chainSel]
@@ -342,8 +341,19 @@ func doAddRemoteChainToFeeQuoter(
 	offRampID := s.SolChains[chainSel].OffRamp
 	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-
+	// fee quoter setup
+	solFeeQuoter.SetProgramID(feeQuoterID)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.FeeQuoter,
+		solana.PublicKey{})
+	if err != nil {
+		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
 	for remoteChainSel, update := range updates {
+		ixns := make([]solana.Instruction, 0)
 		// verified while loading state
 		fqRemoteChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
 		if !update.IsUpdate {
@@ -352,17 +362,6 @@ func doAddRemoteChainToFeeQuoter(
 			)
 		}
 
-		// fee quoter setup
-		solFeeQuoter.SetProgramID(feeQuoterID)
-		authority, err := GetAuthorityForIxn(
-			&e,
-			chain,
-			cfg.MCMSSolana,
-			ccipChangeset.FeeQuoter,
-			solana.PublicKey{})
-		if err != nil {
-			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
-		}
 		var feeQuoterIx solana.Instruction
 		if update.IsUpdate {
 			feeQuoterIx, err = solFeeQuoter.NewUpdateDestChainConfigInstruction(
@@ -511,15 +510,25 @@ func doAddRemoteChainToSolana(
 	cfg AddRemoteChainToOffRampConfig,
 	ab deployment.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
-	ixns := make([]solana.Instruction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
 	chain := e.SolChains[chainSel]
 	offRampID := s.SolChains[chainSel].OffRamp
 	offRampUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.OffRampOwnedByTimelock
 	lookUpTableEntries := make([]solana.PublicKey, 0)
+	solOffRamp.SetProgramID(offRampID)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.OffRamp,
+		solana.PublicKey{})
+	if err != nil {
+		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
 
 	for remoteChainSel, update := range updates {
+		ixns := make([]solana.Instruction, 0)
 		// verified while loading state
 		offRampRemoteStatePDA, _, _ := solState.FindOfframpSourceChainPDA(remoteChainSel, offRampID)
 		if !update.IsUpdate {
@@ -533,17 +542,8 @@ func doAddRemoteChainToSolana(
 		if err != nil {
 			return txns, fmt.Errorf("failed to get source chain config: %w", err)
 		}
-		authority, err := GetAuthorityForIxn(
-			&e,
-			chain,
-			cfg.MCMSSolana,
-			ccipChangeset.OffRamp,
-			solana.PublicKey{})
-		if err != nil {
-			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
-		}
+
 		var offRampIx solana.Instruction
-		solOffRamp.SetProgramID(offRampID)
 		if update.IsUpdate {
 			offRampIx, err = solOffRamp.NewUpdateSourceChainConfigInstruction(
 				remoteChainSel,

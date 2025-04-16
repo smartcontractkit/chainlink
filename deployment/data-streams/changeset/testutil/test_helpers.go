@@ -12,6 +12,7 @@ import (
 
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -78,6 +79,7 @@ type MemoryEnvConfig struct {
 	// NumBootstrapNodes defines how many bootstrap nodes to create, in addition to the number of oracle nodes defined
 	// in NumNodes.
 	NumBootstrapNodes int
+	CustomDBSetup     []string // SQL queries to run after DB creation
 }
 
 type MemoryEnv struct {
@@ -91,9 +93,10 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 	lggr := logger.TestLogger(t)
 
 	memEnvConf := memory.MemoryEnvironmentConfig{
-		Chains:     1,
-		Nodes:      cfg.NumNodes,
-		Bootstraps: cfg.NumBootstrapNodes,
+		Chains:        1,
+		Nodes:         cfg.NumNodes,
+		Bootstraps:    cfg.NumBootstrapNodes,
+		CustomDBSetup: cfg.CustomDBSetup,
 	}
 
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memEnvConf)
@@ -257,4 +260,25 @@ func GetMCMSConfig(useMCMS bool) *dsTypes.MCMSConfig {
 		return &dsTypes.MCMSConfig{MinDelay: 0, OverrideRoot: true}
 	}
 	return nil
+}
+
+func GetNodeLabels(donID uint64, donName string, env string) []*ptypes.Label {
+	return []*ptypes.Label{
+		{
+			Key:   utils.DonIdentifier(donID, donName),
+			Value: nil,
+		},
+		{
+			Key:   "nodeType",
+			Value: pointer.To(jd.NodeTypeOracle.String()),
+		},
+		{
+			Key:   "environment",
+			Value: pointer.To(env),
+		},
+		{
+			Key:   "product",
+			Value: pointer.To(jd.ProductLabel),
+		},
+	}
 }
