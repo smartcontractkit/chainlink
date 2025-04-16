@@ -934,3 +934,11 @@ func capTypeToInt(capType string) uint8 {
 		panic("unknown capability type " + capType)
 	}
 }
+
+func logTestInfo(l zerolog.Logger, feedID, workflowName, dataFeedsCacheAddr, forwarderAddr string) {
+	l.Info().Msg("------ Test configuration:")
+	l.Info().Msgf("Feed ID: %s", feedID)
+	l.Info().Msgf("Workflow name: %s", workflowName)
+	l.Info().Msgf("DataFeedsCache address: %s", dataFeedsCacheAddr)
+	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
+}
