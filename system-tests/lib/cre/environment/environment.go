@@ -405,7 +405,7 @@ func SetupTestEnvironment(
 	testLogger.Info().Msg("Waiting for ConfigWatcher health check")
 
 	for idx, nodeSetOut := range nodeOutput {
-		if flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].DONTypes, cretypes.GatewayDON) || flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].DONTypes, cretypes.CapabilitiesDON) {
+		if !flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].Capabilities, cretypes.OCR3Capability) {
 			continue
 		}
 		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
