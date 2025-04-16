@@ -236,8 +236,9 @@ func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
 	verifyNoActiveCurseOnAllChains(t, &e)
 
 	config := v1_6.RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
-		Reason:       "test curse",
+		CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
+		Reason:                   "test curse",
+		IncludeNotConnectedLanes: true,
 	}
 
 	_, err := v1_6.RMNCurseChangeset(e.Env, config)
