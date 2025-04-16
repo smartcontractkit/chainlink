@@ -60,6 +60,16 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 )
 
+type Chaos struct {
+	Mode                        string   `toml:"mode"`
+	Latency                     string   `toml:"latency"`
+	Jitter                      string   `toml:"latency"`
+	DashboardUIDs               []string `toml:"dashboard_uids"`
+	WaitBeforeStart             string   `toml:"wait_before_start"`
+	ExperimentFullInterval      string   `toml:"experiment_full_interval"`
+	ExperimentInjectionInterval string   `toml:"experiment_injection_interval"`
+}
+
 type TestConfigLoadTest struct {
 	Blockchains                   []*blockchain.Input                  `toml:"blockchains" validate:"required"`
 	NodeSets                      []*ns.Input                          `toml:"nodesets" validate:"required"`
@@ -69,6 +79,7 @@ type TestConfigLoadTest struct {
 	WorkflowDONLoad               *WorkflowLoad                        `toml:"workflow_load"`
 	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
 	BinariesConfig                *BinariesConfig                      `toml:"binaries_config"`
+	Chaos                         *Chaos                                   `toml:"chaos"`
 }
 
 type BinariesConfig struct {
@@ -384,6 +395,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
 	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel), "could not hook into mock executable")
+
+	go runChaosSuite(t, in)
 
 	labels := map[string]string{
 		"go_test_name": "test1",

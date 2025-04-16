@@ -88,3 +88,13 @@ CHAINLINK_CLUSTER_VERSION="2.6.0-preview-1896-f6cd441" # contains the ingress mo
 LOAD_TEST="true" # increases the resources of the capabilities and workflow nodes
 
 
+## Chaos tests
+Chaos tests are added to the load test by default but can be run only on `main.stage`.
+
+There are 3 modes:
+- "clean" - no chaos tests
+- "rpc" - simulating realistic RPC latency
+- "full" - running all the experiments
+
+Turn your VPN on, add `[chaos.dashboard_uids]` on which the test will automatically add annotations, export `GRAFANA_URL` and `GRAFANA_TOKEN` and run the load test.
+
