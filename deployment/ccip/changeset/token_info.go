@@ -23,19 +23,20 @@ func (ts TokenSymbol) String() string {
 }
 
 const (
-	LinkSymbol      TokenSymbol = "LINK"
-	WethSymbol      TokenSymbol = "WETH"
-	WAVAXSymbol     TokenSymbol = "WAVAX"
-	WBNBSymbol      TokenSymbol = "WBNB"
-	WPOLSymbol      TokenSymbol = "WPOL"
-	USDCSymbol      TokenSymbol = "USDC"
-	CCIPBnMSymbol   TokenSymbol = "CCIP-BnM"
-	CCIPLnMSymbol   TokenSymbol = "CCIP-LnM"
-	CLCCIPLnMSymbol TokenSymbol = "clCCIP-LnM"
-	USDCName        string      = "USD Coin"
-	LinkDecimals                = 18
-	WethDecimals                = 18
-	UsdcDecimals                = 6
+	LinkSymbol                 TokenSymbol = "LINK"
+	WethSymbol                 TokenSymbol = "WETH"
+	WAVAXSymbol                TokenSymbol = "WAVAX"
+	WBNBSymbol                 TokenSymbol = "WBNB"
+	WPOLSymbol                 TokenSymbol = "WPOL"
+	USDCSymbol                 TokenSymbol = "USDC"
+	FactoryBurnMintERC20Symbol TokenSymbol = "Factory-BnM-ERC20"
+	CCIPBnMSymbol              TokenSymbol = "CCIP-BnM"
+	CCIPLnMSymbol              TokenSymbol = "CCIP-LnM"
+	CLCCIPLnMSymbol            TokenSymbol = "clCCIP-LnM"
+	USDCName                   string      = "USD Coin"
+	LinkDecimals                           = 18
+	WethDecimals                           = 18
+	UsdcDecimals                           = 6
 
 	// Price Feed Descriptions
 	AvaxUSD  = "AVAX / USD"

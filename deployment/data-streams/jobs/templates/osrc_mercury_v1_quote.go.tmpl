@@ -3,9 +3,9 @@
 // data source {{$srcNum}}
 ds{{$srcNum}}_payload [type=bridge name="bridge-{{$a.BridgeName}}" timeout="50s" requestData={{$a.ReqData}}];
 
-ds{{$srcNum}}_benchmark [type=jsonparse path="{{$.Benchmark.ResultPath}}"];
-ds{{$srcNum}}_bid [type=jsonparse path="{{$.Bid.ResultPath}}"];
-ds{{$srcNum}}_ask [type=jsonparse path="{{$.Ask.ResultPath}}"];
+ds{{$srcNum}}_benchmark [type=jsonparse path="{{$.ReportFields.Benchmark.ResultPath}}"];
+ds{{$srcNum}}_bid [type=jsonparse path="{{$.ReportFields.Bid.ResultPath}}"];
+ds{{$srcNum}}_ask [type=jsonparse path="{{$.ReportFields.Ask.ResultPath}}"];
 {{end -}}
 
 {{range $i, $a := .Datasources}}

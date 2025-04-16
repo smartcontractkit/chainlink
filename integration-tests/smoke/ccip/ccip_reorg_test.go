@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
@@ -59,7 +60,7 @@ const (
 )
 
 func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
-	e, l, dockerEnv, nonBootstrapP2PIDs, state := setupReorgTest(t,
+	e, l, dockerEnv, nonBootstrapP2PIDs, state, _ := setupReorgTest(t,
 		testhelpers.WithExtraConfigTomls([]string{t.Name() + ".toml"}),
 	)
 
@@ -118,7 +119,7 @@ func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
 }
 
 func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
-	e, l, dockerEnv, _, state := setupReorgTest(t,
+	e, l, dockerEnv, _, state, _ := setupReorgTest(t,
 		testhelpers.WithExtraConfigTomls([]string{t.Name() + ".toml"}),
 	)
 
@@ -167,7 +168,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 }
 
 func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
-	e, l, dockerEnv, nonBootstrapP2PIDs, state := setupReorgTest(t, logsToIgnoreOpt)
+	e, l, dockerEnv, nonBootstrapP2PIDs, state, _ := setupReorgTest(t, logsToIgnoreOpt)
 
 	allChains := e.Env.AllChainSelectors()
 	require.GreaterOrEqual(t, len(allChains), 2)
@@ -232,7 +233,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
 // messages from the re-orged chain anymore.
 // However, it should gracefully process messages from non-reorged chains.
 func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
-	e, l, dockerEnv, nonBootstrapP2PIDs, state := setupReorgTest(t, logsToIgnoreOpt)
+	e, l, dockerEnv, nonBootstrapP2PIDs, state, _ := setupReorgTest(t, logsToIgnoreOpt)
 
 	allChains := e.Env.AllChainSelectors()
 	require.GreaterOrEqual(t, len(allChains), 3)
@@ -317,12 +318,13 @@ func setupReorgTest(t *testing.T, testOpts ...testhelpers.TestOps) (
 	*testsetups.DeployedLocalDevEnvironment,
 	[]string,
 	ccipcs.CCIPOnChainState,
+	devenv.RMNCluster,
 ) {
 	require.Equal(t, os.Getenv(testhelpers.ENVTESTTYPE), string(testhelpers.Docker),
 		"Reorg tests are only supported in docker environments")
 
 	l := logging.GetTestLogger(t)
-	e, _, tEnv := testsetups.NewIntegrationEnvironment(t, testOpts...)
+	e, rmnCluster, tEnv := testsetups.NewIntegrationEnvironment(t, testOpts...)
 	dockerEnv := tEnv.(*testsetups.DeployedLocalDevEnvironment)
 
 	nodeInfos, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
@@ -332,7 +334,7 @@ func setupReorgTest(t *testing.T, testOpts ...testhelpers.TestOps) (
 	state, err := ccipcs.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	return e, l, dockerEnv, nonBootstrapP2PIDs, state
+	return e, l, dockerEnv, nonBootstrapP2PIDs, state, rmnCluster
 }
 
 // Extract non-bootstrap P2P IDs
