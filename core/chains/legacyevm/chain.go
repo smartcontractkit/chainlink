@@ -29,6 +29,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/monitor"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	tronkeystore "github.com/smartcontractkit/chainlink-tron/relayer/keystore"
+	tronclient "github.com/smartcontractkit/chainlink-tron/relayer/sdk"
+	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -52,7 +55,7 @@ type Chain interface {
 
 // ChainTronSupport is an Chain interface extension for Tron support.
 type ChainTronSupport interface {
-	Nodes() []*toml.Node
+	GetTronTXM() *trontxm.TronTxm
 }
 
 var (
@@ -120,8 +123,8 @@ type chain struct {
 	balanceMonitor  monitor.BalanceMonitor
 	gasEstimator    gas.EvmFeeEstimator
 
-	// Extend with Node[] config (support TRON)
-	nodes []*toml.Node
+	// Extends with support for the Tron TXM
+	tronTxm *trontxm.TronTxm
 }
 
 type errChainDisabled struct {
@@ -280,6 +283,29 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 		}
 	}
 
+	var tronTxm *trontxm.TronTxm
+	if cfg.EVM().ChainType() == chaintype.ChainTron {
+		if len(nodes) == 0 {
+			return nil, fmt.Errorf("Tron chain requires at least one node")
+		}
+
+		fullNodeURL := nodes[0].HTTPURLExtraWrite.URL()
+		tronClient, err := tronclient.CreateFullNodeClient(fullNodeURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create tron client: %w", err)
+		}
+
+		tronTxm = trontxm.New(l, tronkeystore.NewLoopKeystoreAdapter(opts.KeyStore), tronClient, trontxm.TronTxmConfig{
+			// From testing, this multipler ensures all exec messages are fully executed.
+			// Energy estimation doesn't seem to account for more complex smart contract execution.
+			// Given that Tron has static gas prices, we don't expect this to be a problem as this multiplier is sufficiently high.
+			EnergyMultiplier: 3,
+			// StatusChecker is only enforced for exec messages. Logic inside the TXM handles the difference.
+			// NOTE: The status checker is not product agnostic and only works for CCIP 1.5. However if a nil txmeta is provided it should work for all products.
+			StatusChecker: true,
+		})
+	}
+
 	headBroadcaster.Subscribe(txm)
 
 	var balanceMonitor monitor.BalanceMonitor
@@ -320,8 +346,8 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 		balanceMonitor:  balanceMonitor,
 		gasEstimator:    gasEstimator,
 
-		// Extend with Node[] config (support TRON)
-		nodes: nodes,
+		// Extends with support for the Tron TXM
+		tronTxm: tronTxm,
 	}, nil
 }
 
@@ -346,6 +372,7 @@ func (c *chain) Start(ctx context.Context) error {
 
 		if c.cfg.EVM().ChainType() == chaintype.ChainTron {
 			c.gasEstimator.Start(ctx) // Still need gas estimator to be working for the OCR2 plugin
+			c.tronTxm.Start(ctx)
 		}
 
 		if c.balanceMonitor != nil {
@@ -378,6 +405,7 @@ func (c *chain) Close() error {
 		// Tron doesn't use the EVM TXM but still uses the gas estimator, we'll close it here
 		if c.cfg.EVM().ChainType() == chaintype.ChainTron {
 			merr = multierr.Combine(merr, c.gasEstimator.Close())
+			merr = multierr.Combine(merr, c.tronTxm.Close())
 		}
 
 		c.logger.Debug("Chain: stopping client")
@@ -518,4 +546,4 @@ func (c *chain) BalanceMonitor() monitor.BalanceMonitor { return c.balanceMonito
 func (c *chain) GasEstimator() gas.EvmFeeEstimator      { return c.gasEstimator }
 
 // Add ChainTronSupport
-func (c *chain) Nodes() []*toml.Node { return c.nodes }
+func (c *chain) GetTronTXM() *trontxm.TronTxm { return c.tronTxm }

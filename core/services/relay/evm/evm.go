@@ -842,11 +842,6 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 			Keystore:           ethKeystore,
 			ConfigWatcher:      configWatcher,
 			OCRTransmitterOpts: ocrTransmitterOpts,
-			// From testing, this multipler ensures all exec messages are fully executed.
-			// Energy estimation doesn't seem to account for more complex smart contract execution.
-			// Given that Tron has static gas prices, we don't expect this to be a problem as this multipler is increadibly high.
-			EnergyMultiplier: 3,
-			StatusChecker:    true, // StatusChecker is only enforced for exec messages. Logic inside the TXM handles the difference
 		})
 	}
 
