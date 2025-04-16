@@ -8,8 +8,9 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/mcms"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/datastore"
-	"github.com/smartcontractkit/chainlink/deployment/operations"
 )
 
 var (
