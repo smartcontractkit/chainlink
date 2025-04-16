@@ -369,7 +369,7 @@ func TestTokenTransfer_EVM2SolanaCRIB(t *testing.T) {
 			// },
 		},
 	)
-	// TODO: how to do MintAndAllow on Solana?
+
 	tokenReceiver, _, ferr := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, destToken, state.SolChains[destChain].Receiver)
 	require.NoError(t, ferr)
 
@@ -392,7 +392,7 @@ func TestTokenTransfer_EVM2SolanaCRIB(t *testing.T) {
 					Amount: oneE9,
 				},
 			},
-			Receiver: state.SolChains[destChain].Receiver.Bytes(),
+			TokenReceiver: tokenReceiver.Bytes(),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				// due to the differences in decimals, 1e9 on EVM results to 1 on SVM
 				{Token: destToken.Bytes(), Amount: big.NewInt(1)},
