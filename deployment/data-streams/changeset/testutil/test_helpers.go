@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -103,42 +103,22 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 	chainSelector := env.AllChainSelectors()[0]
 	chain := env.Chains[chainSelector]
 
-	// Apply labels to nodes.
-	oracleNodesAddedCounter := 0
-	for _, nid := range env.NodeIDs {
-		r, err := env.Offchain.GetNode(t.Context(), &node.GetNodeRequest{
-			Id: nid,
-		})
-		require.NoError(t, err)
-		// Add oracle nodes until we cover the number of nodes specified in the config.
-		// Then start adding bootstrap nodes.
-		if oracleNodesAddedCounter < cfg.NumNodes {
-			oracleNodesAddedCounter++
-
-			nodeLabels := append(cfg.NodeLabels, &ptypes.Label{
-				Key:   "nodeType",
-				Value: pointer.To(jd.NodeTypeOracle.String()),
-			})
-
-			_, err = env.Offchain.UpdateNode(t.Context(), &node.UpdateNodeRequest{
-				Id:        r.Node.Id,
-				Name:      r.Node.Name,
-				PublicKey: r.Node.PublicKey,
-				Labels:    nodeLabels,
-			})
-		} else {
-			nodeLabels := append(cfg.NodeLabels, &ptypes.Label{
-				Key:   "nodeType",
-				Value: pointer.To(jd.NodeTypeBootstrap.String()),
-			})
-
-			_, err = env.Offchain.UpdateNode(t.Context(), &node.UpdateNodeRequest{
-				Id:        r.Node.Id,
-				Name:      r.Node.Name,
-				PublicKey: r.Node.PublicKey,
-				Labels:    nodeLabels,
+	// Apply node labels:
+	resp, err := env.Offchain.ListNodes(t.Context(), &nodev1.ListNodesRequest{})
+	require.NoError(t, err)
+	for _, node := range resp.Nodes {
+		for _, label := range cfg.NodeLabels {
+			node.Labels = append(node.Labels, &ptypes.Label{
+				Key:   label.Key,
+				Value: label.Value,
 			})
 		}
+		_, err = env.Offchain.UpdateNode(t.Context(), &nodev1.UpdateNodeRequest{
+			Id:        node.Id,
+			Name:      node.Name,
+			PublicKey: node.PublicKey,
+			Labels:    node.Labels,
+		})
 		require.NoError(t, err)
 	}
 

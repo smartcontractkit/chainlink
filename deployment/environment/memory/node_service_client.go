@@ -128,6 +128,12 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 	if err != nil {
 		return nil, err
 	}
+	// TODO: This is a workaround for the fact that environment/memory/node.go's Node struct doesn't have NodeID.
+	if len(chainConfigs) != 1 {
+		return nil, fmt.Errorf("expected one chain config, got %d", len(chainConfigs))
+	}
+	chainConfigs[0].NodeId = in.Filter.NodeIds[0]
+
 	return &nodev1.ListNodeChainConfigsResponse{
 		ChainConfigs: chainConfigs,
 	}, nil

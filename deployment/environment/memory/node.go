@@ -65,6 +65,7 @@ import (
 )
 
 type Node struct {
+	// TODO We need the node's ID here. Needed in JobClient's ListNodeChainConfigs.
 	App chainlink.Application
 	// Transmitter key/OCR keys for this node
 	Chains     []uint64 // chain selectors
@@ -368,6 +369,19 @@ func NewNode(
 	require.NoError(t, err)
 	keys := CreateKeys(t, app, chains, solchains, aptoschains)
 
+	nodeLabels := make([]*ptypes.Label, 1)
+	if bootstrap {
+		nodeLabels[0] = &ptypes.Label{
+			Key:   "nodeType",
+			Value: ptr("bootstrap"),
+		}
+	} else {
+		nodeLabels[0] = &ptypes.Label{
+			Key:   "nodeType",
+			Value: ptr("oracle"),
+		}
+	}
+
 	// JD
 
 	setupJD(t, app)
@@ -381,6 +395,7 @@ func NewNode(
 		Keys:       keys,
 		Addr:       net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: port},
 		IsBoostrap: bootstrap,
+		Labels:     nodeLabels,
 	}
 }
 

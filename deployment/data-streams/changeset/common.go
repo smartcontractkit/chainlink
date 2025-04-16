@@ -31,7 +31,6 @@ func chainAndAddresses(e deployment.Environment, chainSel uint64) (chainID strin
 }
 
 // proposeAllOrNothing proposes all jobs in the list and if any of them fail, it will revoke all already made proposals.
-// TODO We need a test here.
 func proposeAllOrNothing(ctx context.Context, oc deployment.OffchainClient, prs []*job.ProposeJobRequest) (proposedJobs []deployment.ProposedJob, err error) {
 	var proposals []*job.ProposeJobResponse
 	var p *job.ProposeJobResponse
