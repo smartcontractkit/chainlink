@@ -86,9 +86,17 @@ COPY ./cci[p]/confi[g] /ccip-config
 ARG CL_CHAIN_DEFAULTS
 ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
 
+# For testing in CRIB
+RUN mkdir /home/capabilities
+COPY ./plugins/amd64_mock /home/capabilities
+
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
   fi
+
+RUN chown ${CHAINLINK_USER}:${CHAINLINK_USER} /home/capabilities
+RUN chown ${CHAINLINK_USER}:${CHAINLINK_USER} /home/capabilities/amd64_mock
+RUN chmod +x /home/capabilities/amd64_mock
 
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
