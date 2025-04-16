@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
@@ -152,10 +153,43 @@ var startCmd = &cobra.Command{
 			return errors.Wrap(err, "failed to start environment")
 		}
 
-		// TODO print urls?
-		_ = output
+		creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
+			output.BlockchainOutput.SethClient.MustGetRootKeyAddress(),
+			output.KeystoneContractsOutput.CapabilitiesRegistryAddress,
+			output.KeystoneContractsOutput.WorkflowRegistryAddress,
+			nil,
+			output.DonTopology.WorkflowDonID,
+			output.BlockchainOutput.ChainSelector,
+			output.BlockchainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
 
+		if settingsErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s", settingsErr)
+		} else {
+			// Copy the file to current directory as .cre.settings.yaml
+			currentDir, err := os.Getwd()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to get current directory: %s", err)
+			} else {
+				targetPath := filepath.Join(currentDir, ".cre.settings.yaml")
+				input, err := os.ReadFile(creCLISettingsFile.Name())
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "failed to read temporary settings file: %s", err)
+				} else {
+					err = os.WriteFile(targetPath, input, 0600)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "failed to write settings file to current directory: %s", err)
+					} else {
+						fmt.Printf("CRE CLI settings file created: %s\n", targetPath)
+					}
+				}
+			}
+		}
+
+		// TODO print urls?
+
+		fmt.Println()
 		fmt.Println("Environment started successfully")
+		fmt.Println()
 		fmt.Println("To terminate execute: ctf d rm")
 
 		return nil
