@@ -236,6 +236,7 @@ func TestTransferFromTimelockConfig_Apply(t *testing.T) {
 	env, err = changeset.ApplyChangesetsV2(t, env, []changeset.ConfiguredChangeSet{
 		changeset.Configure(changesetInstance, config),
 	})
+	// ADDED CHANGE
 	require.NoError(t, err)
 
 	balance, err := solChain.Client.GetBalance(env.GetContext(), cfgAmounts.To, rpc.CommitmentConfirmed)

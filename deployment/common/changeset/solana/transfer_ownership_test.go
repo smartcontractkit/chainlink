@@ -32,6 +32,8 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	env := memory.NewMemoryEnvironment(t, log, zapcore.InfoLevel, envConfig)
 	solanaSelector := env.AllChainSelectorsSolana()[0]
 
+	// ADDED CHANGE
+
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelector)
 	chainState := deployMCMS(t, env, solanaSelector)
 	fundSignerPDAs(t, env, solanaSelector, chainState)

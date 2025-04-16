@@ -75,6 +75,7 @@ func (n Node) MultiAddr() string {
 	a := ""
 	if n.IsBoostrap {
 		a = fmt.Sprintf("%s@%s", strings.TrimPrefix(n.Keys.PeerID.String(), "p2p_"), n.Addr.String())
+		// ADDED CHANGE
 	}
 	return a
 }

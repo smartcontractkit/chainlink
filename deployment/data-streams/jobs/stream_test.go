@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// ADDED CHANGE
+
 const medianSpecTOMLMultiple = `name = 'BTC/USD-Test'
 type = 'stream'
 schemaVersion = 1

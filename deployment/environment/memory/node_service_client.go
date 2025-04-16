@@ -58,6 +58,7 @@ func (j *JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeReq
 func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
 	// TODO CCIP-3108 implement me
 	panic("implement me")
+	// ADDED CHANGE
 }
 
 func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts ...grpc.CallOption) (*nodev1.GetNodeResponse, error) {

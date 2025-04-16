@@ -737,6 +737,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPool),
+				// ADDED CHANGE
 				changeset_solana.TokenPoolConfig{
 					ChainSelector: selector,
 					TokenPubKey:   tokenAddress.String(),

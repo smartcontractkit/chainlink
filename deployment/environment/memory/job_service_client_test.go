@@ -324,6 +324,8 @@ func TestJobClientJobAPI(t *testing.T) {
 	})
 }
 
+// ADDED CHANGE
+
 func ptr(s string) *string {
 	return &s
 }

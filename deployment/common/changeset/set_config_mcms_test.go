@@ -37,6 +37,7 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 		Chains:    2,
 		SolChains: 1,
 	}
+	// ADDED CHANGE
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	chainSelector := env.AllChainSelectors()[0]
 	chainSelectorSolana := env.AllChainSelectorsSolana()[0]

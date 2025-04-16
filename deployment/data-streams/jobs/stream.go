@@ -17,6 +17,8 @@ type Pipeline interface {
 	Render() (string, error)
 }
 
+// ADDED CHANGE
+
 type BaseObservationSource struct {
 	Datasources   []Datasource
 	AllowedFaults int

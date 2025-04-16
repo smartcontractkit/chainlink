@@ -140,6 +140,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplications []ConfiguredChangeSet) (deployment.Environment, error) {
 	currentEnv := e
 	for i, csa := range changesetApplications {
+		// ADDED CHANGE
 		out, err := csa.Apply(currentEnv)
 		if err != nil {
 			return e, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)

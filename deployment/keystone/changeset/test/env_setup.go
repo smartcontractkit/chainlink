@@ -501,4 +501,5 @@ func validateDon(t *testing.T, gotRegistry *kcr.CapabilitiesRegistry, nodes test
 		}
 	}
 	require.True(t, found, "don not found in registry")
+	// ADDED CHANGE
 }

@@ -51,5 +51,6 @@ func TestNode(t *testing.T) {
 		for i, cc := range jdChainConfigs {
 			assert.Equal(t, node.Keys.PeerID.String(), cc.Ocr2Config.P2PKeyBundle.PeerId, "chain %d", i)
 		}
+		// ADDED CHANGE
 	})
 }

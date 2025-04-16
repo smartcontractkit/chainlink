@@ -384,6 +384,7 @@ func TestIDL(t *testing.T) {
 	}
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+	// ADDED CHANGE
 	e, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),

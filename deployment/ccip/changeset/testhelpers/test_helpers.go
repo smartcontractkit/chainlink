@@ -147,6 +147,8 @@ func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uin
 
 	var err error
 
+	// ADDED CHANGE
+
 	switch oc := oc.(type) {
 	case *memory.JobClient:
 		err = oc.ReplayLogs(t.Context(), replayBlocks)

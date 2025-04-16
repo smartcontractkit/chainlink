@@ -58,6 +58,7 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 
 func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
+	// ADDED CHANGE
 	lggr := logger.TestLogger(t)
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
 	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}

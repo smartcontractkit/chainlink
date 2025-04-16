@@ -33,6 +33,7 @@ func TestDistributeBootstrapJobSpecs(t *testing.T) {
 		ChainSelectorEVM: chainSelector,
 		Filter: &jd.ListFilter{
 			DONID:    1,
+			// ADDED CHANGE
 			DONName:  "don",
 			EnvLabel: "env",
 			Size:     0,

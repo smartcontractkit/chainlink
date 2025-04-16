@@ -135,6 +135,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChains []ui
 				MaxNumberOfTokensPerMsg:     5,
 				DefaultTokenDestGasOverhead: 5000,
 				ChainFamilySelector:         [4]uint8{40, 18, 213, 44},
+				// ADDED CHANGE
 			},
 		}
 	}

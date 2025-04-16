@@ -30,6 +30,8 @@ type CsDistributeLLOJobSpecsConfig struct {
 	ChainSelectorEVM uint64
 	Filter           *jd.ListFilter
 
+	// ADDED CHANGE
+
 	FromBlock  uint64
 	ConfigMode string // e.g. bluegreen
 

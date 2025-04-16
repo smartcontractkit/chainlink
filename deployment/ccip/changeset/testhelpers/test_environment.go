@@ -491,6 +491,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	solChains := e.Env.AllChainSelectorsSolana()
 	//nolint:gocritic // we need to segregate EVM and Solana chains
 	allChains := append(evmChains, solChains...)
+	// ADDED CHANGE
 	// if len(solChains) > 0 {
 	// 	SavePreloadedSolAddresses(e.Env, solChains[0])
 	// }

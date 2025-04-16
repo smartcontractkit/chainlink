@@ -24,6 +24,7 @@ func TestRMNRemoteCurseWithoutMCMS(t *testing.T) {
 
 func TestRMNRemoteCurseWithMCMS(t *testing.T) {
 	t.Parallel()
+	// ADDED CHANGE
 	doTestRMNRemoteCurse(t, true)
 }
 

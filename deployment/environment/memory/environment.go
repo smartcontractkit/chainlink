@@ -172,6 +172,7 @@ func NewNodes(
 	aptosChains map[uint64]deployment.AptosChain,
 	numNodes,
 	numBootstraps int,
+// ADDED CHANGE
 	registryConfig deployment.CapabilityRegistryConfig,
 	configOpts ...ConfigOpt,
 ) map[string]Node {

@@ -68,6 +68,7 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
 				c.ChannelConfigStoreAddr = common.Address{}
 				return c
+				// ADDED CHANGE
 			},
 			wantErr: pointer.To("channel config store address is required"),
 		},

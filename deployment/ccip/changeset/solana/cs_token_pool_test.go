@@ -38,6 +38,8 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 	ctx := testcontext.Get(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 
+	// ADDED CHANGE
+
 	evmChain := tenv.Env.AllChainSelectors()[0]
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
 	e, newTokenAddress, err := deployToken(t, tenv.Env, solChain)
