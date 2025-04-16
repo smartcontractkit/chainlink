@@ -363,12 +363,14 @@ func SetupTestEnvironment(
 	for _, metaDon := range fullCldOutput.DonTopology.DonsWithMetadata {
 		for _, node := range metaDon.DON.Nodes {
 			_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, blockchainsOutput.SethClient, libtypes.FundsToSend{
-				ToAddress:  common.HexToAddress(node.AccountAddr[blockchainsOutput.SethClient.Cfg.Network.ChainID]),
+				ToAddress: common.HexToAddress(
+					node.AccountAddr[strconv.FormatUint(blockchainsOutput.SethClient.Cfg.Network.ChainID, 10)]),
 				Amount:     big.NewInt(5000000000000000000),
 				PrivateKey: blockchainsOutput.SethClient.MustGetRootPrivateKey(),
 			})
 			if fundingErr != nil {
-				return nil, pkgerrors.Wrapf(fundingErr, "failed to fund node %s", node.AccountAddr[blockchainsOutput.SethClient.Cfg.Network.ChainID])
+				return nil, pkgerrors.Wrapf(fundingErr, "failed to fund node %s",
+					node.AccountAddr[strconv.FormatUint(blockchainsOutput.SethClient.Cfg.Network.ChainID, 10)])
 			}
 		}
 	}
