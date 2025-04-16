@@ -18,8 +18,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-const solFundingLamports = 10000000
-const evmFundingEth = 100
+const (
+	solFundingLamports = 10000000
+	evmFundingEth      = 100
+)
 
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) error {
 	evmFundingAmount := new(big.Int).Mul(deployment.UBigInt(evmFundingEth), deployment.UBigInt(1e18))

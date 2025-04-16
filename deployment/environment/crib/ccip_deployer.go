@@ -384,6 +384,8 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel, fe
 		}
 	}
 
+	// TODO - Find a way to combine this into one loop with AllChainSelectors
+	// Currently it seems to throw a nil pointer when run with both solana and evm and needs to be investigated
 	for _, chain := range solChainSelectors {
 		chainConfigs[chain] = v1_6.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
@@ -437,46 +439,49 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel, fe
 		return *e, fmt.Errorf("failed to apply EVM changesets: %w", err)
 	}
 
-	deployedEnv := testhelpers.DeployedEnv{
-		Env:          env,
-		HomeChainSel: homeChainSel,
-		FeedChainSel: feedChainSel,
-	}
+	if len(env.SolChains) > 0 {
+		deployedEnv := testhelpers.DeployedEnv{
+			Env:          env,
+			HomeChainSel: homeChainSel,
+			FeedChainSel: feedChainSel,
+		}
 
-	buildConfig := ccipChangesetSolana.BuildSolanaConfig{
-		GitCommitSha:   "21a13ceb3ac4",
-		DestinationDir: deployedEnv.Env.SolChains[solChainSelectors[0]].ProgramsPath,
-		LocalBuild: ccipChangesetSolana.LocalBuildConfig{
-			BuildLocally: true,
-		},
-	}
+		buildConfig := ccipChangesetSolana.BuildSolanaConfig{
+			GitCommitSha:   "21a13ceb3ac4",
+			DestinationDir: deployedEnv.Env.SolChains[solChainSelectors[0]].ProgramsPath,
+			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+				BuildLocally: true,
+			},
+		}
 
-	solTestRouter := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployReceiverForTest),
-		ccipChangesetSolana.DeployForTestConfig{
-			ChainSelector: solChainSelectors[0],
-		},
-	)
+		solTestRouter := commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployReceiverForTest),
+			ccipChangesetSolana.DeployForTestConfig{
+				ChainSelector: solChainSelectors[0],
+			},
+		)
 
-	solCs, err := testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[0], false, &buildConfig)
-	if err != nil {
-		return *e, err
-	}
+		solCs, err := testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[0], false, &buildConfig)
+		if err != nil {
+			return *e, err
+		}
 
-	solCs = append(solCs, solTestRouter)
+		solCs = append(solCs, solTestRouter)
 
-	deployedEnv.Env, err = commonchangeset.Apply(nil, deployedEnv.Env, nil, solCs[0], solCs[1:]...)
-	if err != nil {
-		return *e, err
-	}
+		deployedEnv.Env, err = commonchangeset.Apply(nil, deployedEnv.Env, nil, solCs[0], solCs[1:]...)
+		if err != nil {
+			return *e, err
+		}
 
-	err = testhelpers.ValidateSolanaState(deployedEnv.Env, solChainSelectors)
-	if err != nil {
-		return *e, err
+		err = testhelpers.ValidateSolanaState(deployedEnv.Env, solChainSelectors)
+		if err != nil {
+			return *e, err
+		}
+		env = deployedEnv.Env
 	}
 
 	lggr.Infow("setup Link pools")
-	return setupLinkPools(&deployedEnv.Env)
+	return setupLinkPools(&env)
 }
 
 func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
@@ -674,7 +679,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (deployment.Environment, error) {
 	evmChainSelectors := e.AllChainSelectors()
 	solChainSelectors := e.AllChainSelectorsSolana()
-	allChainSelectors := append(evmChainSelectors, solChainSelectors...)
+	allChainSelectors := e.AllChainSelectorsAllFamilies()
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario

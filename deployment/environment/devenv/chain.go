@@ -221,8 +221,6 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 					return err
 				}
 
-				logger.Infof("Deployer newChains %v", chainCfg.DeployerKey)
-				logger.Infof("Deployer newChains %v", chainCfg.DeployerKey)
 				keyPairPath, err := generateSolanaKeypair(chainCfg.SolDeployerKey, keyPairDir)
 				if err != nil {
 					return err
@@ -240,7 +238,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 							context.Background(), sc, instructions, chainCfg.SolDeployerKey, solRpc.CommitmentConfirmed, opts...,
 						)
 						if err != nil {
-							panic(err)
+							return err
 						}
 						return nil
 					},
@@ -267,13 +265,6 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 		solChains[sel.(uint64)] = value.(deployment.SolChain)
 		return true
 	})
-
-	for sel, solChain := range solChains {
-		logger.Infof("Sol chain key: %d, chain data: %+v", sel, solChain.DeployerKey)
-	}
-	for sel, evmChain := range evmChains {
-		logger.Infof("EVM chain key: %d, chain data: %+v", sel, evmChain.DeployerKey)
-	}
 
 	return evmChains, solChains, nil
 }

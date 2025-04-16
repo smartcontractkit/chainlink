@@ -1,7 +1,10 @@
 package crib
 
 import (
+	"strings"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
 const (
@@ -34,7 +37,7 @@ func (c CRIBEnv) GetConfig(evmKey string, solKey string) (DeployOutput, error) {
 		return DeployOutput{}, err
 	}
 	for i, chain := range chainConfigs {
-		if chain.ChainType == "EVM" {
+		if strings.EqualFold(string(chain.ChainType), string(chaintype.EVM)) {
 			err := chain.SetDeployerKey(&evmKey)
 			if err != nil {
 				return DeployOutput{}, err
@@ -42,7 +45,7 @@ func (c CRIBEnv) GetConfig(evmKey string, solKey string) (DeployOutput, error) {
 			chainConfigs[i] = chain
 		}
 
-		if chain.ChainType == "SOLANA" {
+		if strings.EqualFold(string(chain.ChainType), string(chaintype.Solana)) {
 			err := chain.SetSolDeployerKey(&solKey)
 			if err != nil {
 				return DeployOutput{}, err
