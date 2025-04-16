@@ -36,7 +36,7 @@ func TestDoc(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	assertFieldsNotNil(t, c)
+	assertFieldsNotNil_ExceptHTTPURLExtraWrite(t, c)
 
 	var defaults chainlink.Config
 	require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(docs.DocsTOML), &defaults, config.DecodeTOML))
@@ -125,7 +125,9 @@ func assertTOML[T any](t *testing.T, fallback, docs T) {
 	assert.Equal(t, fs, ds, diff.Diff(fs, ds))
 }
 
-func assertFieldsNotNil(t *testing.T, c chainlink.Config) {
+// Exclude TRON-specific custom config from the nil-check (required only for TRON Chain Type)
+// TODO: restructure with TRON specific config
+func assertFieldsNotNil_ExceptHTTPURLExtraWrite(t *testing.T, c chainlink.Config) {
 	// Create a copy of the config
 	copiedConfig := c
 
