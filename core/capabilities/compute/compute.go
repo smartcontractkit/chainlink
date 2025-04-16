@@ -250,7 +250,7 @@ func (c *Compute) executeWithModule(ctx context.Context, module *host.Module, co
 	// Add execution time to response metadata
 	cresp.Metadata.Metering = append(cresp.Metadata.Metering, capabilities.MeteringNodeDetail{
 		SpendUnit:  metering.ComputeUnit.Name,
-		SpendValue: strconv.FormatInt(int64(executionTime.Round(time.Second)/(1_000_000_000)), 10),
+		SpendValue: strconv.FormatInt(int64(executionTime.Seconds()), 10),
 	})
 
 	return cresp, nil
