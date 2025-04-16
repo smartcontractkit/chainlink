@@ -145,6 +145,8 @@ flowchart LR
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
+	chainlink-deployments-framework --> mcms
+	click chainlink-deployments-framework href "https://github.com/smartcontractkit/chainlink-deployments-framework"
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
@@ -188,10 +190,10 @@ flowchart LR
 	chainlink/core/scripts --> chainlink/deployment
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-owner-contracts
+	chainlink/deployment --> chainlink-deployments-framework
 	chainlink/deployment --> chainlink-protos/job-distributor
 	chainlink/deployment --> chainlink-testing-framework/lib
 	chainlink/deployment --> chainlink/v2
-	chainlink/deployment --> mcms
 	click chainlink/deployment href "https://github.com/smartcontractkit/chainlink"
 	chainlink/integration-tests --> chainlink-testing-framework/havoc
 	chainlink/integration-tests --> chainlink-testing-framework/sentinel

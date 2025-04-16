@@ -231,6 +231,10 @@ func (c TokenAdminRegistryChangesetConfig) Validate(
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
+	err = state.EnforceMCMSUsageIfProd(env.GetContext(), c.MCMS)
+	if err != nil {
+		return err
+	}
 	for chainSelector, symbolToPoolInfo := range c.Pools {
 		err := ValidateChain(env, state, chainSelector, c.MCMS)
 		if err != nil {

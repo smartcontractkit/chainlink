@@ -66,36 +66,52 @@ func JobSpecFromWorkflow(inputFs embed.FS, inputFileName string, workflowJobName
 }
 
 func (wf WorkflowSpecAlias) validate() error {
+	triggerMap := wf.Triggers[0].Config
+	triggerFeeds := triggerMap["feedIds"]
+	if triggerFeeds == nil {
+		return fmt.Errorf("feedIds not found in trigger config for workflow %s", wf.Name)
+	}
+
 	configMap := wf.Consensus[0].Config
 	aggregationConfig, ok := configMap["aggregation_config"].(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("invalid aggregation_config type for workflow %s", wf.Name)
 	}
 
-	feeds, ok := aggregationConfig["feeds"]
+	streams, ok := aggregationConfig["streams"]
 	if !ok {
-		return fmt.Errorf("feeds not found in aggregation_config for workflow %s", wf.Name)
+		return fmt.Errorf("streams not found in aggregation_config for workflow %s", wf.Name)
 	}
-	for streamsID, feed := range feeds.(map[string]interface{}) {
-		feedMap, feedExists := feed.(map[string]interface{})
+	if len(streams.(map[string]interface{})) != len(triggerFeeds.([]interface{})) {
+		return fmt.Errorf("consensus and trigger feeds must have the same length for workflow %s", wf.Name)
+	}
+
+	for streamsID, stream := range streams.(map[string]interface{}) {
+		feedMap, feedExists := stream.(map[string]interface{})
 		if !feedExists {
-			return fmt.Errorf("invalid feed type %s", streamsID)
+			return fmt.Errorf("invalid stream type %s", streamsID)
 		}
 		_, hasDeviation := feedMap["deviation"].(string)
 		if !hasDeviation {
-			return fmt.Errorf("deviation not found in feed %s", streamsID)
+			return fmt.Errorf("deviation not found in stream %s", streamsID)
 		}
 
 		_, hasHeartbeat := feedMap["heartbeat"].(int64)
 		if !hasHeartbeat {
-			return fmt.Errorf("heartbeat not found in feed %s", streamsID)
+			return fmt.Errorf("heartbeat not found in stream %s", streamsID)
 		}
 		remmapedID, hasRemmapedID := feedMap["remappedID"].(string)
 		if !hasRemmapedID {
-			return fmt.Errorf("remappedID not found in feed %s", streamsID)
+			return fmt.Errorf("remappedID not found in stream %s", streamsID)
 		}
 		if len(remmapedID) != 66 {
-			return fmt.Errorf("invalid remappedID for feed %s", streamsID)
+			return fmt.Errorf("invalid remappedID for stream %s", streamsID)
+		}
+	}
+	// check if all trigger feeds are in the consensus feeds
+	for _, triggerFeed := range triggerFeeds.([]interface{}) {
+		if streams.(map[string]interface{})[triggerFeed.(string)] == nil {
+			return fmt.Errorf("trigger feed %s not found in consensus feeds", triggerFeed.(string))
 		}
 	}
 

@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -54,28 +55,6 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 		panic(err)
 	}
 	return encoded
-}
-
-// getNodeOperatorIDMap returns a map of node operator names to their IDs
-// If maxNops is greater than the number of node operators, it will return all node operators
-// Unused now but could be useful in the future.
-func getNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, maxNops uint32) (map[string]uint32, error) {
-	nopIdByName := make(map[string]uint32)
-	operators, err := capReg.GetNodeOperators(nil)
-	if err != nil {
-		return nil, err
-	}
-	if len(operators) < int(maxNops) {
-		maxNops = uint32(len(operators))
-	}
-	for i := uint32(1); i <= maxNops; i++ {
-		operator, err := capReg.GetNodeOperator(nil, i)
-		if err != nil {
-			return nil, err
-		}
-		nopIdByName[operator.Name] = i
-	}
-	return nopIdByName, nil
 }
 
 // LatestCCIPDON returns the latest CCIP DON from the capabilities registry
