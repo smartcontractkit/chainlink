@@ -7,12 +7,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -200,9 +201,9 @@ type adHocOffchainMock struct {
 	RealOffchain deployment.OffchainClient
 }
 
-func NewAdHocOffchainMock(real deployment.OffchainClient) *adHocOffchainMock {
+func NewAdHocOffchainMock(realJD deployment.OffchainClient) *adHocOffchainMock {
 	return &adHocOffchainMock{
-		RealOffchain: real,
+		RealOffchain: realJD,
 	}
 }
 
