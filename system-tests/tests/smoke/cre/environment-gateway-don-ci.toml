@@ -55,9 +55,9 @@
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -86,9 +86,9 @@
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true

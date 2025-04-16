@@ -67,7 +67,7 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 			Name:          fmt.Sprintf("%s | %d", cfg.Filter.DONName, cfg.Filter.DONID),
 			Type:          jobs.JobSpecTypeLLO,
 			SchemaVersion: 1,
-			ExternalJobID: uuid.New(),
+			// We intentionally do not set ExternalJobID here - we'll set it separately for each node.
 		},
 		ContractID:                        cfg.ConfiguratorAddress,
 		P2PV2Bootstrappers:                nil,
@@ -102,6 +102,7 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 
 	var proposals []*jobv1.ProposeJobRequest
 	for _, n := range oracleNodes {
+		lloSpec.Base.ExternalJobID = uuid.New()
 		lloSpec.TransmitterID = n.GetPublicKey() // CSAKey
 		lloSpec.OCRKeyBundleID = &nodeConfigMap[n.Id].OcrKeyBundle.BundleId
 

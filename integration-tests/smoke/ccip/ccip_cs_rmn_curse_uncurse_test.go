@@ -149,6 +149,83 @@ func TestRMNCurseConfigValidate(t *testing.T) {
 	}
 }
 
+func TestRMNCurseNoConnectedLanes(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
+
+	mapIDToSelector := func(id uint64) uint64 {
+		return e.Env.AllChainSelectors()[id]
+	}
+
+	verifyNoActiveCurseOnAllChains(t, &e)
+
+	config := v1_6.RMNCurseConfig{
+		CurseActions: []v1_6.CurseAction{
+			v1_6.CurseChain(mapIDToSelector(0)),
+		},
+		Reason:                   "test curse",
+		IncludeNotConnectedLanes: false, // This will filter out non connected lanes
+	}
+
+	_, err := v1_6.RMNCurseChangeset(e.Env, config)
+	require.NoError(t, err)
+
+	verifyTestCaseAssertions(t, &e, CurseTestCase{
+		curseAssertions: []curseAssertion{
+			{chainID: 0, globalCurse: true, cursed: true},
+			{chainID: 1, subject: 0, cursed: false},
+			{chainID: 1, subject: 2, cursed: false},
+			{chainID: 2, subject: 0, cursed: false},
+			{chainID: 2, subject: 1, cursed: false},
+		},
+	}, mapIDToSelector)
+}
+
+func TestRMNCurseOneConnectedLanes(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
+
+	mapIDToSelector := func(id uint64) uint64 {
+		return e.Env.AllChainSelectors()[id]
+	}
+
+	_, err := v1_6.UpdateOffRampSourcesChangeset(e.Env,
+		v1_6.UpdateOffRampSourcesConfig{
+			UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
+				mapIDToSelector(0): { // to
+					mapIDToSelector(1): { // from
+						IsEnabled:                 true,
+						TestRouter:                false,
+						IsRMNVerificationDisabled: true,
+					},
+				},
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	verifyNoActiveCurseOnAllChains(t, &e)
+
+	config := v1_6.RMNCurseConfig{
+		CurseActions: []v1_6.CurseAction{
+			v1_6.CurseChain(mapIDToSelector(0)),
+		},
+		Reason:                   "test curse",
+		IncludeNotConnectedLanes: false, // This will filter out non connected lanes
+	}
+
+	_, err = v1_6.RMNCurseChangeset(e.Env, config)
+	require.NoError(t, err)
+
+	verifyTestCaseAssertions(t, &e, CurseTestCase{
+		curseAssertions: []curseAssertion{
+			{chainID: 0, globalCurse: true, cursed: true},
+			{chainID: 1, subject: 0, cursed: true},
+			{chainID: 1, subject: 2, cursed: false},
+			{chainID: 2, subject: 0, cursed: false},
+			{chainID: 2, subject: 1, cursed: false},
+		},
+	}, mapIDToSelector)
+}
+
 func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 
@@ -159,8 +236,9 @@ func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
 	verifyNoActiveCurseOnAllChains(t, &e)
 
 	config := v1_6.RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
-		Reason:       "test curse",
+		CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
+		Reason:                   "test curse",
+		IncludeNotConnectedLanes: true,
 	}
 
 	_, err := v1_6.RMNCurseChangeset(e.Env, config)
@@ -213,9 +291,10 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 	}
 
 	config := v1_6.RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
-		Reason:       "test curse",
-		MCMS:         &proposalutils.TimelockConfig{MinDelay: 0},
+		CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
+		Reason:                   "test curse",
+		MCMS:                     &proposalutils.TimelockConfig{MinDelay: 0},
+		IncludeNotConnectedLanes: true,
 	}
 
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -256,8 +335,9 @@ func runRmnCurseConfigValidateTest(t *testing.T, tc CurseTestCase) {
 	}
 
 	config := v1_6.RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
-		Reason:       "test curse",
+		CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
+		Reason:                   "test curse",
+		IncludeNotConnectedLanes: true,
 	}
 
 	err := config.Validate(e.Env)
@@ -274,8 +354,9 @@ func runRmnCurseTest(t *testing.T, tc CurseTestCase) {
 	verifyNoActiveCurseOnAllChains(t, &e)
 
 	config := v1_6.RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
-		Reason:       "test curse",
+		CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
+		Reason:                   "test curse",
+		IncludeNotConnectedLanes: true,
 	}
 
 	_, err := v1_6.RMNCurseChangeset(e.Env, config)
@@ -294,8 +375,9 @@ func runRmnCurseIdempotentTest(t *testing.T, tc CurseTestCase) {
 	verifyNoActiveCurseOnAllChains(t, &e)
 
 	config := v1_6.RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
-		Reason:       "test curse",
+		CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
+		Reason:                   "test curse",
+		IncludeNotConnectedLanes: true,
 	}
 
 	_, err := v1_6.RMNCurseChangeset(e.Env, config)
@@ -317,8 +399,9 @@ func runRmnUncurseIdempotentTest(t *testing.T, tc CurseTestCase) {
 	verifyNoActiveCurseOnAllChains(t, &e)
 
 	config := v1_6.RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
-		Reason:       "test curse",
+		CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
+		Reason:                   "test curse",
+		IncludeNotConnectedLanes: true,
 	}
 
 	_, err := v1_6.RMNCurseChangeset(e.Env, config)
@@ -343,9 +426,10 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {
 	}
 
 	config := v1_6.RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
-		Reason:       "test curse",
-		MCMS:         &proposalutils.TimelockConfig{MinDelay: 0},
+		CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
+		Reason:                   "test curse",
+		MCMS:                     &proposalutils.TimelockConfig{MinDelay: 0},
+		IncludeNotConnectedLanes: true,
 	}
 
 	state, err := changeset.LoadOnchainState(e.Env)
