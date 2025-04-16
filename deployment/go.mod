@@ -38,7 +38,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250411163110-21a13ceb3ac4
 	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250415235644-8703639403c7
 	github.com/smartcontractkit/chainlink-deployments-framework v0.0.3
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250416143528-61465bca61a6
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250416151731-4d8e6b196cd5
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0
