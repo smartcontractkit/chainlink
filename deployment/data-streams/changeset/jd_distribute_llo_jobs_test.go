@@ -1,27 +1,56 @@
 package changeset
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
 
 func TestDistributeLLOJobSpecs(t *testing.T) {
 	t.Parallel()
 
+	const donID = 1
+	const donName = "don"
+	const envName = "env"
+
 	e := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
 		ShouldDeployLinkToken: false,
 		NumNodes:              1,
 		NumBootstrapNodes:     1,
+		NodeLabels: []*ptypes.Label{
+			{
+				Key:   "product",
+				Value: pointer.To(jd.ProductLabel),
+			},
+			{
+				Key:   "environment",
+				Value: pointer.To(envName),
+			},
+			{
+				Key: utils.DonIdentifier(donID, donName),
+			},
+		},
 	}).Environment
+
+	// Partially mock the JD client, so it's ProposeJob just return.
+	e.Offchain = NewAdHocOffchainMock(e.Offchain)
 
 	// pick the first EVM chain selector
 	chainSelector := e.AllChainSelectors()[0]
@@ -36,13 +65,41 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		})
 	require.NoError(t, err)
 
+	oracleSpec := `don | 1'
+type = 'offchainreporting2'
+schemaVersion = 1
+externalJobID = '0bd63fab-f4c3-4db4-afa2-d38d00c3110d'
+contractID = '0x4170ed0880ac9a755fd29b2688956bd959f923f4'
+transmitterID = 'a7e05aecaba04a5437a1ae488d79a35a6b32067545a3d00ad96f3759c894b802'
+p2pv2Bootstrappers = ['12D3KooWEbh9jvyfxa3sRMZRm1zTKERqC6YmmUQjiqzAYrNYvqpD@127.0.0.1:26501']
+ocrKeyBundleID = 'cee9d802bf0e28bc74c78d7512e44b25ce6580bf5c45ed15186ae871a3437eb1'
+maxTaskDuration = '1s'
+contractConfigTrackerPollInterval = '1s'
+relay = 'evm'
+pluginType = 'llo'
+
+[relayConfig]
+chainID = '90000001'
+lloConfigMode = 'bluegreen'
+lloDonID = 1
+
+[pluginConfig]
+channelDefinitionsContractAddress = '0x000000000000000000000000000000000000dEaD'
+channelDefinitionsContractFromBlock = 0
+donID = 1
+servers = {'mercury-pipeline-testnet-producer.TEST.cldev.cloud:1340' = '0000005187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c'}
+`
+
+	bootstrapSpec := `
+`
+
 	config := CsDistributeLLOJobSpecsConfig{
 		ChainSelectorEVM: chainSelector,
 		Filter: &jd.ListFilter{
-			DONID:    1,
-			DONName:  "don",
-			EnvLabel: "env",
-			Size:     0,
+			DONID:    donID,
+			DONName:  donName,
+			EnvLabel: envName,
+			Size:     1,
 		},
 		FromBlock:                   0,
 		ConfigMode:                  "bluegreen",
@@ -55,16 +112,20 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		env        deployment.Environment
-		config     CsDistributeLLOJobSpecsConfig
-		prepConfFn func(CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig
-		wantErr    *string
+		name              string
+		env               deployment.Environment
+		config            CsDistributeLLOJobSpecsConfig
+		prepConfFn        func(CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig
+		wantErr           *string
+		wantOracleSpec    string
+		wantBootstrapSpec string
 	}{
 		{
-			name:   "success",
-			env:    e,
-			config: config,
+			name:              "success",
+			env:               e,
+			config:            config,
+			wantOracleSpec:    oracleSpec,
+			wantBootstrapSpec: bootstrapSpec,
 		},
 		{
 			name:   "missing channel config store",
@@ -88,7 +149,6 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		},
 	}
 
-	cs := CsDistributeLLOJobSpecs{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			conf := tt.config
@@ -98,7 +158,7 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 			_, out, err := changeset.ApplyChangesetsV2(t,
 				tt.env,
 				[]changeset.ConfiguredChangeSet{
-					changeset.Configure(cs, conf),
+					changeset.Configure(CsDistributeLLOJobSpecs{}, conf),
 				},
 			)
 
@@ -109,7 +169,92 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Len(t, out, 1)
-			// TODO Compare the generated job spec with the expected one
+
+			if tt.wantErr == nil {
+				require.Len(t, out[0].Jobs, 2)
+				// We don't expect an error, so we want to verify the specs are what we expect.
+				// The issue is that we don't know in which order the specs will be returned.
+				spec1 := out[0].Jobs[0].Spec
+				spec2 := out[0].Jobs[1].Spec
+				require.True(t, spec1 == tt.wantOracleSpec || spec1 == tt.wantBootstrapSpec, fmt.Sprintf("Spec1: %s", spec1))
+				require.True(t, spec2 == tt.wantOracleSpec || spec2 == tt.wantBootstrapSpec, fmt.Sprintf("Spec2: %s", spec2))
+				require.NotEqual(t, spec1, spec2)
+			}
 		})
 	}
+}
+
+type adHocOffchainMock struct {
+	RealOffchain deployment.OffchainClient
+}
+
+func NewAdHocOffchainMock(real deployment.OffchainClient) *adHocOffchainMock {
+	return &adHocOffchainMock{
+		RealOffchain: real,
+	}
+}
+
+// JobServiceClient interface
+func (a *adHocOffchainMock) GetJob(ctx context.Context, in *job.GetJobRequest, opts ...grpc.CallOption) (*job.GetJobResponse, error) {
+	return a.RealOffchain.GetJob(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) GetProposal(ctx context.Context, in *job.GetProposalRequest, opts ...grpc.CallOption) (*job.GetProposalResponse, error) {
+	return a.RealOffchain.GetProposal(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) ListJobs(ctx context.Context, in *job.ListJobsRequest, opts ...grpc.CallOption) (*job.ListJobsResponse, error) {
+	return a.RealOffchain.ListJobs(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) ListProposals(ctx context.Context, in *job.ListProposalsRequest, opts ...grpc.CallOption) (*job.ListProposalsResponse, error) {
+	return a.RealOffchain.ListProposals(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) ProposeJob(ctx context.Context, in *job.ProposeJobRequest, opts ...grpc.CallOption) (*job.ProposeJobResponse, error) {
+	return &job.ProposeJobResponse{
+		Proposal: &job.Proposal{
+			JobId: uuid.New().String(), // Maybe replace this with a fixed value for testing
+			Spec:  in.Spec,
+		},
+	}, nil
+}
+func (a *adHocOffchainMock) BatchProposeJob(ctx context.Context, in *job.BatchProposeJobRequest, opts ...grpc.CallOption) (*job.BatchProposeJobResponse, error) {
+	return a.RealOffchain.BatchProposeJob(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) RevokeJob(ctx context.Context, in *job.RevokeJobRequest, opts ...grpc.CallOption) (*job.RevokeJobResponse, error) {
+	return a.RealOffchain.RevokeJob(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) DeleteJob(ctx context.Context, in *job.DeleteJobRequest, opts ...grpc.CallOption) (*job.DeleteJobResponse, error) {
+	return a.RealOffchain.DeleteJob(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) UpdateJob(ctx context.Context, in *job.UpdateJobRequest, opts ...grpc.CallOption) (*job.UpdateJobResponse, error) {
+	return a.RealOffchain.UpdateJob(ctx, in, opts...)
+}
+
+// NodeServiceClient interface
+func (a *adHocOffchainMock) DisableNode(ctx context.Context, in *node.DisableNodeRequest, opts ...grpc.CallOption) (*node.DisableNodeResponse, error) {
+	return a.RealOffchain.DisableNode(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) EnableNode(ctx context.Context, in *node.EnableNodeRequest, opts ...grpc.CallOption) (*node.EnableNodeResponse, error) {
+	return a.RealOffchain.EnableNode(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) GetNode(ctx context.Context, in *node.GetNodeRequest, opts ...grpc.CallOption) (*node.GetNodeResponse, error) {
+	return a.RealOffchain.GetNode(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) ListNodes(ctx context.Context, in *node.ListNodesRequest, opts ...grpc.CallOption) (*node.ListNodesResponse, error) {
+	return a.RealOffchain.ListNodes(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) ListNodeChainConfigs(ctx context.Context, in *node.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*node.ListNodeChainConfigsResponse, error) {
+	return a.RealOffchain.ListNodeChainConfigs(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) RegisterNode(ctx context.Context, in *node.RegisterNodeRequest, opts ...grpc.CallOption) (*node.RegisterNodeResponse, error) {
+	return a.RealOffchain.RegisterNode(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) UpdateNode(ctx context.Context, in *node.UpdateNodeRequest, opts ...grpc.CallOption) (*node.UpdateNodeResponse, error) {
+	return a.RealOffchain.UpdateNode(ctx, in, opts...)
+}
+
+// CSAServiceClient interface
+func (a *adHocOffchainMock) GetKeypair(ctx context.Context, in *csa.GetKeypairRequest, opts ...grpc.CallOption) (*csa.GetKeypairResponse, error) {
+	return a.RealOffchain.GetKeypair(ctx, in, opts...)
+}
+func (a *adHocOffchainMock) ListKeypairs(ctx context.Context, in *csa.ListKeypairsRequest, opts ...grpc.CallOption) (*csa.ListKeypairsResponse, error) {
+	return a.RealOffchain.ListKeypairs(ctx, in, opts...)
 }
