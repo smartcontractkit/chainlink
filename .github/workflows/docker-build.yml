@@ -84,6 +84,7 @@ jobs:
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
+        CL_APTOS_CMD=chainlink-aptos
       docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
@@ -140,6 +141,7 @@ jobs:
         CL_CHAIN_DEFAULTS=/ccip-config
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
+        CL_APTOS_CMD=chainlink-aptos
       docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
