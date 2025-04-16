@@ -35,6 +35,10 @@ type RMNCurseConfig struct {
 
 func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 	state, err := changeset.LoadOnchainState(e)
+	err = state.EnforceMCMSUsageIfProd(e.GetContext(), c.MCMS)
+	if err != nil {
+		return err
+	}
 
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)

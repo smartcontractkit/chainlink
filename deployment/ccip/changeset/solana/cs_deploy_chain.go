@@ -29,7 +29,6 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
-	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
@@ -227,217 +226,32 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 	}, nil
 }
 
-func solProgramData(e deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (struct {
-	DataType uint32
-	Address  solana.PublicKey
-}, error) {
-	var programData struct {
-		DataType uint32
-		Address  solana.PublicKey
-	}
-	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &solRpc.GetAccountInfoOpts{
-		Commitment: solRpc.CommitmentConfirmed,
-	})
-	if err != nil {
-		return programData, fmt.Errorf("failed to deploy program: %w", err)
-	}
-
-	err = solBinary.UnmarshalBorsh(&programData, data.Bytes())
-	if err != nil {
-		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
-	}
-	return programData, nil
-}
-
-func SolProgramSize(e *deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (int, error) {
-	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
-		Commitment: deployment.SolDefaultCommitment,
-	})
-	if err != nil {
-		return 0, fmt.Errorf("failed to get account info: %w", err)
-	}
-	if accountInfo == nil {
-		return 0, fmt.Errorf("program account not found: %w", err)
-	}
-	programBytes := len(accountInfo.Value.Data.GetBinary())
-	return programBytes, nil
-}
-
-func initializeRouter(
+// DeployAndMaybeSaveToAddressBook deploys a program to the Solana chain and saves it to the address book
+// if it is not an upgrade. It returns the program ID of the deployed program.
+func DeployAndMaybeSaveToAddressBook(
 	e deployment.Environment,
 	chain deployment.SolChain,
-	ccipRouterProgram solana.PublicKey,
-	linkTokenAddress solana.PublicKey,
-	feeQuoterAddress solana.PublicKey,
-	rmnRemoteAddress solana.PublicKey,
-) error {
-	e.Logger.Debugw("Initializing router", "chain", chain.String(), "ccipRouterProgram", ccipRouterProgram.String())
-	programData, err := solProgramData(e, chain, ccipRouterProgram)
+	ab deployment.AddressBook,
+	contractType deployment.ContractType,
+	version semver.Version,
+	isUpgrade bool) (solana.PublicKey, error) {
+	programName := getTypeToProgramDeployName()[contractType]
+	programID, err := chain.DeployProgram(e.Logger, programName, isUpgrade)
 	if err != nil {
-		return fmt.Errorf("failed to get solana router program data: %w", err)
+		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
-	// addressing errcheck in the next PR
-	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+	address := solana.MustPublicKeyFromBase58(programID)
 
-	instruction, err := solRouter.NewInitializeInstruction(
-		chain.Selector, // chain selector
-		// this is where the fee aggregator address would go (but have written a separate changeset to set that)
-		solana.PublicKey{},
-		feeQuoterAddress,
-		linkTokenAddress, // link token mint
-		rmnRemoteAddress,
-		routerConfigPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-		ccipRouterProgram,
-		programData.Address,
-	).ValidateAndBuild()
+	e.Logger.Infow("Deployed program", "Program", contractType, "addr", programID, "chain", chain.String(), "isUpgrade", isUpgrade)
 
-	if err != nil {
-		return fmt.Errorf("failed to build instruction: %w", err)
+	if !isUpgrade {
+		tv := deployment.NewTypeAndVersion(contractType, version)
+		err = ab.Save(chain.Selector, programID, tv)
+		if err != nil {
+			return solana.PublicKey{}, fmt.Errorf("failed to save address: %w", err)
+		}
 	}
-	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
-		return fmt.Errorf("failed to confirm initializeRouter: %w", err)
-	}
-	e.Logger.Infow("Initialized router", "chain", chain.String())
-	return nil
-}
-
-func initializeFeeQuoter(
-	e deployment.Environment,
-	chain deployment.SolChain,
-	ccipRouterProgram solana.PublicKey,
-	linkTokenAddress solana.PublicKey,
-	feeQuoterAddress solana.PublicKey,
-	offRampAddress solana.PublicKey,
-	params FeeQuoterParams,
-) error {
-	e.Logger.Debugw("Initializing fee quoter", "chain", chain.String(), "feeQuoterAddress", feeQuoterAddress.String())
-	programData, err := solProgramData(e, chain, feeQuoterAddress)
-	if err != nil {
-		return fmt.Errorf("failed to get solana router program data: %w", err)
-	}
-	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
-
-	instruction, err := solFeeQuoter.NewInitializeInstruction(
-		params.DefaultMaxFeeJuelsPerMsg,
-		ccipRouterProgram,
-		feeQuoterConfigPDA,
-		linkTokenAddress,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-		feeQuoterAddress,
-		programData.Address,
-	).ValidateAndBuild()
-	if err != nil {
-		return fmt.Errorf("failed to build instruction: %w", err)
-	}
-
-	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
-	fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
-
-	priceUpdaterix, err := solFeeQuoter.NewAddPriceUpdaterInstruction(
-		offRampBillingSignerPDA,
-		fqAllowedPriceUpdaterOfframpPDA,
-		feeQuoterConfigPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-
-	if err != nil {
-		return fmt.Errorf("failed to build instruction: %w", err)
-	}
-	if err := chain.Confirm([]solana.Instruction{instruction, priceUpdaterix}); err != nil {
-		return fmt.Errorf("failed to confirm initializeFeeQuoter: %w", err)
-	}
-	e.Logger.Infow("Initialized fee quoter", "chain", chain.String())
-	return nil
-}
-
-func initializeOffRamp(
-	e deployment.Environment,
-	chain deployment.SolChain,
-	ccipRouterProgram solana.PublicKey,
-	feeQuoterAddress solana.PublicKey,
-	rmnRemoteAddress solana.PublicKey,
-	offRampAddress solana.PublicKey,
-	addressLookupTable solana.PublicKey,
-	params OffRampParams,
-) error {
-	e.Logger.Debugw("Initializing offRamp", "chain", chain.String(), "offRampAddress", offRampAddress.String())
-	programData, err := solProgramData(e, chain, offRampAddress)
-	if err != nil {
-		return fmt.Errorf("failed to get solana router program data: %w", err)
-	}
-	offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
-	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
-	offRampStatePDA, _, _ := solState.FindOfframpStatePDA(offRampAddress)
-
-	initIx, err := solOffRamp.NewInitializeInstruction(
-		offRampReferenceAddressesPDA,
-		ccipRouterProgram,
-		feeQuoterAddress,
-		rmnRemoteAddress,
-		addressLookupTable,
-		offRampStatePDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-		offRampAddress,
-		programData.Address,
-	).ValidateAndBuild()
-
-	if err != nil {
-		return fmt.Errorf("failed to build instruction: %w", err)
-	}
-
-	initConfigIx, err := solOffRamp.NewInitializeConfigInstruction(
-		chain.Selector,
-		params.EnableExecutionAfter,
-		offRampConfigPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-		offRampAddress,
-		programData.Address,
-	).ValidateAndBuild()
-
-	if err != nil {
-		return fmt.Errorf("failed to build instruction: %w", err)
-	}
-	if err := chain.Confirm([]solana.Instruction{initIx, initConfigIx}); err != nil {
-		return fmt.Errorf("failed to confirm initializeOffRamp: %w", err)
-	}
-	e.Logger.Infow("Initialized offRamp", "chain", chain.String())
-	return nil
-}
-
-func initializeRMNRemote(
-	e deployment.Environment,
-	chain deployment.SolChain,
-	rmnRemoteProgram solana.PublicKey,
-) error {
-	e.Logger.Debugw("Initializing rmn remote", "chain", chain.String(), "rmnRemoteProgram", rmnRemoteProgram.String())
-	programData, err := solProgramData(e, chain, rmnRemoteProgram)
-	if err != nil {
-		return fmt.Errorf("failed to get solana router program data: %w", err)
-	}
-	rmnRemoteConfigPDA, _, _ := solState.FindRMNRemoteConfigPDA(rmnRemoteProgram)
-	rmnRemoteCursesPDA, _, _ := solState.FindRMNRemoteCursesPDA(rmnRemoteProgram)
-	instruction, err := solRmnRemote.NewInitializeInstruction(
-		rmnRemoteConfigPDA,
-		rmnRemoteCursesPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-		rmnRemoteProgram,
-		programData.Address,
-	).ValidateAndBuild()
-	if err != nil {
-		return fmt.Errorf("failed to build instruction: %w", err)
-	}
-	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
-		return fmt.Errorf("failed to confirm initializeRMNRemote: %w", err)
-	}
-	e.Logger.Infow("Initialized rmn remote", "chain", chain.String())
-	return nil
+	return address, nil
 }
 
 func deployChainContractsSolana(
@@ -805,6 +619,185 @@ func deployChainContractsSolana(
 	return txns, nil
 }
 
+// INITIALIZE FUNCTIONS
+func initializeRouter(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	ccipRouterProgram solana.PublicKey,
+	linkTokenAddress solana.PublicKey,
+	feeQuoterAddress solana.PublicKey,
+	rmnRemoteAddress solana.PublicKey,
+) error {
+	e.Logger.Debugw("Initializing router", "chain", chain.String(), "ccipRouterProgram", ccipRouterProgram.String())
+	programData, err := getSolProgramData(e, chain, ccipRouterProgram)
+	if err != nil {
+		return fmt.Errorf("failed to get solana router program data: %w", err)
+	}
+	// addressing errcheck in the next PR
+	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+
+	instruction, err := solRouter.NewInitializeInstruction(
+		chain.Selector, // chain selector
+		// this is where the fee aggregator address would go (but have written a separate changeset to set that)
+		solana.PublicKey{},
+		feeQuoterAddress,
+		linkTokenAddress, // link token mint
+		rmnRemoteAddress,
+		routerConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+		ccipRouterProgram,
+		programData.Address,
+	).ValidateAndBuild()
+
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+		return fmt.Errorf("failed to confirm initializeRouter: %w", err)
+	}
+	e.Logger.Infow("Initialized router", "chain", chain.String())
+	return nil
+}
+
+func initializeFeeQuoter(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	ccipRouterProgram solana.PublicKey,
+	linkTokenAddress solana.PublicKey,
+	feeQuoterAddress solana.PublicKey,
+	offRampAddress solana.PublicKey,
+	params FeeQuoterParams,
+) error {
+	e.Logger.Debugw("Initializing fee quoter", "chain", chain.String(), "feeQuoterAddress", feeQuoterAddress.String())
+	programData, err := getSolProgramData(e, chain, feeQuoterAddress)
+	if err != nil {
+		return fmt.Errorf("failed to get solana router program data: %w", err)
+	}
+	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
+
+	instruction, err := solFeeQuoter.NewInitializeInstruction(
+		params.DefaultMaxFeeJuelsPerMsg,
+		ccipRouterProgram,
+		feeQuoterConfigPDA,
+		linkTokenAddress,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+		feeQuoterAddress,
+		programData.Address,
+	).ValidateAndBuild()
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+	fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
+
+	priceUpdaterix, err := solFeeQuoter.NewAddPriceUpdaterInstruction(
+		offRampBillingSignerPDA,
+		fqAllowedPriceUpdaterOfframpPDA,
+		feeQuoterConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+	if err := chain.Confirm([]solana.Instruction{instruction, priceUpdaterix}); err != nil {
+		return fmt.Errorf("failed to confirm initializeFeeQuoter: %w", err)
+	}
+	e.Logger.Infow("Initialized fee quoter", "chain", chain.String())
+	return nil
+}
+
+func initializeOffRamp(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	ccipRouterProgram solana.PublicKey,
+	feeQuoterAddress solana.PublicKey,
+	rmnRemoteAddress solana.PublicKey,
+	offRampAddress solana.PublicKey,
+	addressLookupTable solana.PublicKey,
+	params OffRampParams,
+) error {
+	e.Logger.Debugw("Initializing offRamp", "chain", chain.String(), "offRampAddress", offRampAddress.String())
+	programData, err := getSolProgramData(e, chain, offRampAddress)
+	if err != nil {
+		return fmt.Errorf("failed to get solana router program data: %w", err)
+	}
+	offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
+	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
+	offRampStatePDA, _, _ := solState.FindOfframpStatePDA(offRampAddress)
+
+	initIx, err := solOffRamp.NewInitializeInstruction(
+		offRampReferenceAddressesPDA,
+		ccipRouterProgram,
+		feeQuoterAddress,
+		rmnRemoteAddress,
+		addressLookupTable,
+		offRampStatePDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+		offRampAddress,
+		programData.Address,
+	).ValidateAndBuild()
+
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	initConfigIx, err := solOffRamp.NewInitializeConfigInstruction(
+		chain.Selector,
+		params.EnableExecutionAfter,
+		offRampConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+		offRampAddress,
+		programData.Address,
+	).ValidateAndBuild()
+
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+	if err := chain.Confirm([]solana.Instruction{initIx, initConfigIx}); err != nil {
+		return fmt.Errorf("failed to confirm initializeOffRamp: %w", err)
+	}
+	e.Logger.Infow("Initialized offRamp", "chain", chain.String())
+	return nil
+}
+
+func initializeRMNRemote(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	rmnRemoteProgram solana.PublicKey,
+) error {
+	e.Logger.Debugw("Initializing rmn remote", "chain", chain.String(), "rmnRemoteProgram", rmnRemoteProgram.String())
+	programData, err := getSolProgramData(e, chain, rmnRemoteProgram)
+	if err != nil {
+		return fmt.Errorf("failed to get solana router program data: %w", err)
+	}
+	rmnRemoteConfigPDA, _, _ := solState.FindRMNRemoteConfigPDA(rmnRemoteProgram)
+	rmnRemoteCursesPDA, _, _ := solState.FindRMNRemoteCursesPDA(rmnRemoteProgram)
+	instruction, err := solRmnRemote.NewInitializeInstruction(
+		rmnRemoteConfigPDA,
+		rmnRemoteCursesPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+		rmnRemoteProgram,
+		programData.Address,
+	).ValidateAndBuild()
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+		return fmt.Errorf("failed to confirm initializeRMNRemote: %w", err)
+	}
+	e.Logger.Infow("Initialized rmn remote", "chain", chain.String())
+	return nil
+}
+
+// UPGRADE FUNCTIONS
 func generateUpgradeTxns(
 	e deployment.Environment,
 	chain deployment.SolChain,
@@ -886,34 +879,6 @@ func generateUpgradeTxns(
 	return txns, nil
 }
 
-// DeployAndMaybeSaveToAddressBook deploys a program to the Solana chain and saves it to the address book
-// if it is not an upgrade. It returns the program ID of the deployed program.
-func DeployAndMaybeSaveToAddressBook(
-	e deployment.Environment,
-	chain deployment.SolChain,
-	ab deployment.AddressBook,
-	contractType deployment.ContractType,
-	version semver.Version,
-	isUpgrade bool) (solana.PublicKey, error) {
-	programName := getTypeToProgramDeployName()[contractType]
-	programID, err := chain.DeployProgram(e.Logger, programName, isUpgrade)
-	if err != nil {
-		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
-	}
-	address := solana.MustPublicKeyFromBase58(programID)
-
-	e.Logger.Infow("Deployed program", "Program", contractType, "addr", programID, "chain", chain.String(), "isUpgrade", isUpgrade)
-
-	if !isUpgrade {
-		tv := deployment.NewTypeAndVersion(contractType, version)
-		err = ab.Save(chain.Selector, programID, tv)
-		if err != nil {
-			return solana.PublicKey{}, fmt.Errorf("failed to save address: %w", err)
-		}
-	}
-	return address, nil
-}
-
 func generateUpgradeIxn(
 	e *deployment.Environment,
 	programID solana.PublicKey,
@@ -955,13 +920,13 @@ func generateExtendIxn(
 	// Derive the program data address
 	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
 
-	programDataSize, err := SolProgramSize(e, chain, programDataAccount)
+	programDataSize, err := GetSolProgramSize(e, chain, programDataAccount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get program size: %w", err)
 	}
 	e.Logger.Debugw("Program data size", "programDataSize", programDataSize)
 
-	bufferSize, err := SolProgramSize(e, chain, bufferAddress)
+	bufferSize, err := GetSolProgramSize(e, chain, bufferAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get buffer size: %w", err)
 	}
@@ -1017,160 +982,39 @@ func generateCloseBufferIxn(
 	return instruction, nil
 }
 
-type SetFeeAggregatorConfig struct {
-	ChainSelector uint64
-	FeeAggregator string
-	MCMSSolana    *MCMSConfigSolana
-}
-
-func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+// HELPER FUNCTIONS
+func GetSolProgramSize(e *deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (int, error) {
+	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
+		Commitment: deployment.SolDefaultCommitment,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
+		return 0, fmt.Errorf("failed to get account info: %w", err)
 	}
-	chainState, chainExists := state.SolChains[cfg.ChainSelector]
-	if !chainExists {
-		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
+	if accountInfo == nil {
+		return 0, fmt.Errorf("program account not found: %w", err)
 	}
-	chain := e.SolChains[cfg.ChainSelector]
-
-	if err := validateRouterConfig(chain, chainState); err != nil {
-		return err
-	}
-
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
-		return err
-	}
-
-	// Validate fee aggregator address is valid
-	if _, err := solana.PublicKeyFromBase58(cfg.FeeAggregator); err != nil {
-		return fmt.Errorf("invalid fee aggregator address: %w", err)
-	}
-
-	if solana.MustPublicKeyFromBase58(cfg.FeeAggregator).IsZero() {
-		return errors.New("fee aggregator address cannot be zero")
-	}
-
-	if chainState.GetFeeAggregator(chain).Equals(solana.MustPublicKeyFromBase58(cfg.FeeAggregator)) {
-		return fmt.Errorf("fee aggregator %s is already set on chain %d", cfg.FeeAggregator, cfg.ChainSelector)
-	}
-
-	return nil
+	programBytes := len(accountInfo.Value.Data.GetBinary())
+	return programBytes, nil
 }
 
-func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+func getSolProgramData(e deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (struct {
+	DataType uint32
+	Address  solana.PublicKey
+}, error) {
+	var programData struct {
+		DataType uint32
+		Address  solana.PublicKey
 	}
-
-	state, _ := ccipChangeset.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
-
-	feeAggregatorPubKey := solana.MustPublicKeyFromBase58(cfg.FeeAggregator)
-	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
-	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-
-	solRouter.SetProgramID(chainState.Router)
-	authority, err := GetAuthorityForIxn(
-		&e,
-		chain,
-		cfg.MCMSSolana,
-		ccipChangeset.Router,
-		solana.PublicKey{})
+	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &solRpc.GetAccountInfoOpts{
+		Commitment: solRpc.CommitmentConfirmed,
+	})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
+		return programData, fmt.Errorf("failed to deploy program: %w", err)
 	}
-	instruction, err := solRouter.NewUpdateFeeAggregatorInstruction(
-		feeAggregatorPubKey,
-		routerConfigPDA,
-		authority,
-		solana.SystemProgramID,
-	).ValidateAndBuild()
+
+	err = solBinary.UnmarshalBorsh(&programData, data.Bytes())
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
 	}
-
-	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
-		}
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to SetFeeAggregator in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
-		}
-		return deployment.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-		}, nil
-	}
-
-	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-	}
-	e.Logger.Infow("Set new fee aggregator", "chain", chain.String(), "fee_aggregator", feeAggregatorPubKey.String())
-
-	return deployment.ChangesetOutput{}, nil
-}
-
-type DeployForTestConfig struct {
-	ChainSelector uint64
-}
-
-func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
-	chainState, chainExists := state.SolChains[cfg.ChainSelector]
-	if !chainExists {
-		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
-	}
-	chain := e.SolChains[cfg.ChainSelector]
-
-	return validateRouterConfig(chain, chainState)
-}
-
-func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-
-	state, _ := ccipChangeset.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
-	ab := deployment.NewMemoryAddressBook()
-
-	var receiverAddress solana.PublicKey
-	var err error
-	if chainState.Receiver.IsZero() {
-		receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
-		}
-	} else {
-		e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
-		receiverAddress = chainState.Receiver
-	}
-
-	solTestReceiver.SetProgramID(receiverAddress)
-	externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
-	instruction, ixErr := solTestReceiver.NewInitializeInstruction(
-		chainState.Router,
-		ccipChangeset.FindReceiverTargetAccount(receiverAddress),
-		externalExecutionConfigPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-	if ixErr != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", ixErr)
-	}
-	if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-	}
-
-	return deployment.ChangesetOutput{
-		AddressBook: ab,
-	}, nil
+	return programData, nil
 }
