@@ -526,32 +526,11 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
 
-	var contractTransmitter ContractTransmitter
-	evmContractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
 	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
 	if err != nil {
 		return nil, err
-	}
-
-	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
-		tronTransmitter, err := NewTronContractTransmitter(ctx, r.lggr, TronContractTransmitterOpts{
-			EVMTransmitter:        evmContractTransmitter,
-			Keystore:              r.evmKeystore,
-			ConfigWatcher:         configWatcher,
-			ConfigTransmitterOpts: configTransmitterOpts{subjectID: &subjectID},
-		}, WithReportToEthMetadata(fn), WithRetention(0))
-		if err != nil {
-			return nil, err
-		}
-
-		if err := tronTransmitter.Start(ctx); err != nil {
-			return nil, err
-		}
-
-		contractTransmitter = tronTransmitter
-	} else {
-		contractTransmitter = evmContractTransmitter
 	}
 
 	return NewDstCommitProvider(
@@ -632,27 +611,11 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
 
-	var contractTransmitter ContractTransmitter
-	evmContractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
 	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0), WithExcludeSignatures())
 	if err != nil {
 		return nil, err
-	}
-
-	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
-		tronTransmitter, err := NewTronContractTransmitter(ctx, r.lggr, TronContractTransmitterOpts{
-			EVMTransmitter:        evmContractTransmitter,
-			Keystore:              r.evmKeystore,
-			ConfigWatcher:         configWatcher,
-			ConfigTransmitterOpts: configTransmitterOpts{subjectID: &subjectID},
-		}, WithReportToEthMetadata(fn), WithRetention(0), WithExcludeSignatures())
-		if err != nil {
-			return nil, err
-		}
-		contractTransmitter = tronTransmitter
-	} else {
-		contractTransmitter = evmContractTransmitter
 	}
 
 	return NewDstExecProvider(
@@ -858,7 +821,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		return nil, err
 	}
 
-	return NewOCRContractTransmitter(
+	evmTransmitter, err := NewOCRContractTransmitter(
 		ctx,
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
@@ -869,6 +832,25 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		ethKeystore,
 		ocrTransmitterOpts...,
 	)
+
+	// This code path should only be called when running CCIP 1.5 jobs on Tron.
+	// All other products should use the standard Tron relayer implementation.
+	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
+		return NewTronContractTransmitter(ctx, TronContractTransmitterOpts{
+			Logger:             lggr,
+			TransmissionsCache: NewTronTransmissionsCache(evmTransmitter),
+			Keystore:           ethKeystore,
+			ConfigWatcher:      configWatcher,
+			OCRTransmitterOpts: ocrTransmitterOpts,
+			// From testing, this multipler ensures all exec messages are fully executed.
+			// Energy estimation doesn't seem to account for more complex smart contract execution.
+			// Given that Tron has static gas prices, we don't expect this to be a problem as this multipler is increadibly high.
+			EnergyMultiplier: 3,
+			StatusChecker:    true, // StatusChecker is only enforced for exec messages. Logic inside the TXM handles the difference
+		})
+	}
+
+	return evmTransmitter, err
 }
 
 // newOnChainDualContractTransmitter creates a new dual contract transmitter.
