@@ -65,8 +65,9 @@ import (
 )
 
 type Node struct {
-	// TODO We need the node's ID here. Needed in JobClient's ListNodeChainConfigs.
-	App chainlink.Application
+	ID   string
+	Name string
+	App  chainlink.Application
 	// Transmitter key/OCR keys for this node
 	Chains     []uint64 // chain selectors
 	Keys       Keys
@@ -180,6 +181,7 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 		transmitter := n.Keys.Transmitters[selector]
 
 		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
+			NodeId: n.ID,
 			Chain: &nodev1.Chain{
 				Id:   chainID,
 				Type: ctype,
