@@ -1464,7 +1464,7 @@ func deployDonIDClaimerContract(e deployment.Environment, ab deployment.AddressB
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy donIdClaimer contract", "chain", chain.String(), "err", err)
+			e.Logger.Errorw("Failed to deploy donIDClaimer contract", "chain", chain.String(), "err", err)
 			return err
 		}
 	} else {
@@ -1495,14 +1495,14 @@ func DonIDClaimerOffSetChangeset(e deployment.Environment, cfg DonIDClaimerOffSe
 	}
 
 	// perform the offset operation
-	donIdClaimer := state.Chains[cfg.HomeChainSelector].DonIDClaimer
+	donIDClaimer := state.Chains[cfg.HomeChainSelector].DonIDClaimer
 
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	txOpts.Context = e.GetContext()
 
-	tx, err := donIdClaimer.SyncNextDONIdWithOffset(txOpts, cfg.OffSet)
+	tx, err := donIDClaimer.SyncNextDONIdWithOffset(txOpts, cfg.OffSet)
 	if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.HomeChainSelector], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error apply offset to donIdClaimer for chain %d: %w", cfg.HomeChainSelector, err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("error apply offset to donIDClaimer for chain %d: %w", cfg.HomeChainSelector, err)
 	}
 
 	return deployment.ChangesetOutput{}, err
