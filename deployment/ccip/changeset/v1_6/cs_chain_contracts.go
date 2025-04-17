@@ -1267,7 +1267,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
 		if !cfg.SkipOwnershipCheck {
-			if cfg.TestRouter {
+			if cfg.TestRouter || cfg.MCMS == nil {
 				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
 					return err
 				}
