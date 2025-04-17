@@ -629,14 +629,14 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 
 		info, err := rpcClient.GetAccountInfo(ctx, acc.PublicKey())
 		if err != nil {
-			lggr.Errorw("failed to get account info", err)
+			lggr.Errorw("failed to get account info", "error", err)
 			return err
 		}
 		lggr.Infow("account info ", "account", acc.PublicKey().String(), "info", info)
 
 		_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixAtaUser, ixApprove}, acc, solconfig.DefaultCommitment)
 		if err != nil {
-			lggr.Errorw("failed to send and confirm 1", err)
+			lggr.Errorw("failed to send and confirm 1", "error", err)
 			return err
 		}
 
@@ -644,7 +644,7 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 		transferAmount := 1e2 * solana.LAMPORTS_PER_SOL
 		ixTransfer, err := soltokens.NativeTransfer(tokenProgram, transferAmount, acc.PublicKey(), accountWSOL)
 		if err != nil {
-			lggr.Errorw("failed to create transfer instruction", err)
+			lggr.Errorw("failed to create transfer instruction", "error", err)
 			return err
 		}
 		ixSync, err := soltokens.SyncNative(tokenProgram, accountWSOL)
