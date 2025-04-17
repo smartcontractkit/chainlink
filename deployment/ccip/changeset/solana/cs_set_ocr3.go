@@ -97,7 +97,6 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 		proposers[remote] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
 		inspectors[remote] = mcmsSolana.NewInspector(chain.Client)
 
-		var instructions []solana.Instruction
 		var txns []mcmsTypes.Transaction
 		offRampConfigPDA := state.SolChains[remote].OffRampConfigPDA
 		offRampStatePDA := state.SolChains[remote].OffRampStatePDA
@@ -138,7 +137,9 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 			}
 			if cfg.MCMS == nil {
-				instructions = append(instructions, instruction)
+				if err := e.SolChains[remote].Confirm([]solana.Instruction{instruction}); err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+				}
 			} else {
 				tx, err := BuildMCMSTxn(instruction, state.SolChains[remote].OffRamp.String(), ccipChangeset.OffRamp)
 				if err != nil {
@@ -147,11 +148,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 				txns = append(txns, *tx)
 			}
 		}
-		if cfg.MCMS == nil {
-			if err := e.SolChains[remote].Confirm(instructions); err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-			}
-		} else {
+		if cfg.MCMS != nil {
 			batches = append(batches, mcmsTypes.BatchOperation{
 				ChainSelector: mcmsTypes.ChainSelector(remote),
 				Transactions:  txns,
