@@ -31,7 +31,7 @@ func NewTronTransmissionsCache(evmTransmitter ContractTransmitter) tron.Transmis
 func (t *tronTransmissionsCache) LatestTransmissionDetails(ctx context.Context) (types.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
 	configDigest, epoch, err := t.evmTransmitter.LatestConfigDigestAndEpoch(ctx)
 	if err != nil {
-		return types.ConfigDigest{}, 0, 0, nil, time.Time{}, err
+		return types.ConfigDigest{}, 0, 0, nil, time.Time{}, fmt.Errorf("failed to proxy the call to the EVM transmitter: %w", err)
 	}
 	return configDigest, epoch, 0, nil, time.Time{}, nil
 }
@@ -55,7 +55,7 @@ func NewTronContractTransmitter(ctx context.Context, opts TronContractTransmitte
 
 	senderAddress, err := opts.Keystore.GetNextAddress(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get sender address: %w", err)
 	}
 
 	// Construct the Tron contract transmitter, it's slightly different from the EVM contract transmitter and due to mismatching types we have to apply the transmitter options manually
