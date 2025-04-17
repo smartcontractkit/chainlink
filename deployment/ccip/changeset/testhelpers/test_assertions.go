@@ -447,7 +447,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	}
 }
 
-type eventWithTxn[T any] struct {
+type EventWithTxn[T any] struct {
 	Event T
 	Txn   *solrpc.GetTransactionResult
 }
@@ -460,8 +460,8 @@ func SolEventEmitter[T any](
 	startSlot uint64,
 	done chan any,
 	ticker *time.Ticker,
-) (<-chan eventWithTxn[T], <-chan error) {
-	ch := make(chan eventWithTxn[T])
+) (<-chan EventWithTxn[T], <-chan error) {
+	ch := make(chan EventWithTxn[T])
 	errorCh := make(chan error)
 	go func() {
 		defer ticker.Stop()
@@ -526,7 +526,7 @@ func SolEventEmitter[T any](
 
 					for _, event := range events {
 						select {
-						case ch <- eventWithTxn[T]{
+						case ch <- EventWithTxn[T]{
 							Event: event,
 							Txn:   tx,
 						}:
