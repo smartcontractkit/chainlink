@@ -20,12 +20,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -1034,14 +1036,14 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 			})
 		}
 		tx, err := fq.ApplyDestChainConfigUpdates(txOpts, args)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[chainSel], tx, fee_quoter.FeeQuoterABI, err); err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
 		} else {
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
 			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, fq.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(changeset.FeeQuoter), []string{})
 			if err != nil {
