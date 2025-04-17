@@ -257,11 +257,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			// Start goroutines to gather changes from Workflow Registry contract
 			switch w.syncStrategy {
 			case SyncStrategyEvent:
-				w.wg.Add(1)
-				go func() {
-					defer w.wg.Done()
-					w.syncUsingEventStrategy(ctx, don, reader)
-				}()
+				w.syncUsingEventStrategy(ctx, don, reader)
 			case SyncStrategyReconciliation:
 				w.syncUsingReconciliationStrategy(ctx, don, reader)
 			}
@@ -416,45 +412,48 @@ func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capab
 	w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
 
 	workflowMetadata, loadWorkflowsHead, err := w.getWorkflowMetadata(ctx, don, reader)
-	// TODO: if this fails, we should still start the event looping
 	if err != nil {
 		w.lggr.Errorw("failed to load initial workflows", "err", err)
-		return
 	}
 
-	w.lggr.Debugw("Rehydrating existing workflows", "len", len(workflowMetadata))
-	for _, workflow := range workflowMetadata {
-		select {
-		case <-ctx.Done():
-			w.lggr.Debug("shut down during initial workflow registration")
-			return
-		case w.eventCh <- workflowAsEvent{
-			Data: WorkflowRegistryWorkflowRegisteredV1{
-				WorkflowID:    workflow.WorkflowID,
-				WorkflowOwner: workflow.Owner,
-				DonID:         workflow.DonID,
-				Status:        workflow.Status,
-				WorkflowName:  workflow.WorkflowName,
-				BinaryURL:     workflow.BinaryURL,
-				ConfigURL:     workflow.ConfigURL,
-				SecretsURL:    workflow.SecretsURL,
-			},
-			EventType: WorkflowRegisteredEvent,
-		}:
+	w.wg.Add(1)
+	go func() {
+		defer w.wg.Done()
+
+		w.lggr.Debugw("Rehydrating existing workflows", "len", len(workflowMetadata))
+		for _, workflow := range workflowMetadata {
+			select {
+			case <-ctx.Done():
+				w.lggr.Debug("shut down during initial workflow registration")
+				return
+			case w.eventCh <- workflowAsEvent{
+				Data: WorkflowRegistryWorkflowRegisteredV1{
+					WorkflowID:    workflow.WorkflowID,
+					WorkflowOwner: workflow.Owner,
+					DonID:         workflow.DonID,
+					Status:        workflow.Status,
+					WorkflowName:  workflow.WorkflowName,
+					BinaryURL:     workflow.BinaryURL,
+					ConfigURL:     workflow.ConfigURL,
+					SecretsURL:    workflow.SecretsURL,
+				},
+				EventType: WorkflowRegisteredEvent,
+			}:
+			}
 		}
-	}
 
-	// Poll for all workflow related events
-	ets := []WorkflowRegistryEventType{
-		ForceUpdateSecretsEvent,
-		WorkflowActivatedEvent,
-		WorkflowDeletedEvent,
-		WorkflowPausedEvent,
-		WorkflowRegisteredEvent,
-		WorkflowUpdatedEvent,
-	}
+		// Poll for all workflow related events
+		ets := []WorkflowRegistryEventType{
+			ForceUpdateSecretsEvent,
+			WorkflowActivatedEvent,
+			WorkflowDeletedEvent,
+			WorkflowPausedEvent,
+			WorkflowRegisteredEvent,
+			WorkflowUpdatedEvent,
+		}
 
-	w.readRegistryEventsLoop(ctx, ets, don, reader, loadWorkflowsHead.Height)
+		w.readRegistryEventsLoop(ctx, ets, don, reader, loadWorkflowsHead.Height)
+	}()
 }
 
 // workflowMetadataToEvents compares the workflow registry workflow metadata state against the engine registry's state.
@@ -728,7 +727,7 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 		var workflows GetWorkflowMetadataListByDONReturnVal
 		headAtLastRead, err = contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Finalized, params, &workflows)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get lastest value with head data %w", err)
+			return []GetWorkflowMetadata{}, &types.Head{Height: "0"}, fmt.Errorf("failed to get lastest value with head data %w", err)
 		}
 
 		allWorkflows = append(allWorkflows, workflows.WorkflowMetadataList...)
