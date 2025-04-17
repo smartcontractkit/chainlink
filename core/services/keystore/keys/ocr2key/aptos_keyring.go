@@ -56,8 +56,24 @@ func (akr *aptosKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.
 	return akr.SignBlob(sigData)
 }
 
+func (ekr *aptosKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) ([]byte, error) {
+	rawReportContext := RawReportContext3(digest, seqNr)
+	h, err := blake2b.New256(nil)
+	if err != nil {
+		return nil, err
+	}
+	h.Write(r)
+	h.Write(rawReportContext[0][:])
+	h.Write(rawReportContext[1][:])
+	return h.Sum(nil), nil
+}
+
 func (akr *aptosKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
-	return nil, errors.New("not implemented")
+	sigData, err := akr.reportToSigData3(digest, seqNr, r)
+	if err != nil {
+		return nil, err
+	}
+	return akr.SignBlob(sigData)
 }
 
 func (akr *aptosKeyring) SignBlob(b []byte) ([]byte, error) {
@@ -74,8 +90,12 @@ func (akr *aptosKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx o
 	return akr.VerifyBlob(publicKey, hash, signature)
 }
 
-func (akr *aptosKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
-	return false
+func (akr *aptosKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
+	sigData, err := akr.reportToSigData3(digest, seqNr, r)
+	if err != nil {
+		return false
+	}
+	return akr.VerifyBlob(publicKey, sigData, signature)
 }
 
 func (akr *aptosKeyring) VerifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []byte) bool {
