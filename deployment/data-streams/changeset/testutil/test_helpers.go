@@ -109,16 +109,20 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 	// Apply node labels:
 	resp, err := env.Offchain.ListNodes(t.Context(), &nodev1.ListNodesRequest{})
 	require.NoError(t, err)
-	for _, node := range resp.Nodes {
+	for i, node := range resp.Nodes {
 		for _, label := range cfg.NodeLabels {
 			node.Labels = append(node.Labels, &ptypes.Label{
 				Key:   label.Key,
 				Value: label.Value,
 			})
 		}
+		nodeName := node.Name
+		if nodeName == "" {
+			nodeName = fmt.Sprintf("node-%d", i)
+		}
 		_, err = env.Offchain.UpdateNode(t.Context(), &nodev1.UpdateNodeRequest{
 			Id:        node.Id,
-			Name:      node.Name,
+			Name:      nodeName,
 			PublicKey: node.PublicKey,
 			Labels:    node.Labels,
 		})
