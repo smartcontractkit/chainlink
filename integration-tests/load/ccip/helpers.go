@@ -649,12 +649,12 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 		}
 		ixSync, err := soltokens.SyncNative(tokenProgram, accountWSOL)
 		if err != nil {
-			lggr.Errorw("failed to create sync instruction", err)
+			lggr.Errorw("failed to create sync instruction", "error", err)
 			return err
 		}
 		_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixTransfer, ixSync}, acc, solconfig.DefaultCommitment)
 		if err != nil {
-			lggr.Errorw("failed to send and confirm 2", err)
+			lggr.Errorw("failed to send and confirm 2", "error", err)
 			return err
 		}
 	}
