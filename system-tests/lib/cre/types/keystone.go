@@ -617,6 +617,7 @@ type RegisterWorkflowWithCRECLIInput struct {
 	CRESettingsFile          *os.File
 	NewWorkflow              *NewWorkflow
 	ExistingWorkflow         *ExistingWorkflow
+	CRECLIProfile            string
 }
 
 type NewWorkflow struct {

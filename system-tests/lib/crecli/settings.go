@@ -9,39 +9,47 @@ import (
 )
 
 const (
-	CRECLISettingsFileName = ".cre-cli-settings.yaml"
+	CRECLISettingsFileName     = "cre.yaml"
+	CRECLIWorkflowSettingsFile = "workflow.yaml"
 )
 
+type Profiles struct {
+	Test               Settings `yaml:"test,omitempty"`
+	Staging            Settings `yaml:"staging,omitempty"`
+	ProductionTestinet Settings `yaml:"production-testnet,omitempty"`
+	Production         Settings `yaml:"production,omitempty"`
+}
+
 type Settings struct {
-	DevPlatform  DevPlatform  `yaml:"dev-platform"`
-	UserWorkflow UserWorkflow `yaml:"user-workflow"`
-	Logging      Logging      `yaml:"logging"`
-	McmsConfig   McmsConfig   `yaml:"mcms-config"`
-	Contracts    Contracts    `yaml:"contracts"`
-	Rpcs         []RPC        `yaml:"rpcs"`
+	DevPlatform     DevPlatform     `yaml:"dev-platform,omitempty"`
+	UserWorkflow    UserWorkflow    `yaml:"user-workflow,omitempty"`
+	Logging         Logging         `yaml:"logging,omitempty"`
+	McmsConfig      McmsConfig      `yaml:"mcms-config,omitempty"`
+	Contracts       Contracts       `yaml:"contracts,omitempty"`
+	Rpcs            []RPC           `yaml:"rpcs,omitempty"`
+	WorkflowStorage WorkflowStorage `yaml:"workflow_storage,omitempty"`
 }
 
 type DevPlatform struct {
-	CapabilitiesRegistryAddress string `yaml:"capabilities-registry-contract-address"`
-	DonID                       uint32 `yaml:"don-id"`
-	WorkflowRegistryAddress     string `yaml:"workflow-registry-contract-address"`
+	DonID uint32 `yaml:"don-id,omitempty"`
 }
 
 type UserWorkflow struct {
-	WorkflowOwnerAddress string `yaml:"workflow-owner-address"`
+	WorkflowOwnerAddress string `yaml:"workflow-owner-address,omitempty"`
+	WorkflowName         string `yaml:"workflow-name,omitempty"`
 }
 
 type Logging struct {
-	SethConfigPath string `yaml:"seth-config-path"`
+	SethConfigPath string `yaml:"seth-config-path,omitempty"`
 }
 
 type McmsConfig struct {
-	ProposalsDirectory string `yaml:"proposals-directory"`
+	ProposalsDirectory string `yaml:"proposals-directory,omitempty"`
 }
 
 type Contracts struct {
-	ContractRegistry []ContractRegistry `yaml:"registries"`
-	DataFeeds        []ContractRegistry `yaml:"data-feeds"`
+	ContractRegistry []ContractRegistry `yaml:"registries,omitempty"`
+	DataFeeds        []ContractRegistry `yaml:"data-feeds,omitempty"`
 }
 
 type ContractRegistry struct {
@@ -55,6 +63,14 @@ type RPC struct {
 	URL           string `yaml:"url"`
 }
 
+type WorkflowStorage struct {
+	Gist Gist `yaml:"gist"`
+}
+
+type Gist struct {
+	GithubToken string `yaml:"github_token"`
+}
+
 type PoRWorkflowConfig struct {
 	FeedID          string `json:"feed_id"`
 	URL             string `json:"url"`
@@ -62,17 +78,34 @@ type PoRWorkflowConfig struct {
 	WriteTargetName string `json:"write_target_name"`
 }
 
-func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr common.Address, dataFeedsCacheAddress *common.Address, donID uint32, chainSelector uint64, rpcHTTPURL string) (*os.File, error) {
-	settingsFile, err := os.CreateTemp("", CRECLISettingsFileName)
+func setProfile(profile string, settings Settings) (Profiles, error) {
+	var profiles Profiles
+
+	switch profile {
+	case "test":
+		profiles = Profiles{Test: settings}
+	case "staging":
+		profiles = Profiles{Staging: settings}
+	case "production-testnet":
+		profiles = Profiles{ProductionTestinet: settings}
+	case "production":
+		profiles = Profiles{Production: settings}
+	default:
+		return Profiles{}, errors.Errorf("invalid profile: %s", profile)
+	}
+
+	return profiles, nil
+}
+
+func PrepareCRECLISettingsFile(profile string, workflowOwner, capRegAddr, workflowRegistryAddr common.Address, dataFeedsCacheAddress *common.Address, donID uint32, chainSelector uint64, rpcHTTPURL string) (*os.File, error) {
+	settingsFile, err := os.Create(CRECLISettingsFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create CRE CLI settings file")
 	}
 
-	settings := Settings{
+	profileSettings := Settings{
 		DevPlatform: DevPlatform{
-			CapabilitiesRegistryAddress: capRegAddr.Hex(),
-			DonID:                       donID,
-			WorkflowRegistryAddress:     workflowRegistryAddr.Hex(),
+			DonID: donID,
 		},
 		UserWorkflow: UserWorkflow{
 			WorkflowOwnerAddress: workflowOwner.Hex(),
@@ -101,16 +134,26 @@ func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr c
 				URL:           rpcHTTPURL,
 			},
 		},
+		WorkflowStorage: WorkflowStorage{
+			Gist: Gist{
+				GithubToken: `${CRE_GITHUB_API_TOKEN}`,
+			},
+		},
 	}
 
 	if dataFeedsCacheAddress != nil {
-		settings.Contracts.DataFeeds = []ContractRegistry{
+		profileSettings.Contracts.DataFeeds = []ContractRegistry{
 			{
 				Name:          "DataFeedsCache",
 				Address:       dataFeedsCacheAddress.Hex(),
 				ChainSelector: chainSelector,
 			},
 		}
+	}
+
+	settings, err := setProfile(profile, profileSettings)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to set profile")
 	}
 
 	settingsMarshalled, err := yaml.Marshal(settings)
@@ -121,6 +164,37 @@ func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr c
 	_, err = settingsFile.Write(settingsMarshalled)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to write %s settings file", CRECLISettingsFileName)
+	}
+
+	return settingsFile, nil
+}
+
+func PrepareCRECLIWorkflowSettingsFile(profile string, workflowOwner common.Address, workflowName string) (*os.File, error) {
+	settingsFile, err := os.CreateTemp("", CRECLIWorkflowSettingsFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create CRE CLI workflow settings file")
+	}
+
+	profileSettings := Settings{
+		UserWorkflow: UserWorkflow{
+			WorkflowOwnerAddress: workflowOwner.Hex(),
+			WorkflowName:         workflowName,
+		},
+	}
+
+	settings, err := setProfile(profile, profileSettings)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to set profile")
+	}
+
+	settingsMarshalled, err := yaml.Marshal(settings)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal CRE CLI settings")
+	}
+
+	_, err = settingsFile.Write(settingsMarshalled)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to write %s settings file", CRECLIWorkflowSettingsFile)
 	}
 
 	return settingsFile, nil

@@ -26,7 +26,7 @@
 
   [workflow_config.dependencies]
   cron_capability_binary_path = "./cron"
-  cre_cli_binary_path = "./cre_v0.1.5_linux_amd64"
+  cre_cli_binary_path = "./cre_v0.2.0-alpha.1_linux_amd64"
 
   [workflow_config.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/1a2f6f7d9424bcb176a7cee31112bc11/raw/0e3859564f92c141cb856c65ef7a3db711588c08/binary.wasm.br.b64"

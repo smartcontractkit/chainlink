@@ -158,6 +158,7 @@ var startCmd = &cobra.Command{
 
 		sErr := func() error {
 			creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
+				"test",
 				output.BlockchainOutput.SethClient.MustGetRootKeyAddress(),
 				output.KeystoneContractsOutput.CapabilitiesRegistryAddress,
 				output.KeystoneContractsOutput.WorkflowRegistryAddress,

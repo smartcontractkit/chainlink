@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,13 +19,28 @@ type CompilationResult struct {
 	ConfigURL   string
 }
 
-func CompileWorkflow(creCLICommandPath, workflowFolder string, configFile *string, settingsFile *os.File) (CompilationResult, error) {
+func CompileWorkflow(creCLICommandPath, workflowFolder string, configFile *string, workflowSettingsFile, settingsFile *os.File) (CompilationResult, error) {
 	var outputBuffer bytes.Buffer
 
 	// the CLI expects the workflow code to be located in the same directory as its `go.mod`` file. That's why we assume that the file, which
 	// contains the entrypoint method is always named `main.go`. This is a limitation of the CLI, which we can't change.
 
-	compileArgs := []string{"workflow", "compile", "-S", settingsFile.Name()}
+	cliFile, err := os.Create(filepath.Join(workflowFolder, CRECLISettingsFileName))
+	if err != nil {
+		return CompilationResult{}, err
+	}
+
+	settingsFileBytes, err := os.ReadFile(settingsFile.Name())
+	if err != nil {
+		return CompilationResult{}, err
+	}
+
+	_, err = cliFile.Write(settingsFileBytes)
+	if err != nil {
+		return CompilationResult{}, err
+	}
+
+	compileArgs := []string{"workflow", "compile", "-S", workflowSettingsFile.Name()}
 	if configFile != nil {
 		compileArgs = append(compileArgs, "-c", *configFile)
 	}
@@ -33,7 +49,7 @@ func CompileWorkflow(creCLICommandPath, workflowFolder string, configFile *strin
 	compileCmd.Stdout = &outputBuffer
 	compileCmd.Stderr = &outputBuffer
 	compileCmd.Dir = workflowFolder
-	err := compileCmd.Start()
+	err = compileCmd.Start()
 	if err != nil {
 		return CompilationResult{}, errors.Wrap(err, "failed to start compile command")
 	}
@@ -75,8 +91,8 @@ func CompileWorkflow(creCLICommandPath, workflowFolder string, configFile *strin
 }
 
 // Same command to register a workflow or update an existing one
-func DeployWorkflow(creCLICommandPath, workflowName, workflowURL string, configURL, secretsURL *string, settingsFile *os.File) error {
-	commandArgs := []string{"workflow", "deploy", workflowName, "-b", workflowURL, "-S", settingsFile.Name(), "-v"}
+func DeployWorkflow(creCLICommandPath, workflowURL string, configURL, secretsURL *string, settingsFile *os.File) error {
+	commandArgs := []string{"workflow", "deploy", "-b", workflowURL, "-S", settingsFile.Name(), "-v"}
 	if configURL != nil {
 		commandArgs = append(commandArgs, "-c", *configURL)
 	}

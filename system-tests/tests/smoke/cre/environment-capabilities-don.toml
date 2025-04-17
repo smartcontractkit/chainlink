@@ -27,7 +27,7 @@
 
   [workflow_config.dependencies]
   cron_capability_binary_path = "./cron"
-  cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
+  cre_cli_binary_path = "./cre_v0.2.0-alpha.1_darwin_arm64"
 
 [[nodesets]]
   nodes = 5

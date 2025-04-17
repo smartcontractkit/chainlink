@@ -161,8 +161,7 @@ type DependenciesConfig struct {
 }
 
 const (
-	CronBinaryVersion   = "v1.0.2-alpha"
-	CRECLIBinaryVersion = "v0.1.5"
+	CRECLIProfile = "test"
 )
 
 // Defines the location of already compiled workflow binary and config files
@@ -209,6 +208,7 @@ type registerPoRWorkflowInput struct {
 	deployerPrivateKey      string
 	creCLIAbsPath           string
 	creCLIsettingsFile      *os.File
+	creCLIProfile           string
 }
 
 type configureDataFeedsCacheInput struct {
@@ -237,6 +237,10 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 		err := os.Setenv("CRE_ETH_PRIVATE_KEY", input.deployerPrivateKey)
 		if err != nil {
 			return errors.Wrap(err, "failed to set CRE_ETH_PRIVATE_KEY")
+		}
+		err = os.Setenv("CRE_PROFILE", CRECLIProfile)
+		if err != nil {
+			return errors.Wrap(err, "failed to set CRE_PROFILE")
 		}
 
 		dfAdminErr := libcrecli.SetFeedAdmin(input.creCLIAbsPath, chainIDInt, input.sethClient.MustGetRootKeyAddress(), input.settingsFile)
@@ -329,6 +333,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 		CRESettingsFile:          input.creCLIsettingsFile,
 		WorkflowName:             input.WorkflowConfig.WorkflowName,
 		ShouldCompileNewWorkflow: input.WorkflowConfig.ShouldCompileNewWorkflow,
+		CRECLIProfile:            input.creCLIProfile,
 	}
 
 	if input.WorkflowConfig.ShouldCompileNewWorkflow {
@@ -444,6 +449,7 @@ func setupPoRTestEnvironment(
 		// create CRE CLI settings file
 		var settingsErr error
 		creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(
+			CRECLIProfile,
 			universalSetupOutput.BlockchainOutput.SethClient.MustGetRootKeyAddress(),
 			universalSetupOutput.KeystoneContractsOutput.CapabilitiesRegistryAddress,
 			universalSetupOutput.KeystoneContractsOutput.WorkflowRegistryAddress,
@@ -484,6 +490,7 @@ func setupPoRTestEnvironment(
 		creCLIAbsPath:           creCLIAbsPath,
 		creCLIsettingsFile:      creCLISettingsFile,
 		writeTargetName:         corevm.GenerateWriteTargetName(universalSetupOutput.BlockchainOutput.ChainID),
+		creCLIProfile:           CRECLIProfile,
 	}
 
 	workflowErr := registerPoRWorkflow(registerInput)

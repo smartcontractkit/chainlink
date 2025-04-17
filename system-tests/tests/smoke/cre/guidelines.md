@@ -111,7 +111,7 @@ If you have access to the production ECR, you can also pull the image from there
 
 Download the CRE CLI binary compiled for your host machine's architecture from the [smartcontractkit/dev-platform](https://github.com/smartcontractkit/dev-platform) repository. Alternatively, build it on your local machine for operating system and architecture matching yours.
 
-**Supported version**: v0.1.5
+**Supported version**: v0.2.0-alpha.1
 
 ---
 
