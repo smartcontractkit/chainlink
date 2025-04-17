@@ -62,9 +62,9 @@ chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
 .PHONY: install-loopinstall
-# TODO: update this to the commit on trunk when chainlink-common PR is merged.
 install-loopinstall:
-	go install $(GOFLAGS) github.com/smartcontractkit/chainlink-common/pkg/loop/loopinstall@e9459196f613f538e1a2592f7102224759524966
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-common) && \
+	go install $(GOFLAGS) ./pkg/loop/cmd/loopinstall
 
 .PHONY: install-plugins-public
 install-plugins-public: ## Build & install public remote LOOPP binaries (plugins).
