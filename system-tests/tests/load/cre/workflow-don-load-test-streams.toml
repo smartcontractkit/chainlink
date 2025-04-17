@@ -1,3 +1,4 @@
+duration = "2h"
 [[blockchains]]
   chain_id = "1337"
   type = "anvil"
