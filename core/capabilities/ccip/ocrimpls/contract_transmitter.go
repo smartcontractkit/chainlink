@@ -31,15 +31,22 @@ type ToCalldataFunc func(
 	codec ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error)
 
+type ToEd25519CalldataFunc func(
+	rawReportCtx [2][32]byte,
+	report ocr3types.ReportWithInfo[[]byte],
+	signatures [][96]byte,
+	codec ccipcommon.ExtraDataCodec,
+) (contract string, method string, args any, err error)
+
 var _ ocr3types.ContractTransmitter[[]byte] = &ccipTransmitter{}
 
 type ccipTransmitter struct {
-	cw             commontypes.ContractWriter
-	fromAccount    ocrtypes.Account
-	offrampAddress string
-	toCalldataFn   ToCalldataFunc
-	extraDataCodec ccipcommon.ExtraDataCodec
-	lggr           logger.Logger
+	cw                  commontypes.ContractWriter
+	fromAccount         ocrtypes.Account
+	offrampAddress      string
+	toCalldataFn        ToCalldataFunc
+	toEd25519CalldataFn ToEd25519CalldataFunc
+	extraDataCodec      ccipcommon.ExtraDataCodec
 }
 
 func XXXNewContractTransmitterTestsOnly(
@@ -81,20 +88,8 @@ func (c *ccipTransmitter) Transmit(
 	reportWithInfo ocr3types.ReportWithInfo[[]byte],
 	sigs []ocrtypes.AttributedOnchainSignature,
 ) error {
-	var rs [][32]byte
-	var ss [][32]byte
-	var vs [32]byte
 	if len(sigs) > 32 {
 		return errors.New("too many signatures, maximum is 32")
-	}
-	for i, as := range sigs {
-		r, s, v, err := evmutil.SplitSignature(as.Signature)
-		if err != nil {
-			return fmt.Errorf("failed to split signature: %w", err)
-		}
-		rs = append(rs, r)
-		ss = append(ss, s)
-		vs[i] = v
 	}
 
 	// report ctx for OCR3 consists of the following
@@ -102,14 +97,48 @@ func (c *ccipTransmitter) Transmit(
 	// reportContext[1]: 24 byte padding, 8 byte sequence number
 	rawReportCtx := ocr2key.RawReportContext3(configDigest, seqNr)
 
-	if c.toCalldataFn == nil {
-		return errors.New("toCalldataFn is nil")
-	}
+	var contract string
+	var method string
+	var args any
+	var err error
 
-	// chain writer takes in the raw calldata and packs it on its own.
-	contract, method, args, err := c.toCalldataFn(rawReportCtx, reportWithInfo, rs, ss, vs, c.extraDataCodec)
-	if err != nil {
-		return fmt.Errorf("failed to generate call data: %w", err)
+	if c.toCalldataFn != nil {
+		var rs [][32]byte
+		var ss [][32]byte
+		var vs [32]byte
+		for i, as := range sigs {
+			r, s, v, err := evmutil.SplitSignature(as.Signature)
+			if err != nil {
+				return fmt.Errorf("failed to split signature: %w", err)
+			}
+			rs = append(rs, r)
+			ss = append(ss, s)
+			vs[i] = v
+		}
+
+		// chain writer takes in the raw calldata and packs it on its own.
+		contract, method, args, err = c.toCalldataFn(rawReportCtx, reportWithInfo, rs, ss, vs, c.extraDataCodec)
+		if err != nil {
+			return fmt.Errorf("failed to generate ecdsa call data: %w", err)
+		}
+	} else if c.toEd25519CalldataFn != nil {
+		var signatures [][96]byte
+		for _, as := range sigs {
+			sig := as.Signature
+			if len(sig) != 96 {
+				return fmt.Errorf("invalid ed25519 signature length, expected 96, got %d", len(sig))
+			}
+			var sigBytes [96]byte
+			copy(sigBytes[:], sig)
+			signatures = append(signatures, sigBytes)
+		}
+
+		contract, method, args, err = c.toEd25519CalldataFn(rawReportCtx, reportWithInfo, signatures, c.extraDataCodec)
+		if err != nil {
+			return fmt.Errorf("failed to generate ed25519 call data: %w", err)
+		}
+	} else {
+		return errors.New("no calldata function")
 	}
 
 	// TODO: no meta fields yet, what should we add?
