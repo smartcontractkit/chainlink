@@ -14,16 +14,13 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	solBinary "github.com/gagliardetto/binary"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-
-	solBinary "github.com/gagliardetto/binary"
-	"github.com/gagliardetto/solana-go/rpc"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
@@ -630,7 +627,7 @@ func initializeRouter(
 	rmnRemoteAddress solana.PublicKey,
 ) error {
 	e.Logger.Debugw("Initializing router", "chain", chain.String(), "ccipRouterProgram", ccipRouterProgram.String())
-	programData, err := getSolProgramData(e, chain, ccipRouterProgram)
+	programData, err := ccipChangeset.GetSolProgramData(e, chain, ccipRouterProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
@@ -671,7 +668,7 @@ func initializeFeeQuoter(
 	params FeeQuoterParams,
 ) error {
 	e.Logger.Debugw("Initializing fee quoter", "chain", chain.String(), "feeQuoterAddress", feeQuoterAddress.String())
-	programData, err := getSolProgramData(e, chain, feeQuoterAddress)
+	programData, err := ccipChangeset.GetSolProgramData(e, chain, feeQuoterAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
@@ -723,7 +720,7 @@ func initializeOffRamp(
 	params OffRampParams,
 ) error {
 	e.Logger.Debugw("Initializing offRamp", "chain", chain.String(), "offRampAddress", offRampAddress.String())
-	programData, err := getSolProgramData(e, chain, offRampAddress)
+	programData, err := ccipChangeset.GetSolProgramData(e, chain, offRampAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
@@ -774,7 +771,7 @@ func initializeRMNRemote(
 	rmnRemoteProgram solana.PublicKey,
 ) error {
 	e.Logger.Debugw("Initializing rmn remote", "chain", chain.String(), "rmnRemoteProgram", rmnRemoteProgram.String())
-	programData, err := getSolProgramData(e, chain, rmnRemoteProgram)
+	programData, err := ccipChangeset.GetSolProgramData(e, chain, rmnRemoteProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
@@ -921,13 +918,13 @@ func generateExtendIxn(
 	// Derive the program data address
 	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
 
-	programDataSize, err := GetSolProgramSize(e, chain, programDataAccount)
+	programDataSize, err := ccipChangeset.GetSolProgramSize(e, chain, programDataAccount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get program size: %w", err)
 	}
 	e.Logger.Debugw("Program data size", "programDataSize", programDataSize)
 
-	bufferSize, err := GetSolProgramSize(e, chain, bufferAddress)
+	bufferSize, err := ccipChangeset.GetSolProgramSize(e, chain, bufferAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get buffer size: %w", err)
 	}
@@ -981,41 +978,4 @@ func generateCloseBufferIxn(
 	)
 
 	return instruction, nil
-}
-
-// HELPER FUNCTIONS
-func GetSolProgramSize(e *deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (int, error) {
-	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
-		Commitment: deployment.SolDefaultCommitment,
-	})
-	if err != nil {
-		return 0, fmt.Errorf("failed to get account info: %w", err)
-	}
-	if accountInfo == nil {
-		return 0, fmt.Errorf("program account not found: %w", err)
-	}
-	programBytes := len(accountInfo.Value.Data.GetBinary())
-	return programBytes, nil
-}
-
-func getSolProgramData(e deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (struct {
-	DataType uint32
-	Address  solana.PublicKey
-}, error) {
-	var programData struct {
-		DataType uint32
-		Address  solana.PublicKey
-	}
-	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &solRpc.GetAccountInfoOpts{
-		Commitment: solRpc.CommitmentConfirmed,
-	})
-	if err != nil {
-		return programData, fmt.Errorf("failed to deploy program: %w", err)
-	}
-
-	err = solBinary.UnmarshalBorsh(&programData, data.Bytes())
-	if err != nil {
-		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
-	}
-	return programData, nil
 }

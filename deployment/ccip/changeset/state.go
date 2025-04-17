@@ -969,7 +969,11 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	state.StaticLinkTokenState = *staticLinkState
 	state.ABIByAddress = make(map[string]string)
 	for address, tvStr := range addresses {
-		switch tvStr.String() {
+		// ! this is a huge issue, since the labels are included, I cannot dinamically
+		// ! set different values for contracts, as they will be included in this switch
+		// ! and never match the actual contract type
+		// switch tvStr.String() {
+		switch fmt.Sprintf("%s %s", tvStr, tvStr.Version.String()) {
 		case deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.RBACTimelockABI
 		case deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0).String():
@@ -1336,6 +1340,10 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 				continue
 			}
+			// Log unrecognized contract type and version for debugging purposes
+
+			fmt.Printf("chain", chain.String())
+			fmt.Printf("address", address)
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
 	}

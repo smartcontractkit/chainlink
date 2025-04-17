@@ -1321,11 +1321,12 @@ func GetSVMExtraArgsV1(computeUnits uint32, accountIsWritable uint64, accounts [
 		accountsBytes[i] = [32]byte(account.Bytes())
 	}
 
-	encodedArgs, err := utils.ABIEncode(`[{"type":"uint32"},{"type":"uint64"},{"type":"bool"},{"type":"bytes32"},{"type":"bytes32[]"}]`,
+	encodedArgs, err := utils.ABIEncode(`[{"type":"bytes4"},{"type":"uint32"},{"type":"uint64"},{"type":"bool"},{"type":"bytes32"},{"type":"bytes32[]"}]`,
+		[4]byte(SVMV1Tag), // struct tag cast to [4]byte
 		computeUnits,      // compute units
 		accountIsWritable, // account writable bitmap
 		true,              // allow out of order exec
-		[32]byte{0},       // token receiver, not needed for only messge passing
+		[32]byte{0},       // token receiver, not needed for only message passing
 		accountsBytes,     // accounts
 	)
 
@@ -1333,7 +1334,7 @@ func GetSVMExtraArgsV1(computeUnits uint32, accountIsWritable uint64, accounts [
 		return nil, err
 	}
 
-	return append(SVMV1Tag, encodedArgs...), nil
+	return encodedArgs, nil
 }
 
 type ManualExecArgs struct {

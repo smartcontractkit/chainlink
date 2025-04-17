@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	solPingPong "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ping_pong_demo"
 	solanaStateUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -58,7 +58,7 @@ func deployPingPongContractChangeset(
 
 	solPingPong.SetProgramID(programAddress)
 
-	counterpartAddressBytes, err := getPaddedCounterpartAddress(env, c.CounterpartChainSelector)
+	counterpartAddressBytes, err := ccipChangeset.GetPaddedPingPongAddressBytes(env, c.CounterpartChainSelector, c.ChainSelector, chainsel.FamilyEVM)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get counterpart address: %w", err)
 	}
@@ -82,7 +82,6 @@ func deployPingPongContractChangeset(
 	}
 
 	tv := deployment.NewTypeAndVersion(changeset.PingPongDemo, deployment.Version1_0_0)
-	tv.Labels.Add(fmt.Sprintf("From - %d", c.ChainSelector))
 	tv.Labels.Add(fmt.Sprintf("To - %d", c.CounterpartChainSelector))
 
 	err = newAddresses.Save(chain.Selector, programID, tv)
@@ -90,10 +89,9 @@ func deployPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address: %w", err)
 	}
 
-	pdaData, err := loadPingPongPDAData(
+	pdaData, err := ccipChangeset.LoadPingPongPDAData(
 		env,
-		chainState,
-		chain,
+		c.ChainSelector,
 		programAddress,
 		c.CounterpartChainSelector,
 		c.FeesTokenProgram,
@@ -135,9 +133,10 @@ func deployPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
 
-	if err := chain.Confirm([]solana.Instruction{initConfigIx, initializeIx}); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm initialize instruction: %w", err)
-	}
+	env.Logger.Infof("asd", initConfigIx, initializeIx)
+	// if err := chain.Confirm([]solana.Instruction{initConfigIx, initializeIx}); err != nil {
+	// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm initialize instruction: %w", err)
+	// }
 
 	env.Logger.Infow("Initialized ping pong demo", "chain", chain.String())
 
@@ -190,10 +189,9 @@ func startPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get fees token mint: %w", err)
 	}
 
-	pdaData, err := loadPingPongPDAData(
+	pdaData, err := ccipChangeset.LoadPingPongPDAData(
 		env,
-		chainState,
-		chain,
+		c.ChainSelector,
 		chainState.PingPong,
 		c.CounterpartChainSelector,
 		c.FeesTokenProgram,
@@ -272,7 +270,7 @@ func setCounterpartPingPongChangeset(
 
 	solPingPong.SetProgramID(chainState.PingPong)
 
-	counterpartAddressBytes, err := getPaddedCounterpartAddress(env, c.CounterpartChainSelector)
+	counterpartAddressBytes, err := ccipChangeset.GetPaddedPingPongAddressBytes(env, c.CounterpartChainSelector, c.ChainSelector, chainsel.FamilyEVM)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get counterpart address: %w", err)
 	}
@@ -298,8 +296,10 @@ func setCounterpartPingPongChangeset(
 }
 
 type SetPausePingPongConfig struct {
-	ChainSelector uint64
-	IsPaused      bool
+	ChainSelector            uint64
+	CounterpartChainSelector uint64
+
+	IsPaused bool
 }
 
 func validateSetPausePingPongConfig(e deployment.Environment, config SetPausePingPongConfig) error {
@@ -342,122 +342,4 @@ func setPausePingPongChangeset(
 	env.Logger.Infow("Initialized ping pong demo", "chain", chain.String())
 
 	return deployment.ChangesetOutput{}, nil
-}
-
-type pingPongPDAData struct {
-	PPConfigPDA             solana.PublicKey
-	FeeBillingSignerPDA     solana.PublicKey
-	PPSendSignerPDA         solana.PublicKey
-	PPFeeTokenAta           solana.PublicKey
-	RouterFeeTokenReceiver  solana.PublicKey
-	RouterDestChainStatePDA solana.PublicKey
-	RouterNoncePDA          solana.PublicKey
-	FqBillingTokenConfigPDA solana.PublicKey
-	FqDestChainPDA          solana.PublicKey
-	FqLinkTokenConfigPDA    solana.PublicKey
-	RMNRemoteConfigPDA      solana.PublicKey
-	RMNRemoteCursesPDA      solana.PublicKey
-	NameVersionPDA          solana.PublicKey
-	ProgramData             struct {
-		DataType uint32
-		Address  solana.PublicKey
-	}
-}
-
-func loadPingPongPDAData(
-	env deployment.Environment,
-	chainState ccipChangeset.SolCCIPChainState,
-	chain deployment.SolChain,
-	pingPongProgram solana.PublicKey,
-	counterpartChainSelector uint64,
-	feesTokenProgram solana.PublicKey,
-	feesTokenMint solana.PublicKey,
-	linkTokenMint solana.PublicKey,
-) (pingPongPDAData, error) {
-	var data pingPongPDAData
-	var err error
-
-	data.ProgramData, err = solProgramData(env, chain, pingPongProgram)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to get program data: %w", err)
-	}
-
-	data.PPConfigPDA, _, err = solanaStateUtils.FindPingPongDemoConfigPDA(pingPongProgram)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find ping pong config PDA: %w", err)
-	}
-
-	data.FeeBillingSignerPDA, _, err = solanaStateUtils.FindFeeBillingSignerPDA(chainState.Router)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find fee billing signer PDA: %w", err)
-	}
-
-	data.PPSendSignerPDA, _, err = solanaStateUtils.FindPingPongCCIPSendSignerPDA(pingPongProgram)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find ping pong send signer PDA: %w", err)
-	}
-
-	data.PPFeeTokenAta, _, err = tokens.FindAssociatedTokenAddress(feesTokenProgram, feesTokenMint, data.PPSendSignerPDA)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find ping pong fee token ATA: %w", err)
-	}
-
-	data.RouterFeeTokenReceiver, _, err = tokens.FindAssociatedTokenAddress(feesTokenProgram, feesTokenMint, data.FeeBillingSignerPDA)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find router fee token receiver: %w", err)
-	}
-
-	data.RouterDestChainStatePDA, err = solanaStateUtils.FindDestChainStatePDA(counterpartChainSelector, chainState.Router)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find destination chain state PDA: %w", err)
-	}
-
-	data.RouterNoncePDA, err = solanaStateUtils.FindNoncePDA(counterpartChainSelector, data.PPSendSignerPDA, chainState.Router)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find router nonce PDA: %w", err)
-	}
-
-	data.FqBillingTokenConfigPDA, _, err = solanaStateUtils.FindFqBillingTokenConfigPDA(feesTokenMint, chainState.FeeQuoter)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find FQ billing token config PDA: %w", err)
-	}
-
-	data.FqDestChainPDA, _, err = solanaStateUtils.FindFqDestChainPDA(counterpartChainSelector, chainState.FeeQuoter)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find FQ destination chain PDA: %w", err)
-	}
-
-	data.FqLinkTokenConfigPDA, _, err = solanaStateUtils.FindFqBillingTokenConfigPDA(linkTokenMint, chainState.FeeQuoter)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find FQ link token config PDA: %w", err)
-	}
-
-	data.RMNRemoteConfigPDA, _, err = solanaStateUtils.FindRMNRemoteConfigPDA(chainState.RMNRemote)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find RMN remote config PDA: %w", err)
-	}
-
-	data.RMNRemoteCursesPDA, _, err = solanaStateUtils.FindRMNRemoteCursesPDA(chainState.RMNRemote)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find RMN remote curses PDA: %w", err)
-	}
-
-	data.NameVersionPDA, _, err = solanaStateUtils.FindNameAndVersionPDA(pingPongProgram)
-	if err != nil {
-		return pingPongPDAData{}, fmt.Errorf("failed to find name and version PDA: %w", err)
-	}
-
-	return data, nil
-}
-
-func getPaddedCounterpartAddress(env deployment.Environment, counterpartChainSelector uint64) ([]byte, error) {
-	counterpartAddressStr, err := deployment.SearchAddressBook(env.ExistingAddresses, counterpartChainSelector, changeset.PingPongDemo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get counterpart address: %w", err)
-	}
-
-	counterpartAddressBytes := make([]byte, 32)
-	copy(counterpartAddressBytes[32-len(counterpartAddressStr):], counterpartAddressStr)
-
-	return counterpartAddressBytes, nil
 }

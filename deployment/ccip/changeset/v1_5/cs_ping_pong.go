@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/ping_pong_demo"
 	solanaUtilsCcip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	solanaStateUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
@@ -19,223 +20,6 @@ var DeployPingPongDemoContractChangeset = deployment.CreateChangeSet(deployPingP
 var StartPingPongDemoContractChangeset = deployment.CreateChangeSet(startPingPongDemoContractsChangeset, validateStartPingPongContractAddress)
 var SetPausedPingPongDemoContractChangeset = deployment.CreateChangeSet(setPausedPingPongDemoContractsChangeset, validateSetPausedPingPongContractAddress)
 var SetCounterpartPingPongDemoContractChangeset = deployment.CreateChangeSet(setCounterpartPingPongDemoContractsChangeset, validateSetCounterpartPingPongContractAddress)
-
-type DeployPingPongDemoContractsConfig struct {
-	ChainsToDeploy []struct {
-		ChainSelector uint64
-		IsTestRouter  bool
-	}
-}
-
-func validateDeployPingPongConfig(env deployment.Environment, config DeployPingPongDemoContractsConfig) error {
-	state, err := changeset.LoadOnchainState(env)
-
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	for _, chainToDeploy := range config.ChainsToDeploy {
-		chainState := state.Chains[chainToDeploy.ChainSelector]
-
-		router := chainState.Router
-		if chainToDeploy.IsTestRouter {
-			router = chainState.TestRouter
-		}
-
-		if router == nil {
-			return fmt.Errorf("router address is empty for chain %d", chainToDeploy.ChainSelector)
-		}
-
-		_, err := chainState.LinkTokenAddress()
-		if err != nil {
-			return fmt.Errorf("failed to get link token address for chain: %d %w", chainToDeploy.ChainSelector, err)
-		}
-	}
-
-	return nil
-}
-func deployPingPongDemoContractsChangeset(env deployment.Environment, c DeployPingPongDemoContractsConfig) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	newAB := deployment.NewMemoryAddressBook()
-
-	for _, chainToDeploy := range c.ChainsToDeploy {
-		chain := env.Chains[chainToDeploy.ChainSelector]
-		chainState := state.Chains[chainToDeploy.ChainSelector]
-
-		router := chainState.Router
-		if chainToDeploy.IsTestRouter {
-			router = chainState.TestRouter
-		}
-
-		linkTokenAddress, err := chainState.LinkTokenAddress()
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get link token address for chain: %d %w", chainToDeploy.ChainSelector, err)
-		}
-
-		dep, err := deployment.DeployContract(env.Logger, chain, newAB,
-			func(chain deployment.Chain) deployment.ContractDeploy[*ping_pong_demo.PingPongDemo] {
-				addr, tx, pingPongDemo, err := ping_pong_demo.DeployPingPongDemo(chain.DeployerKey, chain.Client, router.Address(), linkTokenAddress)
-
-				return deployment.ContractDeploy[*ping_pong_demo.PingPongDemo]{
-					Address:  addr,
-					Contract: pingPongDemo,
-					Tx:       tx,
-					Tv:       deployment.NewTypeAndVersion(changeset.PingPongDemo, deployment.Version1_0_0),
-					Err:      err,
-				}
-			},
-		)
-
-		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, dep.Tx, ping_pong_demo.PingPongDemoABI, err); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm ping pong demo contract deployment tx: %w", err)
-		}
-
-	}
-
-	return deployment.ChangesetOutput{
-		AddressBook: newAB,
-	}, nil
-}
-
-type StartPingPongDemoContractsConfig struct {
-	ChainSelector uint64
-}
-
-func validateStartPingPongContractAddress(env deployment.Environment, config StartPingPongDemoContractsConfig) error {
-	return validatePingPongContractAddress(env, config.ChainSelector)
-}
-func startPingPongDemoContractsChangeset(env deployment.Environment, c StartPingPongDemoContractsConfig) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	if err := validatePingPongContractAddress(env, c.ChainSelector); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid ping pong contract config: %w", err)
-	}
-
-	chain := env.Chains[c.ChainSelector]
-	chainState := state.Chains[c.ChainSelector]
-
-	transactor, err := ping_pong_demo.NewPingPongDemoTransactor(chainState.PingPongDemo.Address(), chain.Client)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transactor for ping pong demo: %w", err)
-	}
-
-	tx, err := transactor.StartPingPong(chain.DeployerKey)
-	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, ping_pong_demo.PingPongDemoABI, err); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm ping pong demo contract start tx: %w", err)
-	}
-
-	return deployment.ChangesetOutput{}, nil
-}
-
-type SetPausedPingPongDemoContractsConfig struct {
-	ChainSelector uint64
-	Paused        bool
-}
-
-func validateSetPausedPingPongContractAddress(env deployment.Environment, config SetPausedPingPongDemoContractsConfig) error {
-	return validatePingPongContractAddress(env, config.ChainSelector)
-}
-func setPausedPingPongDemoContractsChangeset(env deployment.Environment, c SetPausedPingPongDemoContractsConfig) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	if err := validatePingPongContractAddress(env, c.ChainSelector); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid ping pong contract config: %w", err)
-	}
-
-	chain := env.Chains[c.ChainSelector]
-	chainState := state.Chains[c.ChainSelector]
-
-	transactor, err := ping_pong_demo.NewPingPongDemoTransactor(chainState.PingPongDemo.Address(), chain.Client)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transactor for ping pong demo: %w", err)
-	}
-
-	tx, err := transactor.SetPaused(chain.DeployerKey, c.Paused)
-	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, ping_pong_demo.PingPongDemoABI, err); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm ping pong demo contract set paused tx: %w", err)
-	}
-
-	return deployment.ChangesetOutput{}, nil
-}
-
-type SetEVMCounterpartExtraArgsPingPongDemoContracts struct {
-	GasLimit                 *big.Int
-	AllowOutOfOrderExecution bool
-}
-type SetSolanaCounterpartExtraArgsPingPongDemoContracts struct {
-	ComputeUnits uint32
-}
-type SetCounterpartPingPongDemoContractsConfig struct {
-	ChainSelector            uint64
-	CounterpartChainSelector uint64
-	ExtraArgsEVM             *SetEVMCounterpartExtraArgsPingPongDemoContracts
-	ExtraArgsSolana          *SetSolanaCounterpartExtraArgsPingPongDemoContracts
-}
-
-func validateSetCounterpartPingPongContractAddress(env deployment.Environment, config SetCounterpartPingPongDemoContractsConfig) error {
-	return validatePingPongContractAddress(env, config.ChainSelector)
-}
-
-func setCounterpartPingPongDemoContractsChangeset(env deployment.Environment, c SetCounterpartPingPongDemoContractsConfig) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	if err := validatePingPongContractAddress(env, c.ChainSelector); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid ping pong contract config: %w", err)
-	}
-
-	chain := env.Chains[c.ChainSelector]
-	chainState := state.Chains[c.ChainSelector]
-
-	transactor, err := ping_pong_demo.NewPingPongDemoTransactor(chainState.PingPongDemo.Address(), chain.Client)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transactor for ping pong demo: %w", err)
-	}
-
-	extraArgsBytes := make([]byte, 0)
-
-	if (c.ExtraArgsEVM != nil) == (c.ExtraArgsSolana != nil) {
-		return deployment.ChangesetOutput{}, fmt.Errorf("exactly one of ExtraArgsEVM or ExtraArgsSolana must be set")
-	}
-
-	if c.ExtraArgsEVM != nil {
-		extraArgsBytes, err = getEVMExtraArgs(env, c)
-	}
-
-	if c.ExtraArgsSolana != nil {
-		extraArgsBytes, err = getSolanaExtraArgs(env, c)
-	}
-
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get extra args: %w", err)
-	}
-
-	counterpartAddressStr, err := deployment.SearchAddressBook(env.ExistingAddresses, c.CounterpartChainSelector, changeset.PingPongDemo)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get counterpart address: %w", err)
-	}
-	counterpartAddressBytes := make([]byte, 32)
-	copy(counterpartAddressBytes[32-len(counterpartAddressStr):], counterpartAddressStr)
-
-	tx, err := transactor.SetCounterpart(chain.DeployerKey, c.CounterpartChainSelector, counterpartAddressBytes, extraArgsBytes)
-	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, ping_pong_demo.PingPongDemoABI, err); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm ping pong demo contract set counterpart tx: %w", err)
-	}
-
-	return deployment.ChangesetOutput{}, nil
-}
 
 func validatePingPongContractAddress(env deployment.Environment, chainSelector uint64) error {
 	state, err := changeset.LoadOnchainState(env)
@@ -252,6 +36,223 @@ func validatePingPongContractAddress(env deployment.Environment, chainSelector u
 	return nil
 }
 
+type DeployPingPongDemoContractsConfig struct {
+	ChainSelector            uint64
+	CounterpartChainSelector uint64
+	IsTestRouter             bool
+}
+
+func validateDeployPingPongConfig(env deployment.Environment, config DeployPingPongDemoContractsConfig) error {
+	state, err := changeset.LoadOnchainState(env)
+
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	chainState := state.Chains[config.ChainSelector]
+
+	router := chainState.Router
+	if config.IsTestRouter {
+		router = chainState.TestRouter
+	}
+
+	if router == nil {
+		return fmt.Errorf("router address is empty for chain %d", config.ChainSelector)
+	}
+
+	_, err = chainState.LinkTokenAddress()
+	if err != nil {
+		return fmt.Errorf("failed to get link token address for chain: %d %w", config.ChainSelector, err)
+	}
+
+	return nil
+}
+func deployPingPongDemoContractsChangeset(env deployment.Environment, c DeployPingPongDemoContractsConfig) (deployment.ChangesetOutput, error) {
+	state, err := changeset.LoadOnchainState(env)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	newAB := deployment.NewMemoryAddressBook()
+
+	chain := env.Chains[c.ChainSelector]
+	chainState := state.Chains[c.ChainSelector]
+
+	router := chainState.Router
+	if c.IsTestRouter {
+		router = chainState.TestRouter
+	}
+	if router == nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("router address is empty for chain %d", c.ChainSelector)
+	}
+
+	linkTokenAddress, err := chainState.LinkTokenAddress()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get link token address for chain: %d %w", c.ChainSelector, err)
+	}
+
+	dep, err := deployment.DeployContract(env.Logger, chain, newAB,
+		func(chain deployment.Chain) deployment.ContractDeploy[*ping_pong_demo.PingPongDemo] {
+			addr, tx, pingPongDemo, err := ping_pong_demo.DeployPingPongDemo(chain.DeployerKey, chain.Client, router.Address(), linkTokenAddress)
+
+			tv := deployment.NewTypeAndVersion(changeset.PingPongDemo, deployment.Version1_0_0)
+			tv.Labels.Add(fmt.Sprintf("To - %d", c.CounterpartChainSelector))
+
+			return deployment.ContractDeploy[*ping_pong_demo.PingPongDemo]{
+				Address:  addr,
+				Contract: pingPongDemo,
+				Tx:       tx,
+				Tv:       tv,
+				Err:      err,
+			}
+		},
+	)
+
+	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, dep.Tx, ping_pong_demo.PingPongDemoABI, err); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm ping pong demo contract deployment tx: %w", err)
+	}
+
+	return deployment.ChangesetOutput{
+		AddressBook: newAB,
+	}, nil
+}
+
+type StartPingPongDemoContractsConfig struct {
+	ChainSelector            uint64
+	CounterpartChainSelector uint64
+}
+
+func validateStartPingPongContractAddress(env deployment.Environment, config StartPingPongDemoContractsConfig) error {
+	return validatePingPongContractAddress(env, config.ChainSelector)
+}
+func startPingPongDemoContractsChangeset(env deployment.Environment, c StartPingPongDemoContractsConfig) (deployment.ChangesetOutput, error) {
+	if err := validatePingPongContractAddress(env, c.ChainSelector); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid ping pong contract config: %w", err)
+	}
+
+	chain := env.Chains[c.ChainSelector]
+
+	contractAddressStr, err := ccipChangeset.GetPingPongDemoContractAddress(env, c.ChainSelector, c.CounterpartChainSelector)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get ping pong demo contract address: %w", err)
+	}
+
+	transactor, err := ping_pong_demo.NewPingPongDemoTransactor(common.HexToAddress(contractAddressStr), chain.Client)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transactor for ping pong demo: %w", err)
+	}
+
+	tx, err := transactor.StartPingPong(chain.DeployerKey)
+	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, ping_pong_demo.PingPongDemoABI, err); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm ping pong demo contract start tx: %w", err)
+	}
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+type SetPausedPingPongDemoContractsConfig struct {
+	ChainSelector            uint64
+	CounterpartChainSelector uint64
+	IsPaused                 bool
+}
+
+func validateSetPausedPingPongContractAddress(env deployment.Environment, config SetPausedPingPongDemoContractsConfig) error {
+	return validatePingPongContractAddress(env, config.ChainSelector)
+}
+func setPausedPingPongDemoContractsChangeset(env deployment.Environment, c SetPausedPingPongDemoContractsConfig) (deployment.ChangesetOutput, error) {
+	if err := validatePingPongContractAddress(env, c.ChainSelector); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid ping pong contract config: %w", err)
+	}
+
+	chain := env.Chains[c.ChainSelector]
+
+	contractAddressStr, err := ccipChangeset.GetPingPongDemoContractAddress(env, c.ChainSelector, c.CounterpartChainSelector)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get ping pong demo contract address: %w", err)
+	}
+
+	transactor, err := ping_pong_demo.NewPingPongDemoTransactor(common.HexToAddress(contractAddressStr), chain.Client)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transactor for ping pong demo: %w", err)
+	}
+
+	tx, err := transactor.SetPaused(chain.DeployerKey, c.IsPaused)
+	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, ping_pong_demo.PingPongDemoABI, err); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm ping pong demo contract set paused tx: %w", err)
+	}
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+type SetEVMCounterpartExtraArgsPingPongDemoContracts struct {
+	GasLimit                 *big.Int
+	AllowOutOfOrderExecution bool
+}
+type SetSolanaCounterpartExtraArgsPingPongDemoContracts struct {
+	ComputeUnits uint32
+
+	FeesTokenProgram  solana.PublicKey
+	FeesTokenMintType deployment.ContractType
+}
+type SetCounterpartPingPongDemoContractsConfig struct {
+	ChainSelector            uint64
+	CounterpartChainSelector uint64
+	ExtraArgsEVM             *SetEVMCounterpartExtraArgsPingPongDemoContracts
+	ExtraArgsSolana          *SetSolanaCounterpartExtraArgsPingPongDemoContracts
+}
+
+func validateSetCounterpartPingPongContractAddress(env deployment.Environment, config SetCounterpartPingPongDemoContractsConfig) error {
+	return validatePingPongContractAddress(env, config.ChainSelector)
+}
+
+func setCounterpartPingPongDemoContractsChangeset(env deployment.Environment, c SetCounterpartPingPongDemoContractsConfig) (deployment.ChangesetOutput, error) {
+	if err := validatePingPongContractAddress(env, c.ChainSelector); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid ping pong contract config: %w", err)
+	}
+
+	chain := env.Chains[c.ChainSelector]
+
+	contractAddressStr, err := ccipChangeset.GetPingPongDemoContractAddress(env, c.ChainSelector, c.CounterpartChainSelector)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get ping pong demo contract address: %w", err)
+	}
+
+	extraArgsBytes := make([]byte, 0)
+
+	if (c.ExtraArgsEVM != nil) == (c.ExtraArgsSolana != nil) {
+		return deployment.ChangesetOutput{}, fmt.Errorf("exactly one of ExtraArgsEVM or ExtraArgsSolana must be set")
+	}
+
+	if c.ExtraArgsEVM != nil {
+		extraArgsBytes, err = getEVMExtraArgs(env, c)
+	}
+
+	if c.ExtraArgsSolana != nil {
+		extraArgsBytes, err = getSolanaExtraArgs(env, contractAddressStr, c)
+	}
+
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get extra args: %w", err)
+	}
+
+	counterpartAddressBytes, err := ccipChangeset.GetPaddedPingPongAddressBytes(env, c.CounterpartChainSelector, c.ChainSelector, chainsel.FamilyEVM)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get counterpart address: %w", err)
+	}
+
+	transactor, err := ping_pong_demo.NewPingPongDemoTransactor(common.HexToAddress(contractAddressStr), chain.Client)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transactor for ping pong demo: %w", err)
+	}
+
+	tx, err := transactor.SetCounterpart(chain.DeployerKey, c.CounterpartChainSelector, counterpartAddressBytes, extraArgsBytes)
+	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, ping_pong_demo.PingPongDemoABI, err); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm ping pong demo contract set counterpart tx: %w", err)
+	}
+
+	return deployment.ChangesetOutput{}, nil
+}
+
 func getEVMExtraArgs(env deployment.Environment, c SetCounterpartPingPongDemoContractsConfig) ([]byte, error) {
 	b, err := testhelpers.GetEVMExtraArgsV2(c.ExtraArgsEVM.GasLimit, c.ExtraArgsEVM.AllowOutOfOrderExecution)
 
@@ -261,88 +262,53 @@ func getEVMExtraArgs(env deployment.Environment, c SetCounterpartPingPongDemoCon
 
 	return b, nil
 }
-func getSolanaExtraArgs(env deployment.Environment, c SetCounterpartPingPongDemoContractsConfig) ([]byte, error) {
-	s, err := ccipChangeset.LoadOnchainStateSolana(env)
+func getSolanaExtraArgs(env deployment.Environment, contractAddressStr string, c SetCounterpartPingPongDemoContractsConfig) ([]byte, error) {
+	pingPongAddress, err := solana.PublicKeyFromBase58(contractAddressStr)
 	if err != nil {
-		env.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to parse ping pong demo contract address: %w", err)
 	}
 
-	destChainState := s.SolChains[c.CounterpartChainSelector]
-
-	ppConfigPDA, _, err := solanaStateUtils.FindPingPongDemoConfigPDA(destChainState.PingPong)
+	feesTokenMintStr, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, c.ExtraArgsSolana.FeesTokenMintType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find ping pong demo config PDA: %w", err)
+		return nil, fmt.Errorf("failed to get fees token mint: %w", err)
+	}
+	feesTokenMint, err := solana.PublicKeyFromBase58(feesTokenMintStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get fees token mint: %w", err)
 	}
 
-	ppSendSignerPDA, _, err := solanaStateUtils.FindPingPongCCIPSendSignerPDA(destChainState.PingPong)
+	linkTokenStr, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, types.LinkToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find ping pong CCIP send signer PDA: %w", err)
+		return nil, fmt.Errorf("failed to get fees token mint: %w", err)
+	}
+	linkToken, err := solana.PublicKeyFromBase58(linkTokenStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get fees token mint: %w", err)
 	}
 
-	destChainStatePDA, err := solanaStateUtils.FindDestChainStatePDA(c.ChainSelector, destChainState.Router)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find destination chain state PDA: %w", err)
-	}
-
-	routerNoncePDA, err := solanaStateUtils.FindNoncePDA(c.ChainSelector, ppSendSignerPDA, destChainState.Router)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find router nonce PDA: %w", err)
-	}
-
-	feeBillingSignerPDA, _, err := solanaStateUtils.FindFeeBillingSignerPDA(destChainState.Router)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find fee billing signer PDA: %w", err)
-	}
-
-	fqBillingTokenConfigPDA, _, err := solanaStateUtils.FindFqBillingTokenConfigPDA(destChainState.LinkToken, destChainState.FeeQuoter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find fee quoter billing token config PDA: %w", err)
-	}
-
-	rmnRemoteConfigPDA, _, err := solanaStateUtils.FindRMNRemoteConfigPDA(destChainState.RMNRemote)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find RMN remote config PDA: %w", err)
-	}
-
-	rmnRemoteCursesPDA, _, err := solanaStateUtils.FindRMNRemoteCursesPDA(destChainState.RMNRemote)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find RMN remote curses PDA: %w", err)
-	}
-
-	ppFeeTokenAta, _, err := tokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, destChainState.LinkToken, ppSendSignerPDA)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find ping pong fee token associated token account: %w", err)
-	}
-
-	routerFeeTokenReceiver, _, err := tokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, destChainState.LinkToken, feeBillingSignerPDA)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find router fee token receiver: %w", err)
-	}
-
-	fqDestChainPDA, _, err := solanaStateUtils.FindFqDestChainPDA(c.ChainSelector, destChainState.FeeQuoter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find fee quoter destination chain PDA: %w", err)
-	}
-
-	fqLinkTokenConfigPDA, _, err := solanaStateUtils.FindFqBillingTokenConfigPDA(destChainState.LinkToken, destChainState.FeeQuoter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find fee quoter link token config PDA: %w", err)
-	}
+	pingPongPDAData, err := ccipChangeset.LoadPingPongPDAData(
+		env,
+		c.CounterpartChainSelector,
+		pingPongAddress,
+		c.ChainSelector,
+		c.ExtraArgsSolana.FeesTokenProgram,
+		feesTokenMint,
+		linkToken,
+	)
 
 	accounts := []solana.PublicKey{
-		ppConfigPDA,
-		ppSendSignerPDA,
-		destChainStatePDA,
-		routerNoncePDA,
-		feeBillingSignerPDA,
-		fqBillingTokenConfigPDA,
-		rmnRemoteConfigPDA,
-		rmnRemoteCursesPDA,
-		ppFeeTokenAta,
-		routerFeeTokenReceiver,
-		fqDestChainPDA,
-		fqLinkTokenConfigPDA,
+		pingPongPDAData.PPConfigPDA,
+		pingPongPDAData.PPSendSignerPDA,
+		pingPongPDAData.RouterDestChainStatePDA,
+		pingPongPDAData.RouterNoncePDA,
+		pingPongPDAData.FeeBillingSignerPDA,
+		pingPongPDAData.FqBillingTokenConfigPDA,
+		pingPongPDAData.RMNRemoteConfigPDA,
+		pingPongPDAData.RMNRemoteCursesPDA,
+		pingPongPDAData.PPFeeTokenAta,
+		pingPongPDAData.RouterFeeTokenReceiver,
+		pingPongPDAData.FqDestChainPDA,
+		pingPongPDAData.FqLinkTokenConfigPDA,
 	}
 
 	writableBitmap := solanaUtilsCcip.GenerateBitMapForIndexes([]int{1, 4, 7, 8, 9})
