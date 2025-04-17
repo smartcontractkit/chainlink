@@ -201,6 +201,9 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	}
 
+	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
+	require.NoError(t, chainErr, "failed to convert chain ID to int")
+
 	loadTestJobSpecsFactoryFn := func(input *keystonetypes.JobSpecFactoryInput) (keystonetypes.DonsToJobSpecs, error) {
 		donTojobSpecs := make(keystonetypes.DonsToJobSpecs, 0)
 
@@ -290,9 +293,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 		return capabilities
 	}
-
-	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
-	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupLoadTestEnvironment(
 		t,
