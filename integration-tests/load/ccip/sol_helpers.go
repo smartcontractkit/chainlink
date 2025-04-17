@@ -75,7 +75,7 @@ func subscribeSolTransmitEvents(
 					dst:    event.DestinationChainSelector,
 					seqNum: event.SequenceNumber,
 				},
-				timestamp: uint64(*eventWithTxn.Txn.BlockTime), //nolint:all
+				timestamp: uint64(*eventWithTxn.Txn.BlockTime), //nolint:gosec // G115
 			}
 
 			metricPipe <- data
@@ -191,7 +191,7 @@ func subscribeSolCommitEvents(
 						dst:    chainSelector,
 						seqNum: i,
 					},
-					timestamp: uint64(*eventWithTx.Txn.BlockTime), //nolint:all
+					timestamp: uint64(*eventWithTx.Txn.BlockTime), //nolint:gosec // G115
 				}
 				metricPipe <- data
 				seenMessages[mr.SourceChainSelector] = append(seenMessages[mr.SourceChainSelector], i)
@@ -304,7 +304,7 @@ func subscribeSolExecutionEvents(
 				"destChain", chainSelector,
 				"sourceChain", event.SourceChainSelector,
 				"sequenceNumber", event.SequenceNumber,
-				"timestamp", uint64(*eventWithTxn.Txn.BlockTime)) //nolint:all
+				"timestamp", uint64(*eventWithTxn.Txn.BlockTime)) //nolint:gosec // G115
 			// push metrics to loki here
 			data := messageData{
 				eventType: executed,
