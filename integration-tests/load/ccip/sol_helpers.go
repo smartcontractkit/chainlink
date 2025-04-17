@@ -51,7 +51,7 @@ func subscribeSolTransmitEvents(
 
 	done := make(chan any)
 	sink, errCh := testhelpers.SolEventEmitter[solccip.EventCCIPMessageSent](client, onrampAddress, "CCIPMessageSent", startSlot, done, time.NewTicker(15*time.Second))
-
+	defer close(done)
 	for {
 		select {
 		case err := <-errCh:
@@ -62,7 +62,7 @@ func subscribeSolTransmitEvents(
 
 		case eventWithTxn := <-sink:
 			event := eventWithTxn.Event
-			lggr.Debugw("received transmit event for",
+			lggr.Debugw("received solana transmit event for",
 				"srcChain", srcChainSel,
 				"destChain", event.DestinationChainSelector,
 				"sequenceNumber", event.SequenceNumber,
@@ -95,6 +95,7 @@ func subscribeSolTransmitEvents(
 		case <-ctx.Done():
 			lggr.Errorw("received context cancel signal for transmit watcher",
 				"srcChain", srcChainSel)
+			done <- struct{}{}
 			return
 		case <-loadFinished:
 			lggr.Debugw("load finished, closing transmit watchers", "srcChainSel", srcChainSel)
@@ -152,6 +153,7 @@ func subscribeSolCommitEvents(
 
 	done := make(chan any)
 	sink, errCh := testhelpers.SolEventEmitter[solccip.EventCommitReportAccepted](client, offrampAddress, "CommitReportAccepted", startSlot, done, time.NewTicker(15*time.Second))
+	defer close(done)
 
 	ticker := time.NewTicker(tickerDuration)
 	defer ticker.Stop()
@@ -173,7 +175,7 @@ func subscribeSolCommitEvents(
 				continue
 			}
 
-			lggr.Infow("Received commit report ",
+			lggr.Infow("Received solana commit report ",
 				"sourceChain", mr.SourceChainSelector,
 				"destChain", chainSelector,
 				"minSeqNr", mr.MinSeqNr,
@@ -199,7 +201,7 @@ func subscribeSolCommitEvents(
 				"destChain", chainSelector,
 				"sourceChains", srcChains,
 				"expectedSeqNumbers", expectedRange)
-			close(done)
+			done <- struct{}{}
 			return
 
 		case finalSeqNrUpdate, ok := <-finalSeqNrs:
@@ -277,6 +279,7 @@ func subscribeSolExecutionEvents(
 	}
 	done := make(chan any)
 	sink, errCh := testhelpers.SolEventEmitter[solccip.EventExecutionStateChanged](client, offrampAddress, "ExecutionStateChanged", startSlot, done, time.NewTicker(15*time.Second))
+	defer close(done)
 
 	ticker := time.NewTicker(tickerDuration)
 	defer ticker.Stop()
@@ -294,7 +297,10 @@ func subscribeSolExecutionEvents(
 
 		case eventWithTxn := <-sink:
 			event := eventWithTxn.Event
-			lggr.Debugw("received execution event for",
+			if event.State.String() != "Success" {
+				continue
+			}
+			lggr.Debugw("received solana execution event for",
 				"destChain", chainSelector,
 				"sourceChain", event.SourceChainSelector,
 				"sequenceNumber", event.SequenceNumber,
@@ -319,7 +325,7 @@ func subscribeSolExecutionEvents(
 				"expectedSeqNumbers", expectedRange,
 				"seenMessages", seenMessages,
 				"completedSrcChains", completedSrcChains)
-			close(done)
+			done <- struct{}{}
 			return
 
 		case finalSeqNrUpdate := <-finalSeqNrs:
