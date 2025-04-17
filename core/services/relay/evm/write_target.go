@@ -1,19 +1,9 @@
 package evm
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -30,11 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, gasLimitDefault uint64, lggr logger.Logger) (capabilities.TargetCapability, error) {
+func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, gasLimitDefault uint64, lggr logger.Logger) (*targets.WriteTarget, error) {
 	// generate ID based on chain selector
 	id := GenerateWriteTargetName(chain.ID().Uint64())
 
@@ -55,7 +46,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal contract reader config %w", err)
+		return nil, fmt.Errorf("failed to marshal contract reader config %v", err)
 	}
 	cr, err := relayer.NewContractReader(ctx, contractReaderConfigEncoded)
 	if err != nil {

@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
@@ -29,6 +29,7 @@ import (
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -52,18 +53,16 @@ func newMockedEncodeTransmissionInfo(state uint8) ([]byte, error) {
 		InvalidReceiver: false,
 		State:           state,
 		Success:         false,
-		TransmissionId:  [32]byte{},
+		TransmissionID:  [32]byte{},
 		Transmitter:     common.HexToAddress("0x0"),
 	}
 	var buffer bytes.Buffer
 
 	// 1. Encode TransmissionId (bytes32)
 	buffer.Write(info.TransmissionId[:])
-
-	// 2. Encode State (uint8, ABI pads to 32 bytes: 31 zeros + 1 byte)
-	stateSlot := make([]byte, 31)
-	stateSlot = append(stateSlot, info.State)
-	buffer.Write(stateSlot)
+	// Encode InvalidReceiver (as uint8)
+		buffer.WriteByte(1)
+	} else {
 
 	// 3. Encode Transmitter (address): address is 20 bytes; pad left with 12 zeros.
 	txBytes := info.Transmitter.Bytes()
@@ -114,17 +113,16 @@ func TestEvmWrite(t *testing.T) {
 	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Times(3)
 	evmClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte("test"), nil)
 
-	txManager.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(commontypes.Finalized, nil).Maybe()
+	txManager.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(commonTypes.Finalized, nil)
 
 	chain.On("Start", mock.Anything).Return(nil)
 	chain.On("Close").Return(nil)
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
 	chain.On("LogPoller").Return(poller)
-	chain.On("LatestHead", mock.Anything).Return(commontypes.Head{Height: "99"}, nil)
 
 	ht := headstest.NewTracker[*evmtypes.Head, common.Hash](t)
-	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{Number: 99}, &evmtypes.Head{}, nil)
+	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{}, &evmtypes.Head{}, nil)
 	chain.On("HeadTracker").Return(ht)
 
 	chain.On("Client").Return(evmClient)
@@ -333,50 +331,4 @@ func TestEvmWrite(t *testing.T) {
 		_, err = capability.Execute(ctx, req)
 		require.NoError(t, err)
 	})
-}
-
-func TestExtractNetwork(t *testing.T) {
-	testCases := []struct {
-		networkName  string
-		expectedName string
-		expectedErr  bool
-	}{
-		{
-			networkName:  "ethereum-testnet-goerli",
-			expectedName: "testnet",
-			expectedErr:  false,
-		},
-		{
-			networkName:  "ethereum-mainnet",
-			expectedName: "mainnet",
-			expectedErr:  false,
-		},
-		{
-			networkName:  "polygon-devnet",
-			expectedName: "devnet",
-			expectedErr:  false,
-		},
-		{
-			networkName:  "ethereum_test",
-			expectedName: "",
-			expectedErr:  true,
-		},
-		{
-			networkName:  "ethereum",
-			expectedName: "",
-			expectedErr:  true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.networkName, func(t *testing.T) {
-			networkName, err := evm.ExtractNetwork(tc.networkName)
-			if tc.expectedErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tc.expectedName, networkName)
-		})
-	}
 }
