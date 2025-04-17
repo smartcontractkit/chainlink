@@ -59,7 +59,11 @@ func NewTronContractTransmitter(ctx context.Context, opts TronContractTransmitte
 	}
 
 	// Construct the Tron contract transmitter, it's slightly different from the EVM contract transmitter and due to mismatching types we have to apply the transmitter options manually
-	transmitter := tron.NewOCRContractTransmitter(ctx, opts.TransmissionsCache, tronsdk.EVMAddressToAddress(opts.ConfigWatcher.contractAddress), tronsdk.EVMAddressToAddress(senderAddress), chain.GetTronTXM(), opts.Logger).WithEthereumKeystore()
+	transmitter := tron.NewOCRContractTransmitter(ctx, opts.TransmissionsCache, tronsdk.EVMAddressToAddress(opts.ConfigWatcher.contractAddress), tronsdk.EVMAddressToAddress(senderAddress), chain.GetTronTXM(), opts.Logger)
+
+	// Use the EVM keystore for the transmitter
+	transmitter.WithEthereumKeystore()
+
 	transmitterOptions := &transmitterOps{
 		excludeSigs: false,
 		retention:   0,
@@ -72,7 +76,7 @@ func NewTronContractTransmitter(ctx context.Context, opts TronContractTransmitte
 
 	if transmitterOptions.excludeSigs {
 		opts.Logger.Info("Excluding signatures from transmissions")
-		transmitter = transmitter.WithExcludeSignatures()
+		transmitter.WithExcludeSignatures()
 	}
 
 	return transmitter, nil
