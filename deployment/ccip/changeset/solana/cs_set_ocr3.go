@@ -97,7 +97,6 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 		proposers[remote] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
 		inspectors[remote] = mcmsSolana.NewInspector(chain.Client)
 
-		var txns []mcmsTypes.Transaction
 		offRampConfigPDA := state.SolChains[remote].OffRampConfigPDA
 		offRampStatePDA := state.SolChains[remote].OffRampStatePDA
 		solOffRamp.SetProgramID(state.SolChains[remote].OffRamp)
