@@ -41,8 +41,6 @@ require (
 	github.com/stretchr/testify v1.10.0
 )
 
-replace github.com/smartcontractkit/chainlink-testing-framework/framework => /Users/fahrenheit/GolandProjects/chainlink-testing-framework/framework
-
 require (
 	cloud.google.com/go/auth v0.14.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
