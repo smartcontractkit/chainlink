@@ -1454,13 +1454,13 @@ func deployDonIDClaimerContract(e deployment.Environment, ab deployment.AddressB
 	if state.Chains[chain.Selector].DonIDClaimer == nil {
 		_, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*don_id_claimer.DonIDClaimer] {
-				donIDClaimerAddr, tx2, donIdClaimerC, err2 := don_id_claimer.DeployDonIDClaimer(
+				donIDClaimerAddr, tx2, donIDClaimerC, err2 := don_id_claimer.DeployDonIDClaimer(
 					chain.DeployerKey,
 					chain.Client,
 					chainState.CapabilityRegistry.Address(),
 				)
 				return deployment.ContractDeploy[*don_id_claimer.DonIDClaimer]{
-					Address: donIDClaimerAddr, Contract: donIdClaimerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.DonIDClaimer, deployment.Version1_6_1), Err: err2,
+					Address: donIDClaimerAddr, Contract: donIDClaimerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.DonIDClaimer, deployment.Version1_6_1), Err: err2,
 				}
 			})
 		if err != nil {

@@ -320,7 +320,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 			SkipChainConfigValidation: true,
 		},
 
-		DonIDOverrides: uint32(donID),
+		DonIDOverrides: donID,
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run AddDonAndSetCandidateChangeset on home chain: %w", err)
