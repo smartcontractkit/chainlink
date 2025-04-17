@@ -315,7 +315,7 @@ func subscribeSolExecutionEvents(
 					dst:    chainSelector,
 					seqNum: event.SequenceNumber,
 				},
-				timestamp: uint64(*eventWithTxn.Txn.BlockTime),
+				timestamp: uint64(*eventWithTxn.Txn.BlockTime), //nolint:gosec // G115
 			}
 			metricPipe <- data
 			seenMessages[event.SourceChainSelector] = append(seenMessages[event.SourceChainSelector], event.SequenceNumber)

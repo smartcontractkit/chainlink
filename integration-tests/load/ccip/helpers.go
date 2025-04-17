@@ -610,20 +610,20 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 		wSOL := solana.SolMint
 		ixAtaUser, accountWSOL, err := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, acc.PublicKey(), acc.PublicKey())
 		if err != nil {
-			lggr.Errorw("failed to create associated token account", err)
+			lggr.Errorw("failed to create associated token account", "error", err)
 			return err
 		}
 
 		billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(router)
 		if err != nil {
-			lggr.Errorw("failed to find fee billing signer pda", err)
+			lggr.Errorw("failed to find fee billing signer pda", "error", err)
 			return err
 		}
 
 		// Approve CCIP to transfer the user's token for billing
 		ixApprove, err := soltokens.TokenApproveChecked(1e2*1e9, 9, tokenProgram, accountWSOL, wSOL, billingSignerPDA, acc.PublicKey(), []solana.PublicKey{})
 		if err != nil {
-			lggr.Errorw("failed to approve token transfer", err)
+			lggr.Errorw("failed to approve token transfer", "error", err)
 			return err
 		}
 

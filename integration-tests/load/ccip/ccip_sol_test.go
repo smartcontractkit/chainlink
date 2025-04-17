@@ -1,6 +1,6 @@
 // Will be deleted only tmp file for testing message passing with CRIB
 //
-//nolint:golang-ci-lint
+//nolint:golang-ci-lint // Will be deleted only tmp
 package ccip
 
 import (
@@ -352,7 +352,7 @@ func TestTokenTransfer_EVM2SolanaCRIB(t *testing.T) {
 		sourceChain,
 		destChain,
 		ownerSourceChain,
-		e.Env.ExistingAddresses,
+		e.Env.ExistingAddresses, //nolint:staticcheck // SA1019
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
@@ -501,7 +501,7 @@ func TestTokenTransfer_Solana2EVMCRIB(t *testing.T) {
 		destChain,
 		sourceChain,
 		ownerDestChain,
-		e.Env.ExistingAddresses,
+		e.Env.ExistingAddresses, //nolint:staticcheck // SA1019
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
