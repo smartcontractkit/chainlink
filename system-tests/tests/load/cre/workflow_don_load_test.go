@@ -294,13 +294,16 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return capabilities
 	}
 
+	chainIDInt, err := strconv.Atoi(in.BlockchainA.ChainID)
+	require.NoError(t, err, "cannot convert chainID to int")
+
 	setupOutput := setupLoadTestEnvironment(
 		t,
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
 		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn},
-		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(1337)}, //TODO: dynamic chain id
+		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(uint64(chainIDInt))},
 	)
 
 	ctx := t.Context()
