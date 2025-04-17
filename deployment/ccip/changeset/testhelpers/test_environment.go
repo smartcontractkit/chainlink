@@ -381,7 +381,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	require.NotNil(t, m.Chains, "start chains first, chains are empty")
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
 	tc := m.TestConfig
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, m.SolChains, m.AptosChains, tc.Nodes, tc.Bootstraps, crConfig, tc.CLNodeConfigOpts...)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, m.SolChains, m.AptosChains, tc.Nodes, tc.Bootstraps, crConfig, nil, tc.CLNodeConfigOpts...)
 	ctx := testcontext.Get(t)
 	lggr := logger.Test(t)
 	for _, node := range nodes {

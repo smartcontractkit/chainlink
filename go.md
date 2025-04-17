@@ -40,7 +40,6 @@ flowchart LR
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
-	chainlink-evm --> chainlink-framework/metrics
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
@@ -48,8 +47,6 @@ flowchart LR
 	click chainlink-framework/capabilities href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/chains --> chainlink-framework/multinode
 	click chainlink-framework/chains href "https://github.com/smartcontractkit/chainlink-framework"
-	chainlink-framework/metrics
-	click chainlink-framework/metrics href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/multinode --> chainlink-common
 	click chainlink-framework/multinode href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-protos/orchestrator --> wsrpc
@@ -60,7 +57,6 @@ flowchart LR
 	click chainlink-protos/svr href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-solana --> chainlink-ccip/chains/solana
 	chainlink-solana --> chainlink-common/pkg/monitoring
-	chainlink-solana --> chainlink-framework/metrics
 	chainlink-solana --> chainlink-framework/multinode
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink/v2 --> chainlink-automation
@@ -99,7 +95,6 @@ flowchart LR
 	subgraph chainlink-framework-repo[chainlink-framework]
 		 chainlink-framework/capabilities
 		 chainlink-framework/chains
-		 chainlink-framework/metrics
 		 chainlink-framework/multinode
 	end
 	click chainlink-framework-repo href "https://github.com/smartcontractkit/chainlink-framework"
@@ -165,7 +160,6 @@ flowchart LR
 	click chainlink-deployments-framework href "https://github.com/smartcontractkit/chainlink-deployments-framework"
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
-	chainlink-evm --> chainlink-framework/metrics
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
@@ -173,8 +167,6 @@ flowchart LR
 	click chainlink-framework/capabilities href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/chains --> chainlink-framework/multinode
 	click chainlink-framework/chains href "https://github.com/smartcontractkit/chainlink-framework"
-	chainlink-framework/metrics
-	click chainlink-framework/metrics href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/multinode --> chainlink-common
 	click chainlink-framework/multinode href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-protos/job-distributor
@@ -187,7 +179,6 @@ flowchart LR
 	click chainlink-protos/svr href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-solana --> chainlink-ccip/chains/solana
 	chainlink-solana --> chainlink-common/pkg/monitoring
-	chainlink-solana --> chainlink-framework/metrics
 	chainlink-solana --> chainlink-framework/multinode
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink-testing-framework/framework
@@ -278,7 +269,6 @@ flowchart LR
 	subgraph chainlink-framework-repo[chainlink-framework]
 		 chainlink-framework/capabilities
 		 chainlink-framework/chains
-		 chainlink-framework/metrics
 		 chainlink-framework/multinode
 	end
 	click chainlink-framework-repo href "https://github.com/smartcontractkit/chainlink-framework"
