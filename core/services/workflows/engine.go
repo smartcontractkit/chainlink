@@ -1194,7 +1194,9 @@ func (e *Engine) Close() error {
 		}
 
 		close(e.stopCh)
+		e.logger.Info("stopCh closed, waiting for workers to finish")
 		e.wg.Wait()
+		e.logger.Info("workers finished")
 
 		err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
 			if s.Ref == workflows.KeywordTrigger {
@@ -1367,6 +1369,14 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 
 	if cfg.WorkflowLimits == nil {
 		return nil, &workflowError{reason: "workflowLimits must be provided",
+			labels: map[string]string{
+				platform.KeyWorkflowID: cfg.WorkflowID,
+			},
+		}
+	}
+
+	if cfg.Registry == nil {
+		return nil, &workflowError{reason: "capabilities registry must be provided",
 			labels: map[string]string{
 				platform.KeyWorkflowID: cfg.WorkflowID,
 			},
