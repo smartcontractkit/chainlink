@@ -110,7 +110,6 @@ func (r *server) Start(ctx context.Context) error {
 					r.expireRequests()
 				}
 			}
-
 		}()
 
 		err := r.parallelExecutor.Start(ctx)
