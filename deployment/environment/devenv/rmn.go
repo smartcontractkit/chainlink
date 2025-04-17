@@ -21,10 +21,11 @@ import (
 	tcLog "github.com/testcontainers/testcontainers-go/log"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 const (
