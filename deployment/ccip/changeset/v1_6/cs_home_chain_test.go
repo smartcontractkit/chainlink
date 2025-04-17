@@ -119,7 +119,7 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	require.NoError(t, err)
 
 	// capabilityRegistryDonID
-	nextDonId, err := state.Chains[e.HomeChainSel].CapabilityRegistry.GetNextDONId(&bind.CallOpts{Context: ctx})
+	nextDonID, err := state.Chains[e.HomeChainSel].CapabilityRegistry.GetNextDONId(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 
 	// deploy donIDClaimer
@@ -141,7 +141,7 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	nextDonIDAfterOffset, err := state.Chains[e.HomeChainSel].DonIDClaimer.GetNextDONId(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 	// offSets donID based on CapReg nextDonID
-	require.Equal(t, nextDonId+1, nextDonIDAfterOffset)
+	require.Equal(t, nextDonID+1, nextDonIDAfterOffset)
 }
 
 func TestRemoveDonsValidate(t *testing.T) {

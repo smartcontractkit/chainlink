@@ -424,6 +424,13 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				// RMNRemoteConfig:   &v1_6.RMNRemoteConfig{...}, // TODO: Enable?
 			}
 
+			// deploy donIDClaimer
+			e, err = commonchangeset.Apply(t, e, nil,
+				commonchangeset.Configure(deployment.CreateLegacyChangeSet(v1_6.DeployDonIDClaimerChangeset), v1_6.DeployDonIDClaimerConfig{
+					HomeChainSelector: deployedEnvironment.HomeChainSel,
+				}))
+			require.NoError(t, err, "must deploy donIDClaimer contract")
+
 			// Apply AddCandidatesForNewChainChangeset
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
