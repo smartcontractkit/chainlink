@@ -26,9 +26,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	aptosconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/aptos"
 	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 
+	aptosloop "github.com/smartcontractkit/chainlink-aptos/relayer/chainreader/loop"
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
 	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
@@ -87,6 +89,18 @@ var plugins = map[string]plugin{
 		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
 		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
 		ContractTransmitterFactory: &ocrimpls.SVMContractTransmitterFactory{},
+	},
+	chainsel.FamilyAptos: {
+		CommitPluginCodec:  ccipaptos.NewCommitPluginCodecV1(),
+		ExecutePluginCodec: ccipaptos.NewExecutePluginCodecV1(extraDataCodec),
+		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
+			return ccipaptos.NewMessageHasherV1(lggr, extraDataCodec)
+		},
+		TokenDataEncoder:           ccipaptos.NewAptosTokenDataEncoder(),
+		GasEstimateProvider:        ccipaptos.NewGasEstimateProvider(),
+		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
+		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
+		ContractTransmitterFactory: &ocrimpls.AptosContractTransmitterFactory{},
 	},
 }
 
@@ -466,6 +480,10 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, err1
 		}
 
+		if relayChainFamily == relay.NetworkAptos {
+			cr = aptosloop.NewLoopChainReader(i.lggr, cr)
+		}
+
 		if chainID == destChainID && destChainFamily == relayChainFamily {
 			offrampAddress := destAddrStr
 			err2 := cr.Bind(ctx, []types.BoundContract{
@@ -597,6 +615,18 @@ func getChainReaderConfig(
 		}
 
 		return marshaledConfig, nil
+
+	case relay.NetworkAptos:
+		cfg, err := aptosconfig.GetChainReaderConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Aptos chain reader config: %w", err)
+		}
+		marshaledConfig, err := json.Marshal(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal Aptos chain reader config: %w", err)
+		}
+		return marshaledConfig, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
@@ -652,6 +682,14 @@ func createChainWriter(
 		}
 		if chainWriterConfig, err = json.Marshal(evmConfig); err != nil {
 			return nil, fmt.Errorf("failed to marshal EVM chain writer config: %w", err)
+		}
+	case relay.NetworkAptos:
+		cfg, err := aptosconfig.GetChainWriterConfig(transmitter[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Aptos chain writer config: %w", err)
+		}
+		if chainWriterConfig, err = json.Marshal(cfg); err != nil {
+			return nil, fmt.Errorf("failed to marshal Aptos chain writer config: %w", err)
 		}
 	default:
 		return nil, fmt.Errorf("unknown chain family %s", chainFamily)
