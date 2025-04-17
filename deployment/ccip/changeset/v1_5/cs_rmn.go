@@ -113,7 +113,6 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 
 	ops := make([]mcmstypes.BatchOperation, 0)
 	timelocks := make(map[uint64]string)
-	proposerMcms := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for destChain, cfg := range c.Configs {
