@@ -1319,6 +1319,13 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			deployment.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_6_0).String():
 			// Ignore firedrill contracts
 			// Firedrill contracts are unknown to core and their state is being loaded separately
+		case deployment.NewTypeAndVersion(DonIDClaimer, deployment.Version1_6_1).String():
+			donIDClaimer, err := don_id_claimer.NewDonIDClaimer(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.DonIDClaimer = donIDClaimer
+			state.ABIByAddress[address] = don_id_claimer.DonIDClaimerABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller
