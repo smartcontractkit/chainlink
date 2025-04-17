@@ -11,7 +11,10 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
+require (
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250402195829-918b2a02a926
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
+)
 
 require (
 	github.com/docker/docker v28.0.4+incompatible
@@ -36,7 +39,6 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250325191518-036bb568a69d
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250409172733-a9b441035629
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20250408131511-c90716988ee0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
