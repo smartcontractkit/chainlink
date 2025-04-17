@@ -163,14 +163,18 @@ type DependenciesConfig struct {
 const (
 	CronBinaryVersion   = "v1.0.2-alpha"
 	CRECLIBinaryVersion = "v0.1.5"
+
+	AuthorizationKeySecretName = "AUTH_KEY"
+	AuthorizationKey           = "12a-281j&@91.sj1:_}"
 )
 
 // Defines the location of already compiled workflow binary and config files
 // They will be used if WorkflowConfig.ShouldCompileNewWorkflow is `false`
 // Otherwise test will compile and upload a new workflow
 type CompiledConfig struct {
-	BinaryURL string `toml:"binary_url" validate:"required"`
-	ConfigURL string `toml:"config_url" validate:"required"`
+	BinaryURL  string `toml:"binary_url" validate:"required"`
+	ConfigURL  string `toml:"config_url" validate:"required"`
+	SecretsURL string `toml:"secrets_url"`
 }
 
 func validateEnvVars(t *testing.T, in *TestConfig) {
@@ -209,6 +213,7 @@ type registerPoRWorkflowInput struct {
 	deployerPrivateKey      string
 	creCLIAbsPath           string
 	creCLIsettingsFile      *os.File
+	authKey                 string
 }
 
 type configureDataFeedsCacheInput struct {
@@ -312,12 +317,25 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 	}
 
 	// create workflow-specific config file
-	workflowConfigFile, configErr := keystoneporcrecli.CreateConfigFile(input.dataFeedsCacheAddress, input.feedID, input.priceProvider.URL(), input.writeTargetName)
+	workflowConfigFile, configErr := keystoneporcrecli.CreateConfigFile(input.dataFeedsCacheAddress, input.feedID, input.priceProvider.URL(), input.writeTargetName, AuthorizationKeySecretName)
 	if configErr != nil {
 		return errors.Wrap(configErr, "failed to create workflow config file")
 	}
-
 	workflowConfigFilePath := workflowConfigFile.Name()
+
+	// indicate to the CRE CLI that the secret will be shared between all nodes in the workflow by using specific suffix
+	authKeyEnvVarName := AuthorizationKeySecretName + libcrecli.SharedSecretEnvVarSuffix
+	// create workflow-specific secrets file, which contains a mapping of secret names to environment variables that hold them
+	// secrets will be read from the environment variables by the CRE CLI and encoded using nodes' public keys
+	secrets := map[string][]string{
+		AuthorizationKeySecretName: {authKeyEnvVarName},
+	}
+
+	secretsFile, secretsErr := libcrecli.CreateSecretsFile(secrets)
+	if secretsErr != nil {
+		return errors.Wrap(secretsErr, "failed to create secrets file")
+	}
+	secretsFilePath := secretsFile.Name()
 
 	registerWorkflowInput := keystonetypes.RegisterWorkflowWithCRECLIInput{
 		ChainSelector:            input.chainSelector,
@@ -333,8 +351,12 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 
 	if input.WorkflowConfig.ShouldCompileNewWorkflow {
 		registerWorkflowInput.NewWorkflow = &keystonetypes.NewWorkflow{
-			FolderLocation: *input.WorkflowConfig.WorkflowFolderLocation,
-			ConfigFilePath: &workflowConfigFilePath,
+			FolderLocation:  *input.WorkflowConfig.WorkflowFolderLocation,
+			ConfigFilePath:  &workflowConfigFilePath,
+			SecretsFilePath: &secretsFilePath,
+			Secrets: map[string]string{
+				authKeyEnvVarName: input.authKey,
+			},
 		}
 	} else {
 		registerWorkflowInput.ExistingWorkflow = &keystonetypes.ExistingWorkflow{
@@ -484,6 +506,7 @@ func setupPoRTestEnvironment(
 		creCLIAbsPath:           creCLIAbsPath,
 		creCLIsettingsFile:      creCLISettingsFile,
 		writeTargetName:         corevm.GenerateWriteTargetName(universalSetupOutput.BlockchainOutput.ChainID),
+		authKey:                 priceProvider.AuthKey(),
 	}
 
 	workflowErr := registerPoRWorkflow(registerInput)
@@ -537,7 +560,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 		}
 	}
 
-	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
+	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
 	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
@@ -647,7 +670,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 		}
 	}
 
-	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
+	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
 	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)

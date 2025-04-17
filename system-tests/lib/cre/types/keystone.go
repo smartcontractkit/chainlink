@@ -647,6 +647,7 @@ type NewWorkflow struct {
 	FolderLocation  string
 	ConfigFilePath  *string
 	SecretsFilePath *string
+	Secrets         map[string]string
 }
 
 type ExistingWorkflow struct {

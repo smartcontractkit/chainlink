@@ -35,7 +35,7 @@ func RegisterWithCRECLI(input cretypes.RegisterWorkflowWithCRECLIInput) error {
 		workflowConfigURL = &compilationResult.ConfigURL
 
 		if input.NewWorkflow.SecretsFilePath != nil {
-			secretsURL, secretsErr := libcrecli.EncryptSecrets(input.CRECLIAbsPath, *input.NewWorkflow.SecretsFilePath, input.CRESettingsFile)
+			secretsURL, secretsErr := libcrecli.EncryptSecrets(input.CRECLIAbsPath, *input.NewWorkflow.SecretsFilePath, input.NewWorkflow.Secrets, input.CRESettingsFile)
 			if secretsErr != nil {
 				return errors.Wrap(secretsErr, "failed to encrypt workflow secrets")
 			}
