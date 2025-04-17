@@ -2,10 +2,12 @@ package ocrimpls
 
 import (
 	"context"
+	"encoding/hex"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -94,6 +96,13 @@ func toOnchainPublicKeys(signers [][]byte) []types.OnchainPublicKey {
 func toOCRAccounts(transmitters [][]byte, addressCodec ccipcommon.AddressCodec, chainSelector ccipocr3.ChainSelector) []types.Account {
 	accounts := make([]types.Account, len(transmitters))
 	for i, transmitter := range transmitters {
+		family, _ := chainsel.GetSelectorFamily(uint64(chainSelector))
+		// Aptos transmitter accounts do not go through the address codec, because they are ed25519 public keys.
+		if family == chainsel.FamilyAptos {
+			s := hex.EncodeToString(transmitter)
+			accounts[i] = types.Account(s)
+			continue
+		}
 		address, _ := addressCodec.AddressBytesToString(transmitter, chainSelector)
 		accounts[i] = types.Account(address)
 	}
