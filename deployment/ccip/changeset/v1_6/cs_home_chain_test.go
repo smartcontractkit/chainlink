@@ -93,7 +93,8 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDeployDonIDClaimer(t *testing.T) {
+func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
+	ctx := testcontext.Get(t)
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
@@ -123,8 +124,19 @@ func TestDeployDonIDClaimer(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(donIDClaimerOutput.AddressBook))
-	_, err = changeset.LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
+
+	_, err = v1_6.DonIDClaimerOffSetChangeset(e.Env, v1_6.DonIDClaimerOffSetConfig{
+		HomeChainSelector: e.HomeChainSel,
+		OffSet:            1,
+	})
+	require.NoError(t, err)
+
+	// check if the offset was successfully applied
+	nextDonIDAfterOffset, err := state.Chains[e.HomeChainSel].DonIDClaimer.GetNextDONId(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+	require.Equal(t, 2, nextDonIDAfterOffset)
 }
 
 func TestRemoveDonsValidate(t *testing.T) {
