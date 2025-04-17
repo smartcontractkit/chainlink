@@ -296,7 +296,7 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 		}
 
 		tronTxm = trontxm.New(l, tronkeystore.NewLoopKeystoreAdapter(opts.KeyStore), tronClient, trontxm.TronTxmConfig{
-			// From testing, this multipler ensures all exec messages are fully executed.
+			// From testing, this multiplier ensures all exec messages are fully executed.
 			// Energy estimation doesn't seem to account for more complex smart contract execution.
 			// Given that Tron has static gas prices, we don't expect this to be a problem as this multiplier is sufficiently high.
 			EnergyMultiplier: 3,
