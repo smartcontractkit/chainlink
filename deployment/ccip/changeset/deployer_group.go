@@ -232,6 +232,13 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		batches := make([]mcmstypes.BatchOperation, 0, len(dc.transactions))
 		describedBatches := make([][]string, 0, len(dc.transactions))
 		for selector, txs := range dc.transactions {
+			mcmsState, ok := d.state.EVMMCMSStateByChain()[selector]
+			if !ok {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms state for chain %d", selector)
+			}
+			if err := d.mcmConfig.Validate(d.e.Chains[selector], mcmsState); err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("mcm config is invalid for chain %d: %w", selector, err)
+			}
 			mcmTransactions := make([]mcmstypes.Transaction, len(txs))
 			describedTxs := make([]string, len(txs))
 			for i, tx := range txs {
