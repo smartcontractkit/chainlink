@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 // WorkflowRegistryrEventType is the type of event that is emitted by the WorkflowRegistry
@@ -439,26 +440,41 @@ func (h *eventHandler) getWorkflowArtifacts(
 
 func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
 	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
-	sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
+	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workflow sdk spec: %w", err)
+		return nil, fmt.Errorf("could not instantiate module: %w", err)
 	}
 
-	cfg := workflows.Config{
-		Lggr:           h.lggr,
-		Workflow:       *sdkSpec,
-		WorkflowID:     workflowID,
-		WorkflowOwner:  owner, // this gets hex encoded in the engine.
-		WorkflowName:   name,
-		Registry:       h.capRegistry,
-		Store:          h.workflowStore,
-		Config:         config,
-		Binary:         binary,
-		SecretsFetcher: h.workflowArtifactsStore.SecretsFor,
-		RateLimiter:    h.ratelimiter,
-		WorkflowLimits: h.workflowLimits,
+	if module.IsLegacyDAG() { // V1 aka "DAG"
+		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflow sdk spec: %w", err)
+		}
+
+		cfg := workflows.Config{
+			Lggr:           h.lggr,
+			Workflow:       *sdkSpec,
+			WorkflowID:     workflowID,
+			WorkflowOwner:  owner, // this gets hex encoded in the engine.
+			WorkflowName:   name,
+			Registry:       h.capRegistry,
+			Store:          h.workflowStore,
+			Config:         config,
+			Binary:         binary,
+			SecretsFetcher: h.workflowArtifactsStore.SecretsFor,
+			RateLimiter:    h.ratelimiter,
+			WorkflowLimits: h.workflowLimits,
+		}
+		return workflows.NewEngine(ctx, cfg)
 	}
-	return workflows.NewEngine(ctx, cfg)
+
+	// V2 aka "NoDAG"
+	cfg := v2.EngineConfig{
+		Lggr:       h.lggr,
+		WorkflowID: workflowID,
+		Module:     module,
+	}
+	return v2.NewEngine(ctx, cfg)
 }
 
 // workflowUpdatedEvent handles the WorkflowUpdatedEvent event type by first finding the
