@@ -3,6 +3,7 @@ package jd
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	nodeapiv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	jdtypesv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -20,15 +21,15 @@ const (
 // Source for a set of JD filters to apply when fetching a DON.
 // Should uniquely identify a set of nodes in JD which belong to a single DON.
 type ListFilter struct {
-	DONID    uint64
-	DONName  string
-	EnvLabel string
-	Size     int // Expected number of nodes in the result
+	DONID             uint64
+	DONName           string
+	EnvLabel          string
+	NumOracleNodes    int // Expected number of oracle nodes in the result
+	NumBootstrapNodes int // Expected number of bootstrap nodes in the result
 }
 
-func (f *ListFilter) bootstrappersFilter(pubKeys []string) *nodeapiv1.ListNodesRequest_Filter {
+func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 	return &nodeapiv1.ListNodesRequest_Filter{
-		PublicKeys: pubKeys,
 		Selectors: []*jdtypesv1.Selector{
 			{
 				Key: utils.DonIdentifier(f.DONID, f.DONName),
@@ -54,9 +55,8 @@ func (f *ListFilter) bootstrappersFilter(pubKeys []string) *nodeapiv1.ListNodesR
 }
 
 // oraclesFilter is used to fetch all oracle (non-bootstrap) nodes in a DON.
-func (f *ListFilter) oraclesFilter(pubKeys []string) *nodeapiv1.ListNodesRequest_Filter {
+func (f *ListFilter) oraclesFilter() *nodeapiv1.ListNodesRequest_Filter {
 	return &nodeapiv1.ListNodesRequest_Filter{
-		PublicKeys: pubKeys,
 		Selectors: []*jdtypesv1.Selector{
 			{
 				Key: utils.DonIdentifier(f.DONID, f.DONName),
@@ -81,31 +81,50 @@ func (f *ListFilter) oraclesFilter(pubKeys []string) *nodeapiv1.ListNodesRequest
 	}
 }
 
-func FetchDONBootstrappersFromJD(ctx context.Context, jd deployment.OffchainClient, filter *ListFilter, pubKeys []string) (nodes []*nodeapiv1.Node, err error) {
-	jdFilter := filter.bootstrappersFilter(pubKeys)
+// FetchDONBootstrappersFromJD fetches all bootstrap nodes which match the given filter *and* their name is in the nodeNames list.
+func FetchDONBootstrappersFromJD(ctx context.Context, jd deployment.OffchainClient, filter *ListFilter, nodeNames []string) ([]*nodeapiv1.Node, error) {
+	jdFilter := filter.bootstrappersFilter()
 	resp, err := jd.ListNodes(ctx, &nodeapiv1.ListNodesRequest{Filter: jdFilter})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list bootstrap nodes for DON %d - %s: %w", filter.DONID, filter.DONName, err)
 	}
-
-	if len(resp.Nodes) != filter.Size {
-		return nil, fmt.Errorf("expected %d bootstrap nodes for DON(%d,%s), got %d", filter.Size, filter.DONID, filter.DONName, len(resp.Nodes))
+	nodes := make([]*nodeapiv1.Node, 0, filter.NumBootstrapNodes)
+	for _, node := range resp.Nodes {
+		idx := slices.IndexFunc(nodeNames, func(name string) bool {
+			return node.Name == name
+		})
+		if idx >= 0 {
+			nodes = append(nodes, node)
+		}
 	}
 
-	return resp.Nodes, nil
+	if len(nodes) != filter.NumBootstrapNodes {
+		return nil, fmt.Errorf("expected %d bootstrap nodes for DON(%d,%s), got %d", filter.NumBootstrapNodes, filter.DONID, filter.DONName, len(nodes))
+	}
+
+	return nodes, nil
 }
 
-// FetchDONOraclesFromJD fetches all oracle nodes.
-func FetchDONOraclesFromJD(ctx context.Context, jd deployment.OffchainClient, filter *ListFilter, pubKeys []string) (nodes []*nodeapiv1.Node, err error) {
-	jdFilter := filter.oraclesFilter(pubKeys)
+// FetchDONOraclesFromJD fetches all oracle nodes which match the given filter *and* their name is in the nodeNames list.
+func FetchDONOraclesFromJD(ctx context.Context, jd deployment.OffchainClient, filter *ListFilter, nodeNames []string) ([]*nodeapiv1.Node, error) {
+	jdFilter := filter.oraclesFilter()
 	resp, err := jd.ListNodes(ctx, &nodeapiv1.ListNodesRequest{Filter: jdFilter})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes for DON %d - %s: %w", filter.DONID, filter.DONName, err)
 	}
-
-	if len(resp.Nodes) != filter.Size {
-		return nil, fmt.Errorf("expected %d nodes for DON(%d,%s), got %d", filter.Size, filter.DONID, filter.DONName, len(resp.Nodes))
+	nodes := make([]*nodeapiv1.Node, 0, filter.NumOracleNodes)
+	for _, node := range resp.Nodes {
+		idx := slices.IndexFunc(nodeNames, func(name string) bool {
+			return node.Name == name
+		})
+		if idx >= 0 {
+			nodes = append(nodes, node)
+		}
 	}
 
-	return resp.Nodes, nil
+	if len(nodes) != filter.NumOracleNodes {
+		return nil, fmt.Errorf("expected %d oracle nodes for DON(%d,%s), got %d", filter.NumOracleNodes, filter.DONID, filter.DONName, len(nodes))
+	}
+
+	return nodes, nil
 }

@@ -23,18 +23,18 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 	e := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
 		ShouldDeployLinkToken: false,
-		NumNodes:              1,
+		NumNodes:              2,
 		NodeLabels:            testutil.GetNodeLabels(donID, donName, env),
 		CustomDBSetup: []string{
-			// Setup the database with the list of bridges we're using.
-			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
-				" VALUES ('bridge-api1', 'http://url', 0, '', '', '', now(), now());",
-			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
-				" VALUES ('bridge-api2', 'http://url', 0, '', '', '', now(), now());",
-			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
-				" VALUES ('bridge-api3', 'http://url', 0, '', '', '', now(), now());",
-			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
-				" VALUES ('bridge-api4', 'http://url', 0, '', '', '', now(), now());",
+			// Seed the database with the list of bridges we're using.
+			`INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)
+				VALUES ('bridge-api1', 'http://url', 0, '', '', '', now(), now());`,
+			`INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)
+				VALUES ('bridge-api2', 'http://url', 0, '', '', '', now(), now());`,
+			`INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)
+				VALUES ('bridge-api3', 'http://url', 0, '', '', '', now(), now());`,
+			`INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)
+				VALUES ('bridge-api4', 'http://url', 0, '', '', '', now(), now());`,
 		},
 	}).Environment
 
@@ -103,10 +103,10 @@ ask_price [type=median allowedFaults=3 index=2];
 
 	config := CsDistributeStreamJobSpecsConfig{
 		Filter: &jd.ListFilter{
-			DONID:    donID,
-			DONName:  donName,
-			EnvLabel: "env",
-			Size:     1,
+			DONID:          donID,
+			DONName:        donName,
+			EnvLabel:       "env",
+			NumOracleNodes: 2,
 		},
 		Streams: []StreamSpecConfig{
 			{
@@ -132,22 +132,48 @@ ask_price [type=median allowedFaults=3 index=2];
 				APIs: []string{"api1", "api2", "api3", "api4"},
 			},
 		},
+		NodeNames: []string{"node-0", "node-1"},
 	}
 
 	tests := []struct {
-		name       string
-		config     CsDistributeStreamJobSpecsConfig
-		prepConfFn func(CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig
-		wantErr    *string
-		wantSpec   string
+		name        string
+		config      CsDistributeStreamJobSpecsConfig
+		prepConfFn  func(CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig
+		wantErr     *string
+		wantSpec    string
+		wantNumJobs int
 	}{
 		{
-			name:     "success",
-			config:   config,
-			wantSpec: renderedSpec,
+			name:        "success",
+			config:      config,
+			wantSpec:    renderedSpec,
+			wantNumJobs: 2,
 		},
-		// TODO add more tests
-		// TODO add a test which ensures that only nodes whose pubkeys are specified will get jobs
+		{
+			name:   "success sending jobs to a subset of nodes",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Filter = &jd.ListFilter{
+					DONID:          donID,
+					DONName:        donName,
+					EnvLabel:       "env",
+					NumOracleNodes: 1,
+				}
+				c.NodeNames = []string{"node-0"}
+				return c
+			},
+			wantSpec:    renderedSpec,
+			wantNumJobs: 1,
+		},
+		{
+			name:   "failure when the node name is not found",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.NodeNames = []string{"non-existing-node"}
+				return c
+			},
+			wantErr: pointer.To("failed to get oracle nodes"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -170,11 +196,13 @@ ask_price [type=median allowedFaults=3 index=2];
 			}
 			require.NoError(t, err)
 			require.Len(t, out, 1)
-			require.Len(t, out[0].Jobs, 1)
-			require.Equal(t,
-				testutil.StripLineContaining(tt.wantSpec, []string{"externalJobID"}),
-				testutil.StripLineContaining(out[0].Jobs[0].Spec, []string{"externalJobID"}),
-			)
+			require.Len(t, out[0].Jobs, tt.wantNumJobs)
+			for i := 0; i < tt.wantNumJobs; i++ {
+				require.Equal(t,
+					testutil.StripLineContaining(tt.wantSpec, []string{"externalJobID"}),
+					testutil.StripLineContaining(out[0].Jobs[i].Spec, []string{"externalJobID"}),
+				)
+			}
 		})
 	}
 }
@@ -186,10 +214,10 @@ func TestValidatePreconditions(t *testing.T) {
 
 	config := CsDistributeStreamJobSpecsConfig{
 		Filter: &jd.ListFilter{
-			DONID:    1,
-			DONName:  "don",
-			EnvLabel: "env",
-			Size:     1,
+			DONID:          1,
+			DONName:        "don",
+			EnvLabel:       "env",
+			NumOracleNodes: 1,
 		},
 		Streams: []StreamSpecConfig{
 			{
@@ -215,6 +243,7 @@ func TestValidatePreconditions(t *testing.T) {
 				APIs: []string{"api1", "api2", "api3", "api4"},
 			},
 		},
+		NodeNames: []string{"testnode-0"},
 	}
 
 	tests := []struct {
@@ -374,24 +403,23 @@ func TestValidatePreconditions(t *testing.T) {
 			wantErr: pointer.To("at least one API is required for each stream"),
 		},
 		{
-			name:   "empty APIs",
+			name:   "no node names",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.Streams = []StreamSpecConfig{
-					{
-						StreamID:     1000001038,
-						Name:         "ICP/USD-RefPrice",
-						StreamType:   jobs.StreamTypeQuote,
-						ReportFields: jobs.QuoteReportFields{},
-						EARequestParams: EARequestParams{
-							Endpoint: "cryptolwba",
-						},
-						APIs: []string{},
-					},
-				}
+				c.NodeNames = []string{}
 				return c
 			},
-			wantErr: pointer.To("at least one API is required for each stream"),
+			wantErr: pointer.To("at least one node name is required"),
+		},
+		{
+			name:   "filter size does not match node names",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Filter.NumOracleNodes = 2
+				c.NodeNames = []string{"node-0"}
+				return c
+			},
+			wantErr: pointer.To("number of node names (1) does not match filter size (2)"),
 		},
 	}
 

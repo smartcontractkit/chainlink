@@ -33,7 +33,7 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 	e := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
 		ShouldDeployLinkToken: false,
-		NumNodes:              1,
+		NumNodes:              2,
 		NumBootstrapNodes:     1,
 		NodeLabels: []*ptypes.Label{
 			{
@@ -50,6 +50,27 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		},
 	}).Environment
 
+	// Collect the names of the nodes.
+	bootstrapNodeNames := make([]string, 0, 1)
+	oracleNodeNames := make([]string, 0, 2)
+	resp, err := e.Offchain.ListNodes(context.Background(), &node.ListNodesRequest{
+		Filter: &node.ListNodesRequest_Filter{},
+	})
+	require.NoError(t, err)
+	for _, node := range resp.Nodes {
+		for _, label := range node.Labels {
+			if label.Key == "nodeType" {
+				if *label.Value == jd.NodeTypeBootstrap.String() {
+					bootstrapNodeNames = append(bootstrapNodeNames, node.Name)
+				} else if *label.Value == jd.NodeTypeOracle.String() {
+					oracleNodeNames = append(oracleNodeNames, node.Name)
+				} else {
+					t.Fatalf("unexpected node type: %s", *label.Value)
+				}
+			}
+		}
+	}
+
 	// Partially mock the JD client, so it's ProposeJob just return.
 	e.Offchain = NewAdHocOffchainMock(e.Offchain)
 
@@ -58,7 +79,7 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
-	err := e.ExistingAddresses.Save(chainSelector, configuratorAddr,
+	err = e.ExistingAddresses.Save(chainSelector, configuratorAddr,
 		deployment.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
@@ -102,10 +123,11 @@ chainID = '90000001'
 	config := CsDistributeLLOJobSpecsConfig{
 		ChainSelectorEVM: chainSelector,
 		Filter: &jd.ListFilter{
-			DONID:    donID,
-			DONName:  donName,
-			EnvLabel: envName,
-			Size:     1,
+			DONID:             donID,
+			DONName:           donName,
+			EnvLabel:          envName,
+			NumOracleNodes:    2,
+			NumBootstrapNodes: 1,
 		},
 		FromBlock:                   0,
 		ConfigMode:                  "bluegreen",
@@ -115,23 +137,88 @@ chainID = '90000001'
 		Servers: map[string]string{
 			"mercury-pipeline-testnet-producer.TEST.cldev.cloud:1340": "0000005187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c",
 		},
+		NodeNames: append(bootstrapNodeNames, oracleNodeNames...),
 	}
 
 	tests := []struct {
-		name              string
-		env               deployment.Environment
-		config            CsDistributeLLOJobSpecsConfig
-		prepConfFn        func(CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig
-		wantErr           *string
-		wantOracleSpec    string
-		wantBootstrapSpec string
+		name                 string
+		env                  deployment.Environment
+		config               CsDistributeLLOJobSpecsConfig
+		prepConfFn           func(CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig
+		wantErr              *string
+		wantOracleSpec       string
+		wantBootstrapSpec    string
+		wantNumOracleJobs    int
+		wantNumBootstrapJobs int
 	}{
 		{
-			name:              "success",
-			env:               e,
-			config:            config,
-			wantOracleSpec:    oracleSpec,
-			wantBootstrapSpec: bootstrapSpec,
+			name:                 "success",
+			env:                  e,
+			config:               config,
+			wantOracleSpec:       oracleSpec,
+			wantBootstrapSpec:    bootstrapSpec,
+			wantNumOracleJobs:    2,
+			wantNumBootstrapJobs: 1,
+		},
+		{
+			name:   "success when sending jobs to a subset of nodes 1",
+			env:    e,
+			config: config,
+			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
+				c.NodeNames = append(bootstrapNodeNames, oracleNodeNames[:1]...)
+				c.Filter = &jd.ListFilter{
+					DONID:             donID,
+					DONName:           donName,
+					EnvLabel:          envName,
+					NumOracleNodes:    1,
+					NumBootstrapNodes: 1,
+				}
+				return c
+			},
+			wantOracleSpec:       oracleSpec,
+			wantBootstrapSpec:    bootstrapSpec,
+			wantNumOracleJobs:    1,
+			wantNumBootstrapJobs: 1,
+		},
+		{
+			name:   "success when sending jobs to a subset of nodes 2",
+			env:    e,
+			config: config,
+			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
+				c.NodeNames = bootstrapNodeNames
+				c.Filter = &jd.ListFilter{
+					DONID:             donID,
+					DONName:           donName,
+					EnvLabel:          envName,
+					NumOracleNodes:    0,
+					NumBootstrapNodes: 1,
+				}
+				return c
+			},
+			wantOracleSpec:       oracleSpec,
+			wantBootstrapSpec:    bootstrapSpec,
+			wantNumOracleJobs:    0,
+			wantNumBootstrapJobs: 1,
+		},
+		{
+			name:   "success when sending jobs to a subset of nodes 3",
+			env:    e,
+			config: config,
+			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
+				c.NodeNames = []string{oracleNodeNames[0]}
+				c.Filter = &jd.ListFilter{
+					DONID:             donID,
+					DONName:           donName,
+					EnvLabel:          envName,
+					NumOracleNodes:    1,
+					NumBootstrapNodes: 0,
+				}
+				return c
+			},
+			wantOracleSpec:       oracleSpec,
+			wantBootstrapSpec:    bootstrapSpec,
+			wantNumOracleJobs:    1,
+			wantNumBootstrapJobs: 0,
 		},
 		{
 			name:   "missing channel config store",
@@ -175,24 +262,27 @@ chainID = '90000001'
 			}
 			require.NoError(t, err)
 			require.Len(t, out, 1)
-			require.Len(t, out[0].Jobs, 2)
+			require.Len(t, out[0].Jobs, tt.wantNumOracleJobs+tt.wantNumBootstrapJobs)
 
-			t.Log(out[0].Jobs[0].Spec)
-			t.Log(out[0].Jobs[1].Spec)
 			// These are lines with dynamic values which we cannot compare.
 			linesToStrip := []string{"externalJobID", "transmitterID", "p2pv2Bootstrappers", "ocrKeyBundleID"}
-			spec1 := testutil.StripLineContaining(out[0].Jobs[0].Spec, linesToStrip)
-			spec2 := testutil.StripLineContaining(out[0].Jobs[1].Spec, linesToStrip)
 			wantBootstrapSpec := testutil.StripLineContaining(tt.wantBootstrapSpec, linesToStrip)
 			wantOracleSpec := testutil.StripLineContaining(tt.wantOracleSpec, linesToStrip)
 
-			if strings.Contains(spec1, "bootstrap") {
-				require.Equal(t, wantBootstrapSpec, spec1)
-				require.Equal(t, wantOracleSpec, spec2)
-			} else {
-				require.Equal(t, wantOracleSpec, spec1)
-				require.Equal(t, wantBootstrapSpec, spec2)
+			foundBootstrapJobs := 0
+			foundOracleJobs := 0
+			for _, j := range out[0].Jobs {
+				spec := testutil.StripLineContaining(j.Spec, linesToStrip)
+				if strings.Contains(spec, "bootstrap") {
+					require.Equal(t, wantBootstrapSpec, spec)
+					foundBootstrapJobs++
+				} else {
+					require.Equal(t, wantOracleSpec, spec)
+					foundOracleJobs++
+				}
 			}
+			require.Equal(t, tt.wantNumBootstrapJobs, foundBootstrapJobs)
+			require.Equal(t, tt.wantNumOracleJobs, foundOracleJobs)
 		})
 	}
 }

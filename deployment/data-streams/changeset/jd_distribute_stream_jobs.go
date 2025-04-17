@@ -22,8 +22,8 @@ type CsDistributeStreamJobSpecsConfig struct {
 	Filter  *jd.ListFilter
 	Streams []StreamSpecConfig
 
-	// NodePublicKeys specifies on which nodes to distribute the job specs.
-	NodePublicKeys []string
+	// NodeNames specifies on which nodes to distribute the job specs.
+	NodeNames []string
 }
 
 type StreamSpecConfig struct {
@@ -54,9 +54,9 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
 		})
 
-	oracleNodes, err := jd.FetchDONOraclesFromJD(ctx, e.Offchain, cfg.Filter, cfg.NodePublicKeys)
+	oracleNodes, err := jd.FetchDONOraclesFromJD(ctx, e.Offchain, cfg.Filter, cfg.NodeNames)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get workflow don nodes: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get oracle nodes: %w", err)
 	}
 
 	var proposals []*jobv1.ProposeJobRequest
@@ -123,7 +123,6 @@ func generateDatasources(cc StreamSpecConfig) []jobs.Datasource {
 	return dss
 }
 
-// TODO verify pubkeys and make them obligatory
 func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ deployment.Environment, config CsDistributeStreamJobSpecsConfig) error {
 	if config.Filter == nil {
 		return errors.New("filter is required")
@@ -153,6 +152,14 @@ func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ deployment.Environment
 		if len(s.APIs) == 0 {
 			return errors.New("at least one API is required for each stream")
 		}
+	}
+	if len(config.NodeNames) == 0 {
+		return errors.New("at least one node name is required")
+	}
+	// The list of node names tells us which nodes to distribute the job specs to.
+	// The size of that list needs to match the filter size, i.e. the number of nodes we expect to get from JD.
+	if config.Filter.NumOracleNodes+config.Filter.NumBootstrapNodes != len(config.NodeNames) {
+		return fmt.Errorf("number of node names (%d) does not match filter size (%d)", len(config.NodeNames), config.Filter.NumOracleNodes+config.Filter.NumBootstrapNodes)
 	}
 
 	return nil
