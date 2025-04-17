@@ -145,14 +145,11 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 				if err != nil {
 					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 				}
-				txns = append(txns, *tx)
+				batches = append(batches, mcmsTypes.BatchOperation{
+					ChainSelector: mcmsTypes.ChainSelector(remote),
+					Transactions:  []mcmsTypes.Transaction{*tx},
+				})
 			}
-		}
-		if cfg.MCMS != nil {
-			batches = append(batches, mcmsTypes.BatchOperation{
-				ChainSelector: mcmsTypes.ChainSelector(remote),
-				Transactions:  txns,
-			})
 		}
 	}
 	if cfg.MCMS != nil {
