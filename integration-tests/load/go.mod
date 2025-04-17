@@ -29,10 +29,10 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.50
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250414155813-3c1b22dc1f7a
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250416111541-d25d5d65b1ff
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250411163110-21a13ceb3ac4
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250416205944-615547d91280
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250414155813-3c1b22dc1f7a
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.2
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.53.0
@@ -587,10 +587,10 @@ replace (
 	github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.0-20250410125428-8c2971092e2e
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-  
-  // v0.36.0 has breaking change incompatible with CTF. Remove after it has been updated.
-  replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.35.0
 
-  // v0.63.0 is not compatible with prometheus/prometheus v0.302.0. Remove after it has been updated.
-  replace github.com/prometheus/common => github.com/prometheus/common v0.62.0
+	// v0.63.0 is not compatible with prometheus/prometheus v0.302.0. Remove after it has been updated.
+	github.com/prometheus/common => github.com/prometheus/common v0.62.0
+
+	// v0.36.0 has breaking change incompatible with CTF. Remove after it has been updated.
+	github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.35.0
 )
