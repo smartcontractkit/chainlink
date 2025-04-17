@@ -93,6 +93,40 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestDeployDonIDClaimer(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(t)
+
+	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+
+	// deploy home chain
+	homeChainCfg := v1_6.DeployHomeChainConfig{
+		HomeChainSel:     e.HomeChainSel,
+		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+		NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+			"NodeOperator": nodes.NonBootstraps().PeerIDs(),
+		},
+	}
+
+	// apply the changeset once again to ensure idempotency
+	output, err := v1_6.DeployHomeChainChangeset(e.Env, homeChainCfg)
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
+	_, err = changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	// deploy donIDClaimer
+	donIDClaimerOutput, err := v1_6.DeployDonIDClaimerChangeset(e.Env, v1_6.DeployDonIDClaimerConfig{
+		HomeChainSelector: e.HomeChainSel,
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(donIDClaimerOutput.AddressBook))
+	_, err = changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+}
+
 func TestRemoveDonsValidate(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := changeset.LoadOnchainState(e.Env)
