@@ -134,7 +134,7 @@ func TestDeployChainContractsChangesetPreload(t *testing.T) {
 	require.NoError(t, err)
 	// empty build config means, if artifacts are not present, resolve the artifact from github based on go.mod version
 	// for a simple local in memory test, they will always be present, because we need them to spin up the in memory chain
-	e, err = commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, nil))
+	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, nil))
 	require.NoError(t, err)
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
 	require.NoError(t, err)
@@ -162,7 +162,7 @@ func TestUpgrade(t *testing.T) {
 	evmSelectors := e.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.AllChainSelectorsSolana()
-	e, err := commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e,
+	e, _, err := commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e,
 		&ccipChangesetSolana.BuildSolanaConfig{
 			GitCommitSha:   OldSha,
 			DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
@@ -206,7 +206,7 @@ func TestUpgrade(t *testing.T) {
 	require.NoError(t, err)
 
 	// deploy the contracts
-	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		// upgrade authority
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
@@ -320,7 +320,7 @@ func TestUpgrade(t *testing.T) {
 	require.NoError(t, err)
 	oldOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
 	// add a second offramp address
-	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 			ccipChangesetSolana.DeployChainContractsConfig{
@@ -388,7 +388,7 @@ func TestIDL(t *testing.T) {
 	}
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
-	e, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+	e, _, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
 			ccipChangesetSolana.IDLConfig{
@@ -411,7 +411,7 @@ func TestIDL(t *testing.T) {
 			Router: true,
 		})
 
-	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDL),
 			ccipChangesetSolana.IDLConfig{

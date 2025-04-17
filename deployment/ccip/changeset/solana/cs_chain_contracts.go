@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/mcms"
@@ -450,7 +451,10 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 }
 
 type DeployForTestConfig struct {
-	ChainSelector uint64
+	ChainSelector   uint64
+	BuildConfig     *BuildSolanaConfig
+	ReceiverVersion *semver.Version // leave unset to default to v1.0.0
+	IsUpgrade       bool
 }
 
 func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
@@ -472,6 +476,16 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 		return deployment.ChangesetOutput{}, err
 	}
 
+	if cfg.BuildConfig != nil {
+		e.Logger.Debugw("Building solana artifacts", "gitCommitSha", cfg.BuildConfig.GitCommitSha)
+		err := BuildSolana(e, *cfg.BuildConfig)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
+		}
+	} else {
+		e.Logger.Debugw("Skipping solana build as no build config provided")
+	}
+
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
@@ -479,30 +493,51 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 
 	var receiverAddress solana.PublicKey
 	var err error
-	if chainState.Receiver.IsZero() {
-		receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
+	if !cfg.IsUpgrade {
+		//nolint:gocritic // this is a false positive, we need to check if the address is zero
+		if chainState.Receiver.IsZero() {
+			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
+			}
+		} else if cfg.ReceiverVersion != nil {
+			// this block is for re-deploying with a new version
+			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, *cfg.ReceiverVersion, false)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
+			}
+		} else {
+			e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
+			receiverAddress = chainState.Receiver
 		}
-	} else {
-		e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
+		solTestReceiver.SetProgramID(receiverAddress)
+		externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
+		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
+			chainState.Router,
+			ccipChangeset.FindReceiverTargetAccount(receiverAddress),
+			externalExecutionConfigPDA,
+			chain.DeployerKey.PublicKey(),
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if ixErr != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", ixErr)
+		}
+		if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
+	} else if cfg.IsUpgrade {
+		e.Logger.Infow("Deploying new receiver", "addr", chainState.Receiver.String())
 		receiverAddress = chainState.Receiver
-	}
-
-	solTestReceiver.SetProgramID(receiverAddress)
-	externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
-	instruction, ixErr := solTestReceiver.NewInitializeInstruction(
-		chainState.Router,
-		ccipChangeset.FindReceiverTargetAccount(receiverAddress),
-		externalExecutionConfigPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-	if ixErr != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", ixErr)
-	}
-	if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		// only support deployer key as upgrade authority. never transfer to timelock
+		_, err := generateUpgradeTxns(e, chain, ab, DeployChainContractsConfig{
+			UpgradeConfig: UpgradeConfig{
+				SpillAddress:     chain.DeployerKey.PublicKey(),
+				UpgradeAuthority: chain.DeployerKey.PublicKey(),
+			},
+		}, cfg.ReceiverVersion, chainState.Receiver, ccipChangeset.Receiver)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate upgrade txns: %w", err)
+		}
 	}
 
 	return deployment.ChangesetOutput{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -216,11 +217,10 @@ func (n *Node) AddLabel(label *ptypes.Label) {
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
 func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
 	for _, chain := range chains {
-		chainId := chain.ChainID
 		var account string
 		switch chain.ChainType {
 		case "EVM":
-			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
+			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chain.ChainID)
 			if err != nil {
 				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
 			}
@@ -286,7 +286,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			}
 			if nodeChainConfigs != nil {
 				for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-					if chainConfig.Chain.Id == chainId {
+					if chainConfig.Chain.Id == chain.ChainID {
 						return nil
 					}
 				}
@@ -296,7 +296,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			// if it's not updated , throw an error
 			_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 				JobDistributorID: n.JDId,
-				ChainID:          chainId,
+				ChainID:          chain.ChainID,
 				ChainType:        chain.ChainType,
 				AccountAddr:      account,
 				AdminAddr:        n.adminAddr,

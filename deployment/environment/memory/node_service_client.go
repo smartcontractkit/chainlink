@@ -55,9 +55,23 @@ func (j *JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeReq
 	}, nil
 }
 
+// UpdateNode only updates the labels of the node.
+// TODO: Implement the rest of the update.
 func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
-	// TODO CCIP-3108 implement me
-	panic("implement me")
+	node, err := j.nodeStore.get(in.Id)
+	if err != nil {
+		return nil, fmt.Errorf("node with ID %s not found", in.Id)
+	}
+	node.Labels = in.Labels
+	return &nodev1.UpdateNodeResponse{
+		Node: &nodev1.Node{
+			Id:          in.Id,
+			PublicKey:   node.Keys.CSA.ID(),
+			IsEnabled:   true,
+			IsConnected: true,
+			Labels:      in.Labels,
+		},
+	}, nil
 }
 
 func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts ...grpc.CallOption) (*nodev1.GetNodeResponse, error) {
@@ -71,6 +85,7 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 			PublicKey:   n.Keys.CSA.PublicKeyString(),
 			IsEnabled:   true,
 			IsConnected: true,
+			Labels:      n.Labels,
 		},
 	}, nil
 }
@@ -78,17 +93,16 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
 	var nodes []*nodev1.Node
 	for id, n := range j.nodeStore.asMap() {
+		p2pIDLabel := &ptypes.Label{
+			Key:   "p2p_id",
+			Value: ptr(n.Keys.PeerID.String()),
+		}
 		node := &nodev1.Node{
 			Id:          id,
 			PublicKey:   n.Keys.CSA.ID(),
 			IsEnabled:   true,
 			IsConnected: true,
-			Labels: []*ptypes.Label{
-				{
-					Key:   "p2p_id",
-					Value: ptr(n.Keys.PeerID.String()),
-				},
-			},
+			Labels:      append(n.Labels, p2pIDLabel),
 		}
 		if ApplyNodeFilter(in.Filter, node) {
 			nodes = append(nodes, node)

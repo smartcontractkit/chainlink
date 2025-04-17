@@ -1,10 +1,7 @@
 package globals
 
 import (
-	"fmt"
 	"time"
-
-	"dario.cat/mergo"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -58,31 +55,23 @@ var (
 		MerkleRootAsyncObserverDisabled:    false,
 		MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
 		MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
-		ChainFeeAsyncObserverDisabled:      false,
-		ChainFeeAsyncObserverSyncFreq:      1*time.Second + 500*time.Millisecond,
-		ChainFeeAsyncObserverSyncTimeout:   1 * time.Second,
-		TokenPriceAsyncObserverDisabled:    false,
-		TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(1*time.Second + 500*time.Millisecond),
-		TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(1 * time.Second),
+
+		// Disabling the chainfee + tokenprice async observers because the low cache TTL + low timeout
+		// is currently not a viable combo.
+		// Super aggressive frequency and timeout causes rpc timeouts more frequently.
+		ChainFeeAsyncObserverDisabled: true,
+		// TODO: revisit
+		// ChainFeeAsyncObserverSyncFreq:      1*time.Second + 500*time.Millisecond,
+		// ChainFeeAsyncObserverSyncTimeout:   1 * time.Second,
+		TokenPriceAsyncObserverDisabled: true,
+		// TODO: revisit
+		// TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(1*time.Second + 500*time.Millisecond),
+		// TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(1 * time.Second),
 
 		// Remaining fields cannot be statically set:
 		// PriceFeedChainSelector: , // Must be configured in CLD
 		// TokenInfo: , // Must be configured in CLD
 	}
-
-	// CommitOffChainCfgForEthereum represents a dedicated CommitOffchainConfig for Ethereum.
-	// It's driven by the fact that Ethereum block time is slower (12 seconds) and chain is considered
-	// more expensive compared to other EVM compatible chains
-	CommitOffChainCfgForEthereum = withCommitOffchainOverrides(
-		DefaultCommitOffChainCfg,
-		pluginconfig.CommitOffchainConfig{
-			// Adjusted for longer block times on Ethereum
-			ChainFeeAsyncObserverSyncFreq:      4 * time.Second,
-			ChainFeeAsyncObserverSyncTimeout:   3 * time.Second,
-			TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(4 * time.Second),
-			TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(3 * time.Second),
-		},
-	)
 
 	// DefaultExecuteOffChainCfg represents the default offchain configuration for the Execute plugin
 	// on _most_ chains. This should be used as a base for all chains, with overrides only where necessary.
@@ -101,30 +90,3 @@ var (
 		// TokenDataObservers: , // Must be configured in CLD
 	}
 )
-
-// withCommitOffchainOverrides applies the overrides to the base CommitOffchainConfig
-func withCommitOffchainOverrides(base pluginconfig.CommitOffchainConfig, overrides pluginconfig.CommitOffchainConfig) pluginconfig.CommitOffchainConfig {
-	outcome := base
-
-	baseDurationFields := struct {
-		TokenPriceAsyncObserverSyncFreq    config.Duration
-		TokenPriceAsyncObserverSyncTimeout config.Duration
-	}{
-		TokenPriceAsyncObserverSyncFreq:    base.TokenPriceAsyncObserverSyncFreq,
-		TokenPriceAsyncObserverSyncTimeout: base.TokenPriceAsyncObserverSyncTimeout,
-	}
-
-	if err := mergo.Merge(&outcome, overrides, mergo.WithOverride); err != nil {
-		panic(fmt.Sprintf("error while building a CommitOffchainConfig %v", err))
-	}
-
-	if overrides.TokenPriceAsyncObserverSyncFreq.Duration() == 0 {
-		outcome.TokenPriceAsyncObserverSyncFreq = baseDurationFields.TokenPriceAsyncObserverSyncFreq
-	}
-
-	if overrides.TokenPriceAsyncObserverSyncTimeout.Duration() == 0 {
-		outcome.TokenPriceAsyncObserverSyncTimeout = baseDurationFields.TokenPriceAsyncObserverSyncTimeout
-	}
-
-	return outcome
-}
