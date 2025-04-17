@@ -130,7 +130,6 @@ func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
 func FundSolanaAccounts(
 	ctx context.Context, accounts []solana.PublicKey, solAmount uint64, solanaGoClient *solRpc.Client,
 ) error {
-
 	var sigs = make([]solana.Signature, 0, len(accounts))
 	for _, account := range accounts {
 		sig, err := solanaGoClient.RequestAirdrop(ctx, account, solAmount*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)

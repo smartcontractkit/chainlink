@@ -270,7 +270,6 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 }
 
 func generateSolanaKeypair(privateKey solana.PrivateKey, dir string) (string, error) {
-
 	// Convert private key bytes to JSON array
 	privateKeyBytes := []byte(privateKey)
 

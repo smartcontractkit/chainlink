@@ -2,6 +2,7 @@ package environment
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -30,7 +31,7 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 	var allNodesInfo []devenv.NodeInfo
 	chains := []devenv.ChainConfig{
 		{
-			ChainID:   input.SethClient.Cfg.Network.ChainID,
+			ChainID:   strconv.FormatUint(input.SethClient.Cfg.Network.ChainID, 10),
 			ChainName: input.SethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(input.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{

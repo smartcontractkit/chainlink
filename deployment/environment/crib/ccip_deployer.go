@@ -168,9 +168,8 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		gasPrices := map[uint64]*big.Int{
 			solChainSelectors[0]: testhelpers.DefaultGasPrice,
 		}
-		tokenPrices := map[common.Address]*big.Int{}
 		stateChainFrom := state.Chains[evmSelector]
-		tokenPrices = map[common.Address]*big.Int{
+		tokenPrices := map[common.Address]*big.Int{
 			stateChainFrom.LinkToken.Address(): testhelpers.DefaultLinkPrice,
 			stateChainFrom.Weth9.Address():     testhelpers.DefaultWethPrice,
 		}

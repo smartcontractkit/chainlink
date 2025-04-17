@@ -174,7 +174,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// confirmed dest chains need a subscription
 	for ind, cs := range destinationChains {
-
 		evmSourceKeys := make(map[uint64]*bind.TransactOpts)
 		solSourceKeys := make(map[uint64]*solana.PrivateKey)
 		other := env.AllChainSelectorsAllFamiliesExcluding([]uint64{cs})

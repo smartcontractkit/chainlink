@@ -66,7 +66,7 @@ func subscribeSolTransmitEvents(
 				"srcChain", srcChainSel,
 				"destChain", event.DestinationChainSelector,
 				"sequenceNumber", event.SequenceNumber,
-				"timestamp", uint64(*eventWithTxn.Txn.BlockTime))
+				"timestamp", int64(*eventWithTxn.Txn.BlockTime))
 
 			data := messageData{
 				eventType: transmitted,
@@ -180,7 +180,7 @@ func subscribeSolCommitEvents(
 				"destChain", chainSelector,
 				"minSeqNr", mr.MinSeqNr,
 				"maxSeqNr", mr.MaxSeqNr,
-				"timestamp", uint64(*eventWithTx.Txn.BlockTime))
+				"timestamp", int64(*eventWithTx.Txn.BlockTime))
 
 			// push metrics to state manager for eventual distribution to loki
 			for i := mr.MinSeqNr; i <= mr.MaxSeqNr; i++ {

@@ -128,7 +128,7 @@ func SetupTestEnvironment(
 	// but first, we need to create deployment.Environment that will contain only chain information in order to deploy contracts with the CLD
 	chainsConfig := []devenv.ChainConfig{
 		{
-			ChainID:   blockchainsOutput.SethClient.Cfg.Network.ChainID,
+			ChainID:   strconv.FormatUint(blockchainsOutput.SethClient.Cfg.Network.ChainID, 10),
 			ChainName: blockchainsOutput.SethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(blockchainsOutput.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
@@ -143,7 +143,7 @@ func SetupTestEnvironment(
 		},
 	}
 
-	chains, chainsErr := devenv.NewChains(singeFileLogger, chainsConfig)
+	chains, _, chainsErr := devenv.NewChains(singeFileLogger, chainsConfig)
 	if chainsErr != nil {
 		return nil, pkgerrors.Wrap(chainsErr, "failed to create chains")
 	}
