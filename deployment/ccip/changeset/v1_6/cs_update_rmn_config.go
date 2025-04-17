@@ -73,10 +73,6 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
-	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
 
 	inspectors := map[uint64]mcmssdk.Inspector{}
 	timelockBatch := []mcmstypes.BatchOperation{}
@@ -108,7 +104,10 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 	if len(timelockBatch) == 0 {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,

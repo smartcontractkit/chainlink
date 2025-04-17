@@ -110,13 +110,19 @@ func (cfg MCMSConfigV2) Validate(e deployment.Environment, selectors []uint64) e
 
 		switch family {
 		case chain_selectors.FamilyEVM:
-			state, err := MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
+			state, err := commonState.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
 			if err != nil {
 				return err
 			}
-			_, ok := state[chainSelector]
+			chainState, ok := state[chainSelector]
 			if !ok {
 				return fmt.Errorf("chain selector: %d not found for MCMS state", chainSelector)
+			}
+			if cfg.ProposalConfig != nil {
+				err := cfg.ProposalConfig.Validate(e.Chains[chainSelector], *chainState)
+				if err != nil {
+					return err
+				}
 			}
 		case chain_selectors.FamilySolana:
 			state, err := commonState.MaybeLoadMCMSWithTimelockStateSolana(e, []uint64{chainSelector})

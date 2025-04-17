@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -362,7 +363,7 @@ func BuildTimelockAddressPerChain(e deployment.Environment, state CCIPOnChainSta
 
 func BuildMcmAddressesPerChainByAction(e deployment.Environment, state CCIPOnChainState, mcmCfg *proposalutils.TimelockConfig) (map[uint64]string, error) {
 	if mcmCfg == nil {
-		return nil, fmt.Errorf("mcm config is nil, cannot get mcms address for action %s", mcmCfg.MCMSAction)
+		return nil, errors.New("mcm config is nil, cannot get mcms address")
 	}
 	addressPerChain := make(map[uint64]string)
 	for _, chain := range e.Chains {
