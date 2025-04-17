@@ -4,10 +4,7 @@ go 1.24.1
 
 toolchain go1.24.2
 
-require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250402195829-918b2a02a926
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
-)
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
@@ -25,8 +22,9 @@ require (
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250409172733-a9b441035629
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.4
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.53.1-0.20250417091823-f38abcaf124f
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	go.uber.org/ratelimit v0.3.1
 	golang.org/x/sync v0.13.0
 	google.golang.org/grpc v1.71.0

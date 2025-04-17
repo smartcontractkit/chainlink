@@ -6,10 +6,7 @@ toolchain go1.24.2
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250402195829-918b2a02a926
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
-)
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
@@ -32,9 +29,10 @@ require (
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250409172733-a9b441035629
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.4
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.53.1-0.20250417091823-f38abcaf124f
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-20250402195829-918b2a02a926
 	github.com/smartcontractkit/libocr v0.0.0-20250408131511-c90716988ee0
 	github.com/spf13/cobra v1.8.1

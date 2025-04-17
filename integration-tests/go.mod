@@ -11,10 +11,7 @@ replace github.com/smartcontractkit/chainlink/deployment => ../deployment
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250402195829-918b2a02a926
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
-)
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
 
 require (
 	dario.cat/mergo v1.0.1
@@ -53,12 +50,13 @@ require (
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250409172733-a9b441035629
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.53.1-0.20250417143031-562d094f4343
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20250408131511-c90716988ee0
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0

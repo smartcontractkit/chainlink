@@ -14,7 +14,6 @@ replace github.com/smartcontractkit/chainlink/integration-tests => ../
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250402195829-918b2a02a926
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20250221184958-34c2d51a64bc
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
 )
@@ -35,9 +34,10 @@ require (
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250409172733-a9b441035629
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.4
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.53.1-0.20250417143031-562d094f4343
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
 	github.com/stretchr/testify v1.10.0
 	github.com/wiremock/go-wiremock v1.9.0
