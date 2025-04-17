@@ -21,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
@@ -41,9 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
@@ -116,7 +115,6 @@ func setupLoadTestEnvironment(
 		BlockchainsInput:                     *in.BlockchainA,
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
-		CustomBinariesPaths:                  map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath},
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 	}
 
@@ -301,8 +299,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
-		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))},
-		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn},
+		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn},
+		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(1337)}, //TODO: dynamic chain id
 	)
 
 	ctx := t.Context()

@@ -502,7 +502,7 @@ func CreateBlockchains(
 		return nil, pkgerrors.New("PRIVATE_KEY env var must be set")
 	}
 
-	err = libinfra.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+	err := libinfra.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "RPC endpoint not available")
 	}
