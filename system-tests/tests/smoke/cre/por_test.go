@@ -301,7 +301,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 			input.WorkflowConfig.WorkflowName,
 			input.WorkflowConfig.CompiledWorkflowConfig.BinaryURL,
 			&input.WorkflowConfig.CompiledWorkflowConfig.ConfigURL,
-			nil, // TODO pass secrets URL once support for them has been added
+			&input.WorkflowConfig.CompiledWorkflowConfig.SecretsURL,
 		)
 		if err != nil {
 			return errors.Wrap(err, "failed to register workflow")
@@ -317,7 +317,12 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 	}
 
 	// create workflow-specific config file
-	workflowConfigFile, configErr := keystoneporcrecli.CreateConfigFile(input.dataFeedsCacheAddress, input.feedID, input.priceProvider.URL(), input.writeTargetName, AuthorizationKeySecretName)
+	var secretNameToUse string
+	if input.authKey != "" {
+		secretNameToUse = AuthorizationKeySecretName
+	}
+	// pass empty string if no secrets are used, otherwise workflow will fail if it cannot find the secret
+	workflowConfigFile, configErr := keystoneporcrecli.CreateConfigFile(input.dataFeedsCacheAddress, input.feedID, input.priceProvider.URL(), input.writeTargetName, secretNameToUse)
 	if configErr != nil {
 		return errors.Wrap(configErr, "failed to create workflow config file")
 	}
@@ -325,17 +330,21 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 
 	// indicate to the CRE CLI that the secret will be shared between all nodes in the workflow by using specific suffix
 	authKeyEnvVarName := AuthorizationKeySecretName + libcrecli.SharedSecretEnvVarSuffix
-	// create workflow-specific secrets file, which contains a mapping of secret names to environment variables that hold them
-	// secrets will be read from the environment variables by the CRE CLI and encoded using nodes' public keys
-	secrets := map[string][]string{
-		AuthorizationKeySecretName: {authKeyEnvVarName},
-	}
 
-	secretsFile, secretsErr := libcrecli.CreateSecretsFile(secrets)
-	if secretsErr != nil {
-		return errors.Wrap(secretsErr, "failed to create secrets file")
+	var secretsFilePath string
+	if input.authKey != "" {
+		// create workflow-specific secrets file, which contains a mapping of secret names to environment variables that hold them
+		// secrets will be read from the environment variables by the CRE CLI and encoded using nodes' public keys
+		secrets := map[string][]string{
+			AuthorizationKeySecretName: {authKeyEnvVarName},
+		}
+
+		secretsFile, secretsErr := libcrecli.CreateSecretsFile(secrets)
+		if secretsErr != nil {
+			return errors.Wrap(secretsErr, "failed to create secrets file")
+		}
+		secretsFilePath = secretsFile.Name()
 	}
-	secretsFilePath := secretsFile.Name()
 
 	registerWorkflowInput := keystonetypes.RegisterWorkflowWithCRECLIInput{
 		ChainSelector:            input.chainSelector,
@@ -360,8 +369,9 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 		}
 	} else {
 		registerWorkflowInput.ExistingWorkflow = &keystonetypes.ExistingWorkflow{
-			BinaryURL: input.WorkflowConfig.CompiledWorkflowConfig.BinaryURL,
-			ConfigURL: &input.WorkflowConfig.CompiledWorkflowConfig.ConfigURL,
+			BinaryURL:  input.WorkflowConfig.CompiledWorkflowConfig.BinaryURL,
+			ConfigURL:  &input.WorkflowConfig.CompiledWorkflowConfig.ConfigURL,
+			SecretsURL: &input.WorkflowConfig.CompiledWorkflowConfig.SecretsURL,
 		}
 	}
 
