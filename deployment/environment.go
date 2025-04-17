@@ -104,8 +104,8 @@ func (c Chain) Name() string {
 type Environment struct {
 	Name   string
 	Logger logger.Logger
-	// Deprecated: ExistingAddresses is deprecated and will be removed in future versions.
-	// Prefer the new DataStore API instead
+	// Deprecated: AddressBook is deprecated and will be removed in future versions.
+	// Use DataStore instead
 	ExistingAddresses AddressBook
 	DataStore         datastore.DataStore[
 		datastore.DefaultMetadata,

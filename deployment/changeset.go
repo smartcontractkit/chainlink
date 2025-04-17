@@ -114,7 +114,7 @@ type ChangesetOutput struct {
 	DescribedTimelockProposals []string
 	MCMSProposals              []mcms.Proposal
 	// Deprecated: AddressBook is deprecated and will be removed in future versions.
-	// Prefer the new DataStore API instead
+	// Use DataStore instead
 	AddressBook AddressBook
 	DataStore   datastore.MutableDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
 	// Reports are populated by the Operations API with the
