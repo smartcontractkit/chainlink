@@ -22,17 +22,6 @@ var SetPausedPingPongDemoContractChangeset = deployment.CreateChangeSet(setPause
 var SetCounterpartPingPongDemoContractChangeset = deployment.CreateChangeSet(setCounterpartPingPongDemoContractsChangeset, validateSetCounterpartPingPongContractAddress)
 
 func validatePingPongContractAddress(env deployment.Environment, chainSelector uint64) error {
-	state, err := changeset.LoadOnchainState(env)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	chainState := state.Chains[chainSelector]
-
-	if chainState.PingPongDemo == nil {
-		return fmt.Errorf("ping pong demo address is empty for chain %d", chainSelector)
-	}
-
 	return nil
 }
 
@@ -228,7 +217,7 @@ func setCounterpartPingPongDemoContractsChangeset(env deployment.Environment, c 
 	}
 
 	if c.ExtraArgsSolana != nil {
-		extraArgsBytes, err = getSolanaExtraArgs(env, contractAddressStr, c)
+		extraArgsBytes, err = getSolanaExtraArgs(env, c)
 	}
 
 	if err != nil {
@@ -262,28 +251,33 @@ func getEVMExtraArgs(env deployment.Environment, c SetCounterpartPingPongDemoCon
 
 	return b, nil
 }
-func getSolanaExtraArgs(env deployment.Environment, contractAddressStr string, c SetCounterpartPingPongDemoContractsConfig) ([]byte, error) {
-	pingPongAddress, err := solana.PublicKeyFromBase58(contractAddressStr)
+func getSolanaExtraArgs(env deployment.Environment, c SetCounterpartPingPongDemoContractsConfig) ([]byte, error) {
+	counterpartContractAddressStr, err := ccipChangeset.GetPingPongDemoContractAddress(env, c.CounterpartChainSelector, c.ChainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ping pong demo counterpart ct address: %w", err)
+	}
+
+	pingPongAddress, err := solana.PublicKeyFromBase58(counterpartContractAddressStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ping pong demo contract address: %w", err)
 	}
 
-	feesTokenMintStr, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, c.ExtraArgsSolana.FeesTokenMintType)
+	feesTokenMintStr, err := deployment.SearchAddressBook(env.ExistingAddresses, c.CounterpartChainSelector, c.ExtraArgsSolana.FeesTokenMintType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fees token mint: %w", err)
 	}
 	feesTokenMint, err := solana.PublicKeyFromBase58(feesTokenMintStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get fees token mint: %w", err)
+		return nil, fmt.Errorf("failed to parse fees token mint: %w", err)
 	}
 
-	linkTokenStr, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, types.LinkToken)
+	linkTokenStr, err := deployment.SearchAddressBook(env.ExistingAddresses, c.CounterpartChainSelector, types.LinkToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get fees token mint: %w", err)
+		return nil, fmt.Errorf("failed to get link token: %w", err)
 	}
 	linkToken, err := solana.PublicKeyFromBase58(linkTokenStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get fees token mint: %w", err)
+		return nil, fmt.Errorf("failed to parse link token: %w", err)
 	}
 
 	pingPongPDAData, err := ccipChangeset.LoadPingPongPDAData(

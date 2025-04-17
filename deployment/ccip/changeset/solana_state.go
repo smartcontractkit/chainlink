@@ -147,9 +147,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
-		case PingPongDemo:
-			pub := solana.MustPublicKeyFromBase58(address)
-			state.PingPong = pub
 		case SPL2022Tokens:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.SPL2022Tokens = append(state.SPL2022Tokens, pub)
@@ -233,6 +230,10 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 			state.RMNRemoteCursesPDA = rmnRemoteCursesPDA
 		default:
+			if tvStr.Type == PingPongDemo {
+				continue
+			}
+
 			continue
 		}
 		existingVersion, ok := versions[tvStr.Type]

@@ -969,11 +969,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	state.StaticLinkTokenState = *staticLinkState
 	state.ABIByAddress = make(map[string]string)
 	for address, tvStr := range addresses {
-		// ! this is a huge issue, since the labels are included, I cannot dinamically
-		// ! set different values for contracts, as they will be included in this switch
-		// ! and never match the actual contract type
-		// switch tvStr.String() {
-		switch fmt.Sprintf("%s %s", tvStr, tvStr.Version.String()) {
+		switch tvStr.String() {
 		case deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.RBACTimelockABI
 		case deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0).String():
@@ -1323,14 +1319,6 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			deployment.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_6_0).String():
 			// Ignore firedrill contracts
 			// Firedrill contracts are unknown to core and their state is being loaded separately
-		case deployment.NewTypeAndVersion(PingPongDemo, deployment.Version1_0_0).String():
-			pingPong, err := ping_pong_demo.NewPingPongDemo(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-
-			state.PingPongDemo = pingPong
-			state.ABIByAddress[address] = ping_pong_demo.PingPongDemoABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller
@@ -1340,10 +1328,11 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 				continue
 			}
-			// Log unrecognized contract type and version for debugging purposes
 
-			fmt.Printf("chain", chain.String())
-			fmt.Printf("address", address)
+			if tvStr.Type == PingPongDemo {
+				continue
+			}
+
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
 	}

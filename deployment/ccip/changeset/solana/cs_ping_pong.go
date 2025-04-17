@@ -133,10 +133,9 @@ func deployPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
 
-	env.Logger.Infof("asd", initConfigIx, initializeIx)
-	// if err := chain.Confirm([]solana.Instruction{initConfigIx, initializeIx}); err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm initialize instruction: %w", err)
-	// }
+	if err := chain.Confirm([]solana.Instruction{initConfigIx, initializeIx}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm initialize instruction: %w", err)
+	}
 
 	env.Logger.Infow("Initialized ping pong demo", "chain", chain.String())
 
@@ -169,7 +168,16 @@ func startPingPongContractChangeset(
 	chain := env.SolChains[c.ChainSelector]
 	chainState := s.SolChains[c.ChainSelector]
 
-	solPingPong.SetProgramID(chainState.PingPong)
+	contractAddressStr, err := ccipChangeset.GetPingPongDemoContractAddress(env, c.ChainSelector, c.CounterpartChainSelector)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract address: %w", err)
+	}
+	contractAddress, err := solana.PublicKeyFromBase58(contractAddressStr)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to parse contract address: %w", err)
+	}
+
+	solPingPong.SetProgramID(contractAddress)
 
 	feesTokenMintStr, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, c.FeesTokenMintType)
 	if err != nil {
@@ -192,7 +200,7 @@ func startPingPongContractChangeset(
 	pdaData, err := ccipChangeset.LoadPingPongPDAData(
 		env,
 		c.ChainSelector,
-		chainState.PingPong,
+		contractAddress,
 		c.CounterpartChainSelector,
 		c.FeesTokenProgram,
 		feesTokenMint,
@@ -254,21 +262,23 @@ func setCounterpartPingPongChangeset(
 	env deployment.Environment,
 	c SetCounterpartPingPongConfig,
 ) (deployment.ChangesetOutput, error) {
-	s, err := ccipChangeset.LoadOnchainStateSolana(env)
+	chain := env.SolChains[c.ChainSelector]
+
+	contractAddressStr, err := ccipChangeset.GetPingPongDemoContractAddress(env, c.ChainSelector, c.CounterpartChainSelector)
 	if err != nil {
-		env.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract address: %w", err)
+	}
+	contractAddress, err := solana.PublicKeyFromBase58(contractAddressStr)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to parse contract address: %w", err)
 	}
 
-	chain := env.SolChains[c.ChainSelector]
-	chainState := s.SolChains[c.ChainSelector]
-
-	ppConfigPDA, _, err := solanaStateUtils.FindPingPongDemoConfigPDA(chainState.PingPong)
+	ppConfigPDA, _, err := solanaStateUtils.FindPingPongDemoConfigPDA(contractAddress)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
-	solPingPong.SetProgramID(chainState.PingPong)
+	solPingPong.SetProgramID(contractAddress)
 
 	counterpartAddressBytes, err := ccipChangeset.GetPaddedPingPongAddressBytes(env, c.CounterpartChainSelector, c.ChainSelector, chainsel.FamilyEVM)
 	if err != nil {
@@ -309,21 +319,23 @@ func setPausePingPongChangeset(
 	env deployment.Environment,
 	c SetPausePingPongConfig,
 ) (deployment.ChangesetOutput, error) {
-	s, err := ccipChangeset.LoadOnchainStateSolana(env)
+	chain := env.SolChains[c.ChainSelector]
+
+	contractAddressStr, err := ccipChangeset.GetPingPongDemoContractAddress(env, c.ChainSelector, c.CounterpartChainSelector)
 	if err != nil {
-		env.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract address: %w", err)
+	}
+	contractAddress, err := solana.PublicKeyFromBase58(contractAddressStr)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to parse contract address: %w", err)
 	}
 
-	chain := env.SolChains[c.ChainSelector]
-	chainState := s.SolChains[c.ChainSelector]
-
-	ppConfigPDA, _, err := solanaStateUtils.FindPingPongDemoConfigPDA(chainState.PingPong)
+	ppConfigPDA, _, err := solanaStateUtils.FindPingPongDemoConfigPDA(contractAddress)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
-	solPingPong.SetProgramID(chainState.PingPong)
+	solPingPong.SetProgramID(contractAddress)
 
 	initTx, err := solPingPong.NewSetPausedInstruction(
 		c.IsPaused,
