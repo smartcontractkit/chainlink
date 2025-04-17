@@ -84,10 +84,15 @@ func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
 
 func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
 	tp := newParallelExecutor(10)
-	err := tp.Start(context.Background())
-	require.NoError(t, err)
-
 	var counter int32
+	t.Cleanup(func() {
+		assert.Eventually(t, func() bool {
+			return atomic.LoadInt32(&counter) == 0
+		}, 10*time.Second, 10*time.Millisecond)
+	})
+
+	servicetest.Run(t, tp)
+
 	for i := 0; i < 10; i++ {
 		err := tp.ExecuteTask(context.Background(), func(ctx context.Context) {
 			atomic.AddInt32(&counter, 1)
@@ -99,12 +104,5 @@ func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
 
 	assert.Eventually(t, func() bool {
 		return atomic.LoadInt32(&counter) == 10
-	}, 10*time.Second, 10*time.Millisecond)
-
-	err = tp.Close()
-	require.NoError(t, err)
-
-	assert.Eventually(t, func() bool {
-		return atomic.LoadInt32(&counter) == 0
 	}, 10*time.Second, 10*time.Millisecond)
 }
