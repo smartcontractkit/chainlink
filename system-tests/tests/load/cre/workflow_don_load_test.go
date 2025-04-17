@@ -21,10 +21,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -46,6 +42,7 @@ import (
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -57,6 +54,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/require"
 )
 
 type TestConfigLoadTest struct {
@@ -271,7 +270,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return capabilities
 	}
 
-	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
+	chainIDInt, chainErr := strconv.ParseUint(in.BlockchainA.ChainID, 10, 64)
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupLoadTestEnvironment(
@@ -280,7 +279,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		in,
 		mustSetCapabilitiesFn,
 		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))},
-		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(uint64(chainIDInt))},
+		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(chainIDInt)},
 	)
 
 	ctx := t.Context()

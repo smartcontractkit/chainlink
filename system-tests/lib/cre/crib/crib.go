@@ -85,6 +85,7 @@ func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Outpu
 		"CHAIN_ID": input.BlockchainInput.ChainID,
 	}
 
+	// crib init is required to create necessary Kubernetes resources (like configmaps) and set up proper permissions
 	_, err := input.NixShell.RunCommand("crib init")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to run crib init")
