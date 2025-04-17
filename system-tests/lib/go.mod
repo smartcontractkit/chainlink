@@ -4,6 +4,8 @@ go 1.24.1
 
 toolchain go1.24.2
 
+// Using a separate `require` here to avoid surrounding line changes
+// creating potential merge conflicts.
 require (
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250402195829-918b2a02a926
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
@@ -24,8 +26,8 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250416205944-615547d91280
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250414155813-3c1b22dc1f7a
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.2
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.53.0
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.4
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	go.uber.org/ratelimit v0.3.1
 	golang.org/x/sync v0.13.0
@@ -149,6 +151,7 @@ require (
 	github.com/doyensec/safeurl v0.2.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.7.0 // indirect
+	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/esote/minmaxheap v1.0.0 // indirect
 	github.com/ethereum/c-kzg-4844 v1.0.3 // indirect
@@ -344,12 +347,12 @@ require (
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
-	github.com/shoenig/go-m1cpu v0.1.6 // indirect
+	github.com/shirou/gopsutil/v4 v4.25.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250416111541-d25d5d65b1ff // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250417161444-6af45cb2bf9e // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250411163110-21a13ceb3ac4 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250325191518-036bb568a69d // indirect
 	github.com/smartcontractkit/chainlink-deployments-framework v0.0.3 // indirect
@@ -475,6 +478,3 @@ replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alp
 
 // gotron-sdk is not longer maintained
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.2
-
-// v0.36.0 has breaking change incompatible with CTF. Remove after it has been updated.
-replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.35.0

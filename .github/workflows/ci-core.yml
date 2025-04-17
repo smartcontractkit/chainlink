@@ -247,7 +247,6 @@ jobs:
             echo "Successfully mounted $SRC_DIR to $DEST_DIR"
           done
 
-
       - name: Checkout the repo
         uses: actions/checkout@v4
         with:
@@ -612,8 +611,7 @@ jobs:
       two-per-day-frequency: ${{ steps.check-time.outputs.two-per-day-frequency || 'false' }}
       four-per-day-frequency: ${{ steps.check-time.outputs.four-per-day-frequency || 'false' }}
       six-per-day-frequency: ${{ steps.check-time.outputs.six-per-day-frequency || 'false' }}
-      # frequencies for self-hosted runners
-      should-use-self-hosted: ${{ steps.use-self-hosted.outputs.self-hosted-runners || 'false' }}
+      should-use-self-hosted: ${{ steps.use-self-hosted.outputs.self-hosted-runners || 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check time and set frequencies
@@ -652,59 +650,30 @@ jobs:
         id: use-self-hosted
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
-          RUNS_ON_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'runs-on') }}
           RUNS_ON_OPT_OUT: ${{ contains(github.event.pull_request.labels.*.name, 'runs-on-opt-out') }}
+          MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref || '' }}
           PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || '' }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" == "merge_group" ]; then
-            echo "Not using self-hosted runners for merge queue events"
-            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
-            echo "Using self-hosted runners for workflow dispatch events"
-            echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          if [ "$GITHUB_EVENT_NAME" == "schedule" ]; then
-            echo "Using self-hosted runners for scheduled events"
-            echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
-            echo "Not using self-hosted runners for event ${GITHUB_EVENT_NAME}"
-            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # PR Events
-
           if [ "$RUNS_ON_OPT_OUT" == "true" ]; then
-            echo "Not using self-hosted runners for PR with 'runs-on-opt-out' label"
             echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
 
-          if [ "$RUNS_ON_LABEL" == "true" ]; then
-            echo "Using self-hosted runners for PR with 'runs-on' label"
-            echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
+          PR_NUMBER=${PULL_REQUEST_NUMBER}
+          echo "Merge group head ref: ${MERGE_GROUP_HEAD_REF}"
+          if [ "$GITHUB_EVENT_NAME" == "merge_group" ] && [ -n "${MERGE_GROUP_HEAD_REF}" ]; then
+            PR_NUMBER=$(echo ${MERGE_GROUP_HEAD_REF} | grep -Eo "queue/develop/pr-[0-9]+" | cut -d '-' -f2)
+          fi
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR number found, skipping self-hosted runner check. Defaulting to true."
             exit 0
           fi
 
-          # generate a deterministic random number based on the branch name
-          branch_name="${GITHUB_HEAD_REF:-$(echo $GITHUB_REF | sed 's/refs\/heads\///')}"
-          hash=$(echo -n "$branch_name" | sha256sum | cut -d' ' -f1)
-          deterministic_number=$((16#${hash:0:8} % 100))
-
-          echo "Branch name: $branch_name"
-          echo "Deterministic number: $deterministic_number"
-
-          # 75% of the time, use self-hosted runners
-          if [ "$deterministic_number" -lt 75 ]; then
-            gh pr edit --repo "${GITHUB_REPOSITORY}" "${PULL_REQUEST_NUMBER}" --add-label "runs-on"
-            echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
+          echo "PR number: $PR_NUMBER, checking for self-hosted runner opt-out"
+          OPT_OUT=$(gh pr view $PR_NUMBER --repo ${GITHUB_REPOSITORY} --json labels --jq 'any(.labels[].name; . == "runs-on-opt-out")')
+          if [[ "$OPT_OUT" == "true" ]]; then
+            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
+            exit 0
           fi
