@@ -138,7 +138,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChains []ui
 			},
 		}
 	}
-	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
 			v1_6.UpdateOnRampDestsConfig{
@@ -202,7 +202,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChains []ui
 
 	// Disable the chain
 
-	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DisableRemoteChain),
 			ccipChangesetSolana.DisableRemoteChainConfig{
@@ -265,7 +265,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChains []ui
 		}
 	}
 
-	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
 			ccipChangesetSolana.AddRemoteChainToRouterConfig{
@@ -330,7 +330,7 @@ func TestSetOcr3(t *testing.T) {
 			OffRamp:   true,
 		})
 
-	tenv.Env, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+	tenv.Env, _, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
 			v1_6.SetOCR3OffRampConfig{
@@ -396,7 +396,7 @@ func TestBilling(t *testing.T) {
 				testPriceUpdater, err = ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 				require.NoError(t, err)
 			}
-			e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
 					ccipChangesetSolana.BillingTokenConfig{
@@ -450,7 +450,7 @@ func TestBilling(t *testing.T) {
 			require.Equal(t, tokenAddress, remoteBillingAccount.Mint)
 			require.Equal(t, uint32(800), remoteBillingAccount.TokenTransferConfig.MinFeeUsdcents)
 
-			e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
 					ccipChangesetSolana.BillingTokenConfig{
@@ -477,7 +477,7 @@ func TestBilling(t *testing.T) {
 			feeAggregatorPriv, _ := solana.NewRandomPrivateKey()
 			feeAggregator := feeAggregatorPriv.PublicKey()
 
-			e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
 					ccipChangesetSolana.AddRemoteChainToRouterConfig{
@@ -585,7 +585,7 @@ func TestBilling(t *testing.T) {
 			// just send funds to the router manually rather than run e2e
 			billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(state.SolChains[solChain].Router)
 			billingSignerATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, billingSignerPDA)
-			e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.MintSolanaToken),
 					ccipChangesetSolana.MintSolanaTokenConfig{
@@ -606,7 +606,7 @@ func TestBilling(t *testing.T) {
 			feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, feeAggregator)
 			_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, feeAggregatorATA, deployment.SolDefaultCommitment)
 			require.NoError(t, err)
-			e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.WithdrawBilledFunds),
 					ccipChangesetSolana.WithdrawBilledFundsConfig{
@@ -684,7 +684,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 			timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 			require.NoError(t, err)
 
-			e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					// register token admin registry for tokenAddress via admin instruction
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
@@ -763,7 +763,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 				require.Equal(t, timelockSignerPDA, tokenAdminRegistryAccount.Administrator)
 				require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.PendingAdministrator)
 
-				e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+				e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
 						// transfer admin role for tokenAddress
 						deployment.CreateLegacyChangeSet(ccipChangesetSolana.TransferAdminRoleTokenAdminRegistry),

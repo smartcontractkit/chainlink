@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
@@ -253,7 +252,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 
 	// Create network config
 	const networkName = "chaincli-local"
-	existingNetworks, err := dockerClient.NetworkList(ctx, types.NetworkListOptions{})
+	existingNetworks, err := dockerClient.NetworkList(ctx, network.ListOptions{})
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to list networks: %w", err)
 	}
@@ -267,7 +266,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	}
 
 	if !found {
-		if _, err = dockerClient.NetworkCreate(ctx, networkName, types.NetworkCreate{}); err != nil {
+		if _, err = dockerClient.NetworkCreate(ctx, networkName, network.CreateOptions{}); err != nil {
 			return "", nil, fmt.Errorf("failed to create network: %w", err)
 		}
 	}
