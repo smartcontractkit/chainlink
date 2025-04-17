@@ -12,6 +12,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -148,7 +149,7 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 		}
 
 		timelocks[destChain] = destState.Timelock.Address().Hex()
-		proposerMcms[destChain] = destState.ProposerMcm.Address().Hex()
+
 		inspectors[destChain], err = proposalutils.McmsInspectorForChain(env, destChain)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", destChain, err)
@@ -166,10 +167,14 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 		return deployment.ChangesetOutput{}, nil
 	}
 
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(env, state, c.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+	}
 	timelockProposal, err := proposalutils.BuildProposalFromBatchesV2(
 		env,
 		timelocks,
-		proposerMcms,
+		mcmsContractByChain,
 		inspectors,
 		ops,
 		"PermaBless commit stores on RMN",

@@ -255,7 +255,10 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		}
 
 		timelocks := BuildTimelockAddressPerChain(d.e, d.state)
-		proposerMcms := BuildProposerMcmAddressesPerChain(d.e, d.state)
+		mcmContractByAction, err := BuildMcmAddressesPerChainByAction(d.e, d.state, d.mcmConfig)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get proposer mcms for chain: %w", err)
+		}
 		inspectors, err := proposalutils.McmsInspectors(d.e)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain: %w", err)
@@ -264,7 +267,7 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
 			d.e,
 			timelocks,
-			proposerMcms,
+			mcmContractByAction,
 			inspectors,
 			batches,
 			dc.description,
@@ -357,10 +360,17 @@ func BuildTimelockAddressPerChain(e deployment.Environment, state CCIPOnChainSta
 	return addressPerChain
 }
 
-func BuildProposerMcmAddressesPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]string {
+func BuildMcmAddressesPerChainByAction(e deployment.Environment, state CCIPOnChainState, mcmCfg *proposalutils.TimelockConfig) (map[uint64]string, error) {
+	if mcmCfg == nil {
+		return nil, fmt.Errorf("mcm config is nil, cannot get mcms address for action %s", mcmCfg.MCMSAction)
+	}
 	addressPerChain := make(map[uint64]string)
 	for _, chain := range e.Chains {
-		addressPerChain[chain.Selector] = state.Chains[chain.Selector].ProposerMcm.Address().Hex()
+		mcmContract, err := mcmCfg.MCMBasedOnAction(state.EVMMCMSStateByChain()[chain.Selector])
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mcms for action %s: %w", mcmCfg.MCMSAction, err)
+		}
+		addressPerChain[chain.Selector] = mcmContract.Address().Hex()
 	}
-	return addressPerChain
+	return addressPerChain, nil
 }
