@@ -401,6 +401,7 @@ func (w *workflowRegistry) readRegistryEventsLoop(ctx context.Context, eventType
 				select {
 				case <-ctx.Done():
 					w.lggr.Debug("readRegistryEventsLoop stopped during processing")
+					return
 				case w.eventCh <- event.Event:
 				}
 			}
@@ -426,6 +427,7 @@ func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capab
 		select {
 		case <-ctx.Done():
 			w.lggr.Debug("shut down during initial workflow registration")
+			return
 		case w.eventCh <- workflowAsEvent{
 			Data: WorkflowRegistryWorkflowRegisteredV1{
 				WorkflowID:    workflow.WorkflowID,
@@ -580,6 +582,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 					select {
 					case <-ctx.Done():
 						w.lggr.Debug("readRegistryStateLoop stopped during processing")
+						return
 					case w.eventCh <- event:
 					}
 				}
