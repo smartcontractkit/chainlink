@@ -115,7 +115,11 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	output, err := v1_6.DeployHomeChainChangeset(e.Env, homeChainCfg)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
-	_, err = changeset.LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	// capabilityRegistryDonID
+	nextDonId, err := state.Chains[e.HomeChainSel].CapabilityRegistry.GetNextDONId(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 
 	// deploy donIDClaimer
@@ -124,7 +128,7 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(donIDClaimerOutput.AddressBook))
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err = changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	_, err = v1_6.DonIDClaimerOffSetChangeset(e.Env, v1_6.DonIDClaimerOffSetConfig{
@@ -136,7 +140,8 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	// check if the offset was successfully applied
 	nextDonIDAfterOffset, err := state.Chains[e.HomeChainSel].DonIDClaimer.GetNextDONId(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
-	require.Equal(t, 2, nextDonIDAfterOffset)
+	// offSets donID based on CapReg nextDonID
+	require.Equal(t, nextDonId+1, nextDonIDAfterOffset)
 }
 
 func TestRemoveDonsValidate(t *testing.T) {
