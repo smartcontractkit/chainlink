@@ -64,7 +64,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 	chaosCfg := testConfig.Chaos
 
 	testDuration, err := time.ParseDuration(testConfig.Duration)
-	require.NoError(t, err, "could not parse chaos latency")
+	require.NoError(t, err, "could not parse test duration")
 
 	rpcLatency, err := time.ParseDuration(chaosCfg.Latency)
 	require.NoError(t, err, "could not parse chaos latency")
