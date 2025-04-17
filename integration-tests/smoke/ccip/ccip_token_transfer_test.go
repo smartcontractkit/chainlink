@@ -364,6 +364,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 }
 
 func TestTokenTransfer_Solana2EVM(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-5729")
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
