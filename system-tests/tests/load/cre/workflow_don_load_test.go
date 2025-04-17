@@ -42,6 +42,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -110,12 +111,13 @@ func setupLoadTestEnvironment(
 ) *loadTestSetupOutput {
 
 	universalSetupInput := creenv.SetupInput{
-		CapabilitiesAwareNodeSets:  mustSetCapabilitiesFn(in.NodeSets),
-		CapabilityFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:           *in.BlockchainA,
-		JdInput:                    *in.JD,
-		InfraInput:                 *in.Infra,
-		JobSpecFactoryFunctions:    jobSpecFactoryFns,
+		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
+		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
+		BlockchainsInput:                     *in.BlockchainA,
+		JdInput:                              *in.JD,
+		InfraInput:                           *in.Infra,
+		CustomBinariesPaths:                  map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath},
+		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 	}
 
 	if in.BinariesConfig != nil {
@@ -201,8 +203,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
-	require.NoError(t, chainErr, "failed to convert chain ID to int")
+	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.InfraType)
+	require.NoError(t, pathErr, "failed to get default container directory")
 
 	loadTestJobSpecsFactoryFn := func(input *keystonetypes.JobSpecFactoryInput) (keystonetypes.DonsToJobSpecs, error) {
 		donTojobSpecs := make(keystonetypes.DonsToJobSpecs, 0)
@@ -242,7 +244,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				}
 
 				if flags.HasFlag(donWithMetadata.Flags, keystonetypes.MockCapability) && in.MockCapabilities != nil {
-					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, filepath.Join("/home/capabilities", filepath.Base(in.BinariesConfig.MockCapabilityBinaryPath)), in.MockCapabilities))
+					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, filepath.Join(containerPath, filepath.Base(in.BinariesConfig.MockCapabilityBinaryPath)), in.MockCapabilities))
 				}
 			}
 
