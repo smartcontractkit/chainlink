@@ -61,7 +61,7 @@ chainlink-dev: ## Build a dev build of chainlink binary.
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
-.PHONE: install-loopinstall
+.PHONY: install-loopinstall
 # TODO: update this to the commit on trunk when chainlink-common PR is merged.
 install-loopinstall:
 	go install $(GOFLAGS) github.com/smartcontractkit/chainlink-common/pkg/loop/loopinstall@e9459196f613f538e1a2592f7102224759524966
@@ -74,7 +74,7 @@ install-plugins-public: ## Build & install public remote LOOPP binaries (plugins
 		loopinstall --concurrency 5 ./plugins/plugins.public.yaml; \
 	fi
 
-.PHONE: install-plugins-private
+.PHONY: install-plugins-private
 install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
 	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
 		loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
@@ -82,7 +82,7 @@ install-plugins-private: ## Build & install private remote LOOPP binaries (plugi
 		loopinstall --concurrency 5 ./plugins/plugins.private.yaml; \
 	fi
 
-.PHONE: install-plugins-local
+.PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
