@@ -231,8 +231,9 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		}
 
 		extraArgs, err = testhelpers.SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
-			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}),
-			Accounts:                accounts,
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                 accounts,
+			AllowOutOfOrderExecution: *m.testConfig.OOOExecution,
 		})
 		if err != nil {
 			m.l.Errorw("Error encoding extra args for sol dest")
