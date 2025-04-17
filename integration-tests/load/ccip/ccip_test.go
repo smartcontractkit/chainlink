@@ -2,12 +2,13 @@ package ccip
 
 import (
 	"context"
-	solrpc "github.com/gagliardetto/solana-go/rpc"
-	selectors "github.com/smartcontractkit/chain-selectors"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
+
+	solrpc "github.com/gagliardetto/solana-go/rpc"
+	selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/gagliardetto/solana-go"
 
@@ -299,7 +300,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				&wg,
 				mm.InputChan)
 		}
-
 	}
 
 	requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)

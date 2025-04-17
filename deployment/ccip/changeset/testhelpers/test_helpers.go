@@ -230,7 +230,6 @@ func LatestBlocksByChain(ctx context.Context, env deployment.Environment) (map[u
 			return nil, errors.Wrapf(err, "failed to get latest block for chain %d", selector)
 		}
 		latestBlocks[selector] = block
-
 	}
 	return latestBlocks, nil
 }
@@ -2171,7 +2170,6 @@ func ValidateSolanaState(e deployment.Environment, solChainSelectors []uint64) e
 		if err != nil {
 			return fmt.Errorf("failed to deserialize RMN remote config for chain %d: %w", sel, err)
 		}
-
 	}
 	return nil
 }

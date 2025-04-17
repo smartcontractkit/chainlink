@@ -2,14 +2,16 @@ package ccip
 
 import (
 	"context"
-	"github.com/gagliardetto/solana-go"
-	solrpc "github.com/gagliardetto/solana-go/rpc"
-	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	"go.uber.org/atomic"
 	"math"
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
+	"go.uber.org/atomic"
+
+	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"

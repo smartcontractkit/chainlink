@@ -11,6 +11,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -60,7 +61,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to get node info from env: %w", err)
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to get node info from env: %w", err) //nolint:staticcheck // SA1019
 	}
 
 	// Fund the deployer
@@ -79,7 +80,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	for _, chain := range e.AllChainSelectors() {
 		mcmsConfig, err := mcmstypes.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []mcmstypes.Config{})
 		if err != nil {
-			return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to create mcms config: %w", err)
+			return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to create mcms config: %w", err) //nolint:staticcheck // SA1019
 		}
 		cfg[chain] = commontypes.MCMSWithTimelockConfigV2{
 			Canceller:        mcmsConfig,
@@ -105,22 +106,22 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 		),
 	)
 	if err != nil {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("changeset sequence execution failed with error: %w", err)
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("changeset sequence execution failed with error: %w", err) //nolint:staticcheck // SA1019
 	}
 	state, err := changeset.LoadOnchainState(*e)
 	if err != nil {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to load on chain state: %w", err)
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to load on chain state: %w", err) //nolint:staticcheck // SA1019
 	}
 	capRegAddr := state.Chains[homeChainSel].CapabilityRegistry.Address()
 	if capRegAddr == common.HexToAddress("0x") {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("cap Reg address not found: %w", err)
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("cap Reg address not found: %w", err) //nolint:staticcheck // SA1019
 	}
 	capRegConfig := deployment.CapabilityRegistryConfig{
 		EVMChainID:  homeChainSel,
 		Contract:    state.Chains[homeChainSel].CapabilityRegistry.Address(),
 		NetworkType: relay.NetworkEVM,
 	}
-	return capRegConfig, e.ExistingAddresses, nil
+	return capRegConfig, e.ExistingAddresses, nil //nolint:staticcheck // SA1019
 }
 
 // DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
@@ -129,7 +130,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
-	e.ExistingAddresses = ab
+	e.ExistingAddresses = ab //nolint:staticcheck // SA1019
 
 	// ------ Part 1 -----
 	// Setup because we only need to deploy the contracts and distribute job specs
@@ -214,7 +215,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, err
 	}
 
-	addresses, err := e.ExistingAddresses.Addresses()
+	addresses, err := e.ExistingAddresses.Addresses() //nolint:staticcheck // SA1019
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to convert address book to address book map: %w", err)
 	}
@@ -231,7 +232,7 @@ func DeployCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
-	e.ExistingAddresses = ab
+	e.ExistingAddresses = ab //nolint:staticcheck // SA1019
 
 	// Setup because we only need to deploy the contracts and distribute job specs
 	lggr.Infow("setting up chains...")
@@ -239,7 +240,7 @@ func DeployCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
 	}
-	addresses, err := e.ExistingAddresses.Addresses()
+	addresses, err := e.ExistingAddresses.Addresses() //nolint:staticcheck // SA1019
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
 	}
@@ -256,7 +257,7 @@ func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
-	e.ExistingAddresses = ab
+	e.ExistingAddresses = ab //nolint:staticcheck // SA1019
 
 	state, err := changeset.LoadOnchainState(*e)
 	if err != nil {
@@ -270,7 +271,7 @@ func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
 	}
 
-	addresses, err := e.ExistingAddresses.Addresses()
+	addresses, err := e.ExistingAddresses.Addresses() //nolint:staticcheck // SA1019
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
 	}
@@ -286,7 +287,7 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
-	e.ExistingAddresses = ab
+	e.ExistingAddresses = ab //nolint:staticcheck // SA1019
 
 	lggr.Infow("resetting ocr...")
 	*e, err = mustOCR(e, homeChainSel, feedChainSel, false, rmnEnabled)
@@ -304,7 +305,7 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 		return DeployCCIPOutput{}, err
 	}
 
-	addresses, err := e.ExistingAddresses.Addresses()
+	addresses, err := e.ExistingAddresses.Addresses() //nolint:staticcheck // SA1019
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
 	}
@@ -321,7 +322,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
-	e.ExistingAddresses = ab
+	e.ExistingAddresses = ab //nolint:staticcheck // SA1019
 
 	// distribute funds to transmitters
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
@@ -338,7 +339,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 		return DeployCCIPOutput{}, err
 	}
 
-	addresses, err := e.ExistingAddresses.Addresses()
+	addresses, err := e.ExistingAddresses.Addresses() //nolint:staticcheck // SA1019
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
 	}
@@ -683,7 +684,7 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
 	chainType := v1_6.Default
-	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.Chains[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
+	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.Chains[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice) //nolint:staticcheck // SA1019
 	if err != nil {
 		return *e, fmt.Errorf("failed to deploy feeds: %w", err)
 	}
@@ -823,7 +824,7 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 		return DeployCCIPOutput{}, fmt.Errorf("failed to create environment: %w", err)
 	}
 
-	e.ExistingAddresses = ab
+	e.ExistingAddresses = ab //nolint:staticcheck // SA1019
 
 	allChains := e.AllChainSelectors()
 	allUpdates := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
@@ -941,7 +942,7 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 		return DeployCCIPOutput{}, fmt.Errorf("failed to set rmn remote config: %w", err)
 	}
 
-	addresses, err := env.ExistingAddresses.Addresses()
+	addresses, err := env.ExistingAddresses.Addresses() //nolint:staticcheck // SA1019
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}

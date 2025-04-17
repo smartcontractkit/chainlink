@@ -1,5 +1,6 @@
-//nolint:golang-ci-lint
 // Will be deleted only tmp file for testing message passing with CRIB
+//
+//nolint:golang-ci-lint
 package ccip
 
 import (
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
@@ -198,7 +200,6 @@ func TestCCIPSol2EvmCRIB(t *testing.T) {
 }
 
 func TestCCIPEvm2SolCRIB(t *testing.T) {
-
 	// comment out when executing the test
 	// t.Skip("Skipping test as this test should not be auto triggered")
 	lggr := logger.Test(t)
@@ -337,7 +338,7 @@ func TestTokenTransfer_EVM2SolanaCRIB(t *testing.T) {
 	ownerSourceChain := e.Env.Chains[sourceChain].DeployerKey
 	// ownerDestChain := e.SolChains[destChain].DeployerKey
 
-	//require.GreaterOrEqual(t, len(e.Users[sourceChain]), 2) // TODO: ???
+	// require.GreaterOrEqual(t, len(e.Users[sourceChain]), 2) // TODO: ???
 
 	oneE9 := new(big.Int).SetUint64(1e9)
 
@@ -486,7 +487,7 @@ func TestTokenTransfer_Solana2EVMCRIB(t *testing.T) {
 	ownerSourceChain := sender.PublicKey()
 	ownerDestChain := e.Env.Chains[destChain].DeployerKey
 
-	//require.GreaterOrEqual(t, len(e.Users[destChain]), 2) // TODO: ???
+	// require.GreaterOrEqual(t, len(e.Users[destChain]), 2) // TODO: ???
 
 	const oneE9 uint64 = 1e9
 
@@ -510,7 +511,6 @@ func TestTokenTransfer_Solana2EVMCRIB(t *testing.T) {
 	rpcClient := e.Env.SolChains[sourceChain].Client
 
 	if true {
-
 		// create ATA for user
 		tokenProgram := solana.TokenProgramID
 		wSOL := solana.SolMint
