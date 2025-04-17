@@ -217,7 +217,7 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger, networks []stri
 		return nil, err
 	}
 
-	l := tc.Logger
+	var l logging.CustomT
 	if t != nil {
 		l = logging.CustomT{
 			T: t,
@@ -349,7 +349,7 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool, netwo
 		return nil, err
 	}
 
-	l := tc.Logger
+	var l logging.CustomT
 	if t != nil {
 		l = logging.CustomT{
 			T: t,
