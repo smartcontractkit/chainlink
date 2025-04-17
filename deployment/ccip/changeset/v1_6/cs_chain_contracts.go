@@ -1241,6 +1241,13 @@ type UpdateRouterRampsConfig struct {
 }
 
 func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+	if !cfg.TestRouter {
+		// If not using the test router, we need to enforce MCMS usage if the state calls for it.
+		err := state.EnforceMCMSUsageIfProd(e.GetContext(), cfg.MCMS)
+		if err != nil {
+			return err
+		}
+	}
 	supportedChains := state.SupportedChains()
 	for chainSel, update := range cfg.UpdatesByChain {
 		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
@@ -1265,8 +1272,14 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 					return err
 				}
 			} else {
-				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
-					return err
+				// If we are activating ramps on the main router, we should validate two things:
+				//   1. All expected CCIP contracts exist on the chain.
+				//   2. All contracts have the expected owner.
+				// That way, if cfg.MCMS exists, we ensure that every contract is owned by MCMS.
+				// Calling this function will ensure that both these checks are done.
+				err := state.ValidateOwnershipOfChain(e, chainSel, cfg.MCMS)
+				if err != nil {
+					return fmt.Errorf("failed to validate ownership of contracts on %s: %w", e.Chains[chainSel], err)
 				}
 			}
 		}

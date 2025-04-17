@@ -171,7 +171,7 @@ func initMonitoringResources() (em *engineMetrics, err error) {
 
 	em.workflowMissingMeteringReport, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_missing_metering_report")
 	if err != nil {
-		return nil, fmt.Errorf("failed to register workflow metering missing gauge: %w", err)
+		return nil, fmt.Errorf("failed to register workflow metering missing counter: %w", err)
 	}
 
 	return em, nil

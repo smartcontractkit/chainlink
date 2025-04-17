@@ -21,6 +21,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -69,6 +71,7 @@ type Node struct {
 	Keys       Keys
 	Addr       net.TCPAddr
 	IsBoostrap bool
+	Labels     []*ptypes.Label
 }
 
 func (n Node) MultiAddr() string {
@@ -229,6 +232,7 @@ func NewNode(
 	logLevel zapcore.Level,
 	bootstrap bool,
 	registryConfig deployment.CapabilityRegistryConfig,
+	customDBSetup []string, // SQL queries to run after DB creation
 	configOpts ...ConfigOpt,
 ) *Node {
 	evmchains := make(map[uint64]EVMChain)
@@ -309,6 +313,14 @@ func NewNode(
 			opt(c)
 		}
 	})
+
+	// Execute custom DB setup queries. This allows us to set the state of the DB without using fixtures.
+	for _, query := range customDBSetup {
+		_, err := db.Exec(query)
+		if err != nil {
+			t.Fatal("Failed to execute custom DB setup query:", err)
+		}
+	}
 
 	// Set logging.
 	lggr := logger.NewSingleFileLogger(t)

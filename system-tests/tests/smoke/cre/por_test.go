@@ -40,7 +40,10 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
-	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
+	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
+	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
+	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
+	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
@@ -153,7 +156,7 @@ func init() {
 // When test runs in CI hardcoded versions will be downloaded before the test starts
 // Command that downloads them is part of "test_cmd" in .github/e2e-tests.yml file
 type DependenciesConfig struct {
-	CronCapabilityBinaryPath string `toml:"cron_capability_binary_path" validate:"required"`
+	CronCapabilityBinaryPath string `toml:"cron_capability_binary_path"`
 	CRECLIBinaryPath         string `toml:"cre_cli_binary_path" validate:"required"`
 }
 
@@ -381,9 +384,9 @@ func setupPoRTestEnvironment(
 
 	customBinariesPaths := map[string]string{}
 	containerPath, pathErr := capabilities.DefaultContainerDirectory(in.Infra.InfraType)
+	require.NoError(t, pathErr, "failed to get default container directory")
 	var cronBinaryPathInTheContainer string
 	if in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath != "" {
-		require.NoError(t, pathErr, "failed to get default container directory")
 		// where cron binary is located in the container
 		cronBinaryPathInTheContainer = filepath.Join(containerPath, filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath))
 		// where cron binary is located on the host
@@ -393,15 +396,24 @@ func setupPoRTestEnvironment(
 		cronBinaryPathInTheContainer = filepath.Join(containerPath, "cron")
 	}
 
+	chainIDInt, err := strconv.Atoi(in.BlockchainA.ChainID)
+	require.NoError(t, err, "failed to convert chain ID to int")
+	chainIDUint64 := libc.MustSafeUint64(int64(chainIDInt))
+
 	universalSetupInput := creenv.SetupInput{
-		CapabilitiesAwareNodeSets:  mustSetCapabilitiesFn(in.NodeSets),
-		CapabilityFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:           *in.BlockchainA,
-		JdInput:                    *in.JD,
-		InfraInput:                 *in.Infra,
-		CustomBinariesPaths:        customBinariesPaths,
-		ExtraAllowedPorts:          extraAllowedPorts,
-		JobSpecFactoryFunctions:    []keystonetypes.JobSpecFactoryFn{keystonepor.PoRJobSpecFactoryFn(cronBinaryPathInTheContainer, extraAllowedPorts, []string{}, []string{"0.0.0.0/0"})},
+		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
+		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
+		BlockchainsInput:                     *in.BlockchainA,
+		JdInput:                              *in.JD,
+		InfraInput:                           *in.Infra,
+		CustomBinariesPaths:                  customBinariesPaths,
+		ExtraAllowedPorts:                    extraAllowedPorts,
+		JobSpecFactoryFunctions: []keystonetypes.JobSpecFactoryFn{
+			creconsensus.ConsensusJobSpecFactoryFn(chainIDUint64),
+			crecron.CronJobSpecFactoryFn(cronBinaryPathInTheContainer),
+			cregateway.GatewayJobSpecFactoryFn(chainIDUint64, extraAllowedPorts, []string{}, []string{"0.0.0.0/0"}),
+			crecompute.ComputeJobSpecFactoryFn,
+		},
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
@@ -435,7 +447,7 @@ func setupPoRTestEnvironment(
 			universalSetupOutput.BlockchainOutput.SethClient.MustGetRootKeyAddress(),
 			universalSetupOutput.KeystoneContractsOutput.CapabilitiesRegistryAddress,
 			universalSetupOutput.KeystoneContractsOutput.WorkflowRegistryAddress,
-			deployDataFeedsCacheOutput.DataFeedsCacheAddress,
+			&deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 			universalSetupOutput.DonTopology.WorkflowDonID,
 			universalSetupOutput.BlockchainOutput.ChainSelector,
 			universalSetupOutput.BlockchainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
