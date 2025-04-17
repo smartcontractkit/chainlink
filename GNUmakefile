@@ -76,10 +76,10 @@ install-plugins-public: ## Build & install public remote LOOPP binaries (plugins
 
 .PHONY: install-plugins-private
 install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
-	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
-		loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
+	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
 	else \
-		loopinstall --concurrency 5 ./plugins/plugins.private.yaml; \
+		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 ./plugins/plugins.private.yaml; \
 	fi
 
 .PHONY: install-plugins-local
