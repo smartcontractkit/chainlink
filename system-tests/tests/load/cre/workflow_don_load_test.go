@@ -108,6 +108,8 @@ func setupLoadTestEnvironment(
 	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
 	jobSpecFactoryFns []keystonetypes.JobSpecFactoryFn,
 ) *loadTestSetupOutput {
+	absMockCapabilityBinaryPath, err := filepath.Abs(in.BinariesConfig.MockCapabilityBinaryPath)
+	require.NoError(t, err, "failed to get absolute path for mock capability binary")
 
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
@@ -116,42 +118,15 @@ func setupLoadTestEnvironment(
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
-	}
-
-	if in.BinariesConfig != nil {
-		absMockCapabilityBinaryPath, err := filepath.Abs(in.BinariesConfig.MockCapabilityBinaryPath)
-		require.NoError(t, err, "failed to get absolute path for mock capability binary")
-		universalSetupInput.CustomBinariesPaths = map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath}
-	} else {
-		// assume that if mock binary is already in the image it is in the default location and has default name
-		universalSetupInput.CustomBinariesPaths = map[string]string{}
+		CustomBinariesPaths:                  map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath},
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
 
-	// TODO not sure we need this for the load test, ask @George Dorin
-	// deployFeedConsumerInput := &keystonetypes.DeployFeedConsumerInput{
-	// 	ChainSelector: universalSetupOutput.BlockchainOutput.ChainSelector,
-	// 	CldEnv:        universalSetupOutput.CldEnvironment,
-	// }
-	// deployFeedsConsumerOutput, err := libcontracts.DeployFeedsConsumer(testLogger, deployFeedConsumerInput)
-	// require.NoError(t, err, "failed to deploy feeds consumer")
-
-	// configureFeedConsumerInput := &keystonetypes.ConfigureFeedConsumerInput{
-	// 	SethClient:            universalSetupOutput.BlockchainOutput.SethClient,
-	// 	FeedConsumerAddress:   deployFeedsConsumerOutput.FeedConsumerAddress,
-	// 	AllowedSenders:        []common.Address{universalSetupOutput.KeystoneContractsOutput.ForwarderAddress},
-	// 	AllowedWorkflowOwners: []common.Address{universalSetupOutput.BlockchainOutput.SethClient.MustGetRootKeyAddress()},
-	// 	AllowedWorkflowNames:  []string{in.WorkflowConfig.WorkflowName},
-	// }
-	// _, err = libcontracts.ConfigureFeedsConsumer(testLogger, configureFeedConsumerInput)
-	// require.NoError(t, err, "failed to configure feeds consumer")
-
 	// Set inputs in the test config, so that they can be saved
 	in.KeystoneContracts = &keystonetypes.KeystoneContractsInput{}
 	in.KeystoneContracts.Out = universalSetupOutput.KeystoneContractsOutput
-	// in.FeedConsumer = deployFeedConsumerInput
 	in.WorkflowRegistryConfiguration = &keystonetypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
@@ -359,7 +334,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 					continue // Skip bootstrap nodes
 				}
 
-				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID) // TODO: Figure out why sometimes n.Ocr2KeyBundleID is empty
+				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
 					require.NoError(t, err3, "could not marshal OCR2 key")
