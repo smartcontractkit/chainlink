@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	frameworkGrafana "github.com/smartcontractkit/chainlink-testing-framework/framework/grafana"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 )
 
@@ -73,6 +74,26 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 	expInjectDur, err := time.ParseDuration(chaosCfg.ExperimentInjectionInterval)
 	require.NoError(t, err, "could not parse chaos experiment injection interval")
 
+	reorgFunc := func(urls []string, blocks int) {
+		for _, url := range urls {
+			t.Logf("Reorg: %d", blocks)
+			r := rpc.New(url, nil)
+			tcName := fmt.Sprintf("%s-%d-blocks", url, blocks)
+			t.Run(tcName, func(t *testing.T) {
+				n := time.Now()
+				err := r.GethSetHead(blocks)
+				if err != nil {
+					t.Error("Failed to set block head on geth", err)
+				}
+				time.Sleep(expFullDur)
+				_, _, err = gc.Annotate(a(cribCfg.Namespace, tcName, chaosCfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
+				if err != nil {
+					t.Error("Failed to annotate grafana with chaos labels", err)
+				}
+			})
+		}
+	}
+
 	type testCase struct {
 		name     string
 		run      func(t *testing.T)
@@ -84,6 +105,16 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 	case "clean":
 		framework.L.Info().Msg("Skipping chaos experiments")
 		return
+	case "reorgs":
+		testCases = []testCase{
+			{
+				name: "Chain reorgs below finality",
+				run: func(t *testing.T) {
+					reorgFunc([]string{"url1", "url2"}, 30)
+				},
+				validate: func(t *testing.T) {},
+			},
+		}
 	case "rpc":
 		testCases = []testCase{
 			{
