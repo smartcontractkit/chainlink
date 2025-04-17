@@ -208,5 +208,3 @@ func (s *MeterReports) Len() int {
 
 	return len(s.meterReports)
 }
-
-type WorkflowReceipt struct{}
