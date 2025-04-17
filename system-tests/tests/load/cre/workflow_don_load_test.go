@@ -830,11 +830,11 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
        aggregation_method: "llo_streams"
        aggregation_config:
          streams:
-{{- range $index, $feed := .Feeds }}
-           "{{ $index }}":
-             deviation: "{{ $feed.Deviation }}"
-             heartbeat: {{ $feed.Heartbeat }}
-             remappedID: {{ $feed.RemappedID }}
+{{- range .Feeds }}
+           "{{ .FeedIDsIndex }}":
+             deviation: "{{ .Deviation }}"
+             heartbeat: {{ .Heartbeat }}
+             remappedID: {{ .RemappedID }}
 {{- end }}
        encoder: "EVM"
        encoder_config:
