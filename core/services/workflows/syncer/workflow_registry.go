@@ -398,12 +398,11 @@ func (w *workflowRegistry) readRegistryEventsLoop(ctx context.Context, eventType
 			}
 
 			for _, event := range events {
-				isClosed := ctx.Err()
-				if isClosed != nil {
-					w.lggr.Debugw("readRegistryEventsLoop stopped during processing", "err", isClosed)
-					break
+				select {
+				case <-ctx.Done():
+					w.lggr.Debug("readRegistryEventsLoop stopped during processing")
+				case w.eventCh <- event.Event:
 				}
-				w.eventCh <- event.Event
 			}
 		}
 	}
@@ -424,12 +423,10 @@ func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capab
 
 	w.lggr.Debugw("Rehydrating existing workflows", "len", len(workflowMetadata))
 	for _, workflow := range workflowMetadata {
-		isOpen := ctx.Err()
-		if isOpen != nil {
-			w.lggr.Errorf("shut down during initial workflow registration: %s", err)
-			break
-		}
-		w.eventCh <- workflowAsEvent{
+		select {
+		case <-ctx.Done():
+			w.lggr.Debug("shut down during initial workflow registration")
+		case w.eventCh <- workflowAsEvent{
 			Data: WorkflowRegistryWorkflowRegisteredV1{
 				WorkflowID:    workflow.WorkflowID,
 				WorkflowOwner: workflow.Owner,
@@ -441,6 +438,7 @@ func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capab
 				SecretsURL:    workflow.SecretsURL,
 			},
 			EventType: WorkflowRegisteredEvent,
+		}:
 		}
 	}
 
@@ -579,12 +577,11 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 				events := w.workflowMetadataToEvents(ctx, workflowMetadata, don.ID)
 				// Send events generated from differences to the event channel to be handled
 				for _, event := range events {
-					isClosed := ctx.Err()
-					if isClosed != nil {
-						w.lggr.Debugw("readRegistryStateLoop stopped during processing", "err", isClosed)
-						break
+					select {
+					case <-ctx.Done():
+						w.lggr.Debug("readRegistryStateLoop stopped during processing")
+					case w.eventCh <- event:
 					}
-					w.eventCh <- event
 				}
 			}
 		}
