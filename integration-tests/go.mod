@@ -579,7 +579,7 @@ require (
 
 replace (
 	// gotron-sdk is not longer maintained
-	github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.0-20250410125428-8c2971092e2e
+	github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.2
 	// requires https://github.com/gagliardetto/binary/pull/12 to parse optional values in ParseEventSol
 	github.com/gagliardetto/binary => github.com/archseer/binary v0.0.0-20250226104222-b87d7f4fd58a
 	// replicating the replace directive on cosmos SDK

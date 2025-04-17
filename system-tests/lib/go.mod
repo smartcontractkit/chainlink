@@ -474,7 +474,7 @@ require (
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 // gotron-sdk is not longer maintained
-replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.0-20250410125428-8c2971092e2e
+replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.2
 
 // v0.36.0 has breaking change incompatible with CTF. Remove after it has been updated.
 replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.35.0
