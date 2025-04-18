@@ -26,7 +26,7 @@ func RegisterWithCRECLI(input cretypes.RegisterWorkflowWithCRECLIInput) error {
 
 	// compile and upload the workflow, if we are not using an existing one
 	if input.ShouldCompileNewWorkflow {
-		compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, input.NewWorkflow.FolderLocation, input.NewWorkflow.ConfigFilePath, input.CRESettingsFile)
+		compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, input.NewWorkflow.FolderLocation, input.NewWorkflow.WorkflowFileName, input.NewWorkflow.ConfigFilePath, input.CRESettingsFile)
 		if compileErr != nil {
 			return errors.Wrap(compileErr, "failed to compile workflow")
 		}

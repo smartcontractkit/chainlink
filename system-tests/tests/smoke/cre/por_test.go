@@ -360,9 +360,10 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 
 	if input.WorkflowConfig.ShouldCompileNewWorkflow {
 		registerWorkflowInput.NewWorkflow = &keystonetypes.NewWorkflow{
-			FolderLocation:  *input.WorkflowConfig.WorkflowFolderLocation,
-			ConfigFilePath:  &workflowConfigFilePath,
-			SecretsFilePath: &secretsFilePath,
+			FolderLocation:   *input.WorkflowConfig.WorkflowFolderLocation,
+			WorkflowFileName: "main.go",
+			ConfigFilePath:   &workflowConfigFilePath,
+			SecretsFilePath:  &secretsFilePath,
 			Secrets: map[string]string{
 				authKeyEnvVarName: input.authKey,
 			},

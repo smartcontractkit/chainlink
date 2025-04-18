@@ -18,19 +18,18 @@ type CompilationResult struct {
 	ConfigURL   string
 }
 
-func CompileWorkflow(creCLICommandPath, workflowFolder string, configFile *string, settingsFile *os.File) (CompilationResult, error) {
+func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string, configFile *string, settingsFile *os.File) (CompilationResult, error) {
 	var outputBuffer bytes.Buffer
 
-	// the CLI expects the workflow code to be located in the same directory as its `go.mod`` file. That's why we assume that the file, which
-	// contains the entrypoint method is always named `main.go`. This is a limitation of the CLI, which we can't change.
 	compileArgs := []string{"workflow", "compile", "-S", settingsFile.Name()}
 	if configFile != nil {
 		compileArgs = append(compileArgs, "-c", *configFile)
 	}
-	compileArgs = append(compileArgs, "main.go")
+	compileArgs = append(compileArgs, workflowFileName)
 	compileCmd := exec.Command(creCLICommandPath, compileArgs...) // #nosec G204
 	compileCmd.Stdout = &outputBuffer
 	compileCmd.Stderr = &outputBuffer
+	// the CLI expects the workflow code to be located in the same directory as its `go.mod` file
 	compileCmd.Dir = workflowFolder
 	err := compileCmd.Start()
 	if err != nil {
