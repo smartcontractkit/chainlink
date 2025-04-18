@@ -36,7 +36,7 @@
 
 [[nodesets]]
   nodes = 5
-  override_mode = "all"
+  override_mode = "each"
   http_port_range_start = 10100
   name = "workflow"
 
@@ -46,7 +46,6 @@
     volume_name = "workflow_volume"
 
   [[nodesets.node_specs]]
-
     [nodesets.node_specs.node]
       image = "injected-at-runtime"
       # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
@@ -67,10 +66,165 @@
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
       """
+      # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
+      # We use hardcoded P2P keys here because the workflow secrets are encrypted with these keys.
+      # If new keys are generated in the CI, they won't be able to decrypt the existing secrets.
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"4e132a27812dfc644e2c23bfdbc961d9fde6dfca","crypto":{"cipher":"aes-128-ctr","ciphertext":"7ea055f7ef9f643354da1aed91ffc72675b602ed6e4842078ff1ae0a9c2de9e5","cipherparams":{"iv":"83b4e57106f933fc23f70df24d1ccc08"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"dfeab65812944899a7fd9973023d8b5db9985b0b358c08f5ab2445c59bbb7457"},"mac":"59fc362b8c7f5e48369af5e63d8ea8351db3f80a3558fc906ef162b4172fa153"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"c317793efae82840441811dd47ea3ddc4ebbc6d315b60021dcc6b3b6fa78eb5a","peerID":"p2p_12D3KooWNwvRtyW3MJQEBK5YfvH8NicvYFMdkByDNaU6DAbkqmsf","crypto":{"cipher":"aes-128-ctr","ciphertext":"4f1fa051e495d9ef2a691989df42f8188a181583a7a58f9daec659686f0c4afba60bccda959bcffa9e538e4e1b0bf3aa3bc2cf3a79e2f9d31a4a9163057f26a50447db97","cipherparams":{"iv":"913448f73b824da66400784a00e64d7a"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"ad42b3dbac2b1da586dec40608eb0341eaaceb5af32f5e93c3012b4db4da6602"},"mac":"b9727ac0aeca91fd9cadd950a0cb4eff82b9ddb4afc6f8346af02fd767f5419b"}}'
+      Password = ''
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+      # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
+      # We use hardcoded P2P keys here because the workflow secrets are encrypted with these keys.
+      # If new keys are generated in the CI, they won't be able to decrypt the existing secrets.
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"b9beef909b10b9c46261c95109a07759eb37b32b","crypto":{"cipher":"aes-128-ctr","ciphertext":"e2d1f6e29b6b34a8955482ee99fc6ef74821176c9b882baf69223acf37a32cf9","cipherparams":{"iv":"927f4f070edd8be23e577585c985ebc0"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"95f72cb0545f60575558a199f79d20b333f7cc214ad78dfea859c61d7c30f5a9"},"mac":"59752b432482f008f42f880df9034196b02b34b416918ebc8096a2044ac58da5"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"c56a5722697c1b817e4ff8f1083df7979ee50d51558c7303fc7c74b4286c1778","peerID":"p2p_12D3KooWP6zXt3LwymV5bW7KMk8J2JAkJ9AqCraL4ERMyvaJ7R1y","crypto":{"cipher":"aes-128-ctr","ciphertext":"29b903ba0025d0a595b1992a9f23e35b15c0d75ee240c9c25a4512124091764ccb873e0c5575fc664f66c5166b2e4cd0cfd1d61a8922b7b0c358da8d76c457570aa99d6d","cipherparams":{"iv":"4c811aed08c80d98d930970c1545b145"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"4ffffad6f7292d997fb79fb3b3a2ffe77829ad2df35ef788877afa6e2707c2df"},"mac":"9a057965d78c2175e75024ab0dfe51423f8332688eb289ffebf44e708ed24c46"}}'
+      Password = ''
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+      # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
+      # We use hardcoded P2P keys here because the workflow secrets are encrypted with these keys.
+      # If new keys are generated in the CI, they won't be able to decrypt the existing secrets.
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"3bd41a26db50fc140c5b4dbad19a60288857352f","crypto":{"cipher":"aes-128-ctr","ciphertext":"f6a9122b8a07c9ea9f95cdec5d239be7667d67b4e9062739547662935c9a805d","cipherparams":{"iv":"fe570366b5d178a800d632ea8005533d"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"309e9cc2f957efe0b1f93208dfea7fd0105ebed18bfd5a8fa2dbc372a04abcfc"},"mac":"0eb6414e2b59b543e23287d8ce43dacb2356d2e3bfffe3e87ee64e2db61621d5"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"8b2ffb68debbbebe66be7e80f5166dc7677cee1ac9ec7277f5d3e024d8d5e084","peerID":"p2p_12D3KooWKBhGsHJTgt9Dj81J1Z5VRSnbjwFa9oh8u9JjtfF8bDUw","crypto":{"cipher":"aes-128-ctr","ciphertext":"ad47f7096bff9a98706acd48a84b97c9ad030759fbe309c7687b4db55f0c81905cfc1f8992ea0738745aad3eb8098e83cc35c2c518b087e39f7de1834f7e32f98995ae2d","cipherparams":{"iv":"98f8fed00dfae5a1b1ffe7ed6ae9b33c"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"4143b7c9b7d227bc857fb477e8b96680ee0c135600cb3743acca9d490c85ded4"},"mac":"425990ce28110dbe71bf474768f3cada22d641e2ab4ab27b4ae9f9396860166f"}}'
+      Password = ''
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"d04e8cfe19a885a4c33fd27b3b8e3e55c6b5031d","crypto":{"cipher":"aes-128-ctr","ciphertext":"212eef468bdf924b6afbb307f2981c0e360ea7990b5f4312595f2847cf9a4200","cipherparams":{"iv":"12e143f58dbb7584b8e522a1d2fee74e"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"8f16d19f97547faa11535191417da0bb719c9ff29b6ec455eb66015be5fa8228"},"mac":"8ee75794ab98d3179323c1b610217919618f53cfc916d0a7bf81fa9dca01b510"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"8061f1299e196d5c091d2d7ebe2b1100d46d1956291a1690b811d7c9db7abd37","peerID":"p2p_12D3KooWJTWyUgKammTMy75mykiCa5asocns5cWDAQc668fcae8N","crypto":{"cipher":"aes-128-ctr","ciphertext":"88604dc45f5a6c723a5301ae868f90d519bec690048ee611204269fb35061d97602afed024046282f48b32d2923d0f36053e4103b1f0a971d6d836cf79e4ad3adb3110a4","cipherparams":{"iv":"fef745549fac36fc0cf30681cdbc6c88"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"a6c7fa1d3d910672eaecbbb06b74250cd339855439beda2e57da75c2ca836d61"},"mac":"abd5212ff8206b7e3861d5f1ad1b01b4c06825155743747cab0737c9cca639da"}}'
+      Password = ''
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+      # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
+      # We use hardcoded P2P keys here because the workflow secrets are encrypted with these keys.
+      # If new keys are generated in the CI, they won't be able to decrypt the existing secrets.
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"71c549f751e2883a5908ca4b40b457094bec1460","crypto":{"cipher":"aes-128-ctr","ciphertext":"9f2f41e30ecc2be3df16c4704a15c394052844a8971034adfbafaffcfd4f49b5","cipherparams":{"iv":"738d48831736b8105bddb76e1d39d918"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"873d82b4619de4ba7d5cee5d8e5e7289cacdbcbae4de1957bf0804a48d48487d"},"mac":"4c5ece64563d892a64256f8a4739a3e6d38f120a61c3edd018e5d7fdafd5a557"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"bf87b8bd363a3ec3dab36b59e7e65a3ab24a8fe92fba986edfe519206656dc94","peerID":"p2p_12D3KooWNi258R7qcMpc7kp3bgfKrwhmpBiqacP5pZHoa5Vg4qDu","crypto":{"cipher":"aes-128-ctr","ciphertext":"a69f55055e3edca929a9aac135b1f33ed8e5f73bf4f8d759d35a32fde823e6e20e23d205355479b70ce2c3d97c1730710217a86f621584f80f1296b8cc1f07fd3cec6dc2","cipherparams":{"iv":"346c2fedc3c4de2e9b4e76ddcf61c48d"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"807b7feeeb74b49b26b270a0e3b925820578b0a5562c5378d4bf90b2e6841146"},"mac":"7b72396d399b0f896b1aa31c3b6a68426d65756bc3fce9d69875c79c349d9a68"}}'
+      Password = ''
+      """
 
 [[nodesets]]
   nodes = 1
-  override_mode = "all"
+  override_mode = "each"
   http_port_range_start = 10300
   name = "gateway"
 
@@ -79,7 +233,6 @@
     port = 13200
 
   [[nodesets.node_specs]]
-
     [nodesets.node_specs.node]
       image = "injected-at-runtime"
       user_config_overrides = """
@@ -97,4 +250,18 @@
 			[P2P.V2]
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
+      """
+      # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
+      # We use hardcoded P2P keys here because the workflow secrets are encrypted with these keys.
+      # If new keys are generated in the CI, they won't be able to decrypt the existing secrets.
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"e457b4abc15d5352442786493d4fc536ff4f6ae6","crypto":{"cipher":"aes-128-ctr","ciphertext":"c13ef1119f23f01885a2bf3756a11eb8b2fddf8d35f5fcdd62eb30d51fafb287","cipherparams":{"iv":"0ffd8debe92def3466793c9448093d90"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"9a15cc38dfd714ec34955897d1b5e3e940f181bffb4fd7512d4bbd9dda93988f"},"mac":"a7870d5beb1747524cce045fd60beb2ef33308d987cb46f58a4d2d2d4839665b"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"21f17bec8f172a5d43abcc052ef496ed91fd3e0f2a00c00ef232fb6f63de71dd","peerID":"p2p_12D3KooWC6sC86EfgwnCvJmrBAMttRkqBSHydA1V9Ncuagsybfvt","crypto":{"cipher":"aes-128-ctr","ciphertext":"53262ee8bcb7144c620f130123bf95957eb016a742544a953db61bb653eb27fda48cea2da63f57e40c0b7be1e7eac132cc3e30c3fd232035656cc346542b2f1e1e49c643","cipherparams":{"iv":"907292b99772c02d8dea446230ff44e2"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"7d379d343fe57ee8145efe764a187598363e8a6ec5cc0059b92b387dc68f1680"},"mac":"2ef51cdc0767a2288f14c67114e1c0cbd8d441ff79a00e707b5aa8730bacec14"}}'
+      Password = ''
       """

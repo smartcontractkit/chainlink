@@ -1,6 +1,7 @@
 package don
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 
@@ -167,23 +168,68 @@ func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysO
 		return nil, errors.New("keys is nil")
 	}
 
+	if len(keys.P2PKeys) != len(topology.DonsMetadata) {
+		return nil, fmt.Errorf("number of P2P keys does not match the number of DONs. Expected %d, got %d", len(topology.DonsMetadata), len(keys.P2PKeys))
+	}
+
+	if len(keys.EVMKeys) != len(topology.DonsMetadata) {
+		return nil, fmt.Errorf("number of EVM keys does not match the number of DONs. Expected %d, got %d", len(topology.DonsMetadata), len(keys.EVMKeys))
+	}
+
 	for _, donMetadata := range topology.DonsMetadata {
 		if p2pKeys, ok := keys.P2PKeys[donMetadata.ID]; ok {
+			if len(p2pKeys.PeerIDs) != len(donMetadata.NodesMetadata) {
+				return nil, fmt.Errorf("number of P2P keys for DON %d does not match the number of nodes. Expected %d, got %d", donMetadata.ID, len(donMetadata.NodesMetadata), len(p2pKeys.PeerIDs))
+			}
 			for idx, nodeMetadata := range donMetadata.NodesMetadata {
 				nodeMetadata.Labels = append(nodeMetadata.Labels, &cretypes.Label{
 					Key:   node.NodeP2PIDKey,
 					Value: p2pKeys.PeerIDs[idx],
 				})
 			}
+		} else {
+			return nil, fmt.Errorf("no P2P keys found for DON %d", donMetadata.ID)
 		}
 
-		if evmKeys, ok := keys.EVMKeys[donMetadata.ID]; ok {
-			for idx, nodeMetadata := range donMetadata.NodesMetadata {
-				nodeMetadata.Labels = append(nodeMetadata.Labels, &cretypes.Label{
-					Key:   node.EthAddressKey,
-					Value: evmKeys.PublicAddresses[idx].Hex(),
-				})
+		if chainIDsToEVMKeys, ok := keys.EVMKeys[donMetadata.ID]; ok {
+			// First, verify that all chain IDs have the same EVM keys for each node
+			// This is a limitation of our current testing SDK implementation, because we only have 1 label for ETH address for each node
+			// If in the future we need to support multiple chain IDs, we will need to change this and prefix the label with the chain ID
+			// For now let's just make sure that all the chain IDs have the same EVM keys for each node to avoid hard to debug issues
+			var firstChainID int
+			var firstEVMKeys *types.EVMKeys
+			for chainID, evmKeys := range chainIDsToEVMKeys {
+				if firstEVMKeys == nil {
+					firstChainID = chainID
+					firstEVMKeys = evmKeys
+					continue
+				}
+				if len(evmKeys.PublicAddresses) != len(firstEVMKeys.PublicAddresses) {
+					return nil, fmt.Errorf("number of EVM keys for DON %d differs between chain IDs %d and %d", donMetadata.ID, firstChainID, chainID)
+				}
+				for i := range evmKeys.PublicAddresses {
+					if evmKeys.PublicAddresses[i] != firstEVMKeys.PublicAddresses[i] {
+						return nil, fmt.Errorf("EVM public address mismatch for DON %d, node %d between chain IDs %d and %d", donMetadata.ID, i, firstChainID, chainID)
+					}
+				}
 			}
+
+			// Now add the EVM addresses to the node metadata
+			for chainID, evmKeys := range chainIDsToEVMKeys {
+				if len(evmKeys.PublicAddresses) != len(donMetadata.NodesMetadata) {
+					return nil, fmt.Errorf("number of EVM keys for DON %d and chain ID %d does not match the number of nodes. Expected %d, got %d", donMetadata.ID, chainID, len(donMetadata.NodesMetadata), len(evmKeys.PublicAddresses))
+				}
+				for idx, nodeMetadata := range donMetadata.NodesMetadata {
+					nodeMetadata.Labels = append(nodeMetadata.Labels, &cretypes.Label{
+						Key:   node.EthAddressKey,
+						Value: evmKeys.PublicAddresses[idx].Hex(),
+					})
+				}
+				// Use first ETH address for the DON metadata, because all of them are the same
+				break
+			}
+		} else {
+			return nil, fmt.Errorf("no EVM keys found for DON %d", donMetadata.ID)
 		}
 	}
 
@@ -197,6 +243,10 @@ func GenereteKeys(input *cretypes.GenerateKeysInput) (*cretypes.GenerateKeysOutp
 
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "input validation failed")
+	}
+
+	if input.Out != nil {
+		return input.Out, nil
 	}
 
 	output := &cretypes.GenerateKeysOutput{
@@ -218,9 +268,14 @@ func GenereteKeys(input *cretypes.GenerateKeysInput) (*cretypes.GenerateKeysOutp
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to generate EVM keys")
 			}
-			evmKeys.ChainIDs = append(evmKeys.ChainIDs, input.GenerateEVMKeysForChainIDs...)
 
-			output.EVMKeys[donMetadata.ID] = evmKeys
+			// use the same EVM keys for all the chain IDs
+			for _, chainID := range input.GenerateEVMKeysForChainIDs {
+				if _, ok := output.EVMKeys[donMetadata.ID]; !ok {
+					output.EVMKeys[donMetadata.ID] = make(cretypes.ChainIDToEVMKeys)
+				}
+				output.EVMKeys[donMetadata.ID][chainID] = evmKeys
+			}
 		}
 	}
 
