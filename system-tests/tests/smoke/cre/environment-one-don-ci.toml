@@ -29,12 +29,11 @@
   cre_cli_binary_path = "./cre_v0.1.5_linux_amd64"
 
   [workflow_config.compiled_config]
-    binary_url = "https://gist.githubusercontent.com/Tofel/b9f015060b86b6f5b6efddf9cbdb617f/raw/62a9e369c6ce0d7a7e2f9eec2bca7b965518e492/binary.wasm.br.b64"
+    binary_url = "https://gist.githubusercontent.com/Tofel/1a2f6f7d9424bcb176a7cee31112bc11/raw/0e3859564f92c141cb856c65ef7a3db711588c08/binary.wasm.br.b64"
     # Every time that consumer address changes (e.g. due code sequence changes) we need to update the config used in CI. That config is identical to the one used, when executing local machine
     # unless test uses fake data provider. In that case the IP of the fake data provider will be different in the CI, because it uses linux not macOS operating system and that changes the IP
     # of 'host.docker.internal'. TL;DR is that when updating this config you can use config created during local execution, but you need to use data provider URL copied from the previous CI config.
-    config_url = "https://gist.githubusercontent.com/Tofel/c8eb4693d7c045a968d011d00640cbb9/raw/0f67cc827f74bbaf5322788c0f0b2b013d2a23de/one-don-config-17-04-2025.json"
-    secrets_url = "https://gist.githubusercontent.com/Tofel/ce34b610f00385bd116498d168cfad58/raw/e16de8d809de801003c58d9ffff79cba93274408/encrypted.secrets.json"
+    config_url = "https://gist.githubusercontent.com/Tofel/d005f088a313a177cc42397586100a27/raw/e8353e29c9fdc1cdd3c718bc19121a3912925480/one_don_config.json_03_04_2025"
 
 [[nodesets]]
   nodes = 5
