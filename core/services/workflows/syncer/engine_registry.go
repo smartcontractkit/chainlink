@@ -59,7 +59,7 @@ func (r *EngineRegistry) Add(key EngineRegistryKey, engine services.Service, wor
 	return nil
 }
 
-// Get retrieves an engine from the registry.
+// Get retrieves an engine from the registry. If not found it returns an error.
 func (r *EngineRegistry) Get(key EngineRegistryKey) (ServiceWithMetadata, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

@@ -452,8 +452,6 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 	seenMap := map[string]bool{}
 
 	for _, wfMeta := range workflowMetadata {
-		// TODO: ensure that the WorkflowRegisteredEvent sets the engine registry as the very last step
-		// TODO: ensure that the WorkflowDeletedEvent clears the engine registry as the very last step
 		engine, engineErr := w.engineRegistry.Get(EngineRegistryKey{Owner: wfMeta.Owner, Name: wfMeta.WorkflowName})
 		engineKeyStr := wfMeta.WorkflowName + hex.EncodeToString(wfMeta.Owner)
 		currWfID := hex.EncodeToString(wfMeta.WorkflowID[:])
