@@ -79,6 +79,11 @@ ENV CL_SOLANA_CMD=chainlink-solana
 ARG CL_APTOS_CMD
 ENV CL_APTOS_CMD=${CL_APTOS_CMD}
 
+# CCIP specific
+COPY ./cci[p]/confi[g] /ccip-config
+ARG CL_CHAIN_DEFAULTS
+ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
+
 # Copy the binaries from the build stage (plugins + chainlink).
 COPY --from=buildgo /gobins/ /usr/local/bin/
 # Copy shared libraries from the build stage.
