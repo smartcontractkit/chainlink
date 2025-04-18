@@ -832,6 +832,9 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		ethKeystore,
 		ocrTransmitterOpts...,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	// This code path should only be called when running CCIP 1.5 jobs on Tron.
 	// All other products should use the standard Tron relayer implementation.
