@@ -34,7 +34,7 @@
     # unless test uses fake data provider. In that case the IP of the fake data provider will be different in the CI, because it uses linux not macOS operating system and that changes the IP
     # of 'host.docker.internal'. TL;DR is that when updating this config you can use config created during local execution, but you need to use data provider URL copied from the previous CI config.
     config_url = "https://gist.githubusercontent.com/Tofel/c8eb4693d7c045a968d011d00640cbb9/raw/0f67cc827f74bbaf5322788c0f0b2b013d2a23de/one-don-config-17-04-2025.json"
-    secrets_url = "https://gist.githubusercontent.com/Tofel/8f2f96ce851d9729839b5f59fbfea318/raw/f06ba081bbbb34a7c440dbd1183b68c2ebd84b43/encrypted.secrets.json"
+    secrets_url = "https://gist.githubusercontent.com/Tofel/ce34b610f00385bd116498d168cfad58/raw/e16de8d809de801003c58d9ffff79cba93274408/encrypted.secrets.json"
 
 [[nodesets]]
   nodes = 5

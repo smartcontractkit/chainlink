@@ -309,7 +309,6 @@ func SetupTestEnvironment(
 
 	// Deploy the DONs
 	// Hack for CI that allows us to dynamically set the chainlink image and version
-	// CTFv2 currently doesn't support dynamic image and version setting
 	if os.Getenv("CI") == "true" {
 		// Due to how we pass custom env vars to reusable workflow we need to use placeholders, so first we need to resolve what's the name of the target environment variable
 		// that stores chainlink version and then we can use it to resolve the image name
@@ -323,20 +322,6 @@ func SetupTestEnvironment(
 
 	if input.InfraInput.InfraType == libtypes.CRIB {
 		testLogger.Info().Msg("Saving node configs and secret overrides")
-
-		deployCribDonsInput := &keystonetypes.DeployCribDonsInput{
-			Topology:       topology,
-			NodeSetInputs:  input.CapabilitiesAwareNodeSets,
-			NixShell:       nixShell,
-			CribConfigsDir: cribConfigsDir,
-		}
-
-		var devspaceErr error
-		input.CapabilitiesAwareNodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
-		if devspaceErr != nil {
-			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with devspace")
-		}
-
 		deployCribJdInput := &keystonetypes.DeployCribJdInput{
 			JDInput:        &input.JdInput,
 			NixShell:       nixShell,
