@@ -45,6 +45,7 @@ import (
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -125,28 +126,9 @@ func setupLoadTestEnvironment(
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
 
-	// TODO not sure we need this for the load test, ask @George Dorin
-	// deployFeedConsumerInput := &keystonetypes.DeployFeedConsumerInput{
-	// 	ChainSelector: universalSetupOutput.BlockchainOutput.ChainSelector,
-	// 	CldEnv:        universalSetupOutput.CldEnvironment,
-	// }
-	// deployFeedsConsumerOutput, err := libcontracts.DeployFeedsConsumer(testLogger, deployFeedConsumerInput)
-	// require.NoError(t, err, "failed to deploy feeds consumer")
-
-	// configureFeedConsumerInput := &keystonetypes.ConfigureFeedConsumerInput{
-	// 	SethClient:            universalSetupOutput.BlockchainOutput.SethClient,
-	// 	FeedConsumerAddress:   deployFeedsConsumerOutput.FeedConsumerAddress,
-	// 	AllowedSenders:        []common.Address{universalSetupOutput.KeystoneContractsOutput.ForwarderAddress},
-	// 	AllowedWorkflowOwners: []common.Address{universalSetupOutput.BlockchainOutput.SethClient.MustGetRootKeyAddress()},
-	// 	AllowedWorkflowNames:  []string{in.WorkflowConfig.WorkflowName},
-	// }
-	// _, err = libcontracts.ConfigureFeedsConsumer(testLogger, configureFeedConsumerInput)
-	// require.NoError(t, err, "failed to configure feeds consumer")
-
 	// Set inputs in the test config, so that they can be saved
 	in.KeystoneContracts = &keystonetypes.KeystoneContractsInput{}
 	in.KeystoneContracts.Out = universalSetupOutput.KeystoneContractsOutput
-	// in.FeedConsumer = deployFeedConsumerInput
 	in.WorkflowRegistryConfiguration = &keystonetypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
@@ -214,7 +196,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				if nodeIDErr != nil {
 					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 				}
-				if flags.HasFlag(donWithMetadata.Flags, keystonetypes.OCR3Capability) {
+				if flags.HasFlag(donWithMetadata.Flags, keystonetypes.WorkflowDON) {
 					for i := range feedsAddresses {
 						feedConfig := make([]FeedConfig, 0)
 
@@ -289,7 +271,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return capabilities
 	}
 
-	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
+	chainIDInt, chainErr := strconv.ParseUint(in.BlockchainA.ChainID, 10, 64)
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupLoadTestEnvironment(
@@ -298,7 +280,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		in,
 		mustSetCapabilitiesFn,
 		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))},
-		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn},
+		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(chainIDInt)},
 	)
 
 	ctx := t.Context()
@@ -354,7 +336,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 					continue // Skip bootstrap nodes
 				}
 
-				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID) // TODO: Figure out why sometimes n.Ocr2KeyBundleID is empty
+				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
 					require.NoError(t, err3, "could not marshal OCR2 key")
@@ -828,11 +810,11 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
        aggregation_method: "llo_streams"
        aggregation_config:
          streams:
-{{- range $index, $feed := .Feeds }}
-           "{{ $index }}":
-             deviation: "{{ $feed.Deviation }}"
-             heartbeat: {{ $feed.Heartbeat }}
-             remappedID: {{ $feed.RemappedID }}
+{{- range .Feeds }}
+           "{{ .FeedIDsIndex }}":
+             deviation: "{{ .Deviation }}"
+             heartbeat: {{ .Heartbeat }}
+             remappedID: {{ .RemappedID }}
 {{- end }}
        encoder: "EVM"
        encoder_config:
@@ -931,4 +913,12 @@ func capTypeToInt(capType string) uint8 {
 	default:
 		panic("unknown capability type " + capType)
 	}
+}
+
+func logTestInfo(l zerolog.Logger, feedID, workflowName, dataFeedsCacheAddr, forwarderAddr string) {
+	l.Info().Msg("------ Test configuration:")
+	l.Info().Msgf("Feed ID: %s", feedID)
+	l.Info().Msgf("Workflow name: %s", workflowName)
+	l.Info().Msgf("DataFeedsCache address: %s", dataFeedsCacheAddr)
+	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
 }

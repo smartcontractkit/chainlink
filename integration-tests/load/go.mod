@@ -29,13 +29,13 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.50
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250417151815-b832e7158ba4
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250408172557-9bce44d32d44
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250417161444-6af45cb2bf9e
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250411163110-21a13ceb3ac4
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250417185646-160c6083ac30
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250408161604-b6539361da24
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.2
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250409172733-a9b441035629
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.4
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.53.0
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
@@ -447,7 +447,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250408163915-4e13e0299b51 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250417132850-8f68f1d0afea // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
@@ -581,9 +581,8 @@ require (
 // avoids ambiguous imports of indirect dependencies
 exclude github.com/hashicorp/consul v1.2.1
 
-replace (
-	// replicating the replace directive on cosmos SDK
-	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+// replicating the replace directive on cosmos SDK
+replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
-	github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
-)
+// v0.63.0 is not compatible with prometheus/prometheus v0.302.0. Remove after it has been updated.
+replace github.com/prometheus/common => github.com/prometheus/common v0.62.0

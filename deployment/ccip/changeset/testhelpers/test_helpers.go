@@ -686,7 +686,7 @@ func SendRequestSol(
 	// for some reason onchain doesn't see extraAccounts
 
 	ixs := []solana.Instruction{ix}
-	result, err := solcommon.SendAndConfirmWithLookupTables(ctx, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(300_000))
+	result, err := solcommon.SendAndConfirmWithLookupTables(ctx, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(400_000))
 	if err != nil {
 		return nil, err
 	}
