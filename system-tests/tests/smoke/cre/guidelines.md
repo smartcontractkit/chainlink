@@ -46,6 +46,7 @@
 14. [Switching from kind to AWS provider](#switching-from-kind-to-aws-provider)
 15. [CRIB Limitations & Considerations](#crib-limitations--considerations)
 16. [CLI Usage](#cli-usage)
+17. [Using existing EVM & P2P keys](#using-existing-evm--p2p-keys)
 
 ---
 
@@ -1063,3 +1064,28 @@ ctf d rm
 ```
 
 This will remove all containers with the 'ctf' label and their associated volumes.
+
+# Using existing EVM & P2P keys
+
+It is a good practice, when nodes are connected to public chains on which we have limited access to funding. If nodes use exiting EVM keys we can fund them once and restart/redeploy nodes without losing access to these funds. In both cases we support only encrypted JSON keys. They need to be added to TOML config in a following manner:
+```toml
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      # other fields go here...
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"4e132a27812dfc644e2c23bfdbc961d9fde6dfca","crypto":{"cipher":"aes-128-ctr","ciphertext":"7ea055f7ef9f643354da1aed91ffc72675b602ed6e4842078ff1ae0a9c2de9e5","cipherparams":{"iv":"83b4e57106f933fc23f70df24d1ccc08"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"dfeab65812944899a7fd9973023d8b5db9985b0b358c08f5ab2445c59bbb7457"},"mac":"59fc362b8c7f5e48369af5e63d8ea8351db3f80a3558fc906ef162b4172fa153"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"c317793efae82840441811dd47ea3ddc4ebbc6d315b60021dcc6b3b6fa78eb5a","peerID":"p2p_12D3KooWNwvRtyW3MJQEBK5YfvH8NicvYFMdkByDNaU6DAbkqmsf","crypto":{"cipher":"aes-128-ctr","ciphertext":"4f1fa051e495d9ef2a691989df42f8188a181583a7a58f9daec659686f0c4afba60bccda959bcffa9e538e4e1b0bf3aa3bc2cf3a79e2f9d31a4a9163057f26a50447db97","cipherparams":{"iv":"913448f73b824da66400784a00e64d7a"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"ad42b3dbac2b1da586dec40608eb0341eaaceb5af32f5e93c3012b4db4da6602"},"mac":"b9727ac0aeca91fd9cadd950a0cb4eff82b9ddb4afc6f8346af02fd767f5419b"}}'
+      Password = ''
+      """
+  ```
+
+  That functionality is available only for `nodesets` using `override_mode` equal to `each`, because we need to supply keys for all nodes from the nodeset. Furthermore, if we have more than one DON, then either no DON can use existing keys or all DONs must. This is a limitation of current implementation, which we might remove in the future, if there's such a need. There are some more limitations to bear in mind:
+  - you need to import **both** P2P keys and EVM keys
+  - when importing EVM keys for multiple chains, the same keys must be used for each chain
+
+  These limitations are related to our CRE SDK and some shortcuts we took in the past (we don't need very complex import support for tests), and not of the CL node itself.

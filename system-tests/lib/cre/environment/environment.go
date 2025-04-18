@@ -222,57 +222,35 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(peeringErr, "failed to find peering data")
 	}
 
-	var hasConfigs = func(nodeSet *keystonetypes.CapabilitiesAwareNodeSet) (bool, error) {
+	for i, donMetadata := range topology.DonsMetadata {
 		configsFound := 0
-		for _, nodeSpec := range nodeSet.NodeSpecs {
+		secretsFound := 0
+		for _, nodeSpec := range input.CapabilitiesAwareNodeSets[i].NodeSpecs {
 			if nodeSpec.Node.TestConfigOverrides != "" {
 				configsFound++
 			}
-		}
-
-		if configsFound != 0 && configsFound != len(nodeSet.NodeSpecs) {
-			return false, fmt.Errorf("%d out of %d node specs have config overrides. Either provide overrides for all nodes or none at all", configsFound, len(nodeSet.NodeSpecs))
-		}
-
-		return configsFound > 0, nil
-	}
-
-	var hasSecrets = func(nodeSet *keystonetypes.CapabilitiesAwareNodeSet) (bool, error) {
-		secretsFound := 0
-		for _, nodeSpec := range nodeSet.NodeSpecs {
 			if nodeSpec.Node.TestSecretsOverrides != "" {
 				secretsFound++
 			}
 		}
-
-		if secretsFound != 0 && secretsFound != len(nodeSet.NodeSpecs) {
-			return false, fmt.Errorf("%d out of %d node specs have secrets overrides. Either provide overrides for all nodes or none at all", secretsFound, len(nodeSet.NodeSpecs))
+		if configsFound != 0 && configsFound != len(input.CapabilitiesAwareNodeSets[i].NodeSpecs) {
+			return nil, fmt.Errorf("%d out of %d node specs have config overrides. Either provide overrides for all nodes or none at all", configsFound, len(input.CapabilitiesAwareNodeSets[i].NodeSpecs))
 		}
 
-		return secretsFound > 0, nil
-	}
-
-	for i, donMetadata := range topology.DonsMetadata {
-		hasConfigs, hasConfigsErr := hasConfigs(input.CapabilitiesAwareNodeSets[i])
-		if hasConfigsErr != nil {
-			return nil, pkgerrors.Wrap(hasConfigsErr, "nodese config validation failed")
-		}
-
-		hasSecrets, hasSecretsErr := hasSecrets(input.CapabilitiesAwareNodeSets[i])
-		if hasSecretsErr != nil {
-			return nil, pkgerrors.Wrap(hasSecretsErr, "nodese secrets validation failed")
+		if secretsFound != 0 && secretsFound != len(input.CapabilitiesAwareNodeSets[i].NodeSpecs) {
+			return nil, fmt.Errorf("%d out of %d node specs have secrets overrides. Either provide overrides for all nodes or none at all", secretsFound, len(input.CapabilitiesAwareNodeSets[i].NodeSpecs))
 		}
 
 		// Allow providing only secrets, because we can decode them and use them to generate configs
 		// We can't allow providing only configs, because we can't replace secret-related values in the configs
 		// If both are provided, we assume that the user knows what they are doing and we don't need to validate anything
 		// And that configs match the secrets
-		if hasConfigs && !hasSecrets {
+		if configsFound > 0 && secretsFound == 0 {
 			return nil, fmt.Errorf("nodese config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
 		}
 
 		// generate configs only if they are not provided
-		if !hasConfigs {
+		if configsFound == 0 {
 			config, configErr := keystoneporconfig.GenerateConfigs(
 				keystonetypes.GeneratePoRConfigsInput{
 					DonMetadata:                 donMetadata,
@@ -296,7 +274,7 @@ func SetupTestEnvironment(
 		}
 
 		// generate secrets only if they are not provided
-		if !hasSecrets {
+		if secretsFound == 0 {
 			secretsInput := &keystonetypes.GenerateSecretsInput{
 				DonMetadata: donMetadata,
 			}
