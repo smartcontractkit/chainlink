@@ -7,6 +7,9 @@ GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 # Set to true to install private plugins (will require GitHub auth).
 CL_INSTALL_PRIVATE_PLUGINS ?= false
+LINUX=LINUX
+OSX=OSX
+WINDOWS=WIN32
 
 # LOOP Plugin version defaults
 ifndef COSMOS_SHA
@@ -168,6 +171,38 @@ testscripts: chainlink-test ## Install and run testscript against testdata/scrip
 .PHONY: testscripts-update
 testscripts-update: ## Update testdata/scripts/* files via testscript.
 	make testscripts TS_FLAGS="-u"
+
+.PHONY: setup-tools
+setup-tools:
+ifeq ($(OSFLAG),$(WINDOWS))
+	@echo "Windows system detected - no automated setup available."
+	@echo "Please install your developer enviroment manually (@see .tool-versions)."
+	@echo
+	exit 1
+endif
+ifeq ($(OSFLAG),$(OSX))
+	@echo "MacOS system detected - installing the required toolchain via asdf (@see .tool-versions)."
+	@echo
+	brew install asdf
+	asdf plugin add golang || true
+	asdf plugin add mockery || true
+	asdf plugin add nodejs || true
+	asdf plugin add pnpm || true
+	asdf plugin add postgres || true
+	asdf plugin add helm || true
+	asdf plugin add golangci-lint || true
+	asdf plugin add protoc || true
+	asdf plugin add protoc-gen-go-grpc || true
+	asdf plugin add python || true
+	asdf plugin add act || true
+	@echo
+	asdf install
+endif
+ifeq ($(OSFLAG),$(LINUX))
+	@echo "Linux system detected - please install and use NIX (@see shell.nix)."
+	@echo
+endif
+endif
 
 .PHONY: start-testdb
 start-testdb:
