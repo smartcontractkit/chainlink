@@ -531,7 +531,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 		return err
 	}
 	// should only update callers if there are none, otherwise we might overwrite some existing callers for existing fee quoter
-	if len(callers) == 1 && callers[0] == chain.DeployerKey.From {
+	if len(callers) == 1 && (callers[0] == chain.DeployerKey.From || callers[0] == state.Chains[chain.Selector].Timelock.Address()) {
 		tx, err := feeQuoterContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 			// TODO: We enable the deployer initially to set prices
 			// Should be removed after.
