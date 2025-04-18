@@ -110,7 +110,7 @@ func setupLoadTestEnvironment(
 	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
 	jobSpecFactoryFns []keystonetypes.JobSpecFactoryFn,
 ) *loadTestSetupOutput {
-	absMockCapabilityBinaryPath, err := filepath.Abs(in.BinariesConfig.MockCapabilityBinaryPath) //nolint:checkstyle
+	absMockCapabilityBinaryPath, err := filepath.Abs(in.BinariesConfig.MockCapabilityBinaryPath)
 	require.NoError(t, err, "failed to get absolute path for mock capability binary")
 
 	universalSetupInput := creenv.SetupInput{
