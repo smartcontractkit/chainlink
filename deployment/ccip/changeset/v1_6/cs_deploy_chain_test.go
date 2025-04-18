@@ -111,6 +111,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		require.NoError(t, ab.Save(sel, state.Chains[sel].FeeQuoter.Address().Hex(),
 			deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_6_0)))
 	}
+	//nolint:staticcheck //SA1019 ignoring deprecated
 	require.NoError(t, e.ExistingAddresses.Remove(ab))
 
 	// try to deploy chain contracts again and it should not deploy any new contracts except feequoter
