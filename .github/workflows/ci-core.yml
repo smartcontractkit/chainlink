@@ -679,6 +679,7 @@ jobs:
           if [ -z "$PR_NUMBER" ]; then
             echo "No PR number found."
             echo "opt-out=false" | tee -a $GITHUB_OUTPUT
+            exit 0
           fi
 
           OPT_OUT=$(gh pr view $PR_NUMBER --repo ${GITHUB_REPOSITORY} --json labels --jq 'any(.labels[].name; . == "runs-on-opt-out")')
