@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/mr-tron/base58"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -77,7 +78,7 @@ func GenerateOffRampView(chain deployment.SolChain, program solana.PublicKey, re
 			IsEnabled:                 chainStateAccount.Config.IsEnabled,
 			IsRmnVerificationDisabled: chainStateAccount.Config.IsRmnVerificationDisabled,
 			LaneCodeVersion:           chainStateAccount.Config.LaneCodeVersion.String(),
-			OnRamp:                    string(chainStateAccount.Config.OnRamp.Bytes[:]),
+			OnRamp:                    base58.Encode(chainStateAccount.Config.OnRamp.Bytes[:]),
 		}
 	}
 	return view, nil
