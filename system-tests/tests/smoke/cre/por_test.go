@@ -165,7 +165,9 @@ const (
 	CRECLIBinaryVersion = "v0.1.5"
 
 	AuthorizationKeySecretName = "AUTH_KEY"
-	AuthorizationKey           = "12a-281j&@91.sj1:_}"
+	// TODO: use once we can run these tests in CI
+	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
+	AuthorizationKey = ""
 )
 
 // Defines the location of already compiled workflow binary and config files
