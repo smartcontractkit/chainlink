@@ -586,3 +586,6 @@ replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alp
 
 // v0.63.0 is not compatible with prometheus/prometheus v0.302.0. Remove after it has been updated.
 replace github.com/prometheus/common => github.com/prometheus/common v0.62.0
+
+// requires https://github.com/gagliardetto/binary/pull/12 to parse optional values in ParseEventSol
+replace github.com/gagliardetto/binary => github.com/archseer/binary v0.0.0-20250226104222-b87d7f4fd58a
