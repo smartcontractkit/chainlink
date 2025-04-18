@@ -66,8 +66,6 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
       # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
-      # We use hardcoded P2P keys here because the workflow secrets are encrypted with these keys.
-      # If new keys are generated in the CI, they won't be able to decrypt the existing secrets.
       test_secrets_overrides = """
       [EVM]
       [[EVM.Keys]]
@@ -102,8 +100,6 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
       # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
-      # We use hardcoded P2P keys here because the workflow secrets are encrypted with these keys.
-      # If new keys are generated in the CI, they won't be able to decrypt the existing secrets.
       test_secrets_overrides = """
       [EVM]
       [[EVM.Keys]]
@@ -138,8 +134,6 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
       # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
-      # We use hardcoded P2P keys here because the workflow secrets are encrypted with these keys.
-      # If new keys are generated in the CI, they won't be able to decrypt the existing secrets.
       test_secrets_overrides = """
       [EVM]
       [[EVM.Keys]]
@@ -174,8 +168,6 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
       # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
-      # We use hardcoded P2P keys here because the workflow secrets are encrypted with these keys.
-      # If new keys are generated in the CI, they won't be able to decrypt the existing secrets.
       test_secrets_overrides = """
       [EVM]
       [[EVM.Keys]]
@@ -210,8 +202,6 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
       # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
-      # We use hardcoded P2P keys here because the workflow secrets are encrypted with these keys.
-      # If new keys are generated in the CI, they won't be able to decrypt the existing secrets.
       test_secrets_overrides = """
       [EVM]
       [[EVM.Keys]]
