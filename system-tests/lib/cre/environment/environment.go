@@ -3,7 +3,6 @@ package environment
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pelletier/go-toml/v2"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
@@ -29,7 +27,6 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -44,6 +41,7 @@ import (
 	libdevenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/devenv"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
+	cresecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
@@ -176,7 +174,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
 
-	// Generate EVM and P2P keys, which are needed to prepare the node configs
+	// Generate EVM and P2P keys or read them from the config
 	// That way we can pass them final configs and do away with restarting the nodes
 	var keys *keystonetypes.GenerateKeysOutput
 	chainIDInt, chainErr := strconv.Atoi(blockchainsOutput.BlockchainOutput.ChainID)
@@ -184,115 +182,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(chainErr, "failed to convert chain ID to int")
 	}
 
-	type evmJson struct {
-		Address string `json:"address"`
-	}
-
-	var publicEVMAddressFromEncryptedJSON = func(jsonString string) (string, error) {
-		var eJson evmJson
-		err := json.Unmarshal([]byte(jsonString), &eJson)
-		if err != nil {
-			return "", pkgerrors.Wrap(err, "failed to unmarshal evm json")
-		}
-		return eJson.Address, nil
-	}
-
-	type p2pJson struct {
-		PeerID string `json:"peerID"`
-	}
-
-	var publicP2PAddressFromEncryptedJSON = func(jsonString string) (string, error) {
-		var pJson p2pJson
-		err := json.Unmarshal([]byte(jsonString), &pJson)
-		if err != nil {
-			return "", pkgerrors.Wrap(err, "failed to unmarshal p2p json")
-		}
-		return pJson.PeerID, nil
-	}
-
-	var keysOutputFromConfig = func([]*cretypes.CapabilitiesAwareNodeSet) (*cretypes.GenerateKeysOutput, error) {
-		output := &cretypes.GenerateKeysOutput{
-			EVMKeys: make(cretypes.DonsToEVMKeys),
-			P2PKeys: make(cretypes.DonsToP2PKeys),
-		}
-		p2pKeysFoundPerDon := make(map[uint32]int)
-		evmKeysFoundPerDon := make(map[uint32]int)
-		for donIdx, nodeSet := range input.CapabilitiesAwareNodeSets {
-			p2pKeys := libtypes.P2PKeys{}
-			evmKeysPerChainId := make(cretypes.ChainIDToEVMKeys)
-			for nodeIdx, nodeSpec := range nodeSet.NodeSpecs {
-				if nodeSpec.Node.TestSecretsOverrides != "" {
-					var secrets coreconfig.Secrets
-					unmarshallErr := toml.Unmarshal([]byte(nodeSpec.Node.TestSecretsOverrides), &secrets)
-					if unmarshallErr != nil {
-						return nil, pkgerrors.Wrapf(unmarshallErr, "failed to unmarshal secrets for node %d in DON %d", nodeIdx, donIdx)
-					}
-
-					// For simplicity we will allow importing only both P2P keys and EVM keys, not just one of them
-					if secrets.P2PKey.JSON == nil || secrets.P2PKey.Password == nil {
-						return nil, fmt.Errorf("P2P key or password is nil for node %d in DON %d", nodeIdx, donIdx)
-					}
-					p2pKeys.EncryptedJSONs = append(p2pKeys.EncryptedJSONs, []byte(string(*secrets.P2PKey.JSON)))
-					p2pKeys.Password = string(*secrets.P2PKey.Password)
-					peerID, peerIDErr := publicP2PAddressFromEncryptedJSON(string(*secrets.P2PKey.JSON))
-					if peerIDErr != nil {
-						return nil, pkgerrors.Wrapf(peerIDErr, "failed to get public p2p address for node %d in DON %d from encrypted JSON", nodeIdx, donIdx)
-					}
-					p2pKeys.PeerIDs = append(p2pKeys.PeerIDs, peerID)
-					p2pKeysFoundPerDon[uint32(donIdx)]++
-					if secrets.EVM.Keys == nil || len(secrets.EVM.Keys) == 0 {
-						return nil, fmt.Errorf("EVM keys is nil for node %d in DON %d", nodeIdx, donIdx)
-					}
-
-					for _, evmKey := range secrets.EVM.Keys {
-						if evmKey.JSON == nil || evmKey.Password == nil || evmKey.ID == nil {
-							return nil, fmt.Errorf("EVM key or password or ID is nil for node %d in DON %d", nodeIdx, donIdx)
-						}
-
-						publicEVMAddress, publicEVMAddressErr := publicEVMAddressFromEncryptedJSON(string(*evmKey.JSON))
-						if publicEVMAddressErr != nil {
-							return nil, pkgerrors.Wrapf(publicEVMAddressErr, "failed to get public evm address for node %d in DON %d from encrypted JSON", nodeIdx, donIdx)
-						}
-
-						if _, ok := evmKeysPerChainId[*evmKey.ID]; !ok {
-							evmKeysPerChainId[*evmKey.ID] = &libtypes.EVMKeys{}
-						}
-
-						evmKeysPerChainId[*evmKey.ID].EncryptedJSONs = append(evmKeysPerChainId[*evmKey.ID].EncryptedJSONs, []byte(string(*evmKey.JSON)))
-						evmKeysPerChainId[*evmKey.ID].PublicAddresses = append(evmKeysPerChainId[*evmKey.ID].PublicAddresses, common.HexToAddress(publicEVMAddress))
-						evmKeysPerChainId[*evmKey.ID].Password = string(*evmKey.Password)
-					}
-					evmKeysFoundPerDon[uint32(donIdx)]++
-				}
-			}
-			donIndexToUse := donIdx + 1 // because we use 1-based indexing in the CRE
-			output.P2PKeys[uint32(donIndexToUse)] = &p2pKeys
-			output.EVMKeys[uint32(donIndexToUse)] = evmKeysPerChainId
-		}
-
-		anyFound := false
-		// Validate that we found keys for all nodes in all DONs
-		for donIdx, nodeSet := range input.CapabilitiesAwareNodeSets {
-			if p2pKeysFoundPerDon[uint32(donIdx)] != 0 && len(nodeSet.NodeSpecs) != p2pKeysFoundPerDon[uint32(donIdx)] {
-				return nil, fmt.Errorf("number of P2P keys found for DON %d does not match the number of nodes. Expected %d, got %d", donIdx, len(nodeSet.NodeSpecs), p2pKeysFoundPerDon[uint32(donIdx)])
-			}
-			if evmKeysFoundPerDon[uint32(donIdx)] != 0 && len(nodeSet.NodeSpecs) != evmKeysFoundPerDon[uint32(donIdx)] {
-				return nil, fmt.Errorf("number of EVM keys found for DON %d does not match the number of nodes. Expected %d, got %d", donIdx, len(nodeSet.NodeSpecs), evmKeysFoundPerDon[uint32(donIdx)])
-			}
-			if p2pKeysFoundPerDon[uint32(donIdx)] != 0 && evmKeysFoundPerDon[uint32(donIdx)] != 0 {
-				anyFound = true
-			}
-		}
-
-		if !anyFound {
-			// If no keys were found for any DON, we can return empty output
-			return nil, nil
-		}
-
-		return output, nil
-	}
-
-	keysOutput, keysOutputErr := keysOutputFromConfig(input.CapabilitiesAwareNodeSets)
+	keysOutput, keysOutputErr := cresecrets.KeysOutputFromConfig(input.CapabilitiesAwareNodeSets)
 	if keysOutputErr != nil {
 		return nil, pkgerrors.Wrap(keysOutputErr, "failed to generate keys output")
 	}
@@ -304,12 +194,12 @@ func SetupTestEnvironment(
 		Password:                   "", // since the test runs on private ephemeral blockchain we don't use real keys and do not care a lot about the password
 		Out:                        keysOutput,
 	}
-	keys, keysErr := libdon.GenereteKeys(generateKeysInput)
+	keys, keysErr := cresecrets.GenereteKeys(generateKeysInput)
 	if keysErr != nil {
 		return nil, pkgerrors.Wrap(keysErr, "failed to generate keys")
 	}
 
-	topology, addKeysErr := libdon.AddKeysToTopology(topology, keys)
+	topology, addKeysErr := cresecrets.AddKeysToTopology(topology, keys)
 	if addKeysErr != nil {
 		return nil, pkgerrors.Wrap(addKeysErr, "failed to add keys to topology")
 	}
