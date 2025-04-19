@@ -8,6 +8,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/deployment/datastore"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -73,6 +74,22 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 		} else {
 			addresses = currentEnv.ExistingAddresses
 		}
+
+		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
+		if out.DataStore != nil {
+			ds1 := datastore.NewMemoryDataStore[
+				datastore.DefaultMetadata,
+				datastore.DefaultMetadata,
+			]()
+			err := ds1.Merge(out.DataStore.Seal())
+			if err != nil {
+				return e, fmt.Errorf("failed to merge datastore: %w", err)
+			}
+			ds = ds1.Seal()
+		} else {
+			ds = currentEnv.DataStore
+		}
+
 		if out.Jobs != nil {
 			// do nothing, as these jobs auto-accept.
 		}
@@ -125,6 +142,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			Name:              e.Name,
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
+			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
 			NodeIDs:           e.NodeIDs,
@@ -154,6 +172,22 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 		} else {
 			addresses = currentEnv.ExistingAddresses
 		}
+
+		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
+		if out.DataStore != nil {
+			ds1 := datastore.NewMemoryDataStore[
+				datastore.DefaultMetadata,
+				datastore.DefaultMetadata,
+			]()
+			err := ds1.Merge(out.DataStore.Seal())
+			if err != nil {
+				return e, nil, fmt.Errorf("failed to merge datastore: %w", err)
+			}
+			ds = ds1.Seal()
+		} else {
+			ds = currentEnv.DataStore
+		}
+
 		if out.Jobs != nil { //nolint:revive,staticcheck // we want the empty block as documentation
 			// do nothing, as these jobs auto-accept.
 		}
@@ -164,6 +198,7 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 			Name:              e.Name,
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
+			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
 			NodeIDs:           e.NodeIDs,
