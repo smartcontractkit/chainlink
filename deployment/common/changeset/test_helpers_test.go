@@ -200,7 +200,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					require.Error(t, err)
 					return
 				}
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				tt.validate(t, e)
 			case "V1":
 				e := NewNoopEnvironment(t)
@@ -209,7 +209,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					require.Error(t, err)
 					return
 				}
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				tt.validate(t, e)
 			default:
 				t.Fatalf("unknown changeset apply function: %s", tt.changesetApplyFunction)
