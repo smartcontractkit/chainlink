@@ -255,11 +255,10 @@ func updateGitRefInYAML(pluginPath, module, newGitRef string) error {
 			// Extract indentation from the original line
 			indentation := ""
 			for _, char := range line {
-				if char == ' ' || char == '\t' {
-					indentation += string(char)
-				} else {
+				if char != ' ' && char != '\t' {
 					break
 				}
+				indentation += string(char)
 			}
 
 			// Keep any comment that might be on the same line
@@ -272,6 +271,7 @@ func updateGitRefInYAML(pluginPath, module, newGitRef string) error {
 			lines[i] = fmt.Sprintf("%sgitRef: %q%s", indentation, newGitRef, comment)
 			updated = true
 			foundModule = false // Reset to find next occurrence if any
+			continue
 		}
 	}
 
@@ -283,7 +283,7 @@ func updateGitRefInYAML(pluginPath, module, newGitRef string) error {
 	newContent := strings.Join(lines, "\n")
 
 	// Write the updated content back to file
-	if err := os.WriteFile(pluginPath, []byte(newContent), 0644); err != nil {
+	if err := os.WriteFile(pluginPath, []byte(newContent), 0600); err != nil {
 		return fmt.Errorf("failed to write YAML file: %w", err)
 	}
 

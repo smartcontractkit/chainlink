@@ -27,7 +27,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2 // regular version
 )
 `
-	if err := os.WriteFile(mockGoModPath, []byte(goModContent), 0644); err != nil {
+	if err := os.WriteFile(mockGoModPath, []byte(goModContent), 0600); err != nil {
 		t.Fatalf("Failed to write test go.mod: %v", err)
 	}
 
@@ -76,7 +76,7 @@ require (
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 )
 `
-	if err := os.WriteFile(mockGoModPath, []byte(goModContent), 0644); err != nil {
+	if err := os.WriteFile(mockGoModPath, []byte(goModContent), 0600); err != nil {
 		t.Fatalf("Failed to write test go.mod: %v", err)
 	}
 
@@ -90,7 +90,7 @@ require (
     - moduleURI: "github.com/smartcontractkit/chainlink-feeds"
       gitRef: "7cd000095135" # Short hash matching pseudo-version
 `
-	if err := os.WriteFile(pluginYamlPath1, []byte(yamlContent1), 0644); err != nil {
+	if err := os.WriteFile(pluginYamlPath1, []byte(yamlContent1), 0600); err != nil {
 		t.Fatalf("Failed to write test plugin yaml: %v", err)
 	}
 
@@ -104,7 +104,7 @@ require (
     - moduleURI: "github.com/smartcontractkit/chainlink-feeds"
       gitRef: "7cd000095135" # Correct
 `
-	if err := os.WriteFile(pluginYamlPath2, []byte(yamlContent2), 0644); err != nil {
+	if err := os.WriteFile(pluginYamlPath2, []byte(yamlContent2), 0600); err != nil {
 		t.Fatalf("Failed to write test plugin yaml: %v", err)
 	}
 
@@ -172,7 +172,7 @@ plugins:
     - moduleURI: "github.com/smartcontractkit/chainlink-feeds"
       gitRef: "7cd000095135" # Another comment
 `
-	if err := os.WriteFile(pluginYamlPath, []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(pluginYamlPath, []byte(yamlContent), 0600); err != nil {
 		t.Fatalf("Failed to write test plugin yaml: %v", err)
 	}
 
