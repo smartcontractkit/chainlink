@@ -4,9 +4,9 @@ This tool ensures that plugin versions in Chainlink's plugin YAML files stay in 
 
 ## Overview
 
-Chainlink uses a plugin system called LOOPPs (Load Our Own Plugin Protocol) where plugin definitions are stored in YAML files (`./plugins/plugins.*.yaml`). Some of these plugins, like chainlink-data-streams, chainlink-feeds, and chainlink-solana, are also defined as dependencies in the `go.mod` file.
+The Chainlink core node uses plugin whose plugin definitions are stored in YAML files (`./plugins/plugins.*.yaml`). Some of these plugins, like chainlink-data-streams, chainlink-feeds, and chainlink-solana, are also defined as dependencies in the `go.mod` file as their packages are used by the core node software.
 
-When updating a plugin's version in `go.mod`, the corresponding `gitRef` field in the plugin YAML files should also be updated to maintain consistency. This tool automates the checking and synchronization process.
+When updating a plugin's version in `go.mod` (if it exists there), the corresponding `gitRef` field in the plugin YAML files should also be updated to maintain consistency. This tool automates the checking and synchronization process.
 
 ## Usage
 
