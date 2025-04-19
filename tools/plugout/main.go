@@ -42,6 +42,9 @@ type Plugin struct {
 	GitRef    string `yaml:"gitRef"`
 }
 
+// For testing purposes
+var getModVersionFunc = getGoModVersion
+
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   "sync",
@@ -129,11 +132,13 @@ func getGoModVersion(module string) (string, error) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if foundModule {
-			// The version is on the next line or same line after the module
+		// Check if this line contains the module we're looking for
+		if strings.Contains(line, module+" ") {
+			foundModule = true
+			// If the version is on the same line
 			fields := strings.Fields(line)
-			if len(fields) > 0 {
-				version := fields[0]
+			if len(fields) > 1 {
+				version := fields[len(fields)-1]
 
 				// Check if it's a pseudo-version and extract the commit hash
 				if pseudoVersionPattern.MatchString(version) {
@@ -146,15 +151,14 @@ func getGoModVersion(module string) (string, error) {
 				fmt.Printf("Version extracted: %s\n", version)
 				return version, nil
 			}
+			continue
 		}
 
-		// Check if this line contains the module we're looking for
-		if strings.Contains(line, module+" ") {
-			foundModule = true
-			// If the version is on the same line
+		// If we previously found the module, and this line might contain the version
+		if foundModule {
 			fields := strings.Fields(line)
-			if len(fields) > 1 {
-				version := fields[len(fields)-1]
+			if len(fields) > 0 {
+				version := fields[0]
 
 				// Check if it's a pseudo-version and extract the commit hash
 				if pseudoVersionPattern.MatchString(version) {
@@ -292,7 +296,7 @@ func updateGitRefInYAML(pluginPath, module, newGitRef string) error {
 
 // checkAndUpdateModuleVersion checks the version of a module in go.mod and all plugin files
 func checkAndUpdateModuleVersion(module string) {
-	goModVersion, err := getGoModVersion(module)
+	goModVersion, err := getModVersionFunc(module)
 	if err != nil {
 		fmt.Printf("  ⚠️  %v\n", err)
 		return
@@ -308,20 +312,12 @@ func checkAndUpdateModuleVersion(module string) {
 		// Check if versions match
 		versionMatch := false
 
-		// If exact match, they match
+		// Case 1: Direct exact match
 		if goModVersion == yamlVersion {
 			versionMatch = true
-		} else {
-			// Only do partial matching for git commit hashes (not semantic versions)
-			isGoModSemVer := strings.HasPrefix(goModVersion, "v") && !strings.Contains(goModVersion, "-g")
-			isYamlSemVer := strings.HasPrefix(yamlVersion, "v") && !strings.Contains(yamlVersion, "-g")
-
-			// If both are not semantic versions, check if yaml's gitRef contains go.mod's shortened commit hash
-			if !isGoModSemVer && !isYamlSemVer {
-				// Check if yaml's gitRef contains go.mod's commit hash
-				// (go.mod has the shortened SHA, yaml should have the full SHA)
-				versionMatch = strings.Contains(yamlVersion, goModVersion)
-			}
+		} else if !strings.HasPrefix(goModVersion, "v") && strings.HasPrefix(yamlVersion, goModVersion) {
+			// Case 2: the yaml gitRef/version contains sha sum from the go.mod pseudo-version
+			versionMatch = true
 		}
 
 		if !versionMatch {
