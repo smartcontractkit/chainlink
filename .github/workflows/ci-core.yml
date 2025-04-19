@@ -176,52 +176,53 @@ jobs:
       matrix:
         type:
           - cmd: go_core_tests
-            os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+            os: ${{ needs.runner-config.outputs.core-tests-runner }}
+            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            use-flakeguard: 'true'
 
           - cmd: go_core_tests_integration
-            os: ubuntu22.04-32cores-128GB
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+            os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
+            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            setup-solana: 'true'
 
           - cmd: go_core_fuzz
-            os: ubuntu22.04-8cores-32GB # don't use self-hosted runners for fuzz tests
-            os-self-hosted: ubuntu22.04-8cores-32GB # don't use self-hosted runners for fuzz tests
+            os: ubuntu22.04-8cores-32GB
+            is-self-hosted: 'false'
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_race_tests
-            os: 'ubuntu-latest-32cores-128GB'
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
+            os: ${{ needs.runner-config.outputs.core-race-tests-runner }}
+            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
-            os: ubuntu22.04-32cores-128GB
-            # Use "*d" instances because they have NVME storage which improves performance for this test suite
-            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
-            build-solana-artifacts: 'true'
+            os: ${{ needs.runner-config.outputs.deployment-tests-runner }}
+            is-self-hosted: ${{ needs.runner-config.outputs.deployment-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
+            setup-solana: 'true'
+            use-flakeguard: 'true'
 
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [filter, run-frequency]
+    needs: [filter, run-frequency, runner-config]
     timeout-minutes: ${{ github.event_name == 'schedule' && 40 || 20 }} # 40 minute timeout for scheduled events (race tests)
-    # runs-on rollout - use self-hosted runners 10% of the time
-    runs-on: ${{ needs.run-frequency.outputs.should-use-self-hosted == 'true' && matrix.type.os-self-hosted || matrix.type.os }}
+    runs-on: ${{ matrix.type.os }}
     permissions:
       id-token: write
       contents: read
       actions: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        if: ${{ needs.run-frequency.outputs.should-use-self-hosted == 'true' }}
+        if: ${{ matrix.type.is-self-hosted == 'true' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
       - name: Setup self-hosted directory mounts
         # For self-hosted runners - the volume mounted to / is too small to handle everything stored in
         # /home/runner. So we mount certain directories to the larger volume.
-        if: ${{ needs.run-frequency.outputs.should-use-self-hosted == 'true' }}
+        if: ${{ matrix.type.is-self-hosted == 'true' }}
         run: |
           if [ ! -d "/home/runner/_work" ]; then
             echo "::warning::/home/runner/_work does not exist, skipping mount."
@@ -248,11 +249,13 @@ jobs:
           done
 
       - name: Checkout the repo
+        if: ${{ matrix.type.should-run == 'true' }}
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Change Modtime of Files (cache optimization)
+        if: ${{ matrix.type.should-run == 'true' }}
         shell: bash
         run: |
           find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
@@ -266,7 +269,7 @@ jobs:
           build-cache-version: ${{ matrix.type.cmd }}
 
       - name: Setup Solana
-        if: ${{ matrix.type.should-run == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true' }}
         uses: ./.github/actions/setup-solana
 
       - name: Setup wasmd
@@ -320,7 +323,7 @@ jobs:
           ./tools/bin/${{ matrix.type.cmd }} ./...
 
       - name: Generate Flakeguard Test Reports
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
         env:
           MATRIX_TYPE_CMD: ${{ matrix.type.cmd }}
           GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -334,7 +337,7 @@ jobs:
         run: ./.github/scripts/flakeguard-generate-reports.sh
 
       - name: Upload Flakeguard Main Test Report as Artifact (All Tests)
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_flakeguard_report_main_all_tests.json
@@ -343,7 +346,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Flakeguard Rerun Test Report as Artifact (All Tests)
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_all_tests.json
@@ -352,7 +355,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Flakeguard Main Test Report as Artifact (Failed Tests)
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_flakeguard_report_main_failed_tests.json
@@ -361,7 +364,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Flakeguard Rerun Test Report as Artifact (Failed Tests)
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_failed_tests.json
@@ -370,7 +373,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Send Flakeguard Reports to Splunk
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && github.event_name == 'merge_group' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && github.event_name == 'merge_group' && matrix.type.use-flakeguard == 'true' }}
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -604,14 +607,9 @@ jobs:
           git diff --minimal --cached --exit-code
 
   run-frequency:
-    name: Run Frequency
+    name: Run frequency
     outputs:
-      # frequencies for scheduled events
       one-per-day-frequency: ${{ steps.check-time.outputs.one-per-day-frequency || 'false' }}
-      two-per-day-frequency: ${{ steps.check-time.outputs.two-per-day-frequency || 'false' }}
-      four-per-day-frequency: ${{ steps.check-time.outputs.four-per-day-frequency || 'false' }}
-      six-per-day-frequency: ${{ steps.check-time.outputs.six-per-day-frequency || 'false' }}
-      should-use-self-hosted: ${{ steps.use-self-hosted.outputs.self-hosted-runners || 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check time and set frequencies
@@ -631,32 +629,44 @@ jobs:
             echo "one-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
           fi
 
-          # Check if the current hour is 00 or 12 (twice per day)
-          if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "12" ]; then
-            echo "two-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
-          fi
-
-          # Check if the current hour is 00, 06, 12, or 18 (four times per day)
-          if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "06" ] || [ "$current_hour" -eq "12" ] || [ "$current_hour" -eq "18" ]; then
-            echo "four-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
-          fi
-
-          # Check if the current hour is one of 00, 04, 08, 12, 16, or 20 (six times per day)
-          if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "04" ] || [ "$current_hour" -eq "08" ] || [ "$current_hour" -eq "12" ] || [ "$current_hour" -eq "16" ] || [ "$current_hour" -eq "20" ]; then
-            echo "six-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
-          fi
-
-      - name: Self-hosted Runner Frequencies
-        id: use-self-hosted
+  # This chooses which runner labels we pass for the matrix jobs above.
+  # General Criteria:
+  # 1. If we are going to 'skip' a test suite, we use the base Github-hosted runner.
+  #   - This is based off `should-run-core-tests`, and `should-run-deployment-tests`
+  # 2. If we are not skipping, we check if the PR has the "runs-on-opt-out" label.
+  #   - If the PR has the label, we use the larger Github-hosted runners.
+  #   - If the PR does not have the label, we use the self-hosted runners.
+  runner-config:
+    name: Runner Config
+    needs: [filter]
+    runs-on: ubuntu-latest
+    env:
+      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
+      GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
+      GH_BASE_RUNNER: ubuntu-latest
+    outputs:
+      # go_core_tests / go_core_race_tests / go_core_tests_integration
+      core-tests-is-self-hosted: ${{ steps.core-tests.outputs.core-tests-is-self-hosted }}
+      core-tests-runner: ${{ steps.core-tests.outputs.core-tests-runner }}
+      core-tests-integration-runner: ${{ steps.core-tests.outputs.core-tests-integration-runner }}
+      core-race-tests-runner: ${{ steps.core-tests.outputs.core-race-tests-runner }}
+      # go_core_ccip_deployment_tests
+      deployment-tests-is-self-hosted: ${{ steps.deployment-tests.outputs.deployment-tests-is-self-hosted }}
+      deployment-tests-runner: ${{ steps.deployment-tests.outputs.deployment-tests-runner }}
+    steps:
+      - name: Check for opt-out
+        id: check-opt-out
+        shell: bash
         env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          RUNS_ON_OPT_OUT: ${{ contains(github.event.pull_request.labels.*.name, 'runs-on-opt-out') }}
+          OPT_OUT_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'runs-on-opt-out') }}
           MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref || '' }}
           PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || '' }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ "$RUNS_ON_OPT_OUT" == "true" ]; then
-            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
+            echo "opt-out=true" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -667,13 +677,76 @@ jobs:
           fi
 
           if [ -z "$PR_NUMBER" ]; then
-            echo "No PR number found, skipping self-hosted runner check. Defaulting to true."
+            echo "No PR number found."
+            echo "opt-out=false" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
 
-          echo "PR number: $PR_NUMBER, checking for self-hosted runner opt-out"
           OPT_OUT=$(gh pr view $PR_NUMBER --repo ${GITHUB_REPOSITORY} --json labels --jq 'any(.labels[].name; . == "runs-on-opt-out")')
           if [[ "$OPT_OUT" == "true" ]]; then
-            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
+            echo "opt-out label found for $PR_NUMBER"
+            echo "opt-out=true" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
+
+          echo "opt-out label not found for $PR_NUMBER"
+          echo "opt-out=false" | tee -a $GITHUB_OUTPUT
+
+      - name: Select runners for deployment tests
+        id: deployment-tests
+        shell: bash
+        env:
+          OPT_OUT: ${{ steps.check-opt-out.outputs.opt-out || 'false' }}
+          SHOULD_RUN_DEPLOYMENT_TESTS: ${{ needs.filter.outputs.should-run-deployment-tests }}
+        run: |
+          if [[ "${SHOULD_RUN_DEPLOYMENT_TESTS}" == "false" ]]; then
+            echo "Deployment tests will be skipped, using base Github-hosted runner."
+            echo "deployment-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
+            echo "deployment-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [[ "$OPT_OUT" == "true" ]]; then
+            echo "Opt-out is true for current run. Using gh-hosted runner for deployment tests."
+            echo "deployment-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
+            echo "deployment-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Opt-out is false for current run. Using self-hosted runner for deployment tests."
+          echo "deployment-tests-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
+          echo "deployment-tests-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+
+      - name: Select runners for core tests
+        id: core-tests
+        shell: bash
+        env:
+          OPT_OUT: ${{ steps.check-opt-out.outputs.opt-out || 'false' }}
+          SHOULD_RUN_CORE_TESTS: ${{ needs.filter.outputs.should-run-core-tests }}
+        run: |
+          if [[ "${SHOULD_RUN_CORE_TESTS}" == "false" ]]; then
+            echo "Core tests will be skipped, using base Github-hosted runner."
+            echo "core-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
+
+            echo "core-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-tests-integration-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-race-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [[ "$OPT_OUT" == "true" ]]; then
+            echo "Opt-out is true for current run. Using gh-hosted runner for core tests."
+            echo "core-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
+
+            echo "core-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-tests-integration-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-race-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Opt-out is false for current run. Using self-hosted runner for core tests."
+          echo "core-tests-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
+
+          echo "core-tests-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "core-tests-integration-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "core-race-tests-runner=${SH_RACE_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT

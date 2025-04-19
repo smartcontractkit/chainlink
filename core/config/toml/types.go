@@ -1659,6 +1659,7 @@ type WorkflowRegistry struct {
 	MaxBinarySize           *utils.FileSize
 	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
+	SyncStrategy            *string
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -1684,6 +1685,10 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.MaxConfigSize != nil {
 		r.MaxConfigSize = f.MaxConfigSize
+	}
+
+	if f.SyncStrategy != nil {
+		r.SyncStrategy = f.SyncStrategy
 	}
 }
 

@@ -213,7 +213,7 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, r
 	return m, nil
 }
 
-func (c *Compute) executeWithModule(ctx context.Context, module *host.Module, config []byte, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+func (c *Compute) executeWithModule(ctx context.Context, module host.ModuleV1, config []byte, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	executeStart := time.Now()
 	capReq := capabilitiespb.CapabilityRequestToProto(req)
 
