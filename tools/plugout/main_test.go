@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,7 +39,7 @@ require (
 		} else if module == "github.com/smartcontractkit/chainlink-solana" {
 			return "v1.1.2", nil
 		}
-		return "", fmt.Errorf("module not found")
+		return "", errors.New("module not found")
 	}
 
 	// Test pseudo-version extraction
@@ -89,7 +89,7 @@ func TestVersionMatching(t *testing.T) {
 		} else if module == "github.com/smartcontractkit/chainlink-feeds" {
 			return "7cd000095135", nil
 		}
-		return "", fmt.Errorf("module not found")
+		return "", errors.New("module not found")
 	}
 
 	// Create a temporary directory for test files

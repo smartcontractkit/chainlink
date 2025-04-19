@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -174,7 +175,7 @@ func getGoModVersion(module string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("module %s not found in go.mod", module)
+	return "", errors.New("module " + module + " not found in go.mod")
 }
 
 // getYAMLVersion extracts the gitRef from a plugin YAML file for a specific module
@@ -199,7 +200,7 @@ func getYAMLVersion(pluginPath, module string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("module %s not found in %s", module, pluginPath)
+	return "", errors.New("module " + module + " not found in " + pluginPath)
 }
 
 // updateGitRefInYAML updates the gitRef in a plugin YAML file for a specific module
@@ -233,7 +234,7 @@ func updateGitRefInYAML(pluginPath, module, newGitRef string) error {
 	}
 
 	if !moduleExists {
-		return fmt.Errorf("module %s not found in %s", module, pluginPath)
+		return errors.New("module " + module + " not found in " + pluginPath)
 	}
 
 	// Convert to string for line-by-line processing
@@ -280,7 +281,7 @@ func updateGitRefInYAML(pluginPath, module, newGitRef string) error {
 	}
 
 	if !updated {
-		return fmt.Errorf("failed to update gitRef for module %s", module)
+		return errors.New("failed to update gitRef for module " + module)
 	}
 
 	// Join lines back into content
