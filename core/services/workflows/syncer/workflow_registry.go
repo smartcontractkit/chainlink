@@ -98,10 +98,9 @@ type WorkflowRegistryEventResponse struct {
 	Event *WorkflowRegistryEvent
 }
 
-// WorkflowEventPollerConfig is the configuration needed to poll for events on a contract.  Currently
-// requires the ContractEventName.
-type WorkflowEventPollerConfig struct {
-	QueryCount uint64
+type Config struct {
+	QueryCount   uint64
+	SyncStrategy SyncStrategy
 }
 
 // FetcherFunc is an abstraction for fetching the contents stored at a URL.
@@ -149,10 +148,9 @@ type workflowRegistry struct {
 
 	newContractReaderFn newContractReaderFn
 
-	// TODO: combine config
-	eventPollerCfg WorkflowEventPollerConfig
-	syncStrategy   SyncStrategy
-	handler        evtHandler
+	config Config
+
+	handler evtHandler
 
 	workflowDonNotifier donNotifier
 
@@ -164,13 +162,6 @@ type workflowRegistry struct {
 func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.ticker = ticker
-	}
-}
-
-// WithSyncStrategyReconciliation allows external callers to change the sync strategy to reconciliation mode.
-func WithSyncStrategy(strategy SyncStrategy) func(*workflowRegistry) {
-	return func(wr *workflowRegistry) {
-		wr.syncStrategy = strategy
 	}
 }
 
@@ -191,15 +182,12 @@ func NewWorkflowRegistry(
 	lggr logger.Logger,
 	newContractReaderFn newContractReaderFn,
 	addr string,
-	eventPollerConfig WorkflowEventPollerConfig,
+	config Config,
 	handler evtHandler,
 	workflowDonNotifier donNotifier,
 	engineRegistry *EngineRegistry,
 	opts ...func(*workflowRegistry),
 ) (*workflowRegistry, error) {
-	// TODO: take in SyncStrategy from toml config
-	strategy := SyncStrategy(defaultSyncStrategy)
-
 	if engineRegistry == nil {
 		return nil, errors.New("engine registry must be provided")
 	}
@@ -208,8 +196,7 @@ func NewWorkflowRegistry(
 		lggr:                    lggr,
 		newContractReaderFn:     newContractReaderFn,
 		workflowRegistryAddress: addr,
-		eventPollerCfg:          eventPollerConfig,
-		syncStrategy:            strategy,
+		config:                  config,
 		eventCh:                 make(chan Event),
 		stopCh:                  make(services.StopChan),
 		handler:                 handler,
@@ -221,7 +208,7 @@ func NewWorkflowRegistry(
 		opt(wr)
 	}
 
-	switch strategy {
+	switch wr.config.SyncStrategy {
 	case SyncStrategyEvent:
 	case SyncStrategyReconciliation:
 		break
@@ -255,7 +242,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			}
 
 			// Start goroutines to gather changes from Workflow Registry contract
-			switch w.syncStrategy {
+			switch w.config.SyncStrategy {
 			case SyncStrategyEvent:
 				w.syncUsingEventStrategy(ctx, don, reader)
 			case SyncStrategyReconciliation:
@@ -335,10 +322,10 @@ func (w *workflowRegistry) readRegistryEventsLoop(ctx context.Context, eventType
 		case <-ticker:
 			limitAndSort := query.LimitAndSort{
 				SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
-				Limit:  query.Limit{Count: w.eventPollerCfg.QueryCount},
+				Limit:  query.Limit{Count: w.config.QueryCount},
 			}
 			if cursor != "" {
-				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, w.eventPollerCfg.QueryCount)
+				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, w.config.QueryCount)
 			}
 
 			logsIter, err := reader.QueryKeys(ctx, keyQueries, limitAndSort)

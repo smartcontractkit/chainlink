@@ -158,8 +158,9 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{
-			QueryCount: 20,
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
 		},
 		testEventHandler,
 		&testDonNotifier{
@@ -284,8 +285,9 @@ func Test_InitialStateSync(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{
-			QueryCount: 20,
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
 		},
 		testEventHandler,
 		&testDonNotifier{
@@ -407,7 +409,10 @@ func Test_SecretsWorker(t *testing.T) {
 					return backendTH.NewContractReader(ctx, t, bytes)
 				},
 				wfRegistryAddr.Hex(),
-				syncer.WorkflowEventPollerConfig{QueryCount: 20},
+				syncer.Config{
+					QueryCount:   20,
+					SyncStrategy: tt.ss,
+				},
 				handler,
 				&testDonNotifier{
 					don: capabilities.DON{
@@ -417,7 +422,6 @@ func Test_SecretsWorker(t *testing.T) {
 				},
 				engineRegistry,
 				syncer.WithTicker(giveTicker.C),
-				syncer.WithSyncStrategy(tt.ss),
 			)
 			require.NoError(t, err)
 
@@ -494,7 +498,10 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{QueryCount: 20},
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
+		},
 		handler,
 		&testDonNotifier{
 			don: capabilities.DON{
@@ -578,7 +585,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{QueryCount: 20},
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
+		},
 		handler,
 		&testDonNotifier{
 			don: capabilities.DON{
@@ -686,7 +696,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{QueryCount: 20},
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
+		},
 		handler,
 		&testDonNotifier{
 			don: capabilities.DON{
@@ -763,8 +776,9 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 				return backendTH.NewContractReader(ctx, t, bytes)
 			},
 			wfRegistryAddr.Hex(),
-			syncer.WorkflowEventPollerConfig{
-				QueryCount: 20,
+			syncer.Config{
+				QueryCount:   20,
+				SyncStrategy: syncer.SyncStrategyReconciliation,
 			},
 			testEventHandler,
 			&testDonNotifier{
@@ -774,7 +788,6 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 				err: nil,
 			},
 			syncer.NewEngineRegistry(),
-			syncer.WithSyncStrategy(syncer.SyncStrategyReconciliation),
 		)
 		require.NoError(t, err)
 
