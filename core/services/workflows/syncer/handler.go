@@ -484,6 +484,13 @@ func (h *eventHandler) workflowUpdatedEvent(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowUpdatedV1,
 ) error {
+	// The workflow spec in the DB is used to store the latest workflow details
+	// Clean up first
+	if err := h.workflowArtifactsStore.DeleteWorkflowArtifacts(ctx, hex.EncodeToString(payload.WorkflowOwner),
+		payload.WorkflowName, hex.EncodeToString(payload.OldWorkflowID[:])); err != nil {
+		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
+	}
+
 	// Remove the old workflow engine from the local registry if it exists
 	if err := h.tryEngineCleanup(payload.WorkflowOwner, payload.WorkflowName); err != nil {
 		return err
