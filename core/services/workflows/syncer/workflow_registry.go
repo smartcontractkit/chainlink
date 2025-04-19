@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"iter"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -55,6 +55,21 @@ type GetWorkflowMetadata struct {
 	SecretsURL   string
 }
 
+type SyncStrategy string
+
+const (
+	SyncStrategyEvent          = "event"
+	SyncStrategyReconciliation = "reconciliation"
+	defaultSyncStrategy        = SyncStrategyEvent
+)
+
+type WorkflowStatus uint8
+
+const (
+	WorkflowStatusActive WorkflowStatus = iota
+	WorkflowStatusPaused
+)
+
 type GetWorkflowMetadataListByDONReturnVal struct {
 	WorkflowMetadataList []GetWorkflowMetadata
 }
@@ -89,10 +104,6 @@ type WorkflowEventPollerConfig struct {
 	QueryCount uint64
 }
 
-type WorkflowLoadConfig struct {
-	FetchBatchSize int
-}
-
 // FetcherFunc is an abstraction for fetching the contents stored at a URL.
 type FetcherFunc func(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error)
 
@@ -123,10 +134,14 @@ type workflowRegistry struct {
 	// close stopCh to stop the workflowRegistry.
 	stopCh services.StopChan
 
+	// events sent to the event channel to be handled.
+	eventCh chan Event
+
 	// all goroutines are waited on with wg.
 	wg sync.WaitGroup
 
-	// ticker is the interval at which the workflowRegistry will poll the contract for events.
+	// ticker is the interval at which the workflowRegistry will
+	// poll the contract for events, and poll the contract for the latest workflow metadata.
 	ticker <-chan time.Time
 
 	lggr                    logger.Logger
@@ -134,11 +149,14 @@ type workflowRegistry struct {
 
 	newContractReaderFn newContractReaderFn
 
+	// TODO: combine config
 	eventPollerCfg WorkflowEventPollerConfig
-	eventTypes     []WorkflowRegistryEventType
+	syncStrategy   SyncStrategy
 	handler        evtHandler
 
 	workflowDonNotifier donNotifier
+
+	engineRegistry *EngineRegistry
 }
 
 // WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
@@ -146,6 +164,13 @@ type workflowRegistry struct {
 func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.ticker = ticker
+	}
+}
+
+// WithSyncStrategyReconciliation allows external callers to change the sync strategy to reconciliation mode.
+func WithSyncStrategy(strategy SyncStrategy) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		wr.syncStrategy = strategy
 	}
 }
 
@@ -169,15 +194,14 @@ func NewWorkflowRegistry(
 	eventPollerConfig WorkflowEventPollerConfig,
 	handler evtHandler,
 	workflowDonNotifier donNotifier,
+	engineRegistry *EngineRegistry,
 	opts ...func(*workflowRegistry),
-) *workflowRegistry {
-	ets := []WorkflowRegistryEventType{
-		ForceUpdateSecretsEvent,
-		WorkflowActivatedEvent,
-		WorkflowDeletedEvent,
-		WorkflowPausedEvent,
-		WorkflowRegisteredEvent,
-		WorkflowUpdatedEvent,
+) (*workflowRegistry, error) {
+	// TODO: take in SyncStrategy from toml config
+	strategy := SyncStrategy(defaultSyncStrategy)
+
+	if engineRegistry == nil {
+		return nil, errors.New("engine registry must be provided")
 	}
 
 	wr := &workflowRegistry{
@@ -185,24 +209,33 @@ func NewWorkflowRegistry(
 		newContractReaderFn:     newContractReaderFn,
 		workflowRegistryAddress: addr,
 		eventPollerCfg:          eventPollerConfig,
+		syncStrategy:            strategy,
+		eventCh:                 make(chan Event),
 		stopCh:                  make(services.StopChan),
-		eventTypes:              ets,
 		handler:                 handler,
 		workflowDonNotifier:     workflowDonNotifier,
+		engineRegistry:          engineRegistry,
 	}
 
 	for _, opt := range opts {
 		opt(wr)
 	}
-	return wr
+
+	switch strategy {
+	case SyncStrategyEvent:
+	case SyncStrategyReconciliation:
+		break
+	default:
+		return nil, fmt.Errorf("SyncStrategy must be one of: %s, %s", SyncStrategyEvent, SyncStrategyReconciliation)
+	}
+
+	return wr, nil
 }
 
-// Start starts the workflowRegistry.  It starts two goroutines, one for querying the contract
-// and one for handling the events.
+// Start begins the workflowRegistry service.
 func (w *workflowRegistry) Start(_ context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
 		ctx, cancel := w.stopCh.NewCtx()
-
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
@@ -221,22 +254,28 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 
-			w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
-			loadWorkflowsHead, err := w.loadWorkflows(ctx, don, reader)
-			if err != nil {
-				// TODO - this is a temporary fix to handle the case where the chainreader errors because the contract
-				// contains no workflows.  To track: https://smartcontract-it.atlassian.net/browse/CAPPL-393
-				if !strings.Contains(err.Error(), "attempting to unmarshal an empty string while arguments are expected") {
-					w.lggr.Errorw("failed to load workflows", "err", err)
-					return
-				}
-
-				loadWorkflowsHead = &types.Head{
-					Height: "0",
-				}
+			// Start goroutines to gather changes from Workflow Registry contract
+			switch w.syncStrategy {
+			case SyncStrategyEvent:
+				w.syncUsingEventStrategy(ctx, don, reader)
+			case SyncStrategyReconciliation:
+				w.syncUsingReconciliationStrategy(ctx, don, reader)
 			}
 
-			w.readRegistryEvents(ctx, don, reader, loadWorkflowsHead.Height)
+			// Handle events from the events channel
+			w.lggr.Debug("running handleEventLoop")
+			for {
+				select {
+				case <-ctx.Done():
+					w.lggr.Debug("shutting down handleEventLoop")
+					return
+				case event := <-w.eventCh:
+					err := w.handler.Handle(ctx, event)
+					if err != nil {
+						w.lggr.Errorw("failed to handle event", "err", err, "type", event.GetEventType())
+					}
+				}
+			}
 		}()
 
 		return nil
@@ -263,12 +302,12 @@ func (w *workflowRegistry) Name() string {
 	return name
 }
 
-// readRegistryEvents polls the contract for events and send them to the events channel.
-func (w *workflowRegistry) readRegistryEvents(ctx context.Context, don capabilities.DON, reader ContractReader, lastReadBlockNumber string) {
+// readRegistryEventsLoop polls the contract for events and sends them to the events channel for handling.
+func (w *workflowRegistry) readRegistryEventsLoop(ctx context.Context, eventTypes []WorkflowRegistryEventType, don capabilities.DON, reader ContractReader, lastReadBlockNumber string) {
 	ticker := w.getTicker()
 
-	var keyQueries = make([]types.ContractKeyFilter, 0, len(w.eventTypes))
-	for _, et := range w.eventTypes {
+	var keyQueries = make([]types.ContractKeyFilter, 0, len(eventTypes))
+	for _, et := range eventTypes {
 		var logData values.Value
 		keyQueries = append(keyQueries, types.ContractKeyFilter{
 			KeyFilter: query.KeyFilter{
@@ -287,9 +326,11 @@ func (w *workflowRegistry) readRegistryEvents(ctx context.Context, don capabilit
 	}
 
 	cursor := ""
+	w.lggr.Debug("running readRegistryEventsLoop")
 	for {
 		select {
 		case <-ctx.Done():
+			w.lggr.Debug("shutting down readRegistryEventsLoop")
 			return
 		case <-ticker:
 			limitAndSort := query.LimitAndSort{
@@ -313,7 +354,7 @@ func (w *workflowRegistry) readRegistryEvents(ctx context.Context, don capabilit
 					EventType: WorkflowRegistryEventType(eventType),
 				})
 			}
-			w.lggr.Debugw("QueryKeys called", "logs", len(logs), "eventTypes", w.eventTypes, "lastReadBlockNumber", lastReadBlockNumber, "logCursor", cursor)
+			w.lggr.Debugw("QueryKeys called", "logs", len(logs), "eventTypes", eventTypes, "lastReadBlockNumber", lastReadBlockNumber, "logCursor", cursor)
 
 			// ChainReader QueryKey API provides logs including the cursor value and not
 			// after the cursor value. If the response only consists of the log corresponding
@@ -353,13 +394,210 @@ func (w *workflowRegistry) readRegistryEvents(ctx context.Context, don capabilit
 			}
 
 			for _, event := range events {
-				err := w.handler.Handle(ctx, event.Event)
-				if err != nil {
-					w.lggr.Errorw("failed to handle event", "err", err, "type", event.Event.EventType)
+				select {
+				case <-ctx.Done():
+					w.lggr.Debug("readRegistryEventsLoop stopped during processing")
+					return
+				case w.eventCh <- event.Event:
 				}
 			}
 		}
 	}
+}
+
+// syncUsingEventStrategy syncs workflow registry contract state by watching for events on the contract.
+// It first loads the workflow metadata from the contract state as WorkflowRegistered events,
+// and then starts a goroutine with one loop for handling the events.
+func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capabilities.DON, reader ContractReader) {
+	w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
+
+	workflowMetadata, loadWorkflowsHead, err := w.getWorkflowMetadata(ctx, don, reader)
+	if err != nil {
+		w.lggr.Errorw("failed to load initial workflows", "err", err)
+	}
+
+	w.wg.Add(1)
+	go func() {
+		defer w.wg.Done()
+
+		w.lggr.Debugw("Rehydrating existing workflows", "len", len(workflowMetadata))
+		for _, workflow := range workflowMetadata {
+			select {
+			case <-ctx.Done():
+				w.lggr.Debug("shut down during initial workflow registration")
+				return
+			case w.eventCh <- workflowAsEvent{
+				Data: WorkflowRegistryWorkflowRegisteredV1{
+					WorkflowID:    workflow.WorkflowID,
+					WorkflowOwner: workflow.Owner,
+					DonID:         workflow.DonID,
+					Status:        workflow.Status,
+					WorkflowName:  workflow.WorkflowName,
+					BinaryURL:     workflow.BinaryURL,
+					ConfigURL:     workflow.ConfigURL,
+					SecretsURL:    workflow.SecretsURL,
+				},
+				EventType: WorkflowRegisteredEvent,
+			}:
+			}
+		}
+
+		// Poll for all workflow related events
+		ets := []WorkflowRegistryEventType{
+			ForceUpdateSecretsEvent,
+			WorkflowActivatedEvent,
+			WorkflowDeletedEvent,
+			WorkflowPausedEvent,
+			WorkflowRegisteredEvent,
+			WorkflowUpdatedEvent,
+		}
+
+		w.readRegistryEventsLoop(ctx, ets, don, reader, loadWorkflowsHead.Height)
+	}()
+}
+
+// workflowMetadataToEvents compares the workflow registry workflow metadata state against the engine registry's state.
+// Differences are handled by the event handler by creating events that are sent to the events channel for handling.
+func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflowMetadata []GetWorkflowMetadata, donID uint32) []workflowAsEvent {
+	var events []workflowAsEvent
+
+	// Keep track of which of the engines in the engineRegistry have been touched
+	seenMap := map[string]bool{}
+
+	for _, wfMeta := range workflowMetadata {
+		// TODO: ensure that the WorkflowRegisteredEvent sets the engine registry as the very last step
+		// TODO: ensure that the WorkflowDeletedEvent clears the engine registry as the very last step
+		engine, engineErr := w.engineRegistry.Get(EngineRegistryKey{Owner: wfMeta.Owner, Name: wfMeta.WorkflowName})
+		engineKeyStr := wfMeta.WorkflowName + hex.EncodeToString(wfMeta.Owner)
+		currWfID := hex.EncodeToString(wfMeta.WorkflowID[:])
+		prevWfID := hex.EncodeToString(engine.workflowID[:])
+		logger := w.lggr.With("workflowID", currWfID)
+
+		switch {
+		// if the workflow is active, but unable to get engine from the engine registry
+		// then handle as registered event
+		case wfMeta.Status == uint8(WorkflowStatusActive) && engineErr != nil:
+			toRegisteredEvent := WorkflowRegistryWorkflowRegisteredV1{
+				WorkflowID:    wfMeta.WorkflowID,
+				WorkflowOwner: wfMeta.Owner,
+				DonID:         wfMeta.DonID,
+				Status:        wfMeta.Status,
+				WorkflowName:  wfMeta.WorkflowName,
+				BinaryURL:     wfMeta.BinaryURL,
+				ConfigURL:     wfMeta.ConfigURL,
+				SecretsURL:    wfMeta.SecretsURL,
+			}
+			events = append(events, workflowAsEvent{
+				Data:      toRegisteredEvent,
+				EventType: WorkflowRegisteredEvent,
+			})
+			seenMap[engineKeyStr] = true
+
+		// if the workflow is active, the workflow engine is in the engine registry, but the metadata has changed
+		// then handle as updated event
+		case wfMeta.Status == uint8(WorkflowStatusActive) && currWfID != prevWfID:
+			toUpdatedEvent := WorkflowRegistryWorkflowUpdatedV1{
+				OldWorkflowID: engine.workflowID,
+				NewWorkflowID: wfMeta.WorkflowID,
+				WorkflowOwner: wfMeta.Owner,
+				DonID:         wfMeta.DonID,
+				WorkflowName:  wfMeta.WorkflowName,
+				BinaryURL:     wfMeta.BinaryURL,
+				ConfigURL:     wfMeta.ConfigURL,
+				SecretsURL:    wfMeta.SecretsURL,
+			}
+			events = append(events, workflowAsEvent{
+				Data:      toUpdatedEvent,
+				EventType: WorkflowUpdatedEvent,
+			})
+			seenMap[engineKeyStr] = true
+
+		// if the workflow is active, the workflow engine is in the engine registry, and the metadata is the same
+		// then state is properly synced. generate no events.
+		case wfMeta.Status == uint8(WorkflowStatusActive) && currWfID == prevWfID:
+			seenMap[engineKeyStr] = true
+
+		// Paused means we skip for processing as a deleted event
+		// To be handled below as a deleted event, which clears the DB workflow spec.
+		case wfMeta.Status == uint8(WorkflowStatusPaused):
+			logger.Debugf("Workflow is paused")
+
+		default:
+			logger.Errorf("Unable to determine difference from workflow metadata")
+		}
+	}
+
+	// Shut down engines that are no longer in the contract's latest workflow metadata state
+	allEngines := w.engineRegistry.GetAll()
+	for _, engine := range allEngines {
+		engineKey := engine.workflowName + hex.EncodeToString(engine.workflowOwner)
+		_, exists := seenMap[engineKey]
+		if !exists {
+			toDeletedEvent := WorkflowRegistryWorkflowDeletedV1{
+				WorkflowID:    engine.workflowID,
+				WorkflowOwner: engine.workflowOwner,
+				DonID:         donID,
+				WorkflowName:  engine.workflowName,
+			}
+			events = append(events, workflowAsEvent{
+				Data:      toDeletedEvent,
+				EventType: WorkflowDeletedEvent,
+			})
+		}
+	}
+
+	return events
+}
+
+// syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
+// It still watches for ForceUpdateSecretsEvents, which can't be reconciled through workflow metadata state.
+// NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
+func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, don capabilities.DON, reader ContractReader) {
+	_, loadWorkflowsHead, err := w.getWorkflowMetadata(ctx, don, reader)
+	if err != nil {
+		w.lggr.Errorw("failed to load workflows head", "err", err)
+	}
+
+	// Poll for changes in workflow state
+	w.wg.Add(1)
+	go func() {
+		defer w.wg.Done()
+		ticker := w.getTicker()
+		w.lggr.Debug("running readRegistryStateLoop")
+		for {
+			select {
+			case <-ctx.Done():
+				w.lggr.Debug("shutting down readRegistryStateLoop")
+				return
+			case <-ticker:
+				workflowMetadata, _, err := w.getWorkflowMetadata(ctx, don, reader)
+				if err != nil {
+					w.lggr.Errorw("failed to get registry state", "err", err)
+					continue
+				}
+				events := w.workflowMetadataToEvents(ctx, workflowMetadata, don.ID)
+				// Send events generated from differences to the event channel to be handled
+				for _, event := range events {
+					select {
+					case <-ctx.Done():
+						w.lggr.Debug("readRegistryStateLoop stopped during processing")
+						return
+					case w.eventCh <- event:
+					}
+				}
+			}
+		}
+	}()
+
+	// Poll for events for only ForceUpdateSecretsEvent
+	ets := []WorkflowRegistryEventType{
+		ForceUpdateSecretsEvent,
+	}
+	w.wg.Add(1)
+	go func() {
+		defer w.wg.Done()
+		w.readRegistryEventsLoop(ctx, ets, don, reader, loadWorkflowsHead.Height)
+	}()
 }
 
 // getTicker returns the ticker that the workflowRegistry will use to poll for events.  If the ticker
@@ -455,7 +693,7 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 }
 
 type workflowAsEvent struct {
-	Data      WorkflowRegistryWorkflowRegisteredV1
+	Data      any
 	EventType WorkflowRegistryEventType
 }
 
@@ -467,7 +705,8 @@ func (r workflowAsEvent) GetData() any {
 	return r.Data
 }
 
-func (w *workflowRegistry) loadWorkflows(ctx context.Context, don capabilities.DON, contractReader ContractReader) (*types.Head, error) {
+// getWorkflowMetadata uses contract reader to query the contract for all workflow metadata using the method GetWorkflowMetadataListByDONMethodName
+func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabilities.DON, contractReader ContractReader) ([]GetWorkflowMetadata, *types.Head, error) {
 	contractBinding := types.BoundContract{
 		Address: w.workflowRegistryAddress,
 		Name:    WorkflowRegistryContractName,
@@ -481,34 +720,19 @@ func (w *workflowRegistry) loadWorkflows(ctx context.Context, don capabilities.D
 	}
 
 	var headAtLastRead *types.Head
+	var allWorkflows []GetWorkflowMetadata
+
 	for {
 		var err error
 		var workflows GetWorkflowMetadataListByDONReturnVal
 		headAtLastRead, err = contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Finalized, params, &workflows)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get lastest value with head data %w", err)
+			return []GetWorkflowMetadata{}, &types.Head{Height: "0"}, fmt.Errorf("failed to get lastest value with head data %w", err)
 		}
 
-		w.lggr.Debugw("Rehydrating existing workflows", "len", len(workflows.WorkflowMetadataList))
-		for _, workflow := range workflows.WorkflowMetadataList {
-			toRegisteredEvent := WorkflowRegistryWorkflowRegisteredV1{
-				WorkflowID:    workflow.WorkflowID,
-				WorkflowOwner: workflow.Owner,
-				DonID:         workflow.DonID,
-				Status:        workflow.Status,
-				WorkflowName:  workflow.WorkflowName,
-				BinaryURL:     workflow.BinaryURL,
-				ConfigURL:     workflow.ConfigURL,
-				SecretsURL:    workflow.SecretsURL,
-			}
-			if err = w.handler.Handle(ctx, workflowAsEvent{
-				Data:      toRegisteredEvent,
-				EventType: WorkflowRegisteredEvent,
-			}); err != nil {
-				w.lggr.Errorf("failed to handle workflow registration: %s", err)
-			}
-		}
+		allWorkflows = append(allWorkflows, workflows.WorkflowMetadataList...)
 
+		// if no workflows returned the end has been reached
 		if len(workflows.WorkflowMetadataList) == 0 {
 			break
 		}
@@ -516,7 +740,7 @@ func (w *workflowRegistry) loadWorkflows(ctx context.Context, don capabilities.D
 		params.Start += uint64(len(workflows.WorkflowMetadataList))
 	}
 
-	return headAtLastRead, nil
+	return allWorkflows, headAtLastRead, nil
 }
 
 // toWorkflowRegistryEventResponse converts a types.Sequence to a WorkflowRegistryEventResponse.

@@ -193,7 +193,6 @@ func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client
 	var err error
 	for i, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
 		err2 := retry.Do(func() error {
-			mc.lggr.Debugf("Trying op %s with chain %s client index %d", opName, mc.chainName, i)
 			err = op(client)
 			if err != nil {
 				mc.lggr.Warnf("retryable error '%s' for op %s with chain %s client index %d", MaybeDataErr(err), opName, mc.chainName, i)

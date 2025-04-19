@@ -1004,6 +1004,8 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 		err2 := timeoutOverride.UnwrapTo(&desiredTimeout)
 		if err2 != nil {
 			e.logger.Warnw("couldn't decode step timeout override, using default", "error", err2, "default", stepTimeoutDuration)
+		} else if desiredTimeout == 0 {
+			e.logger.Debugw("overridden timeout set to 0, using default", "default", stepTimeoutDuration)
 		} else {
 			if desiredTimeout > maxStepTimeoutOverrideSec {
 				e.logger.Warnw("desired step timeout is too large, limiting to max value", "maxValue", maxStepTimeoutOverrideSec)
