@@ -48,11 +48,6 @@ runs:
         cache: false
         check-latest: true
 
-    - name: Get branch name
-      if: ${{ inputs.only-modules == 'false' }}
-      id: branch-name
-      uses: smartcontractkit/.github/actions/branch-names@branch-names/1.0.0
-
     - name: Set go cache keys
       shell: bash
       id: go-cache-dir
@@ -95,46 +90,92 @@ runs:
         restore-keys: |
           ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
 
+    # BUILD CACHE LOGIC
+    # ---
+
+    # 1. Get the branch names as they are used in the cache keys
+    # ---
+    - name: Get branch name
+      if: ${{ inputs.only-modules == 'false' }}
+      id: branch-name
+      uses: smartcontractkit/.github/actions/branch-names@branch-names/1.0.0
+
+    # 2. Build the cache keys
+    # ---
+    # - The primary key is the branch name + short SHA
+    # - The secondary key is the branch name + no SHA
+    # - The tertiary key is the default branch name + no SHA
+    # ---
+    # We build the cache keys here so that we can guarantee that the cache keys are the same
+    # across the conditional steps below.
+    # ---
+    # Why do we use a SHA and the branch name in the cache key?
+    #   We use a SHA and the branch name in the cache key, so that build caches can be "upserted".
+    #   As a PR progresses, it will continue to use a cache that is relevant to a recent commit.
+    #   If the cache is only created once and reused over the life of a PR, then it will become stale over time.
+    #   As the cache would be populated on the first run, and then never updated again.
+    # ---
+    # Why do exclude the secondary and tertiary keys for events on the default branch?
+    #   We don't include 'restore-keys' for the default branch, so we build/test from scratch.
+    #   This ensures:
+    #   1. The default branch creates brand new caches for PR branches to use, which excludes potentially stale data. Which could be present if we restored from a previous cache.
+    #     - We can treat develop caches as standalone cache "checkpoints" for the PR branches to use.
+    #   2. Caches, on a long-lived branch like develop, don't become over-inflated over time.
+    #     - These "checkpoints" are always being created from scratch, rather than upserted.
+    #     - Upserting increases the size of the cache over time, which is fine for PR branches, but not for develop.
     - name: Build Cache Key
+      if: ${{ inputs.only-modules == 'false' }}
       id: build-cache-keys
       shell: bash
       env:
         CACHE_VERSION: ${{ inputs.build-cache-version || inputs.cache-version }}
         CURRENT_BRANCH: ${{ steps.branch-name.outputs.current_branch }}
+        DEFAULT_BRANCH: ${{ steps.branch-name.outputs.default_branch }}
         RUNNER_OS: ${{ runner.os }}
-      # Build the cache keys here so that we can guarantee that the cache keys are the same
-      # across the conditional steps below.
-      # --
-      # We use a SHA and the branch name in the cache key, so that build caches can be "upserted".
-      # As a PR progresses, it will continue to use a cache that is relevant to a recent commit.
-      #
-      # If the cache is only created once and reused over the life of a PR, then it will become stale over time.
-      # As the cache would be populated on the first run, and then never updated again.
       run: |
         SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
+        KEY_PREFIX="${RUNNER_OS}-gobuild-${CACHE_VERSION}"
 
-        DEVELOP_KEY_PREFIX="${RUNNER_OS}-gobuild-${CACHE_VERSION}-develop-"
-        KEY_PREFIX="${RUNNER_OS}-gobuild-${CACHE_VERSION}-${CURRENT_BRANCH}-"
-        PRIMARY_KEY="${KEY_PREFIX}${SHORT_SHA}"
-
+        PRIMARY_KEY="${KEY_PREFIX}-${CURRENT_BRANCH}-${SHORT_SHA}"
         echo "primary-key=${PRIMARY_KEY}" >> $GITHUB_OUTPUT
-        echo "key-prefix=${KEY_PREFIX}" >> $GITHUB_OUTPUT
-        echo "develop-key-prefix=${DEVELOP_KEY_PREFIX}" >> $GITHUB_OUTPUT
 
+        if [ "$CURRENT_BRANCH" = "$DEFAULT_BRANCH" ]; then
+          exit 0
+        fi
+
+        SECONDARY_KEY="${KEY_PREFIX}-${CURRENT_BRANCH}-"
+        DEVELOP_KEY="${RUNNER_OS}-gobuild-${CACHE_VERSION}-${DEFAULT_BRANCH}-"
+
+        echo "secondary-key=${SECONDARY_KEY}" >> $GITHUB_OUTPUT
+        echo "develop-key=${DEVELOP_KEY}" >> $GITHUB_OUTPUT
+
+    # 3. Restore the build cache
+    # ---
+    # For certain events, we don't necessarily want to create a build cache, but we will benefit from restoring from one.
+    # This calls actions/cache/restore instead of actions/cache.
+    # This will only restore the cache if it exists, and will not create a new cache entry.
+    # Only restore the build cache if:
+    #   1. This is a merge queue event or
+    #   2. If inputs.restore-build-cache-only == 'true'
     - uses: actions/cache/restore@v4
       name: Cache Go Build Outputs (restore)
-      # For certain events, we don't necessarily want to create a build cache, but we will benefit from restoring from one.
+
       if: ${{ inputs.only-modules == 'false' && (github.event_name == 'merge_group' || inputs.restore-build-cache-only == 'true') }}
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
         key: ${{ steps.build-cache-keys.outputs.primary-key }}
+        # Include `secondary-key` twice due to a bug in runs-on S3 cache solution. Will remove once patched.
         restore-keys: |
-          ${{ steps.build-cache-keys.outputs.key-prefix }}
-          ${{ steps.build-cache-keys.outputs.develop-key-prefix }}
+          ${{ steps.build-cache-keys.outputs.secondary-key }}
+          ${{ steps.build-cache-keys.outputs.develop-key }}
+          ${{ steps.build-cache-keys.outputs.secondary-key }}
 
+    # 4. Upsert/Create the build cache
+    # ---
+    # A negation of the above actions/cache/restore call.
+    # This will create the cache entry upon a cache miss for the primary key.
     - uses: actions/cache@v4
-      # don't save cache on merge queue events
       if: ${{ inputs.only-modules == 'false' && (github.event_name != 'merge_group' && inputs.restore-build-cache-only == 'false') }}
       id: build-cache
       name: Cache Go Build Outputs
@@ -142,6 +183,8 @@ runs:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
         key: ${{ steps.build-cache-keys.outputs.primary-key }}
+        # Include `secondary-key` twice due to a bug in runs-on S3 cache solution. Will remove once patched.
         restore-keys: |
-          ${{ steps.build-cache-keys.outputs.key-prefix }}
-          ${{ steps.build-cache-keys.outputs.develop-key-prefix }}
+          ${{ steps.build-cache-keys.outputs.secondary-key }}
+          ${{ steps.build-cache-keys.outputs.develop-key }}
+          ${{ steps.build-cache-keys.outputs.secondary-key }}

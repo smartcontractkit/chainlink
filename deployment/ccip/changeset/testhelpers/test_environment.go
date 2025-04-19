@@ -71,12 +71,14 @@ type TestConfigs struct {
 	Nodes                      int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	Bootstraps                 int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	IsUSDC                     bool
+	IsTokenPoolFactory         bool
 	IsUSDCAttestationMissing   bool
 	IsMultiCall3               bool
 	IsStaticLink               bool
 	OCRConfigOverride          func(v1_6.CCIPOCRParams) v1_6.CCIPOCRParams
 	RMNEnabled                 bool
 	NumOfRMNNodes              int
+	RMNConfDepth               int
 	LinkPrice                  *big.Int
 	WethPrice                  *big.Int
 	BlockTime                  time.Duration
@@ -160,6 +162,12 @@ func WithBlockTime(blockTime time.Duration) TestOps {
 	}
 }
 
+func WithRMNConfDepth(depth int) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.RMNConfDepth = depth
+	}
+}
+
 func WithMultiCall3() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsMultiCall3 = true
@@ -223,6 +231,12 @@ func WithUSDCAttestationMissing() TestOps {
 func WithUSDC() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsUSDC = true
+	}
+}
+
+func WithTokenPoolFactory() TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.IsTokenPoolFactory = true
 	}
 }
 
@@ -367,7 +381,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	require.NotNil(t, m.Chains, "start chains first, chains are empty")
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
 	tc := m.TestConfig
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, m.SolChains, m.AptosChains, tc.Nodes, tc.Bootstraps, crConfig, tc.CLNodeConfigOpts...)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, m.SolChains, m.AptosChains, tc.Nodes, tc.Bootstraps, crConfig, nil, tc.CLNodeConfigOpts...)
 	ctx := testcontext.Get(t)
 	lggr := logger.Test(t)
 	for _, node := range nodes {
@@ -488,6 +502,9 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	for _, chain := range evmChains {
 		var opts []changeset.PrerequisiteOpt
 		if tc != nil {
+			if tc.IsTokenPoolFactory {
+				opts = append(opts, changeset.WithTokenPoolFactoryEnabled())
+			}
 			if tc.IsUSDC {
 				opts = append(opts, changeset.WithUSDCEnabled())
 			}
@@ -772,9 +789,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
-				OptimisticConfirmations: globals.OptimisticConfirmations,
+				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations:   globals.OptimisticConfirmations,
+				ChainFeeDeviationDisabled: false,
 			},
 		}
 	}
@@ -794,9 +812,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			// #nosec G115 - Overflow is not a concern in this test scenario
 			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
-				OptimisticConfirmations: globals.OptimisticConfirmations,
+				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations:   globals.OptimisticConfirmations,
+				ChainFeeDeviationDisabled: true,
 			},
 		}
 	}

@@ -287,6 +287,7 @@ ChainID = '1'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
+SyncStrategy = 'event'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
@@ -650,6 +651,7 @@ WSURL = 'wss://web.socket/test/bar'
 
 [[Solana]]
 ChainID = 'mainnet'
+BlockTime = '500ms'
 BalancePollPeriod = '5s'
 ConfirmPollPeriod = '500ms'
 OCR2CachePollPeriod = '1s'
@@ -669,8 +671,10 @@ ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 BlockHistoryPollPeriod = '5s'
 BlockHistorySize = 1
+BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
+LogPollerStartingLookback = '24h0m0s'
 
 [Solana.MultiNode]
 Enabled = false
@@ -698,6 +702,7 @@ SendOnly = false
 
 [[Solana]]
 ChainID = 'testnet'
+BlockTime = '500ms'
 BalancePollPeriod = '5s'
 ConfirmPollPeriod = '500ms'
 OCR2CachePollPeriod = '1m0s'
@@ -717,8 +722,10 @@ ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 BlockHistoryPollPeriod = '5s'
 BlockHistorySize = 1
+BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
+LogPollerStartingLookback = '24h0m0s'
 
 [Solana.MultiNode]
 Enabled = false

@@ -65,6 +65,26 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	require.NotNil(t, env)
 	userOverrides.Validate(t, env)
 
+	// initialize the block time for each chain
+	blockTimes := make(map[uint64]uint64)
+	for _, cs := range env.AllChainSelectors() {
+		// Get the first block
+		block1, err := env.Chains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(1))
+		require.NoError(t, err)
+		time1 := time.Unix(int64(block1.Time), 0) //nolint:gosec // G115
+
+		// Get the second block
+		block2, err := env.Chains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(2))
+		require.NoError(t, err)
+		time2 := time.Unix(int64(block2.Time), 0) //nolint:gosec // G115
+
+		blockTimeDiff := int64(time2.Sub(time1))
+		blockNumberDiff := new(big.Int).Sub(block2.Number, block1.Number).Int64()
+		blockTime := blockTimeDiff / blockNumberDiff / int64(time.Second)
+		blockTimes[cs] = uint64(blockTime) //nolint:gosec // G115
+		lggr.Infow("Chain block time", "chainSelector", cs, "blockTime", blockTime)
+	}
+
 	// initialize additional accounts on other chains
 	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
 	// todo: fund keys on solana
@@ -80,7 +100,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
 	loadFinished := make(chan struct{})
 
-	mm := NewMetricsManager(t, env.Logger, userOverrides)
+	mm := NewMetricsManager(t, env.Logger, userOverrides, blockTimes)
 	go mm.Start(ctx)
 
 	// gunMap holds a destinationGun for every enabled destination chain

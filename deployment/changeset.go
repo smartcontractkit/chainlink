@@ -8,8 +8,9 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/mcms"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/datastore"
-	"github.com/smartcontractkit/chainlink/deployment/operations"
 )
 
 var (
@@ -112,8 +113,10 @@ type ChangesetOutput struct {
 	MCMSTimelockProposals      []mcms.TimelockProposal
 	DescribedTimelockProposals []string
 	MCMSProposals              []mcms.Proposal
-	AddressBook                AddressBook
-	DataStore                  datastore.MutableDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
+	// Deprecated: AddressBook is deprecated and will be removed in future versions.
+	// Use DataStore instead
+	AddressBook AddressBook
+	DataStore   datastore.MutableDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
 	// Reports are populated by the Operations API with the
 	// results of the operations executed in the changeset.
 	Reports []operations.Report[any, any]

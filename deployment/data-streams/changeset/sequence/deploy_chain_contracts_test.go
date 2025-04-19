@@ -122,7 +122,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 				cfg.ChainsToDeploy[testutil.TestChain.Selector].Billing.Config.LinkTokenAddress = testEnv.LinkTokenState.LinkToken.Address()
 			}
 
-			resp, err := commonChangesets.ApplyChangesetsV2(t, testEnv.Environment, []commonChangesets.ConfiguredChangeSet{
+			resp, _, err := commonChangesets.ApplyChangesetsV2(t, testEnv.Environment, []commonChangesets.ConfiguredChangeSet{
 				commonChangesets.Configure(DeployDataStreamsChainContractsChangeset, cfg),
 			})
 			require.NoError(t, err)

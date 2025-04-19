@@ -2,7 +2,9 @@
 [blockchain_a]
   type = "anvil"
   chain_id = "1337"
-  docker_cmd_params = ["-b", "5"]
+
+[custom_anvil_miner]
+  block_speed_seconds = 5
 
 [jd]
   image = "injected-at-runtime"
@@ -48,9 +50,9 @@
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -80,9 +82,9 @@
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -111,9 +113,9 @@
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true

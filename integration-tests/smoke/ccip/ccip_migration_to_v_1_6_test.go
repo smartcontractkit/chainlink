@@ -696,7 +696,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
 	expectedSeqNums := make(map[testhelpers.SourceDestPair]uint64)
 	msgSentEvent, err := testhelpers.SendRequest(
-		t, e.Env, state,
+		e.Env, state,
 		testhelpers.WithSourceChain(src1),
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(true),

@@ -8,6 +8,8 @@ import (
 )
 
 func TestMemoryDataStore_Merge(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		setup         func() (*MemoryDataStore[DefaultMetadata, DefaultMetadata], *MemoryDataStore[DefaultMetadata, DefaultMetadata])
@@ -19,7 +21,7 @@ func TestMemoryDataStore_Merge(t *testing.T) {
 			setup: func() (*MemoryDataStore[DefaultMetadata, DefaultMetadata], *MemoryDataStore[DefaultMetadata, DefaultMetadata]) {
 				dataStore1 := NewMemoryDataStore[DefaultMetadata, DefaultMetadata]()
 				dataStore2 := NewMemoryDataStore[DefaultMetadata, DefaultMetadata]()
-				err := dataStore2.Addresses().AddOrUpdate(AddressRef{
+				err := dataStore2.Addresses().Upsert(AddressRef{
 					Address:   "0x123",
 					Type:      "type1",
 					Version:   semver.MustParse("1.0.0"),
@@ -37,7 +39,7 @@ func TestMemoryDataStore_Merge(t *testing.T) {
 				dataStore2 := NewMemoryDataStore[DefaultMetadata, DefaultMetadata]()
 
 				// Add initial data to dataStore1
-				err := dataStore1.Addresses().AddOrUpdate(AddressRef{
+				err := dataStore1.Addresses().Upsert(AddressRef{
 					Address:   "0x123",
 					Type:      "type1",
 					Version:   semver.MustParse("1.0.0"),
@@ -47,7 +49,7 @@ func TestMemoryDataStore_Merge(t *testing.T) {
 				require.NoError(t, err, "Adding initial data to dataStore1 should not fail")
 
 				// Add matching data to dataStore2
-				err = dataStore2.Addresses().AddOrUpdate(AddressRef{
+				err = dataStore2.Addresses().Upsert(AddressRef{
 					Address:   "0x123",
 					Type:      "type1",
 					Version:   semver.MustParse("1.0.0"),
@@ -65,6 +67,8 @@ func TestMemoryDataStore_Merge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			dataStore1, dataStore2 := tt.setup()
 
 			// Merge dataStore2 into dataStore1
