@@ -37,7 +37,7 @@ import (
 
 	"golang.org/x/mod/modfile"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 )
@@ -424,7 +424,7 @@ func getSolanaCcipDependencyVersion(gomodPath string) (string, error) {
 	return "", fmt.Errorf("dependency %s not found", dependency)
 }
 
-func getSha() (version string, err error) {
+func GetSha() (version string, err error) {
 	modFilePath, err := getModFilePath()
 	if err != nil {
 		return "", err
@@ -448,7 +448,7 @@ func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr lo
 	const name = "artifacts.tar.gz"
 
 	if sha == "" {
-		version, err := getSha()
+		version, err := GetSha()
 		if err != nil {
 			return err
 		}

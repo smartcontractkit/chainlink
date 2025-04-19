@@ -15,14 +15,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/ccip_home"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_home"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -283,7 +284,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 		return fmt.Errorf("token admin registry not found for chain %s, deploy the prerequisites first", chain.String())
 	}
 	tokenAdminReg := chainState.TokenAdminRegistry
-	if chainState.RegistryModule == nil {
+	if len(chainState.RegistryModules1_6) == 0 && len(chainState.RegistryModules1_5) == 0 {
 		return fmt.Errorf("registry module not found for chain %s, deploy the prerequisites first", chain.String())
 	}
 	if chainState.Router == nil {
@@ -334,19 +335,43 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 		e.Logger.Errorw("Failed to get active digest", "chain", chain.String(), "err", err)
 		return err
 	}
-	e.Logger.Infow("setting active home digest to rmn remote", "chain", chain.String(), "digest", activeDigest)
 
-	tx, err := rmnRemoteContract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
-		RmnHomeContractConfigDigest: activeDigest,
-		Signers: []rmn_remote.RMNRemoteSigner{
-			{NodeIndex: 0, OnchainPublicKey: common.Address{1}},
-		},
-		FSign: 0, // TODO: update when we have signers
+	// get existing config
+	existingConfig, err := rmnRemoteContract.GetVersionedConfig(&bind.CallOpts{
+		Context: e.GetContext(),
 	})
-	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, rmn_remote.RMNRemoteABI, err); err != nil {
-		e.Logger.Errorw("Failed to confirm RMNRemote config", "chain", chain.String(), "err", err)
+	if err != nil {
+		e.Logger.Errorw("Failed to get existing config from rmnRemote",
+			"chain", chain.String(),
+			"rmnRemote", rmnRemoteContract.Address(),
+			"err", err)
 		return err
 	}
+	// is the config already set?
+	// if the config is already set, the version should be more than 0, and we can check if it matches the active digest on RMNHome
+	// In this case we don't need to set it again on existing RMNRemote
+	if existingConfig.Version > 0 && existingConfig.Config.RmnHomeContractConfigDigest == activeDigest {
+		e.Logger.Infow("rmn remote config already set", "chain", chain.String(),
+			"RmnHomeContractConfigDigest", existingConfig.Config.RmnHomeContractConfigDigest,
+			"Signers", existingConfig.Config.Signers,
+			"FSign", existingConfig.Config.FSign,
+		)
+	} else {
+		e.Logger.Infow("setting active home digest to rmn remote", "chain", chain.String(), "digest", activeDigest)
+		tx, err := rmnRemoteContract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
+			RmnHomeContractConfigDigest: activeDigest,
+			Signers: []rmn_remote.RMNRemoteSigner{
+				{NodeIndex: 0, OnchainPublicKey: common.Address{1}},
+			},
+			FSign: 0,
+		})
+		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, rmn_remote.RMNRemoteABI, err); err != nil {
+			e.Logger.Errorw("Failed to confirm RMNRemote config", "chain", chain.String(), "err", err)
+			return err
+		}
+		e.Logger.Infow("rmn remote config set", "chain", chain.String())
+	}
+
 	if chainState.TestRouter == nil {
 		_, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*router.Router] {
@@ -494,23 +519,52 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 		e.Logger.Infow("offramp already deployed", "chain", chain.String(), "addr", chainState.OffRamp.Address)
 	}
 	// Basic wiring is always needed.
-	tx, err = feeQuoterContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
-		// TODO: We enable the deployer initially to set prices
-		// Should be removed after.
-		AddedCallers: []common.Address{offRampContract.Address(), chain.DeployerKey.From},
+	// check if there is already a wiring
+	callers, err := feeQuoterContract.GetAllAuthorizedCallers(&bind.CallOpts{
+		Context: e.GetContext(),
 	})
-	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, fee_quoter.FeeQuoterABI, err); err != nil {
-		e.Logger.Errorw("Failed to confirm fee quoter authorized caller update", "chain", chain.String(), "err", err)
+	if err != nil {
+		e.Logger.Errorw("Failed to get fee quoter authorized callers",
+			"chain", chain.String(),
+			"feeQuoter", feeQuoterContract.Address(),
+			"err", err)
 		return err
 	}
-	e.Logger.Infow("Added fee quoter authorized callers", "chain", chain.String(), "callers", []common.Address{offRampContract.Address(), chain.DeployerKey.From})
-	tx, err = nmContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
-		AddedCallers: []common.Address{offRampContract.Address(), onRampContract.Address()},
+	// should only update callers if there are none, otherwise we might overwrite some existing callers for existing fee quoter
+	if len(callers) == 1 && (callers[0] == chain.DeployerKey.From || callers[0] == state.Chains[chain.Selector].Timelock.Address()) {
+		tx, err := feeQuoterContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
+			// TODO: We enable the deployer initially to set prices
+			// Should be removed after.
+			AddedCallers: []common.Address{offRampContract.Address(), chain.DeployerKey.From},
+		})
+		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, fee_quoter.FeeQuoterABI, err); err != nil {
+			e.Logger.Errorw("Failed to confirm fee quoter authorized caller update", "chain", chain.String(), "err", err)
+			return err
+		}
+		e.Logger.Infow("Added fee quoter authorized callers", "chain", chain.String(), "callers", []common.Address{offRampContract.Address(), chain.DeployerKey.From})
+	}
+	// get all authorized callers
+	// check if there is already a wiring
+	nmCallers, err := nmContract.GetAllAuthorizedCallers(&bind.CallOpts{
+		Context: e.GetContext(),
 	})
-	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, nonce_manager.NonceManagerABI, err); err != nil {
-		e.Logger.Errorw("Failed to update nonce manager with ramps", "chain", chain.String(), "err", err)
+	if err != nil {
+		e.Logger.Errorw("Failed to get nonce manager authorized callers",
+			"chain", chain.String(),
+			"nonceManager", nmContract.Address(),
+			"err", err)
 		return err
 	}
-	e.Logger.Infow("Added nonce manager authorized callers", "chain", chain.String(), "callers", []common.Address{offRampContract.Address(), onRampContract.Address()})
+	// should only update callers if there are none, otherwise we might overwrite some existing callers for existing nonce manager
+	if len(nmCallers) == 0 {
+		tx, err := nmContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
+			AddedCallers: []common.Address{offRampContract.Address(), onRampContract.Address()},
+		})
+		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, nonce_manager.NonceManagerABI, err); err != nil {
+			e.Logger.Errorw("Failed to update nonce manager with ramps", "chain", chain.String(), "err", err)
+			return err
+		}
+		e.Logger.Infow("Added nonce manager authorized callers", "chain", chain.String(), "callers", []common.Address{offRampContract.Address(), onRampContract.Address()})
+	}
 	return nil
 }

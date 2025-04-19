@@ -18,6 +18,9 @@ endif
 ifndef APTOS_RELAYER_GIT_REF
 override APTOS_RELAYER_GIT_REF = "2.21.0-beta16-aptos"
 endif
+ifndef CAPABILITIES_GIT_REF
+override CAPABILITIES_GIT_REF = "cf8a3317f89784ff2bf51c04e65b4afcb6eb4363"
+endif
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -92,8 +95,15 @@ install-plugins: ## Build & install LOOPP binaries for products and chains.
 	go install $(GOFLAGS) ./pkg/chainlink/cmd/chainlink-starknet
 	@if [ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ]; then \
 		echo "Installing private plugins..."; \
+		echo "Aptos..."; \
 		cd $(shell GOPRIVATE=github.com/smartcontractkit/chainlink-internal-integrations go mod download -json github.com/smartcontractkit/chainlink-internal-integrations/aptos/relayer@$(APTOS_RELAYER_GIT_REF) | jq -r .Dir) && \
 		go install $(GOFLAGS) ./cmd/chainlink-aptos; \
+		echo "Cron..."; \
+		cd $(shell GOPRIVATE=github.com/smartcontractkit/capabilities go mod download -json github.com/smartcontractkit/capabilities/cron@$(CAPABILITIES_GIT_REF) | jq -r .Dir) && \
+		go install $(GOFLAGS) .; \
+		echo "Readcontract..."; \
+		cd $(shell GOPRIVATE=github.com/smartcontractkit/capabilities go mod download -json github.com/smartcontractkit/capabilities/readcontract@$(CAPABILITIES_GIT_REF) | jq -r .Dir) && \
+		go install $(GOFLAGS) .; \
 		echo "Installed private plugins"; \
 	else \
 		echo "Skipping private plugin installation (set CL_INSTALL_PRIVATE_PLUGINS=true to install)"; \
@@ -125,6 +135,7 @@ docker-plugins:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg APTOS_RELAYER_GIT_REF=$(APTOS_RELAYER_GIT_REF) \
+	--build-arg CAPABILITIES_GIT_REF=$(CAPABILITIES_GIT_REF) \
 	--build-arg COSMOS_SHA=$(COSMOS_SHA) \
 	--build-arg STARKNET_SHA=$(STARKNET_SHA) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
@@ -138,12 +149,8 @@ comma := ,
 operator-ui: ## Fetch the frontend
 	go run operator_ui/install.go .
 
-.PHONY: abigen
-abigen: ## Build & install abigen.
-	./tools/bin/build_abigen
-
 .PHONY: generate
-generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
+generate: codecgen mockery protoc gomods ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
 	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
 	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files

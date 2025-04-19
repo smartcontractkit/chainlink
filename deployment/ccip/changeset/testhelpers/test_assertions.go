@@ -34,8 +34,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -422,7 +422,10 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
 				Context: t.Context(),
 			})
-			require.NoError(t, err)
+			// In some test case the test ends while the filter is still running resulting in a context.Canceled error.
+			if err != nil && !errors.Is(err, context.Canceled) {
+				require.NoError(t, err)
+			}
 			for iter.Next() {
 				event := iter.Event
 				verified := verifyCommitReport(event)
@@ -913,6 +916,10 @@ func AssertTimelockOwnership(
 			state.Chains[chain].FeeQuoter.Address(),
 			state.Chains[chain].NonceManager.Address(),
 			state.Chains[chain].RMNRemote.Address(),
+			state.Chains[chain].TestRouter.Address(),
+			state.Chains[chain].Router.Address(),
+			state.Chains[chain].TokenAdminRegistry.Address(),
+			state.Chains[chain].RMNProxy.Address(),
 		} {
 			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[chain].Client)
 			require.NoError(t, err)

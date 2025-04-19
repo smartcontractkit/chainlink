@@ -1,7 +1,10 @@
 package changeset
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -108,7 +111,7 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 	return &state, nil
 }
 
-func (s DataFeedsOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
+func (s DataFeedsOnChainState) View(chains []uint64, e deployment.Environment) (map[string]view.ChainView, error) {
 	m := make(map[string]view.ChainView)
 	for _, chainSelector := range chains {
 		chainInfo, err := deployment.ChainInfo(chainSelector)
@@ -127,29 +130,57 @@ func (s DataFeedsOnChainState) View(chains []uint64) (map[string]view.ChainView,
 		if chainInfo.ChainName == "" {
 			name = strconv.FormatUint(chainSelector, 10)
 		}
+		chainView.FeedConfig = *GenerateFeedConfigView(e, name)
 		m[name] = chainView
 	}
 	return m, nil
 }
 
+func GenerateFeedConfigView(e deployment.Environment, chainName string) *v1_0.FeedView {
+	baseDir := ".."
+	envName := e.Name
+
+	filePath := filepath.Join(baseDir, envName, "inputs", "feeds", chainName+".json")
+
+	_, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		e.Logger.Warnf("File %s does not exist", filePath)
+		return &v1_0.FeedView{}
+	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		e.Logger.Warnf("Error reading file %s: %v", filePath, err)
+		return &v1_0.FeedView{}
+	}
+
+	var feedsView v1_0.FeedView
+
+	err = json.Unmarshal(content, &feedsView)
+	if err != nil {
+		e.Logger.Warnf("Error unmarshalling file %s: %v", filePath, err)
+	}
+	return &feedsView
+}
+
 func (c DataFeedsChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
 	if c.DataFeedsCache != nil {
-		for _, cache := range c.DataFeedsCache {
-			cacheView, err := v1_0.GenerateDataFeedsCacheView(cache)
+		for _, cacheContract := range c.DataFeedsCache {
+			cacheView, err := v1_0.GenerateDataFeedsCacheView(cacheContract)
 			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate cache view %s", cache.Address().String())
+				return chainView, errors.Wrapf(err, "failed to generate cache view %s", cacheContract.Address().String())
 			}
-			chainView.DataFeedsCache[cache.Address().Hex()] = cacheView
+			chainView.DataFeedsCache[cacheContract.Address().Hex()] = cacheView
 		}
 	}
 	if c.AggregatorProxy != nil {
-		for _, proxy := range c.AggregatorProxy {
-			proxyView, err := v1_0.GenerateAggregatorProxyView(proxy)
+		for _, proxyContract := range c.AggregatorProxy {
+			proxyView, err := v1_0.GenerateAggregatorProxyView(proxyContract)
 			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate proxy view %s", proxy.Address().String())
+				return chainView, errors.Wrapf(err, "failed to generate proxy view %s", proxyContract.Address().String())
 			}
-			chainView.AggregatorProxy[proxy.Address().Hex()] = proxyView
+			chainView.AggregatorProxy[proxyContract.Address().Hex()] = proxyView
 		}
 	}
 	return chainView, nil

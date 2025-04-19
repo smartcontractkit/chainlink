@@ -8,6 +8,8 @@ import (
 )
 
 func TestAddressRefByChainSelector(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = AddressRef{
 			Address:       "0x2324224",
@@ -60,6 +62,8 @@ func TestAddressRefByChainSelector(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			filter := AddressRefByChainSelector(tt.giveChain)
 			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
@@ -68,6 +72,8 @@ func TestAddressRefByChainSelector(t *testing.T) {
 }
 
 func TestAddressRefByType(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = AddressRef{
 			Address:       "0x2324224",
@@ -122,6 +128,8 @@ func TestAddressRefByType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			filter := AddressRefByType(tt.giveType)
 			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
@@ -130,6 +138,8 @@ func TestAddressRefByType(t *testing.T) {
 }
 
 func TestAddressRefByVersion(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = AddressRef{
 			Address:       "0x2324224",
@@ -185,6 +195,8 @@ func TestAddressRefByVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			filter := AddressRefByVersion(tt.giveVersion)
 			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
@@ -193,6 +205,8 @@ func TestAddressRefByVersion(t *testing.T) {
 }
 
 func TestAddressRefByQualifier(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = AddressRef{
 			Address:       "0x2324224",
@@ -247,6 +261,8 @@ func TestAddressRefByQualifier(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			filter := AddressRefByQualifier(tt.giveQualifier)
 			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
@@ -255,18 +271,20 @@ func TestAddressRefByQualifier(t *testing.T) {
 }
 
 func TestContractMetadataByChainSelector(t *testing.T) {
+	t.Parallel()
+
 	var (
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
-			Metadata:      DefaultMetadata("Record1"),
+			Metadata:      DefaultMetadata{Data: "Record1"},
 		}
 		recordTwo = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 2,
-			Metadata:      DefaultMetadata("Record2"),
+			Metadata:      DefaultMetadata{Data: "Record2"},
 		}
 		recordThree = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
-			Metadata:      DefaultMetadata("Record3"),
+			Metadata:      DefaultMetadata{Data: "Record3"},
 		}
 	)
 
@@ -303,6 +321,8 @@ func TestContractMetadataByChainSelector(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			filter := ContractMetadataByChainSelector[DefaultMetadata](tt.giveChain)
 			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)

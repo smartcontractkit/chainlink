@@ -22,8 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/ccip_home"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -67,14 +68,7 @@ func validateExecOffchainConfig(e deployment.Environment, c *pluginconfig.Execut
 	if err := state.ValidateRamp(selector, changeset.OffRamp); err != nil {
 		return fmt.Errorf("validate offRamp: %w", err)
 	}
-	permissionLessExecutionThresholdSeconds, err := state.OffRampPermissionLessExecutionThresholdSeconds(e.GetContext(), e, selector)
-	if err != nil {
-		return fmt.Errorf("fetch permissionLessExecutionThresholdSeconds: %w", err)
-	}
-	if uint32(c.MessageVisibilityInterval.Duration().Seconds()) != permissionLessExecutionThresholdSeconds {
-		return fmt.Errorf("MessageVisibilityInterval=%s does not match the permissionlessExecutionThresholdSeconds in dynamic config =%d for chain %d",
-			c.MessageVisibilityInterval.Duration(), permissionLessExecutionThresholdSeconds, selector)
-	}
+
 	for _, observerConfig := range c.TokenDataObservers {
 		switch observerConfig.Type {
 		case pluginconfig.USDCCCTPHandlerType:
@@ -365,14 +359,17 @@ func PromoteCandidateChangeset(
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
-	proposers := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: mcmsTxs}}
 
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"promoteCandidate",
@@ -623,14 +620,17 @@ func AddDonAndSetCandidateChangeset(
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
-	proposers := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: donMcmsTxs}}
 
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"addDON on new Chain && setCandidate for plugin "+cfg.PluginInfo.PluginType.String(),
@@ -820,14 +820,17 @@ func SetCandidateChangeset(
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
-	proposers := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: setCandidateMcmsTxs}}
 
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		fmt.Sprintf("SetCandidate for plugin details %v", pluginInfos),
@@ -1109,14 +1112,17 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
-	proposers := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: ops}}
 
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		fmt.Sprintf("revokeCandidate for don %d", cfg.RemoteChainSelector),
@@ -1270,11 +1276,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 	}
 	var adds []ccip_home.CCIPHomeChainConfigArgs
 	for chain, ccfg := range cfg.RemoteChainAdds {
-		encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
-			GasPriceDeviationPPB:    ccfg.EncodableChainConfig.GasPriceDeviationPPB,
-			DAGasPriceDeviationPPB:  ccfg.EncodableChainConfig.DAGasPriceDeviationPPB,
-			OptimisticConfirmations: ccfg.EncodableChainConfig.OptimisticConfirmations,
-		})
+		encodedChainConfig, err := chainconfig.EncodeChainConfig(ccfg.EncodableChainConfig)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("encoding chain config: %w", err)
 		}
@@ -1311,7 +1313,6 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
-	proposers := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batchOp, err := proposalutils.BatchOperationForChain(cfg.HomeChainSelector, state.Chains[cfg.HomeChainSelector].CCIPHome.Address().Hex(),
 		tx.Data(), big.NewInt(0), string(changeset.CCIPHome), []string{})
@@ -1319,10 +1320,14 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation: %w", err)
 	}
 
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		[]mcmstypes.BatchOperation{batchOp},
 		"Update chain config",

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,7 +28,9 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
-	"github.com/smartcontractkit/chainlink/deployment/operations"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
+	"github.com/smartcontractkit/chainlink/deployment/datastore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -99,17 +102,22 @@ func (c Chain) Name() string {
 // conjunction with the Offchain client to read/write relevant
 // offchain state (i.e. state in the DON(s)).
 type Environment struct {
-	Name              string
-	Logger            logger.Logger
+	Name   string
+	Logger logger.Logger
+	// Deprecated: AddressBook is deprecated and will be removed in future versions.
+	// Use DataStore instead
 	ExistingAddresses AddressBook
-	Chains            map[uint64]Chain
-	SolChains         map[uint64]SolChain
-	AptosChains       map[uint64]AptosChain
-	NodeIDs           []string
-	// The Offchain client is responsible for node and job management.
-	Offchain   OffchainClient
-	GetContext func() context.Context
-	OCRSecrets OCRSecrets
+	DataStore         datastore.DataStore[
+		datastore.DefaultMetadata,
+		datastore.DefaultMetadata,
+	]
+	Chains      map[uint64]Chain
+	SolChains   map[uint64]SolChain
+	AptosChains map[uint64]AptosChain
+	NodeIDs     []string
+	Offchain    OffchainClient
+	GetContext  func() context.Context
+	OCRSecrets  OCRSecrets
 	// OperationsBundle contains dependencies required by the operations API.
 	OperationsBundle operations.Bundle
 }
@@ -118,8 +126,13 @@ func NewEnvironment(
 	name string,
 	logger logger.Logger,
 	existingAddrs AddressBook,
+	dataStore datastore.DataStore[
+		datastore.DefaultMetadata,
+		datastore.DefaultMetadata,
+	],
 	chains map[uint64]Chain,
 	solChains map[uint64]SolChain,
+	aptosChains map[uint64]AptosChain,
 	nodeIDs []string,
 	offchain OffchainClient,
 	ctx func() context.Context,
@@ -129,8 +142,10 @@ func NewEnvironment(
 		Name:              name,
 		Logger:            logger,
 		ExistingAddresses: existingAddrs,
+		DataStore:         dataStore,
 		Chains:            chains,
 		SolChains:         solChains,
+		AptosChains:       aptosChains,
 		NodeIDs:           nodeIDs,
 		Offchain:          offchain,
 		GetContext:        ctx,
@@ -146,10 +161,21 @@ func (e Environment) Clone() Environment {
 	if err := ab.Merge(e.ExistingAddresses); err != nil {
 		panic(fmt.Sprintf("failed to copy address book: %v", err))
 	}
+
+	ds := datastore.NewMemoryDataStore[
+		datastore.DefaultMetadata,
+		datastore.DefaultMetadata,
+	]()
+	if e.DataStore != nil {
+		if err := ds.Merge(e.DataStore); err != nil {
+			panic(fmt.Sprintf("failed to copy datastore: %v", err))
+		}
+	}
 	return Environment{
 		Name:              e.Name,
 		Logger:            e.Logger,
 		ExistingAddresses: ab,
+		DataStore:         ds.Seal(),
 		Chains:            e.Chains,
 		SolChains:         e.SolChains,
 		NodeIDs:           e.NodeIDs,
@@ -199,6 +225,47 @@ func (e Environment) AllChainSelectorsSolana() []uint64 {
 		return selectors[i] < selectors[j]
 	})
 	return selectors
+}
+
+func (e Environment) AllChainSelectorsAptos() []uint64 {
+	selectors := make([]uint64, 0, len(e.AptosChains))
+	for sel := range e.AptosChains {
+		selectors = append(selectors, sel)
+	}
+	sort.Slice(selectors, func(i, j int) bool {
+		return selectors[i] < selectors[j]
+	})
+	return selectors
+}
+
+func (e Environment) AllChainSelectorsAllFamilies() []uint64 {
+	selectors := make([]uint64, 0, len(e.Chains)+len(e.SolChains)+len(e.AptosChains))
+	for sel := range e.Chains {
+		selectors = append(selectors, sel)
+	}
+	for sel := range e.SolChains {
+		selectors = append(selectors, sel)
+	}
+	for sel := range e.AptosChains {
+		selectors = append(selectors, sel)
+	}
+	sort.Slice(selectors, func(i, j int) bool {
+		return selectors[i] < selectors[j]
+	})
+	return selectors
+}
+
+func (e Environment) AllChainSelectorsAllFamiliesExcluding(excluding []uint64) []uint64 {
+	selectors := e.AllChainSelectorsAllFamilies()
+	ret := make([]uint64, 0)
+	// remove the excluded selectors
+	for _, sel := range selectors {
+		if slices.Contains(excluding, sel) {
+			continue
+		}
+		ret = append(ret, sel)
+	}
+	return ret
 }
 
 func (e Environment) AllDeployerKeys() []common.Address {

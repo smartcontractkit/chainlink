@@ -46,9 +46,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -173,7 +173,7 @@ func integration_MercuryV1(t *testing.T) {
 	reqs := make(chan request)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
-	srv := NewMercuryServer(t, serverKey.Signer(), reqs, func() []byte {
+	srv := NewMercuryServer(t, serverKey, reqs, func() []byte {
 		report, err := (&reportcodecv1.ReportCodec{}).BuildReport(ctx, v1.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), CurrentBlockHash: make([]byte, 32)})
 		if err != nil {
 			panic(err)
@@ -533,7 +533,7 @@ func integration_MercuryV2(t *testing.T) {
 	reqs := make(chan request)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
-	srv := NewMercuryServer(t, serverKey.Signer(), reqs, func() []byte {
+	srv := NewMercuryServer(t, serverKey, reqs, func() []byte {
 		report, err := (&reportcodecv2.ReportCodec{}).BuildReport(ctx, v2.ReportFields{BenchmarkPrice: big.NewInt(234567), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
 		if err != nil {
 			panic(err)
@@ -828,7 +828,7 @@ func integration_MercuryV3(t *testing.T) {
 	for i := 0; i < nSrvs; i++ {
 		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-(i + 1))))
 		reqs := make(chan request, 100)
-		srv := NewMercuryServer(t, k.Signer(), reqs, func() []byte {
+		srv := NewMercuryServer(t, k, reqs, func() []byte {
 			report, err := (&reportcodecv3.ReportCodec{}).BuildReport(ctx, v3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
 			if err != nil {
 				panic(err)
@@ -1124,7 +1124,7 @@ func integration_MercuryV4(t *testing.T) {
 	for i := 0; i < nSrvs; i++ {
 		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-(i + 1))))
 		reqs := make(chan request, 100)
-		srv := NewMercuryServer(t, k.Signer(), reqs, func() []byte {
+		srv := NewMercuryServer(t, k, reqs, func() []byte {
 			report, err := (&reportcodecv4.ReportCodec{}).BuildReport(ctx, v4.ReportFields{BenchmarkPrice: big.NewInt(234567), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1), MarketStatus: 1})
 			if err != nil {
 				panic(err)

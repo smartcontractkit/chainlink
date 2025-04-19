@@ -49,11 +49,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -459,7 +459,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 		reqs := make(chan wsrpcRequest, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewWSRPCMercuryServer(t, serverKey.Signer(), reqs)
+		srv := NewWSRPCMercuryServer(t, serverKey, reqs)
 
 		serverURL := startWSRPCMercuryServer(t, srv, clientPubKeys)
 
@@ -697,7 +697,7 @@ func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig datastreamsllo.
 		packetCh := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewMercuryServer(t, serverKey.Signer(), packetCh)
+		srv := NewMercuryServer(t, serverKey, packetCh)
 
 		serverURL := startMercuryServer(t, srv, clientPubKeys)
 
@@ -1336,7 +1336,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 		packets := make(chan *packet, nReports*nNodes)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewMercuryServer(t, serverKey.Signer(), packets)
+		srv := NewMercuryServer(t, serverKey, packets)
 
 		serverURL := startMercuryServer(t, srv, clientPubKeys)
 
@@ -1565,7 +1565,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 		packets := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewMercuryServer(t, serverKey.Signer(), packets)
+		srv := NewMercuryServer(t, serverKey, packets)
 
 		serverURL := startMercuryServer(t, srv, clientPubKeys)
 
@@ -1727,7 +1727,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastrea
 		packetCh := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewMercuryServer(t, serverKey.Signer(), packetCh)
+		srv := NewMercuryServer(t, serverKey, packetCh)
 
 		serverURL := startMercuryServer(t, srv, clientPubKeys)
 

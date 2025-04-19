@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"slices"
 	"strconv"
@@ -19,7 +20,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -28,14 +33,16 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_home"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
 func TestRMN_IncorrectSig(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-396")
+
 	runRmnTestCase(t, rmnTestCase{
 		nodesWithIncorrectSigner: []int{0, 1},
 		name:                     "messages with incorrect RMN signature",
@@ -60,6 +67,8 @@ func TestRMN_IncorrectSig(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-199")
+
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching one lane RMN-enabled the other RMN-disabled",
 		waitForExec: true,
@@ -110,6 +119,8 @@ func TestRMN_SimpleVerificationDisabledOnDestination(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-123")
+
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching",
 		waitForExec: true,
@@ -133,6 +144,8 @@ func TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause(t *testing
 }
 
 func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-201")
+
 	runRmnTestCase(t, rmnTestCase{
 		name:        "multiple messages for rmn batching inspection and one rmn node down",
 		waitForExec: false, // do not wait for execution reports
@@ -155,6 +168,8 @@ func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
 }
 
 func TestRMN_NotEnoughObservers(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-295")
+
 	runRmnTestCase(t, rmnTestCase{
 		name:                "one message but not enough observers, should not get a commit report",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -177,6 +192,8 @@ func TestRMN_NotEnoughObservers(t *testing.T) {
 }
 
 func TestRMN_DifferentSigners(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-200")
+
 	runRmnTestCase(t, rmnTestCase{
 		name: "different signers and different observers",
 		homeChainConfig: homeChainConfig{
@@ -226,6 +243,8 @@ func TestRMN_NotEnoughSigners(t *testing.T) {
 }
 
 func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-202")
+
 	runRmnTestCase(t, rmnTestCase{
 		name:        "different rmn nodes support different chains",
 		waitForExec: false,
@@ -252,6 +271,8 @@ func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-297")
+
 	runRmnTestCase(t, rmnTestCase{
 		name:                "two messages, one source chain is cursed the other chain was cursed but curse is revoked",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -281,6 +302,8 @@ func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
 }
 
 func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-294")
+
 	runRmnTestCase(t, rmnTestCase{
 		name:        "global curse messages on two lanes",
 		waitForExec: false,
@@ -867,5 +890,288 @@ func (tc rmnTestCase) enableOracles(ctx context.Context, t *testing.T, envWithRM
 		_, err := envWithRMN.Env.Offchain.EnableNode(ctx, &node.EnableNodeRequest{Id: n})
 		require.NoError(t, err)
 		t.Logf("node %s enabled", n)
+	}
+}
+
+func configureAndPromoteRMNHome(
+	t *testing.T,
+	tc *rmnTestCase,
+	envWithRMN testhelpers.DeployedEnv,
+	rmnCluster devenv.RMNCluster,
+) changeset.CCIPOnChainState {
+	ctx := testcontext.Get(t)
+	tc.populateFields(t, envWithRMN, rmnCluster)
+
+	// Load on-chain state
+	onChainState, err := changeset.LoadOnchainState(envWithRMN.Env)
+	require.NoError(t, err)
+	t.Logf("onChainState: %#v", onChainState)
+
+	// Get the home chain state and the candidate/active digests
+	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
+	require.True(t, ok)
+
+	allDigests, err := homeChainState.RMNHome.GetConfigDigests(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+	t.Logf("RMNHome candidateDigest before setting new candidate: %x, activeDigest: %x",
+		allDigests.CandidateConfigDigest[:], allDigests.ActiveConfigDigest[:])
+
+	// Configure candidate using the populated test-case fields
+	staticConfig := rmn_home.RMNHomeStaticConfig{Nodes: tc.pf.rmnHomeNodes, OffchainConfig: []byte{}}
+	dynamicConfig := rmn_home.RMNHomeDynamicConfig{SourceChains: tc.pf.rmnHomeSourceChains, OffchainConfig: []byte{}}
+	t.Logf("Setting RMNHome candidate with staticConfig: %+v, dynamicConfig: %+v, current candidateDigest: %x",
+		staticConfig, dynamicConfig, allDigests.CandidateConfigDigest[:])
+
+	candidateDigest, err := homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+
+	_, err = v1_6.SetRMNHomeCandidateConfigChangeset(envWithRMN.Env, v1_6.SetRMNHomeCandidateConfig{
+		HomeChainSelector: envWithRMN.HomeChainSel,
+		RMNStaticConfig:   staticConfig,
+		RMNDynamicConfig:  dynamicConfig,
+		DigestToOverride:  candidateDigest,
+	})
+	require.NoError(t, err)
+
+	candidateDigest, err = homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+	t.Logf("RMNHome candidateDigest after setting new candidate: %x", candidateDigest[:])
+	t.Logf("Promoting RMNHome candidate with candidateDigest: %x", candidateDigest[:])
+
+	// Promote candidate
+	_, err = v1_6.PromoteRMNHomeCandidateConfigChangeset(envWithRMN.Env, v1_6.PromoteRMNHomeCandidateConfig{
+		HomeChainSelector: envWithRMN.HomeChainSel,
+		DigestToPromote:   candidateDigest,
+	})
+	require.NoError(t, err)
+
+	// Validate that candidate promotion is successful
+	activeDigest, err := homeChainState.RMNHome.GetActiveDigest(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+	require.Equalf(t, candidateDigest, activeDigest,
+		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
+		candidateDigest[:], activeDigest[:])
+
+	// Configure remote chain settings
+	rmnRemoteConfig := make(map[uint64]v1_6.RMNRemoteConfig)
+	for _, remoteCfg := range tc.remoteChainsConfig {
+		selector := tc.pf.chainSelectors[remoteCfg.chainIdx]
+		if remoteCfg.f < 0 {
+			t.Fatalf("remoteCfg.f is negative: %d", remoteCfg.f)
+		}
+		rmnRemoteConfig[selector] = v1_6.RMNRemoteConfig{
+			F:       uint64(remoteCfg.f),
+			Signers: tc.pf.rmnRemoteSigners,
+		}
+	}
+	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, v1_6.SetRMNRemoteConfig{
+		HomeChainSelector: envWithRMN.HomeChainSel,
+		RMNRemoteConfigs:  rmnRemoteConfig,
+	})
+	require.NoError(t, err)
+
+	return onChainState
+}
+
+func performReorgTest(t *testing.T, e testhelpers.DeployedEnv, l logging.Logger, dockerEnv *testsetups.DeployedLocalDevEnvironment, state changeset.CCIPOnChainState, nonBootstrapP2PIDs []string) (sourceSelector uint64, destSelector uint64) {
+	// Chain setup
+	allChains := e.Env.AllChainSelectors()
+	require.GreaterOrEqual(t, len(allChains), 2)
+	sourceSelector = allChains[0]
+	destSelector = allChains[1]
+
+	// Build RPC map and get clients
+	chainSelToRPCURL := buildChainSelectorToRPCURLMap(t, dockerEnv)
+	sourceClient := ctf_client.NewRPCClient(chainSelToRPCURL[sourceSelector], nil)
+
+	// Setup CCIP lane
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceSelector, destSelector, false)
+	waitForLogPollerFilters(l)
+
+	// Send initial message
+	msgBeforeReorg := sendCCIPMessage(t, e.Env, state, sourceSelector, destSelector, l)
+
+	// Wait and perform reorg
+	minBlock := msgBeforeReorg.Raw.BlockNumber + lessThanFinalityReorgDepth - 1
+	waitForBlockNumber(t, sourceClient, minBlock, 1*time.Minute, 500*time.Millisecond, l)
+	performReorg(t, sourceClient, lessThanFinalityReorgDepth, l)
+
+	// Verify message consistency
+	msgAfterReorg := sendCCIPMessage(t, e.Env, state, sourceSelector, destSelector, l)
+	require.Equal(t, msgBeforeReorg.Message.Header.SequenceNumber, msgAfterReorg.Message.Header.SequenceNumber)
+	require.Equal(t, msgBeforeReorg.Message.Header.MessageId, msgAfterReorg.Message.Header.MessageId)
+
+	// Check node health
+	nodeAPIs := dockerEnv.GetCLClusterTestEnv().ClCluster.NodeAPIs()
+	checkFinalityViolations(
+		t,
+		nodeAPIs,
+		nonBootstrapP2PIDs,
+		getHeadTrackerService(t, sourceSelector),
+		getLogPollerService(t, sourceSelector),
+		l,
+		0,              // no nodes reporting finality violation
+		1*time.Minute,  // timeout
+		10*time.Second, // interval
+	)
+
+	return sourceSelector, destSelector
+}
+
+func Test_CCIPReorg_BelowFinality_OnSource_WithRMN(t *testing.T) {
+	tc := rmnTestCase{
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}}, // one rmn node is down
+		},
+	}
+	e, l, dockerEnv, nonBootstrapP2PIDs, state, rmnCluster := setupReorgTest(t,
+		testhelpers.WithExtraConfigTomls([]string{"Test_CCIPReorg_BelowFinality_OnSource_WithRMN.toml"}),
+		testhelpers.WithRMNEnabled(len(tc.rmnNodes)),
+		testhelpers.WithRMNConfDepth(20),
+	)
+
+	configureAndPromoteRMNHome(t, &tc, e, rmnCluster)
+
+	e.RmnEnabledSourceChains = make(map[uint64]bool)
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		e.RmnEnabledSourceChains[chainSel] = true
+	}
+
+	sourceSelector, destSelector := performReorgTest(t, e, l, dockerEnv, state, nonBootstrapP2PIDs)
+
+	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
+		t,
+		sourceSelector,
+		e.Env.Chains[destSelector],
+		state.Chains[destSelector].OffRamp,
+		nil, // startBlock
+		ccipocr3.NewSeqNumRange(1, 1),
+		false, // enforceSingleCommit
+	)
+	require.NoError(t, err)
+}
+
+func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover(t *testing.T) {
+	tc := rmnTestCase{
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}}, // one rmn node is down
+		},
+	}
+	e, l, dockerEnv, nonBootstrapP2PIDs, state, rmnCluster := setupReorgTest(t,
+		testhelpers.WithExtraConfigTomls([]string{"Test_CCIPReorg_BelowFinality_OnSource_WithRMN.toml"}),
+		testhelpers.WithRMNEnabled(len(tc.rmnNodes)),
+		testhelpers.WithRMNConfDepth(0),
+	)
+
+	configureAndPromoteRMNHome(t, &tc, e, rmnCluster)
+
+	e.RmnEnabledSourceChains = make(map[uint64]bool)
+	fmt.Printf("Setup RMN enabled")
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		e.RmnEnabledSourceChains[chainSel] = true
+		fmt.Printf("Setup RMN enabled for chain %d", chainSel)
+	}
+
+	sourceSelector, destSelector := performReorgTest(t, e, l, dockerEnv, state, nonBootstrapP2PIDs)
+
+	err := rmnCluster.Restart(t.Context())
+	require.NoError(t, err)
+
+	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
+		t,
+		sourceSelector,
+		e.Env.Chains[destSelector],
+		state.Chains[destSelector].OffRamp,
+		nil, // startBlock
+		ccipocr3.NewSeqNumRange(1, 1),
+		false, // enforceSingleCommit
+	)
+	require.NoError(t, err)
+}
+
+func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block(t *testing.T) {
+	tc := rmnTestCase{
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}}, // one rmn node is down
+		},
+	}
+	e, l, dockerEnv, nonBootstrapP2PIDs, state, rmnCluster := setupReorgTest(t,
+		testhelpers.WithExtraConfigTomls([]string{"Test_CCIPReorg_BelowFinality_OnSource_WithRMN.toml"}),
+		testhelpers.WithRMNEnabled(len(tc.rmnNodes)),
+		testhelpers.WithRMNConfDepth(0),
+	)
+
+	configureAndPromoteRMNHome(t, &tc, e, rmnCluster)
+
+	e.RmnEnabledSourceChains = make(map[uint64]bool)
+	fmt.Printf("Setup RMN enabled")
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		e.RmnEnabledSourceChains[chainSel] = true
+		fmt.Printf("Setup RMN enabled for chain %d", chainSel)
+	}
+
+	sourceSelector, destSelector := performReorgTest(t, e, l, dockerEnv, state, nonBootstrapP2PIDs)
+
+	commitReportReceived := make(chan struct{})
+	commitReportError := make(chan error)
+	// Verify commit
+	go func() {
+		_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
+			t,
+			sourceSelector,
+			e.Env.Chains[destSelector],
+			state.Chains[destSelector].OffRamp,
+			nil, // startBlock
+			ccipocr3.NewSeqNumRange(1, 1),
+			false, // enforceSingleCommit
+		)
+
+		if err != nil {
+			commitReportError <- err
+		} else {
+			commitReportReceived <- struct{}{}
+		}
+	}()
+
+	tim := time.NewTimer(15 * time.Second)
+	t.Logf("waiting for 15s before asserting that commit report was not received")
+	select {
+	case err := <-commitReportError:
+		t.Errorf("Error while confirming commit: %v", err)
+	case <-commitReportReceived:
+		t.Errorf("Commit report was received while it was not expected")
+		return
+	case <-tim.C:
+		return
 	}
 }

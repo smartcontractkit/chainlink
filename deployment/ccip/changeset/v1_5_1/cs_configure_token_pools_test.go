@@ -11,10 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -97,6 +99,35 @@ func validateMemberOfTokenPoolPair(
 			require.Equal(t, expectedRemotePoolAddressesBytes[i], remotePoolAddresses[i])
 		}
 	}
+}
+
+func validateSolanaConfig(t *testing.T, state changeset.CCIPOnChainState, solChainUpdates map[uint64]v1_5_1.SolChainUpdate, selector uint64, solanaSelector uint64) {
+	tokenPool := state.Chains[selector].BurnMintTokenPools[testhelpers.TestTokenSymbol][deployment.Version1_5_1]
+	isSupported, err := tokenPool.IsSupportedChain(nil, solanaSelector)
+	require.NoError(t, err)
+	require.True(t, isSupported)
+
+	remoteToken, remoteTokenPool, err := solChainUpdates[solanaSelector].GetSolanaTokenAndTokenPool(state.SolChains[solanaSelector])
+	require.NoError(t, err)
+	remoteTokenAddress, err := tokenPool.GetRemoteToken(nil, solanaSelector)
+	require.NoError(t, err)
+	require.Equal(t, remoteToken.Bytes(), remoteTokenAddress)
+	remotePoolAddresses, err := tokenPool.GetRemotePools(nil, solanaSelector)
+	require.NoError(t, err)
+	require.Len(t, remotePoolAddresses, 1)
+	require.Equal(t, remoteTokenPool.Bytes(), remotePoolAddresses[0])
+
+	inboundRateLimiterConfig, err := tokenPool.GetCurrentInboundRateLimiterState(nil, solanaSelector)
+	require.NoError(t, err)
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Inbound.Rate.Int64(), inboundRateLimiterConfig.Rate.Int64())
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Inbound.Capacity.Int64(), inboundRateLimiterConfig.Capacity.Int64())
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Inbound.IsEnabled, inboundRateLimiterConfig.IsEnabled)
+
+	outboundRateLimiterConfig, err := tokenPool.GetCurrentOutboundRateLimiterState(nil, solanaSelector)
+	require.NoError(t, err)
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Outbound.Rate.Int64(), outboundRateLimiterConfig.Rate.Int64())
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Outbound.Capacity.Int64(), outboundRateLimiterConfig.Capacity.Int64())
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Outbound.IsEnabled, outboundRateLimiterConfig.IsEnabled)
 }
 
 func TestValidateRemoteChains(t *testing.T) {
@@ -198,7 +229,7 @@ func TestValidateTokenPoolConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			err := test.TokenPoolConfig.Validate(e.GetContext(), e.Chains[selectorA], state.Chains[selectorA], test.UseMcms, testhelpers.TestTokenSymbol)
+			err := test.TokenPoolConfig.Validate(e.GetContext(), e.Chains[selectorA], state, test.UseMcms, testhelpers.TestTokenSymbol)
 			require.Error(t, err)
 			require.ErrorContains(t, err, test.ErrStr)
 		})
@@ -632,6 +663,159 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 					}
 				}
 			})
+		}
+	}
+}
+
+func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
+	t.Parallel()
+	var err error
+
+	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
+		testCfg.Chains = 2
+		testCfg.SolChains = 1
+	})
+	e := deployedEnvironment.Env
+
+	evmSelectors := []uint64{e.AllChainSelectors()[0]}
+	solanaSelectors := e.AllChainSelectorsSolana()
+
+	addressBook := deployment.NewMemoryAddressBook()
+
+	///////////////////////////
+	// DEPLOY EVM TOKEN POOL //
+	///////////////////////////
+	for _, selector := range evmSelectors {
+		token, err := deployment.DeployContract(e.Logger, e.Chains[selector], addressBook,
+			func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+				tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+					e.Chains[selector].DeployerKey,
+					e.Chains[selector].Client,
+					string(testhelpers.TestTokenSymbol),
+					string(testhelpers.TestTokenSymbol),
+					testhelpers.LocalTokenDecimals,
+					big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+				)
+				return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+					Address:  tokenAddress,
+					Contract: token,
+					Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+					Tx:       tx,
+					Err:      err,
+				}
+			},
+		)
+		require.NoError(t, err)
+		e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
+			selector: {
+				Type:               changeset.BurnMintTokenPool,
+				TokenAddress:       token.Address,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			},
+		}, false)
+	}
+
+	//////////////////////////////
+	// DEPLOY SOLANA TOKEN POOL //
+	//////////////////////////////
+	for _, selector := range solanaSelectors {
+		e, err = commonchangeset.Apply(t, e, nil,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+				changeset_solana.DeploySolanaTokenConfig{
+					ChainSelector:    selector,
+					TokenProgramName: changeset.SPL2022Tokens,
+					TokenDecimals:    testhelpers.LocalTokenDecimals,
+					TokenSymbol:      string(testhelpers.TestTokenSymbol),
+				},
+			),
+		)
+		require.NoError(t, err)
+		state, err := changeset.LoadOnchainState(e)
+		require.NoError(t, err)
+		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
+		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPool),
+				changeset_solana.TokenPoolConfig{
+					ChainSelector: selector,
+					TokenPubKey:   tokenAddress.String(),
+					PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+				},
+			),
+		})
+		require.NoError(t, err)
+	}
+
+	state, err := changeset.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	/////////////////////////////
+	// ADD SOLANA CHAIN CONFIG //
+	/////////////////////////////
+	for _, selector := range evmSelectors {
+		solChainUpdates := make(map[uint64]v1_5_1.SolChainUpdate)
+		for _, remoteSelector := range solanaSelectors {
+			solChainUpdates[remoteSelector] = v1_5_1.SolChainUpdate{
+				Type:              changeset.BurnMintTokenPool,
+				TokenAddress:      state.SolChains[remoteSelector].SPL2022Tokens[0].String(),
+				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(0, 0),
+			}
+		}
+		e, err = commonchangeset.Apply(t, e, nil,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+				v1_5_1.ConfigureTokenPoolContractsConfig{
+					TokenSymbol: testhelpers.TestTokenSymbol,
+					PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+						selector: {
+							Type:            changeset.BurnMintTokenPool,
+							Version:         deployment.Version1_5_1,
+							SolChainUpdates: solChainUpdates,
+						},
+					},
+				},
+			),
+		)
+		require.NoError(t, err)
+
+		for _, remoteSelector := range solanaSelectors {
+			validateSolanaConfig(t, state, solChainUpdates, selector, remoteSelector)
+		}
+	}
+
+	////////////////////////////////
+	// UPDATE SOLANA CHAIN CONFIG //
+	////////////////////////////////
+	for _, selector := range evmSelectors {
+		solChainUpdates := make(map[uint64]v1_5_1.SolChainUpdate)
+		for _, remoteSelector := range solanaSelectors {
+			solChainUpdates[remoteSelector] = v1_5_1.SolChainUpdate{
+				Type:              changeset.BurnMintTokenPool,
+				TokenAddress:      state.SolChains[remoteSelector].SPL2022Tokens[0].String(),
+				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(100, 1000),
+			}
+		}
+		e.Chains[selector].DeployerKey.GasLimit = 1_000_000 // Hack: Increase gas limit to avoid out of gas error (could this be a cause for test flakiness?)
+		e, err = commonchangeset.Apply(t, e, nil,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+				v1_5_1.ConfigureTokenPoolContractsConfig{
+					TokenSymbol: testhelpers.TestTokenSymbol,
+					PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+						selector: {
+							Type:            changeset.BurnMintTokenPool,
+							Version:         deployment.Version1_5_1,
+							SolChainUpdates: solChainUpdates,
+						},
+					},
+				},
+			),
+		)
+		require.NoError(t, err)
+
+		for _, remoteSelector := range solanaSelectors {
+			validateSolanaConfig(t, state, solChainUpdates, selector, remoteSelector)
 		}
 	}
 }

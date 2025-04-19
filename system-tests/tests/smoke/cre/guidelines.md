@@ -2,13 +2,20 @@
 
 ## Table of Contents
 1. [How to Run the Test](#how-to-run-the-test)
+   - [Chainlink Node Image](#chainlink-node-image)
+   - [Environment Variables](#environment-variables)
+   - [Job Distributor Image](#job-distributor-image)
+   - [CRE CLI Binary](#cre-cli-binary)
+   - [cron Binary](#cron-binary)
+   - [PoR Workflow Source Code](#por-workflow-source-code)
+   - [Test Timeout](#test-timeout)
 2. [Adding a New Capability](#adding-a-new-capability)
    - [Copying the Binary to the Container](#copying-the-binary-to-the-container)
    - [Adding support for the new capability in the testing code](#adding-support-for-the-new-capability-in-the-testing-code)
      - [Defining a CapabilityFlag for the Capability](#defining-a-capabilityflag-for-the-capability)
      - [Defining Additional Node Configuration](#defining-additional-node-configuration)
      - [Defining a Job Spec for the New Capability](#defining-a-job-spec-for-the-new-capability)
-     - [Registering the Capability in the Capabilities Registry Contract](#registering-the-capability-in-the-capabilities-registry-contract)
+     - [Registering the Capability in the Capabilities Registry contract](#registering-the-capability-in-the-capabilities-registry-contract)
 3. [Using a New Workflow](#using-a-new-workflow)
    - [Test Uploads the Binary](#test-uploads-the-binary)
    - [Workflow Configuration](#workflow-configuration)
@@ -38,12 +45,122 @@
 13. [CRIB Deployment Flow](#crib-deployment-flow)
 14. [Switching from kind to AWS provider](#switching-from-kind-to-aws-provider)
 15. [CRIB Limitations & Considerations](#crib-limitations--considerations)
+16. [CLI Usage](#cli-usage)
 
 ---
 
 ## How to Run the Test
 
-The test requires several environment variables. Below is a launch configuration that can be used with the VCS:
+Before running the test, several prerequisites must be met.
+
+### Chainlink Node Image
+
+The TOML configuration allows you to choose whether to:
+
+- Use an existing Docker image
+- Build a Docker image from the currently checked-out branch
+
+By default, the test builds the image from the current branch. This is expressed in the config as follows:
+
+```toml
+[nodesets.node_specs.node]
+  docker_ctx = "../../../.."
+  docker_file = "plugins/chainlink.Dockerfile"
+```
+
+If you prefer to use an existing image, update the config to:
+
+```toml
+[nodesets.node_specs.node]
+  image = "my-docker-image:my-tag"
+```
+
+Make this change for each `nodesets.node_specs.node` entry in the config.
+
+**Supported version**: ≥ [e13e5675d3852b04e18dad9881e958066a2bf87a](https://github.com/smartcontractkit/chainlink/commit/e13e5675d3852b04e18dad9881e958066a2bf87a) (merged on 2025-02-25)
+
+---
+
+### Environment Variables
+
+Required environment variables:
+
+- **`CTF_CONFIGS`** – Always required. A comma-separated list of TOML config files to use.
+- **`PRIVATE_KEY`** – A plaintext private key used for all contract deployments, configuration, and Chainlink node funding. This key must be sufficiently funded.
+- **`GIST_WRITE_TOKEN`** – Required only when compiling and uploading a new workflow. This must be a fine-grained personal access token with `gist:read:write` permissions tied to your personal GitHub account.
+
+---
+
+### Job Distributor Image
+
+The test requires the Job Distributor image to be available locally. By default, `environment-*.toml` files expect an image tagged as `job-distributor:0.9.0`.
+
+The easiest way to build it locally is:
+
+```bash
+docker build -t job-distributor:0.9.0 -f e2e/Dockerfile.e2e .
+```
+
+If you have access to the production ECR, you can also pull the image from there. Alternatively, update the `environment-*.toml` files with the full name of the image from your registry.
+
+**Supported version**: v0.9.0
+
+---
+
+### CRE CLI Binary
+
+Download the CRE CLI binary compiled for your host machine's architecture from the [smartcontractkit/dev-platform](https://github.com/smartcontractkit/dev-platform) repository. Alternatively, build it on your local machine for operating system and architecture matching yours.
+
+**Supported version**: v0.1.5
+
+---
+
+### `cron` Binary
+
+You must ensure the test environment has access to the `cron` capability binary. You can either:
+
+1. **Use a CL node image that already includes the binary**, or
+2. **Make the binary available on your host machine** so that the test can copy it into the running container.
+
+If you choose the first option, comment out the relevant line in your TOML config to specify the binary path, like this:
+```toml
+[workflow_config.dependencies]
+  # cron_capability_binary_path = "./cron"
+```
+
+If you choose the second option, update the relevant line in your TOML config to match the binary path:
+
+```toml
+[workflow_config.dependencies]
+  cron_capability_binary_path = "./some-folder/cron"
+```
+
+To obtain the binary, you can:
+- Clone the [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities) repo and build it locally
+- Download it from the release assets
+
+Ensure the binary is built for **Linux** and **amd64** architecture.
+
+**Supported version**: v0.1.2-alpha
+
+---
+
+### PoR Workflow Source Code
+
+By default, the test compiles the workflow each time it runs. Therefore, you must clone the [smartcontractkit/proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test) repository.
+
+Then, update the TOML config to point to the workflow's location (relative or absolute paths are supported):
+
+```toml
+[workflow_config]
+workflow_folder_location = "/Users/my-user/repositories/proof-of-reserves-workflow-e2e-test"
+```
+
+### Test timeout
+If building Docker image set Go test timeout to 20 minutes. Test should build the image and execute in 12-15 minutes on most machines. When using existing images execution time varies between 4 and 7 minutes.
+
+### Visual Studio Code configuration
+Below is a launch configuration that can be used with the VCS:
 
 ```json
 {
@@ -55,7 +172,7 @@ The test requires several environment variables. Below is a launch configuration
   "env": {
     "CTF_CONFIGS": "environment-one-don.toml",
     "PRIVATE_KEY": "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    "GIST_WRITE_TOKEN": "xxxx",
+    "GIST_WRITE_TOKEN": "xxxx"
   },
   "args": [
     "-test.run",
@@ -64,35 +181,8 @@ The test requires several environment variables. Below is a launch configuration
 }
 ```
 
-Required env vars:
-- **`CTF_CONFIGS`**: Always required, a comma-separated list of TOML configs to use.
-- **`PRIVATE_KEY`**: Plaintext private key that will be used for all contract deployment and configuration, and CL node funding. It needs to have sufficient funds.
-- **`GIST_WRITE_TOKEN`**: Required only for compiling and uploading a new workflow. It needs `gist:read:write` permissions and should be a fine-grained PAT **tied to your personal GitHub account**.
-
-You might also need to adjust the TOML configuration file used by your test, so that it points to correct location of two binaries:
-* `cron` -- cron capability binary for AMD platform that lives in [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities)
-* `CRE CLI` -- CLI binary compiled for architecture of your host machine, that lives in [smartcontractkit/dev-platform](https://github.com/smartcontractkit/dev-platform)
-
-The easiest way to go about it would be to download them from releases page.
-
-TOML config part that needs to be adjusted is the following one:
-```toml
-  [workflow_config.dependencies]
-  # v1.0.2-alpha should work
-  cron_capability_binary_path = "./cron"
-  cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
-```
-
 In CI the flow is a bit different, because we generate one-time access tokens to these two repositories and testing code downloads required assets on its own.
-
-Test also expects you to have the Job Distributor image available locally. By default, `environment-*.toml`'s expect image tagged as `job-distributor:0.9.0`. The easiest way to get it, is to clone the Job Distributor repository and build it locally with:
-```bash
-docker build -t job-distributor:0.9.0 -f e2e/Dockerfile.e2e .
-```
-
-Alternatively, if you have access to the Docker image repository where it's stored you can modify `environment-*.toml`'s with the name of the image stored there.
-
-In the CI test code modifies the config during runtime to production JD image hardcoded in the [.github/e2e-tests.yml](.github/e2e-tests.yml) file as `E2E_JD_VERSION` env var.
+There the test code modifies the config during runtime to production JD image hardcoded in the [.github/e2e-tests.yml](.github/e2e-tests.yml) file as `E2E_JD_VERSION` env var.
 
 ## Docker vs Kubernetes (k8s)
 
@@ -331,7 +421,7 @@ kubectl logs <POD_NAME>
 
 To add a new capability to the test, follow these steps:
 
-1. Copy the capability binary to the Chainlink node’s Docker container (must be in `linux/amd64` format).
+1. Copy the capability binary to the Chainlink node's Docker container (must be in `linux/amd64` format).
    - You can skip this step if the capability is already included in the Chainlink image you are using or if it's built-in.
 2. Add support for the new capability in the testing code:
    - Define a new `CapabilityFlag` representing the capability.
@@ -359,7 +449,7 @@ Config part that's effectively modified:
       capabilities = ["./aptos_linux_amd64"]
 ```
 
-This instructs the framework to copy `./aptos_linux_amd64` to the container’s `/home/capabilities/` directory, making it available as `/home/capabilities/aptos_linux_amd64`.
+This instructs the framework to copy `./aptos_linux_amd64` to the container's `/home/capabilities/` directory, making it available as `/home/capabilities/aptos_linux_amd64`.
 
 > **Note:** Copying the binary to the bootstrap node is unnecessary since it does not handle capability-related tasks.
 
@@ -698,7 +788,7 @@ To enable multi-DON support, update the configuration file by:
 - Explicitly assigning capabilities to each nodeset.
 - Copying the required capabilities to the containers (if they are not built into the image already).
 
-Here’s an example configuration for a nodeset that only supports writing to an EVM chain:
+Here's an example configuration for a nodeset that only supports writing to an EVM chain:
 
 ```toml
 [[nodesets]]
@@ -839,6 +929,28 @@ To configure a live data source, use the following TOML settings:
   url = "api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD"
 ```
 
+### Blockchain Configuration
+
+Tests are working with `Anvil` by default. All the configurations are using `0s` blocks when deploying contracts but `DeployFeedsConsumer` requires blocks to be mined so `custom_anvil_miner` controls the speed of blocks after the initial deployment is complete.
+
+This allows us to test changes faster.
+```
+[blockchain_a]
+  type = "anvil"
+  chain_id = "1337"
+
+[custom_anvil_miner]
+  block_speed_seconds = 5
+```
+
+If you need to switch to a slow chain you can do it like this, `-b` controls block production speed.
+```
+[blockchain_a]
+  chain_id = "1337"
+  docker_cmd_params = ["-b", "5"]
+  type = "anvil"
+```
+
 ### Mocked Data Source
 
 A mocked data source has been introduced to:
@@ -892,3 +1004,62 @@ If you have the `ctf` CLI you can use following command: `ctf d rm`.
 ### Chainlink image not found in local Docker registry
 
 If you are building the Chainlink image using the Dockerfile, image is successfuly built and yet nodes do not start, because image cannot be found in the local machine, simply restart your computer and try again.
+
+## CLI Usage
+
+The CRE CLI provides commands to manage the local environment. The main commands are:
+
+### Start Environment
+
+```bash
+ctf cre env start [flags]
+```
+
+Flags:
+- `-t, --topology string` - Topology to use for the environment (simplified or full) (default "simplified")
+- `-w, --wait-on-error-timeout string` - Wait on error timeout duration (e.g. 10s, 1m, 1h)
+- `-e, --extra-allowed-ports intSlice` - Extra allowed ports (e.g. 8080,8081)
+
+Example:
+```bash
+cd cmd
+go run main.go env start -t simplified -w 5m -e 8080,8081
+```
+
+Simplified topology will lanuch a single DON with all capabilities. Full topology will start 3 DONs:
+- workflow DON (5 nodes)
+- capabilities DON (2 nodes)
+- gateway DON (1 node)
+
+Wait on error timeout flag is useful if you want to wait until containers are removed during a failed startup. For example if containers failed to start it allows you to inspect the failure reason.
+
+Extra allowed ports are useful if your gateway needs to access servces running on ports different than `80` and `443`.
+
+### Stop Environment
+
+```bash
+cd cmd
+go run main.go env stop
+```
+
+This command stops the local CRE environment. If the environment is not running, it will simply fall through.
+
+### Environment Variables
+
+The CLI uses the following environment variables:
+
+- `CTF_CONFIGS` - Path to the TOML configuration file. If not set, defaults to:
+  - `configs/single-don.toml` for simplified topology
+  - `configs/workflow-capabilities-don.toml` for full topology
+- `PRIVATE_KEY` - Private key used for contract deployments and node funding. If not set, defaults to a test key.
+- `TESTCONTAINERS_RYUK_DISABLED` - Set to "true" to disable Ryuk container cleanup
+
+### Cleanup
+
+If the environment encounters an unexpected error during startup, you may need to manually clean up resources. Use the following command:
+
+```bash
+ctf d rm
+```
+
+This will remove all containers with the 'ctf' label and their associated volumes.

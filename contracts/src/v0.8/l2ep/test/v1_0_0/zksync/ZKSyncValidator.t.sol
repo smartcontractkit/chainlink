@@ -107,6 +107,10 @@ contract ZKSyncValidator_Validate is ZKSyncValidator_Setup {
     // Gives access to the s_eoaValidator
     s_zksyncValidator.addAccess(s_eoaValidator);
 
+    uint256 previousRoundId = 0;
+    int256 previousAnswer = 0;
+    uint256 currentRoundId = 0;
+    int256 currentAnswer = 0;
     // Sets block.timestamp to a later date
     uint256 futureTimestampInSeconds = block.timestamp + 5000;
     vm.startPrank(s_eoaValidator);
@@ -122,8 +126,11 @@ contract ZKSyncValidator_Validate is ZKSyncValidator_Setup {
     vm.expectEmit(false, false, false, true);
     emit SentMessage(address(s_zksyncValidator), message);
 
+    vm.expectEmit(address(s_zksyncValidator));
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
+
     // Runs the function (which produces the event to test)
-    s_zksyncValidator.validate(0, 0, 0, 0);
+    s_zksyncValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
   }
 
   /// @notice Posts sequencer offline status
@@ -131,6 +138,10 @@ contract ZKSyncValidator_Validate is ZKSyncValidator_Setup {
     // Gives access to the s_eoaValidator
     s_zksyncValidator.addAccess(s_eoaValidator);
 
+    uint256 previousRoundId = 0;
+    int256 previousAnswer = 0;
+    uint256 currentRoundId = 1;
+    int256 currentAnswer = 1;
     // Sets block.timestamp to a later date
     uint256 futureTimestampInSeconds = block.timestamp + 10000;
     vm.startPrank(s_eoaValidator);
@@ -143,7 +154,9 @@ contract ZKSyncValidator_Validate is ZKSyncValidator_Setup {
       abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds)
     );
 
+    vm.expectEmit(address(s_zksyncValidator));
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
-    s_zksyncValidator.validate(0, 0, 1, 1);
+    s_zksyncValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
   }
 }

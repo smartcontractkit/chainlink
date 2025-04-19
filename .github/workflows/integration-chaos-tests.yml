@@ -1,10 +1,7 @@
 name: Integration Chaos Test
 on:
-  schedule:
-    - cron: "0 0 * * *"
-  push:
-    tags:
-      - "*"
+  # TODO: this pipeline was failing for a long time (4 months) so now we removed cron and on push triggers
+  # TODO: find out who needs it and fix it or remove it in the future (https://smartcontract-it.atlassian.net/browse/DX-305)
   workflow_dispatch:
     inputs:
       team:
@@ -15,7 +12,7 @@ on:
 jobs:
   run-e2e-tests-workflow-dispatch:
     name: Run E2E Tests (Workflow Dispatch)
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@d23290d4a4468fdb644d211278f2f09a7eafc9d6
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
     if: github.event_name == 'workflow_dispatch'
     with:
       test_path: .github/e2e-tests.yml
@@ -48,7 +45,7 @@ jobs:
 
   run-e2e-tests-workflow:
     name: Run E2E Tests (Push and Sechedule)
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@d23290d4a4468fdb644d211278f2f09a7eafc9d6
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
     if: github.event_name != 'workflow_dispatch'
     with:
       test_path: .github/e2e-tests.yml

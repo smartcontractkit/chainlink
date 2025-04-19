@@ -63,9 +63,9 @@ type MutableStore[K Comparable[K], R Record[K, R]] interface {
 	// Add inserts a new record into the MutableStore.
 	Add(record R) error
 
-	// AddOrUpdate behaves like Add where there is not already a record with the same composite primary key as the
+	// Upsert behaves like Add where there is not already a record with the same composite primary key as the
 	// supplied record, otherwise it behaves like an update.
-	AddOrUpdate(record R) error
+	Upsert(record R) error
 
 	// Update edits an existing record whose fields match the primary key elements of the supplied AddressRecord, with
 	// the non-primary-key values of the supplied AddressRecord.
@@ -74,4 +74,25 @@ type MutableStore[K Comparable[K], R Record[K, R]] interface {
 	// Delete deletes record whose primary key elements match the supplied key, returning an error if no
 	// such record exists to be deleted
 	Delete(key K) error
+}
+
+// UnaryStore is an interface that represents a read-only store that is limited to a single record.
+type UnaryStore[K Comparable[K], R Record[K, R]] interface {
+	// Get returns the record or an error.
+	// if the record exists, the error should be nil.
+	// If the record does not exist, the error should not be nil.
+	Get() (R, error)
+}
+
+// MutableUnaryStore is an interface that represents a mutable store that contains a single record.
+type MutableUnaryStore[K Comparable[K], R Record[K, R]] interface {
+	// Get returns a copy of the record or an error.
+	// If the record exists, the error should be nil.
+	// If the record does not exist, the error should not be nil.
+	Get() (R, error)
+
+	// Set sets the record in the store.
+	// If the record already exists, it should be replaced.
+	// If the record does not exist, it should be added.
+	Set(record R) error
 }

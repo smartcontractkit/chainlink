@@ -8,9 +8,12 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 // msg to hash
@@ -179,7 +182,7 @@ func TestStarknetKeyring_Marshal(t *testing.T) {
 	kr2 := OCR2Key{}
 	err = kr2.Unmarshal(m)
 	require.NoError(t, err)
-	assert.Equal(t, kr1.priv.Cmp(kr2.priv), 0)
+	assert.Equal(t, internal.Bytes(kr1.raw), internal.Bytes(kr2.raw))
 
 	// Invalid seed size should error
 	require.Error(t, kr2.Unmarshal([]byte{0x01}))

@@ -22,6 +22,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/metering"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -212,7 +213,7 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, r
 	return m, nil
 }
 
-func (c *Compute) executeWithModule(ctx context.Context, module *host.Module, config []byte, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+func (c *Compute) executeWithModule(ctx context.Context, module host.ModuleV1, config []byte, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	executeStart := time.Now()
 	capReq := capabilitiespb.CapabilityRequestToProto(req)
 
@@ -240,10 +241,17 @@ func (c *Compute) executeWithModule(ctx context.Context, module *host.Module, co
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not convert response proto into response: %w", err)
 	}
 
+	executionTime := time.Since(executeStart)
 	computeWASMExec.WithLabelValues(
 		req.Metadata.WorkflowID,
 		req.Metadata.ReferenceID,
-	).Observe(float64(time.Since(executeStart)))
+	).Observe(float64(executionTime))
+
+	// Add execution time to response metadata
+	cresp.Metadata.Metering = append(cresp.Metadata.Metering, capabilities.MeteringNodeDetail{
+		SpendUnit:  metering.ComputeUnit.Name,
+		SpendValue: strconv.FormatInt(int64(executionTime.Round(time.Second)/(1_000_000_000)), 10),
+	})
 
 	return cresp, nil
 }

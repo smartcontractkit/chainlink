@@ -21,8 +21,8 @@ import (
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/message_hasher"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -179,8 +179,10 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			[]int64{
 				int64(out.MsgSentEvent.Message.Header.SequenceNumber), //nolint:gosec // seqNr fits in int64
 			},
-			24*time.Hour,
-			true, // reExecuteIfFailed
+			24*time.Hour, // lookbackDurationMsgs
+			24*time.Hour, // lookbackDurationCommitReport
+			24*time.Hour, // stepDuration
+			true,         // reExecuteIfFailed
 		)
 		require.NoError(t, err)
 
@@ -247,10 +249,9 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		receiverProgram := state.SolChains[destChain].Receiver
 		receiver := receiverProgram.Bytes()
 		receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
-		receiverExternalExecutionConfigPDA, _, _ := solstate.FindExternalExecutionConfigPDA(receiverProgram)
+		receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
 
 		accounts := [][32]byte{
-			receiverProgram,
 			receiverExternalExecutionConfigPDA,
 			receiverTargetAccountPDA,
 			solana.SystemProgramID,

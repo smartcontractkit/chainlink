@@ -50,6 +50,12 @@ const (
 	ENVTESTTYPE         = "CCIP_V16_TEST_ENV"
 )
 
+type LogMessageToIgnore struct {
+	Msg    string
+	Reason string
+	Level  zapcore.Level
+}
+
 type TestConfigs struct {
 	Type      EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
 	CreateJob bool
@@ -59,21 +65,35 @@ type TestConfigs struct {
 	V1_5Cfg                    changeset.V1_5DeploymentConfig
 	Chains                     int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	SolChains                  int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	AptosChains                int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	ChainIDs                   []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	NumOfUsersPerChain         int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	Nodes                      int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	Bootstraps                 int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	IsUSDC                     bool
+	IsTokenPoolFactory         bool
 	IsUSDCAttestationMissing   bool
 	IsMultiCall3               bool
 	IsStaticLink               bool
 	OCRConfigOverride          func(v1_6.CCIPOCRParams) v1_6.CCIPOCRParams
 	RMNEnabled                 bool
 	NumOfRMNNodes              int
+	RMNConfDepth               int
 	LinkPrice                  *big.Int
 	WethPrice                  *big.Int
 	BlockTime                  time.Duration
-	CLNodeConfigOpts           []memory.ConfigOpt
+	// Test env related configs
+
+	// LogMessagesToIgnore are log messages emitted by the chainlink node that cause
+	// the test to auto-fail if they were logged.
+	// In some tests we don't want this to happen where a failure is expected, e.g
+	// we are purposely re-orging beyond finality.
+	LogMessagesToIgnore []LogMessageToIgnore
+
+	// ExtraConfigTomls contains the filenames of additional toml files to be loaded
+	// to potentially override default configs.
+	ExtraConfigTomls []string
+	CLNodeConfigOpts []memory.ConfigOpt
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -118,6 +138,18 @@ func DefaultTestConfigs() *TestConfigs {
 
 type TestOps func(testCfg *TestConfigs)
 
+func WithLogMessagesToIgnore(logMessages []LogMessageToIgnore) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.LogMessagesToIgnore = logMessages
+	}
+}
+
+func WithExtraConfigTomls(extraTomls []string) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.ExtraConfigTomls = extraTomls
+	}
+}
+
 func WithCLNodeConfigOpts(opts ...memory.ConfigOpt) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.CLNodeConfigOpts = opts
@@ -127,6 +159,12 @@ func WithCLNodeConfigOpts(opts ...memory.ConfigOpt) TestOps {
 func WithBlockTime(blockTime time.Duration) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.BlockTime = blockTime
+	}
+}
+
+func WithRMNConfDepth(depth int) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.RMNConfDepth = depth
 	}
 }
 
@@ -196,6 +234,12 @@ func WithUSDC() TestOps {
 	}
 }
 
+func WithTokenPoolFactory() TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.IsTokenPoolFactory = true
+	}
+}
+
 func WithNumOfChains(numChains int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.Chains = numChains
@@ -205,6 +249,12 @@ func WithNumOfChains(numChains int) TestOps {
 func WithSolChains(numChains int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.SolChains = numChains
+	}
+}
+
+func WithAptosChains(numChains int) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.AptosChains = numChains
 	}
 }
 
@@ -268,10 +318,11 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 
 type MemoryEnvironment struct {
 	DeployedEnv
-	nodes      map[string]memory.Node
-	TestConfig *TestConfigs
-	Chains     map[uint64]deployment.Chain
-	SolChains  map[uint64]deployment.SolChain
+	nodes       map[string]memory.Node
+	TestConfig  *TestConfigs
+	Chains      map[uint64]deployment.Chain
+	SolChains   map[uint64]deployment.SolChain
+	AptosChains map[uint64]deployment.AptosChain
 }
 
 func (m *MemoryEnvironment) TestConfigs() *TestConfigs {
@@ -308,9 +359,11 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 
 	m.Chains = chains
 	m.SolChains = memory.NewMemoryChainsSol(t, tc.SolChains)
+	m.AptosChains = memory.NewMemoryChainsAptos(t, tc.AptosChains)
 	env := deployment.Environment{
-		Chains:    m.Chains,
-		SolChains: m.SolChains,
+		Chains:      m.Chains,
+		SolChains:   m.SolChains,
+		AptosChains: m.AptosChains,
 	}
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, env)
@@ -328,7 +381,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	require.NotNil(t, m.Chains, "start chains first, chains are empty")
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
 	tc := m.TestConfig
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, m.SolChains, tc.Nodes, tc.Bootstraps, crConfig, tc.CLNodeConfigOpts...)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, m.SolChains, m.AptosChains, tc.Nodes, tc.Bootstraps, crConfig, nil, tc.CLNodeConfigOpts...)
 	ctx := testcontext.Get(t)
 	lggr := logger.Test(t)
 	for _, node := range nodes {
@@ -338,7 +391,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 		})
 	}
 	m.nodes = nodes
-	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, nodes)
+	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, m.AptosChains, nodes)
 }
 
 func (m *MemoryEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
@@ -449,6 +502,9 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	for _, chain := range evmChains {
 		var opts []changeset.PrerequisiteOpt
 		if tc != nil {
+			if tc.IsTokenPoolFactory {
+				opts = append(opts, changeset.WithTokenPoolFactoryEnabled())
+			}
 			if tc.IsUSDC {
 				opts = append(opts, changeset.WithUSDCEnabled())
 			}
@@ -513,8 +569,10 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	e := NewEnvironmentWithPrerequisitesContracts(t, tEnv)
 	evmChains := e.Env.AllChainSelectors()
 	solChains := e.Env.AllChainSelectorsSolana()
+	aptosChains := e.Env.AllChainSelectorsAptos()
 	//nolint:gocritic // we need to segregate EVM and Solana chains
 	allChains := append(evmChains, solChains...)
+	allChains = append(allChains, aptosChains...)
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 
 	for _, c := range e.Env.AllChainSelectors() {
@@ -731,9 +789,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
-				OptimisticConfirmations: globals.OptimisticConfirmations,
+				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations:   globals.OptimisticConfirmations,
+				ChainFeeDeviationDisabled: false,
 			},
 		}
 	}
@@ -753,9 +812,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			// #nosec G115 - Overflow is not a concern in this test scenario
 			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
-				OptimisticConfirmations: globals.OptimisticConfirmations,
+				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations:   globals.OptimisticConfirmations,
+				ChainFeeDeviationDisabled: true,
 			},
 		}
 	}
@@ -870,7 +930,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 		require.NotNil(t, state.Chains[chain].Weth9)
 		require.NotNil(t, state.Chains[chain].TokenAdminRegistry)
-		require.NotNil(t, state.Chains[chain].RegistryModule)
+		require.NotEmpty(t, state.Chains[chain].RegistryModules1_6)
 		require.NotNil(t, state.Chains[chain].Router)
 		require.NotNil(t, state.Chains[chain].RMNRemote)
 		require.NotNil(t, state.Chains[chain].TestRouter)

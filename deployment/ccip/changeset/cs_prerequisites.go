@@ -12,21 +12,24 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
-	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/price_registry"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -58,9 +61,10 @@ func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequi
 }
 
 type DeployPrerequisiteContractsOpts struct {
-	USDCEnabled         bool
-	Multicall3Enabled   bool
-	LegacyDeploymentCfg *V1_5DeploymentConfig
+	USDCEnabled             bool
+	Multicall3Enabled       bool
+	TokenPoolFactoryEnabled bool
+	LegacyDeploymentCfg     *V1_5DeploymentConfig
 }
 
 type V1_5DeploymentConfig struct {
@@ -90,6 +94,12 @@ func (c DeployPrerequisiteConfig) Validate() error {
 }
 
 type PrerequisiteOpt func(o *DeployPrerequisiteContractsOpts)
+
+func WithTokenPoolFactoryEnabled() PrerequisiteOpt {
+	return func(o *DeployPrerequisiteContractsOpts) {
+		o.TokenPoolFactoryEnabled = true
+	}
+}
 
 func WithUSDCEnabled() PrerequisiteOpt {
 	return func(o *DeployPrerequisiteContractsOpts) {
@@ -147,14 +157,18 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	chainState, chainExists := state.Chains[chain.Selector]
 	var weth9Contract *weth9.WETH9
 	var tokenAdminReg *token_admin_registry.TokenAdminRegistry
-	var registryModule *registry_module_owner_custom.RegistryModuleOwnerCustom
+	var tokenPoolFactory *token_pool_factory.TokenPoolFactory
+	var factoryBurnMintERC20 *factory_burn_mint_erc20.FactoryBurnMintERC20
+	var registryModules []*registry_module_owner_custom.RegistryModuleOwnerCustom
 	var rmnProxy *rmn_proxy_contract.RMNProxy
 	var r *router.Router
 	var mc3 *multicall3.Multicall3
 	if chainExists {
 		weth9Contract = chainState.Weth9
 		tokenAdminReg = chainState.TokenAdminRegistry
-		registryModule = chainState.RegistryModule
+		tokenPoolFactory = chainState.TokenPoolFactory
+		factoryBurnMintERC20 = chainState.FactoryBurnMintERC20Token
+		registryModules = chainState.RegistryModules1_6
 		rmnProxy = chainState.RMNProxy
 		r = chainState.Router
 		mc3 = chainState.Multicall3
@@ -277,7 +291,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	} else {
 		e.Logger.Infow("tokenAdminRegistry already deployed", "chain", chain.String(), "addr", tokenAdminReg.Address)
 	}
-	if registryModule == nil {
+	if len(registryModules) == 0 {
 		customRegistryModule, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
 				regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
@@ -285,36 +299,44 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.Client,
 					tokenAdminReg.Address())
 				return deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
-					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), Err: err2,
+					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
 			e.Logger.Errorw("Failed to deploy custom registry module", "chain", chain.String(), "err", err)
 			return err
 		}
-		registryModule = customRegistryModule.Contract
+		registryModules = append(registryModules, customRegistryModule.Contract)
+		e.Logger.Infow("deployed custom registry module", "chain", chain.String(), "addr", customRegistryModule.Address)
 	} else {
-		e.Logger.Infow("custom registry module already deployed", "chain", chain.String(), "addr", registryModule.Address)
-	}
-	isRegistryAdded, err := tokenAdminReg.IsRegistryModule(nil, registryModule.Address())
-	if err != nil {
-		e.Logger.Errorw("Failed to check if registry module is added on token admin registry", "chain", chain.String(), "err", err)
-		return fmt.Errorf("failed to check if registry module is added on token admin registry: %w", err)
-	}
-	if !isRegistryAdded {
-		tx, err := tokenAdminReg.AddRegistryModule(chain.DeployerKey, registryModule.Address())
-		if err != nil {
-			e.Logger.Errorw("Failed to assign registry module on token admin registry", "chain", chain.String(), "err", err)
-			return fmt.Errorf("failed to assign registry module on token admin registry: %w", err)
+		regAddresses := make([]common.Address, len(registryModules))
+		for _, reg := range registryModules {
+			regAddresses = append(regAddresses, reg.Address())
 		}
+		e.Logger.Infow("custom registry module already deployed", "chain", chain.String(), "addr", regAddresses)
+	}
+	for _, reg := range registryModules {
+		isRegistryAdded, err := tokenAdminReg.IsRegistryModule(nil, reg.Address())
+		if err != nil {
+			e.Logger.Errorw("Failed to check if registry module is added on token admin registry", "chain", chain.String(), "err", err)
+			return fmt.Errorf("failed to check if registry module is added on token admin registry: %w", err)
+		}
+		if !isRegistryAdded {
+			tx, err := tokenAdminReg.AddRegistryModule(chain.DeployerKey, reg.Address())
+			if err != nil {
+				e.Logger.Errorw("Failed to assign registry module on token admin registry", "chain", chain.String(), "err", err)
+				return fmt.Errorf("failed to assign registry module on token admin registry: %w", err)
+			}
 
-		_, err = chain.Confirm(tx)
-		if err != nil {
-			e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "chain", chain.String(), "err", err)
-			return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
+			_, err = chain.Confirm(tx)
+			if err != nil {
+				e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "chain", chain.String(), "err", err)
+				return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
+			}
+			e.Logger.Infow("assigned registry module on token admin registry")
 		}
-		e.Logger.Infow("assigned registry module on token admin registry")
 	}
+
 	if weth9Contract == nil {
 		weth, err := deployment.DeployContract(lggr, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*weth9.WETH9] {
@@ -358,6 +380,61 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		r = routerContract.Contract
 	} else {
 		e.Logger.Infow("router already deployed", "chain", chain.String(), "addr", chainState.Router.Address)
+	}
+	if deployOpts.TokenPoolFactoryEnabled {
+		if tokenPoolFactory == nil {
+			_, err := deployment.DeployContract(e.Logger, chain, ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
+					tpfAddr, tx2, contract, err2 := token_pool_factory.DeployTokenPoolFactory(
+						chain.DeployerKey,
+						chain.Client,
+						tokenAdminReg.Address(),
+						// There will always be at least one registry module deployed at this point.
+						// We just use the first one here. If a different RegistryModule is desired,
+						// users can run DeployTokenPoolFactoryChangeset with the desired address.
+						registryModules[0].Address(),
+						rmnProxy.Address(),
+						r.Address(),
+					)
+					return deployment.ContractDeploy[*token_pool_factory.TokenPoolFactory]{
+						Address: tpfAddr, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(TokenPoolFactory, deployment.Version1_5_1), Err: err2,
+					}
+				},
+			)
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy token pool factory", "chain", chain.String(), "err", err)
+				return err
+			}
+		} else {
+			e.Logger.Infow("Token pool factory already deployed", "chain", chain.String(), "addr", tokenPoolFactory.Address)
+		}
+		// FactoryBurnMintERC20 is a contract that gets deployed by the TokenPoolFactory.
+		// We deploy it here so that we can verify it. All subsequent user deployments would then be verified.
+		if factoryBurnMintERC20 == nil {
+			_, err := deployment.DeployContract(e.Logger, chain, ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20] {
+					factoryBurnMintERC20Addr, tx2, contract, err2 := factory_burn_mint_erc20.DeployFactoryBurnMintERC20(
+						chain.DeployerKey,
+						chain.Client,
+						string(FactoryBurnMintERC20Symbol),
+						string(FactoryBurnMintERC20Symbol),
+						18,
+						big.NewInt(0),
+						big.NewInt(0),
+						chain.DeployerKey.From,
+					)
+					return deployment.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20]{
+						Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(FactoryBurnMintERC20Token, deployment.Version1_0_0), Err: err2,
+					}
+				},
+			)
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy factory burn mint erc20", "chain", chain.String(), "err", err)
+				return err
+			}
+		} else {
+			e.Logger.Infow("factory burn mint erc20 already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
+		}
 	}
 	if deployOpts.Multicall3Enabled && mc3 == nil {
 		_, err := deployment.DeployContract(e.Logger, chain, ab,

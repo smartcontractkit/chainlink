@@ -14,6 +14,7 @@ deployment/
 integration/
 integration-scripts/
 integration-tests/
+system-tests/
 
 tools/gethnet/datadir/geth
 tools/clroot/db.bolt

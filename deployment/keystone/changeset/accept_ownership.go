@@ -44,5 +44,5 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnersh
 	}
 
 	// Create and return the changeset
-	return changeset.TransferToMCMSWithTimelock(e, cfg)
+	return changeset.TransferToMCMSWithTimelockV2(e, cfg)
 }

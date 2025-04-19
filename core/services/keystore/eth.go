@@ -9,12 +9,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	evmkeystore "github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -41,7 +40,6 @@ type Eth interface {
 	GetState(ctx context.Context, id string, chainID *big.Int) (ethkey.State, error)
 	GetStatesForKeys(ctx context.Context, keys []ethkey.KeyV2) ([]ethkey.State, error)
 	GetStateForKey(ctx context.Context, key ethkey.KeyV2) (ethkey.State, error)
-	GetStatesForChain(ctx context.Context, chainID *big.Int) ([]ethkey.State, error)
 	EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (addresses []common.Address, err error)
 	GetResourceMutex(ctx context.Context, address common.Address) *evmkeystore.Mutex
 
@@ -80,7 +78,7 @@ func (e *EthSigner) Sign(ctx context.Context, account string, data []byte) (sign
 	if data == nil {
 		return nil, nil
 	}
-	return crypto.Sign(data, k.ToEcdsaPrivKey())
+	return k.Sign(data)
 }
 
 type eth struct {
@@ -473,20 +471,6 @@ func (ks *eth) GetStateForKey(ctx context.Context, key ethkey.KeyV2) (state ethk
 	err = fmt.Errorf("no state found for key with id %s", key.ID())
 	return
 }
-
-func (ks *eth) GetStatesForChain(ctx context.Context, chainID *big.Int) (states []ethkey.State, err error) {
-	ks.lock.RLock()
-	defer ks.lock.RUnlock()
-	if ks.isLocked() {
-		return nil, ErrLocked
-	}
-	for _, s := range ks.keyStates.ChainIDKeyID[chainID.String()] {
-		states = append(states, *s)
-	}
-	sort.Slice(states, func(i, j int) bool { return states[i].KeyID() < states[j].KeyID() })
-	return
-}
-
 func (ks *eth) EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (addresses []common.Address, err error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
