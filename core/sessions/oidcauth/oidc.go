@@ -25,12 +25,12 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/ulule/limiter/v3"
 	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"golang.org/x/oauth2"
-	"github.com/gin-contrib/sessions"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
@@ -52,7 +52,7 @@ const (
 var ErrUserNoOIDCGroups = errors.New("user claims response from identity server recieved, but no matching role group names in claim")
 
 type oidcAuthenticator struct {
-	ds              sqlutil.DataSource
+	ds           sqlutil.DataSource
 	config       config.OIDC
 	provider     *oidc.Provider
 	oidcConfig   *oidc.Config
@@ -126,13 +126,13 @@ func NewOIDCAuthenticator(
 	// Create a new, separate gin engine to register and listen for the OIDC callback request containing
 	// the user claims and groups, set up ratelimitter
 	// go func() {
-		// oidcCallbackEngine := gin.New()
-		// api := oidcCallbackEngine.Group("/", rateLimiter(RouterRateLimitterPeriod, RouterRateLimitterLimit))
-		// api.GET("/auth/oidc-login", ginHandlerFromHTTP(oidcAuth.handleLoginProviderRedirect))
-		// api.GET(oidcCfg.OIDCCallbackURLSuffix(), ginHandlerFromHTTP(oidcAuth.handleOIDCCallback))
-		//
-		// lggr.Infof("Initialized OIDC HTTP router and routes on %d", fmt.Sprintf("%d", oidcCfg.HTTPPort()))
-		// oidcCallbackEngine.Run(":" + fmt.Sprintf("%d", oidcCfg.HTTPPort()))
+	// oidcCallbackEngine := gin.New()
+	// api := oidcCallbackEngine.Group("/", rateLimiter(RouterRateLimitterPeriod, RouterRateLimitterLimit))
+	// api.GET("/auth/oidc-login", ginHandlerFromHTTP(oidcAuth.handleLoginProviderRedirect))
+	// api.GET(oidcCfg.OIDCCallbackURLSuffix(), ginHandlerFromHTTP(oidcAuth.handleOIDCCallback))
+	//
+	// lggr.Infof("Initialized OIDC HTTP router and routes on %d", fmt.Sprintf("%d", oidcCfg.HTTPPort()))
+	// oidcCallbackEngine.Run(":" + fmt.Sprintf("%d", oidcCfg.HTTPPort()))
 	// }()
 
 	return &oidcAuth, nil
@@ -233,27 +233,24 @@ func (oi *oidcAuthenticator) handleOIDCCallback(c *gin.Context) {
 	// w.Header().Set("Content-Type", "application/json")
 	// w.WriteHeader(http.StatusOK)
 
-	sesh := sessions.Default(c) 
+	sesh := sessions.Default(c)
+	fmt.Printf("%#v %#v %#v", sesh, webauth.SessionIDKey, session.ID)
 	sesh.Set(webauth.SessionIDKey, session.ID)
-	c.SetCookie(
-		"clsession", // name
-		session.ID,
-		3600, // maxAge (in seconds)
-		"/", // path
-		"localhost", // domain
-		false, // secure
-		true, // httpOnly
-	)
+	err = sesh.Save()
+	if err != nil {
+		fmt.Printf("%#v\n", err)
+	}
 	c.Redirect(http.StatusFound, "/")
 }
 
 // FindUser in the context of the OIDC driver only supports local admin users
 func (oi *oidcAuthenticator) FindUser(ctx context.Context, email string) (clsessions.User, error) {
 	email = strings.ToLower(email)
+	fmt.Printf("%#v\n", email)
 	foundUser := clsessions.User{}
 
 	var foundLocalAdminUser clsessions.User
-		checkErr := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
+	checkErr := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
 		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
 		return tx.GetContext(ctx, &foundLocalAdminUser, sql, email)
 	})
@@ -319,8 +316,7 @@ func (oi *oidcAuthenticator) ListUsers(ctx context.Context) ([]clsessions.User, 
 	if err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
 		sql := "SELECT * FROM users ORDER BY email ASC;"
 		return tx.SelectContext(ctx, &returnUsers, sql)
-	})
-	 err != nil {
+	}); err != nil {
 		oi.lggr.Errorf("error listing local users: ", err)
 	}
 	return returnUsers, nil
@@ -434,11 +430,10 @@ func (oi *oidcAuthenticator) UpdateRole(ctx context.Context, email string, newRo
 func (oi *oidcAuthenticator) SetPassword(ctx context.Context, user *clsessions.User, newPassword string) error {
 	// Ensure specified user is part of the local admins user table
 	var localAdminUser clsessions.User
-	if err := sqlutil.TransactDataSource(ctx, oi.ds, nil,func(tx sqlutil.DataSource) error {
+	if err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
 		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
 		return tx.GetContext(ctx, &localAdminUser, sql, user.Email)
-	});
-	err != nil {
+	}); err != nil {
 		oi.lggr.Infof("Can not change password, local user with email not found in users table: %s, err: %v", user.Email, err)
 		return clsessions.ErrNotSupported
 	}
@@ -451,8 +446,7 @@ func (oi *oidcAuthenticator) SetPassword(ctx context.Context, user *clsessions.U
 	if err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
 		sql := "UPDATE users SET hashed_password = $1, updated_at = now() WHERE email = $2 RETURNING *"
 		return tx.GetContext(ctx, user, sql, hashedPassword, user.Email)
-	});
-	 err != nil {
+	}); err != nil {
 		oi.lggr.Errorf("unable to set password for user: %s, err: %v", user.Email, err)
 		return errors.New("unable to save password")
 	}
@@ -626,9 +620,9 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 	return mgin.NewMiddleware(limiter.New(store, rate))
 }
 
-// TODO: add context 
-func (oidc *oidcAuthenticator) ExtendRouter(engine *gin.Engine) error {
-	auth := engine.Group("/auth");
+// TODO: add context
+func (oidc *oidcAuthenticator) ExtendRouter(r *gin.RouterGroup) error {
+	auth := r.Group("/auth")
 	auth.GET("/oidc-login", ginHandlerFromHTTP(oidc.handleLoginProviderRedirect))
 	auth.GET(oidc.config.OIDCCallbackURLSuffix(), oidc.handleOIDCCallback)
 	oidc.lggr.Infof("OIDC suffix", oidc.config.OIDCCallbackURLSuffix())

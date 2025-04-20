@@ -99,7 +99,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		graphqlHandler(app),
 	)
 
-	app.AuthenticationProvider().ExtendRouter(engine)
+	app.AuthenticationProvider().ExtendRouter(api)
 
 	return engine, nil
 }

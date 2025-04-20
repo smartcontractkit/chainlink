@@ -818,6 +818,6 @@ func constantTimeEmailCompare(left, right string) bool {
 	return subtle.ConstantTimeCompare(leftBytes, rightBytes) == 1
 }
 
-func (a *ldapAuthenticator) ExtendRouter(engine *gin.Engine) error {
+func (a *ldapAuthenticator) ExtendRouter(r *gin.RouterGroup) error {
 	return nil
 }

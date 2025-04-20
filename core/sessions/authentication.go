@@ -60,7 +60,7 @@ type AuthenticationProvider interface {
 	Sessions(ctx context.Context, offset, limit int) ([]Session, error)
 	GetUserWebAuthn(ctx context.Context, email string) ([]WebAuthn, error)
 	SaveWebAuthn(ctx context.Context, token *WebAuthn) error
-	ExtendRouter(engine *gin.Engine) error
+	ExtendRouter(r *gin.RouterGroup) error
 
 	FindExternalInitiator(ctx context.Context, eia *auth.Token) (initiator *bridges.ExternalInitiator, err error)
 }
