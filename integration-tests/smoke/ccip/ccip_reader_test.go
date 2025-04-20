@@ -1185,57 +1185,106 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 
 func Test_GetChainFeePriceUpdates(t *testing.T) {
 	t.Parallel()
-	ctx := tests.Context(t)
-	env, _ := testhelpers.NewMemoryEnvironment(t)
+	env, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
 	selectors := env.Env.AllChainSelectors()
-	chain1, chain2 := selectors[0], selectors[1]
+	dest, source1, source2 := selectors[0], selectors[1], selectors[2]
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false)
+	// Setup: Add lanes and default configs (This sets default prices)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, source1, dest, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, source2, dest, false)
 
-	// Change the gas price for chain2
-	feeQuoter := state.Chains[chain1].FeeQuoter
-	_, err = feeQuoter.UpdatePrices(
-		env.Env.Chains[chain1].DeployerKey, fee_quoter.InternalPriceUpdates{
+	// Setup: Explicitly change the gas prices for source1 and source2 on dest's FeeQuoter
+	feeQuoterDest := state.Chains[dest].FeeQuoter
+	source1GasPrice := big.NewInt(987654321) // Use a distinct value for source1
+	source2GasPrice := big.NewInt(123456789) // Use a distinct value for source2
+	_, err = feeQuoterDest.UpdatePrices(
+		env.Env.Chains[dest].DeployerKey, fee_quoter.InternalPriceUpdates{
 			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
 				{
-					DestChainSelector: chain2,
-					UsdPerUnitGas:     defaultGasPrice.ToInt(),
+					DestChainSelector: source1, // Corresponds to sending message *to* source1
+					UsdPerUnitGas:     source1GasPrice,
+				},
+				{
+					DestChainSelector: source2, // Corresponds to sending message *to* source2
+					UsdPerUnitGas:     source2GasPrice,
 				},
 			},
 		},
 	)
 	require.NoError(t, err)
-	be := env.Env.Chains[chain1].Client.(*memory.Backend)
+	be := env.Env.Chains[dest].Client.(*memory.Backend)
 	be.Commit()
 
-	gas, err := feeQuoter.GetDestinationChainGasPrice(&bind.CallOpts{}, chain2)
+	// Verify the updates took effect on-chain (optional sanity check)
+	gas1, err := feeQuoterDest.GetDestinationChainGasPrice(&bind.CallOpts{}, source1)
 	require.NoError(t, err)
-	require.Equal(t, defaultGasPrice.ToInt(), gas.Value)
+	require.Equal(t, source1GasPrice, gas1.Value)
+	gas2, err := feeQuoterDest.GetDestinationChainGasPrice(&bind.CallOpts{}, source2)
+	require.NoError(t, err)
+	require.Equal(t, source2GasPrice, gas2.Value)
 
+	// Setup: Create the reader instance configured for dest (destination)
+	// Note: The testSetupRealContracts binds the FeeQuoter contract for the *destination* chain (dest here)
 	reader := testSetupRealContracts(
-		ctx,
+		t.Context(),
 		t,
-		chain1,
+		dest, // Reader is configured for dest
 		map[cciptypes.ChainSelector][]types.BoundContract{
-			cciptypes.ChainSelector(chain1): {
+			cciptypes.ChainSelector(dest): { // Binding for the reader's chain (dest)
 				{
-					Address: state.Chains[chain1].FeeQuoter.Address().String(),
+					Address: state.Chains[dest].FeeQuoter.Address().String(),
 					Name:    consts.ContractNameFeeQuoter,
 				},
 			},
+			// Note: No bindings needed for source chains (source1, source2) for this specific reader function
 		},
 		nil,
 		env,
 	)
 
-	updates := reader.GetChainFeePriceUpdate(ctx, []cciptypes.ChainSelector{cs(chain1), cs(chain2)})
-	// only chain1 has a bound contract
-	require.Len(t, updates, 1)
-	require.Equal(t, defaultGasPrice.ToInt(), updates[cs(chain2)].Value.Int)
+	t.Run("happy path - fetch prices for multiple source chains", func(t *testing.T) {
+		// Act: Query for both source chains
+		updates := reader.GetChainFeePriceUpdate(t.Context(), []cciptypes.ChainSelector{cs(source1), cs(source2)})
+
+		// Assert: Expect updates for both source1 and source2
+		require.Len(t, updates, 2, "Should get updates for both source chains")
+
+		// Check source1 price (should be the explicitly set value)
+		require.Contains(t, updates, cs(source1))
+		assert.NotNil(t, updates[cs(source1)].Value)
+		assert.Equal(t, 0, updates[cs(source1)].Value.Cmp(source1GasPrice), "Source1 price mismatch")
+		assert.NotZero(t, updates[cs(source1)].Timestamp, "Source1 timestamp should be non-zero")
+
+		// Check source2 price (should be the explicitly set value)
+		require.Contains(t, updates, cs(source2))
+		assert.NotNil(t, updates[cs(source2)].Value)
+		assert.Equal(t, 0, updates[cs(source2)].Value.Cmp(source2GasPrice), "Source2 price mismatch")
+		assert.NotZero(t, updates[cs(source2)].Timestamp, "Source2 timestamp should be non-zero")
+	})
+
+	t.Run("query non-existent chain", func(t *testing.T) {
+		nonExistentChain := cciptypes.ChainSelector(99999)
+		// Act: Query for existing (source1, source2) and non-existent chains. Also query for dest itself.
+		updates := reader.GetChainFeePriceUpdate(t.Context(), []cciptypes.ChainSelector{cs(dest), cs(source1), cs(source2), nonExistentChain})
+
+		// Assert: Expect updates only for source1 and source2.
+		require.Len(t, updates, 2, "Should only get updates for source1 and source2")
+		require.NotContains(t, updates, cs(dest)) // Dest itself shouldn't have an entry
+		require.Contains(t, updates, cs(source1))
+		require.Contains(t, updates, cs(source2))
+		require.NotContains(t, updates, nonExistentChain)
+	})
+
+	t.Run("query empty selectors", func(t *testing.T) {
+		// Act: Query with an empty slice
+		updates := reader.GetChainFeePriceUpdate(t.Context(), []cciptypes.ChainSelector{})
+
+		// Assert: Expect an empty map
+		require.Empty(t, updates)
+	})
 }
 
 func Test_LinkPriceUSD(t *testing.T) {
