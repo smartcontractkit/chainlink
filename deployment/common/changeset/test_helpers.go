@@ -76,16 +76,19 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			addresses = currentEnv.ExistingAddresses
 		}
 
+		// Collect expected DataStore state after changeset is applied
 		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
 		if out.DataStore != nil {
 			ds1 := datastore.NewMemoryDataStore[
 				datastore.DefaultMetadata,
 				datastore.DefaultMetadata,
 			]()
+			// New Addresses
 			err := ds1.Merge(out.DataStore.Seal())
 			if err != nil {
 				return e, fmt.Errorf("failed to merge new addresses into datastore: %w", err)
 			}
+			// Existing Addresses
 			err = ds1.Merge(currentEnv.DataStore)
 			if err != nil {
 				return e, fmt.Errorf("failed to merge current addresses into datastore: %w", err)
@@ -180,16 +183,19 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 			addresses = currentEnv.ExistingAddresses
 		}
 
+		// Collect expected DataStore state after changeset is applied
 		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
 		if out.DataStore != nil {
 			ds1 := datastore.NewMemoryDataStore[
 				datastore.DefaultMetadata,
 				datastore.DefaultMetadata,
 			]()
+			// New Addresses
 			err := ds1.Merge(out.DataStore.Seal())
 			if err != nil {
 				return e, nil, fmt.Errorf("failed to merge new addresses into datastore: %w", err)
 			}
+			// Existing Addresses
 			err = ds1.Merge(currentEnv.DataStore)
 			if err != nil {
 				return e, nil, fmt.Errorf("failed to merge current addresses into datastore: %w", err)
