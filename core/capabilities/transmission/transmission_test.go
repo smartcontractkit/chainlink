@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	types2 "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -98,5 +99,58 @@ func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
 			assert.Equal(t, tc.expectedDelays["three"], peerIdToDelay[peer3])
 			assert.Equal(t, tc.expectedDelays["four"], peerIdToDelay[peer4])
 		})
+	}
+}
+
+func TestGetPeerIDToTransmissionDelaysForConfig_ConsistentSchedule(t *testing.T) {
+	// Create test peer IDs
+	peerIDs := make([]types2.PeerID, 5)
+	reversedPeerIDs := make([]types2.PeerID, 5)
+	for i := range peerIDs {
+		peerIDs[i] = [32]byte{byte(i)}
+		reversedPeerIDs[len(peerIDs)-1-i] = peerIDs[i]
+	}
+
+	// Test configuration
+	transmissionID := "test-transmission"
+	config := TransmissionConfig{
+		Schedule:   Schedule_OneAtATime,
+		DeltaStage: 1 * time.Second,
+	}
+
+	// Get first schedule
+	schedule1, err := GetPeerIDToTransmissionDelaysForConfig(peerIDs, transmissionID, config)
+	require.NoError(t, err)
+
+	// Get second schedule with same inputs
+	schedule2, err := GetPeerIDToTransmissionDelaysForConfig(peerIDs, transmissionID, config)
+	require.NoError(t, err)
+
+	// Verify each peer has the same delay in both schedules
+	for peerID, delay1 := range schedule1 {
+		delay2, exists := schedule2[peerID]
+		require.True(t, exists, "peer %v should exist in both schedules", peerID)
+		require.Equal(t, delay1, delay2, "peer %v should have same delay in both schedules", peerID)
+	}
+
+	// Verify the order of delays is consistent
+	delays1 := make([]time.Duration, 0, len(schedule1))
+	delays2 := make([]time.Duration, 0, len(schedule2))
+	for _, peerID := range peerIDs {
+		delays1 = append(delays1, schedule1[peerID])
+		delays2 = append(delays2, schedule2[peerID])
+	}
+	require.Equal(t, delays1, delays2, "delays should be in same order in both schedules")
+
+	// Verify with different transmission ID
+	differentSchedule, err := GetPeerIDToTransmissionDelaysForConfig(peerIDs, "different-transmission", config)
+	require.NoError(t, err)
+	require.NotEqual(t, schedule1, differentSchedule, "different transmission ID should produce different schedule")
+
+	// Verify with different peer order
+	reversedSchedule, err := GetPeerIDToTransmissionDelaysForConfig(reversedPeerIDs, transmissionID, config)
+	require.NoError(t, err)
+	for i := range peerIDs {
+		require.Equal(t, schedule1[[32]byte{byte(i)}], reversedSchedule[[32]byte{byte(i)}], "peer order should not affect schedule")
 	}
 }

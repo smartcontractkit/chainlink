@@ -2,6 +2,8 @@ package transmission
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/smartcontractkit/libocr/permutation"
@@ -82,8 +84,15 @@ func GetPeerIDToTransmissionDelaysForConfig(donPeerIDs []types.PeerID, transmiss
 
 	picked := permutation.Permutation(donMemberCount, key)
 
+	// Sort PeerIDs lexicographically
+	sortedPeerIDs := make([]types.PeerID, len(donPeerIDs))
+	copy(sortedPeerIDs, donPeerIDs)
+	slices.SortFunc(sortedPeerIDs, func(a, b types.PeerID) int {
+		return strings.Compare(a.String(), b.String())
+	})
+
 	peerIDToTransmissionDelay := map[types.PeerID]time.Duration{}
-	for i, peerID := range donPeerIDs {
+	for i, peerID := range sortedPeerIDs {
 		delay := delayFor(i, schedule, picked, tc.DeltaStage)
 		if delay != nil {
 			peerIDToTransmissionDelay[peerID] = *delay
