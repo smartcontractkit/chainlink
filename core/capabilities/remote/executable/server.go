@@ -122,13 +122,13 @@ func (r *server) Start(ctx context.Context) error {
 
 func (r *server) Close() error {
 	return r.StopOnce(r.Name(), func() error {
-		err := r.parallelExecutor.Close()
-		if err != nil {
-			return fmt.Errorf("failed to close parallel executor: %w", err)
-		}
-
+		parallelExecutorErr := r.parallelExecutor.Close()
 		close(r.stopCh)
 		r.wg.Wait()
+		if parallelExecutorErr != nil {
+			return fmt.Errorf("failed to close parallel executor: %w", parallelExecutorErr)
+		}
+
 		r.lggr.Info("executable capability server closed")
 		return nil
 	})
