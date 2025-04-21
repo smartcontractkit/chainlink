@@ -12,21 +12,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-var _ fmt.GoStringer = &Key{}
-
 // Key represents Aptos key
 type Key struct {
 	// TODO: store initial Account() derivation to support key rotation
-	privkey ed25519.PrivateKey
-	pubKey  ed25519.PublicKey
+	raw    internal.Raw
+	signFn func(io.Reader, []byte, crypto.SignerOpts) ([]byte, error)
+	pubKey ed25519.PublicKey
 }
 
 func KeyFor(raw internal.Raw) Key {
-	privKey := ed25519.NewKeyFromSeed(raw.Bytes())
+	privKey := ed25519.NewKeyFromSeed(internal.Bytes(raw))
 	pubKey := privKey.Public().(ed25519.PublicKey)
 	return Key{
-		privkey: privKey,
-		pubKey:  pubKey,
+		raw:    raw,
+		signFn: privKey.Sign,
+		pubKey: pubKey,
 	}
 }
 
@@ -51,8 +51,9 @@ func newFrom(reader io.Reader) (Key, error) {
 		return Key{}, err
 	}
 	return Key{
-		privkey: priv,
-		pubKey:  pub,
+		raw:    internal.NewRaw(priv.Seed()),
+		signFn: priv.Sign,
+		pubKey: pub,
 	}, nil
 }
 
@@ -78,21 +79,9 @@ func (key Key) PublicKeyStr() string {
 }
 
 // Raw returns the seed from private key
-func (key Key) Raw() internal.Raw {
-	return internal.NewRaw(key.privkey.Seed())
-}
-
-// String is the print-friendly format of the Key
-func (key Key) String() string {
-	return fmt.Sprintf("AptosKey{PrivateKey: <redacted>, Public Key: %s}", key.PublicKeyStr())
-}
-
-// GoString wraps String()
-func (key Key) GoString() string {
-	return key.String()
-}
+func (key Key) Raw() internal.Raw { return key.raw }
 
 // Sign is used to sign a message
 func (key Key) Sign(msg []byte) ([]byte, error) {
-	return key.privkey.Sign(crypto_rand.Reader, msg, crypto.Hash(0)) // no specific hash function used
+	return key.signFn(crypto_rand.Reader, msg, crypto.Hash(0)) // no specific hash function used
 }

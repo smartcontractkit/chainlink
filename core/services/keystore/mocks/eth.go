@@ -940,65 +940,6 @@ func (_c *Eth_GetStateForKey_Call) RunAndReturn(run func(context.Context, ethkey
 	return _c
 }
 
-// GetStatesForChain provides a mock function with given fields: ctx, chainID
-func (_m *Eth) GetStatesForChain(ctx context.Context, chainID *big.Int) ([]ethkey.State, error) {
-	ret := _m.Called(ctx, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetStatesForChain")
-	}
-
-	var r0 []ethkey.State
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]ethkey.State, error)); ok {
-		return rf(ctx, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []ethkey.State); ok {
-		r0 = rf(ctx, chainID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]ethkey.State)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
-		r1 = rf(ctx, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Eth_GetStatesForChain_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetStatesForChain'
-type Eth_GetStatesForChain_Call struct {
-	*mock.Call
-}
-
-// GetStatesForChain is a helper method to define mock.On call
-//   - ctx context.Context
-//   - chainID *big.Int
-func (_e *Eth_Expecter) GetStatesForChain(ctx interface{}, chainID interface{}) *Eth_GetStatesForChain_Call {
-	return &Eth_GetStatesForChain_Call{Call: _e.mock.On("GetStatesForChain", ctx, chainID)}
-}
-
-func (_c *Eth_GetStatesForChain_Call) Run(run func(ctx context.Context, chainID *big.Int)) *Eth_GetStatesForChain_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*big.Int))
-	})
-	return _c
-}
-
-func (_c *Eth_GetStatesForChain_Call) Return(_a0 []ethkey.State, _a1 error) *Eth_GetStatesForChain_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *Eth_GetStatesForChain_Call) RunAndReturn(run func(context.Context, *big.Int) ([]ethkey.State, error)) *Eth_GetStatesForChain_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // GetStatesForKeys provides a mock function with given fields: ctx, _a1
 func (_m *Eth) GetStatesForKeys(ctx context.Context, _a1 []ethkey.KeyV2) ([]ethkey.State, error) {
 	ret := _m.Called(ctx, _a1)

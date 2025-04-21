@@ -41,6 +41,10 @@ func (d defaultName) String() string {
 	return d.name
 }
 
+func NewNamer(name string) WorkflowNamer {
+	return defaultName{name: name}
+}
+
 // workflow is a directed graph of nodes, where each node is a step.
 //
 // triggers are special steps that are stored separately, they're
