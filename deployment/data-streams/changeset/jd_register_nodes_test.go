@@ -35,7 +35,7 @@ func TestRegisterNodesWithJD(t *testing.T) {
 
 	require.NoError(t, err)
 
-	e, err = changeset.ApplyChangesetsV2(t, e,
+	e, _, err = changeset.ApplyChangesetsV2(t, e,
 		[]changeset.ConfiguredChangeSet{
 			changeset.Configure(
 				RegisterNodesWithJDChangeset,
