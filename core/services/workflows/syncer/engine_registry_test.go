@@ -2,8 +2,10 @@ package syncer
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -15,7 +17,7 @@ func TestEngineRegistry(t *testing.T) {
 	const id1 = "foo"
 	owner := []byte{1, 2, 3, 4, 5}
 	name := "my-workflow"
-	workflowID := [32]byte{0, 1, 2, 3, 4}
+	workflowID := WorkflowID([32]byte{0, 1, 2, 3, 4})
 	er := NewEngineRegistry()
 	require.False(t, er.Contains(EngineRegistryKey{Owner: owner, Name: name}))
 
@@ -33,29 +35,35 @@ func TestEngineRegistry(t *testing.T) {
 	require.NoError(t, er.Add(EngineRegistryKey{Owner: owner, Name: name}, srv, workflowID))
 	require.True(t, er.Contains(EngineRegistryKey{Owner: owner, Name: name}))
 
+	// add another item
+	// this verifies that keys are unique
+	name2 := "my-workflow-2"
+	require.NoError(t, er.Add(EngineRegistryKey{Owner: owner, Name: name2}, srv, workflowID))
+	require.True(t, er.Contains(EngineRegistryKey{Owner: owner, Name: name}))
+
 	// get
 	e, err = er.Get(EngineRegistryKey{Owner: owner, Name: name})
 	require.NoError(t, err)
 	require.Equal(t, srv, e.Service)
-	require.Equal(t, workflowID, e.workflowID)
-	require.Equal(t, owner, e.workflowOwner)
-	require.Equal(t, name, e.workflowName)
+	require.Equal(t, workflowID, e.WorkflowID)
+	require.Equal(t, owner, e.WorkflowOwner)
+	require.Equal(t, name, e.WorkflowName)
 
 	// get all
 	es := er.GetAll()
-	require.Len(t, es, 1)
+	require.Len(t, es, 2)
 	require.Equal(t, srv, es[0].Service)
-	require.Equal(t, es[0].workflowID, e.workflowID)
-	require.Equal(t, es[0].workflowOwner, e.workflowOwner)
-	require.Equal(t, es[0].workflowName, e.workflowName)
+	require.Equal(t, es[0].WorkflowID, e.WorkflowID)
+	require.Equal(t, es[0].WorkflowOwner, e.WorkflowOwner)
+	require.Equal(t, es[0].WorkflowName, e.WorkflowName)
 
 	// remove
 	e, err = er.Pop(EngineRegistryKey{Owner: owner, Name: name})
 	require.NoError(t, err)
 	require.Equal(t, srv, e.Service)
-	require.Equal(t, workflowID, e.workflowID)
-	require.Equal(t, owner, e.workflowOwner)
-	require.Equal(t, name, e.workflowName)
+	require.Equal(t, workflowID, e.WorkflowID)
+	require.Equal(t, owner, e.WorkflowOwner)
+	require.Equal(t, name, e.WorkflowName)
 	require.False(t, er.Contains(EngineRegistryKey{Owner: owner, Name: name}))
 
 	// re-add
@@ -63,11 +71,20 @@ func TestEngineRegistry(t *testing.T) {
 
 	// pop all
 	es = er.PopAll()
-	require.Len(t, es, 1)
+	require.Len(t, es, 2)
 	require.Equal(t, srv, es[0].Service)
-	require.Equal(t, es[0].workflowID, e.workflowID)
-	require.Equal(t, es[0].workflowOwner, e.workflowOwner)
-	require.Equal(t, es[0].workflowName, e.workflowName)
+	require.Equal(t, es[0].WorkflowID, e.WorkflowID)
+	require.Equal(t, es[0].WorkflowOwner, e.WorkflowOwner)
+	require.Equal(t, es[0].WorkflowName, e.WorkflowName)
+}
+
+func TestEngineRegistry_keyFor(t *testing.T) {
+	owner := []byte("owner")
+	k := EngineRegistryKey{Owner: owner, Name: "name"}
+	assert.Equal(t, k.keyFor(), fmt.Sprintf("%x-name", owner))
+
+	k = EngineRegistryKey{Owner: owner, Name: "name2"}
+	assert.Equal(t, k.keyFor(), fmt.Sprintf("%x-name2", owner))
 }
 
 type fakeService struct{}

@@ -492,7 +492,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.NoError(t, err)
 				engineInRegistry, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
 				require.NoError(t, err)
-				require.Equal(t, hex.EncodeToString(engineInRegistry.workflowID[:]), wfID)
+				require.Equal(t, engineInRegistry.WorkflowID.Hex(), wfID)
 			},
 		},
 		{
@@ -534,6 +534,63 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				// Verify there is no running engine
 				_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
 				require.Error(t, err)
+			},
+		},
+		{
+			Name: "same wf ID, different status",
+			fetcher: newMockFetcher(map[string]mockFetchResp{
+				binaryURL:  {Body: encodedBinary, Err: nil},
+				configURL:  {Body: config, Err: nil},
+				secretsURL: {Body: []byte("secrets"), Err: nil},
+			}),
+			GiveConfig: config,
+			ConfigURL:  configURL,
+			SecretsURL: secretsURL,
+			BinaryURL:  binaryURL,
+			GiveBinary: binary,
+			WFOwner:    wfOwner,
+			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
+				return WorkflowRegistryWorkflowRegisteredV1{
+					Status:        uint8(0),
+					WorkflowID:    [32]byte(wfID),
+					WorkflowOwner: wfOwner,
+					WorkflowName:  workflowName,
+					BinaryURL:     binaryURL,
+					ConfigURL:     configURL,
+					SecretsURL:    secretsURL,
+				}
+			},
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler,
+				s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+				// Create the record in the database
+				entry := &job.WorkflowSpec{
+					Workflow:      hex.EncodeToString(binary),
+					Config:        string(config),
+					WorkflowID:    event.WorkflowID.Hex(),
+					Status:        job.WorkflowSpecStatusPaused,
+					WorkflowOwner: hex.EncodeToString(event.WorkflowOwner),
+					WorkflowName:  event.WorkflowName,
+					SpecType:      job.WASMFile,
+					BinaryURL:     event.BinaryURL,
+					ConfigURL:     event.ConfigURL,
+				}
+				_, err := s.UpsertWorkflowSpec(ctx, entry)
+				require.NoError(t, err)
+
+				err = h.workflowRegisteredEvent(ctx, event)
+				require.NoError(t, err)
+
+				// Verify the record is updated in the database
+				dbSpec, err := s.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), workflowName)
+				require.NoError(t, err)
+				require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
+				require.Equal(t, workflowName, dbSpec.WorkflowName)
+
+				// This reflects the event status, not what was previously stored in the DB
+				require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
+
+				_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+				require.NoError(t, err)
 			},
 		},
 		{
@@ -1115,6 +1172,6 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		err = engine.Ready()
 		require.NoError(t, err)
 		// old engine is no longer running
-		require.Equal(t, updatedWFID, engine.workflowID)
+		require.Equal(t, WorkflowID(updatedWFID), engine.WorkflowID)
 	})
 }

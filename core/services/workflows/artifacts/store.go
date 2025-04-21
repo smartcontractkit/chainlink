@@ -358,7 +358,7 @@ func (h *Store) DeleteWorkflowArtifacts(ctx context.Context, workflowOwner strin
 	err := h.orm.DeleteWorkflowSpec(ctx, workflowOwner, workflowName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			h.lggr.Warnw("workflow spec not found", "workflowID", workflowID)
+			h.lggr.Warnw("failed to delete workflow spec: not found", "workflowID", workflowID)
 			return nil
 		}
 		return fmt.Errorf("failed to delete workflow spec: %w", err)
