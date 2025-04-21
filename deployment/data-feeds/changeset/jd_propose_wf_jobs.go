@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,7 +35,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 	// Add extra padded zeros to the feed IDs
 	for i := range feedState.Feeds {
 		extraPaddedZeros := strings.Repeat("0", 32)
-		feedState.Feeds[i].FeedID = feedState.Feeds[i].FeedID + extraPaddedZeros
+		feedState.Feeds[i].FeedID += extraPaddedZeros
 	}
 
 	workflowSpecConfig := c.WorkflowSpecConfig
@@ -45,9 +46,9 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 	// default values
 	consensusEncoderAbi, _ := getWorkflowConsensusEncoderAbi(workflowSpecConfig.TargetContractEncoderType)
 
-	consensusConfigKeyId := workflowSpecConfig.ConsensusConfigKeyID
-	if consensusConfigKeyId == "" {
-		consensusConfigKeyId = "evm"
+	consensusConfigKeyID := workflowSpecConfig.ConsensusConfigKeyID
+	if consensusConfigKeyID == "" {
+		consensusConfigKeyID = "evm"
 	}
 
 	consensusRef := workflowSpecConfig.ConsensusRef
@@ -83,7 +84,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 		consensusRef,
 		workflowSpecConfig.ConsensusReportID,
 		workflowSpecConfig.ConsensusAggregationMethod,
-		consensusConfigKeyId,
+		consensusConfigKeyID,
 		workflowSpecConfig.ConsensusAllowedPartialStaleness,
 		consensusEncoderAbi,
 		deltaStageSec,
@@ -105,7 +106,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 	// propose workflow jobs to JD
 	out, err := offchain.ProposeJobs(ctx, env, workflowJobSpec, &workflowSpecConfig.WorkflowName, c.NodeFilter)
 	if err != nil {
-		env.Logger.Debugf(workflowJobSpec)
+		env.Logger.Debugf("%s", workflowJobSpec)
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose workflow job spec: %w", err)
 	}
 
@@ -117,14 +118,14 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 	err = os.MkdirAll(filepath.Dir(wfSpecPath), 0755)
 	if err != nil {
 		env.Logger.Errorf("failed to create directory for workflow file: %s", err)
-		env.Logger.Debugf(workflowJobSpec)
+		env.Logger.Debugf("%s", workflowJobSpec)
 		return out, nil
 	}
 
 	err = os.WriteFile(wfSpecPath, []byte(workflowSpec), 0644)
 	if err != nil {
 		env.Logger.Errorf("failed to write workflow to file: %s", err)
-		env.Logger.Debugf(workflowJobSpec)
+		env.Logger.Debugf("%s", workflowJobSpec)
 	}
 
 	return out, nil
@@ -132,11 +133,11 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 
 func proposeWFJobsToJDPrecondition(env deployment.Environment, c types.ProposeWFJobsConfig) error {
 	if c.WorkflowJobName == "" {
-		return fmt.Errorf("workflow job name is required")
+		return errors.New("workflow job name is required")
 	}
 
 	if c.WorkflowSpecConfig.WorkflowName == "" {
-		return fmt.Errorf("workflow name is required")
+		return errors.New("workflow name is required")
 	}
 
 	validTargetEncoder := c.WorkflowSpecConfig.TargetContractEncoderType
