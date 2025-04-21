@@ -32,6 +32,10 @@ type TimelockConfig struct {
 }
 
 func (tc *TimelockConfig) MCMBasedOnAction(s state.MCMSWithTimelockState) (*gethwrappers.ManyChainMultiSig, error) {
+	// if MCMSAction is not set, default to timelock.Schedule, this is to ensure no breaking changes for existing code
+	if tc.MCMSAction == "" {
+		tc.MCMSAction = types.TimelockActionSchedule
+	}
 	switch tc.MCMSAction {
 	case types.TimelockActionSchedule:
 		if s.ProposerMcm == nil {

@@ -41,12 +41,12 @@ import (
 	libdevenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/devenv"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
-	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
+	libinfra "github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
@@ -69,14 +69,14 @@ type SetupOutput struct {
 }
 
 type SetupInput struct {
-	ExtraAllowedPorts          []int
-	CapabilitiesAwareNodeSets  []*keystonetypes.CapabilitiesAwareNodeSet
-	CapabilityFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
-	JobSpecFactoryFunctions    []cretypes.JobSpecFactoryFn
-	BlockchainsInput           blockchain.Input
-	JdInput                    jd.Input
-	InfraInput                 libtypes.InfraInput
-	CustomBinariesPaths        map[cretypes.CapabilityFlag]string
+	ExtraAllowedPorts                    []int
+	CapabilitiesAwareNodeSets            []*keystonetypes.CapabilitiesAwareNodeSet
+	CapabilitiesContractFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
+	JobSpecFactoryFunctions              []cretypes.JobSpecFactoryFn
+	BlockchainsInput                     blockchain.Input
+	JdInput                              jd.Input
+	InfraInput                           libtypes.InfraInput
+	CustomBinariesPaths                  map[cretypes.CapabilityFlag]string
 }
 
 func SetupTestEnvironment(
@@ -363,12 +363,14 @@ func SetupTestEnvironment(
 	for _, metaDon := range fullCldOutput.DonTopology.DonsWithMetadata {
 		for _, node := range metaDon.DON.Nodes {
 			_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, blockchainsOutput.SethClient, libtypes.FundsToSend{
-				ToAddress:  common.HexToAddress(node.AccountAddr[blockchainsOutput.SethClient.Cfg.Network.ChainID]),
+				ToAddress: common.HexToAddress(
+					node.AccountAddr[strconv.FormatUint(blockchainsOutput.SethClient.Cfg.Network.ChainID, 10)]),
 				Amount:     big.NewInt(5000000000000000000),
 				PrivateKey: blockchainsOutput.SethClient.MustGetRootPrivateKey(),
 			})
 			if fundingErr != nil {
-				return nil, pkgerrors.Wrapf(fundingErr, "failed to fund node %s", node.AccountAddr[blockchainsOutput.SethClient.Cfg.Network.ChainID])
+				return nil, pkgerrors.Wrapf(fundingErr, "failed to fund node %s",
+					node.AccountAddr[strconv.FormatUint(blockchainsOutput.SethClient.Cfg.Network.ChainID, 10)])
 			}
 		}
 	}
@@ -405,7 +407,7 @@ func SetupTestEnvironment(
 	testLogger.Info().Msg("Waiting for ConfigWatcher health check")
 
 	for idx, nodeSetOut := range nodeOutput {
-		if flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].DONTypes, cretypes.GatewayDON) || flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].DONTypes, cretypes.CapabilitiesDON) {
+		if !flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].Capabilities, cretypes.OCR3Capability) {
 			continue
 		}
 		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
@@ -431,7 +433,7 @@ func SetupTestEnvironment(
 		Topology:      topology,
 	}
 
-	keystoneErr := libcontracts.ConfigureKeystone(configureKeystoneInput, input.CapabilityFactoryFunctions)
+	keystoneErr := libcontracts.ConfigureKeystone(configureKeystoneInput, input.CapabilitiesContractFactoryFunctions)
 	if keystoneErr != nil {
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
@@ -472,6 +474,8 @@ func CreateBlockchains(
 		return nil, pkgerrors.New("blockchain input is nil")
 	}
 
+	var blockchainOutput *blockchain.Output
+	var blockchainOutputErr error
 	if input.infraInput.InfraType == libtypes.CRIB {
 		if input.nixShell == nil {
 			return nil, pkgerrors.New("nix shell is nil")
@@ -483,17 +487,14 @@ func CreateBlockchains(
 			CribConfigsDir:  cribConfigsDir,
 		}
 
-		var blockchainErr error
-		input.blockchainInput.Out, blockchainErr = crib.DeployBlockchain(deployCribBlockchainInput)
-		if blockchainErr != nil {
-			return nil, pkgerrors.Wrap(blockchainErr, "failed to deploy blockchain")
-		}
+		blockchainOutput, blockchainOutputErr = crib.DeployBlockchain(deployCribBlockchainInput)
+	} else {
+		// Create a new blockchain network and Seth client to interact with it
+		blockchainOutput, blockchainOutputErr = blockchain.NewBlockchainNetwork(input.blockchainInput)
 	}
 
-	// Create a new blockchain network and Seth client to interact with it
-	blockchainOutput, err := blockchain.NewBlockchainNetwork(input.blockchainInput)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create blockchain network")
+	if blockchainOutputErr != nil {
+		return nil, pkgerrors.Wrap(blockchainOutputErr, "failed to deploy blockchain")
 	}
 
 	pkey := os.Getenv("PRIVATE_KEY")
@@ -501,7 +502,7 @@ func CreateBlockchains(
 		return nil, pkgerrors.New("PRIVATE_KEY env var must be set")
 	}
 
-	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+	err := libinfra.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "RPC endpoint not available")
 	}

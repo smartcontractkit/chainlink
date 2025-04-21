@@ -1271,6 +1271,7 @@ ChainID = '1' # Default
 MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
+SyncStrategy = 'event' # Default
 ```
 
 
@@ -1309,6 +1310,13 @@ MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fet
 MaxConfigSize = '50.00kb' # Default
 ```
 MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
+
+### SyncStrategy
+```toml
+SyncStrategy = 'event' # Default
+```
+SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
+Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
 
 ## Workflows
 ```toml
@@ -2066,6 +2074,7 @@ InsecureConnection = false # Default
 TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
+ChipIngressEndpoint = '' # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2114,6 +2123,12 @@ EmitterBatchProcessor enables batching for telemetry events
 EmitterExportTimeout = '1s' # Default
 ```
 EmitterExportTimeout sets timeout for exporting telemetry events
+
+### ChipIngressEndpoint
+```toml
+ChipIngressEndpoint = '' # Default
+```
+ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 
 ## Telemetry.ResourceAttributes
 ```toml

@@ -24,10 +24,14 @@ import (
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/chainreader"
-	crepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
+	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
+	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
+	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
+	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
@@ -152,10 +156,50 @@ var startCmd = &cobra.Command{
 			return errors.Wrap(err, "failed to start environment")
 		}
 
-		// TODO print urls?
-		_ = output
+		sErr := func() error {
+			creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
+				output.BlockchainOutput.SethClient.MustGetRootKeyAddress(),
+				output.KeystoneContractsOutput.CapabilitiesRegistryAddress,
+				output.KeystoneContractsOutput.WorkflowRegistryAddress,
+				nil,
+				output.DonTopology.WorkflowDonID,
+				output.BlockchainOutput.ChainSelector,
+				output.BlockchainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
 
+			if settingsErr != nil {
+				return settingsErr
+			}
+
+			// Copy the file to current directory as cre.settings.yaml
+			currentDir, cErr := os.Getwd()
+			if cErr != nil {
+				return cErr
+			}
+
+			targetPath := filepath.Join(currentDir, "cre.settings.yaml")
+			input, err := os.ReadFile(creCLISettingsFile.Name())
+			if err != nil {
+				return err
+			}
+			err = os.WriteFile(targetPath, input, 0600)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("CRE CLI settings file created: %s\n", targetPath)
+
+			return nil
+		}()
+
+		if sErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
+		}
+
+		// TODO print urls?
+
+		fmt.Println()
 		fmt.Println("Environment started successfully")
+		fmt.Println()
 		fmt.Println("To terminate execute: ctf d rm")
 
 		return nil
@@ -323,24 +367,25 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.ReadContractBinaryPath)),
 	)
 
-	porJobSpecFactoryFn := crepor.PoRJobSpecFactoryFn(
-		filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.CronCapabilityBinaryPath)),
-		extraAllowedPorts,
-		[]string{},
-		[]string{"0.0.0.0/0"}, // allow all IPs
-	)
+	jobSpecFactoryFunctions := []cretypes.JobSpecFactoryFn{
+		// add support for more job spec factory functions if needed
 
-	// add support for more job spec factory functions if needed
-	jobSpecFactoryFns := []cretypes.JobSpecFactoryFn{chainReaderJobSpecFactoryFn, webapi.WebAPIJobSpecFactoryFn, porJobSpecFactoryFn}
+		chainReaderJobSpecFactoryFn,
+		webapi.WebAPIJobSpecFactoryFn,
+		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(chainIDInt))),
+		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.CronCapabilityBinaryPath))),
+		cregateway.GatewayJobSpecFactoryFn(libc.MustSafeUint64(int64(chainIDInt)), []int{}, []string{}, []string{"0.0.0.0/0"}),
+		crecompute.ComputeJobSpecFactoryFn,
+	}
 
 	universalSetupInput := creenv.SetupInput{
-		CapabilitiesAwareNodeSets:  capabilitiesAwareNodeSets,
-		CapabilityFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:           *in.Blockchain,
-		JdInput:                    *in.JD,
-		InfraInput:                 *in.Infra,
-		CustomBinariesPaths:        capabilitiesBinaryPaths,
-		JobSpecFactoryFunctions:    jobSpecFactoryFns,
+		CapabilitiesAwareNodeSets:            capabilitiesAwareNodeSets,
+		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
+		BlockchainsInput:                     *in.Blockchain,
+		JdInput:                              *in.JD,
+		InfraInput:                           *in.Infra,
+		CustomBinariesPaths:                  capabilitiesBinaryPaths,
+		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(context.Background(), testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)

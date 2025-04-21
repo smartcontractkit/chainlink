@@ -28,12 +28,16 @@ func TestKeyStore_EnabledKeysForChain(t *testing.T) {
 	keys, err := ks.EnabledKeysForChain(ctx, testutils.FixtureChainID)
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
-	require.Equal(t, key, keys[0])
+	require.Equal(t, key.ID(), keys[0].ID())
+	require.Equal(t, key.Raw(), keys[0].Raw())
+	require.EqualExportedValues(t, key, keys[0])
 
 	keys, err = ks.EnabledKeysForChain(ctx, testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
-	require.Equal(t, key2, keys[0])
+	require.Equal(t, key2.ID(), keys[0].ID())
+	require.Equal(t, key2.Raw(), keys[0].Raw())
+	require.EqualExportedValues(t, key2, keys[0])
 }
 
 func TestKeyStore_GetRoundRobinAddress(t *testing.T) {

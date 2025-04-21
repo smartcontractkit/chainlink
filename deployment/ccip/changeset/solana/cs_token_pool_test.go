@@ -48,7 +48,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 	deployerKey := e.SolChains[solChain].DeployerKey.PublicKey()
 	testUser, _ := solana.NewRandomPrivateKey()
 	testUserPubKey := testUser.PublicKey()
-	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			// deployer creates ATA for itself and testUser
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.CreateSolanaTokenATA),
@@ -136,7 +136,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 	lockAndReleaseOwnedByTimelock := make(map[solana.PublicKey]bool)
 	for _, testCase := range testCases {
 		for _, tokenAddress := range tokenMap {
-			e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPool),
 					ccipChangesetSolana.TokenPoolConfig{
@@ -235,7 +235,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				e.Logger.Debugf("MCMS Configured for token pool %v with token address %v", testCase.poolType, tokenAddress)
 			}
 
-			e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.ConfigureTokenPoolAllowList),
 					ccipChangesetSolana.ConfigureTokenPoolAllowListConfig{
@@ -327,7 +327,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 			require.Len(t, remoteChainConfigAccount.Base.Remote.PoolAddresses, 2)
 
 			if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType && tokenAddress == newTokenAddress {
-				e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+				e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
 						deployment.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
 						ccipChangesetSolana.LockReleaseLiquidityOpsConfig{
