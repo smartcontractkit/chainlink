@@ -15,7 +15,7 @@
 # If you want to use a specific commit or a branch you need to switch to the internal ECR in `~/.testsecrets`
 # E2E_TEST_CHAINLINK_IMAGE="<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip"
 [CCIP.Env.NewCLCluster.Common.ChainlinkImage]
-version = "2.20.0-ccip1.5.17-beta.2"
+version = "2.23.0-ccip"
 
 [CCIP]
 [CCIP.ContractVersions]

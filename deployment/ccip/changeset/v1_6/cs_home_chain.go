@@ -535,13 +535,15 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSel: homeChainState.Timelock.Address().Hex()}
-	proposerMcms := map[uint64]string{cfg.HomeChainSel: homeChainState.ProposerMcm.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSel: mcmsevmsdk.NewInspector(homeChain.Client)}
-
+	mcmsContractsByActionPerChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposerMcms,
+		mcmsContractsByActionPerChain,
 		inspectors,
 		[]mcmstypes.BatchOperation{batchOperation},
 		"Remove DONs",
@@ -668,7 +670,10 @@ func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (deployme
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(env, state)
-	proposerMcms := changeset.BuildProposerMcmAddressesPerChain(env, state)
+	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(env, state, c.MCMSCfg)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 	inspectors[c.HomeChainSel], err = proposalutils.McmsInspectorForChain(env, c.HomeChainSel)
 	if err != nil {
@@ -677,7 +682,7 @@ func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (deployme
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		env,
 		timelocks,
-		proposerMcms,
+		mcmContract,
 		inspectors,
 		[]mcmstypes.BatchOperation{batchOperation},
 		"Remove Nodes from CapabilitiesRegistry",

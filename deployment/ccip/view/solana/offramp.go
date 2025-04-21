@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -78,8 +81,24 @@ func GenerateOffRampView(chain deployment.SolChain, program solana.PublicKey, re
 			IsEnabled:                 chainStateAccount.Config.IsEnabled,
 			IsRmnVerificationDisabled: chainStateAccount.Config.IsRmnVerificationDisabled,
 			LaneCodeVersion:           chainStateAccount.Config.LaneCodeVersion.String(),
-			OnRamp:                    base58.Encode(chainStateAccount.Config.OnRamp.Bytes[:]),
+			OnRamp:                    GetAddressFromBytes(remote, chainStateAccount.Config.OnRamp.Bytes[:]),
 		}
 	}
 	return view, nil
+}
+
+func GetAddressFromBytes(chainSelector uint64, address []byte) string {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return "invalid chain selector"
+	}
+
+	switch family {
+	case chain_selectors.FamilyEVM:
+		return common.BytesToAddress(address).Hex()
+	case chain_selectors.FamilySolana:
+		return base58.Encode(address)
+	default:
+		return "unsupported chain family"
+	}
 }
