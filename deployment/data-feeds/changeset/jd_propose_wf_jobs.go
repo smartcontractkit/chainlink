@@ -123,7 +123,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 		return out, nil
 	}
 
-	err = os.WriteFile(wfSpecPath, []byte(workflowSpec), 0644)
+	err = os.WriteFile(wfSpecPath, []byte(workflowSpec), 0600)
 	if err != nil {
 		env.Logger.Errorf("failed to write workflow to file: %s", err)
 		env.Logger.Debugf("%s", workflowJobSpec)
