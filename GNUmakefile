@@ -202,7 +202,6 @@ ifeq ($(OSFLAG),$(LINUX))
 	@echo "Linux system detected - please install and use NIX (@see shell.nix)."
 	@echo
 endif
-endif
 
 .PHONY: start-testdb
 start-testdb:
