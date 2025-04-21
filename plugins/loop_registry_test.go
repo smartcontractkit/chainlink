@@ -64,6 +64,8 @@ func (m mockCfgTelemetry) EmitterBatchProcessor() bool { return true }
 
 func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time.Second }
 
+func (m mockCfgTelemetry) ChipIngressEndpoint() string { return "example.com/chip-ingress" }
+
 type mockCfgDatabase struct{}
 
 func (m mockCfgDatabase) Backup() config.Backup { panic("unimplemented") }
@@ -136,4 +138,6 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
 	require.True(t, envCfg.TelemetryEmitterBatchProcessor)
 	require.Equal(t, 1*time.Second, envCfg.TelemetryEmitterExportTimeout)
+
+	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 }

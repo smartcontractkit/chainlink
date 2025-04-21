@@ -20,7 +20,7 @@
 # Services
 /core/services/directrequest @smartcontractkit/foundations
 /core/services/feeds @smartcontractkit/deployment-automation @smartcontractkit/core
-/core/services/synchronization/telem @smartcontractkit/realtime @smartcontractkit/core
+/core/services/synchronization/telem @smartcontractkit/data-tooling @smartcontractkit/core
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
 
@@ -32,7 +32,7 @@
 /core/services/periodicbackup @smartcontractkit/foundations @smartcontractkit/core
 /core/services/pg @smartcontractkit/foundations @samsondav @smartcontractkit/core
 /core/services/pipeline @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
-/core/services/telemetry @smartcontractkit/realtime @smartcontractkit/core
+/core/services/telemetry @smartcontractkit/data-tooling @smartcontractkit/core
 /core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers @smartcontractkit/core
 /core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
 /core/services/llo @smartcontractkit/data-streams-engineers @smartcontractkit/core
@@ -159,6 +159,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /.github/workflows/automation-load-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-nightly-tests.yml @smartcontractkit/dev-services
 /.github/workflows/*solidity* @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core-solidity
+/tools/plugout @smartcontractkit/devex-cicd
 
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 

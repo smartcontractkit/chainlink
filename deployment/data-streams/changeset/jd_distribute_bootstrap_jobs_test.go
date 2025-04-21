@@ -56,19 +56,21 @@ func TestDistributeBootstrapJobSpecs(t *testing.T) {
 	cs := CsDistributeBootstrapJobSpecs{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err = changeset.ApplyChangesetsV2(t,
+			_, out, err := changeset.ApplyChangesetsV2(t,
 				tt.env,
 				[]changeset.ConfiguredChangeSet{
 					changeset.Configure(cs, tt.config),
 				},
 			)
 
-			if tt.wantErr == nil {
-				require.NoError(t, err)
-			} else {
+			if tt.wantErr != nil {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), *tt.wantErr)
+				return
 			}
+			require.NoError(t, err)
+			require.Len(t, out, 1)
+			// TODO: check the job spec
 		})
 	}
 }

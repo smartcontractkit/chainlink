@@ -100,12 +100,9 @@ func BuildWorkflow(configBytes []byte) (*sdk.WorkflowSpecFactory, error) {
 			}
 
 			if resp.Ripcord {
-				err := runtime.Emitter().With(
+				runtime.Emitter().With(
 					"feedID", config.FeedID,
 				).Emit("ripcord flag set for feed ID " + config.FeedID)
-				if err != nil {
-					runtime.Logger().Error("failed to emit custom message")
-				}
 			}
 
 			return computeOutput{

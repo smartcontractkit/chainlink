@@ -28,8 +28,9 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/datastore"
-	"github.com/smartcontractkit/chainlink/deployment/operations"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -101,8 +102,10 @@ func (c Chain) Name() string {
 // conjunction with the Offchain client to read/write relevant
 // offchain state (i.e. state in the DON(s)).
 type Environment struct {
-	Name              string
-	Logger            logger.Logger
+	Name   string
+	Logger logger.Logger
+	// Deprecated: AddressBook is deprecated and will be removed in future versions.
+	// Use DataStore instead
 	ExistingAddresses AddressBook
 	DataStore         datastore.DataStore[
 		datastore.DefaultMetadata,

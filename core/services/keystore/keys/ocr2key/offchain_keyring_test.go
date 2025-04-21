@@ -16,7 +16,7 @@ func TestOffchainKeyring(t *testing.T) {
 	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)
 	pubKey := kr.OffchainPublicKey()
-	assert.True(t, bytes.Equal(kr.signingKey.Public().(ed25519.PublicKey), pubKey[:]))
+	assert.True(t, bytes.Equal(kr.signingKey().Public().(ed25519.PublicKey), pubKey[:]))
 }
 
 func TestOffchainKeyring_NaclBoxSealAnonymous(t *testing.T) {
