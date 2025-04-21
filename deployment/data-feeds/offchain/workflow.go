@@ -81,8 +81,7 @@ func CreateWorkflowSpec(
 	writeTargetTrigger string,
 	targetsSchedule string,
 	creStepTimeout int64,
-	cacheAddress string,
-) (wfSpec string, err error) {
+	cacheAddress string) (wfSpec string, err error) {
 
 	wfCfg := WorkflowSpecCfg{
 		Feeds:                            feeds,

@@ -41,6 +41,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 	workflowSpecConfig := c.WorkflowSpecConfig
 	workflowState := feedState.Workflows[workflowSpecConfig.WorkflowName]
 
+	//nolint:all // Addressbook is deprecated, but we still use it for the time being
 	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, pointer.To("data-feeds"))
 
 	// default values
@@ -151,11 +152,11 @@ func proposeWFJobsToJDPrecondition(env deployment.Environment, c types.ProposeWF
 	}
 
 	if c.WorkflowSpecConfig.ConsensusReportID == "" {
-		return fmt.Errorf("consensus report id is required")
+		return errors.New("consensus report id is required")
 	}
 
 	if c.WorkflowSpecConfig.WriteTargetTrigger == "" {
-		return fmt.Errorf("write target trigger is required")
+		return errors.New("write target trigger is required")
 	}
 	if _, err := getWorkflowConsensusEncoderAbi(c.WorkflowSpecConfig.TargetContractEncoderType); err != nil {
 		return fmt.Errorf("failed to get consensus encoder abi: %w", err)
@@ -182,9 +183,10 @@ func proposeWFJobsToJDPrecondition(env deployment.Environment, c types.ProposeWF
 		return fmt.Errorf("no workflow found for hash %s in %s", c.WorkflowSpecConfig.WorkflowName, inputFileName)
 	}
 
+	//nolint:all // Addressbook is deprecated, but we still use it for the time being
 	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, pointer.To("data-feeds"))
 	if cacheAddress == "" {
-		return fmt.Errorf("failed to get data feeds cache address")
+		return errors.New("failed to get data feeds cache address")
 	}
 
 	return nil

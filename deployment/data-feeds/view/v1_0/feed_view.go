@@ -1,6 +1,7 @@
 package v1_0
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
@@ -34,7 +35,7 @@ type FeedState struct {
 func (fv *FeedState) Validate() error {
 	w := fv.Workflows
 	if len(fv.Feeds) == 0 {
-		return fmt.Errorf("at least one feed is required for workflow")
+		return errors.New("at least one feed is required for workflow")
 	}
 	for _, f := range fv.Feeds {
 		if f.StreamsID == "" {
