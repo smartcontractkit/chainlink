@@ -84,7 +84,11 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			]()
 			err := ds1.Merge(out.DataStore.Seal())
 			if err != nil {
-				return e, fmt.Errorf("failed to merge datastore: %w", err)
+				return e, fmt.Errorf("failed to merge new addresses into datastore: %w", err)
+			}
+			err = ds1.Merge(currentEnv.DataStore)
+			if err != nil {
+				return e, fmt.Errorf("failed to merge current addresses into datastore: %w", err)
 			}
 			ds = ds1.Seal()
 		} else {
@@ -184,7 +188,11 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 			]()
 			err := ds1.Merge(out.DataStore.Seal())
 			if err != nil {
-				return e, nil, fmt.Errorf("failed to merge datastore: %w", err)
+				return e, nil, fmt.Errorf("failed to merge new addresses into datastore: %w", err)
+			}
+			err = ds1.Merge(currentEnv.DataStore)
+			if err != nil {
+				return e, nil, fmt.Errorf("failed to merge current addresses into datastore: %w", err)
 			}
 			ds = ds1.Seal()
 		} else {
