@@ -96,6 +96,10 @@ type AddCandidatesForNewChainConfig struct {
 	MCMSDeploymentConfig *commontypes.MCMSWithTimelockConfigV2 `json:"mcmsDeploymentConfig,omitempty"`
 	// MCMSConfig defines the MCMS configuration for the changeset.
 	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
+	// The offset to adjust the donID in DonIDClaimer (useful when certain DON IDs are dropped)
+	// This is a pointer to distinguish between an explicitly set value (including 0) and an unset value (nil).
+	// We can OffSet by 0 as well sync nextDonID with CapReg.
+	DonIDOffSet *uint32 `json:"donIDOffset,omitempty"`
 }
 
 func (c AddCandidatesForNewChainConfig) prerequisiteConfigForNewChain() changeset.DeployPrerequisiteConfig {
@@ -155,6 +159,9 @@ func addCandidatesForNewChainPrecondition(e deployment.Environment, c AddCandida
 	}
 	if homeChainState.CapabilityRegistry == nil {
 		return fmt.Errorf("home chain with selector %d does not have a CapabilitiesRegistry", c.HomeChainSelector)
+	}
+	if homeChainState.DonIDClaimer == nil {
+		return fmt.Errorf("home chain with selector %d does not have a DonIDClaimer", c.HomeChainSelector)
 	}
 
 	// We pre-validate any changesets that do not rely on contracts being deployed.
@@ -290,6 +297,17 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
+	if c.DonIDOffSet != nil {
+		_, err := changeset.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
+			HomeChainSelector: c.HomeChainSelector,
+			OffSet:            *c.DonIDOffSet,
+		})
+
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run DonIDClaimerOffSetChangeset on home chain: %w", err)
+		}
+	}
+
 	// get the nextDonID from donID claim to be claimed
 	donID, err := state.Chains[c.HomeChainSelector].DonIDClaimer.GetNextDONId(&bind.CallOpts{
 		Context: e.GetContext(),
@@ -320,7 +338,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 			SkipChainConfigValidation: true,
 		},
 
-		DonIDOverrides: donID,
+		DonIDOverride: donID,
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run AddDonAndSetCandidateChangeset on home chain: %w", err)
@@ -354,7 +372,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	txOpts := e.Chains[c.HomeChainSelector].DeployerKey
 	_, err = state.Chains[c.HomeChainSelector].DonIDClaimer.ClaimNextDONId(txOpts)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get next DON ID: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to claim next DON ID: %w", err)
 	}
 
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)

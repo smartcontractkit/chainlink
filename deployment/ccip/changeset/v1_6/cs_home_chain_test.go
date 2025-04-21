@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -95,51 +96,63 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 
 func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	ctx := testcontext.Get(t)
-	e, _ := testhelpers.NewMemoryEnvironment(t)
+	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t)
+	e := deployedEnvironment.Env
 
-	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 
 	// deploy home chain
 	homeChainCfg := v1_6.DeployHomeChainConfig{
-		HomeChainSel:     e.HomeChainSel,
+		HomeChainSel:     deployedEnvironment.HomeChainSel,
 		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-		NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+		NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[deployedEnvironment.HomeChainSel].DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 			"NodeOperator": nodes.NonBootstraps().PeerIDs(),
 		},
 	}
 
 	// apply the changeset once again to ensure idempotency
-	output, err := v1_6.DeployHomeChainChangeset(e.Env, homeChainCfg)
+	output, err := v1_6.DeployHomeChainChangeset(e, homeChainCfg)
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
-	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// capabilityRegistryDonID
-	nextDonID, err := state.Chains[e.HomeChainSel].CapabilityRegistry.GetNextDONId(&bind.CallOpts{Context: ctx})
+	nextDonID, err := state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry.GetNextDONId(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 
 	// deploy donIDClaimer
-	donIDClaimerOutput, err := v1_6.DeployDonIDClaimerChangeset(e.Env, v1_6.DeployDonIDClaimerConfig{
-		HomeChainSelector: e.HomeChainSel,
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(donIDClaimerOutput.AddressBook))
-	state, err = changeset.LoadOnchainState(e.Env)
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			v1_6.DeployDonIdClaimerChangeset,
+			v1_6.DeployDonIDClaimerConfig{
+				HomeChainSelector: deployedEnvironment.HomeChainSel,
+			},
+		))
+
 	require.NoError(t, err)
 
-	_, err = v1_6.DonIDClaimerOffSetChangeset(e.Env, v1_6.DonIDClaimerOffSetConfig{
-		HomeChainSelector: e.HomeChainSel,
-		OffSet:            1,
-	})
+	state, err = changeset.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			v1_6.DonIDClaimerOffSetChangeset,
+			v1_6.DonIDClaimerOffSetConfig{
+				HomeChainSelector: deployedEnvironment.HomeChainSel,
+				OffSet:            1,
+			},
+		))
+
 	require.NoError(t, err)
 
 	// check if the offset was successfully applied
-	nextDonIDAfterOffset, err := state.Chains[e.HomeChainSel].DonIDClaimer.GetNextDONId(&bind.CallOpts{Context: ctx})
+	nextDonIDAfterOffset, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.GetNextDONId(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
+
 	// offSets donID based on CapReg nextDonID
 	require.Equal(t, nextDonID+1, nextDonIDAfterOffset)
 }

@@ -241,9 +241,12 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
-		Msg  string
-		MCMS *proposalutils.TimelockConfig
+		Msg         string
+		MCMS        *proposalutils.TimelockConfig
+		DonIDOffSet *uint32
 	}
+
+	offset := uint32(1)
 
 	mcmsConfig := &proposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
@@ -258,6 +261,10 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 		{
 			Msg:  "Remote chains not owned by MCMS",
 			MCMS: nil,
+		},
+		{
+			Msg:         "Remote chains with donID offset",
+			DonIDOffSet: &offset,
 		},
 	}
 
@@ -426,9 +433,12 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 
 			// deploy donIDClaimer
 			e, err = commonchangeset.Apply(t, e, nil,
-				commonchangeset.Configure(deployment.CreateLegacyChangeSet(v1_6.DeployDonIDClaimerChangeset), v1_6.DeployDonIDClaimerConfig{
-					HomeChainSelector: deployedEnvironment.HomeChainSel,
-				}))
+				commonchangeset.Configure(
+					v1_6.DeployDonIdClaimerChangeset,
+					v1_6.DeployDonIDClaimerConfig{
+						HomeChainSelector: deployedEnvironment.HomeChainSel,
+					},
+				))
 			require.NoError(t, err, "must deploy donIDClaimer contract")
 
 			// Apply AddCandidatesForNewChainChangeset
@@ -442,6 +452,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 						RemoteChains:         remoteChains,
 						MCMSDeploymentConfig: &mcmsDeploymentCfg,
 						MCMSConfig:           test.MCMS,
+						DonIDOffSet:          test.DonIDOffSet,
 					},
 				),
 			)
@@ -539,6 +550,17 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				checkConnectivity(t, e, state, remoteChain.Selector, newChain.Selector, routerOnRemote, false, true)
 				checkConnectivity(t, e, state, newChain.Selector, remoteChain.Selector, router, false, true)
 			}
+
+			// capabilityRegistryDonID
+			nextDonID, err := state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry.GetNextDONId(nil)
+			require.NoError(t, err)
+
+			// donIdClaimed with Offset
+			nextDonIDAfterOffset, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.GetNextDONId(nil)
+			require.NoError(t, err)
+
+			// offSets donID by 1 and claimed donID so expecting value is nextDonID + 2
+			require.Equal(t, nextDonID+2, nextDonIDAfterOffset)
 		})
 	}
 }

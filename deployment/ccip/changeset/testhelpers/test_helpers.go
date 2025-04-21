@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
@@ -182,6 +183,19 @@ func DeployTestContracts(t *testing.T,
 			)
 			return deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
 				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
+			}
+		})
+	require.NoError(t, err)
+
+	_, err = deployment.DeployContract(lggr, chains[homeChainSel], ab,
+		func(chain deployment.Chain) deployment.ContractDeploy[*don_id_claimer.DonIDClaimer] {
+			donIDClaimerAddr, tx2, donIDClaimerC, err2 := don_id_claimer.DeployDonIDClaimer(
+				chain.DeployerKey,
+				chain.Client,
+				capReg.Address,
+			)
+			return deployment.ContractDeploy[*don_id_claimer.DonIDClaimer]{
+				Address: donIDClaimerAddr, Contract: donIDClaimerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.DonIDClaimer, deployment.Version1_6_1), Err: err2,
 			}
 		})
 	require.NoError(t, err)
