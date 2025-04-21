@@ -28,7 +28,8 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 
 	chainInfo, _ := deployment.ChainInfo(c.ChainSelector)
 
-	feedState, _ := LoadJSON[*v1_0.FeedState]("feeds/"+chainInfo.ChainName+".json", c.InputFS)
+	feedStatePath := "feeds/" + chainInfo.ChainName + ".json"
+	feedState, _ := LoadJSON[*v1_0.FeedState](feedStatePath, c.InputFS)
 
 	// Add extra padded zeros to the feed IDs
 	for i := range feedState.Feeds {
@@ -92,7 +93,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 		cacheAddress,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create job spec from workflow: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create workflow spec: %w", err)
 	}
 
 	// create workflow job spec TOML
@@ -140,7 +141,7 @@ func proposeWFJobsToJDPrecondition(env deployment.Environment, c types.ProposeWF
 
 	validTargetEncoder := c.WorkflowSpecConfig.TargetContractEncoderType
 	if validTargetEncoder != "data-feeds_decimal" && validTargetEncoder != "aptos" && validTargetEncoder != "ccip" {
-		return fmt.Errorf("invalid consensus aggregation method: %s", c.WorkflowSpecConfig.ConsensusAggregationMethod)
+		return fmt.Errorf("invalid consensus target encoder: %s", c.WorkflowSpecConfig.ConsensusAggregationMethod)
 	}
 
 	validMethod := c.WorkflowSpecConfig.ConsensusAggregationMethod
