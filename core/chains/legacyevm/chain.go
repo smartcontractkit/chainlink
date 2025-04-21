@@ -273,7 +273,7 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 	if !opts.ChainConfigs.RPCEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if cfg.EVM().ChainType() == chaintype.ChainTron {
-		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for tron based chains %d", chainID)}
+		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("EVM TXM disabled for tron based chains %d, using Tron TXM instead", chainID)}
 	} else if !cfg.EVM().Transactions().Enabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for chain %d", chainID)}
 	} else {
