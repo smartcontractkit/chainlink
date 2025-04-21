@@ -82,7 +82,6 @@ func CreateWorkflowSpec(
 	targetsSchedule string,
 	creStepTimeout int64,
 	cacheAddress string) (wfSpec string, err error) {
-
 	wfCfg := WorkflowSpecCfg{
 		Feeds:                            feeds,
 		WorkflowName:                     workflowName,
