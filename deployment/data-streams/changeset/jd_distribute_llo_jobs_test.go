@@ -90,19 +90,21 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 			if tt.prepConfFn != nil {
 				conf = tt.prepConfFn(tt.config)
 			}
-			_, err = changeset.ApplyChangesetsV2(t,
+			_, out, err := changeset.ApplyChangesetsV2(t,
 				tt.env,
 				[]changeset.ConfiguredChangeSet{
 					changeset.Configure(cs, conf),
 				},
 			)
 
-			if tt.wantErr == nil {
-				require.NoError(t, err)
-			} else {
+			if tt.wantErr != nil {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), *tt.wantErr)
+				return
 			}
+			require.NoError(t, err)
+			require.Len(t, out, 1)
+			// TODO Compare the generated job spec with the expected one
 		})
 	}
 }

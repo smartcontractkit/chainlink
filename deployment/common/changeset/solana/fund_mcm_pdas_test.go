@@ -255,7 +255,7 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 
 	changesetInstance := commonSolana.FundMCMSignersChangeset{}
 
-	env, err := changeset.ApplyChangesetsV2(t, env, []changeset.ConfiguredChangeSet{
+	env, _, err := changeset.ApplyChangesetsV2(t, env, []changeset.ConfiguredChangeSet{
 		changeset.Configure(changesetInstance, config),
 	})
 	require.NoError(t, err)

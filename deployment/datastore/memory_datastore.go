@@ -92,7 +92,7 @@ func (s *MemoryDataStore[CM, EM]) Merge(other DataStore[CM, EM]) error {
 	}
 
 	for _, addressRef := range addressRefs {
-		if err := s.AddressRefStore.AddOrUpdate(addressRef); err != nil {
+		if err := s.AddressRefStore.Upsert(addressRef); err != nil {
 			return err
 		}
 	}
@@ -103,7 +103,7 @@ func (s *MemoryDataStore[CM, EM]) Merge(other DataStore[CM, EM]) error {
 	}
 
 	for _, record := range contractMetadataRecords {
-		if err := s.ContractMetadataStore.AddOrUpdate(record); err != nil {
+		if err := s.ContractMetadataStore.Upsert(record); err != nil {
 			return err
 		}
 	}

@@ -5,7 +5,6 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/big"
 
 	"golang.org/x/crypto/curve25519"
@@ -15,16 +14,21 @@ import (
 )
 
 func KeyFor(raw internal.Raw) Key {
-	privateKey := [32]byte(raw.Bytes())
+	privateKey := [32]byte(internal.Bytes(raw))
 	return Key{
-		privateKey: &privateKey,
-		publicKey:  curve25519PubKeyFromPrivateKey(privateKey),
+		raw: raw,
+		openFn: func(out, ciphertext []byte, publicKey *[32]byte) (message []byte, ok bool) {
+			return box.OpenAnonymous(nil, ciphertext, publicKey, &privateKey)
+		},
+		publicKey: curve25519PubKeyFromPrivateKey(privateKey),
 	}
 }
 
 type Key struct {
-	privateKey *[curve25519.PointSize]byte
-	publicKey  *[curve25519.PointSize]byte
+	raw    internal.Raw
+	openFn func(out, ciphertext []byte, publicKey *[32]byte) (message []byte, ok bool)
+
+	publicKey *[curve25519.PointSize]byte
 }
 
 func New() (Key, error) {
@@ -33,9 +37,14 @@ func New() (Key, error) {
 		return Key{}, err
 	}
 
+	raw := make([]byte, curve25519.PointSize)
+	copy(raw, privateKey[:])
 	return Key{
-		privateKey: privateKey,
-		publicKey:  publicKey,
+		raw: internal.NewRaw(raw),
+		openFn: func(out, ciphertext []byte, publicKey *[32]byte) (message []byte, ok bool) {
+			return box.OpenAnonymous(nil, ciphertext, publicKey, privateKey)
+		},
+		publicKey: publicKey,
 	}, nil
 }
 
@@ -59,19 +68,7 @@ func (k Key) ID() string {
 	return k.PublicKeyString()
 }
 
-func (k Key) Raw() internal.Raw {
-	raw := make([]byte, curve25519.PointSize)
-	copy(raw, k.privateKey[:])
-	return internal.NewRaw(raw)
-}
-
-func (k Key) String() string {
-	return fmt.Sprintf("%sKey{PrivateKey: <redacted>, PublicKey: %s}", keyTypeIdentifier, *k.publicKey)
-}
-
-func (k Key) GoString() string {
-	return k.String()
-}
+func (k Key) Raw() internal.Raw { return k.raw }
 
 // Encrypt encrypts a message using the public key
 func (k Key) Encrypt(plaintext []byte) ([]byte, error) {
@@ -95,7 +92,7 @@ func (k Key) Decrypt(ciphertext []byte) (plaintext []byte, err error) {
 		return nil, errors.New("public key is empty")
 	}
 
-	decrypted, success := box.OpenAnonymous(nil, ciphertext, &publicKey, k.privateKey)
+	decrypted, success := k.openFn(nil, ciphertext, &publicKey)
 	if !success {
 		return nil, errors.New("decryption failed")
 	}
@@ -119,8 +116,14 @@ func MustNewXXXTestingOnly(k *big.Int) Key {
 
 	var privateKey [32]byte
 	copy(privateKey[:], privKey.Seed())
+
+	raw := make([]byte, curve25519.PointSize)
+	copy(raw, privateKey[:])
 	return Key{
-		privateKey: &privateKey,
-		publicKey:  curve25519PubKeyFromPrivateKey(privateKey),
+		raw: internal.NewRaw(raw),
+		openFn: func(out, ciphertext []byte, publicKey *[32]byte) (message []byte, ok bool) {
+			return box.OpenAnonymous(nil, ciphertext, publicKey, &privateKey)
+		},
+		publicKey: curve25519PubKeyFromPrivateKey(privateKey),
 	}
 }

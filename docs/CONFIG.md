@@ -1271,6 +1271,7 @@ ChainID = '1' # Default
 MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
+SyncStrategy = 'event' # Default
 ```
 
 
@@ -1309,6 +1310,13 @@ MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fet
 MaxConfigSize = '50.00kb' # Default
 ```
 MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
+
+### SyncStrategy
+```toml
+SyncStrategy = 'event' # Default
+```
+SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
+Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
 
 ## Workflows
 ```toml
@@ -2066,6 +2074,7 @@ InsecureConnection = false # Default
 TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
+ChipIngressEndpoint = '' # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2114,6 +2123,12 @@ EmitterBatchProcessor enables batching for telemetry events
 EmitterExportTimeout = '1s' # Default
 ```
 EmitterExportTimeout sets timeout for exporting telemetry events
+
+### ChipIngressEndpoint
+```toml
+ChipIngressEndpoint = '' # Default
+```
+ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 
 ## Telemetry.ResourceAttributes
 ```toml
@@ -16214,6 +16229,7 @@ TendermintURL is the HTTP(S) tendermint endpoint for this node.
 [[Solana]]
 ChainID = 'mainnet' # Example
 Enabled = false # Default
+BlockTime = '500ms' # Default
 BalancePollPeriod = '5s' # Default
 ConfirmPollPeriod = '500ms' # Default
 OCR2CachePollPeriod = '1s' # Default
@@ -16233,8 +16249,10 @@ ComputeUnitPriceDefault = 0 # Default
 FeeBumpPeriod = '3s' # Default
 BlockHistoryPollPeriod = '5s' # Default
 BlockHistorySize = 1 # Default
+BlockHistoryBatchLoadSize = 20 # Default
 ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
+LogPollerStartingLookback = '24h0m0s' # Default
 ```
 
 
@@ -16249,6 +16267,12 @@ ChainID is the Solana chain ID. Must be one of: mainnet, testnet, devnet, localn
 Enabled = false # Default
 ```
 Enabled enables this chain.
+
+### BlockTime
+```toml
+BlockTime = '500ms' # Default
+```
+BlockTime specifies the average time between blocks on this chain
 
 ### BalancePollPeriod
 ```toml
@@ -16367,7 +16391,15 @@ BlockHistorySize = 1 # Default
 BlockHistorySize is the number of blocks to take into consideration when using FeeEstimatorMode = 'blockhistory' to determine compute unit price.
 If set to 1, the compute unit price will be determined by the median of the last block's compute unit prices.
 If set N > 1, the compute unit price will be determined by the average of the medians of the last N blocks' compute unit prices.
-DISCLAIMER: 1:1 ratio between n and RPC calls. It executes once every 'BlockHistoryPollPeriod' value.
+DISCLAIMER: If set to a value greater than BlockHistoryBatchLoadSize, initial estimations during startup would be over smaller block ranges until the cache is filled.
+
+### BlockHistoryBatchLoadSize
+```toml
+BlockHistoryBatchLoadSize = 20 # Default
+```
+BlockHistoryBatchLoadSize is the number of latest blocks to fetch from the chain to store in the cache every BlockHistoryPollPeriod.
+This config is only relevant if BlockHistorySize > 1 and if BlockHistorySize is greater than BlockHistoryBatchLoadSize.
+Ensure the value is greater than the number of blocks that would be produced between each BlockHistoryPollPeriod to avoid gaps in block history.
 
 ### ComputeUnitLimitDefault
 ```toml
@@ -16380,6 +16412,12 @@ ComputeUnitLimitDefault is the compute units limit applied to transactions unles
 EstimateComputeUnitLimit = false # Default
 ```
 EstimateComputeUnitLimit enables or disables compute unit limit estimations per transaction. If estimations return 0 used compute, the ComputeUnitLimitDefault value is used, if set.
+
+### LogPollerStartingLookback
+```toml
+LogPollerStartingLookback = '24h0m0s' # Default
+```
+LogPollerStartingLookback
 
 ## Solana.MultiNode
 ```toml
