@@ -21,13 +21,13 @@ type EngineRegistryKey struct {
 // KeyFor generates a key that will be used to identify the engine in the engine registry.
 // This is used instead of a Workflow ID, because the WID will change if the workflow code is modified.
 func (k EngineRegistryKey) keyFor() string {
-	return hex.EncodeToString(k.Owner) + "-" + name
+	return hex.EncodeToString(k.Owner) + "-" + k.Name
 }
 
 type ServiceWithMetadata struct {
-	workflowID    [32]byte
-	workflowName  string
-	workflowOwner []byte
+	WorkflowID    WorkflowID
+	WorkflowName  string
+	WorkflowOwner []byte
 	services.Service
 }
 
@@ -43,7 +43,7 @@ func NewEngineRegistry() *EngineRegistry {
 }
 
 // Add adds an engine to the registry.
-func (r *EngineRegistry) Add(key EngineRegistryKey, engine services.Service, workflowID [32]byte) error {
+func (r *EngineRegistry) Add(key EngineRegistryKey, engine services.Service, workflowID WorkflowID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	k := key.keyFor()
@@ -51,15 +51,15 @@ func (r *EngineRegistry) Add(key EngineRegistryKey, engine services.Service, wor
 		return errors.New("attempting to register duplicate engine")
 	}
 	r.engines[k] = ServiceWithMetadata{
-		workflowID:    workflowID,
-		workflowName:  key.Name,
-		workflowOwner: key.Owner,
+		WorkflowID:    workflowID,
+		WorkflowName:  key.Name,
+		WorkflowOwner: key.Owner,
 		Service:       engine,
 	}
 	return nil
 }
 
-// Get retrieves an engine from the registry.
+// Get retrieves an engine from the registry. If not found it returns an error.
 func (r *EngineRegistry) Get(key EngineRegistryKey) (ServiceWithMetadata, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
