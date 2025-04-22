@@ -19,8 +19,12 @@ func ToDefault[CM Cloneable[CM], EM Cloneable[EM]](
 	if err != nil {
 		return nil, fmt.Errorf("error fetching AddressRefs: %w", err)
 	}
+
 	for _, ar := range addressRefs {
-		converted.Addresses().Add(ar)
+		err := converted.Addresses().Add(ar)
+		if err != nil {
+			return nil, fmt.Errorf("error adding AddressRef: %w", err)
+		}
 	}
 
 	// Copy all contractMetadata over to the new data store and convert the metadata
@@ -29,18 +33,23 @@ func ToDefault[CM Cloneable[CM], EM Cloneable[EM]](
 	if err != nil {
 		return nil, fmt.Errorf("error fetching ContractMetadata: %w", err)
 	}
+
 	for _, cm := range contractMetadata {
 		jsonData, err := json.Marshal(cm.Metadata)
 		if err != nil {
 			return nil, fmt.Errorf("error marshaling ContractMetadata: %w", err)
 		}
-		converted.ContractMetadata().Add(ContractMetadata[DefaultMetadata]{
+
+		err = converted.ContractMetadata().Add(ContractMetadata[DefaultMetadata]{
 			ChainSelector: cm.ChainSelector,
 			Address:       cm.Address,
 			Metadata: DefaultMetadata{
 				Data: string(jsonData),
 			},
 		})
+		if err != nil {
+			return nil, fmt.Errorf("error adding ContractMetadata: %w", err)
+		}
 	}
 
 	// Fetch the EnvMetadata and check if it was set.
@@ -62,13 +71,16 @@ func ToDefault[CM Cloneable[CM], EM Cloneable[EM]](
 	}
 
 	// Set the EnvMetadata in the new data store with the JSON string.
-	converted.EnvMetadata().Set(EnvMetadata[DefaultMetadata]{
+	err = converted.EnvMetadata().Set(EnvMetadata[DefaultMetadata]{
 		Domain:      envMetadata.Domain,
 		Environment: envMetadata.Environment,
 		Metadata: DefaultMetadata{
 			Data: string(jsonData),
 		},
 	})
+	if err != nil {
+		return nil, fmt.Errorf("error updating EnvMetadata: %w", err)
+	}
 
 	return converted, nil
 }
@@ -82,26 +94,41 @@ func FromDefault[CM Cloneable[CM], EM Cloneable[EM]](
 	converted := NewMemoryDataStore[CM, EM]()
 
 	// Copy all addressRef over to the new data store, no conversion is needed
-	addressRefs, _ := defaultStore.Addresses().Fetch()
+	addressRefs, err := defaultStore.Addresses().Fetch()
+	if err != nil {
+		return nil, fmt.Errorf("error fetching AddressRefs: %w", err)
+	}
+
 	for _, ar := range addressRefs {
-		converted.Addresses().Add(ar)
+		err := converted.Addresses().Add(ar)
+		if err != nil {
+			return nil, fmt.Errorf("error adding AddressRef: %w", err)
+		}
 	}
 
 	// Copy all contractMetadata over to the new data store and convert the metadata
 	// to to the domain specific type. This is done by unmarshaling the JSON string
 	// representing the metadata into the concrete type.
-	contractMetadata, _ := defaultStore.ContractMetadata().Fetch()
+	contractMetadata, err := defaultStore.ContractMetadata().Fetch()
+	if err != nil {
+		return nil, fmt.Errorf("error fetching ContractMetadata: %w", err)
+	}
+
 	for _, cm := range contractMetadata {
 		var metadata CM
 		err := json.Unmarshal([]byte(cm.Metadata.Data), &metadata)
 		if err != nil {
 			return nil, fmt.Errorf("error unmarshaling ContractMetadata: %w", err)
 		}
-		converted.ContractMetadata().Add(ContractMetadata[CM]{
+
+		err = converted.ContractMetadata().Add(ContractMetadata[CM]{
 			ChainSelector: cm.ChainSelector,
 			Address:       cm.Address,
 			Metadata:      metadata,
 		})
+		if err != nil {
+			return nil, fmt.Errorf("error adding ContractMetadata: %w", err)
+		}
 	}
 
 	// Fetch the EnvMetadata and check if it was set.
@@ -124,11 +151,14 @@ func FromDefault[CM Cloneable[CM], EM Cloneable[EM]](
 	}
 
 	// Set the EnvMetadata in the new data store with the domain specific type.
-	converted.EnvMetadata().Set(EnvMetadata[EM]{
+	err = converted.EnvMetadata().Set(EnvMetadata[EM]{
 		Domain:      envMetadata.Domain,
 		Environment: envMetadata.Environment,
 		Metadata:    metadata,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("error updating EnvMetadata: %w", err)
+	}
 
 	return converted.Seal(), nil
 }
