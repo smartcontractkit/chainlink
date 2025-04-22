@@ -1197,8 +1197,8 @@ github.com/smartcontractkit/chainlink-protos/svr v1.1.0 h1:79Z9N9dMbMVRGaLoDPAQ+
 github.com/smartcontractkit/chainlink-protos/svr v1.1.0/go.mod h1:TcOliTQU6r59DwG4lo3U+mFM9WWyBHGuFkkxQpvSujo=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250417132850-8f68f1d0afea h1:4VuTwj9Nfi0oNHXHKspQTeLTkf3Q8lgliQUHER93mLo=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250417132850-8f68f1d0afea/go.mod h1:/LBdFMmJ3HLGSii7GhZG5W4j36vgVpxzi2s4egVAQsg=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.4 h1:ks1FuQQ6f7PY/97VFXxtZhAyWZaT0NCvhT+1wKgyOt0=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.4/go.mod h1:zw3QH/GTvPl/7Cjyw+y4cJYnP16QHTEh7wWLJQd9lM8=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.5 h1:Lk5iUhW5fstUDmHGfnBHro/RAWvxxkMGgfs4ZMXtMqs=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.5/go.mod h1:+C1jbf+diirCT09w9huU9jBKxG6pMRQclGRGJX4+n5Q=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4 h1:+kwLuO9kcq1+ZbRUQjxX1SQmzlL2M6ZP6+L0xQMtmkU=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4/go.mod h1:orWoMb61wz6RwW++jIOXVmCoVuLIAoowtgrCvLGNBLQ=
 github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 h1:cWUHB6QETyKbmh0B988f5AKIKb3aBDWugfrZ04jAUUY=

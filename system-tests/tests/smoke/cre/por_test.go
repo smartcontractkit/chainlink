@@ -424,12 +424,15 @@ func setupPoRTestEnvironment(
 
 	if in.CustomAnvilMiner != nil {
 		for _, bi := range universalSetupInput.BlockchainsInput {
-			require.NotContains(t, bi.DockerCmdParamsOverrides, "-b", "custom_anvil_miner was specified but Anvil has '-b' key set, remove that parameter from 'docker_cmd_params' to run deployments instantly or remove custom_anvil_miner key from TOML config")
-			require.Equal(t, "anvil", bi.Type, "custom_anvil_miner was specified but blockchain type is not Anvil")
+			if bi.Type == blockchain.TypeAnvil {
+				require.NotContains(t, bi.DockerCmdParamsOverrides, "-b", "custom_anvil_miner was specified but Anvil has '-b' key set, remove that parameter from 'docker_cmd_params' to run deployments instantly or remove custom_anvil_miner key from TOML config")
+			}
 		}
 		for _, bo := range universalSetupOutput.BlockchainOutput {
-			miner := rpc.NewRemoteAnvilMiner(bo.BlockchainOutput.Nodes[0].ExternalHTTPUrl, nil)
-			miner.MinePeriodically(time.Duration(in.CustomAnvilMiner.BlockSpeedSeconds) * time.Second)
+			if bo.BlockchainOutput.Type == blockchain.TypeAnvil {
+				miner := rpc.NewRemoteAnvilMiner(bo.BlockchainOutput.Nodes[0].ExternalHTTPUrl, nil)
+				miner.MinePeriodically(time.Duration(in.CustomAnvilMiner.BlockSpeedSeconds) * time.Second)
+			}
 		}
 	}
 

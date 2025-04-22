@@ -26,7 +26,7 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250418172423-6b24a042d134
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250409172733-a9b441035629
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.4
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	go.uber.org/ratelimit v0.3.1

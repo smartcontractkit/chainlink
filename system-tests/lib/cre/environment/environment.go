@@ -133,21 +133,22 @@ func SetupTestEnvironment(
 
 	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability, workflow registry)
 	// but first, we need to create deployment.Environment that will contain only chain information in order to deploy contracts with the CLD
-	chainsConfig := []devenv.ChainConfig{
-		{
-			ChainID:   homeChainOutput.SethClient.Cfg.Network.ChainID,
-			ChainName: homeChainOutput.SethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(homeChainOutput.BlockchainOutput.Family),
+	chainsConfig := make([]devenv.ChainConfig, 0)
+	for _, bcOut := range blockchainsOutput {
+		chainsConfig = append(chainsConfig, devenv.ChainConfig{
+			ChainID:   bcOut.SethClient.Cfg.Network.ChainID,
+			ChainName: bcOut.SethClient.Cfg.Network.Name,
+			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: homeChainOutput.BlockchainOutput.Nodes[0].ExternalWSUrl,
-				Internal: homeChainOutput.BlockchainOutput.Nodes[0].InternalWSUrl,
+				External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
+				Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				Internal: homeChainOutput.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+				External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+				Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
 			}},
-			DeployerKey: homeChainOutput.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
-		},
+			DeployerKey: bcOut.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
+		})
 	}
 
 	chains, chainsErr := devenv.NewChains(singeFileLogger, chainsConfig)
@@ -369,15 +370,17 @@ func SetupTestEnvironment(
 	// Fund the nodes
 	for _, metaDon := range fullCldOutput.DonTopology.DonsWithMetadata {
 		for _, node := range metaDon.DON.Nodes {
-			_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, homeChainOutput.SethClient, libtypes.FundsToSend{
-				ToAddress: common.HexToAddress(
-					node.AccountAddr[strconv.FormatUint(homeChainOutput.SethClient.Cfg.Network.ChainID, 10)]),
-				Amount:     big.NewInt(5000000000000000000),
-				PrivateKey: homeChainOutput.SethClient.MustGetRootPrivateKey(),
-			})
-			if fundingErr != nil {
-				return nil, pkgerrors.Wrapf(fundingErr, "failed to fund node %s",
-					node.AccountAddr[strconv.FormatUint(homeChainOutput.SethClient.Cfg.Network.ChainID, 10)])
+			for _, bcOut := range blockchainsOutput {
+				_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, bcOut.SethClient, libtypes.FundsToSend{
+					ToAddress: common.HexToAddress(
+						node.AccountAddr[strconv.FormatUint(bcOut.SethClient.Cfg.Network.ChainID, 10)]),
+					Amount:     big.NewInt(5000000000000000000),
+					PrivateKey: homeChainOutput.SethClient.MustGetRootPrivateKey(),
+				})
+				if fundingErr != nil {
+					return nil, pkgerrors.Wrapf(fundingErr, "failed to fund node %s",
+						node.AccountAddr[strconv.FormatUint(homeChainOutput.SethClient.Cfg.Network.ChainID, 10)])
+				}
 			}
 		}
 	}
