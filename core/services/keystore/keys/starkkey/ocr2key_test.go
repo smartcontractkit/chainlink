@@ -13,6 +13,8 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
@@ -175,6 +177,8 @@ func TestStarknetKeyring_Sign_Verify(t *testing.T) {
 }
 
 func TestStarknetKeyring_Marshal(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-559")
+
 	kr1, err := NewOCR2Key(cryptorand.Reader)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()
