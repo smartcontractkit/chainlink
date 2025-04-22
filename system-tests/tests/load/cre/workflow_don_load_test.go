@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
@@ -134,7 +133,6 @@ func setupLoadTestEnvironment(
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
 	return &loadTestSetupOutput{
-		// feedsConsumerAddress: deployFeedsConsumerOutput.FeedConsumerAddress,
 		forwarderAddress: universalSetupOutput.KeystoneContractsOutput.ForwarderAddress,
 		blockchainOutput: universalSetupOutput.BlockchainOutput,
 		donTopology:      universalSetupOutput.DonTopology,
@@ -281,8 +279,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
-		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))},
-		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(chainIDInt)},
+		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(chainIDUint64)},
+		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(chainIDUint64)},
 	)
 
 	ctx := t.Context()
