@@ -75,7 +75,8 @@ COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
 # Set plugin environment variable configuration.
 ENV CL_MEDIAN_CMD=chainlink-feeds
 ENV CL_MERCURY_CMD=chainlink-mercury
-ENV CL_SOLANA_CMD=chainlink-solana
+ARG CL_SOLANA_CMD
+ENV CL_SOLANA_CMD=${CL_SOLANA_CMD}
 ARG CL_APTOS_CMD
 ENV CL_APTOS_CMD=${CL_APTOS_CMD}
 
