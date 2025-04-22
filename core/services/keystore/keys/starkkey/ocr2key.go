@@ -58,7 +58,7 @@ func (sk *OCR2Key) Sign(reportCtx types.ReportContext, report types.Report) ([]b
 	if err != nil {
 		return []byte{}, err
 	}
-	r, s, err := curve.Curve.Sign(hash, sk.priv)
+	r, s, err := sk.signFn(hash)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -140,7 +140,7 @@ func (sk *OCR2Key) MaxSignatureLength() int {
 }
 
 func (sk *OCR2Key) Marshal() ([]byte, error) {
-	return padBytes(sk.priv.Bytes(), sk.privateKeyLen()), nil
+	return padBytes(internal.Bytes(sk.raw), sk.privateKeyLen()), nil
 }
 
 func (sk *OCR2Key) privateKeyLen() int {

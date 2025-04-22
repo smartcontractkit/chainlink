@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -70,7 +71,7 @@ func newKeyBundleFrom[K keyring](chain chaintype.ChainType, newKeyring func(mate
 	k := keyBundle[K]{
 		keyBundleBase: keyBundleBase{
 			chainType:       chain,
-			OffchainKeyring: *offchainKeyring,
+			offchainKeyring: *offchainKeyring,
 		},
 		keyring: kr,
 	}
@@ -119,7 +120,7 @@ func (kb *keyBundle[K]) OnChainPublicKey() string {
 }
 
 func (kb *keyBundle[K]) Marshal() ([]byte, error) {
-	offchainKeyringBytes, err := kb.OffchainKeyring.marshal()
+	offchainKeyringBytes, err := kb.offchainKeyring.marshal()
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +147,7 @@ func (kb *keyBundle[K]) Unmarshal(b []byte) (err error) {
 		return err
 	}
 
-	err = kb.OffchainKeyring.unmarshal(rawKeyData.OffchainKeyring)
+	err = kb.offchainKeyring.unmarshal(rawKeyData.OffchainKeyring)
 	if err != nil {
 		return err
 	}

@@ -459,7 +459,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 		reqs := make(chan wsrpcRequest, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewWSRPCMercuryServer(t, serverKey.Signer(), reqs)
+		srv := NewWSRPCMercuryServer(t, serverKey, reqs)
 
 		serverURL := startWSRPCMercuryServer(t, srv, clientPubKeys)
 
@@ -697,7 +697,7 @@ func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig datastreamsllo.
 		packetCh := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewMercuryServer(t, serverKey.Signer(), packetCh)
+		srv := NewMercuryServer(t, serverKey, packetCh)
 
 		serverURL := startMercuryServer(t, srv, clientPubKeys)
 
@@ -1336,7 +1336,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 		packets := make(chan *packet, nReports*nNodes)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewMercuryServer(t, serverKey.Signer(), packets)
+		srv := NewMercuryServer(t, serverKey, packets)
 
 		serverURL := startMercuryServer(t, srv, clientPubKeys)
 
@@ -1565,7 +1565,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 		packets := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewMercuryServer(t, serverKey.Signer(), packets)
+		srv := NewMercuryServer(t, serverKey, packets)
 
 		serverURL := startMercuryServer(t, srv, clientPubKeys)
 
@@ -1727,7 +1727,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastrea
 		packetCh := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewMercuryServer(t, serverKey.Signer(), packetCh)
+		srv := NewMercuryServer(t, serverKey, packetCh)
 
 		serverURL := startMercuryServer(t, srv, clientPubKeys)
 

@@ -343,6 +343,7 @@ ChainID = '1'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
+SyncStrategy = 'event'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
@@ -364,6 +365,7 @@ InsecureConnection = false
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+ChipIngressEndpoint = ''
 
 [Workflows]
 [Workflows.Limits]

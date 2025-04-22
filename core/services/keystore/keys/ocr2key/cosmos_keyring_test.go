@@ -7,8 +7,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 func TestCosmosKeyRing_Sign_Verify(t *testing.T) {
@@ -51,7 +52,7 @@ func TestCosmosKeyRing_Marshalling(t *testing.T) {
 	err = kr2.Unmarshal(m)
 	require.NoError(t, err)
 	assert.True(t, bytes.Equal(kr1.pubKey, kr2.pubKey))
-	assert.True(t, bytes.Equal(kr1.privKey, kr2.privKey))
+	assert.True(t, bytes.Equal(kr1.privKey(), kr2.privKey()))
 
 	// Invalid seed size should error
 	require.Error(t, kr2.Unmarshal([]byte{0x01}))

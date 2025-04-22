@@ -35,3 +35,6 @@ gcr_creds.env
 
 go.work
 go.work.sum
+
+# GoReleaser
+dist/
