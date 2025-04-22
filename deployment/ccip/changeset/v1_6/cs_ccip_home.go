@@ -44,8 +44,8 @@ var (
 	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
 	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
 
-	DeployDonIdClaimerChangeset = deployment.CreateChangeSet(deployDonIdClaimerChangesetLogic, deployDonIdClaimerPrecondition)
-	DonIDClaimerOffSetChangeset = deployment.CreateChangeSet(donIdClaimerOffSetChangesetLogic, donIdClaimerOffSetChangesetPrecondition)
+	DeployDonIdClaimerChangeset = deployment.CreateChangeSet(deployDonIDClaimerChangesetLogic, deployDonIDClaimerPrecondition)
+	DonIDClaimerOffSetChangeset = deployment.CreateChangeSet(donIDClaimerOffSetChangesetLogic, donIDClaimerOffSetChangesetPrecondition)
 )
 
 func findTokenInfo(tokens []changeset.TokenDetails, address common.Address) (string, uint8, error) {
@@ -1435,7 +1435,7 @@ type DeployDonIDClaimerConfig struct {
 	HomeChainSelector uint64 `json:"homeChainSelector"`
 }
 
-func deployDonIdClaimerChangesetLogic(e deployment.Environment, cfg DeployDonIDClaimerConfig) (deployment.ChangesetOutput, error) {
+func deployDonIDClaimerChangesetLogic(e deployment.Environment, cfg DeployDonIDClaimerConfig) (deployment.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -1486,7 +1486,7 @@ func deployDonIDClaimerContract(e deployment.Environment, ab deployment.AddressB
 	return nil
 }
 
-func deployDonIdClaimerPrecondition(e deployment.Environment, c DeployDonIDClaimerConfig) error {
+func deployDonIDClaimerPrecondition(e deployment.Environment, c DeployDonIDClaimerConfig) error {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -1499,7 +1499,7 @@ type DonIDClaimerOffSetConfig struct {
 	OffSet            uint32 `json:"offset"`
 }
 
-func donIdClaimerOffSetChangesetLogic(e deployment.Environment, cfg DonIDClaimerOffSetConfig) (deployment.ChangesetOutput, error) {
+func donIDClaimerOffSetChangesetLogic(e deployment.Environment, cfg DonIDClaimerOffSetConfig) (deployment.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -1520,7 +1520,7 @@ func donIdClaimerOffSetChangesetLogic(e deployment.Environment, cfg DonIDClaimer
 	return deployment.ChangesetOutput{}, err
 }
 
-func donIdClaimerOffSetChangesetPrecondition(e deployment.Environment, c DonIDClaimerOffSetConfig) error {
+func donIDClaimerOffSetChangesetPrecondition(e deployment.Environment, c DonIDClaimerOffSetConfig) error {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
