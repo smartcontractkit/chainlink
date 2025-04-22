@@ -434,7 +434,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			// deploy donIDClaimer
 			e, err = commonchangeset.Apply(t, e, nil,
 				commonchangeset.Configure(
-					v1_6.DeployDonIdClaimerChangeset,
+					v1_6.DeployDonIDClaimerChangeset,
 					v1_6.DeployDonIDClaimerConfig{
 						HomeChainSelector: deployedEnvironment.HomeChainSel,
 					},

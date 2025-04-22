@@ -44,7 +44,7 @@ var (
 	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
 	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
 
-	DeployDonIdClaimerChangeset = deployment.CreateChangeSet(deployDonIDClaimerChangesetLogic, deployDonIDClaimerPrecondition)
+	DeployDonIDClaimerChangeset = deployment.CreateChangeSet(deployDonIDClaimerChangesetLogic, deployDonIDClaimerPrecondition)
 	DonIDClaimerOffSetChangeset = deployment.CreateChangeSet(donIDClaimerOffSetChangesetLogic, donIDClaimerOffSetChangesetPrecondition)
 )
 
