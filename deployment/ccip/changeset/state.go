@@ -1077,19 +1077,19 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.TokenPoolFactory = tpf
 			state.ABIByAddress[address] = token_pool_factory.TokenPoolFactoryABI
 		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_6_0).String():
-			rm, err := v1_6RegistryModuleOwnerCustom.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
+			rm, err := registryModuleOwnerCustomv16.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RegistryModules1_6 = append(state.RegistryModules1_6, rm)
-			state.ABIByAddress[address] = v1_6RegistryModuleOwnerCustom.RegistryModuleOwnerCustomABI
+			state.ABIByAddress[address] = registryModuleOwnerCustomv16.RegistryModuleOwnerCustomABI
 		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0).String():
-			rm, err := v1_5RegistryModuleOwnerCustom.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
+			rm, err := registryModuleOwnerCustomv15.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RegistryModules1_5 = append(state.RegistryModules1_5, rm)
-			state.ABIByAddress[address] = v1_5RegistryModuleOwnerCustom.RegistryModuleOwnerCustomABI
+			state.ABIByAddress[address] = registryModuleOwnerCustomv15.RegistryModuleOwnerCustomABI
 		case deployment.NewTypeAndVersion(Router, deployment.Version1_2_0).String():
 			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
 			if err != nil {
