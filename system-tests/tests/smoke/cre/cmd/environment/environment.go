@@ -16,10 +16,6 @@ import (
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -33,6 +29,11 @@ import (
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
 
 var EnvironmentCmd = &cobra.Command{
@@ -156,15 +157,17 @@ var startCmd = &cobra.Command{
 			return errors.Wrap(err, "failed to start environment")
 		}
 
+		homeChainOut := output.BlockchainOutput[0]
+
 		sErr := func() error {
 			creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
-				output.BlockchainOutput.SethClient.MustGetRootKeyAddress(),
+				homeChainOut.SethClient.MustGetRootKeyAddress(),
 				output.KeystoneContractsOutput.CapabilitiesRegistryAddress,
 				output.KeystoneContractsOutput.WorkflowRegistryAddress,
 				nil,
 				output.DonTopology.WorkflowDonID,
-				output.BlockchainOutput.ChainSelector,
-				output.BlockchainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
+				homeChainOut.ChainSelector,
+				homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
 
 			if settingsErr != nil {
 				return settingsErr
@@ -227,7 +230,7 @@ const (
 )
 
 type Config struct {
-	Blockchain        *blockchain.Input       `toml:"blockchain" validate:"required"`
+	Blockchains       []*blockchain.Input     `toml:"blockchains" validate:"required"`
 	NodeSets          []*ns.Input             `toml:"nodesets" validate:"required"`
 	JD                *jd.Input               `toml:"jd" validate:"required"`
 	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
@@ -341,7 +344,8 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		fmt.Println()
 	}
 
-	chainIDInt, chainErr := strconv.Atoi(in.Blockchain.ChainID)
+	homeChainInput := in.Blockchains[0]
+	chainIDInt, chainErr := strconv.Atoi(homeChainInput.ChainID)
 	if chainErr != nil {
 		return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 	}
@@ -381,7 +385,7 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            capabilitiesAwareNodeSets,
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:                     *in.Blockchain,
+		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		CustomBinariesPaths:                  capabilitiesBinaryPaths,

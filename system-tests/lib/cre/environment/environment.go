@@ -21,13 +21,14 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -63,7 +64,7 @@ type SetupOutput struct {
 	KeystoneContractsOutput             *keystonetypes.KeystoneContractsOutput
 	WorkflowRegistryConfigurationOutput *keystonetypes.WorkflowRegistryOutput
 	CldEnvironment                      *deployment.Environment
-	BlockchainOutput                    *BlockchainOutput
+	BlockchainOutput                    []*BlockchainOutput
 	DonTopology                         *keystonetypes.DonTopology
 	NodeOutput                          []*keystonetypes.WrappedNodeOutput
 }
@@ -73,7 +74,7 @@ type SetupInput struct {
 	CapabilitiesAwareNodeSets            []*keystonetypes.CapabilitiesAwareNodeSet
 	CapabilitiesContractFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
 	JobSpecFactoryFunctions              []cretypes.JobSpecFactoryFn
-	BlockchainsInput                     blockchain.Input
+	BlockchainsInput                     []*blockchain.Input
 	JdInput                              jd.Input
 	InfraInput                           libtypes.InfraInput
 	CustomBinariesPaths                  map[cretypes.CapabilityFlag]string
@@ -113,33 +114,39 @@ func SetupTestEnvironment(
 		}
 	}()
 
-	blockchainsInput := BlockchainsInput{
-		blockchainInput: &input.BlockchainsInput,
-		infraInput:      &input.InfraInput,
-		nixShell:        nixShell,
+	bi := make([]BlockchainsInput, 0)
+	for _, bcInfraInput := range input.BlockchainsInput {
+		bi = append(bi, BlockchainsInput{
+			blockchainInput: bcInfraInput,
+			infraInput:      &input.InfraInput,
+			nixShell:        nixShell,
+		})
 	}
+	homeChainInput := bi[0]
 
-	blockchainsOutput, bcOutErr := CreateBlockchains(singeFileLogger, testLogger, blockchainsInput)
+	blockchainsOutput, bcOutErr := CreateBlockchains(singeFileLogger, testLogger, bi)
 	if bcOutErr != nil {
 		return nil, pkgerrors.Wrap(bcOutErr, "failed to create blockchains")
 	}
+
+	homeChainOutput := blockchainsOutput[0]
 
 	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability, workflow registry)
 	// but first, we need to create deployment.Environment that will contain only chain information in order to deploy contracts with the CLD
 	chainsConfig := []devenv.ChainConfig{
 		{
-			ChainID:   blockchainsOutput.SethClient.Cfg.Network.ChainID,
-			ChainName: blockchainsOutput.SethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(blockchainsOutput.BlockchainOutput.Family),
+			ChainID:   homeChainOutput.SethClient.Cfg.Network.ChainID,
+			ChainName: homeChainOutput.SethClient.Cfg.Network.Name,
+			ChainType: strings.ToUpper(homeChainOutput.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: blockchainsOutput.BlockchainOutput.Nodes[0].ExternalWSUrl,
-				Internal: blockchainsOutput.BlockchainOutput.Nodes[0].InternalWSUrl,
+				External: homeChainOutput.BlockchainOutput.Nodes[0].ExternalWSUrl,
+				Internal: homeChainOutput.BlockchainOutput.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: blockchainsOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				Internal: blockchainsOutput.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+				External: homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+				Internal: homeChainOutput.BlockchainOutput.Nodes[0].InternalHTTPUrl,
 			}},
-			DeployerKey: blockchainsOutput.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
+			DeployerKey: homeChainOutput.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
 		},
 	}
 
@@ -158,7 +165,7 @@ func SetupTestEnvironment(
 	}
 
 	keystoneContractsInput := &keystonetypes.KeystoneContractsInput{
-		ChainSelector: blockchainsOutput.ChainSelector,
+		ChainSelector: homeChainOutput.ChainSelector,
 		CldEnv:        chainsOnlyCld,
 	}
 	keystoneContractsOutput, keyContrErr := libcontracts.DeployKeystone(testLogger, keystoneContractsInput)
@@ -168,7 +175,7 @@ func SetupTestEnvironment(
 
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
-	topology, topoErr := libdon.BuildTopology(input.CapabilitiesAwareNodeSets, *blockchainsInput.infraInput)
+	topology, topoErr := libdon.BuildTopology(input.CapabilitiesAwareNodeSets, *homeChainInput.infraInput)
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
@@ -176,7 +183,7 @@ func SetupTestEnvironment(
 	// Generate EVM and P2P keys, which are needed to prepare the node configs
 	// That way we can pass them final configs and do away with restarting the nodes
 	var keys *keystonetypes.GenerateKeysOutput
-	chainIDInt, chainErr := strconv.Atoi(blockchainsOutput.BlockchainOutput.ChainID)
+	chainIDInt, chainErr := strconv.Atoi(homeChainOutput.BlockchainOutput.ChainID)
 	if chainErr != nil {
 		return nil, pkgerrors.Wrap(chainErr, "failed to convert chain ID to int")
 	}
@@ -199,10 +206,10 @@ func SetupTestEnvironment(
 
 	// Configure Workflow Registry contract
 	workflowRegistryInput := &keystonetypes.WorkflowRegistryInput{
-		ChainSelector:  blockchainsOutput.ChainSelector,
+		ChainSelector:  homeChainOutput.ChainSelector,
 		CldEnv:         chainsOnlyCld,
 		AllowedDonIDs:  []uint32{topology.WorkflowDONID},
-		WorkflowOwners: []common.Address{blockchainsOutput.SethClient.MustGetRootKeyAddress()},
+		WorkflowOwners: []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
 	}
 
 	_, workflowErr := libcontracts.ConfigureWorkflowRegistry(testLogger, workflowRegistryInput)
@@ -219,7 +226,7 @@ func SetupTestEnvironment(
 		config, configErr := keystoneporconfig.GenerateConfigs(
 			keystonetypes.GeneratePoRConfigsInput{
 				DonMetadata:                 donMetadata,
-				BlockchainOutput:            blockchainsOutput.BlockchainOutput,
+				BlockchainOutput:            homeChainOutput.BlockchainOutput,
 				DonID:                       donMetadata.ID,
 				Flags:                       donMetadata.Flags,
 				PeeringData:                 peeringData,
@@ -321,7 +328,7 @@ func SetupTestEnvironment(
 
 	nodeOutput := make([]*keystonetypes.WrappedNodeOutput, 0, len(input.CapabilitiesAwareNodeSets))
 	for _, nodeSetInput := range input.CapabilitiesAwareNodeSets {
-		nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, blockchainsOutput.BlockchainOutput)
+		nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, homeChainOutput.BlockchainOutput)
 		if nodesetErr != nil {
 			return nil, pkgerrors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSetInput.Name)
 		}
@@ -337,8 +344,8 @@ func SetupTestEnvironment(
 	// Ugly glue hack ¯\_(ツ)_/¯
 	fullCldInput := &keystonetypes.FullCLDEnvironmentInput{
 		JdOutput:          jdOutput,
-		BlockchainOutput:  blockchainsOutput.BlockchainOutput,
-		SethClient:        blockchainsOutput.SethClient,
+		BlockchainOutput:  homeChainOutput.BlockchainOutput,
+		SethClient:        homeChainOutput.SethClient,
 		NodeSetOutput:     nodeOutput,
 		ExistingAddresses: chainsOnlyCld.ExistingAddresses,
 		Topology:          topology,
@@ -362,15 +369,15 @@ func SetupTestEnvironment(
 	// Fund the nodes
 	for _, metaDon := range fullCldOutput.DonTopology.DonsWithMetadata {
 		for _, node := range metaDon.DON.Nodes {
-			_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, blockchainsOutput.SethClient, libtypes.FundsToSend{
+			_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, homeChainOutput.SethClient, libtypes.FundsToSend{
 				ToAddress: common.HexToAddress(
-					node.AccountAddr[strconv.FormatUint(blockchainsOutput.SethClient.Cfg.Network.ChainID, 10)]),
+					node.AccountAddr[strconv.FormatUint(homeChainOutput.SethClient.Cfg.Network.ChainID, 10)]),
 				Amount:     big.NewInt(5000000000000000000),
-				PrivateKey: blockchainsOutput.SethClient.MustGetRootPrivateKey(),
+				PrivateKey: homeChainOutput.SethClient.MustGetRootPrivateKey(),
 			})
 			if fundingErr != nil {
 				return nil, pkgerrors.Wrapf(fundingErr, "failed to fund node %s",
-					node.AccountAddr[strconv.FormatUint(blockchainsOutput.SethClient.Cfg.Network.ChainID, 10)])
+					node.AccountAddr[strconv.FormatUint(homeChainOutput.SethClient.Cfg.Network.ChainID, 10)])
 			}
 		}
 	}
@@ -380,7 +387,7 @@ func SetupTestEnvironment(
 	for _, jobSpecGeneratingFn := range input.JobSpecFactoryFunctions {
 		singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cretypes.JobSpecFactoryInput{
 			CldEnvironment:          fullCldOutput.Environment,
-			BlockchainOutput:        blockchainsOutput.BlockchainOutput,
+			BlockchainOutput:        homeChainOutput.BlockchainOutput,
 			DonTopology:             fullCldOutput.DonTopology,
 			KeystoneContractsOutput: keystoneContractsOutput,
 		})
@@ -428,7 +435,7 @@ func SetupTestEnvironment(
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
 	configureKeystoneInput := keystonetypes.ConfigureKeystoneInput{
-		ChainSelector: blockchainsOutput.ChainSelector,
+		ChainSelector: homeChainOutput.ChainSelector,
 		CldEnv:        fullCldOutput.Environment,
 		Topology:      topology,
 	}
@@ -468,68 +475,69 @@ type BlockchainOutput struct {
 func CreateBlockchains(
 	cldLogger logger.Logger,
 	testLogger zerolog.Logger,
-	input BlockchainsInput,
-) (*BlockchainOutput, error) {
-	if input.blockchainInput == nil {
+	input []BlockchainsInput,
+) ([]*BlockchainOutput, error) {
+	if len(input) == 0 {
 		return nil, pkgerrors.New("blockchain input is nil")
 	}
+	blockchainOutput := make([]*BlockchainOutput, 0)
+	for _, bi := range input {
+		var bcOut *blockchain.Output
+		var bcErr error
+		if bi.infraInput.InfraType == libtypes.CRIB {
+			if bi.nixShell == nil {
+				return nil, pkgerrors.New("nix shell is nil")
+			}
 
-	var blockchainOutput *blockchain.Output
-	var blockchainOutputErr error
-	if input.infraInput.InfraType == libtypes.CRIB {
-		if input.nixShell == nil {
-			return nil, pkgerrors.New("nix shell is nil")
+			deployCribBlockchainInput := &keystonetypes.DeployCribBlockchainInput{
+				BlockchainInput: bi.blockchainInput,
+				NixShell:        bi.nixShell,
+				CribConfigsDir:  cribConfigsDir,
+			}
+			bcOut, bcErr = crib.DeployBlockchain(deployCribBlockchainInput)
+			if bcErr != nil {
+				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
+			}
+			err := libinfra.WaitForRPCEndpoint(testLogger, bcOut.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+			if err != nil {
+				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
+			}
+		} else {
+			bcOut, bcErr = blockchain.NewBlockchainNetwork(bi.blockchainInput)
+			if bcErr != nil {
+				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
+			}
 		}
 
-		deployCribBlockchainInput := &keystonetypes.DeployCribBlockchainInput{
-			BlockchainInput: input.blockchainInput,
-			NixShell:        input.nixShell,
-			CribConfigsDir:  cribConfigsDir,
+		pkey := os.Getenv("PRIVATE_KEY")
+		if pkey == "" {
+			return nil, pkgerrors.New("PRIVATE_KEY env var must be set")
 		}
 
-		blockchainOutput, blockchainOutputErr = crib.DeployBlockchain(deployCribBlockchainInput)
-	} else {
-		// Create a new blockchain network and Seth client to interact with it
-		blockchainOutput, blockchainOutputErr = blockchain.NewBlockchainNetwork(input.blockchainInput)
-	}
+		sethClient, err := seth.NewClientBuilder().
+			WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
+			WithPrivateKeys([]string{pkey}).
+			// do not check if there's a pending nonce nor check node's health
+			WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+			Build()
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to create seth client")
+		}
 
-	if blockchainOutputErr != nil {
-		return nil, pkgerrors.Wrap(blockchainOutputErr, "failed to deploy blockchain")
+		chainSelector, err := chainselectors.SelectorFromChainId(sethClient.Cfg.Network.ChainID)
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", sethClient.Cfg.Network.ChainID)
+		}
+		blockchainOutput = append(blockchainOutput, &BlockchainOutput{
+			ChainSelector:      chainSelector,
+			ChainID:            sethClient.Cfg.Network.ChainID,
+			BlockchainOutput:   bcOut,
+			SethClient:         sethClient,
+			DeployerPrivateKey: pkey,
+			c:                  bcOut,
+		})
 	}
-
-	pkey := os.Getenv("PRIVATE_KEY")
-	if pkey == "" {
-		return nil, pkgerrors.New("PRIVATE_KEY env var must be set")
-	}
-
-	err := libinfra.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "RPC endpoint not available")
-	}
-
-	sethClient, err := seth.NewClientBuilder().
-		WithRpcUrl(blockchainOutput.Nodes[0].ExternalWSUrl).
-		WithPrivateKeys([]string{pkey}).
-		// do not check if there's a pending nonce nor check node's health
-		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
-		Build()
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create seth client")
-	}
-
-	chainSelector, err := chainselectors.SelectorFromChainId(sethClient.Cfg.Network.ChainID)
-	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", sethClient.Cfg.Network.ChainID)
-	}
-
-	return &BlockchainOutput{
-		ChainSelector:      chainSelector,
-		ChainID:            sethClient.Cfg.Network.ChainID,
-		BlockchainOutput:   blockchainOutput,
-		SethClient:         sethClient,
-		DeployerPrivateKey: pkey,
-		c:                  blockchainOutput,
-	}, nil
+	return blockchainOutput, nil
 }
 
 func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {

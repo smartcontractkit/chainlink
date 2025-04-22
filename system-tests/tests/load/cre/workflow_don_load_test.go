@@ -32,12 +32,6 @@ import (
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
@@ -57,10 +51,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 )
 
 type TestConfigLoadTest struct {
-	BlockchainA                   *blockchain.Input                        `toml:"blockchain_a" validate:"required"`
+	Blockchains                   []*blockchain.Input                      `toml:"blockchains" validate:"required"`
 	NodeSets                      []*ns.Input                              `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                                `toml:"jd" validate:"required"`
 	KeystoneContracts             *keystonetypes.KeystoneContractsInput    `toml:"keystone_contracts"`
@@ -97,7 +98,7 @@ type FeedWithStreamID struct {
 type loadTestSetupOutput struct {
 	dataFeedsCacheAddress common.Address
 	forwarderAddress      common.Address
-	blockchainOutput      *blockchain.Output
+	blockchainOutput      []*creenv.BlockchainOutput
 	donTopology           *keystonetypes.DonTopology
 	nodeOutput            []*keystonetypes.WrappedNodeOutput
 }
@@ -116,7 +117,7 @@ func setupLoadTestEnvironment(
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:                     *in.BlockchainA,
+		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		CustomBinariesPaths:                  map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath},
@@ -135,7 +136,7 @@ func setupLoadTestEnvironment(
 	return &loadTestSetupOutput{
 		// feedsConsumerAddress: deployFeedsConsumerOutput.FeedConsumerAddress,
 		forwarderAddress: universalSetupOutput.KeystoneContractsOutput.ForwarderAddress,
-		blockchainOutput: universalSetupOutput.BlockchainOutput.BlockchainOutput,
+		blockchainOutput: universalSetupOutput.BlockchainOutput,
 		donTopology:      universalSetupOutput.DonTopology,
 		nodeOutput:       universalSetupOutput.NodeOutput,
 	}
@@ -271,7 +272,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return capabilities
 	}
 
-	chainIDInt, chainErr := strconv.ParseUint(in.BlockchainA.ChainID, 10, 64)
+	firstChain := in.Blockchains[0]
+	chainIDInt, chainErr := strconv.ParseUint(firstChain.ChainID, 10, 64)
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupLoadTestEnvironment(
@@ -318,7 +320,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 			debugInput := keystonetypes.DebugInput{
 				DebugDons:        debugDons,
-				BlockchainOutput: setupOutput.blockchainOutput,
+				BlockchainOutput: setupOutput.blockchainOutput[0].BlockchainOutput,
 				InfraInput:       in.Infra,
 			}
 			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)

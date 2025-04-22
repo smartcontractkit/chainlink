@@ -1,5 +1,5 @@
 
-[blockchain_a]
+[[blockchains]]
   type = "anvil"
   chain_id = "1337"
 

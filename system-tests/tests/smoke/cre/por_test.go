@@ -61,7 +61,7 @@ type CustomAnvilMiner struct {
 }
 
 type TestConfig struct {
-	BlockchainA                   *blockchain.Input                        `toml:"blockchain_a" validate:"required"`
+	Blockchains                   []*blockchain.Input                      `toml:"blockchains" validate:"required"`
 	CustomAnvilMiner              *CustomAnvilMiner                        `toml:"custom_anvil_miner"`
 	NodeSets                      []*ns.Input                              `toml:"nodesets" validate:"required"`
 	WorkflowConfig                *WorkflowConfig                          `toml:"workflow_config" validate:"required"`
@@ -396,14 +396,16 @@ func setupPoRTestEnvironment(
 		cronBinaryPathInTheContainer = filepath.Join(containerPath, "cron")
 	}
 
-	chainIDInt, err := strconv.Atoi(in.BlockchainA.ChainID)
+	firstBlockchain := in.Blockchains[0]
+
+	chainIDInt, err := strconv.Atoi(firstBlockchain.ChainID)
 	require.NoError(t, err, "failed to convert chain ID to int")
 	chainIDUint64 := libc.MustSafeUint64(int64(chainIDInt))
 
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:                     *in.BlockchainA,
+		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		CustomBinariesPaths:                  customBinariesPaths,
@@ -418,16 +420,21 @@ func setupPoRTestEnvironment(
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
+	homeChainOutput := universalSetupOutput.BlockchainOutput[0]
 
 	if in.CustomAnvilMiner != nil {
-		require.NotContains(t, in.BlockchainA.DockerCmdParamsOverrides, "-b", "custom_anvil_miner was specified but Anvil has '-b' key set, remove that parameter from 'docker_cmd_params' to run deployments instantly or remove custom_anvil_miner key from TOML config")
-		require.Equal(t, "anvil", in.BlockchainA.Type, "custom_anvil_miner was specified but blockchain type is not Anvil")
-		miner := rpc.NewRemoteAnvilMiner(universalSetupOutput.BlockchainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl, nil)
-		miner.MinePeriodically(time.Duration(in.CustomAnvilMiner.BlockSpeedSeconds) * time.Second)
+		for _, bi := range universalSetupInput.BlockchainsInput {
+			require.NotContains(t, bi.DockerCmdParamsOverrides, "-b", "custom_anvil_miner was specified but Anvil has '-b' key set, remove that parameter from 'docker_cmd_params' to run deployments instantly or remove custom_anvil_miner key from TOML config")
+			require.Equal(t, "anvil", bi.Type, "custom_anvil_miner was specified but blockchain type is not Anvil")
+		}
+		for _, bo := range universalSetupOutput.BlockchainOutput {
+			miner := rpc.NewRemoteAnvilMiner(bo.BlockchainOutput.Nodes[0].ExternalHTTPUrl, nil)
+			miner.MinePeriodically(time.Duration(in.CustomAnvilMiner.BlockSpeedSeconds) * time.Second)
+		}
 	}
 
 	deployDataFeedsInput := &keystonetypes.DeployDataFeedsCacheInput{
-		ChainSelector: universalSetupOutput.BlockchainOutput.ChainSelector,
+		ChainSelector: homeChainOutput.ChainSelector,
 		CldEnv:        universalSetupOutput.CldEnvironment,
 	}
 	deployDataFeedsCacheOutput, dfErr := libcontracts.DeployDataFeedsCache(testLogger, deployDataFeedsInput)
@@ -444,46 +451,46 @@ func setupPoRTestEnvironment(
 		// create CRE CLI settings file
 		var settingsErr error
 		creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(
-			universalSetupOutput.BlockchainOutput.SethClient.MustGetRootKeyAddress(),
+			homeChainOutput.SethClient.MustGetRootKeyAddress(),
 			universalSetupOutput.KeystoneContractsOutput.CapabilitiesRegistryAddress,
 			universalSetupOutput.KeystoneContractsOutput.WorkflowRegistryAddress,
 			&deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 			universalSetupOutput.DonTopology.WorkflowDonID,
-			universalSetupOutput.BlockchainOutput.ChainSelector,
-			universalSetupOutput.BlockchainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
+			homeChainOutput.ChainSelector,
+			homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
 		require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 	}
 
 	dfConfigInput := &configureDataFeedsCacheInput{
 		useCRECLI:             in.WorkflowConfig.UseCRECLI,
-		chainSelector:         universalSetupOutput.BlockchainOutput.ChainSelector,
+		chainSelector:         homeChainOutput.ChainSelector,
 		fullCldEnvironment:    universalSetupOutput.CldEnvironment,
 		forwarderAddress:      universalSetupOutput.KeystoneContractsOutput.ForwarderAddress,
 		dataFeedsCacheAddress: deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 		workflowName:          in.WorkflowConfig.WorkflowName,
 		feedID:                in.WorkflowConfig.FeedID,
-		sethClient:            universalSetupOutput.BlockchainOutput.SethClient,
-		blockchain:            universalSetupOutput.BlockchainOutput.BlockchainOutput,
+		sethClient:            homeChainOutput.SethClient,
+		blockchain:            homeChainOutput.BlockchainOutput,
 		creCLIAbsPath:         creCLIAbsPath,
 		settingsFile:          creCLISettingsFile,
-		deployerPrivateKey:    universalSetupOutput.BlockchainOutput.DeployerPrivateKey,
+		deployerPrivateKey:    homeChainOutput.DeployerPrivateKey,
 	}
 	dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
 	require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
 
 	registerInput := registerPoRWorkflowInput{
 		WorkflowConfig:          in.WorkflowConfig,
-		chainSelector:           universalSetupOutput.BlockchainOutput.ChainSelector,
+		chainSelector:           homeChainOutput.ChainSelector,
 		workflowDonID:           universalSetupOutput.DonTopology.WorkflowDonID,
 		feedID:                  in.WorkflowConfig.FeedID,
 		workflowRegistryAddress: universalSetupOutput.KeystoneContractsOutput.WorkflowRegistryAddress,
 		dataFeedsCacheAddress:   deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 		priceProvider:           priceProvider,
-		sethClient:              universalSetupOutput.BlockchainOutput.SethClient,
-		deployerPrivateKey:      universalSetupOutput.BlockchainOutput.DeployerPrivateKey,
+		sethClient:              homeChainOutput.SethClient,
+		deployerPrivateKey:      homeChainOutput.DeployerPrivateKey,
 		creCLIAbsPath:           creCLIAbsPath,
 		creCLIsettingsFile:      creCLISettingsFile,
-		writeTargetName:         corevm.GenerateWriteTargetName(universalSetupOutput.BlockchainOutput.ChainID),
+		writeTargetName:         corevm.GenerateWriteTargetName(homeChainOutput.ChainID),
 	}
 
 	workflowErr := registerPoRWorkflow(registerInput)
@@ -507,8 +514,8 @@ func setupPoRTestEnvironment(
 		priceProvider:         priceProvider,
 		dataFeedsCacheAddress: deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 		forwarderAddress:      universalSetupOutput.KeystoneContractsOutput.ForwarderAddress,
-		sethClient:            universalSetupOutput.BlockchainOutput.SethClient,
-		blockchainOutput:      universalSetupOutput.BlockchainOutput.BlockchainOutput,
+		sethClient:            homeChainOutput.SethClient,
+		blockchainOutput:      homeChainOutput.BlockchainOutput,
 		donTopology:           universalSetupOutput.DonTopology,
 		nodeOutput:            universalSetupOutput.NodeOutput,
 	}
@@ -540,7 +547,8 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
+	firstBlockchain := in.Blockchains[0]
+	chainIDInt, chainErr := strconv.Atoi(firstBlockchain.ChainID)
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupPoRTestEnvironment(
@@ -650,7 +658,8 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
+	firstBlockchain := in.Blockchains[0]
+	chainIDInt, chainErr := strconv.Atoi(firstBlockchain.ChainID)
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
@@ -755,7 +764,8 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 		}
 	}
 
-	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
+	firstBlockchain := in.Blockchains[0]
+	chainIDInt, chainErr := strconv.Atoi(firstBlockchain.ChainID)
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
