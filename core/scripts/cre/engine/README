@@ -1,0 +1,8 @@
+How to use standalone Engine with a WASM workflow:
+
+1. Build the workflow:
+    cd core/scripts/cre/engine
+    GOOS=wasip1 GOARCH=wasm go build -o data_feeds.wasm ./examples/data_feeds/data_feeds_workflow.go
+
+2. Run the engine with the workflow:
+     go run . --wasm data_feeds.wasm --config ./examples/data_feeds/config_10_feeds.json 2> stderr.log

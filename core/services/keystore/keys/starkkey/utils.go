@@ -7,6 +7,8 @@ import (
 	"math/big"
 
 	"github.com/NethermindEth/starknet.go/curve"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 // constants
@@ -21,12 +23,15 @@ var (
 func GenerateKey(material io.Reader) (k Key, err error) {
 	max := new(big.Int).Sub(curve.Curve.N, big.NewInt(1))
 
-	k.priv, err = rand.Int(material, max)
+	priv, err := rand.Int(material, max)
 	if err != nil {
 		return k, err
 	}
+	k.signFn = func(hash *big.Int) (x, y *big.Int, err error) {
+		return curve.Curve.Sign(hash, priv)
+	}
 
-	k.pub.X, k.pub.Y, err = curve.Curve.PrivateToPoint(k.priv)
+	k.pub.X, k.pub.Y, err = curve.Curve.PrivateToPoint(priv)
 	if err != nil {
 		return k, err
 	}
@@ -34,6 +39,7 @@ func GenerateKey(material io.Reader) (k Key, err error) {
 	if !curve.Curve.IsOnCurve(k.pub.X, k.pub.Y) {
 		return k, errors.New("key gen is not on stark curve")
 	}
+	k.raw = internal.NewRaw(priv.Bytes())
 
 	return k, nil
 }

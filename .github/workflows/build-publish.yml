@@ -115,11 +115,11 @@ jobs:
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
+        CL_APTOS_CMD=chainlink-aptos
       docker-image-type: tag
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
       docker-tag-custom-suffix: "-plugins"
-      docker-target: final-private-plugins
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}

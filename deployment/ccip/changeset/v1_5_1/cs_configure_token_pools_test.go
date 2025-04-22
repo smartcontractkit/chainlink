@@ -734,7 +734,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		state, err := changeset.LoadOnchainState(e)
 		require.NoError(t, err)
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
-		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPool),
 				changeset_solana.TokenPoolConfig{

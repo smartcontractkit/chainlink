@@ -137,19 +137,21 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 }
 
 // ApplyChangesetsV2 applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplications []ConfiguredChangeSet) (deployment.Environment, error) {
+func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplications []ConfiguredChangeSet) (deployment.Environment, []deployment.ChangesetOutput, error) {
 	currentEnv := e
+	outputs := make([]deployment.ChangesetOutput, 0, len(changesetApplications))
 	for i, csa := range changesetApplications {
 		out, err := csa.Apply(currentEnv)
 		if err != nil {
-			return e, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
+			return e, nil, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
 		}
+		outputs = append(outputs, out)
 		var addresses deployment.AddressBook
 		if out.AddressBook != nil {
 			addresses = out.AddressBook
 			err := addresses.Merge(currentEnv.ExistingAddresses)
 			if err != nil {
-				return e, fmt.Errorf("failed to merge address book: %w", err)
+				return e, nil, fmt.Errorf("failed to merge address book: %w", err)
 			}
 		} else {
 			addresses = currentEnv.ExistingAddresses
@@ -182,11 +184,11 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
-					return deployment.Environment{}, err
+					return deployment.Environment{}, nil, err
 				}
 				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, currentEnv, &prop)
 				if err != nil {
-					return deployment.Environment{}, err
+					return deployment.Environment{}, nil, err
 				}
 			}
 		}
@@ -200,12 +202,12 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				p := proposalutils.SignMCMSProposal(t, currentEnv, &prop)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
-					return deployment.Environment{}, err
+					return deployment.Environment{}, nil, err
 				}
 			}
 		}
 	}
-	return currentEnv, nil
+	return currentEnv, outputs, nil
 }
 
 func DeployLinkTokenTest(t *testing.T, solChains int) {
