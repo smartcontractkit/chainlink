@@ -404,6 +404,85 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	mBillingClient.AssertExpectations(t)
 }
 
+type mc struct {
+	capabilities.CapabilityInfo
+}
+
+func (m *mc) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+	dl, ok := ctx.Deadline()
+	if !ok {
+		return capabilities.CapabilityResponse{}, errors.New("no deadline set")
+	}
+
+	if time.Until(dl) < 0 {
+		return capabilities.CapabilityResponse{}, errors.New("deadline exceeded")
+	}
+
+	return capabilities.CapabilityResponse{}, nil
+}
+
+func (m *mc) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+	return nil
+}
+
+func (m *mc) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+	return nil
+}
+
+func TestEngine_WriteStepHasZeroStepTimeout(t *testing.T) {
+	cmd := "core/services/workflows/test/zerotimeout/cmd"
+	binary := "test/zerotimeout/cmd/testmodule.wasm"
+
+	ctx := t.Context()
+	log := logger.TestLogger(t)
+	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
+
+	spec, err := host.GetWorkflowSpec(
+		ctx,
+		&host.ModuleConfig{Logger: log},
+		binaryB,
+		nil, // config
+	)
+	require.NoError(t, err)
+
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTriggerWithName(t, "basic-test-trigger@1.0.0")
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+
+	target := &mc{
+		CapabilityInfo: capabilities.MustNewRemoteCapabilityInfo(
+			"write_ethereum-testnet-sepolia@1.0.0",
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting ethereum sepolia testnet",
+			&capabilities.DON{},
+		),
+	}
+	require.NoError(t, reg.Add(ctx, target))
+
+	eng, testHooks, err := newTestEngine(
+		t,
+		reg,
+		*spec,
+		func(c *Config) {
+			c.Binary = binaryB
+			c.Config = nil
+		},
+	)
+	require.NoError(t, err)
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionID(t, eng, testHooks)
+
+	state, err := eng.executionsStore.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, store.StatusCompleted, state.Status, state)
+}
+
 const (
 	simpleWorkflow = `
 triggers:
