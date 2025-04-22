@@ -123,5 +123,6 @@ func cloneEnvironment(e deployment.Environment) (deployment.Environment, error) 
 		Offchain:          e.Offchain,
 		OCRSecrets:        e.OCRSecrets,
 		GetContext:        e.GetContext,
+		OperationsBundle:  e.OperationsBundle,
 	}, nil
 }
