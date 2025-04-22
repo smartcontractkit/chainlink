@@ -134,7 +134,8 @@ func Test_Handler(t *testing.T) {
 		decrypter := newMockDecrypter()
 		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
-		h := NewEventHandler(lggr, nil, nil, emitter, rl, workflowLimits, store)
+		h, err := NewEventHandler(lggr, nil, nil, NewEngineRegistry(), emitter, rl, workflowLimits, store)
+		require.NoError(t, err)
 
 		err = h.Handle(ctx, giveEvent)
 		require.NoError(t, err)
@@ -156,7 +157,8 @@ func Test_Handler(t *testing.T) {
 		decrypter := newMockDecrypter()
 		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
-		h := NewEventHandler(lggr, nil, nil, emitter, rl, workflowLimits, store)
+		h, err := NewEventHandler(lggr, nil, nil, NewEngineRegistry(), emitter, rl, workflowLimits, store)
+		require.NoError(t, err)
 
 		err = h.Handle(ctx, giveEvent)
 		require.Error(t, err)
@@ -174,7 +176,8 @@ func Test_Handler(t *testing.T) {
 		decrypter := newMockDecrypter()
 		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, nil, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
-		h := NewEventHandler(lggr, nil, nil, emitter, rl, workflowLimits, store)
+		h, err := NewEventHandler(lggr, nil, nil, NewEngineRegistry(), emitter, rl, workflowLimits, store)
+		require.NoError(t, err)
 
 		giveURL := "https://original-url.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
@@ -223,10 +226,9 @@ func Test_Handler(t *testing.T) {
 		decrypter := newMockDecrypter()
 		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
-		h := NewEventHandler(lggr, nil, nil, emitter, rl, workflowLimits, store)
-
+		h, err := NewEventHandler(lggr, nil, nil, NewEngineRegistry(), emitter, rl, workflowLimits, store)
+		require.NoError(t, err)
 		err = h.Handle(ctx, giveEvent)
-		require.Error(t, err)
 		require.ErrorIs(t, err, assert.AnError)
 	})
 
@@ -260,9 +262,11 @@ func Test_Handler(t *testing.T) {
 		decrypter := newMockDecrypter()
 		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
-		h := NewEventHandler(lggr, nil, nil, emitter, rl, workflowLimits, store)
+		h, err := NewEventHandler(lggr, nil, nil, NewEngineRegistry(), emitter, rl, workflowLimits, store)
+		require.NoError(t, err)
 
 		err = h.Handle(ctx, giveEvent)
+
 		require.Error(t, err)
 		require.ErrorIs(t, err, assert.AnError)
 	})
@@ -295,7 +299,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(wfID)
+		engine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
 		require.NoError(t, err)
 		err = engine.Ready()
 		require.NoError(t, err)
@@ -427,7 +431,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string) {
 				me := &mockEngine{}
-				err := h.engineRegistry.Add(wfID, me)
+				var wfIDBytes [32]byte
+				copy(wfIDBytes[:], wfID)
+				err := h.engineRegistry.Add(EngineRegistryKey{Owner: wfOwner, Name: workflowName}, me, wfIDBytes)
 				require.NoError(t, err)
 				err = h.workflowRegisteredEvent(ctx, event)
 				require.Error(t, err)
@@ -471,7 +477,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.Equal(t, job.WorkflowSpecStatusPaused, dbSpec.Status)
 
 				// Verify there is no running engine
-				_, err = h.engineRegistry.Get(wfID)
+				_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
 				require.Error(t, err)
 			},
 		},
@@ -587,7 +593,8 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		decrypter := newMockDecrypter()
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
-		h := NewEventHandler(lggr, store, registry, emitter, rl, workflowLimits, artifactStore, opts...)
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, opts...)
+		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, h.Close()) })
 
 		tc.validationFn(t, ctx, event, h, artifactStore, wfOwner, "workflow-name", wfID)
@@ -621,7 +628,6 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, secretsURL)
 
 		require.NoError(t, err)
-		wfIDs := hex.EncodeToString(giveWFID[:])
 
 		active := WorkflowRegistryWorkflowRegisteredV1{
 			Status:        uint8(0),
@@ -645,8 +651,10 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		decrypter := newMockDecrypter()
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
-		h := NewEventHandler(lggr, store, registry, emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
-		err = h.workflowRegisteredEvent(ctx, active)
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
+		require.NoError(t, err)
+		err =
+			h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
 
 		// Verify the record is updated in the database
@@ -657,7 +665,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(wfIDs)
+		engine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
 		require.NoError(t, err)
 		err = engine.Ready()
 		require.NoError(t, err)
@@ -676,7 +684,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Error(t, err)
 
 		// Verify the engine is deleted
-		_, err = h.engineRegistry.Get(wfIDs)
+		_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
 		require.Error(t, err)
 	})
 	t.Run("success deleting non-existing workflow spec", func(t *testing.T) {
@@ -716,7 +724,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		decrypter := newMockDecrypter()
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
-		h := NewEventHandler(lggr, store, registry, emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
+		require.NoError(t, err)
 
 		deleteEvent := WorkflowRegistryWorkflowDeletedV1{
 			WorkflowID:    giveWFID,
@@ -764,11 +773,6 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.NoError(t, err)
 		updatedWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, updateConfig, secretsURL)
 		require.NoError(t, err)
-
-		require.NoError(t, err)
-		wfIDs := hex.EncodeToString(giveWFID[:])
-
-		require.NoError(t, err)
 		newWFIDs := hex.EncodeToString(updatedWFID[:])
 
 		active := WorkflowRegistryWorkflowRegisteredV1{
@@ -793,7 +797,8 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		decrypter := newMockDecrypter()
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
-		h := NewEventHandler(lggr, store, registry, emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
+		require.NoError(t, err)
 
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
@@ -806,7 +811,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(wfIDs)
+		engine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
 		require.NoError(t, err)
 		err = engine.Ready()
 		require.NoError(t, err)
@@ -829,32 +834,8 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusPaused, dbSpec.Status)
 
 		// Verify the engine is removed
-		_, err = h.engineRegistry.Get(wfIDs)
+		_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
 		require.Error(t, err)
-
-		// create an activated workflow event
-		activatedEvent := WorkflowRegistryWorkflowActivatedV1{
-			WorkflowID:    giveWFID,
-			WorkflowOwner: wfOwner,
-			WorkflowName:  "workflow-name",
-			DonID:         1,
-		}
-
-		err = h.workflowActivatedEvent(ctx, activatedEvent)
-		require.NoError(t, err)
-
-		// Verify the record is updated in the database
-		dbSpec, err = orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
-		require.NoError(t, err)
-		require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
-		require.Equal(t, "workflow-name", dbSpec.WorkflowName)
-		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
-
-		// Verify the engine is started
-		engine, err = h.engineRegistry.Get(wfIDs)
-		require.NoError(t, err)
-		err = engine.Ready()
-		require.NoError(t, err)
 
 		// create an updated event
 		updatedEvent := WorkflowRegistryWorkflowUpdatedV1{
@@ -880,14 +861,12 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, newConfigURL, dbSpec.ConfigURL)
 		require.Equal(t, string(updateConfig), dbSpec.Config)
 
-		// old engine is no longer running
-		_, err = h.engineRegistry.Get(wfIDs)
-		require.Error(t, err)
-
 		// new engine is started
-		engine, err = h.engineRegistry.Get(newWFIDs)
+		engine, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
 		require.NoError(t, err)
 		err = engine.Ready()
 		require.NoError(t, err)
+		// old engine is no longer running
+		require.Equal(t, updatedWFID, engine.workflowID)
 	})
 }

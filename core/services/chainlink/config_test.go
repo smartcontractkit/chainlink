@@ -488,6 +488,7 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxBinarySize:           ptr(utils.FileSize(20 * utils.MB)),
 			MaxEncryptedSecretsSize: ptr(utils.FileSize(26.4 * utils.KB)),
 			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
+			SyncStrategy:            ptr("event"),
 		},
 		Dispatcher: toml.Dispatcher{
 			SupportedVersion:   ptr(1),
@@ -565,6 +566,7 @@ func TestConfig_Marshal(t *testing.T) {
 		TraceSampleRatio:      ptr(0.01),
 		EmitterBatchProcessor: ptr(true),
 		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
+		ChipIngressEndpoint:   ptr("example.com/chip-ingress"),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{

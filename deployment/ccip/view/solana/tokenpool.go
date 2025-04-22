@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/mr-tron/base58"
 
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -65,7 +66,7 @@ func GenerateTokenPoolView(chain deployment.SolChain, program solana.PublicKey, 
 			if err := chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount); err == nil {
 				view.TokenPoolChainConfig[remote][token.String()] = TokenPoolChainConfig{
 					PoolAddresses: make([]string, len(remoteChainConfigAccount.Base.Remote.PoolAddresses)),
-					TokenAddress:  string(remoteChainConfigAccount.Base.Remote.TokenAddress.Address),
+					TokenAddress:  base58.Encode(remoteChainConfigAccount.Base.Remote.TokenAddress.Address),
 					Decimals:      remoteChainConfigAccount.Base.Remote.Decimals,
 					InboundRateLimit: TokenPoolRateLimitTokenBucket{
 						Tokens:      remoteChainConfigAccount.Base.InboundRateLimit.Tokens,
@@ -81,7 +82,7 @@ func GenerateTokenPoolView(chain deployment.SolChain, program solana.PublicKey, 
 						Rate:        remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Rate},
 				}
 				for i, addr := range remoteChainConfigAccount.Base.Remote.PoolAddresses {
-					view.TokenPoolChainConfig[remote][token.String()].PoolAddresses[i] = string(addr.Address)
+					view.TokenPoolChainConfig[remote][token.String()].PoolAddresses[i] = base58.Encode(addr.Address)
 				}
 			}
 		}

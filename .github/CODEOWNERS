@@ -159,6 +159,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /.github/workflows/automation-load-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-nightly-tests.yml @smartcontractkit/dev-services
 /.github/workflows/*solidity* @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core-solidity
+/tools/plugout @smartcontractkit/devex-cicd
 
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 
