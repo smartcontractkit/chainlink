@@ -64,6 +64,8 @@ jobs:
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
+      github-runner-amd64: ubuntu24.04-64cores-256GB
+      github-runner-arm64: ubuntu-24.04-8cores-32GB-ARM
       github-workflow-repository: ${{ github.repository }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
@@ -93,6 +95,8 @@ jobs:
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
+      github-runner-amd64: ubuntu24.04-64cores-256GB
+      github-runner-arm64: ubuntu-24.04-8cores-32GB-ARM
       github-workflow-repository: ${{ github.repository }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
