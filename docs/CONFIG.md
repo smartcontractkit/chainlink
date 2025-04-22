@@ -16032,6 +16032,7 @@ ObservationGracePeriod sets `OCR.ObservationGracePeriod` for this EVM chain.
 Name = 'foo' # Example
 WSURL = 'wss://web.socket/test' # Example
 HTTPURL = 'https://foo.web' # Example
+HTTPURLExtraWrite = 'https://foo.web/extra' # Example
 SendOnly = false # Default
 Order = 100 # Default
 ```
@@ -16054,6 +16055,12 @@ WSURL is the WS(S) endpoint for this node. Required for primary nodes when `LogB
 HTTPURL = 'https://foo.web' # Example
 ```
 HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
+
+### HTTPURLExtraWrite
+```toml
+HTTPURLExtraWrite = 'https://foo.web/extra' # Example
+```
+HTTPURLExtraWrite is the HTTP(S) endpoint used for chains that require a separate endpoint for writing on-chain.
 
 ### SendOnly
 ```toml

@@ -728,6 +728,7 @@ func TestConfig_Marshal(t *testing.T) {
 					Name:    ptr("foo"),
 					HTTPURL: mustURL("https://foo.web"),
 					WSURL:   mustURL("wss://web.socket/test/foo"),
+					HTTPURLExtraWrite: mustURL("https://foo.web/extra"),
 				},
 				{
 					Name:    ptr("bar"),
@@ -1209,6 +1210,7 @@ GasLimitDefault = 400000
 Name = 'foo'
 WSURL = 'wss://web.socket/test/foo'
 HTTPURL = 'https://foo.web'
+HTTPURLExtraWrite = 'https://foo.web/extra'
 
 [[EVM.Nodes]]
 Name = 'bar'
