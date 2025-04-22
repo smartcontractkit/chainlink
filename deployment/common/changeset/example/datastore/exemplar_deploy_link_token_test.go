@@ -23,12 +23,12 @@ func Test_ExemplarDeployLinkToken(t *testing.T) {
 	// Check that one address ref was created
 	addresRefs, err := result.DataStore.Addresses().Fetch()
 	require.NoError(t, err)
-	require.Equal(t, 1, len(addresRefs))
+	require.Len(t, addresRefs, 1)
 
 	// Check that one contract metadata ref was created
 	contractMetadata, err := result.DataStore.ContractMetadata().Fetch()
 	require.NoError(t, err)
-	require.Equal(t, 1, len(contractMetadata))
+	require.Len(t, contractMetadata, 1)
 
 	// Check that env metadata was set correctly
 	_, err = result.DataStore.EnvMetadata().Get()

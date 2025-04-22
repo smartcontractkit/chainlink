@@ -30,7 +30,7 @@ func TestToDefault(t *testing.T) {
 			setup: func() MutableDataStore[CustomMetadata, CustomMetadata] {
 				ds := NewMemoryDataStore[CustomMetadata, CustomMetadata]()
 
-				ds.Addresses().Add(AddressRef{
+				err := ds.Addresses().Add(AddressRef{
 					Address:       "addr1",
 					Type:          "type1",
 					Version:       semver.MustParse("1.0.0"),
@@ -38,18 +38,21 @@ func TestToDefault(t *testing.T) {
 					Qualifier:     "qualifier1",
 					Labels:        NewLabelSet("label1", "label2"),
 				})
+				require.NoError(t, err)
 
-				ds.ContractMetadata().Add(ContractMetadata[CustomMetadata]{
+				err = ds.ContractMetadata().Add(ContractMetadata[CustomMetadata]{
 					ChainSelector: 1,
 					Address:       "contract1",
 					Metadata:      CustomMetadata{Field: "value1"},
 				})
+				require.NoError(t, err)
 
-				ds.EnvMetadata().Set(EnvMetadata[CustomMetadata]{
+				err = ds.EnvMetadata().Set(EnvMetadata[CustomMetadata]{
 					Domain:      "domain1",
 					Environment: "env1",
 					Metadata:    CustomMetadata{Field: "envValue1"},
 				})
+				require.NoError(t, err)
 
 				return ds
 			},
@@ -115,7 +118,7 @@ func TestFromDefault(t *testing.T) {
 			setup: func() MutableDataStore[DefaultMetadata, DefaultMetadata] {
 				ds := NewMemoryDataStore[DefaultMetadata, DefaultMetadata]()
 
-				ds.Addresses().Add(AddressRef{
+				err := ds.Addresses().Add(AddressRef{
 					Address:       "addr1",
 					Type:          "type1",
 					Version:       semver.MustParse("1.0.0"),
@@ -123,22 +126,25 @@ func TestFromDefault(t *testing.T) {
 					Qualifier:     "qualifier1",
 					Labels:        NewLabelSet("label1", "label2"),
 				})
+				require.NoError(t, err)
 
-				ds.ContractMetadata().Add(ContractMetadata[DefaultMetadata]{
+				err = ds.ContractMetadata().Add(ContractMetadata[DefaultMetadata]{
 					ChainSelector: 1,
 					Address:       "contract1",
 					Metadata: DefaultMetadata{
 						Data: `{"field":"value1"}`,
 					},
 				})
+				require.NoError(t, err)
 
-				ds.EnvMetadata().Set(EnvMetadata[DefaultMetadata]{
+				err = ds.EnvMetadata().Set(EnvMetadata[DefaultMetadata]{
 					Domain:      "domain1",
 					Environment: "env1",
 					Metadata: DefaultMetadata{
 						Data: `{"field":"envValue1"}`,
 					},
 				})
+				require.NoError(t, err)
 
 				return ds
 			},
