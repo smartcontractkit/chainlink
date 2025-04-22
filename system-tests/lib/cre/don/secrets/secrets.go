@@ -8,8 +8,6 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
-	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -136,6 +134,28 @@ func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysO
 	return topology, nil
 }
 
+// secrets struct mirrors `Secrets` struct in "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+// we use a copy to avoid depending on the core config package, we consider it safe, because that struct changes very rarely
+type secrets struct {
+	EVM    ethKeys `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
+	P2PKey p2PKey  `toml:",omitempty"`
+}
+
+type p2PKey struct {
+	JSON     *string
+	Password *string
+}
+
+type ethKeys struct {
+	Keys []*ethKey
+}
+
+type ethKey struct {
+	JSON     *string
+	ID       *int
+	Password *string
+}
+
 // struct required for reading "address" from this bit of encrypted JSON:
 // JSON = '{"address":"e753ac0b6e175ce3a939c55433a0109c5a6f8777"}'
 type evmJSON struct {
@@ -179,34 +199,34 @@ func KeysOutputFromConfig(nodeSets []*cretypes.CapabilitiesAwareNodeSet) (*crety
 		evmKeysPerChainID := make(cretypes.ChainIDToEVMKeys)
 		for nodeIdx, nodeSpec := range nodeSet.NodeSpecs {
 			if nodeSpec.Node.TestSecretsOverrides != "" {
-				var secrets coreconfig.Secrets
-				unmarshallErr := toml.Unmarshal([]byte(nodeSpec.Node.TestSecretsOverrides), &secrets)
+				var sSecrets secrets
+				unmarshallErr := toml.Unmarshal([]byte(nodeSpec.Node.TestSecretsOverrides), &sSecrets)
 				if unmarshallErr != nil {
 					return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal secrets for node %d in DON %d", nodeIdx, donIdx)
 				}
 
 				// For simplicity we will allow importing only both P2P keys and EVM keys, not just one of them
-				if secrets.P2PKey.JSON == nil || secrets.P2PKey.Password == nil {
+				if sSecrets.P2PKey.JSON == nil || sSecrets.P2PKey.Password == nil {
 					return nil, fmt.Errorf("P2P key or password is nil for node %d in DON %d", nodeIdx, donIdx)
 				}
-				p2pKeys.EncryptedJSONs = append(p2pKeys.EncryptedJSONs, []byte(string(*secrets.P2PKey.JSON)))
-				p2pKeys.Password = string(*secrets.P2PKey.Password)
-				peerID, peerIDErr := publicP2PAddressFromEncryptedJSON(string(*secrets.P2PKey.JSON))
+				p2pKeys.EncryptedJSONs = append(p2pKeys.EncryptedJSONs, []byte(*sSecrets.P2PKey.JSON))
+				p2pKeys.Password = *sSecrets.P2PKey.Password
+				peerID, peerIDErr := publicP2PAddressFromEncryptedJSON(*sSecrets.P2PKey.JSON)
 				if peerIDErr != nil {
 					return nil, errors.Wrapf(peerIDErr, "failed to get public p2p address for node %d in DON %d from encrypted JSON", nodeIdx, donIdx)
 				}
 				p2pKeys.PeerIDs = append(p2pKeys.PeerIDs, peerID)
 				p2pKeysFoundPerDon[donIdxUint32]++
-				if len(secrets.EVM.Keys) == 0 {
+				if len(sSecrets.EVM.Keys) == 0 {
 					return nil, fmt.Errorf("EVM keys is nil for node %d in DON %d", nodeIdx, donIdx)
 				}
 
-				for _, evmKey := range secrets.EVM.Keys {
+				for _, evmKey := range sSecrets.EVM.Keys {
 					if evmKey.JSON == nil || evmKey.Password == nil || evmKey.ID == nil {
 						return nil, fmt.Errorf("EVM key or password or ID is nil for node %d in DON %d", nodeIdx, donIdx)
 					}
 
-					publicEVMAddress, publicEVMAddressErr := publicEVMAddressFromEncryptedJSON(string(*evmKey.JSON))
+					publicEVMAddress, publicEVMAddressErr := publicEVMAddressFromEncryptedJSON(*evmKey.JSON)
 					if publicEVMAddressErr != nil {
 						return nil, errors.Wrapf(publicEVMAddressErr, "failed to get public evm address for node %d in DON %d from encrypted JSON", nodeIdx, donIdx)
 					}
@@ -215,9 +235,9 @@ func KeysOutputFromConfig(nodeSets []*cretypes.CapabilitiesAwareNodeSet) (*crety
 						evmKeysPerChainID[*evmKey.ID] = &types.EVMKeys{}
 					}
 
-					evmKeysPerChainID[*evmKey.ID].EncryptedJSONs = append(evmKeysPerChainID[*evmKey.ID].EncryptedJSONs, []byte(string(*evmKey.JSON)))
+					evmKeysPerChainID[*evmKey.ID].EncryptedJSONs = append(evmKeysPerChainID[*evmKey.ID].EncryptedJSONs, []byte(*evmKey.JSON))
 					evmKeysPerChainID[*evmKey.ID].PublicAddresses = append(evmKeysPerChainID[*evmKey.ID].PublicAddresses, common.HexToAddress(publicEVMAddress))
-					evmKeysPerChainID[*evmKey.ID].Password = string(*evmKey.Password)
+					evmKeysPerChainID[*evmKey.ID].Password = *evmKey.Password
 				}
 				evmKeysFoundPerDon[donIdxUint32]++
 			}
