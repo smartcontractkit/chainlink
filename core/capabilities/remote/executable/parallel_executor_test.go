@@ -86,7 +86,7 @@ func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
 	tp := newParallelExecutor(10)
 	var counter int32
 	t.Cleanup(func() {
-		assert.Equal(t, atomic.LoadInt32(&counter), int32(0))
+		assert.Equal(t, int32(0), atomic.LoadInt32(&counter))
 	})
 
 	servicetest.Run(t, tp)
