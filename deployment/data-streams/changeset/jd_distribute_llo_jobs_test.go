@@ -6,14 +6,9 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -70,9 +65,6 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 			}
 		}
 	}
-
-	// Partially mock the JD client, so it's ProposeJob just return.
-	e.Offchain = NewAdHocOffchainMock(e.Offchain)
 
 	// pick the first EVM chain selector
 	chainSelector := e.AllChainSelectors()[0]
@@ -161,7 +153,7 @@ chainID = '90000001'
 			wantNumBootstrapJobs: 1,
 		},
 		{
-			name:   "success when sending jobs to a subset of nodes 1",
+			name:   "success when sending jobs to a subset of nodes",
 			env:    e,
 			config: config,
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
@@ -181,27 +173,7 @@ chainID = '90000001'
 			wantNumBootstrapJobs: 1,
 		},
 		{
-			name:   "success when sending jobs to a subset of nodes 2",
-			env:    e,
-			config: config,
-			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
-				c.NodeNames = bootstrapNodeNames
-				c.Filter = &jd.ListFilter{
-					DONID:             donID,
-					DONName:           donName,
-					EnvLabel:          envName,
-					NumOracleNodes:    0,
-					NumBootstrapNodes: 1,
-				}
-				return c
-			},
-			wantOracleSpec:       oracleSpec,
-			wantBootstrapSpec:    bootstrapSpec,
-			wantNumOracleJobs:    0,
-			wantNumBootstrapJobs: 1,
-		},
-		{
-			name:   "success when sending jobs to a subset of nodes 3",
+			name:   "success when sending jobs to the remaining nodes",
 			env:    e,
 			config: config,
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
@@ -216,7 +188,7 @@ chainID = '90000001'
 				return c
 			},
 			wantOracleSpec:       oracleSpec,
-			wantBootstrapSpec:    bootstrapSpec,
+			wantBootstrapSpec:    "",
 			wantNumOracleJobs:    1,
 			wantNumBootstrapJobs: 0,
 		},
@@ -285,79 +257,4 @@ chainID = '90000001'
 			require.Equal(t, tt.wantNumOracleJobs, foundOracleJobs)
 		})
 	}
-}
-
-type adHocOffchainMock struct {
-	RealOffchain deployment.OffchainClient
-}
-
-func NewAdHocOffchainMock(realJD deployment.OffchainClient) *adHocOffchainMock {
-	return &adHocOffchainMock{
-		RealOffchain: realJD,
-	}
-}
-
-// JobServiceClient interface
-func (a *adHocOffchainMock) GetJob(ctx context.Context, in *job.GetJobRequest, opts ...grpc.CallOption) (*job.GetJobResponse, error) {
-	return a.RealOffchain.GetJob(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) GetProposal(ctx context.Context, in *job.GetProposalRequest, opts ...grpc.CallOption) (*job.GetProposalResponse, error) {
-	return a.RealOffchain.GetProposal(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) ListJobs(ctx context.Context, in *job.ListJobsRequest, opts ...grpc.CallOption) (*job.ListJobsResponse, error) {
-	return a.RealOffchain.ListJobs(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) ListProposals(ctx context.Context, in *job.ListProposalsRequest, opts ...grpc.CallOption) (*job.ListProposalsResponse, error) {
-	return a.RealOffchain.ListProposals(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) ProposeJob(ctx context.Context, in *job.ProposeJobRequest, opts ...grpc.CallOption) (*job.ProposeJobResponse, error) {
-	return &job.ProposeJobResponse{
-		Proposal: &job.Proposal{
-			JobId: uuid.New().String(), // Maybe replace this with a fixed value for testing
-			Spec:  in.Spec,
-		},
-	}, nil
-}
-func (a *adHocOffchainMock) BatchProposeJob(ctx context.Context, in *job.BatchProposeJobRequest, opts ...grpc.CallOption) (*job.BatchProposeJobResponse, error) {
-	return a.RealOffchain.BatchProposeJob(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) RevokeJob(ctx context.Context, in *job.RevokeJobRequest, opts ...grpc.CallOption) (*job.RevokeJobResponse, error) {
-	return a.RealOffchain.RevokeJob(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) DeleteJob(ctx context.Context, in *job.DeleteJobRequest, opts ...grpc.CallOption) (*job.DeleteJobResponse, error) {
-	return a.RealOffchain.DeleteJob(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) UpdateJob(ctx context.Context, in *job.UpdateJobRequest, opts ...grpc.CallOption) (*job.UpdateJobResponse, error) {
-	return a.RealOffchain.UpdateJob(ctx, in, opts...)
-}
-
-// NodeServiceClient interface
-func (a *adHocOffchainMock) DisableNode(ctx context.Context, in *node.DisableNodeRequest, opts ...grpc.CallOption) (*node.DisableNodeResponse, error) {
-	return a.RealOffchain.DisableNode(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) EnableNode(ctx context.Context, in *node.EnableNodeRequest, opts ...grpc.CallOption) (*node.EnableNodeResponse, error) {
-	return a.RealOffchain.EnableNode(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) GetNode(ctx context.Context, in *node.GetNodeRequest, opts ...grpc.CallOption) (*node.GetNodeResponse, error) {
-	return a.RealOffchain.GetNode(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) ListNodes(ctx context.Context, in *node.ListNodesRequest, opts ...grpc.CallOption) (*node.ListNodesResponse, error) {
-	return a.RealOffchain.ListNodes(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) ListNodeChainConfigs(ctx context.Context, in *node.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*node.ListNodeChainConfigsResponse, error) {
-	return a.RealOffchain.ListNodeChainConfigs(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) RegisterNode(ctx context.Context, in *node.RegisterNodeRequest, opts ...grpc.CallOption) (*node.RegisterNodeResponse, error) {
-	return a.RealOffchain.RegisterNode(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) UpdateNode(ctx context.Context, in *node.UpdateNodeRequest, opts ...grpc.CallOption) (*node.UpdateNodeResponse, error) {
-	return a.RealOffchain.UpdateNode(ctx, in, opts...)
-}
-
-// CSAServiceClient interface
-func (a *adHocOffchainMock) GetKeypair(ctx context.Context, in *csa.GetKeypairRequest, opts ...grpc.CallOption) (*csa.GetKeypairResponse, error) {
-	return a.RealOffchain.GetKeypair(ctx, in, opts...)
-}
-func (a *adHocOffchainMock) ListKeypairs(ctx context.Context, in *csa.ListKeypairsRequest, opts ...grpc.CallOption) (*csa.ListKeypairsResponse, error) {
-	return a.RealOffchain.ListKeypairs(ctx, in, opts...)
 }

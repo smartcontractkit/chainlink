@@ -38,6 +38,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -367,6 +368,7 @@ func NewNode(
 		UnrestrictedHTTPClient:   &http.Client{},
 		RestrictedHTTPClient:     &http.Client{},
 		AuditLogger:              audit.NoopLogger,
+		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, db),
 	})
 	require.NoError(t, err)
 	keys := CreateKeys(t, app, chains, solchains, aptoschains)
@@ -383,6 +385,9 @@ func NewNode(
 			Value: ptr("oracle"),
 		}
 	}
+
+	err = app.Start(ctx)
+	require.NoError(t, err)
 
 	// JD
 

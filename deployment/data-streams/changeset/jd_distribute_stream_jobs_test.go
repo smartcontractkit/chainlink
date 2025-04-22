@@ -18,13 +18,13 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 
 	const donID = 1
 	const donName = "don"
-	const env = "env"
+	const envName = "envName"
 
 	e := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
 		ShouldDeployLinkToken: false,
-		NumNodes:              2,
-		NodeLabels:            testutil.GetNodeLabels(donID, donName, env),
+		NumNodes:              3,
+		NodeLabels:            testutil.GetNodeLabels(donID, donName, envName),
 		CustomDBSetup: []string{
 			// Seed the database with the list of bridges we're using.
 			`INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)
@@ -105,8 +105,8 @@ ask_price [type=median allowedFaults=3 index=2];
 		Filter: &jd.ListFilter{
 			DONID:          donID,
 			DONName:        donName,
-			EnvLabel:       "env",
-			NumOracleNodes: 2,
+			EnvLabel:       envName,
+			NumOracleNodes: 3,
 		},
 		Streams: []StreamSpecConfig{
 			{
@@ -132,7 +132,7 @@ ask_price [type=median allowedFaults=3 index=2];
 				APIs: []string{"api1", "api2", "api3", "api4"},
 			},
 		},
-		NodeNames: []string{"node-0", "node-1"},
+		NodeNames: []string{"node-0", "node-1", "node-2"},
 	}
 
 	tests := []struct {
@@ -147,29 +147,59 @@ ask_price [type=median allowedFaults=3 index=2];
 			name:        "success",
 			config:      config,
 			wantSpec:    renderedSpec,
-			wantNumJobs: 2,
+			wantNumJobs: 3,
 		},
 		{
+			name:        "success2",
+			config:      config,
+			wantSpec:    renderedSpec,
+			wantNumJobs: 3,
+		},
+		{
+			// This happens to also be a job update when run after "success" because the two use the same ExternalJobID.
 			name:   "success sending jobs to a subset of nodes",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.NodeNames = []string{"node-0"}
 				c.Filter = &jd.ListFilter{
 					DONID:          donID,
 					DONName:        donName,
-					EnvLabel:       "env",
+					EnvLabel:       envName,
 					NumOracleNodes: 1,
 				}
-				c.NodeNames = []string{"node-0"}
 				return c
 			},
 			wantSpec:    renderedSpec,
 			wantNumJobs: 1,
 		},
 		{
+			// This happens to also be a job update when run after "success" because the two use the same ExternalJobID.
+			name:   "success sending jobs to a different subset of nodes",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.NodeNames = []string{"node-1", "node-2"}
+				c.Filter = &jd.ListFilter{
+					DONID:          donID,
+					DONName:        donName,
+					EnvLabel:       envName,
+					NumOracleNodes: 2,
+				}
+				return c
+			},
+			wantSpec:    renderedSpec,
+			wantNumJobs: 2,
+		},
+		{
 			name:   "failure when the node name is not found",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
 				c.NodeNames = []string{"non-existing-node"}
+				c.Filter = &jd.ListFilter{
+					DONID:          donID,
+					DONName:        donName,
+					EnvLabel:       envName,
+					NumOracleNodes: 1,
+				}
 				return c
 			},
 			wantErr: pointer.To("failed to get oracle nodes"),
