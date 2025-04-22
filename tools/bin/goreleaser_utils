@@ -6,6 +6,7 @@ set -xe
 before_hook() {
   local -r lib_path=$PWD/tmp
 
+  install_loopinstall
   install_local_plugins
   install_remote_plugins
   mkdir -p "$lib_path/libs"
@@ -48,13 +49,16 @@ before_hook() {
 
 }
 
+install_loopinstall() {
+  make install-loopinstall
+}
+
 install_local_plugins() {
-  make install-medianpoc
-  make install-ocr3-capability
+  make install-plugins-local
 }
 
 install_remote_plugins() {
-  make install-plugins
+  make install-plugins-public
 }
 
 # binary build post hook
