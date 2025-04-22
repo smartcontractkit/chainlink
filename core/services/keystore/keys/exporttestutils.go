@@ -6,13 +6,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // KeyType represents a key type for keys testing
 type KeyType interface {
 	ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error)
-	String() string
+	Raw() internal.Raw
+	ID() string
 }
 
 // CreateKeyFunc represents a function to create a key
@@ -34,5 +36,6 @@ func RunKeyExportImportTestcase(t *testing.T, createKey CreateKeyFunc, decrypt D
 	imported, err := decrypt(json, "password")
 	require.NoError(t, err)
 
-	assert.Equal(t, key.String(), imported.String())
+	require.Equal(t, key.ID(), imported.ID())
+	require.Equal(t, internal.RawBytes(key), internal.RawBytes(imported))
 }

@@ -32,7 +32,7 @@ func TestGenerateNopsView(t *testing.T) {
 	for i, id := range nodeIDs {
 		// Create unique P2P IDs and CSA keys
 		p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(i)))
-		p2pIDs = append(p2pIDs, p2pKey.String())
+		p2pIDs = append(p2pIDs, p2pKey.ID())
 		csaKey := "csa_key_" + id
 		csaKeys = append(csaKeys, csaKey)
 

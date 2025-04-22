@@ -45,7 +45,7 @@ type GetWorkflowMetadataListByDONParams struct {
 }
 
 type GetWorkflowMetadata struct {
-	WorkflowID   [32]byte
+	WorkflowID   WorkflowID
 	Owner        []byte
 	DonID        uint32
 	Status       uint8
@@ -452,14 +452,12 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 	seenMap := map[string]bool{}
 
 	for _, wfMeta := range workflowMetadata {
-		// TODO: ensure that the WorkflowRegisteredEvent sets the engine registry as the very last step
-		// TODO: ensure that the WorkflowDeletedEvent clears the engine registry as the very last step
 		engine, engineErr := w.engineRegistry.Get(EngineRegistryKey{Owner: wfMeta.Owner, Name: wfMeta.WorkflowName})
-		engineKeyStr := wfMeta.WorkflowName + hex.EncodeToString(wfMeta.Owner)
-		currWfID := hex.EncodeToString(wfMeta.WorkflowID[:])
-		prevWfID := hex.EncodeToString(engine.workflowID[:])
+		currWfID := wfMeta.WorkflowID.Hex()
+		prevWfID := engine.WorkflowID.Hex()
 		logger := w.lggr.With("workflowID", currWfID)
 
+		engineKeyStr := wfMeta.WorkflowName + hex.EncodeToString(wfMeta.Owner)
 		switch {
 		// if the workflow is active, but unable to get engine from the engine registry
 		// then handle as registered event
@@ -484,7 +482,7 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 		// then handle as updated event
 		case wfMeta.Status == uint8(WorkflowStatusActive) && currWfID != prevWfID:
 			toUpdatedEvent := WorkflowRegistryWorkflowUpdatedV1{
-				OldWorkflowID: engine.workflowID,
+				OldWorkflowID: engine.WorkflowID,
 				NewWorkflowID: wfMeta.WorkflowID,
 				WorkflowOwner: wfMeta.Owner,
 				DonID:         wfMeta.DonID,
@@ -492,6 +490,7 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 				BinaryURL:     wfMeta.BinaryURL,
 				ConfigURL:     wfMeta.ConfigURL,
 				SecretsURL:    wfMeta.SecretsURL,
+				Status:        wfMeta.Status,
 			}
 			events = append(events, workflowAsEvent{
 				Data:      toUpdatedEvent,
@@ -507,7 +506,7 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 		// Paused means we skip for processing as a deleted event
 		// To be handled below as a deleted event, which clears the DB workflow spec.
 		case wfMeta.Status == uint8(WorkflowStatusPaused):
-			logger.Debugf("Workflow is paused")
+			logger.Debugf("workflow is paused, not generating event")
 
 		default:
 			logger.Errorf("Unable to determine difference from workflow metadata")
@@ -517,14 +516,14 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 	// Shut down engines that are no longer in the contract's latest workflow metadata state
 	allEngines := w.engineRegistry.GetAll()
 	for _, engine := range allEngines {
-		engineKey := engine.workflowName + hex.EncodeToString(engine.workflowOwner)
+		engineKey := engine.WorkflowName + hex.EncodeToString(engine.WorkflowOwner)
 		_, exists := seenMap[engineKey]
 		if !exists {
 			toDeletedEvent := WorkflowRegistryWorkflowDeletedV1{
-				WorkflowID:    engine.workflowID,
-				WorkflowOwner: engine.workflowOwner,
+				WorkflowID:    engine.WorkflowID,
+				WorkflowOwner: engine.WorkflowOwner,
 				DonID:         donID,
-				WorkflowName:  engine.workflowName,
+				WorkflowName:  engine.WorkflowName,
 			}
 			events = append(events, workflowAsEvent{
 				Data:      toDeletedEvent,
@@ -564,7 +563,9 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 				}
 				events := w.workflowMetadataToEvents(ctx, workflowMetadata, don.ID)
 				// Send events generated from differences to the event channel to be handled
+				reconcileReport := map[string]int{}
 				for _, event := range events {
+					reconcileReport[string(event.EventType)]++
 					select {
 					case <-ctx.Done():
 						w.lggr.Debug("readRegistryStateLoop stopped during processing")
@@ -572,6 +573,8 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 					case w.eventCh <- event:
 					}
 				}
+
+				w.lggr.Debugw("generated events to reconcile", "num", len(events), "report", reconcileReport)
 			}
 		}
 	}()

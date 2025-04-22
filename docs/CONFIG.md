@@ -2074,6 +2074,7 @@ InsecureConnection = false # Default
 TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
+ChipIngressEndpoint = '' # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2122,6 +2123,12 @@ EmitterBatchProcessor enables batching for telemetry events
 EmitterExportTimeout = '1s' # Default
 ```
 EmitterExportTimeout sets timeout for exporting telemetry events
+
+### ChipIngressEndpoint
+```toml
+ChipIngressEndpoint = '' # Default
+```
+ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 
 ## Telemetry.ResourceAttributes
 ```toml
@@ -16025,6 +16032,7 @@ ObservationGracePeriod sets `OCR.ObservationGracePeriod` for this EVM chain.
 Name = 'foo' # Example
 WSURL = 'wss://web.socket/test' # Example
 HTTPURL = 'https://foo.web' # Example
+HTTPURLExtraWrite = 'https://foo.web/extra' # Example
 SendOnly = false # Default
 Order = 100 # Default
 ```
@@ -16047,6 +16055,12 @@ WSURL is the WS(S) endpoint for this node. Required for primary nodes when `LogB
 HTTPURL = 'https://foo.web' # Example
 ```
 HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
+
+### HTTPURLExtraWrite
+```toml
+HTTPURLExtraWrite = 'https://foo.web/extra' # Example
+```
+HTTPURLExtraWrite is the HTTP(S) endpoint used for chains that require a separate endpoint for writing on-chain.
 
 ### SendOnly
 ```toml
