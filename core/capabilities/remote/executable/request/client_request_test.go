@@ -13,6 +13,7 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
@@ -306,6 +307,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Executes full schedule", func(t *testing.T) {
+		beholderTester := tests.Beholder(t)
 		lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 		numPeers := 3
@@ -337,7 +339,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		// Buffered channel so the goroutines block
 		// when executing the schedule
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody)}
-		request, err := request.NewClientExecuteRequest(
+		executeRequest, err := request.NewClientExecuteRequest(
 			ctxWithCancel,
 			lggr,
 			capabilityRequest,
@@ -347,7 +349,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			10*time.Minute,
 		)
 		require.NoError(t, err)
-		defer request.Cancel(errors.New("test end"))
+		defer executeRequest.Cancel(errors.New("test end"))
 
 		// Despite the context being cancelled,
 		// we still send the full schedule.
@@ -357,14 +359,14 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		assert.Empty(t, dispatcher.msgs)
 
 		msg.Sender = capPeers[0][:]
-		err = request.OnMessage(ctx, msg)
+		err = executeRequest.OnMessage(ctx, msg)
 		require.NoError(t, err)
 
 		msg.Sender = capPeers[1][:]
-		err = request.OnMessage(ctx, msg)
+		err = executeRequest.OnMessage(ctx, msg)
 		require.NoError(t, err)
 
-		response := <-request.ResponseChan()
+		response := <-executeRequest.ResponseChan()
 		capResponse, err := pb.UnmarshalCapabilityResponse(response.Result)
 		require.NoError(t, err)
 
@@ -385,6 +387,8 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 				assert.Greater(t, k.Integer, int64(10*time.Second))
 			}
 		}
+		assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%v.%v", request.TransmissionEventProtoPkg, request.TransmissionEventEntity)))
+
 	})
 
 	t.Run("Uses passed in time out if larger than schedule", func(t *testing.T) {

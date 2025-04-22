@@ -93,6 +93,20 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}
 
+	// send schedule through beholder for single execution performance tracking
+	if tc.Schedule == transmission.Schedule_OneAtATime {
+		err = emitTransmissionScheduleEvent(ctx,
+			req.Metadata.WorkflowExecutionID,
+			requestID,
+			req.Metadata.ReferenceID,
+			req.Metadata.ReferenceID,
+			peerIDToTransmissionDelay,
+		)
+		if err != nil {
+			lggr.Errorw("failed to emit transmission schedule event", "error", err)
+		}
+	}
+
 	responseReceived := make(map[p2ptypes.PeerID]bool)
 
 	maxDelayDuration := time.Duration(0)
@@ -131,17 +145,6 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 	ctxWithCancel, cancelFn := context.WithTimeout(ctxWithoutCancel, effectiveTimeout)
 
 	lggr.Debugw("sending request to peers", "schedule", peerIDToTransmissionDelay, "originalTimeout", originalTimeout, "effectiveTimeout", effectiveTimeout)
-
-	err = emitTransmissionScheduleEvent(ctx,
-		req.Metadata.WorkflowExecutionID,
-		requestID,
-		req.Metadata.ReferenceID,
-		req.Metadata.ReferenceID,
-		peerIDToTransmissionDelay,
-	)
-	if err != nil {
-		lggr.Errorw("failed to emit transmission schedule event", "error", err)
-	}
 
 	var wg sync.WaitGroup
 	for peerID, delay := range peerIDToTransmissionDelay {
@@ -204,7 +207,7 @@ func emitTransmissionScheduleEvent(ctx context.Context, workflowExecutionID, tra
 	// turn to string for emit
 	sortedStringPeers := make([]string, 0, len(sortedPeerIDs))
 	for _, peer := range sortedPeerIDs {
-		sortedStringPeers = append(sortedStringPeers, string(peer[:]))
+		sortedStringPeers = append(sortedStringPeers, peer.String())
 	}
 
 	msg := &TransmitScheduleEvent{
@@ -225,7 +228,7 @@ func emitTransmissionScheduleEvent(ctx context.Context, workflowExecutionID, tra
 	return beholder.GetEmitter().Emit(ctx, b,
 		"beholder_data_schema", TransmissionEventSchema, // required
 		"beholder_domain", "platform", // required
-		"beholder_entity", fmt.Sprintf("%s.%s", TransmissionEventProto, TransmissionEventPkg)) // required
+		"beholder_entity", fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)) // required
 }
 
 func (c *ClientRequest) ID() string {
@@ -303,7 +306,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 
 			nodeReports = append(nodeReports, rpt)
 		} else {
-			lggr.Errorw("node metering detail did not contain exactly 1 record", "records", len(metadata.Metering))
+			lggr.Warnw("node metering detail did not contain exactly 1 record", "records", len(metadata.Metering))
 		}
 
 		c.responseIDCount[responseID]++
