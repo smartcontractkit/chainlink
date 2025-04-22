@@ -29,7 +29,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 
 	chainInfo, _ := deployment.ChainInfo(c.ChainSelector)
 
-	feedStatePath := "feeds/" + chainInfo.ChainName + ".json"
+	feedStatePath := filepath.Join("feeds", chainInfo.ChainName+".json")
 	feedState, _ := LoadJSON[*v1_0.FeedState](feedStatePath, c.InputFS)
 
 	// Add extra padded zeros to the feed IDs
@@ -166,7 +166,7 @@ func proposeWFJobsToJDPrecondition(env deployment.Environment, c types.ProposeWF
 	if err != nil {
 		return fmt.Errorf("failed to get chain info for chain %d: %w", c.ChainSelector, err)
 	}
-	inputFileName := "feeds/" + chainInfo.ChainName + ".json"
+	inputFileName := filepath.Join("feeds", chainInfo.ChainName+".json")
 
 	feedState, err := LoadJSON[*v1_0.FeedState](inputFileName, c.InputFS)
 	if err != nil {
