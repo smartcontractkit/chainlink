@@ -4,7 +4,6 @@ description: |
   Note: Other actions should not be called from this action. There is
   weird behavior when nesting reusable actions.
 inputs:
-
   go-mod-download-directory:
     description: |
       The directory to run go mod download in. If not provided, it will not run go mod download.
@@ -41,6 +40,6 @@ runs:
 
     - name: Install LOOP Plugins
       shell: bash
-      run: make install-plugins
-
-
+      run: |
+        make install-loopinstall
+        make install-plugins-public
