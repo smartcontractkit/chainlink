@@ -134,22 +134,21 @@ func SetupTestEnvironment(
 
 	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability, workflow registry)
 	// but first, we need to create deployment.Environment that will contain only chain information in order to deploy contracts with the CLD
-	chainsConfig := make([]devenv.ChainConfig, 0)
-	for _, bcOut := range blockchainsOutput {
-		chainsConfig = append(chainsConfig, devenv.ChainConfig{
-			ChainID:   bcOut.SethClient.Cfg.Network.ChainID,
-			ChainName: bcOut.SethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
+	chainsConfig := []devenv.ChainConfig{
+		{
+			ChainID:   homeChainOutput.SethClient.Cfg.Network.ChainID,
+			ChainName: homeChainOutput.SethClient.Cfg.Network.Name,
+			ChainType: strings.ToUpper(homeChainOutput.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
-				Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
+				External: homeChainOutput.BlockchainOutput.Nodes[0].ExternalWSUrl,
+				Internal: homeChainOutput.BlockchainOutput.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+				External: homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+				Internal: homeChainOutput.BlockchainOutput.Nodes[0].InternalHTTPUrl,
 			}},
-			DeployerKey: bcOut.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
-		})
+			DeployerKey: homeChainOutput.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
+		},
 	}
 
 	chains, chainsErr := devenv.NewChains(singeFileLogger, chainsConfig)
