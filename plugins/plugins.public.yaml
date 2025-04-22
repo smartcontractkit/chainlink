@@ -25,7 +25,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20250417132850-8f68f1d0afea"
+      gitRef: "v1.1.2-0.20250418121120-d978f41c57cc"
       installPath: "github.com/smartcontractkit/chainlink-solana/pkg/solana/cmd/chainlink-solana"
 
   starknet:
@@ -35,5 +35,5 @@ plugins:
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v0.1.1-0.20250325191518-036bb568a69d"
+      gitRef: "v0.1.1-0.20250417193446-eeb0a7d1e049"
       installPath: "github.com/smartcontractkit/chainlink-data-streams/mercury/cmd/chainlink-mercury"
