@@ -41,7 +41,7 @@ type WorkflowSpecCfg struct {
 	ConsensusAggregationMethod       string
 	ConsensusAllowedPartialStaleness string
 	ConsensusEncoderABI              string
-	DeltaStageSec                    int64
+	DeltaStageSec                    int
 	WriteTargetTrigger               string
 	TargetsSchedule                  string
 	CREStepTimeout                   int64
@@ -77,7 +77,7 @@ func CreateWorkflowSpec(
 	consensusConfigKeyID string,
 	consensusAllowedPartialStaleness string,
 	consensusEncoderABI string,
-	deltaStageSec int64,
+	deltaStageSec int,
 	writeTargetTrigger string,
 	targetsSchedule string,
 	creStepTimeout int64,

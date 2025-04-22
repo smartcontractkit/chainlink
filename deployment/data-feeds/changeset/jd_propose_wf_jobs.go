@@ -64,7 +64,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 		triggersMaxFrequencyMs = *workflowSpecConfig.TriggersMaxFrequencyMs
 	}
 
-	var deltaStageSec int64
+	var deltaStageSec int
 	if workflowSpecConfig.DeltaStageSec == nil {
 		deltaStageSec = 45
 	} else {

@@ -148,7 +148,7 @@ type WorkflowSpecConfig struct {
 	ConsensusRef                     string // Default "data-feeds"
 	ConsensusConfigKeyID             string // Default "evm"
 	ConsensusAllowedPartialStaleness string // Default "0.5"
-	DeltaStageSec                    *int64 // Default 45
+	DeltaStageSec                    *int   // Default 45
 	TargetsSchedule                  string // Default "oneAtATime"
 	TriggersMaxFrequencyMs           *int   // Default 5000
 	CREStepTimeout                   int64
