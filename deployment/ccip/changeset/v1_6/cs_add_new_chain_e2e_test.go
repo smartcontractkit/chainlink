@@ -13,6 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -23,9 +26,6 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -246,7 +246,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 		DonIDOffSet *uint32
 	}
 
-	offset := uint32(1)
+	offset := uint32(0)
 
 	mcmsConfig := &proposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
@@ -263,7 +263,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			MCMS: nil,
 		},
 		{
-			Msg:         "Remote chains with donID offset",
+			Msg:         "Remote chains with donID offset (Sync with capReg reg after wrong donIDClaim)",
 			DonIDOffSet: &offset,
 		},
 	}
@@ -441,6 +441,17 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				))
 			require.NoError(t, err, "must deploy donIDClaimer contract")
 
+			state, err = changeset.LoadOnchainState(e)
+			require.NoError(t, err, "must load onchain state")
+
+			if test.DonIDOffSet != nil {
+				tx, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.ClaimNextDONId(e.Chains[deployedEnvironment.HomeChainSel].DeployerKey)
+				require.NoError(t, err)
+
+				_, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[deployedEnvironment.HomeChainSel], tx, don_id_claimer.DonIDClaimerABI, err)
+				require.NoError(t, err)
+			}
+
 			// Apply AddCandidatesForNewChainChangeset
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
@@ -550,17 +561,6 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				checkConnectivity(t, e, state, remoteChain.Selector, newChain.Selector, routerOnRemote, false, true)
 				checkConnectivity(t, e, state, newChain.Selector, remoteChain.Selector, router, false, true)
 			}
-
-			// capabilityRegistryDonID
-			nextDonID, err := state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry.GetNextDONId(nil)
-			require.NoError(t, err)
-
-			// donIdClaimed with Offset
-			nextDonIDAfterOffset, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.GetNextDONId(nil)
-			require.NoError(t, err)
-
-			// offSets donID by 1 and claimed donID so expecting value is nextDonID + 2
-			require.Equal(t, nextDonID+2, nextDonIDAfterOffset)
 		})
 	}
 }

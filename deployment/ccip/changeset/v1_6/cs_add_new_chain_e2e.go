@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -298,7 +299,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	}
 
 	if c.DonIDOffSet != nil {
-		_, err := changeset.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
+		_, err = changeset.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
 			HomeChainSelector: c.HomeChainSelector,
 			OffSet:            *c.DonIDOffSet,
 		})
@@ -370,9 +371,9 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 
 	// Claim donID using donIDClaimer at the end of the changeset run
 	txOpts := e.Chains[c.HomeChainSelector].DeployerKey
-	_, err = state.Chains[c.HomeChainSelector].DonIDClaimer.ClaimNextDONId(txOpts)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to claim next DON ID: %w", err)
+	tx, err := state.Chains[c.HomeChainSelector].DonIDClaimer.ClaimNextDONId(txOpts)
+	if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[c.HomeChainSelector], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
