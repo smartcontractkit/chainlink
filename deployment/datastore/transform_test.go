@@ -105,5 +105,85 @@ func TestToDefault(t *testing.T) {
 }
 
 func TestFromDefault(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func() MutableDataStore[DefaultMetadata, DefaultMetadata]
+		expected DataStore[CustomMetadata, CustomMetadata]
+	}{
+		{
+			name: "successful conversion",
+			setup: func() MutableDataStore[DefaultMetadata, DefaultMetadata] {
+				ds := NewMemoryDataStore[DefaultMetadata, DefaultMetadata]()
 
+				ds.Addresses().Add(AddressRef{
+					Address:       "addr1",
+					Type:          "type1",
+					Version:       semver.MustParse("1.0.0"),
+					ChainSelector: 1,
+					Qualifier:     "qualifier1",
+					Labels:        NewLabelSet("label1", "label2"),
+				})
+
+				ds.ContractMetadata().Add(ContractMetadata[DefaultMetadata]{
+					ChainSelector: 1,
+					Address:       "contract1",
+					Metadata: DefaultMetadata{
+						Data: `{"field":"value1"}`,
+					},
+				})
+
+				ds.EnvMetadata().Set(EnvMetadata[DefaultMetadata]{
+					Domain:      "domain1",
+					Environment: "env1",
+					Metadata: DefaultMetadata{
+						Data: `{"field":"envValue1"}`,
+					},
+				})
+
+				return ds
+			},
+			expected: &sealedMemoryDataStore[CustomMetadata, CustomMetadata]{
+				AddressRefStore: &MemoryAddressRefStore{
+					Records: []AddressRef{
+						{
+							Address:       "addr1",
+							Type:          "type1",
+							Version:       semver.MustParse("1.0.0"),
+							ChainSelector: 1,
+							Qualifier:     "qualifier1",
+							Labels:        NewLabelSet("label1", "label2"),
+						},
+					},
+				},
+				ContractMetadataStore: &MemoryContractMetadataStore[CustomMetadata]{
+					Records: []ContractMetadata[CustomMetadata]{
+						{
+							ChainSelector: 1,
+							Address:       "contract1",
+							Metadata:      CustomMetadata{Field: "value1"},
+						},
+					},
+				},
+				EnvMetadataStore: &MemoryEnvMetadataStore[CustomMetadata]{
+					Record: &EnvMetadata[CustomMetadata]{
+						Domain:      "domain1",
+						Environment: "env1",
+						Metadata:    CustomMetadata{Field: "envValue1"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dataStore := tt.setup()
+
+			// Test FromDefault
+			customStore, err := FromDefault[CustomMetadata, CustomMetadata](dataStore.Seal())
+			require.NoError(t, err)
+
+			require.Equal(t, tt.expected, customStore)
+		})
+	}
 }
