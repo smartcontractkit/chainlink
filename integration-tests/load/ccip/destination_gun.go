@@ -233,6 +233,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                 accounts,
 			AllowOutOfOrderExecution: *m.testConfig.OOOExecution,
+			ComputeUnits:             150000,
 		})
 		if err != nil {
 			m.l.Errorw("Error encoding extra args for sol dest")
