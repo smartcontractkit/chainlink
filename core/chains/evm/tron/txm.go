@@ -5,7 +5,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	tronkeystore "github.com/smartcontractkit/chainlink-tron/relayer/keystore"
@@ -14,24 +13,20 @@ import (
 )
 
 func ConstructTronTxm(logger logger.Logger, cfg *config.ChainScoped, nodes []*toml.Node, keystore keys.Store) (*trontxm.TronTxm, error) {
-	if cfg.EVM().ChainType() == chaintype.ChainTron {
-		if len(nodes) == 0 {
-			return nil, fmt.Errorf("Tron chain requires at least one node")
-		}
-
-		fullNodeURL := nodes[0].HTTPURLExtraWrite.URL()
-		tronClient, err := tronclient.CreateFullNodeClient(fullNodeURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create tron client: %w", err)
-		}
-
-		return trontxm.New(logger, tronkeystore.NewLoopKeystoreAdapter(keystore), tronClient, trontxm.TronTxmConfig{
-			// From testing, this multiplier ensures all exec messages are fully executed.
-			// Energy estimation doesn't seem to account for more complex smart contract execution.
-			// Given that Tron has static gas prices, we don't expect this to be a problem as this multiplier is sufficiently high.
-			EnergyMultiplier: 3,
-		}), nil
+	if len(nodes) == 0 {
+		return nil, fmt.Errorf("Tron chain requires at least one node")
 	}
 
-	return nil, nil
+	fullNodeURL := nodes[0].HTTPURLExtraWrite.URL()
+	tronClient, err := tronclient.CreateFullNodeClient(fullNodeURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tron client: %w", err)
+	}
+
+	return trontxm.New(logger, tronkeystore.NewLoopKeystoreAdapter(keystore), tronClient, trontxm.TronTxmConfig{
+		// From testing, this multiplier ensures all exec messages are fully executed.
+		// Energy estimation doesn't seem to account for more complex smart contract execution.
+		// Given that Tron has static gas prices, we don't expect this to be a problem as this multiplier is sufficiently high.
+		EnergyMultiplier: 3,
+	}), nil
 }

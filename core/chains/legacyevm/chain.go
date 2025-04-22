@@ -310,9 +310,12 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 	headBroadcaster.Subscribe(logBroadcaster)
 
 	// Construct the Tron TXM, will be nil if the chaintype is not tron
-	tronTxm, err := tron.ConstructTronTxm(l, cfg, nodes, opts.KeyStore)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct tron txm: %w", err)
+	var tronTxm *trontxm.TronTxm
+	if cfg.EVM().ChainType() == chaintype.ChainTron {
+		tronTxm, err = tron.ConstructTronTxm(l, cfg, nodes, opts.KeyStore)
+		if err != nil {
+			return nil, fmt.Errorf("failed to construct tron txm: %w", err)
+		}
 	}
 
 	return &chain{
