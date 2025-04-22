@@ -1220,8 +1220,8 @@ github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 h1:cWUHB6Q
 github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2/go.mod h1:Z4K5VJLjsfqIIaBcZ1Sfccxu0xsCxBjPa6zF+5gtQaM=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10 h1:Yf+n3T/fnUWcYyfe7bsygV4sWAkNo0QhN58APJFIKIc=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10/go.mod h1:05duR85P8YHuIfIkA7sn2bvrhKo/pDpFKV2rliYHNOo=
-github.com/smartcontractkit/chainlink-tron/relayer v0.0.10 h1:JMAe0YmiaMMm/2Ip5tB8R3JFK9jIpVY2HMIfkq5hKBU=
-github.com/smartcontractkit/chainlink-tron/relayer v0.0.10/go.mod h1:r+PL9PgWWVErgY686mKZp+B6Xn//WEnUkFdobJAYOAo=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250422164528-f9adc0c7c935 h1:Yg7O6IvRWc6cyfDFTIFZSdf6HQBubyFhOlqil8XXO/Q=
+github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250422164528-f9adc0c7c935/go.mod h1:snWj5tO2o5/bGXDf1NY/su2bojul8zNHTXJ9Lhx3QYU=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.4 h1:J4qtAo0ZmgX5pIr8Y5mdC+J2rj2e/6CTUC263t6mGOM=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.4/go.mod h1:4WhGgCA0smBbBud5mK+jnDb2wwndMvoqaWBJ3OV/7Bw=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
