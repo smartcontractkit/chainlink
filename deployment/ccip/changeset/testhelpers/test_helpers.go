@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -92,9 +93,6 @@ const (
 )
 
 var (
-	// bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
-	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
-
 	routerABI = abihelpers.MustParseABI(router.RouterABI)
 
 	DefaultLinkPrice = deployment.E18Mult(20)
@@ -794,42 +792,38 @@ func MatchTokenToTokenPool(ctx context.Context, client *rpc.Client, tokenPubKey 
 	return solana.PublicKey{}, fmt.Errorf(msg, tokenPubKey.String(), strings.Join(tokenPoolPubKeyStrs, ", "))
 }
 
+// bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
+var messageHasherABI = evmtypes.MustGetABI(message_hasher.MessageHasherABI)
+
+const GenericExtraArgsV2Tag = "0x181dcf10"
+const SVMExtraArgsV1Tag = "0x1f3b3aba"
+
 // MakeEVMExtraArgsV2 creates the extra args for the EVM2Any message that is destined
 // for an EVM chain. The extra args contain the gas limit and allow out of order flag.
 func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
-	// extra args is the tag followed by the gas limit and allowOOO abi-encoded.
-	var extraArgs []byte
-	extraArgs = append(extraArgs, evmExtraArgsV2Tag...)
-	gasLimitBytes := new(big.Int).SetUint64(gasLimit).Bytes()
-	// pad from the left to 32 bytes
-	gasLimitBytes = common.LeftPadBytes(gasLimitBytes, 32)
-
-	// abi-encode allowOOO
-	var allowOOOBytes []byte
-	if allowOOO {
-		allowOOOBytes = append(allowOOOBytes, 1)
-	} else {
-		allowOOOBytes = append(allowOOOBytes, 0)
+	extraArgs, err := SerializeClientGenericExtraArgsV2(message_hasher.ClientGenericExtraArgsV2{
+		GasLimit:                 new(big.Int).SetUint64(gasLimit),
+		AllowOutOfOrderExecution: allowOOO,
+	})
+	if err != nil {
+		panic(err)
 	}
-	// pad from the left to 32 bytes
-	allowOOOBytes = common.LeftPadBytes(allowOOOBytes, 32)
-
-	extraArgs = append(extraArgs, gasLimitBytes...)
-	extraArgs = append(extraArgs, allowOOOBytes...)
 	return extraArgs
 }
 
-// NOTE: this is EVM specific (EVM->SVM)
-const SVMExtraArgsV1Tag = "0x1f3b3aba"
+// TODO: import from ccipevm
+func SerializeExtraArgs(tag string, method string, inputs ...any) ([]byte, error) {
+	tagBytes := hexutil.MustDecode(tag)
+	v, err := messageHasherABI.Methods[method].Inputs.Pack(inputs...)
+	return append(tagBytes, v...), err
+}
+
+func SerializeClientGenericExtraArgsV2(data message_hasher.ClientGenericExtraArgsV2) ([]byte, error) {
+	return SerializeExtraArgs(GenericExtraArgsV2Tag, "encodeGenericExtraArgsV2", data)
+}
 
 func SerializeSVMExtraArgs(data message_hasher.ClientSVMExtraArgsV1) ([]byte, error) {
-	tagBytes := hexutil.MustDecode(SVMExtraArgsV1Tag)
-	abi, err := message_hasher.MessageHasherMetaData.GetAbi()
-	if err != nil {
-		return nil, err
-	}
-	v, err := abi.Methods["encodeSVMExtraArgsV1"].Inputs.Pack(data)
-	return append(tagBytes, v...), err
+	return SerializeExtraArgs(SVMExtraArgsV1Tag, "encodeSVMExtraArgsV1", data)
 }
 
 func AddLane(

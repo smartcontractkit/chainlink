@@ -4,11 +4,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -148,37 +148,37 @@ func TestCalculateMaxGas(t *testing.T) {
 }
 
 func makeExtraArgsV1(gasLimit uint64) []byte {
-	// extra args is the tag followed by the gas limit abi-encoded.
-	var extraArgs []byte
-	extraArgs = append(extraArgs, evmExtraArgsV1Tag...)
-	gasLimitBytes := new(big.Int).SetUint64(gasLimit).Bytes()
-	// pad from the left to 32 bytes
-	gasLimitBytes = common.LeftPadBytes(gasLimitBytes, 32)
-	extraArgs = append(extraArgs, gasLimitBytes...)
+	extraArgs, err := SerializeEVMExtraArgsV1(message_hasher.ClientEVMExtraArgsV1{
+		GasLimit: new(big.Int).SetUint64(gasLimit),
+	})
+	if err != nil {
+		panic(err)
+	}
 	return extraArgs
 }
 
 func makeExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
-	// extra args is the tag followed by the gas limit and allowOOO abi-encoded.
-	var extraArgs []byte
-	extraArgs = append(extraArgs, evmExtraArgsV2Tag...)
-	gasLimitBytes := new(big.Int).SetUint64(gasLimit).Bytes()
-	// pad from the left to 32 bytes
-	gasLimitBytes = common.LeftPadBytes(gasLimitBytes, 32)
-
-	// abi-encode allowOOO
-	var allowOOOBytes []byte
-	if allowOOO {
-		allowOOOBytes = append(allowOOOBytes, 1)
-	} else {
-		allowOOOBytes = append(allowOOOBytes, 0)
+	extraArgs, err := SerializeClientGenericExtraArgsV2(message_hasher.ClientGenericExtraArgsV2{
+		GasLimit:                 new(big.Int).SetUint64(gasLimit),
+		AllowOutOfOrderExecution: allowOOO,
+	})
+	if err != nil {
+		panic(err)
 	}
-	// pad from the left to 32 bytes
-	allowOOOBytes = common.LeftPadBytes(allowOOOBytes, 32)
-
-	extraArgs = append(extraArgs, gasLimitBytes...)
-	extraArgs = append(extraArgs, allowOOOBytes...)
 	return extraArgs
+}
+
+func SerializeExtraArgs(tag []byte, method string, inputs ...any) ([]byte, error) {
+	v, err := messageHasherABI.Methods[method].Inputs.Pack(inputs...)
+	return append(tag, v...), err
+}
+
+func SerializeEVMExtraArgsV1(data message_hasher.ClientEVMExtraArgsV1) ([]byte, error) {
+	return SerializeExtraArgs(evmExtraArgsV1Tag, "encodeEVMExtraArgsV1", data)
+}
+
+func SerializeClientGenericExtraArgsV2(data message_hasher.ClientGenericExtraArgsV2) ([]byte, error) {
+	return SerializeExtraArgs(evmExtraArgsV2Tag, "encodeGenericExtraArgsV2", data)
 }
 
 func getTokenAmounts(t *testing.T, numTokens int, tokenGasOverhead uint32) []ccipocr3.RampTokenAmount {
@@ -186,7 +186,7 @@ func getTokenAmounts(t *testing.T, numTokens int, tokenGasOverhead uint32) []cci
 	require.NoError(t, err)
 
 	tokenAmounts := make([]ccipocr3.RampTokenAmount, numTokens)
-	for i := 0; i < numTokens; i++ {
+	for i := range numTokens {
 		tokenAmounts[i] = ccipocr3.RampTokenAmount{
 			DestExecData: tokenDestGasOverhead,
 		}
