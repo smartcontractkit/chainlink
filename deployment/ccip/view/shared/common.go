@@ -10,6 +10,11 @@ const (
 	GetTokensPaginationSize = 20
 )
 
+type RegistryModulesView struct {
+	TypeAndVersion     string `json:"typeAndVersion,omitempty"`
+	TokenAdminRegistry string `json:"tokenAdminRegistry,omitempty"`
+}
+
 func GetSupportedTokens(taContract *token_admin_registry.TokenAdminRegistry) ([]common.Address, error) {
 	startIndex := uint64(0)
 	allTokens := make([]common.Address, 0)

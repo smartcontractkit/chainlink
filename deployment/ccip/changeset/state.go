@@ -13,6 +13,7 @@ import (
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -66,12 +67,12 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
-	v1_5RegistryModuleOwnerCustom "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/registry_module_owner_custom"
+	registryModuleOwnerCustomv15 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	v1_6RegistryModuleOwnerCustom "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
+	registryModuleOwnerCustomv16 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -144,9 +145,9 @@ type CCIPChainState struct {
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	TokenPoolFactory   *token_pool_factory.TokenPoolFactory
-	RegistryModules1_6 []*v1_6RegistryModuleOwnerCustom.RegistryModuleOwnerCustom
+	RegistryModules1_6 []*registryModuleOwnerCustomv16.RegistryModuleOwnerCustom
 	// TODO change this to contract object for v1.5 RegistryModules once we have the wrapper available in chainlink-evm
-	RegistryModules1_5 []*v1_5RegistryModuleOwnerCustom.RegistryModuleOwnerCustom
+	RegistryModules1_5 []*registryModuleOwnerCustomv15.RegistryModuleOwnerCustom
 	Router             *router.Router
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
@@ -463,18 +464,28 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.RegistryModules1_6 != nil {
-		registryModulesViewv1_6, err := viewv1_6.GenerateRegistryModulesView(c.RegistryModules1_6, c.TokenAdminRegistry)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate registry modules view for registry modules")
+		for _, registryModule := range c.RegistryModules1_6 {
+			tv, err := registryModule.TypeAndVersion(nil)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to get type and version for registry module %s", registryModule.Address().Hex())
+			}
+			chainView.RegistryModules[registryModule.Address().Hex()] = shared.RegistryModulesView{
+				TypeAndVersion:     tv,
+				TokenAdminRegistry: c.TokenAdminRegistry.Address().Hex(),
+			}
 		}
-		chainView.RegistryModulesV1_6 = registryModulesViewv1_6
 	}
 	if c.RegistryModules1_5 != nil {
-		registryModulesViewv1_5, err := viewv1_5.GenerateRegistryModulesView(c.RegistryModules1_5, c.TokenAdminRegistry)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate registry modules view for registry modules")
+		for _, registryModule := range c.RegistryModules1_5 {
+			tv, err := registryModule.TypeAndVersion(nil)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to get type and version for registry module %s", registryModule.Address().Hex())
+			}
+			chainView.RegistryModules[registryModule.Address().Hex()] = shared.RegistryModulesView{
+				TypeAndVersion:     tv,
+				TokenAdminRegistry: c.TokenAdminRegistry.Address().Hex(),
+			}
 		}
-		chainView.RegistryModulesV1_5 = registryModulesViewv1_5
 	}
 	// Legacy contracts
 	if c.CommitStore != nil {

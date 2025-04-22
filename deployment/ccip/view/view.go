@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
@@ -27,8 +28,7 @@ type ChainView struct {
 	// v1.5
 	TokenAdminRegistry map[string]v1_5.TokenAdminRegistryView `json:"tokenAdminRegistry,omitempty"`
 	TokenPoolFactory   map[string]v1_5_1.TokenPoolFactoryView `json:"tokenPoolFactory,omitempty"`
-	RegistryModulesV1_6 map[string]v1_6.RegistryModulesView `json:"registryModulesV1_6,omitempty"`
-	RegistryModulesV1_5 map[string]v1_5.RegistryModulesView `json:"registryModulesV1_5,omitempty"`
+	RegistryModules    map[string]shared.RegistryModulesView  `json:"registryModules,omitempty"`
 	TokenPools         map[string]map[string]v1_5_1.PoolView  `json:"poolByTokens,omitempty"` // TokenSymbol => TokenPool Address => PoolView
 	CommitStore        map[string]v1_5.CommitStoreView        `json:"commitStore,omitempty"`
 	PriceRegistry      map[string]v1_2.PriceRegistryView      `json:"priceRegistry,omitempty"`
