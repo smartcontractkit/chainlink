@@ -3,7 +3,9 @@ package starkkey
 import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
+	"io"
 	"math/big"
+	mathrand "math/rand"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -175,7 +177,11 @@ func TestStarknetKeyring_Sign_Verify(t *testing.T) {
 }
 
 func TestStarknetKeyring_Marshal(t *testing.T) {
-	kr1, err := NewOCR2Key(cryptorand.Reader)
+	testStarknetKeyringMarshal(t, cryptorand.Reader)
+}
+
+func testStarknetKeyringMarshal(t *testing.T, r io.Reader) {
+	kr1, err := NewOCR2Key(r)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()
 	require.NoError(t, err)
@@ -186,4 +192,11 @@ func TestStarknetKeyring_Marshal(t *testing.T) {
 
 	// Invalid seed size should error
 	require.Error(t, kr2.Unmarshal([]byte{0x01}))
+}
+
+func FuzzStarknetKeyring_Marshal(f *testing.F) {
+	f.Fuzz(func(t *testing.T, seed int64) {
+		r := mathrand.New(mathrand.NewSource(seed))
+		testStarknetKeyringMarshal(t, r)
+	})
 }
