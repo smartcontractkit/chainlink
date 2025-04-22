@@ -297,9 +297,6 @@ func SetupTestEnvironment(
 
 			for j := range donMetadata.NodesMetadata {
 				input.CapabilitiesAwareNodeSets[i].NodeSpecs[j].Node.TestSecretsOverrides = secrets[j]
-
-				fmt.Println("node index", j)
-				fmt.Println("secrets", secrets[j])
 			}
 		}
 

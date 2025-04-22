@@ -49,7 +49,7 @@
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
-      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
       [Feature]
@@ -85,7 +85,7 @@
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
-      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
       [Feature]
@@ -121,7 +121,7 @@
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
-      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
       [Feature]
@@ -157,7 +157,7 @@
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
-      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
       [Feature]
@@ -193,7 +193,7 @@
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
-      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
       [Feature]

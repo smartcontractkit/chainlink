@@ -229,7 +229,7 @@ func checkIfWorkflowWasExecuting(logFiles []*os.File, workflowNodeCount int) boo
 }
 
 func checkIfOCRWasExecuting(logFiles []*os.File, workflowNodeCount int) bool {
-	return checkIfLogsHaveText(logFiles, workflowNodeCount, "✅ committed outcome", exactCountValidationFn(workflowNodeCount))
+	return checkIfLogsHaveText(logFiles, workflowNodeCount, "✅ comitted outcome", exactCountValidationFn(workflowNodeCount))
 }
 
 func checkIfAtLeastOneReportWasSent(logFiles []*os.File, workflowNodeCount int) bool {
