@@ -6,12 +6,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
@@ -71,7 +73,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	}
 
 	lggr = lggr.With("requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, req)
 }
 
 var (
@@ -80,7 +82,7 @@ var (
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	tc transmission.TransmissionConfig, methodType string, rawRequest []byte) (*ClientRequest, error) {
+	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, req commoncap.CapabilityRequest) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
 		return nil, errors.New("remote capability info missing DON")
@@ -130,6 +132,17 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 
 	lggr.Debugw("sending request to peers", "schedule", peerIDToTransmissionDelay, "originalTimeout", originalTimeout, "effectiveTimeout", effectiveTimeout)
 
+	err = emitTransmissionScheduleEvent(ctx,
+		req.Metadata.WorkflowExecutionID,
+		requestID,
+		req.Metadata.ReferenceID,
+		req.Metadata.ReferenceID,
+		peerIDToTransmissionDelay,
+	)
+	if err != nil {
+		lggr.Errorw("failed to emit transmission schedule event", "error", err)
+	}
+
 	var wg sync.WaitGroup
 	for peerID, delay := range peerIDToTransmissionDelay {
 		responseReceived[peerID] = false
@@ -174,6 +187,45 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		wg:                         &wg,
 		lggr:                       lggr,
 	}, nil
+}
+
+func emitTransmissionScheduleEvent(ctx context.Context, workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration) error {
+	// grab peers
+	sortedPeerIDs := make([]p2ptypes.PeerID, 0, len(peerIDToTransmissionDelay))
+	for id := range peerIDToTransmissionDelay {
+		sortedPeerIDs = append(sortedPeerIDs, id)
+	}
+
+	// sort peers by ascending durations
+	sort.SliceStable(sortedPeerIDs, func(i, j int) bool {
+		return peerIDToTransmissionDelay[sortedPeerIDs[i]] < peerIDToTransmissionDelay[sortedPeerIDs[j]]
+	})
+
+	// turn to string for emit
+	sortedStringPeers := make([]string, 0, len(sortedPeerIDs))
+	for _, peer := range sortedPeerIDs {
+		sortedStringPeers = append(sortedStringPeers, string(peer[:]))
+	}
+
+	msg := &TransmitScheduleEvent{
+		Timestamp:           time.Now().Format(time.RFC3339),
+		WorkflowExecutionID: workflowExecutionID,
+		TransmissionID:      transmissionID,
+		CapabilityID:        capabilityID,
+		StepRef:             stepRef,
+		TransmissionOrder:   sortedStringPeers,
+	}
+
+	b, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal TransmissionScheduleEvent: %w", err)
+	}
+
+	// emit transmission schedule event to track which nodes are successful when called to emit
+	return beholder.GetEmitter().Emit(ctx, b,
+		"beholder_data_schema", TransmissionEventSchema, // required
+		"beholder_domain", "platform", // required
+		"beholder_entity", fmt.Sprintf("%s.%s", TransmissionEventProto, TransmissionEventPkg)) // required
 }
 
 func (c *ClientRequest) ID() string {
