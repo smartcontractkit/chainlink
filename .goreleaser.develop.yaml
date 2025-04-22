@@ -75,7 +75,6 @@ dockers:
       - --build-arg=COMMIT_SHA={{ .FullCommit }}
       - --build-arg=CL_MEDIAN_CMD=chainlink-feeds
       - --build-arg=CL_MERCURY_CMD=chainlink-mercury
-      - --build-arg=CL_SOLANA_CMD=""
       - --build-arg=CL_STARKNET_CMD=chainlink-starknet
       - --label=org.opencontainers.image.created={{ .Date }}
       - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
@@ -126,7 +125,6 @@ dockers:
       - --build-arg=COMMIT_SHA={{ .FullCommit }}
       - --build-arg=CL_MEDIAN_CMD=chainlink-feeds
       - --build-arg=CL_MERCURY_CMD=chainlink-mercury
-      - --build-arg=CL_SOLANA_CMD=""
       - --build-arg=CL_STARKNET_CMD=chainlink-starknet
       - --label=org.opencontainers.image.created={{ .Date }}
       - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
@@ -181,7 +179,6 @@ dockers:
       - --build-arg=CL_CHAIN_DEFAULTS=/ccip-config
       - --build-arg=CL_MEDIAN_CMD=chainlink-feeds
       - --build-arg=CL_MERCURY_CMD=chainlink-mercury
-      - --build-arg=CL_SOLANA_CMD=""
       - --build-arg=CL_STARKNET_CMD=chainlink-starknet
       - --label=org.opencontainers.image.created={{ .Date }}
       - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
@@ -236,7 +233,6 @@ dockers:
       - --build-arg=CL_CHAIN_DEFAULTS=/ccip-config
       - --build-arg=CL_MEDIAN_CMD=chainlink-feeds
       - --build-arg=CL_MERCURY_CMD=chainlink-mercury
-      - --build-arg=CL_SOLANA_CMD=""
       - --build-arg=CL_STARKNET_CMD=chainlink-starknet
       - --label=org.opencontainers.image.created={{ .Date }}
       - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
