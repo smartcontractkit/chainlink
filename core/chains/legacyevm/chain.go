@@ -29,11 +29,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/monitor"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-	tronkeystore "github.com/smartcontractkit/chainlink-tron/relayer/keystore"
-	tronclient "github.com/smartcontractkit/chainlink-tron/relayer/sdk"
 	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/tron"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 )
 
@@ -283,26 +282,6 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 		}
 	}
 
-	var tronTxm *trontxm.TronTxm
-	if cfg.EVM().ChainType() == chaintype.ChainTron {
-		if len(nodes) == 0 {
-			return nil, fmt.Errorf("Tron chain requires at least one node")
-		}
-
-		fullNodeURL := nodes[0].HTTPURLExtraWrite.URL()
-		tronClient, err := tronclient.CreateFullNodeClient(fullNodeURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create tron client: %w", err)
-		}
-
-		tronTxm = trontxm.New(l, tronkeystore.NewLoopKeystoreAdapter(opts.KeyStore), tronClient, trontxm.TronTxmConfig{
-			// From testing, this multiplier ensures all exec messages are fully executed.
-			// Energy estimation doesn't seem to account for more complex smart contract execution.
-			// Given that Tron has static gas prices, we don't expect this to be a problem as this multiplier is sufficiently high.
-			EnergyMultiplier: 3,
-		})
-	}
-
 	headBroadcaster.Subscribe(txm)
 
 	var balanceMonitor monitor.BalanceMonitor
@@ -329,6 +308,12 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 	logBroadcaster.AddDependents(1)
 
 	headBroadcaster.Subscribe(logBroadcaster)
+
+	// Construct the Tron TXM, will be nil if the chaintype is not tron
+	tronTxm, err := tron.ConstructTronTxm(l, cfg, nodes, opts.KeyStore)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct tron txm: %w", err)
+	}
 
 	return &chain{
 		id:              chainID,
