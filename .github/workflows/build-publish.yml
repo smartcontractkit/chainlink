@@ -104,7 +104,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@9a35eb4f56aa7a26c084eaedfa3dd88f983a9411 # 2025-04-15
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b37583d758e3992e0d5bfdb5a36ca243ce53ff59 # 2025-04-22
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-east-1
@@ -116,6 +116,7 @@ jobs:
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_APTOS_CMD=chainlink-aptos
+      docker-build-cache-disabled: "true"
       docker-image-type: tag
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
