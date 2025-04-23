@@ -274,8 +274,7 @@ func GetNodeLabels(donID uint64, donName string, env string) []*ptypes.Label {
 // and we want to exclude it from the comparison.
 func StripLineContaining(spec string, ss []string) string {
 	for _, s := range ss {
-		pattern := fmt.Sprintf(`%s.*\n`, s)
-		spec = regexp.MustCompile(pattern).ReplaceAllString(spec, "")
+		spec = regexp.MustCompile(s+`.*\n`).ReplaceAllString(spec, "")
 	}
 	return spec
 }

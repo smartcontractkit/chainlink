@@ -386,9 +386,6 @@ func NewNode(
 		}
 	}
 
-	err = app.Start(ctx)
-	require.NoError(t, err)
-
 	// JD
 
 	setupJD(t, app)

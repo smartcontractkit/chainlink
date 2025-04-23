@@ -43,7 +43,7 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
-	err := env.ExistingAddresses.Save(chainSelector, configuratorAddr,
+	err := env.ExistingAddresses.Save(chainSelector, configuratorAddr, // nolint: staticcheck
 		deployment.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,

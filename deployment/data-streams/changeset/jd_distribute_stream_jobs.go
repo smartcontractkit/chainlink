@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/google/uuid"
 
@@ -64,10 +65,10 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 	var proposals []*jobv1.ProposeJobRequest
 	for _, s := range cfg.Streams {
 		for _, n := range oracleNodes {
-			localLabels := append(labels,
+			localLabels := append(labels, // nolint: gocritic
 				&ptypes.Label{
 					Key:   LabelStreamID,
-					Value: pointer.To(fmt.Sprintf("%d", s.StreamID)),
+					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
 				},
 				&ptypes.Label{
 					Key:   LabelJobType,
@@ -79,7 +80,7 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 			externalJobID, err := fetchExternalJobID(e, []string{n.Id}, []*ptypes.Selector{
 				{
 					Key:   LabelStreamID,
-					Value: pointer.To(fmt.Sprintf("%d", s.StreamID)),
+					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
 					Op:    ptypes.SelectorOp_EQ,
 				},
 			})
