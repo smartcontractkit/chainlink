@@ -161,7 +161,7 @@ chainID = '90000001'
 		{
 			name: "success when sending jobs to a subset of nodes",
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
-				c.NodeNames = append(bootstrapNodeNames, oracleNodeNames[:1]...) //nolint: gocritic
+				c.NodeNames = append(bootstrapNodeNames, oracleNodeNames[:1]...) //nolint: gocritic // I want a combined list. GoCritic doesn't like it.
 				c.Filter = &jd.ListFilter{
 					DONID:             donID,
 					DONName:           donName,

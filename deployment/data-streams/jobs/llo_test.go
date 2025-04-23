@@ -19,8 +19,8 @@ transmitterID = 'tx-123'
 forwardingAllowed = true
 p2pv2Bootstrappers = [' PeerID@Host1:Port1/Host2:Port2', 'PeerID@Host1:Port1/Host2:Port2']
 ocrKeyBundleID = 'ocr-bundle-123'
-maxTaskDuration = 10000000000
-contractConfigTrackerPollInterval = 60000000000
+maxTaskDuration = '10s'
+contractConfigTrackerPollInterval = '60s'
 relay = 'testrelay'
 pluginType = 'testplugin'
 
