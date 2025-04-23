@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
+	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -38,9 +39,17 @@ type DeployAggregatorProxyConfig struct {
 }
 
 type DeployBundleAggregatorProxyConfig struct {
-	ChainsToDeploy    []uint64 // Chain Selectors
-	MCMSAddressesPath string   // Path to the MCMS addresses JSON file, per chain
-	InputFS           embed.FS // Filesystem to read MCMS addresses JSON file
+	ChainsToDeploy []uint64 // Chain Selectors
+	Owners         map[uint64]common.Address
+	Labels         []string // Labels for the BundleAggregatorProxy, applies to all chains
+	CacheLabel     string   // Label to find the DataFeedsCache contract address in addressbook
+}
+
+type DeployBundleAggregatorProxyResponse struct {
+	Address  common.Address
+	Tx       common.Hash
+	Tv       deployment.TypeAndVersion
+	Contract *bundleproxy.BundleAggregatorProxy
 }
 
 type DeployProxyResponse struct {
