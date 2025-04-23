@@ -312,7 +312,7 @@ func (g *GeneratePoRJobSpecsInput) Validate() error {
 
 type GeneratePoRConfigsInput struct {
 	DonMetadata                 *DonMetadata
-	BlockchainOutput            *blockchain.Output
+	BlockchainOutput            []*blockchain.Output
 	DonID                       uint32
 	Flags                       []string
 	PeeringData                 CapabilitiesPeeringData

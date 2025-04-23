@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func BootstrapEVM(donBootstrapNodePeerID string, chainID uint64, capabilitiesRegistryAddress common.Address, httpRPC, wsRPC string) string {
+func BootstrapEVM(donBootstrapNodePeerID string, chainID string, capabilitiesRegistryAddress common.Address, httpRPC, wsRPC string) string {
 	return fmt.Sprintf(`
 	[Feature]
 	LogPoller = true
@@ -26,7 +26,7 @@ func BootstrapEVM(donBootstrapNodePeerID string, chainID uint64, capabilitiesReg
 	DefaultBootstrappers = ['%s@localhost:5001']
 
 	[[EVM]]
-	ChainID = '%d'
+	ChainID = '%s'
 
 	[[EVM.Nodes]]
 	Name = 'anvil'
@@ -38,7 +38,7 @@ func BootstrapEVM(donBootstrapNodePeerID string, chainID uint64, capabilitiesReg
 	[Capabilities.ExternalRegistry]
 	Address = '%s'
 	NetworkID = 'evm'
-	ChainID = '%d'
+	ChainID = '%s'
 `,
 		donBootstrapNodePeerID,
 		chainID,
@@ -61,17 +61,34 @@ func BoostrapDon2DonPeering(peeringData types.CapabilitiesPeeringData) string {
 	)
 }
 
-// could add multichain with something like this:
-//
-//	type EVMChain struct {
-//		ChainID uint64
-//		HTTPRPC string
-//		WSRPC   string
-//	}
-//
-// so that we are future-proof (for bootstrap too!)
-// we'd need to have capabilitiesRegistryChainID too
-func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData types.CapabilitiesPeeringData, chainID uint64, capabilitiesRegistryAddress common.Address, httpRPC, wsRPC string) string {
+type EVMChain struct {
+	Name    string
+	ChainID string
+	HTTPRPC string
+	WSRPC   string
+}
+
+func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData types.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, registryChainID string, chains []EVMChain) string {
+	// Build EVM chains configuration
+	evmChainsConfig := ""
+	for _, chain := range chains {
+		evmChainsConfig += fmt.Sprintf(`
+	[[EVM]]
+	ChainID = '%s'
+	AutoCreateKey = false
+
+	[[EVM.Nodes]]
+	Name = '%s'
+	WSURL = '%s'
+	HTTPURL = '%s'
+`,
+			chain.ChainID,
+			chain.Name,
+			chain.WSRPC,
+			chain.HTTPRPC,
+		)
+	}
+
 	return fmt.Sprintf(`
 	[Feature]
 	LogPoller = true
@@ -91,31 +108,21 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	ListenAddresses = ['0.0.0.0:6690']
 	DefaultBootstrappers = ['%s@%s:6690']
 
-	[[EVM]]
-	ChainID = '%d'
-	AutoCreateKey = false
-
-	[[EVM.Nodes]]
-	Name = 'anvil'
-	WSURL = '%s'
-	HTTPURL = '%s'
-
+%s
 	# Capabilities registry address, required for do2don p2p mesh to work and for capabilities discovery
 	# Required even, when all capabilities are local to DON in a single DON scenario
 	[Capabilities.ExternalRegistry]
 	Address = '%s'
 	NetworkID = 'evm'
-	ChainID = '%d'
+	ChainID = '%s'
 `,
 		donBootstrapNodePeerID,
 		donBootstrapNodeHost,
 		peeringData.GlobalBootstraperPeerID,
 		peeringData.GlobalBootstraperHost,
-		chainID,
-		wsRPC,
-		httpRPC,
+		evmChainsConfig,
 		capabilitiesRegistryAddress,
-		chainID,
+		registryChainID,
 	)
 }
 
@@ -132,25 +139,25 @@ func WorkerWriteEMV(nodeAddress, forwarderAddress common.Address) string {
 	)
 }
 
-func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, chainID uint64) string {
+func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, chainID string) string {
 	return fmt.Sprintf(`
 	[Capabilities.WorkflowRegistry]
 	Address = "%s"
 	NetworkID = "evm"
-	ChainID = "%d"
+	ChainID = "%s"
 `,
 		workflowRegistryAddr.Hex(),
 		chainID,
 	)
 }
 
-func WorkerGateway(nodeAddress common.Address, chainID uint64, donID uint32, gatewayConnectorData types.GatewayConnectorOutput) string {
+func WorkerGateway(nodeAddress common.Address, chainID string, donID uint32, gatewayConnectorData types.GatewayConnectorOutput) string {
 	gatewayURL := fmt.Sprintf("ws://%s:%d/%s", gatewayConnectorData.Host, 5003, "node")
 
 	return fmt.Sprintf(`
 	[Capabilities.GatewayConnector]
 	DonID = "%s"
-	ChainIDForNodeKey = "%d"
+	ChainIDForNodeKey = "%s"
 	NodeAddress = '%s'
 
 	[[Capabilities.GatewayConnector.Gateways]]

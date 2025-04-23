@@ -1,12 +1,12 @@
 package por
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -25,11 +25,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		return configOverrides, nil
 	}
 
-	chainIDInt, err := strconv.Atoi(input.BlockchainOutput.ChainID)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert chain ID to int")
-	}
-	chainIDUint64 := libc.MustSafeUint64(int64(chainIDInt))
+	homeChainID := input.BlockchainOutput[0].ChainID
 
 	// find bootstrap node for the Don
 	var donBootstrapNodeHost string
@@ -76,7 +72,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		}
 
 		// generate configuration for the bootstrap node
-		configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, chainIDUint64, input.CapabilitiesRegistryAddress, input.BlockchainOutput.Nodes[0].InternalHTTPUrl, input.BlockchainOutput.Nodes[0].InternalWSUrl)
+		configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, homeChainID, input.CapabilitiesRegistryAddress, input.BlockchainOutput[0].Nodes[0].InternalHTTPUrl, input.BlockchainOutput[0].Nodes[0].InternalWSUrl)
 
 		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
 			configOverrides[nodeIndex] += config.BoostrapDon2DonPeering(input.PeeringData)
@@ -91,6 +87,27 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		return nil, errors.Wrap(err, "failed to find worker nodes")
 	}
 
+	// prepare chains
+	evmChains := make([]config.EVMChain, 0)
+	for i, bcOut := range input.BlockchainOutput {
+		evmChains = append(evmChains, config.EVMChain{
+			Name:    fmt.Sprintf("node-%d", i),
+			ChainID: bcOut.ChainID,
+			HTTPRPC: bcOut.Nodes[0].InternalHTTPUrl,
+			WSRPC:   bcOut.Nodes[0].InternalWSUrl,
+		})
+	}
+
+	// TODO: remove, this works
+	//evmChains := []config.EVMChain{
+	//	{
+	//		Name:    "node-1",
+	//		ChainID: input.BlockchainOutput[0].ChainID,
+	//		HTTPRPC: input.BlockchainOutput[0].Nodes[0].InternalHTTPUrl,
+	//		WSRPC:   input.BlockchainOutput[0].Nodes[0].InternalWSUrl,
+	//	},
+	//}
+
 	for i := range workflowNodeSet {
 		var nodeIndex int
 		for _, label := range workflowNodeSet[i].Labels {
@@ -102,8 +119,8 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 			}
 		}
 
-		// for now we just assume that every worker node is connected to one EVM chain
-		configOverrides[nodeIndex] = config.WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, chainIDUint64, input.CapabilitiesRegistryAddress, input.BlockchainOutput.Nodes[0].InternalHTTPUrl, input.BlockchainOutput.Nodes[0].InternalWSUrl)
+		// connect worker nodes to all the chains, add chain ID for registry (home chain)
+		configOverrides[nodeIndex] = config.WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, input.CapabilitiesRegistryAddress, homeChainID, evmChains)
 		var nodeEthAddr common.Address
 		for _, label := range workflowNodeSet[i].Labels {
 			if label.Key == node.EthAddressKey {
@@ -126,7 +143,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		// which means that the workflow DON is using only workflow jobs and won't be downloading any WASM-compiled workflows
 		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) && input.GatewayConnectorOutput != nil {
 			configOverrides[nodeIndex] += config.WorkerWorkflowRegistry(
-				input.WorkflowRegistryAddress, chainIDUint64)
+				input.WorkflowRegistryAddress, homeChainID)
 		}
 
 		// workflow DON nodes might need gateway connector to download WASM workflow binaries,
@@ -135,7 +152,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		if (keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) && input.GatewayConnectorOutput != nil) || don.NodeNeedsGateway(input.Flags) {
 			configOverrides[nodeIndex] += config.WorkerGateway(
 				nodeEthAddr,
-				chainIDUint64,
+				homeChainID,
 				input.DonID,
 				*input.GatewayConnectorOutput,
 			)

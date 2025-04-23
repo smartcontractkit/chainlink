@@ -184,9 +184,9 @@ func SetupTestEnvironment(
 	// Generate EVM and P2P keys or read them from the config
 	// That way we can pass them final configs and do away with restarting the nodes
 	var keys *keystonetypes.GenerateKeysOutput
-	chainIDInt, chainErr := strconv.Atoi(homeChainOutput.BlockchainOutput.ChainID)
-	if chainErr != nil {
-		return nil, pkgerrors.Wrap(chainErr, "failed to convert chain ID to int")
+	chainIDs := make([]int, 0)
+	for _, bcOut := range blockchainsOutput {
+		chainIDs = append(chainIDs, int(bcOut.ChainID))
 	}
 
 	keysOutput, keysOutputErr := cresecrets.KeysOutputFromConfig(input.CapabilitiesAwareNodeSets)
@@ -195,7 +195,7 @@ func SetupTestEnvironment(
 	}
 
 	generateKeysInput := &keystonetypes.GenerateKeysInput{
-		GenerateEVMKeysForChainIDs: []int{chainIDInt},
+		GenerateEVMKeysForChainIDs: chainIDs,
 		GenerateP2PKeys:            true,
 		Topology:                   topology,
 		Password:                   "", // since the test runs on private ephemeral blockchain we don't use real keys and do not care a lot about the password
@@ -256,12 +256,17 @@ func SetupTestEnvironment(
 			return nil, fmt.Errorf("nodese config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
 		}
 
+		bcOuts := make([]*blockchain.Output, 0)
+		for _, bcOut := range blockchainsOutput {
+			bcOuts = append(bcOuts, bcOut.BlockchainOutput)
+		}
+
 		// generate configs only if they are not provided
 		if configsFound == 0 {
 			config, configErr := keystoneporconfig.GenerateConfigs(
 				keystonetypes.GeneratePoRConfigsInput{
 					DonMetadata:                 donMetadata,
-					BlockchainOutput:            homeChainOutput.BlockchainOutput,
+					BlockchainOutput:            bcOuts,
 					DonID:                       donMetadata.ID,
 					Flags:                       donMetadata.Flags,
 					PeeringData:                 peeringData,

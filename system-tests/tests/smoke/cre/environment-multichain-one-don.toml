@@ -5,7 +5,7 @@
   type = "anvil"
 
 [[blockchains]]
-  chain_id = "2337"
+  chain_id = "31337"
   port = "8550"
   type = "anvil"
 
