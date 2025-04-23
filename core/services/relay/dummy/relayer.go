@@ -3,6 +3,7 @@ package dummy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -87,4 +88,7 @@ func (r *relayer) Close() error                { return nil }
 func (r *relayer) Ready() error                { return nil }
 func (r *relayer) HealthReport() map[string]error {
 	return map[string]error{r.lggr.Name(): nil}
+}
+func (r *relayer) NewEVMChain(ctx context.Context) (types.EVMChain, error) {
+	return nil, errors.New("unimplemented")
 }

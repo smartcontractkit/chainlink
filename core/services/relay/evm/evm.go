@@ -272,6 +272,10 @@ func (r *Relayer) Ready() error {
 	return r.chain.Ready()
 }
 
+func (r *Relayer) NewEVMChain(ctx context.Context) (commontypes.EVMChain, error) {
+	return nil, errors.New("unimplemented")
+}
+
 func (r *Relayer) HealthReport() (report map[string]error) {
 	report = map[string]error{r.Name(): r.Ready()}
 	maps.Copy(report, r.chain.HealthReport())
