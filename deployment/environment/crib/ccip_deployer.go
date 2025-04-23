@@ -210,12 +210,6 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, err
 	}
 
-	lggr.Infow("distributing Solana transmitter funds...")
-	err = distributeTransmitterFundsSolana(lggr, don.PluginNodes(), *e)
-	if err != nil {
-		return DeployCCIPOutput{}, err
-	}
-
 	addresses, err := e.ExistingAddresses.Addresses() //nolint:staticcheck // SA1019
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to convert address book to address book map: %w", err)

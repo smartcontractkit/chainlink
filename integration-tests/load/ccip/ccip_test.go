@@ -10,6 +10,7 @@ import (
 
 	solrpc "github.com/gagliardetto/solana-go/rpc"
 	selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
