@@ -72,7 +72,6 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 			changesetsToApply := tc.changeSets()
 			_, _, err := commonchangeset.ApplyChangesetsV2(t, env, changesetsToApply)
 			require.NoError(t, err)
-
 		})
 	}
 }
