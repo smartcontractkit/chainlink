@@ -962,25 +962,27 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 		bridgeName := "superbridge"
 
-		resultJSON := `{
-	"benchmarkPrice": "2976.39",
-	"baseMarketDepth": "1000.1212",
-	"quoteMarketDepth": "998.5431",
-	"marketStatus": 1,
-	"binanceFundingRate": "1234.5678",
-	"binanceFundingTime": "1630000000",
-	"binanceFundingIntervalHours": "8",
-	"deribitFundingRate": "5432.2345",
-	"deribitFundingTime": "1630000000",
-	"deribitFundingIntervalHours": "8",
-	"ethPrice": "3976.39",
-	"linkPrice": "23.45",
-	"stonk": {
-	  "result": "1234.5678",
-	  "timestamps": {
+		responseJSON := `{
+	"data": {
+		"benchmarkPrice": "111.22",
+		"marketStatus": 1
+	},
+	"result": {
+		"benchmarkPrice": "2976.39",
+		"baseMarketDepth": "1000.1212",
+		"quoteMarketDepth": "998.5431",
+		"binanceFundingRate": "1234.5678",
+		"binanceFundingTime": "1630000000",
+		"binanceFundingIntervalHours": "8",
+		"deribitFundingRate": "5432.2345",
+		"deribitFundingTime": "1630000000",
+		"deribitFundingIntervalHours": "8",
+		"ethPrice": "3976.39",
+		"linkPrice": "23.45"
+	},
+	"timestamps": {
 		"providerIndicatedTimeUnixMs": 1742314713000,
 		"providerDataReceivedUnixMs": 1742314713050
-	  }
 	}
 }`
 
@@ -1012,15 +1014,17 @@ dp -> quote_market_depth_parse -> quote_market_depth_decimal;
 
 		// Don't use a multiply task so that the task result has int64 type.
 		rwaPipeline := fmt.Sprintf(`
-dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+dp [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 
-market_status_parse   [type=jsonparse path="result,marketStatus" streamID=%d];
+market_status_parse [type=jsonparse path="data,marketStatus" streamID=%d];
+stonk_price_parse [type=jsonparse path="data,benchmarkPrice"];
 
-stonk_price_parse   [type=jsonparse path="result,stonk"];
-merge [type=merge left="$(stonk_price_parse)" right="{\\"streamValueType\\":%d}" streamID=%d];
+# Left is the raw response from the DP which contains the "timestamps" top level field.
+# Right contains streamValueType: 2, indicating a timestamped field, and the stream value as the "result".
+stonk_price_timestamped [type=merge left="$(dp)" right="{\\"streamValueType\\": %d, \\"result\\": $(stonk_price_parse)}" streamID=%d];
 
 dp -> market_status_parse;
-dp -> stonk_price_parse -> merge;
+dp -> stonk_price_parse -> stonk_price_timestamped;
 `, bridgeName, marketStatusStreamID, datastreamsllo.LLOStreamValue_TimestampedStreamValue, timestampedStonkPriceStreamID)
 
 		benchmarkPricePipeline := fmt.Sprintf(`
@@ -1065,7 +1069,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 		for i, node := range nodes {
 			// superBridge returns a JSON with everything you want in it,
 			// stream specs can just pick the individual fields they need
-			createBridge(t, bridgeName, resultJSON, node.App.BridgeORM())
+			createBridge(t, bridgeName, responseJSON, node.App.BridgeORM())
 			addStreamSpec(t, node, "pricePipeline", nil, pricePipeline)
 			addStreamSpec(t, node, "dexBasedAssetPipeline", nil, dexBasedAssetPipeline)
 			addStreamSpec(t, node, "rwaPipeline", nil, rwaPipeline)
@@ -1254,7 +1258,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				assert.Len(t, report["Values"].([]interface{}), 1)
 				tsv := report["Values"].([]interface{})[0].(map[string]interface{})
 				assert.Equal(t, 2, int(tsv["t"].(float64)))
-				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713000000000, StreamValue: {"t":0,"v":"1234.5678"}}`, tsv["v"].(string))
+				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713000000000, StreamValue: {"t":0,"v":"111.22"}}`, tsv["v"].(string))
 			default:
 				t.Fatalf("unexpected report format: %d", req.ReportFormat)
 			}
