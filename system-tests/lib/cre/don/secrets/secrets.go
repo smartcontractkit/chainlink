@@ -108,11 +108,12 @@ func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysO
 			if len(evmKeys.PublicAddresses) != len(firstEVMKeys.PublicAddresses) {
 				return nil, fmt.Errorf("number of EVM keys for DON %d differs between chain IDs %d and %d", donMetadata.ID, firstChainID, chainID)
 			}
-			for i := range evmKeys.PublicAddresses {
-				if evmKeys.PublicAddresses[i] != firstEVMKeys.PublicAddresses[i] {
-					return nil, fmt.Errorf("EVM public address mismatch for DON %d, node %d between chain IDs %d and %d", donMetadata.ID, i, firstChainID, chainID)
-				}
-			}
+			// TODO: no longer the case, remove
+			//for i := range evmKeys.PublicAddresses {
+			//	if evmKeys.PublicAddresses[i] != firstEVMKeys.PublicAddresses[i] {
+			//		return nil, fmt.Errorf("EVM public address mismatch for DON %d, node %d between chain IDs %d and %d", donMetadata.ID, i, firstChainID, chainID)
+			//	}
+			//}
 		}
 
 		// Now add the EVM addresses to the node metadata
@@ -299,13 +300,11 @@ func GenereteKeys(input *cretypes.GenerateKeysInput) (*cretypes.GenerateKeysOutp
 		}
 
 		if len(input.GenerateEVMKeysForChainIDs) > 0 {
-			evmKeys, err := crypto.GenerateEVMKeys(input.Password, len(donMetadata.NodesMetadata))
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to generate EVM keys")
-			}
-
-			// use the same EVM keys for all the chain IDs
 			for _, chainID := range input.GenerateEVMKeysForChainIDs {
+				evmKeys, err := crypto.GenerateEVMKeys(input.Password, len(donMetadata.NodesMetadata))
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to generate EVM keys")
+				}
 				if _, ok := output.EVMKeys[donMetadata.ID]; !ok {
 					output.EVMKeys[donMetadata.ID] = make(cretypes.ChainIDToEVMKeys)
 				}
