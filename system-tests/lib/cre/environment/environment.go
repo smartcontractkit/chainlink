@@ -132,7 +132,7 @@ func SetupTestEnvironment(
 	chainsConfigs := []devenv.ChainConfig{}
 	for _, bcOut := range blockchainsOutput {
 		chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
-			ChainID:   bcOut.SethClient.Cfg.Network.ChainID,
+			ChainID:   strconv.FormatUint(bcOut.SethClient.Cfg.Network.ChainID, 10),
 			ChainName: bcOut.SethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
@@ -147,7 +147,7 @@ func SetupTestEnvironment(
 		})
 	}
 
-	allChains, allChainsErr := devenv.NewChains(singeFileLogger, chainsConfigs)
+	allChains, _, allChainsErr := devenv.NewChains(singeFileLogger, chainsConfigs)
 	if allChainsErr != nil {
 		return nil, pkgerrors.Wrap(allChainsErr, "failed to create chains")
 	}

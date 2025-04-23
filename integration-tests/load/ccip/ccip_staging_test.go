@@ -31,7 +31,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
-	cribDeployOutput, err := cribEnv.GetConfig(sourceKey)
+	cribDeployOutput, err := cribEnv.GetConfig(sourceKey, "")
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			cs,
 			*env,
 			&state,
-			state.Chains[cs].Receiver.Address(),
+			state.Chains[cs].Receiver.Address().Bytes(),
 			userOverrides,
 			messageKeys,
 			nil,

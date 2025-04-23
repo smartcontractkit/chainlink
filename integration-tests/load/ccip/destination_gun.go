@@ -12,6 +12,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
+	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -22,14 +26,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
-
 	selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
@@ -46,7 +48,7 @@ type DestinationGun struct {
 	state            *ccipchangeset.CCIPOnChainState
 	roundNum         *atomic.Int32
 	chainSelector    uint64
-	receiver         common.Address
+	receiver         []byte
 	testConfig       *ccip.LoadConfig
 	evmSourceKeys    map[uint64]*bind.TransactOpts
 	solanaSourceKeys map[uint64]*solana.PrivateKey
@@ -59,7 +61,7 @@ func NewDestinationGun(
 	chainSelector uint64,
 	env deployment.Environment,
 	state *ccipchangeset.CCIPOnChainState,
-	receiver common.Address,
+	receiver []byte,
 	overrides *ccip.LoadConfig,
 	evmSourceKeys map[uint64]*bind.TransactOpts,
 	solanaSourceKeys map[uint64]*solana.PrivateKey,
@@ -130,9 +132,10 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
-	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
-	// todo: uncomment to enable solana as a source chain
-	// otherCS := m.env.AllChainSelectorsAllFamilliesExcluding([]uint64{m.chainSelector})
+	if m.chainSelector == 12463857294658392847 {
+		return 3379446385462418246, nil
+	}
+	otherCS := m.env.AllChainSelectorsAllFamiliesExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
 	}
@@ -197,15 +200,45 @@ func (m *DestinationGun) sendEVMMessage(src uint64) error {
 // GetEVMMessage will return the message to be sent while considering expected load of different messages
 // returns the message, gas limit
 func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage, int64, error) {
-	rcv, err := utils.ABIEncode(`[{"type":"address"}]`, m.receiver)
+	dstSelFamily, err := selectors.GetSelectorFamily(m.chainSelector)
 	if err != nil {
-		m.l.Error("Error encoding receiver address")
-		return router.ClientEVM2AnyMessage{}, 0, err
+		m.l.Error("Error getting destination chain family")
+		return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("destination chain family for %d is not supported ", m.chainSelector)
 	}
-	extraArgs, err := GetEVMExtraArgsV2(big.NewInt(0), *m.testConfig.OOOExecution)
-	if err != nil {
-		m.l.Error("Error encoding extra args")
-		return router.ClientEVM2AnyMessage{}, 0, err
+	rcv, extraArgs := []byte{}, []byte{}
+	switch dstSelFamily {
+	case selectors.FamilyEVM:
+		rcv, err = utils.ABIEncode(`[{"type":"address"}]`, common.BytesToAddress(m.receiver))
+		if err != nil {
+			m.l.Error("Error encoding receiver address")
+			return router.ClientEVM2AnyMessage{}, 0, err
+		}
+		extraArgs, err = GetEVMExtraArgsV2(big.NewInt(0), *m.testConfig.OOOExecution)
+		if err != nil {
+			m.l.Error("Error encoding extra args for evm dest")
+			return router.ClientEVM2AnyMessage{}, 0, err
+		}
+	case selectors.FamilySolana:
+		receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, solana.PublicKeyFromBytes(m.receiver))
+		receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, solana.PublicKeyFromBytes(m.receiver))
+		rcv = common.LeftPadBytes(m.receiver, 32)
+
+		accounts := [][32]byte{
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		extraArgs, err = testhelpers.SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                 accounts,
+			AllowOutOfOrderExecution: *m.testConfig.OOOExecution,
+			ComputeUnits:             150000,
+		})
+		if err != nil {
+			m.l.Errorw("Error encoding extra args for sol dest")
+			return router.ClientEVM2AnyMessage{}, 0, err
+		}
 	}
 
 	// Select a message type based on ratio
@@ -335,6 +368,10 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 	if err != nil {
 		return err
 	}
+	rmnRemoteCursesPDA, _, err := solstate.FindRMNRemoteCursesPDA(s.RMNRemote)
+	if err != nil {
+		return err
+	}
 
 	base := ccip_router.NewCcipSendInstruction(
 		m.chainSelector,
@@ -355,9 +392,9 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 		fqDestChainPDA,
 		feeTokenFqBillingConfigPDA,
 		linkFqBillingConfigPDA,
-		solana.PublicKey{},
-		solana.PublicKey{},
-		solana.PublicKey{},
+		s.RMNRemote,
+		rmnRemoteCursesPDA,
+		s.RMNRemoteConfigPDA,
 	)
 	base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
 	instruction, err := base.ValidateAndBuild()
@@ -387,7 +424,7 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 
 func (m *DestinationGun) getSolanaMessage(src uint64, account *solana.PrivateKey) (ccip_router.SVM2AnyMessage, error) {
 	return ccip_router.SVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(m.receiver.Bytes(), 32),
+		Receiver:     common.LeftPadBytes(m.receiver, 32),
 		TokenAmounts: nil,
 		Data:         []byte("hello world"),
 		ExtraArgs:    []byte{},
