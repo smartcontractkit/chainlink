@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -122,7 +123,7 @@ type Engine struct {
 	workflow             *workflow
 	secretsFetcher       SecretsFor
 	env                  exec.Env
-	localNode            capabilities.Node
+	localNode            atomic.Pointer[capabilities.Node]
 	executionsStore      store.Store
 	pendingStepRequests  chan stepRequest
 	triggerEvents        chan capabilities.TriggerResponse
@@ -299,7 +300,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		cp = transmission.NewLocalTargetCapability(
 			e.logger,
 			step.ID,
-			e.localNode,
+			*e.localNode.Load(),
 			cp.(capabilities.TargetCapability),
 		)
 	}
@@ -352,7 +353,7 @@ func (e *Engine) init(ctx context.Context) {
 		if err != nil {
 			return fmt.Errorf("failed to get donInfo: %w", err)
 		}
-		e.localNode = node
+		e.localNode.Store(&node)
 
 		err = e.resolveWorkflowCapabilities(ctx)
 		if err != nil {
@@ -395,6 +396,9 @@ func generateTriggerID(workflowID string, triggerIdx int) string {
 
 // registerTrigger is used during the initialization phase to bind a trigger to this workflow
 func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	triggerID := generateTriggerID(e.workflow.id, triggerIdx)
 
 	tc, err := values.NewMap(t.Config)
@@ -402,19 +406,20 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 		return err
 	}
 
-	t.config.Store(tc)
+	t.config = tc
 
+	ln := e.localNode.Load()
 	triggerRegRequest := capabilities.TriggerRegistrationRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
 			WorkflowOwner:            e.workflow.owner,
 			WorkflowName:             e.workflow.name.Hex(),
-			WorkflowDonID:            e.localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
+			WorkflowDonID:            ln.WorkflowDON.ID,
+			WorkflowDonConfigVersion: ln.WorkflowDON.ConfigVersion,
 			ReferenceID:              t.Ref,
 			DecodedWorkflowName:      e.workflow.name.String(),
 		},
-		Config:    t.config.Load(),
+		Config:    t.config,
 		TriggerID: triggerID,
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
@@ -954,7 +959,7 @@ func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *st
 	if !step.info.IsLocal {
 		donID = step.info.DON.ID
 	} else {
-		donID = e.localNode.WorkflowDON.ID
+		donID = e.localNode.Load().WorkflowDON.ID
 	}
 
 	capConfig, err := e.registry.ConfigForCapability(ctx, ID, donID)
@@ -1016,6 +1021,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 		}
 	}
 
+	ln := e.localNode.Load()
 	tr := capabilities.CapabilityRequest{
 		Inputs: inputsMap,
 		Config: config,
@@ -1024,8 +1030,8 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 			WorkflowExecutionID:      msg.state.ExecutionID,
 			WorkflowOwner:            e.workflow.owner,
 			WorkflowName:             e.workflow.name.Hex(),
-			WorkflowDonID:            e.localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
+			WorkflowDonID:            ln.WorkflowDON.ID,
+			WorkflowDonConfigVersion: ln.WorkflowDON.ConfigVersion,
 			ReferenceID:              msg.stepRef,
 			DecodedWorkflowName:      e.workflow.name.String(),
 		},
@@ -1064,24 +1070,27 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
-	deregRequest := capabilities.TriggerRegistrationRequest{
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:               e.workflow.id,
-			WorkflowDonID:            e.localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
-			WorkflowName:             e.workflow.name.Hex(),
-			WorkflowOwner:            e.workflow.owner,
-			ReferenceID:              t.Ref,
-			DecodedWorkflowName:      e.workflow.name.String(),
-		},
-		TriggerID: generateTriggerID(e.workflow.id, triggerIdx),
-		Config:    t.config.Load(),
-	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
-	// if t.trigger == nil or !t.registered, then we haven't initialized the workflow
-	// yet, and can safely consider the trigger deregistered with
-	// no further action.
 	if t.trigger != nil && t.registered {
+		// if t.trigger == nil or !t.registered, then we haven't initialized the workflow
+		// yet, and can safely consider the trigger deregistered with
+		// no further action.
+		ln := e.localNode.Load()
+		deregRequest := capabilities.TriggerRegistrationRequest{
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID:               e.workflow.id,
+				WorkflowDonID:            ln.WorkflowDON.ID,
+				WorkflowDonConfigVersion: ln.WorkflowDON.ConfigVersion,
+				WorkflowName:             e.workflow.name.Hex(),
+				WorkflowOwner:            e.workflow.owner,
+				ReferenceID:              t.Ref,
+				DecodedWorkflowName:      e.workflow.name.String(),
+			},
+			TriggerID: generateTriggerID(e.workflow.id, triggerIdx),
+			Config:    t.config,
+		}
 		return t.trigger.UnregisterTrigger(ctx, deregRequest)
 	}
 
