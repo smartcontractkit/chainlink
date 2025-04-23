@@ -20,6 +20,7 @@ type FireDrillConfig struct {
 	TimelockCfg proposalutils.TimelockConfig
 }
 
+// buildNoOPEVM builds a dummy tx that transfers 0 to the RBACTimelock
 func buildNoOPEVM(e deployment.Environment, selector uint64) (mcmstypes.Transaction, error) {
 	chain, ok := e.Chains[selector]
 	if !ok {
@@ -45,7 +46,7 @@ func buildNoOPEVM(e deployment.Environment, selector uint64) (mcmstypes.Transact
 	return tx, nil
 }
 
-// buildNoOPSolana builds a dummy tx that safely calls getMinDelay on the RBACTimelock
+// buildNoOPSolana builds a dummy tx that calls the memo program
 func buildNoOPSolana() (mcmstypes.Transaction, error) {
 	contractID := solana.MemoProgramID
 	memo := []byte("noop")
@@ -65,6 +66,8 @@ func buildNoOPSolana() (mcmstypes.Transaction, error) {
 
 	return tx, nil
 }
+
+// getMcmAddressFromActionEVM gets the MCM address based on the action type for EVM chains
 func getMcmAddressFromActionEVM(action mcmstypes.TimelockAction, state *state.MCMSWithTimelockState) (string, error) {
 	switch action {
 	case mcmstypes.TimelockActionBypass:
@@ -76,6 +79,8 @@ func getMcmAddressFromActionEVM(action mcmstypes.TimelockAction, state *state.MC
 	}
 	return "", errors.New("invalid action")
 }
+
+// getMcmAddressFromActionSol gets the MCM address based on the action type for Solana chains
 func getMcmAddressFromActionSol(action mcmstypes.TimelockAction, state *state.MCMSWithTimelockStateSolana) (string, error) {
 	switch action {
 	case mcmstypes.TimelockActionBypass:
