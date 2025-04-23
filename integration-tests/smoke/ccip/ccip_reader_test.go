@@ -469,11 +469,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 			// Skips first report
 			//nolint:gosec // this won't overflow
 			time.Unix(int64(firstReportTs)+1, 0),
-<<<<<<< HEAD
-			primitives.Finalized,
-=======
 			primitives.Unconfirmed,
->>>>>>> 1daaae4836ec0e827c94035bc61e105e599cc4c5
 			10,
 		)
 		require.NoError(t, err2)
@@ -1408,11 +1404,7 @@ func benchmarkCommitReports(b *testing.B, logsInsertedFirst int, logsInsertedMat
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-<<<<<<< HEAD
-		reports, err := s.reader.CommitReportsGTETimestamp(ctx, queryTimestamp, primitives.Finalized, logsInsertedFirst)
-=======
 		reports, err := s.reader.CommitReportsGTETimestamp(ctx, queryTimestamp, primitives.Unconfirmed, logsInsertedFirst)
->>>>>>> 1daaae4836ec0e827c94035bc61e105e599cc4c5
 		require.NoError(b, err)
 		require.Len(b, reports, logsInsertedFirst)
 	}
