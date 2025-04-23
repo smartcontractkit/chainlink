@@ -756,7 +756,7 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		// #nosec G115
 		return uint32(offRampConfig.EnableManualExecutionAfter), nil
 	case chain_selectors.FamilyAptos:
-		c, ok := c.AptosChains[selector]
+		chainState, ok := c.AptosChains[selector]
 		if !ok {
 			return 0, fmt.Errorf("chain %d does not exist in state", selector)
 		}
@@ -764,10 +764,10 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		if !ok {
 			return 0, fmt.Errorf("chain %d does not exist in env", selector)
 		}
-		if c.CCIPAddress == (aptos.AccountAddress{}) {
+		if chainState.CCIPAddress == (aptos.AccountAddress{}) {
 			return 0, fmt.Errorf("ccip not found in existing state, deploy the ccip first for Aptos chain %d", selector)
 		}
-		offrampDynamicConfig, err := chain.GetOfframpDynamicConfig(c.CCIPAddress)
+		offrampDynamicConfig, err := chain.GetOfframpDynamicConfig(chainState.CCIPAddress)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get offramp dynamic config for Aptos chain %d: %w", selector, err)
 		}
