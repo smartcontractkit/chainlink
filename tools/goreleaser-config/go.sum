@@ -12,12 +12,6 @@ github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e/go.mod h1:pJLUxLENpZxwdsK
 github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
 github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR38lUII=
 github.com/rogpeppe/go-internal v1.13.1/go.mod h1:uMEvuHeurkdAXX61udpOXGD/AzZDWNMNyH2VO9fmH0o=
-github.com/smartcontractkit/chainlink-common v0.7.1-0.20250423184741-8b59e5dd60e1 h1:qYv7f++PMP3mEAd1QYLmBmyqKr0036Z1XqIrr19QpC8=
-github.com/smartcontractkit/chainlink-common v0.7.1-0.20250423184741-8b59e5dd60e1/go.mod h1:vHs/mPpAztdKJtzRKLnmLinmpS78fBh9sAuyKqQrQ+I=
-github.com/smartcontractkit/chainlink-evm v0.0.0-20250423190049-af402415526a h1:92aLzcVIaEsp+9UFg/7gSplMKz5L68hY2ArWuOJRoY8=
-github.com/smartcontractkit/chainlink-evm v0.0.0-20250423190049-af402415526a/go.mod h1:74GUUbN1dYzYmXwTkCgi7rADZLoWbT/0EKu3kbippBQ=
-github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250423194859-b7d35ee84780 h1:waxWIDC4XsMwXgq9aie3wZADeZPFIPjKoyDSnI1j3PM=
-github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250423194859-b7d35ee84780/go.mod h1:13Oevz/mk5ANLZm3xPFZJO7p2hSJylM/g97VwSbjdxs=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
