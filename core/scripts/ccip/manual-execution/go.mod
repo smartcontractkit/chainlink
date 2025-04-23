@@ -44,6 +44,9 @@ require (
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250423184741-8b59e5dd60e1 // indirect
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250423190049-af402415526a // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250423194859-b7d35ee84780 // indirect
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
