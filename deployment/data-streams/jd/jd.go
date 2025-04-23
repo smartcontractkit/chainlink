@@ -32,17 +32,17 @@ func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 				Op:  jdtypesv1.SelectorOp_EXIST,
 			},
 			{
-				Key:   "nodeType",
+				Key:   utils.LabelNodeType,
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: pointer.To(NodeTypeBootstrap.String()),
 			},
 			{
-				Key:   "environment",
+				Key:   utils.LabelEnvironment,
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: &f.EnvLabel,
 			},
 			{
-				Key:   "product",
+				Key:   utils.LabelProduct,
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: pointer.To(utils.ProductLabel),
 			},
@@ -59,17 +59,17 @@ func (f *ListFilter) oraclesFilter() *nodeapiv1.ListNodesRequest_Filter {
 				Op:  jdtypesv1.SelectorOp_EXIST,
 			},
 			{
-				Key:   "nodeType",
+				Key:   utils.LabelNodeType,
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: pointer.To(NodeTypeOracle.String()),
 			},
 			{
-				Key:   "environment",
+				Key:   utils.LabelEnvironment,
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: &f.EnvLabel,
 			},
 			{
-				Key:   "product",
+				Key:   utils.LabelProduct,
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: pointer.To(utils.ProductLabel),
 			},

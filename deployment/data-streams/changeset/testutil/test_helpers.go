@@ -256,15 +256,15 @@ func GetNodeLabels(donID uint64, donName string, env string) []*ptypes.Label {
 			Value: nil,
 		},
 		{
-			Key:   "nodeType",
+			Key:   utils.LabelNodeType,
 			Value: pointer.To(jd.NodeTypeOracle.String()),
 		},
 		{
-			Key:   "environment",
+			Key:   utils.LabelEnvironment,
 			Value: pointer.To(env),
 		},
 		{
-			Key:   "product",
+			Key:   utils.LabelProduct,
 			Value: pointer.To(utils.ProductLabel),
 		},
 	}

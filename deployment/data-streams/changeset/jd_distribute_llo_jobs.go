@@ -65,8 +65,8 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
 		},
 		&ptypes.Label{
-			Key:   LabelJobType,
-			Value: JobTypeLLO,
+			Key:   utils.LabelJobType,
+			Value: utils.JobTypeLLO,
 		},
 	)
 
@@ -97,7 +97,7 @@ func generateBootstrapProposals(ctx context.Context, e deployment.Environment, c
 
 	localLabels := append(labels, // nolint: gocritic
 		&ptypes.Label{
-			Key:   LabelNodeType,
+			Key:   utils.LabelNodeType,
 			Value: pointer.To(jd.NodeTypeBootstrap.String()),
 		},
 	)
@@ -106,12 +106,12 @@ func generateBootstrapProposals(ctx context.Context, e deployment.Environment, c
 	for _, btNode := range bootstrapNodes {
 		externalJobID, err := fetchExternalJobID(e, []string{btNode.Id}, []*ptypes.Selector{
 			{
-				Key:   LabelJobType,
-				Value: JobTypeLLO,
+				Key:   utils.LabelJobType,
+				Value: utils.JobTypeLLO,
 				Op:    ptypes.SelectorOp_EQ,
 			},
 			{
-				Key:   LabelNodeType,
+				Key:   utils.LabelNodeType,
 				Value: pointer.To(jd.NodeTypeBootstrap.String()),
 				Op:    ptypes.SelectorOp_EQ,
 			},
@@ -192,7 +192,7 @@ func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg 
 
 	localLabels := append(labels, // nolint: gocritic
 		&ptypes.Label{
-			Key:   LabelNodeType,
+			Key:   utils.LabelNodeType,
 			Value: pointer.To(jd.NodeTypeOracle.String()),
 		},
 	)
@@ -201,12 +201,12 @@ func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg 
 	for _, n := range oracleNodes {
 		externalJobID, err := fetchExternalJobID(e, []string{n.Id}, []*ptypes.Selector{
 			{
-				Key:   LabelJobType,
-				Value: JobTypeLLO,
+				Key:   utils.LabelJobType,
+				Value: utils.JobTypeLLO,
 				Op:    ptypes.SelectorOp_EQ,
 			},
 			{
-				Key:   LabelNodeType,
+				Key:   utils.LabelNodeType,
 				Value: pointer.To(jd.NodeTypeOracle.String()),
 				Op:    ptypes.SelectorOp_EQ,
 			},
@@ -276,17 +276,17 @@ func getBootstrapMultiAddr(ctx context.Context, e deployment.Environment, cfg Cs
 					Op:  ptypes.SelectorOp_EXIST,
 				},
 				{
-					Key:   "nodeType",
+					Key:   utils.LabelNodeType,
 					Op:    ptypes.SelectorOp_EQ,
 					Value: pointer.To(jd.NodeTypeBootstrap.String()),
 				},
 				{
-					Key:   "environment",
+					Key:   utils.LabelEnvironment,
 					Op:    ptypes.SelectorOp_EQ,
 					Value: &cfg.Filter.EnvLabel,
 				},
 				{
-					Key:   "product",
+					Key:   utils.LabelProduct,
 					Op:    ptypes.SelectorOp_EQ,
 					Value: pointer.To(utils.ProductLabel),
 				},

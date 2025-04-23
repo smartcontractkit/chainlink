@@ -33,11 +33,11 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		NumBootstrapNodes:     1,
 		NodeLabels: []*ptypes.Label{
 			{
-				Key:   "product",
+				Key:   utils.LabelProduct,
 				Value: pointer.To(utils.ProductLabel),
 			},
 			{
-				Key:   "environment",
+				Key:   utils.LabelEnvironment,
 				Value: pointer.To(envName),
 			},
 			{
@@ -55,7 +55,7 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 	require.NoError(t, err)
 	for _, n := range resp.Nodes {
 		for _, label := range n.Labels {
-			if label.Key == "nodeType" {
+			if label.Key == utils.LabelNodeType {
 				switch *label.Value {
 				case jd.NodeTypeBootstrap.String():
 					bootstrapNodeNames = append(bootstrapNodeNames, n.Name)

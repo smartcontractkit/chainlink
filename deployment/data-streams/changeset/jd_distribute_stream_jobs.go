@@ -67,19 +67,19 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 		for _, n := range oracleNodes {
 			localLabels := append(labels, // nolint: gocritic
 				&ptypes.Label{
-					Key:   LabelStreamID,
+					Key:   utils.LabelStreamID,
 					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
 				},
 				&ptypes.Label{
-					Key:   LabelJobType,
-					Value: JobTypeStream,
+					Key:   utils.LabelJobType,
+					Value: utils.JobTypeStream,
 				},
 			)
 
 			// Check if there is already a job spec for this stream on this node:
 			externalJobID, err := fetchExternalJobID(e, []string{n.Id}, []*ptypes.Selector{
 				{
-					Key:   LabelStreamID,
+					Key:   utils.LabelStreamID,
 					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
 					Op:    ptypes.SelectorOp_EQ,
 				},

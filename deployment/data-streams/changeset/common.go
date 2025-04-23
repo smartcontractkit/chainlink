@@ -14,23 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
-)
-
-type JobType *string
-
-var (
-	JobTypeLLO    JobType = pointer.To("llo")
-	JobTypeStream JobType = pointer.To("stream")
-)
-
-type DSLabel string
-
-var (
-	LabelJobType  = utils.DSLabel("job-type")
-	LabelStreamID = utils.DSLabel("stream-id")
-	LabelNodeType = utils.DSLabel("node-type")
 )
 
 const (

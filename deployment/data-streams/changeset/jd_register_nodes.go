@@ -57,7 +57,7 @@ func registerNodesForDON(e deployment.Environment, donName string, donID uint64,
 		labels := append([]*ptypes.Label(nil), baseLabels...)
 
 		labels = append(labels, &ptypes.Label{
-			Key:   "nodeType",
+			Key:   utils.LabelNodeType,
 			Value: &ntStr,
 		})
 
@@ -81,11 +81,11 @@ func registerNodesForDON(e deployment.Environment, donName string, donID uint64,
 func RegisterNodesWithJD(e deployment.Environment, cfg RegisterNodesInput) (deployment.ChangesetOutput, error) {
 	baseLabels := []*ptypes.Label{
 		{
-			Key:   "product",
+			Key:   utils.LabelProduct,
 			Value: &cfg.ProductName,
 		},
 		{
-			Key:   "environment",
+			Key:   utils.LabelEnvironment,
 			Value: &cfg.EnvLabel,
 		},
 	}
