@@ -26,7 +26,7 @@ func RegisterWithCRECLI(input cretypes.RegisterWorkflowWithCRECLIInput) error {
 
 	// compile and upload the workflow, if we are not using an existing one
 	if input.ShouldCompileNewWorkflow {
-		compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, input.NewWorkflow.FolderLocation, input.NewWorkflow.ConfigFilePath, input.CRESettingsFile)
+		compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, input.NewWorkflow.FolderLocation, input.NewWorkflow.WorkflowFileName, input.NewWorkflow.ConfigFilePath, input.CRESettingsFile)
 		if compileErr != nil {
 			return errors.Wrap(compileErr, "failed to compile workflow")
 		}
@@ -34,8 +34,8 @@ func RegisterWithCRECLI(input cretypes.RegisterWorkflowWithCRECLIInput) error {
 		workflowURL = compilationResult.WorkflowURL
 		workflowConfigURL = &compilationResult.ConfigURL
 
-		if input.NewWorkflow.SecretsFilePath != nil {
-			secretsURL, secretsErr := libcrecli.EncryptSecrets(input.CRECLIAbsPath, *input.NewWorkflow.SecretsFilePath, input.CRESettingsFile)
+		if input.NewWorkflow.SecretsFilePath != nil && *input.NewWorkflow.SecretsFilePath != "" {
+			secretsURL, secretsErr := libcrecli.EncryptSecrets(input.CRECLIAbsPath, *input.NewWorkflow.SecretsFilePath, input.NewWorkflow.Secrets, input.CRESettingsFile)
 			if secretsErr != nil {
 				return errors.Wrap(secretsErr, "failed to encrypt workflow secrets")
 			}
