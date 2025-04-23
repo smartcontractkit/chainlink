@@ -421,8 +421,9 @@ func SetupTestEnvironment(
 					ToAddress: common.HexToAddress(
 						node.AccountAddr[strconv.FormatUint(bcOut.SethClient.Cfg.Network.ChainID, 10)]),
 					Amount:     big.NewInt(5000000000000000000),
-					PrivateKey: homeChainOutput.SethClient.MustGetRootPrivateKey(),
+					PrivateKey: bcOut.SethClient.MustGetRootPrivateKey(),
 				})
+				fmt.Printf("private key NOW: %s", bcOut.SethClient.MustGetRootPrivateKey().PublicKey)
 				if fundingErr != nil {
 					return nil, pkgerrors.Wrapf(fundingErr, "failed to fund node %s",
 						node.AccountAddr[strconv.FormatUint(homeChainOutput.SethClient.Cfg.Network.ChainID, 10)])
