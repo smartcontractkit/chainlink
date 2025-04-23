@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
