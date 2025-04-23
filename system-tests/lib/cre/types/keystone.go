@@ -645,9 +645,11 @@ type RegisterWorkflowWithCRECLIInput struct {
 }
 
 type NewWorkflow struct {
-	FolderLocation  string
-	ConfigFilePath  *string
-	SecretsFilePath *string
+	WorkflowFileName string
+	FolderLocation   string
+	ConfigFilePath   *string
+	SecretsFilePath  *string
+	Secrets          map[string]string
 }
 
 type ExistingWorkflow struct {
@@ -683,6 +685,9 @@ func (w *RegisterWorkflowWithCRECLIInput) Validate() error {
 	}
 	if w.NewWorkflow != nil && w.NewWorkflow.FolderLocation == "" {
 		return errors.New("WorkflowFolderLocation is required when ShouldCompileNewWorkflow is true")
+	}
+	if w.NewWorkflow != nil && w.NewWorkflow.WorkflowFileName == "" {
+		return errors.New("WorkflowFileName is required when ShouldCompileNewWorkflow is true")
 	}
 	if w.ExistingWorkflow != nil && w.ExistingWorkflow.BinaryURL == "" {
 		return errors.New("BinaryURL is required when ShouldCompileNewWorkflow is false")

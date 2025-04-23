@@ -351,7 +351,6 @@ func SetupTestEnvironment(
 
 	if input.InfraInput.InfraType == libtypes.CRIB {
 		testLogger.Info().Msg("Saving node configs and secret overrides")
-
 		deployCribDonsInput := &keystonetypes.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  input.CapabilitiesAwareNodeSets,

@@ -18,20 +18,18 @@ type CompilationResult struct {
 	ConfigURL   string
 }
 
-func CompileWorkflow(creCLICommandPath, workflowFolder string, configFile *string, settingsFile *os.File) (CompilationResult, error) {
+func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string, configFile *string, settingsFile *os.File) (CompilationResult, error) {
 	var outputBuffer bytes.Buffer
-
-	// the CLI expects the workflow code to be located in the same directory as its `go.mod`` file. That's why we assume that the file, which
-	// contains the entrypoint method is always named `main.go`. This is a limitation of the CLI, which we can't change.
 
 	compileArgs := []string{"workflow", "compile", "-S", settingsFile.Name()}
 	if configFile != nil {
 		compileArgs = append(compileArgs, "-c", *configFile)
 	}
-	compileArgs = append(compileArgs, "main.go")
+	compileArgs = append(compileArgs, workflowFileName)
 	compileCmd := exec.Command(creCLICommandPath, compileArgs...) // #nosec G204
 	compileCmd.Stdout = &outputBuffer
 	compileCmd.Stderr = &outputBuffer
+	// the CLI expects the workflow code to be located in the same directory as its `go.mod` file
 	compileCmd.Dir = workflowFolder
 	err := compileCmd.Start()
 	if err != nil {
@@ -94,19 +92,41 @@ func DeployWorkflow(creCLICommandPath, workflowName, workflowURL string, configU
 	return nil
 }
 
-func EncryptSecrets(creCLICommandPath, secretsFile string, settingsFile *os.File) (string, error) {
-	return "", errors.New("not implemented")
+func EncryptSecrets(creCLICommandPath, secretsFile string, secrets map[string]string, settingsFile *os.File) (string, error) {
+	var outputBuffer bytes.Buffer
 
-	// TODO finish this in the scope of https://smartcontract-it.atlassian.net/browse/DX-81
-	// commandArgs := []string{"workflow", "secrets", "encrypt", "-S", settingsFile.Name(), "-v", "-s", "secretsFile"}
-	// encryptCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
-	// encryptCmd.Stdout = os.Stdout
-	// encryptCmd.Stderr = os.Stderr
-	// if err := encryptCmd.Start(); err != nil {
-	// 	return "", errors.Wrap(err, "failed to start encrypt command")
-	// }
+	commandArgs := []string{"secrets", "encrypt", "-S", settingsFile.Name(), "-v", "-s", secretsFile}
+	encryptCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
+	encryptCmd.Stdout = &outputBuffer
+	encryptCmd.Stderr = &outputBuffer
 
-	// return "", nil
+	// Preserve existing environment variables
+	encryptCmd.Env = os.Environ()
+
+	// set all secrets as environment variables, so that "encrypt" command can pick them up
+	for name, value := range secrets {
+		encryptCmd.Env = append(encryptCmd.Env, fmt.Sprintf("%s=%s", name, value))
+	}
+	if err := encryptCmd.Start(); err != nil {
+		return "", errors.Wrap(err, "failed to start encrypt command")
+	}
+
+	err := encryptCmd.Wait()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to wait for encrypt command")
+	}
+
+	re := regexp.MustCompile(`Gist URL=([^\s]+)`)
+	matches := re.FindAllStringSubmatch(outputBuffer.String(), -1)
+
+	if len(matches) != 1 {
+		return "", fmt.Errorf("unexpected number of gist URLs in encrypt output: %d, expected 1", len(matches))
+	}
+
+	ansiEscapePattern := `\x1b\[[0-9;]*m`
+	re = regexp.MustCompile(ansiEscapePattern)
+
+	return re.ReplaceAllString(matches[0][1], ""), nil
 }
 
 func SetFeedAdmin(creCLICommandPath string, chainID int, adminAddress common.Address, settingsFile *os.File) error {
