@@ -114,9 +114,13 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	}
 
 	// apply the changeset once again to ensure idempotency
-	output, err := v1_6.DeployHomeChainChangeset(e, homeChainCfg)
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			homeChainCfg,
+		))
 	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+
 	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
