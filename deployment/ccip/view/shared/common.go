@@ -37,12 +37,14 @@ func GetAddressFromBytes(chainSelector uint64, address []byte) string {
 
 	switch family {
 	case chain_selectors.FamilyEVM:
-		addressCroppedLeft := common.BytesToAddress(address) // crops bytes from left to fit
-		// if we have significant bytes here, then it is indeed left-padded
-		if addressCroppedLeft != (common.Address{}) {
-			return addressCroppedLeft.Hex()
+		// cropped left in case of long bytes sequence
+		evmAddress := common.BytesToAddress(address)
+		// happy-path: evm address is non-zero
+		// happy-path: if raw address is no longer than 20 bytes, there is no bytes left to check
+		if evmAddress != (common.Address{}) || len(address) <= 20 {
+			return evmAddress.Hex()
 		}
-		// otherwise it is indeed 0-address or it is right-padded
+		// if raw address longer than 20 bytes and its left-cropped version is 0-address, we should right-crop it
 		return common.BytesToAddress(address[:20]).Hex()
 	case chain_selectors.FamilySolana:
 		return base58.Encode(address)
