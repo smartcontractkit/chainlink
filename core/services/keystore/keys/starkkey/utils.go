@@ -11,11 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-// constants
-var (
-	byteLen = 32
-)
-
 // reimplements parts of
 // https://github.com/NethermindEth/starknet.go/blob/0bdaab716ce24a521304744a8fbd8e01800c241d/curve/curve.go#L702
 // generate the PK as a pseudo-random number in the interval [1, CurveOrder - 1]
@@ -39,15 +34,15 @@ func GenerateKey(material io.Reader) (k Key, err error) {
 	if !curve.Curve.IsOnCurve(k.pub.X, k.pub.Y) {
 		return k, errors.New("key gen is not on stark curve")
 	}
-	k.raw = internal.NewRaw(priv.Bytes())
+	k.raw = internal.NewRaw(padBytes(priv.Bytes()))
 
 	return k, nil
 }
 
-// pad bytes to specific length
-func padBytes(a []byte, length int) []byte {
-	if len(a) < length {
-		pad := make([]byte, length-len(a))
+// pad bytes to privateKeyLen
+func padBytes(a []byte) []byte {
+	if len(a) < privateKeyLen {
+		pad := make([]byte, privateKeyLen-len(a))
 		return append(pad, a...)
 	}
 
