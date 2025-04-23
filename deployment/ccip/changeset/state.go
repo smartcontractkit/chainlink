@@ -258,33 +258,55 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
+	grp := errgroup.Group{}
 	if c.Router != nil {
-		routerView, err := v1_2.GenerateRouterView(c.Router, false)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate router view for router %s", c.Router.Address().String())
-		}
-		chainView.Router[c.Router.Address().Hex()] = routerView
+		grp.Go(func() error {
+			routerView, err := v1_2.GenerateRouterView(c.Router, false)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate router view for router %s", c.Router.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.Router[c.Router.Address().Hex()] = routerView
+			return nil
+		})
 	}
+
 	if c.TestRouter != nil {
-		testRouterView, err := v1_2.GenerateRouterView(c.TestRouter, true)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate router view for test router %s", c.TestRouter.Address().String())
-		}
-		chainView.Router[c.TestRouter.Address().Hex()] = testRouterView
+		grp.Go(func() error {
+			testRouterView, err := v1_2.GenerateRouterView(c.TestRouter, true)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate router view for test router %s", c.TestRouter.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.Router[c.TestRouter.Address().Hex()] = testRouterView
+			return nil
+		})
 	}
 	if c.TokenAdminRegistry != nil {
-		taView, err := viewv1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate token admin registry view for token admin registry %s", c.TokenAdminRegistry.Address().String())
-		}
-		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
+		grp.Go(func() error {
+			taView, err := viewv1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate token admin registry view for token admin registry %s", c.TokenAdminRegistry.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
+			return nil
+		})
 	}
 	if c.TokenPoolFactory != nil {
-		tpfView, err := viewv1_5_1.GenerateTokenPoolFactoryView(c.TokenPoolFactory)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate token pool factory view for token pool factory %s", c.TokenPoolFactory.Address().String())
-		}
-		chainView.TokenPoolFactory[c.TokenPoolFactory.Address().Hex()] = tpfView
+		grp.Go(func() error {
+			tpfView, err := viewv1_5_1.GenerateTokenPoolFactoryView(c.TokenPoolFactory)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate token pool factory view for token pool factory %s", c.TokenPoolFactory.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.TokenPoolFactory[c.TokenPoolFactory.Address().Hex()] = tpfView
+			return nil
+		})
 	}
 	tpUpdateGrp := errgroup.Group{}
 	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
@@ -356,158 +378,243 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		return chainView, err
 	}
 	if c.NonceManager != nil {
-		nmView, err := viewv1_6.GenerateNonceManagerView(c.NonceManager)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate nonce manager view for nonce manager %s", c.NonceManager.Address().String())
-		}
-		chainView.NonceManager[c.NonceManager.Address().Hex()] = nmView
+		grp.Go(func() error {
+			nmView, err := viewv1_6.GenerateNonceManagerView(c.NonceManager)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate nonce manager view for nonce manager %s", c.NonceManager.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.NonceManager[c.NonceManager.Address().Hex()] = nmView
+			return nil
+		})
 	}
 	if c.RMNRemote != nil {
-		rmnView, err := viewv1_6.GenerateRMNRemoteView(c.RMNRemote)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate rmn remote view for rmn remote %s", c.RMNRemote.Address().String())
-		}
-		chainView.RMNRemote[c.RMNRemote.Address().Hex()] = rmnView
+		grp.Go(func() error {
+			rmnView, err := viewv1_6.GenerateRMNRemoteView(c.RMNRemote)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate rmn remote view for rmn remote %s", c.RMNRemote.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.RMNRemote[c.RMNRemote.Address().Hex()] = rmnView
+			return nil
+		})
 	}
 
 	if c.RMNHome != nil {
-		rmnHomeView, err := viewv1_6.GenerateRMNHomeView(c.RMNHome)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate rmn home view for rmn home %s", c.RMNHome.Address().String())
-		}
-		chainView.RMNHome[c.RMNHome.Address().Hex()] = rmnHomeView
+		grp.Go(func() error {
+			rmnHomeView, err := viewv1_6.GenerateRMNHomeView(c.RMNHome)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate rmn home view for rmn home %s", c.RMNHome.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.RMNHome[c.RMNHome.Address().Hex()] = rmnHomeView
+			return nil
+		})
 	}
 
 	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		// FeeQuoter knows only about tokens that managed by CCIP (i.e. imported from address book)
-		tokenDetails, err := c.TokenDetailsBySymbol()
-		if err != nil {
-			return chainView, err
-		}
-		tokens := make([]common.Address, 0, len(tokenDetails))
-		for _, tokenDetail := range tokenDetails {
-			tokens = append(tokens, tokenDetail.Address())
-		}
-		fqView, err := viewv1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, tokens)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate fee quoter view for fee quoter %s", c.FeeQuoter.Address().String())
-		}
-		chainView.FeeQuoter[c.FeeQuoter.Address().Hex()] = fqView
+		grp.Go(func() error {
+			// FeeQuoter knows only about tokens that managed by CCIP (i.e. imported from address book)
+			tokenDetails, err := c.TokenDetailsBySymbol()
+			if err != nil {
+				return err
+			}
+			tokens := make([]common.Address, 0, len(tokenDetails))
+			for _, tokenDetail := range tokenDetails {
+				tokens = append(tokens, tokenDetail.Address())
+			}
+			fqView, err := viewv1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, tokens)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate fee quoter view for fee quoter %s", c.FeeQuoter.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.FeeQuoter[c.FeeQuoter.Address().Hex()] = fqView
+			return nil
+		})
 	}
 
 	if c.OnRamp != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		onRampView, err := viewv1_6.GenerateOnRampView(
-			c.OnRamp,
-			c.Router,
-			c.TokenAdminRegistry,
-		)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate on ramp view for on ramp %s", c.OnRamp.Address().String())
-		}
-		chainView.OnRamp[c.OnRamp.Address().Hex()] = onRampView
+		grp.Go(func() error {
+			onRampView, err := viewv1_6.GenerateOnRampView(
+				c.OnRamp,
+				c.Router,
+				c.TokenAdminRegistry,
+			)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate on ramp view for on ramp %s", c.OnRamp.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.OnRamp[c.OnRamp.Address().Hex()] = onRampView
+			return nil
+		})
 	}
 
 	if c.OffRamp != nil && c.Router != nil {
-		offRampView, err := viewv1_6.GenerateOffRampView(
-			c.OffRamp,
-			c.Router,
-		)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate off ramp view for off ramp %s", c.OffRamp.Address().String())
-		}
-		chainView.OffRamp[c.OffRamp.Address().Hex()] = offRampView
+		grp.Go(func() error {
+			offRampView, err := viewv1_6.GenerateOffRampView(
+				c.OffRamp,
+				c.Router,
+			)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate off ramp view for off ramp %s", c.OffRamp.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.OffRamp[c.OffRamp.Address().Hex()] = offRampView
+			return nil
+		})
 	}
 
 	if c.RMNProxy != nil {
-		rmnProxyView, err := viewv1_0.GenerateRMNProxyView(c.RMNProxy)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate rmn proxy view for rmn proxy %s", c.RMNProxy.Address().String())
-		}
-		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
+		grp.Go(func() error {
+			rmnProxyView, err := viewv1_0.GenerateRMNProxyView(c.RMNProxy)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate rmn proxy view for rmn proxy %s", c.RMNProxy.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
+			return nil
+		})
 	}
 	if c.CCIPHome != nil && c.CapabilityRegistry != nil {
-		chView, err := viewv1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate CCIP home view for CCIP home %s", c.CCIPHome.Address())
-		}
-		chainView.CCIPHome[c.CCIPHome.Address().Hex()] = chView
+		grp.Go(func() error {
+			chView, err := viewv1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate CCIP home view for CCIP home %s", c.CCIPHome.Address())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.CCIPHome[c.CCIPHome.Address().Hex()] = chView
+			return nil
+		})
 	}
 	if c.CapabilityRegistry != nil {
-		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(c.CapabilityRegistry)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate capability registry view for capability registry %s", c.CapabilityRegistry.Address().String())
-		}
-		chainView.CapabilityRegistry[c.CapabilityRegistry.Address().Hex()] = capRegView
+		grp.Go(func() error {
+			capRegView, err := common_v1_0.GenerateCapabilityRegistryView(c.CapabilityRegistry)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate capability registry view for capability registry %s", c.CapabilityRegistry.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.CapabilityRegistry[c.CapabilityRegistry.Address().Hex()] = capRegView
+			return nil
+		})
 	}
 	if c.MCMSWithTimelockState.Timelock != nil {
-		mcmsView, err := c.MCMSWithTimelockState.GenerateMCMSWithTimelockView()
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate MCMS with timelock view for MCMS with timelock %s", c.MCMSWithTimelockState.Timelock.Address().String())
-		}
-		chainView.MCMSWithTimelock = mcmsView
+		grp.Go(func() error {
+			mcmsView, err := c.MCMSWithTimelockState.GenerateMCMSWithTimelockView()
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate MCMS with timelock view for MCMS with timelock %s", c.MCMSWithTimelockState.Timelock.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.MCMSWithTimelock = mcmsView
+			return nil
+		})
 	}
 	if c.LinkToken != nil {
-		linkTokenView, err := c.GenerateLinkView()
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate link token view for link token %s", c.LinkToken.Address().String())
-		}
-		chainView.LinkToken = linkTokenView
+		grp.Go(func() error {
+			linkTokenView, err := c.GenerateLinkView()
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate link token view for link token %s", c.LinkToken.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.LinkToken = linkTokenView
+			return nil
+		})
 	}
 	if c.StaticLinkToken != nil {
-		staticLinkTokenView, err := c.GenerateStaticLinkView()
-		if err != nil {
-			return chainView, err
-		}
-		chainView.StaticLinkToken = staticLinkTokenView
+		grp.Go(func() error {
+			staticLinkTokenView, err := c.GenerateStaticLinkView()
+			if err != nil {
+				return err
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.StaticLinkToken = staticLinkTokenView
+			return nil
+		})
 	}
 	// Legacy contracts
 	if c.CommitStore != nil {
-		for source, commitStore := range c.CommitStore {
-			commitStoreView, err := viewv1_5.GenerateCommitStoreView(commitStore)
-			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate commit store view for commit store %s for source %d", commitStore.Address().String(), source)
+		grp.Go(func() error {
+			for source, commitStore := range c.CommitStore {
+				commitStoreView, err := viewv1_5.GenerateCommitStoreView(commitStore)
+				if err != nil {
+					return errors.Wrapf(err, "failed to generate commit store view for commit store %s for source %d", commitStore.Address().String(), source)
+				}
+				chainView.UpdateMu.Lock()
+				defer chainView.UpdateMu.Unlock()
+				chainView.CommitStore[commitStore.Address().Hex()] = commitStoreView
 			}
-			chainView.CommitStore[commitStore.Address().Hex()] = commitStoreView
-		}
+			return nil
+		})
 	}
 
 	if c.PriceRegistry != nil {
-		priceRegistryView, err := v1_2.GeneratePriceRegistryView(c.PriceRegistry)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate price registry view for price registry %s", c.PriceRegistry.Address().String())
-		}
-		chainView.PriceRegistry[c.PriceRegistry.Address().String()] = priceRegistryView
+		grp.Go(func() error {
+			priceRegistryView, err := v1_2.GeneratePriceRegistryView(c.PriceRegistry)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate price registry view for price registry %s", c.PriceRegistry.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.PriceRegistry[c.PriceRegistry.Address().String()] = priceRegistryView
+			return nil
+		})
 	}
 
 	if c.RMN != nil {
-		rmnView, err := viewv1_5.GenerateRMNView(c.RMN)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate rmn view for rmn %s", c.RMN.Address().String())
-		}
-		chainView.RMN[c.RMN.Address().Hex()] = rmnView
+		grp.Go(func() error {
+			rmnView, err := viewv1_5.GenerateRMNView(c.RMN)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate rmn view for rmn %s", c.RMN.Address().String())
+			}
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
+			chainView.RMN[c.RMN.Address().Hex()] = rmnView
+			return nil
+		})
 	}
 
 	if c.EVM2EVMOffRamp != nil {
-		for source, offRamp := range c.EVM2EVMOffRamp {
-			offRampView, err := viewv1_5.GenerateOffRampView(offRamp)
-			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate off ramp view for off ramp %s for source %d", offRamp.Address().String(), source)
+		grp.Go(func() error {
+			for source, offRamp := range c.EVM2EVMOffRamp {
+				offRampView, err := viewv1_5.GenerateOffRampView(offRamp)
+				if err != nil {
+					return errors.Wrapf(err, "failed to generate off ramp view for off ramp %s for source %d", offRamp.Address().String(), source)
+				}
+				chainView.UpdateMu.Lock()
+				chainView.EVM2EVMOffRamp[offRamp.Address().Hex()] = offRampView
+				chainView.UpdateMu.Unlock()
 			}
-			chainView.EVM2EVMOffRamp[offRamp.Address().Hex()] = offRampView
-		}
+			return nil
+		})
 	}
 
 	if c.EVM2EVMOnRamp != nil {
-		for dest, onRamp := range c.EVM2EVMOnRamp {
-			onRampView, err := viewv1_5.GenerateOnRampView(onRamp)
-			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate on ramp view for on ramp %s for dest %d", onRamp.Address().String(), dest)
+		grp.Go(func() error {
+			for dest, onRamp := range c.EVM2EVMOnRamp {
+				onRampView, err := viewv1_5.GenerateOnRampView(onRamp)
+				if err != nil {
+					return errors.Wrapf(err, "failed to generate on ramp view for on ramp %s for dest %d", onRamp.Address().String(), dest)
+				}
+				chainView.UpdateMu.Lock()
+				chainView.EVM2EVMOnRamp[onRamp.Address().Hex()] = onRampView
+				chainView.UpdateMu.Unlock()
 			}
-			chainView.EVM2EVMOnRamp[onRamp.Address().Hex()] = onRampView
-		}
+			return nil
+		})
 	}
 
-	return chainView, nil
+	return chainView, grp.Wait()
 }
 
 func (c CCIPChainState) usdFeedOrDefault(symbol TokenSymbol) common.Address {
