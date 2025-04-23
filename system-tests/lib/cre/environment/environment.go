@@ -190,6 +190,58 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(keyContrErr, "failed to deploy keystone contracts")
 	}
 
+	nonHomeChainsConfig := []devenv.ChainConfig{}
+	for idx, bcOut := range blockchainsOutput {
+		if idx == 0 {
+			// skip home chain
+			continue
+		}
+		nonHomeChainsConfig = append(nonHomeChainsConfig, devenv.ChainConfig{
+			ChainID:   bcOut.SethClient.Cfg.Network.ChainID,
+			ChainName: bcOut.SethClient.Cfg.Network.Name,
+			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
+			WSRPCs: []devenv.CribRPCs{{
+				External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
+				Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
+			}},
+			HTTPRPCs: []devenv.CribRPCs{{
+				External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+				Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+			}},
+			DeployerKey: bcOut.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
+		})
+	}
+
+	nonHomeChains, chainsErr := devenv.NewChains(singeFileLogger, nonHomeChainsConfig)
+	if chainsErr != nil {
+		return nil, pkgerrors.Wrap(chainsErr, "failed to create chains")
+	}
+
+	nonHomeChainsOnlyCld := &deployment.Environment{
+		Logger:            singeFileLogger,
+		Chains:            nonHomeChains,
+		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		GetContext: func() context.Context {
+			return ctx
+		},
+	}
+
+	for idx, chain := range blockchainsOutput {
+		if idx == 0 {
+			// skip home chain
+			continue
+		}
+		_, err := libcontracts.DeployKeystoneForwarder(testLogger, nonHomeChainsOnlyCld, chain.ChainSelector)
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to deploy Keystone Forwarder contract")
+		}
+
+		mergeErr := chainsOnlyCld.ExistingAddresses.Merge(nonHomeChainsOnlyCld.ExistingAddresses)
+		if mergeErr != nil {
+			return nil, pkgerrors.Wrap(mergeErr, "failed to merge existing addresses")
+		}
+	}
+
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
 	topology, topoErr := libdon.BuildTopology(input.CapabilitiesAwareNodeSets, *homeChainInput.infraInput)

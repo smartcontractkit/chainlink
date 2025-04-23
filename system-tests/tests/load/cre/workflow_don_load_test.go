@@ -271,7 +271,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	}
 
 	firstChain := in.Blockchains[0]
-	chainIDInt, chainErr := strconv.ParseUint(firstChain.ChainID, 10, 64)
+	chainIDUint64, chainErr := strconv.ParseUint(firstChain.ChainID, 10, 64)
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupLoadTestEnvironment(

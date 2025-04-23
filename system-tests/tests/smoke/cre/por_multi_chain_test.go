@@ -217,7 +217,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 		}
 	}
 
-	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
+	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, "")
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
 	homeChain := in.Blockchains[0]
