@@ -49,9 +49,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 	}
 
 	switch method {
-	case evmV1DecodeName:
-		fallthrough
-	case evmV2DecodeName:
+	case evmV1DecodeName, evmV2DecodeName:
 		for k, val := range args {
 			output[k] = val
 		}
