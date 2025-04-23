@@ -89,7 +89,10 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	l.devEnvCfg = envConfig
 	users := make(map[uint64][]*bind.TransactOpts)
 	for _, chain := range envConfig.Chains {
-		details, found := chainsel.ChainByEvmChainID(chain.ChainID)
+		cID, err := strconv.ParseUint(chain.ChainID, 10, 0)
+		require.NoError(t, err, "Error getting chain name")
+
+		details, found := chainsel.ChainByEvmChainID(cID)
 		require.Truef(t, found, "chain not found")
 		users[details.Selector] = chain.Users
 	}
@@ -97,7 +100,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
 	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	chains, err := devenv.NewChains(lggr, envConfig.Chains)
+	chains, _, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
 	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.DeployedEnv.Env)
 	require.NoError(t, err)
@@ -661,7 +664,7 @@ func CreateChainConfigFromNetworks(
 		networkPvtKeys[uint64(net.ChainID)] = net.PrivateKeys
 	}
 	type chainDetails struct {
-		chainId  uint64
+		chainID  string
 		wsRPCs   []string
 		httpRPCs []string
 	}
@@ -669,37 +672,40 @@ func CreateChainConfigFromNetworks(
 	var chaindetails []chainDetails
 	if len(privateEthereumNetworks) == 0 {
 		for _, net := range evmNetworks {
-			chainId := net.ChainID
-			if chainId < 0 {
-				t.Fatalf("negative chain ID: %d", chainId)
+			chainID := net.ChainID
+			if chainID < 0 {
+				t.Fatalf("negative chain ID: %d", chainID)
 			}
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  uint64(chainId),
+				chainID:  strconv.FormatInt(chainID, 10),
 				wsRPCs:   net.URLs,
 				httpRPCs: net.HTTPURLs,
 			})
 		}
 	} else {
 		for _, net := range privateEthereumNetworks {
-			chainId := net.EthereumChainConfig.ChainID
-			if chainId < 0 {
-				t.Fatalf("negative chain ID: %d", chainId)
+			chainID := net.EthereumChainConfig.ChainID
+			if chainID < 0 {
+				t.Fatalf("negative chain ID: %d", chainID)
 			}
-			rpcProvider, err := env.GetRpcProvider(int64(chainId))
+			rpcProvider, err := env.GetRpcProvider(int64(chainID))
 			require.NoError(t, err, "Error getting rpc provider")
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  uint64(chainId),
+				chainID:  strconv.Itoa(chainID),
 				wsRPCs:   rpcProvider.PublicWsUrls(),
 				httpRPCs: rpcProvider.PublicHttpUrls(),
 			})
 		}
 	}
 	for _, cd := range chaindetails {
-		chainId := cd.chainId
-		chainName, err := chainsel.NameFromChainId(chainId)
+		chainID := cd.chainID
+		cID, err := strconv.ParseUint(chainID, 10, 0)
+		require.NoError(t, err, "Error getting chain name")
+
+		chainName, err := chainsel.NameFromChainId(cID)
 		require.NoError(t, err, "Error getting chain name")
 		chainCfg := devenv.ChainConfig{
-			ChainID:   chainId,
+			ChainID:   chainID,
 			ChainName: chainName,
 			ChainType: "EVM",
 			WSRPCs: []devenv.CribRPCs{
@@ -716,13 +722,13 @@ func CreateChainConfigFromNetworks(
 		var pvtKey *string
 		// if private keys are provided, use the first private key as deployer key
 		// otherwise it will try to load the private key from KMS
-		if len(networkPvtKeys[chainId]) > 0 {
-			pvtKey = ptr.Ptr(networkPvtKeys[chainId][0])
+		if len(networkPvtKeys[cID]) > 0 {
+			pvtKey = ptr.Ptr(networkPvtKeys[cID][0])
 		}
 		require.NoError(t, chainCfg.SetDeployerKey(pvtKey), "Error setting deployer key")
 		var additionalPvtKeys []string
-		if len(networkPvtKeys[chainId]) > 1 {
-			additionalPvtKeys = networkPvtKeys[chainId][1:]
+		if len(networkPvtKeys[cID]) > 1 {
+			additionalPvtKeys = networkPvtKeys[cID][1:]
 		}
 		// if no additional private keys are provided, this will set the users to default deployer key
 		require.NoError(t, chainCfg.SetUsers(additionalPvtKeys), "Error setting users")
@@ -748,11 +754,11 @@ func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 		if err != nil {
 			return nil, "", err
 		}
-		chainId, err := strconv.ParseInt(k, 10, 64)
+		chainID, err := strconv.ParseInt(k, 10, 64)
 		if err != nil {
 			return nil, "", err
 		}
-		configByChainMap[chainId] = chain
+		configByChainMap[chainID] = chain
 	}
 	if nodeConfig == "" {
 		tomlCfg = integrationnodes.NewConfig(
