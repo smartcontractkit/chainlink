@@ -95,7 +95,7 @@ func generateBootstrapProposals(ctx context.Context, e deployment.Environment, c
 		return nil, fmt.Errorf("failed to get bootstrap nodes: %w", err)
 	}
 
-	localLabels := append(labels, // nolint: gocritic
+	localLabels := append(labels, //nolint: gocritic
 		&ptypes.Label{
 			Key:   utils.LabelNodeType,
 			Value: pointer.To(jd.NodeTypeBootstrap.String()),
@@ -190,7 +190,7 @@ func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg 
 		return nil, fmt.Errorf("failed to get bootstrap bootstrapMultiaddr: %w", err)
 	}
 
-	localLabels := append(labels, // nolint: gocritic
+	localLabels := append(labels, //nolint: gocritic
 		&ptypes.Label{
 			Key:   utils.LabelNodeType,
 			Value: pointer.To(jd.NodeTypeOracle.String()),

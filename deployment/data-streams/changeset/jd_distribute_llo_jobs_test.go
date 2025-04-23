@@ -73,7 +73,7 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
-	err = env.ExistingAddresses.Save(chainSelector, configuratorAddr, // nolint: staticcheck
+	err = env.ExistingAddresses.Save(chainSelector, configuratorAddr, //nolint: staticcheck
 		deployment.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
@@ -165,7 +165,7 @@ chainID = '90000001'
 			name:   "success when sending jobs to a subset of nodes",
 			config: config,
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
-				c.NodeNames = append(bootstrapNodeNames, oracleNodeNames[:1]...) // nolint: gocritic
+				c.NodeNames = append(bootstrapNodeNames, oracleNodeNames[:1]...) //nolint: gocritic
 				c.Filter = &jd.ListFilter{
 					DONID:             donID,
 					DONName:           donName,

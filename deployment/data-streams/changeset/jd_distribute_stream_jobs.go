@@ -65,7 +65,7 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 	var proposals []*jobv1.ProposeJobRequest
 	for _, s := range cfg.Streams {
 		for _, n := range oracleNodes {
-			localLabels := append(labels, // nolint: gocritic
+			localLabels := append(labels, //nolint: gocritic
 				&ptypes.Label{
 					Key:   utils.LabelStreamID,
 					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
