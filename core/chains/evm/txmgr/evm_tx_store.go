@@ -1938,15 +1938,19 @@ func (o *evmTxStore) FindAttemptsRequiringReceiptFetch(ctx context.Context, chai
 	*/
 
 	optimized := `
-				SELECT a.* FROM evm.tx_attempts a
-				JOIN evm.txes t ON t.ID = a.eth_tx_id
-				LEFT JOIN evm.receipts r ON r.tx_hash = a.hash
-				WHERE a.state = 'broadcast'
-		  			AND t.nonce IS NOT NULL
-		  			AND t.state IN ('confirmed', 'confirmed_missing_receipt', 'fatal_error')
-		  			AND t.evm_chain_id = $1
-		  			AND r.ID IS NULL
-				ORDER BY t.nonce ASC, a.gas_price DESC, a.gas_tip_cap DESC`
+		SELECT a.*
+		FROM evm.tx_attempts a
+		JOIN evm.txes t ON t.ID = a.eth_tx_id
+		WHERE a.state = 'broadcast'
+  			AND t.nonce IS NOT NULL
+  			AND t.state IN ('confirmed', 'confirmed_missing_receipt', 'fatal_error')
+  			AND t.evm_chain_id = $1
+  			AND NOT EXISTS (
+    		SELECT 1
+    		FROM evm.receipts r
+    		JOIN evm.tx_attempts a2 ON r.tx_hash = a2.hash
+    		WHERE a2.eth_tx_id = t.ID)
+		ORDER BY t.nonce ASC, a.gas_price DESC, a.gas_tip_cap DESC`
 
 	err = o.q.SelectContext(ctx, &dbTxAttempts, optimized, chainID.String())
 	attempts = dbEthTxAttemptsToEthTxAttempts(dbTxAttempts)
