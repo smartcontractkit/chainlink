@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -165,7 +166,7 @@ const (
 	CRECLIBinaryVersion = "v0.1.5"
 
 	AuthorizationKeySecretName = "AUTH_KEY"
-	// TODO: use once we can run these tests in CI
+	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
 	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
 	AuthorizationKey = ""
 )
@@ -319,11 +320,11 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 	}
 
 	// create workflow-specific config file
-	var secretNameToUse string
+	var secretNameToUse *string
 	if input.authKey != "" {
-		secretNameToUse = AuthorizationKeySecretName
+		secretNameToUse = ptr.Ptr(AuthorizationKeySecretName)
 	}
-	// pass empty string if no secrets are used, otherwise workflow will fail if it cannot find the secret
+	// pass nil if no secrets are used, otherwise workflow will fail if it cannot find the secret
 	workflowConfigFile, configErr := keystoneporcrecli.CreateConfigFile(input.dataFeedsCacheAddress, input.feedID, input.priceProvider.URL(), input.writeTargetName, secretNameToUse)
 	if configErr != nil {
 		return errors.Wrap(configErr, "failed to create workflow config file")
@@ -333,10 +334,11 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 	// indicate to the CRE CLI that the secret will be shared between all nodes in the workflow by using specific suffix
 	authKeyEnvVarName := AuthorizationKeySecretName + libcrecli.SharedSecretEnvVarSuffix
 
-	var secretsFilePath string
+	var secretsFilePath *string
 	if input.authKey != "" {
-		// create workflow-specific secrets file, which contains a mapping of secret names to environment variables that hold them
-		// secrets will be read from the environment variables by the CRE CLI and encoded using nodes' public keys
+		// create workflow-specific secrets file using the CRE CLI, which contains a mapping of secret names to environment variables that hold them
+		// secrets will be read from the environment variables by the CRE CLI and encoded using nodes' public keys and when workflow executes it will
+		// be able to read all secrets, which after decoding will be set as environment variables with names specified in the secrets file
 		secrets := map[string][]string{
 			AuthorizationKeySecretName: {authKeyEnvVarName},
 		}
@@ -345,7 +347,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 		if secretsErr != nil {
 			return errors.Wrap(secretsErr, "failed to create secrets file")
 		}
-		secretsFilePath = secretsFile.Name()
+		secretsFilePath = ptr.Ptr(secretsFile.Name())
 	}
 
 	registerWorkflowInput := keystonetypes.RegisterWorkflowWithCRECLIInput{
@@ -365,7 +367,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 			FolderLocation:   *input.WorkflowConfig.WorkflowFolderLocation,
 			WorkflowFileName: "main.go",
 			ConfigFilePath:   &workflowConfigFilePath,
-			SecretsFilePath:  &secretsFilePath,
+			SecretsFilePath:  secretsFilePath,
 			Secrets: map[string]string{
 				authKeyEnvVarName: input.authKey,
 			},

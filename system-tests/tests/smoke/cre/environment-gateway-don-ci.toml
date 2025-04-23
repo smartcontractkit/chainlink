@@ -70,7 +70,7 @@
 
 [[nodesets]]
   nodes = 1
-  override_mode = "each"
+  override_mode = "all"
   http_port_range_start = 10300
   name = "gateway"
 
