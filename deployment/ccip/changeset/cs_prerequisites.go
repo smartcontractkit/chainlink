@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -55,7 +54,6 @@ func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequi
 		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
 	}
 	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
 	}, nil
 }

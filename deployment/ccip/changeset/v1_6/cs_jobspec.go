@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -130,9 +129,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		}
 	}
 	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
-		AddressBook: nil,
-		Jobs:        Jobs,
+		Jobs: Jobs,
 	}, nil
 }
 
