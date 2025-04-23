@@ -839,9 +839,9 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			),
 		)
 		require.NoError(t, err)
-		state, err := changeset.LoadOnchainState(e)
+		onchainState, err := changeset.LoadOnchainState(e)
 		require.NoError(t, err)
-		for _, tokenAddress := range state.SolChains[selector].SPL2022Tokens {
+		for _, tokenAddress := range onchainState.SolChains[selector].SPL2022Tokens {
 			if slices.Contains(tokensBefore, tokenAddress) {
 				continue
 			}
@@ -858,7 +858,6 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			require.NoError(t, err)
 			remoteTokenAddresses[selector] = tokenAddress
 		}
-
 	}
 
 	//////////////////////////////////////
