@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"errors"
 	"math/big"
 
 	"github.com/gagliardetto/solana-go"
@@ -68,35 +67,6 @@ func buildNoOPSolana() (mcmstypes.Transaction, error) {
 	return tx, nil
 }
 
-// getMcmAddressFromActionEVM gets the MCM address based on the action type for EVM chains
-func getMcmAddressFromActionEVM(action mcmstypes.TimelockAction, state *state.MCMSWithTimelockState) (string, error) {
-	switch action {
-	case mcmstypes.TimelockActionBypass:
-		return state.BypasserMcm.Address().String(), nil
-	case mcmstypes.TimelockActionSchedule:
-		return state.ProposerMcm.Address().String(), nil
-	case mcmstypes.TimelockActionCancel:
-		return state.CancellerMcm.Address().String(), nil
-	}
-	return "", errors.New("invalid action")
-}
-
-// getMcmAddressFromActionSol gets the MCM address based on the action type for Solana chains
-func getMcmAddressFromActionSol(action mcmstypes.TimelockAction, state *state.MCMSWithTimelockStateSolana) (string, error) {
-	switch action {
-	case mcmstypes.TimelockActionBypass:
-		contractID := mcmssolanasdk.ContractAddress(state.McmProgram, mcmssolanasdk.PDASeed(state.BypasserMcmSeed))
-		return contractID, nil
-	case mcmstypes.TimelockActionSchedule:
-		contractID := mcmssolanasdk.ContractAddress(state.McmProgram, mcmssolanasdk.PDASeed(state.ProposerMcmSeed))
-		return contractID, nil
-	case mcmstypes.TimelockActionCancel:
-		contractID := mcmssolanasdk.ContractAddress(state.McmProgram, mcmssolanasdk.PDASeed(state.CancellerMcmSeed))
-		return contractID, nil
-	}
-	return "", errors.New("invalid action")
-}
-
 // MCMSSignFireDrillChangeset creates a changeset for a MCMS signing Fire Drill.
 // It is used to make sure team member can effectively sign proposal and that the execution pipelines are healthy.
 // The changeset will create a NO-OP transaction for each chain selector in the environment and create a proposal for it.
@@ -126,11 +96,11 @@ func MCMSSignFireDrillChangeset(e deployment.Environment, cfg FireDrillConfig) (
 				return deployment.ChangesetOutput{}, err
 			}
 			timelocks[selector] = state.Timelock.Address().String()
-			mcmAddress, err := getMcmAddressFromActionEVM(cfg.TimelockCfg.MCMSAction, state)
+			mcmAddress, err := cfg.TimelockCfg.MCMBasedOnAction(*state)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-			mcmAddresses[selector] = mcmAddress
+			mcmAddresses[selector] = mcmAddress.Address().String()
 			tx, err := buildNoOPEVM(e, selector)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
@@ -150,7 +120,7 @@ func MCMSSignFireDrillChangeset(e deployment.Environment, cfg FireDrillConfig) (
 				return deployment.ChangesetOutput{}, err
 			}
 			timelocks[selector] = mcmssolanasdk.ContractAddress(state.TimelockProgram, mcmssolanasdk.PDASeed(state.TimelockSeed))
-			mcmAddress, err := getMcmAddressFromActionSol(cfg.TimelockCfg.MCMSAction, state)
+			mcmAddress, err := cfg.TimelockCfg.MCMBasedOnActionSolana(*state)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
