@@ -9,6 +9,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"golang.org/x/sync/errgroup"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -256,7 +257,7 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 	return common.Address{}, errors.New("no link token found in the state")
 }
 
-func (c CCIPChainState) GenerateView() (view.ChainView, error) {
+func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.ChainView, error) {
 	chainView := view.NewChain()
 	grp := errgroup.Group{}
 	if c.Router != nil {
@@ -268,6 +269,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.Router[c.Router.Address().Hex()] = routerView
+			lggr.Infow("generated router view", "router", c.Router.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -281,6 +283,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.Router[c.TestRouter.Address().Hex()] = testRouterView
+			lggr.Infow("generated test router view", "testRouter", c.TestRouter.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -293,6 +296,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
+			lggr.Infow("generated token admin registry view", "tokenAdminRegistry", c.TokenAdminRegistry.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -305,6 +309,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.TokenPoolFactory[c.TokenPoolFactory.Address().Hex()] = tpfView
+			lggr.Infow("generated token pool factory view", "tokenPoolFactory", c.TokenPoolFactory.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -318,6 +323,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
 				})
+				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
 			})
 		}
@@ -332,6 +338,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
 				})
+				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
 			})
 		}
@@ -346,6 +353,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
 				})
+				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
 			})
 		}
@@ -358,6 +366,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 					return errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
+				lggr.Infow("generated lock release token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
 			})
 		}
@@ -369,6 +378,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 				return errors.Wrapf(err, "failed to generate USDC token pool view for %s", pool.Address().String())
 			}
 			chainView.UpdateTokenPool(string(USDCSymbol), pool.Address().Hex(), tokenPoolView)
+			lggr.Infow("generated USDC token pool view", "tokenPool", pool.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -381,6 +391,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.NonceManager[c.NonceManager.Address().Hex()] = nmView
+			lggr.Infow("generated nonce manager view", "nonceManager", c.NonceManager.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -393,6 +404,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.RMNRemote[c.RMNRemote.Address().Hex()] = rmnView
+			lggr.Infow("generated rmn remote view", "rmnRemote", c.RMNRemote.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -406,6 +418,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.RMNHome[c.RMNHome.Address().Hex()] = rmnHomeView
+			lggr.Infow("generated rmn home view", "rmnHome", c.RMNHome.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -428,6 +441,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.FeeQuoter[c.FeeQuoter.Address().Hex()] = fqView
+			lggr.Infow("generated fee quoter view", "feeQuoter", c.FeeQuoter.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -445,6 +459,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.OnRamp[c.OnRamp.Address().Hex()] = onRampView
+			lggr.Infow("generated on ramp view", "onRamp", c.OnRamp.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -461,6 +476,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.OffRamp[c.OffRamp.Address().Hex()] = offRampView
+			lggr.Infow("generated off ramp view", "offRamp", c.OffRamp.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -474,6 +490,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
+			lggr.Infow("generated rmn proxy view", "rmnProxy", c.RMNProxy.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -486,6 +503,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.CCIPHome[c.CCIPHome.Address().Hex()] = chView
+			lggr.Infow("generated CCIP home view", "CCIPHome", c.CCIPHome.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -498,6 +516,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.CapabilityRegistry[c.CapabilityRegistry.Address().Hex()] = capRegView
+			lggr.Infow("generated capability registry view", "capabilityRegistry", c.CapabilityRegistry.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -510,6 +529,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.MCMSWithTimelock = mcmsView
+			lggr.Infow("generated MCMS with timelock view", "MCMSWithTimelock", c.MCMSWithTimelockState.Timelock.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -522,6 +542,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.LinkToken = linkTokenView
+			lggr.Infow("generated link token view", "linkToken", c.LinkToken.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -534,20 +555,22 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.StaticLinkToken = staticLinkTokenView
+			lggr.Infow("generated static link token view", "staticLinkToken", c.StaticLinkToken.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
 	// Legacy contracts
 	if c.CommitStore != nil {
 		grp.Go(func() error {
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
 			for source, commitStore := range c.CommitStore {
 				commitStoreView, err := viewv1_5.GenerateCommitStoreView(commitStore)
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate commit store view for commit store %s for source %d", commitStore.Address().String(), source)
 				}
-				chainView.UpdateMu.Lock()
-				defer chainView.UpdateMu.Unlock()
 				chainView.CommitStore[commitStore.Address().Hex()] = commitStoreView
+				lggr.Infow("generated commit store view", "commitStore", commitStore.Address().Hex(), "chain", chain)
 			}
 			return nil
 		})
@@ -562,6 +585,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.PriceRegistry[c.PriceRegistry.Address().String()] = priceRegistryView
+			lggr.Infow("generated price registry view", "priceRegistry", c.PriceRegistry.Address().String(), "chain", chain)
 			return nil
 		})
 	}
@@ -575,6 +599,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.RMN[c.RMN.Address().Hex()] = rmnView
+			lggr.Infow("generated rmn view", "rmn", c.RMN.Address().Hex(), "chain", chain)
 			return nil
 		})
 	}
@@ -589,6 +614,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 					return errors.Wrapf(err, "failed to generate off ramp view for off ramp %s for source %d", offRamp.Address().String(), source)
 				}
 				chainView.EVM2EVMOffRamp[offRamp.Address().Hex()] = offRampView
+				lggr.Infow("generated off ramp view", "offRamp", offRamp.Address().Hex(), "chain", chain)
 			}
 			return nil
 		})
@@ -604,6 +630,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 					return errors.Wrapf(err, "failed to generate on ramp view for on ramp %s for dest %d", onRamp.Address().String(), dest)
 				}
 				chainView.EVM2EVMOnRamp[onRamp.Address().Hex()] = onRampView
+				lggr.Infow("generated on ramp view", "onRamp", onRamp.Address().Hex(), "chain", chain)
 			}
 			return nil
 		})
@@ -887,13 +914,14 @@ func (c CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[
 			if err != nil {
 				return fmt.Errorf("failed to get chain id from selector %d: %w", chainSelector, err)
 			}
+			e.Logger.Infow("Generating view for", "chainSelector", chainSelector, "chainName", name, "chainID", id)
 			switch family {
 			case chain_selectors.FamilyEVM:
 				if _, ok := c.Chains[chainSelector]; !ok {
 					return fmt.Errorf("chain not supported %d", chainSelector)
 				}
 				chainState := c.Chains[chainSelector]
-				chainView, err := chainState.GenerateView()
+				chainView, err := chainState.GenerateView(e.Logger, name)
 				if err != nil {
 					return err
 				}
