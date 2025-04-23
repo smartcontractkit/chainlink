@@ -509,7 +509,9 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowOwner: owner,
 		WorkflowName:  name,
 
-		Limits: v2.EngineLimits{}, // all defaults
+		LocalLimits:          v2.EngineLimits{}, // all defaults
+		GlobalLimits:         h.workflowLimits,
+		ExecutionRateLimiter: h.ratelimiter,
 	}
 	return v2.NewEngine(ctx, cfg)
 }
