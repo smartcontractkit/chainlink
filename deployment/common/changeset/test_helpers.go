@@ -8,6 +8,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -235,6 +236,11 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return deployment.Environment{}, nil, err
+				}
+				if prop.Action != mcmsTypes.TimelockActionSchedule {
+					// We don't need to execute the proposal if it's not a schedule action
+					// because the proposal is already executed in the previous step.
+					return currentEnv, outputs, nil
 				}
 				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, currentEnv, &prop)
 				if err != nil {
