@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
@@ -156,75 +155,6 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput
 	topology.WorkflowDONID = maybeID.ID
 
 	return topology, nil
-}
-
-func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysOutput) (*cretypes.Topology, error) {
-	if topology == nil {
-		return nil, errors.New("topology is nil")
-	}
-
-	if keys == nil {
-		return nil, errors.New("keys is nil")
-	}
-
-	for _, donMetadata := range topology.DonsMetadata {
-		if p2pKeys, ok := keys.P2PKeys[donMetadata.ID]; ok {
-			for idx, nodeMetadata := range donMetadata.NodesMetadata {
-				nodeMetadata.Labels = append(nodeMetadata.Labels, &cretypes.Label{
-					Key:   node.NodeP2PIDKey,
-					Value: p2pKeys.PeerIDs[idx],
-				})
-			}
-		}
-
-		if evmKeys, ok := keys.EVMKeys[donMetadata.ID]; ok {
-			for idx, nodeMetadata := range donMetadata.NodesMetadata {
-				nodeMetadata.Labels = append(nodeMetadata.Labels, &cretypes.Label{
-					Key:   node.EthAddressKey,
-					Value: evmKeys.PublicAddresses[idx].Hex(),
-				})
-			}
-		}
-	}
-
-	return topology, nil
-}
-
-func GenereteKeys(input *cretypes.GenerateKeysInput) (*cretypes.GenerateKeysOutput, error) {
-	if input == nil {
-		return nil, errors.New("input is nil")
-	}
-
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
-
-	output := &cretypes.GenerateKeysOutput{
-		EVMKeys: make(cretypes.DonsToEVMKeys),
-		P2PKeys: make(cretypes.DonsToP2PKeys),
-	}
-
-	for _, donMetadata := range input.Topology.DonsMetadata {
-		if input.GenerateP2PKeys {
-			p2pKeys, err := crypto.GenerateP2PKeys(input.Password, len(donMetadata.NodesMetadata))
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to generate P2P keys")
-			}
-			output.P2PKeys[donMetadata.ID] = p2pKeys
-		}
-
-		if len(input.GenerateEVMKeysForChainIDs) > 0 {
-			evmKeys, err := crypto.GenerateEVMKeys(input.Password, len(donMetadata.NodesMetadata))
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to generate EVM keys")
-			}
-			evmKeys.ChainIDs = append(evmKeys.ChainIDs, input.GenerateEVMKeysForChainIDs...)
-
-			output.EVMKeys[donMetadata.ID] = evmKeys
-		}
-	}
-
-	return output, nil
 }
 
 func NodeNeedsGateway(nodeFlags []cretypes.CapabilityFlag) bool {

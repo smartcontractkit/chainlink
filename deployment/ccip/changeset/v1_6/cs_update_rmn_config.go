@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -72,7 +73,6 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
-	proposerMcms := changeset.BuildProposerMcmAddressesPerChain(e, state)
 
 	inspectors := map[uint64]mcmssdk.Inspector{}
 	timelockBatch := []mcmstypes.BatchOperation{}
@@ -104,11 +104,14 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 	if len(timelockBatch) == 0 {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposerMcms,
+		mcmContract,
 		inspectors,
 		timelockBatch,
 		fmt.Sprintf("proposal to set RMNRemote on RMNProxy for chains %v", cfg.ChainSelectors),
@@ -379,7 +382,10 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
-	proposerMcms := changeset.BuildProposerMcmAddressesPerChain(e, state)
+	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	inspectors, err := proposalutils.McmsInspectors(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
@@ -388,7 +394,7 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposerMcms,
+		mcmContract,
 		inspectors,
 		[]mcmstypes.BatchOperation{operation},
 		"proposal to set candidate config",
@@ -456,7 +462,10 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
-	proposerMcms := changeset.BuildProposerMcmAddressesPerChain(e, state)
+	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 
 	inspectors := map[uint64]mcmssdk.Inspector{}
 	inspectors[config.HomeChainSelector], err = proposalutils.McmsInspectorForChain(e, config.HomeChainSelector)
@@ -467,7 +476,7 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposerMcms,
+		mcmContract,
 		inspectors,
 		[]mcmstypes.BatchOperation{operation},
 		"proposal to promote candidate config",
@@ -762,7 +771,10 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
-	proposerMcms := changeset.BuildProposerMcmAddressesPerChain(e, state)
+	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	inspectors, err := proposalutils.McmsInspectors(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
@@ -771,7 +783,7 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposerMcms,
+		mcmContract,
 		inspectors,
 		batches,
 		"proposal to promote candidate config",

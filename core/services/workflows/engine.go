@@ -31,10 +31,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const (
@@ -344,7 +346,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 func (e *Engine) init(ctx context.Context) {
 	defer e.wg.Done()
 
-	retryErr := retryable(ctx, e.logger, e.retryMs, e.maxRetries, func() error {
+	retryErr := internal.RunWithRetries(ctx, e.logger, time.Millisecond*time.Duration(e.retryMs), e.maxRetries, func() error {
 		// first wait for localDON to return a non-error response; this depends
 		// on the underlying peerWrapper returning the PeerID.
 		node, err := e.registry.LocalNode(ctx)
@@ -1004,6 +1006,8 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 		err2 := timeoutOverride.UnwrapTo(&desiredTimeout)
 		if err2 != nil {
 			e.logger.Warnw("couldn't decode step timeout override, using default", "error", err2, "default", stepTimeoutDuration)
+		} else if desiredTimeout == 0 {
+			e.logger.Debugw("overridden timeout set to 0, using default", "default", stepTimeoutDuration)
 		} else {
 			if desiredTimeout > maxStepTimeoutOverrideSec {
 				e.logger.Warnw("desired step timeout is too large, limiting to max value", "maxValue", maxStepTimeoutOverrideSec)
@@ -1305,7 +1309,7 @@ type Config struct {
 	Workflow             sdk.WorkflowSpec
 	WorkflowID           string
 	WorkflowOwner        string
-	WorkflowName         WorkflowNamer
+	WorkflowName         types.WorkflowName
 	Lggr                 logger.Logger
 	Registry             core.CapabilitiesRegistry
 	MaxWorkerLimit       int

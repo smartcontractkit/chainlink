@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"crypto"
 	"crypto/ed25519"
 	"fmt"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -26,7 +28,7 @@ var (
 )
 
 type PeerConfig struct {
-	PrivateKey ed25519.PrivateKey
+	PrivateKey crypto.Signer
 	// List of <ip>:<port> addresses.
 	ListenAddresses []string
 	// List of <host>:<port> addresses. If empty, defaults to ListenAddresses.
@@ -58,7 +60,7 @@ type peer struct {
 var _ p2ptypes.Peer = &peer{}
 
 func NewPeer(cfg PeerConfig, lggr logger.Logger) (*peer, error) {
-	peerID, err := ragetypes.PeerIDFromPrivateKey(cfg.PrivateKey)
+	peerID, err := ragetypes.PeerIDFromPublicKey(cfg.PrivateKey.Public().(ed25519.PublicKey))
 	if err != nil {
 		return nil, fmt.Errorf("error extracting v2 peer ID from private key: %w", err)
 	}
@@ -78,7 +80,7 @@ func NewPeer(cfg PeerConfig, lggr logger.Logger) (*peer, error) {
 	discoverer := ragedisco.NewRagep2pDiscoverer(cfg.DeltaReconcile, announceAddresses, cfg.DiscovererDatabase, cfg.MetricsRegisterer)
 	commonLggr := commonlogger.NewOCRWrapper(lggr, true, func(string) {})
 
-	peerKeyring, err := newPeerKeyringWithPrivateKey(cfg.PrivateKey)
+	peerKeyring, err := ocrcommon.NewSignerPeerKeyring(cfg.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -239,29 +241,4 @@ func (p *peer) HealthReport() map[string]error {
 
 func (p *peer) Name() string {
 	return p.lggr.Name()
-}
-
-type peerKeyringWithPrivateKey struct {
-	privateKey    ed25519.PrivateKey
-	peerPublicKey ragetypes.PeerPublicKey
-}
-
-var _ ragetypes.PeerKeyring = &peerKeyringWithPrivateKey{}
-
-func newPeerKeyringWithPrivateKey(privateKey ed25519.PrivateKey) (*peerKeyringWithPrivateKey, error) {
-	peerPublicKey, err := ragetypes.PeerPublicKeyFromGenericPublicKey(privateKey.Public())
-	if err != nil {
-		return nil, fmt.Errorf("StaticallySizedEd25519PublicKey failed even though sanity check succeeded: %w", err)
-	}
-	return &peerKeyringWithPrivateKey{privateKey, peerPublicKey}, nil
-}
-
-// PublicKey implements ragetypes.PeerKeyring.
-func (s *peerKeyringWithPrivateKey) PublicKey() ragetypes.PeerPublicKey {
-	return s.peerPublicKey
-}
-
-// Sign implements ragetypes.PeerKeyring.
-func (s *peerKeyringWithPrivateKey) Sign(msg []byte) (signature []byte, err error) {
-	return ed25519.Sign(s.privateKey, msg), nil
 }

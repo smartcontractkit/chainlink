@@ -3,22 +3,20 @@ package offchain
 import (
 	"bytes"
 	"crypto/sha256"
-	"embed"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"text/template"
 
-	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 )
 
 const (
-	workflowPath = "workflow.tmpl"
+	workflowJobPath  = "workflow.tmpl"
+	workflowSpecPath = "workflow_spec.yaml.tmpl"
 )
 
 type WorkflowSpecAlias sdk.WorkflowSpec
@@ -32,111 +30,105 @@ type WorkflowJobCfg struct {
 	WorkflowOwner string
 }
 
-func JobSpecFromWorkflow(inputFs embed.FS, inputFileName string, workflowJobName string) (wfSpec string, wfName string, err error) {
-	wfYaml, err := inputFs.ReadFile(inputFileName)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to read workflow file: %w", err)
-	}
-	wfStr := string(wfYaml)
-	wf, err := workflows.ParseWorkflowSpecYaml(wfStr)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to parse workflow spec: %w", err)
-	}
+type WorkflowSpecCfg struct {
+	Feeds                            []v1_0.Feed
+	WorkflowName                     string
+	WorkflowOwner                    string
+	TriggersMaxFrequencyMs           int
+	ConsensusRef                     string
+	ConsensusReportID                string
+	ConsensusConfigKeyID             string
+	ConsensusAggregationMethod       string
+	ConsensusAllowedPartialStaleness string
+	ConsensusEncoderABI              string
+	DeltaStageSec                    int
+	WriteTargetTrigger               string
+	TargetsSchedule                  string
+	CREStepTimeout                   int64
+	DataFeedsCacheAddress            string
+}
 
-	wfAlias := WorkflowSpecAlias(wf)
-	if err := wfAlias.validate(); err != nil {
-		return "", "", fmt.Errorf("workflow validation failed: %w", err)
-	}
-
+func JobSpecFromWorkflowSpec(workflowSpec string, workflowJobName string, workflowOwner string) (wfSpec string, err error) {
 	externalID := uuid.New().String()
 
 	wfCfg := WorkflowJobCfg{
 		JobName:       workflowJobName,
 		ExternalJobID: externalID,
-		Workflow:      wfStr,
-		WorkflowID:    getWorkflowID(wfStr),
-		WorkflowOwner: wf.Owner,
+		Workflow:      workflowSpec,
+		WorkflowID:    getWorkflowID(workflowSpec),
+		WorkflowOwner: workflowOwner,
 	}
 
 	workflowJobSpec, err := wfCfg.createSpec()
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create workflow job spec: %w", err)
+		return "", fmt.Errorf("failed to create workflow job spec: %w", err)
 	}
-	return workflowJobSpec, wf.Name, nil
+	return workflowJobSpec, nil
 }
 
-func (wf WorkflowSpecAlias) validate() error {
-	triggerMap := wf.Triggers[0].Config
-	triggerFeeds := triggerMap["feedIds"]
-	if triggerFeeds == nil {
-		return fmt.Errorf("feedIds not found in trigger config for workflow %s", wf.Name)
+func CreateWorkflowSpec(
+	feeds []v1_0.Feed,
+	workflowName string,
+	workflowOwner string,
+	triggerFrequency int,
+	consensusRef string,
+	consensusReportID string,
+	consensusAggregationMethod string,
+	consensusConfigKeyID string,
+	consensusAllowedPartialStaleness string,
+	consensusEncoderABI string,
+	deltaStageSec int,
+	writeTargetTrigger string,
+	targetsSchedule string,
+	creStepTimeout int64,
+	cacheAddress string) (wfSpec string, err error) {
+	wfCfg := WorkflowSpecCfg{
+		Feeds:                            feeds,
+		WorkflowName:                     workflowName,
+		WorkflowOwner:                    workflowOwner,
+		TriggersMaxFrequencyMs:           triggerFrequency,
+		ConsensusRef:                     consensusRef,
+		ConsensusReportID:                consensusReportID,
+		ConsensusAggregationMethod:       consensusAggregationMethod,
+		ConsensusConfigKeyID:             consensusConfigKeyID,
+		ConsensusAllowedPartialStaleness: consensusAllowedPartialStaleness,
+		ConsensusEncoderABI:              consensusEncoderABI,
+		DeltaStageSec:                    deltaStageSec,
+		WriteTargetTrigger:               writeTargetTrigger,
+		TargetsSchedule:                  targetsSchedule,
+		CREStepTimeout:                   creStepTimeout,
+		DataFeedsCacheAddress:            cacheAddress,
 	}
 
-	configMap := wf.Consensus[0].Config
-	aggregationConfig, ok := configMap["aggregation_config"].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("invalid aggregation_config type for workflow %s", wf.Name)
+	workflowSpec, err := wfCfg.createSpec()
+	if err != nil {
+		return "", fmt.Errorf("failed to create workflow job spec: %w", err)
 	}
-
-	streams, ok := aggregationConfig["streams"]
-	if !ok {
-		return fmt.Errorf("streams not found in aggregation_config for workflow %s", wf.Name)
-	}
-	if len(streams.(map[string]interface{})) != len(triggerFeeds.([]interface{})) {
-		return fmt.Errorf("consensus and trigger feeds must have the same length for workflow %s", wf.Name)
-	}
-
-	for streamsID, stream := range streams.(map[string]interface{}) {
-		feedMap, feedExists := stream.(map[string]interface{})
-		if !feedExists {
-			return fmt.Errorf("invalid stream type %s", streamsID)
-		}
-		_, hasDeviation := feedMap["deviation"].(string)
-		if !hasDeviation {
-			return fmt.Errorf("deviation not found in stream %s", streamsID)
-		}
-
-		_, hasHeartbeat := feedMap["heartbeat"].(int64)
-		if !hasHeartbeat {
-			return fmt.Errorf("heartbeat not found in stream %s", streamsID)
-		}
-		remmapedID, hasRemmapedID := feedMap["remappedID"].(string)
-		if !hasRemmapedID {
-			return fmt.Errorf("remappedID not found in stream %s", streamsID)
-		}
-		if len(remmapedID) != 66 {
-			return fmt.Errorf("invalid remappedID for stream %s", streamsID)
-		}
-	}
-	// check if all trigger feeds are in the consensus feeds
-	for _, triggerFeed := range triggerFeeds.([]interface{}) {
-		if streams.(map[string]interface{})[triggerFeed.(string)] == nil {
-			return fmt.Errorf("trigger feed %s not found in consensus feeds", triggerFeed.(string))
-		}
-	}
-
-	encoderConfig, ok := configMap["encoder_config"].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("invalid encoder_config type for workflow %s", wf.Name)
-	}
-	encoderABI, ok := encoderConfig["abi"]
-	if !ok {
-		return fmt.Errorf("abi not found in encoder_config for workflow %s", wf.Name)
-	}
-	if encoderABI != "(bytes32 RemappedID, uint32 Timestamp, uint224 Price)[] Reports" {
-		return fmt.Errorf("invalid encoder ABI for workflow %s", wf.Name)
-	}
-	return nil
+	return workflowSpec, nil
 }
 
 func (wfCfg *WorkflowJobCfg) createSpec() (string, error) {
-	t, err := template.New("s").ParseFS(offchainFs, workflowPath)
+	t, err := template.New("s").ParseFS(offchainFs, workflowJobPath)
 	if err != nil {
 		return "", err
 	}
 
 	b := &bytes.Buffer{}
-	err = t.ExecuteTemplate(b, workflowPath, wfCfg)
+	err = t.ExecuteTemplate(b, workflowJobPath, wfCfg)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (wfCfg *WorkflowSpecCfg) createSpec() (string, error) {
+	t, err := template.New("s").ParseFS(offchainFs, workflowSpecPath)
+	if err != nil {
+		return "", err
+	}
+
+	b := &bytes.Buffer{}
+	err = t.ExecuteTemplate(b, workflowSpecPath, wfCfg)
 	if err != nil {
 		return "", err
 	}
@@ -148,52 +140,4 @@ func getWorkflowID(wf string) string {
 	sha256Hash.Write([]byte(wf))
 	cid := sha256Hash.Sum(nil)
 	return hex.EncodeToString(cid)
-}
-
-func createExternalJobID(name, ownerAddress string) (string, error) {
-	// this must be constant for a given logical wf so that the job distributor can
-	// track the job
-	if len(name) != 10 {
-		return "", fmt.Errorf("workflow name must be 10 characters long, got %s", name)
-	}
-	if !gethcommon.IsHexAddress(ownerAddress) {
-		return "", fmt.Errorf("invalid owner address %s", ownerAddress)
-	}
-	checksummed := gethcommon.HexToAddress(ownerAddress).Hex()
-	id := []byte(name + checksummed)
-	sha256Hash := sha256.New()
-	sha256Hash.Write(id)
-	id = sha256Hash.Sum(nil)
-
-	return externalJobID(id, "workflow")
-}
-
-func externalJobID(wfid []byte, nodeID string) (string, error) {
-	if len(wfid) == 0 {
-		return "", errors.New("empty workflow id")
-	}
-	if len(wfid) < 16 {
-		return "", fmt.Errorf("workflow id too short. must be at least 16 bytes got %d", len(wfid))
-	}
-
-	externalJobID := wfid[:16]
-	// ensure deterministic uniqueness of the externalJobID
-	nb := []byte(nodeID)
-	sha256Hash := sha256.New()
-	sha256Hash.Write(nb)
-	nb = sha256Hash.Sum(nil)
-
-	for i, b := range nb[:16] {
-		externalJobID[i] ^= b
-	}
-	// tag as valid UUID v4 https://github.com/google/uuid/blob/0f11ee6918f41a04c201eceeadf612a377bc7fbc/version4.go#L53-L54
-	externalJobID[6] = (externalJobID[6] & 0x0f) | 0x40 // Version 4
-	externalJobID[8] = (externalJobID[8] & 0x3f) | 0x80 // Variant is 10
-
-	id, err := uuid.FromBytes(externalJobID)
-	if err != nil {
-		return "", err
-	}
-
-	return id.String(), nil
 }
