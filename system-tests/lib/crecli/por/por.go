@@ -11,7 +11,7 @@ import (
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 )
 
-func CreateConfigFile(feedsConsumerAddress common.Address, feedID, dataURL, writeTargetName string) (*os.File, error) {
+func CreateConfigFile(feedsConsumerAddress common.Address, feedID, dataURL, writeTargetName string, authKeySecretName *string) (*os.File, error) {
 	configFile, err := os.CreateTemp("", "config.json")
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create workflow config file")
@@ -31,10 +31,11 @@ func CreateConfigFile(feedsConsumerAddress common.Address, feedID, dataURL, writ
 	feedIDToUse := "0x" + cleanFeedID
 
 	workflowConfig := libcrecli.PoRWorkflowConfig{
-		FeedID:          feedIDToUse,
-		URL:             dataURL,
-		ConsumerAddress: feedsConsumerAddress.Hex(),
-		WriteTargetName: writeTargetName,
+		FeedID:            feedIDToUse,
+		URL:               dataURL,
+		ConsumerAddress:   feedsConsumerAddress.Hex(),
+		WriteTargetName:   writeTargetName,
+		AuthKeySecretName: authKeySecretName,
 	}
 
 	configMarshalled, err := json.Marshal(workflowConfig)

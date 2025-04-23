@@ -41,6 +41,7 @@ import (
 	libdevenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/devenv"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
+	cresecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
@@ -173,7 +174,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
 
-	// Generate EVM and P2P keys, which are needed to prepare the node configs
+	// Generate EVM and P2P keys or read them from the config
 	// That way we can pass them final configs and do away with restarting the nodes
 	var keys *keystonetypes.GenerateKeysOutput
 	chainIDInt, chainErr := strconv.Atoi(blockchainsOutput.BlockchainOutput.ChainID)
@@ -181,18 +182,24 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(chainErr, "failed to convert chain ID to int")
 	}
 
+	keysOutput, keysOutputErr := cresecrets.KeysOutputFromConfig(input.CapabilitiesAwareNodeSets)
+	if keysOutputErr != nil {
+		return nil, pkgerrors.Wrap(keysOutputErr, "failed to generate keys output")
+	}
+
 	generateKeysInput := &keystonetypes.GenerateKeysInput{
 		GenerateEVMKeysForChainIDs: []int{chainIDInt},
 		GenerateP2PKeys:            true,
 		Topology:                   topology,
 		Password:                   "", // since the test runs on private ephemeral blockchain we don't use real keys and do not care a lot about the password
+		Out:                        keysOutput,
 	}
-	keys, keysErr := libdon.GenereteKeys(generateKeysInput)
+	keys, keysErr := cresecrets.GenereteKeys(generateKeysInput)
 	if keysErr != nil {
 		return nil, pkgerrors.Wrap(keysErr, "failed to generate keys")
 	}
 
-	topology, addKeysErr := libdon.AddKeysToTopology(topology, keys)
+	topology, addKeysErr := cresecrets.AddKeysToTopology(topology, keys)
 	if addKeysErr != nil {
 		return nil, pkgerrors.Wrap(addKeysErr, "failed to add keys to topology")
 	}
@@ -216,46 +223,81 @@ func SetupTestEnvironment(
 	}
 
 	for i, donMetadata := range topology.DonsMetadata {
-		config, configErr := keystoneporconfig.GenerateConfigs(
-			keystonetypes.GeneratePoRConfigsInput{
-				DonMetadata:                 donMetadata,
-				BlockchainOutput:            blockchainsOutput.BlockchainOutput,
-				DonID:                       donMetadata.ID,
-				Flags:                       donMetadata.Flags,
-				PeeringData:                 peeringData,
-				CapabilitiesRegistryAddress: keystoneContractsOutput.CapabilitiesRegistryAddress,
-				WorkflowRegistryAddress:     keystoneContractsOutput.WorkflowRegistryAddress,
-				ForwarderAddress:            keystoneContractsOutput.ForwarderAddress,
-				GatewayConnectorOutput:      topology.GatewayConnectorOutput,
-			},
-		)
-		if configErr != nil {
-			return nil, pkgerrors.Wrap(configErr, "failed to generate config")
+		configsFound := 0
+		secretsFound := 0
+		for _, nodeSpec := range input.CapabilitiesAwareNodeSets[i].NodeSpecs {
+			if nodeSpec.Node.TestConfigOverrides != "" {
+				configsFound++
+			}
+			if nodeSpec.Node.TestSecretsOverrides != "" {
+				secretsFound++
+			}
+		}
+		if configsFound != 0 && configsFound != len(input.CapabilitiesAwareNodeSets[i].NodeSpecs) {
+			return nil, fmt.Errorf("%d out of %d node specs have config overrides. Either provide overrides for all nodes or none at all", configsFound, len(input.CapabilitiesAwareNodeSets[i].NodeSpecs))
 		}
 
-		secretsInput := &keystonetypes.GenerateSecretsInput{
-			DonMetadata: donMetadata,
+		if secretsFound != 0 && secretsFound != len(input.CapabilitiesAwareNodeSets[i].NodeSpecs) {
+			return nil, fmt.Errorf("%d out of %d node specs have secrets overrides. Either provide overrides for all nodes or none at all", secretsFound, len(input.CapabilitiesAwareNodeSets[i].NodeSpecs))
 		}
 
-		if evmKeys, ok := keys.EVMKeys[donMetadata.ID]; ok {
-			secretsInput.EVMKeys = evmKeys
+		// Allow providing only secrets, because we can decode them and use them to generate configs
+		// We can't allow providing only configs, because we can't replace secret-related values in the configs
+		// If both are provided, we assume that the user knows what they are doing and we don't need to validate anything
+		// And that configs match the secrets
+		if configsFound > 0 && secretsFound == 0 {
+			return nil, fmt.Errorf("nodese config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
 		}
 
-		if p2pKeys, ok := keys.P2PKeys[donMetadata.ID]; ok {
-			secretsInput.P2PKeys = p2pKeys
+		// generate configs only if they are not provided
+		if configsFound == 0 {
+			config, configErr := keystoneporconfig.GenerateConfigs(
+				keystonetypes.GeneratePoRConfigsInput{
+					DonMetadata:                 donMetadata,
+					BlockchainOutput:            blockchainsOutput.BlockchainOutput,
+					DonID:                       donMetadata.ID,
+					Flags:                       donMetadata.Flags,
+					PeeringData:                 peeringData,
+					CapabilitiesRegistryAddress: keystoneContractsOutput.CapabilitiesRegistryAddress,
+					WorkflowRegistryAddress:     keystoneContractsOutput.WorkflowRegistryAddress,
+					ForwarderAddress:            keystoneContractsOutput.ForwarderAddress,
+					GatewayConnectorOutput:      topology.GatewayConnectorOutput,
+				},
+			)
+			if configErr != nil {
+				return nil, pkgerrors.Wrap(configErr, "failed to generate config")
+			}
+
+			for j := range donMetadata.NodesMetadata {
+				input.CapabilitiesAwareNodeSets[i].NodeSpecs[j].Node.TestConfigOverrides = config[j]
+			}
 		}
 
-		// EVM and P2P keys will be provided to nodes as secrets
-		secrets, secretsErr := keystonesecrets.GenerateSecrets(
-			secretsInput,
-		)
-		if secretsErr != nil {
-			return nil, pkgerrors.Wrap(secretsErr, "failed to generate secrets")
-		}
+		// generate secrets only if they are not provided
+		if secretsFound == 0 {
+			secretsInput := &keystonetypes.GenerateSecretsInput{
+				DonMetadata: donMetadata,
+			}
 
-		for j := range donMetadata.NodesMetadata {
-			input.CapabilitiesAwareNodeSets[i].NodeSpecs[j].Node.TestConfigOverrides = config[j]
-			input.CapabilitiesAwareNodeSets[i].NodeSpecs[j].Node.TestSecretsOverrides = secrets[j]
+			if evmKeys, ok := keys.EVMKeys[donMetadata.ID]; ok {
+				secretsInput.EVMKeys = evmKeys
+			}
+
+			if p2pKeys, ok := keys.P2PKeys[donMetadata.ID]; ok {
+				secretsInput.P2PKeys = p2pKeys
+			}
+
+			// EVM and P2P keys will be provided to nodes as secrets
+			secrets, secretsErr := keystonesecrets.GenerateSecrets(
+				secretsInput,
+			)
+			if secretsErr != nil {
+				return nil, pkgerrors.Wrap(secretsErr, "failed to generate secrets")
+			}
+
+			for j := range donMetadata.NodesMetadata {
+				input.CapabilitiesAwareNodeSets[i].NodeSpecs[j].Node.TestSecretsOverrides = secrets[j]
+			}
 		}
 
 		var appendErr error
@@ -281,7 +323,6 @@ func SetupTestEnvironment(
 
 	if input.InfraInput.InfraType == libtypes.CRIB {
 		testLogger.Info().Msg("Saving node configs and secret overrides")
-
 		deployCribDonsInput := &keystonetypes.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  input.CapabilitiesAwareNodeSets,
@@ -407,7 +448,7 @@ func SetupTestEnvironment(
 	testLogger.Info().Msg("Waiting for ConfigWatcher health check")
 
 	for idx, nodeSetOut := range nodeOutput {
-		if flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].DONTypes, cretypes.GatewayDON) || flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].DONTypes, cretypes.CapabilitiesDON) {
+		if !flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].Capabilities, cretypes.OCR3Capability) {
 			continue
 		}
 		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
@@ -474,6 +515,8 @@ func CreateBlockchains(
 		return nil, pkgerrors.New("blockchain input is nil")
 	}
 
+	var blockchainOutput *blockchain.Output
+	var blockchainOutputErr error
 	if input.infraInput.InfraType == libtypes.CRIB {
 		if input.nixShell == nil {
 			return nil, pkgerrors.New("nix shell is nil")
@@ -485,17 +528,14 @@ func CreateBlockchains(
 			CribConfigsDir:  cribConfigsDir,
 		}
 
-		var blockchainErr error
-		input.blockchainInput.Out, blockchainErr = crib.DeployBlockchain(deployCribBlockchainInput)
-		if blockchainErr != nil {
-			return nil, pkgerrors.Wrap(blockchainErr, "failed to deploy blockchain")
-		}
+		blockchainOutput, blockchainOutputErr = crib.DeployBlockchain(deployCribBlockchainInput)
+	} else {
+		// Create a new blockchain network and Seth client to interact with it
+		blockchainOutput, blockchainOutputErr = blockchain.NewBlockchainNetwork(input.blockchainInput)
 	}
 
-	// Create a new blockchain network and Seth client to interact with it
-	blockchainOutput, err := blockchain.NewBlockchainNetwork(input.blockchainInput)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create blockchain network")
+	if blockchainOutputErr != nil {
+		return nil, pkgerrors.Wrap(blockchainOutputErr, "failed to deploy blockchain")
 	}
 
 	pkey := os.Getenv("PRIVATE_KEY")
@@ -503,7 +543,7 @@ func CreateBlockchains(
 		return nil, pkgerrors.New("PRIVATE_KEY env var must be set")
 	}
 
-	err = libinfra.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+	err := libinfra.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "RPC endpoint not available")
 	}

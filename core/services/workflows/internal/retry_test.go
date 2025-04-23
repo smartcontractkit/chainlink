@@ -1,4 +1,4 @@
-package workflows
+package internal
 
 import (
 	"context"
@@ -22,7 +22,7 @@ func TestRetryableZeroMaxRetries(t *testing.T) {
 		return errors.New("test error")
 	}
 
-	err := retryable(ctx, logger.NullLogger, 100, 0, fn)
+	err := RunWithRetries(ctx, logger.NullLogger, time.Millisecond*10, 0, fn)
 	assert.ErrorIs(t, err, context.DeadlineExceeded, "Expected context deadline exceeded error")
 }
 
@@ -36,7 +36,7 @@ func TestRetryableSuccessOnFirstAttempt(t *testing.T) {
 		return nil
 	}
 
-	err := retryable(ctx, logger.NullLogger, 100, 3, fn)
+	err := RunWithRetries(ctx, logger.NullLogger, time.Millisecond*10, 3, fn)
 	require.NoError(t, err, "Expected no error as function succeeds on first attempt")
 }
 
@@ -55,7 +55,7 @@ func TestRetryableSuccessAfterRetries(t *testing.T) {
 		return nil
 	}
 
-	err := retryable(ctx, logger.NullLogger, 100, 5, fn)
+	err := RunWithRetries(ctx, logger.NullLogger, time.Millisecond*10, 5, fn)
 	assert.NoError(t, err, "Expected no error after successful retry")
 	assert.Equal(t, 2, retries, "Expected two retries before success")
 }
@@ -70,9 +70,9 @@ func TestRetryableErrorOnFirstTryNoRetries(t *testing.T) {
 		return errors.New("immediate failure")
 	}
 
-	err := retryable(ctx, logger.NullLogger, 100, 1, fn)
+	err := RunWithRetries(ctx, logger.NullLogger, time.Millisecond*10, 1, fn)
 	require.Error(t, err, "Expected an error on the first try with no retries allowed")
-	assert.Equal(t, "max retries reached, aborting", err.Error(), "Expected function to abort after the first try")
+	assert.Equal(t, "max retries (1) reached, aborting", err.Error(), "Expected function to abort after the first try")
 }
 
 func TestRetryableErrorAfterMultipleRetries(t *testing.T) {
@@ -88,9 +88,9 @@ func TestRetryableErrorAfterMultipleRetries(t *testing.T) {
 	}
 
 	maxRetries := 3
-	err := retryable(ctx, logger.NullLogger, 100, maxRetries, fn)
+	err := RunWithRetries(ctx, logger.NullLogger, time.Millisecond*10, maxRetries, fn)
 	require.Error(t, err, "Expected an error after multiple retries")
-	assert.Equal(t, "max retries reached, aborting", err.Error(), "Expected the max retries reached error message")
+	assert.Equal(t, "max retries (3) reached, aborting", err.Error(), "Expected the max retries reached error message")
 	assert.Equal(t, maxRetries+1, attempts, "Expected the function to be executed retry + 1 times")
 }
 
@@ -108,6 +108,6 @@ func TestRetryableCancellationHandling(t *testing.T) {
 		cancel()
 	}()
 
-	err := retryable(ctx, logger.NullLogger, 100, 5, fn)
+	err := RunWithRetries(ctx, logger.NullLogger, time.Millisecond*100, 10, fn)
 	assert.ErrorIs(t, err, context.Canceled, "Expected context cancellation error")
 }
