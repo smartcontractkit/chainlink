@@ -64,6 +64,7 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 	}
 
 	// commit+exec overhead + token pool overhead + requested compute units
+	// TODO: base cost in 5000 lamports, not compute units
 	return DestGasOverhead +
 		totalTokenDestGasOverhead +
 		uint64(extraData.extraArgs.ComputeUnits), nil
