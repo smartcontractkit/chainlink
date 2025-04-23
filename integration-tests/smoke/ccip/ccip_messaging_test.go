@@ -260,6 +260,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		extraArgs, err := testhelpers.SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                accounts,
+			ComputeUnits:            80_000,
 		})
 		require.NoError(t, err)
 

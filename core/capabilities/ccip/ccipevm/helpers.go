@@ -14,10 +14,10 @@ import (
 )
 
 const (
-	svmV1DecodeName    = "decodeSVMExtraArgsV1"
-	evmV1DecodeName    = "decodeEVMExtraArgsV1"
-	evmV2DecodeName    = "decodeEVMExtraArgsV2"
-	evmDestExecDataKey = "destGasAmount"
+	svmV1DecodeStructName = "decodeSVMExtraArgsStruct"
+	evmV1DecodeName       = "decodeEVMExtraArgsV1"
+	evmV2DecodeName       = "decodeEVMExtraArgsV2"
+	evmDestExecDataKey    = "destGasAmount"
 )
 
 // abiEncodeMethodInputs encodes the inputs for a method call.
