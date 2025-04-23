@@ -14,20 +14,20 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-var _ ocrtypes.OffchainKeyring = &offchainKeyring{}
+var _ ocrtypes.OffchainKeyring = &OffchainKeyring{}
 
-// offchainKeyring contains the secret keys needed for the OCR nodes to share secrets
+// OffchainKeyring contains the secret keys needed for the OCR nodes to share secrets
 // and perform aggregation.
 //
 // This is currently an ed25519 signing key and a separate encryption key.
 //
 // All its functions should be thread-safe.
-type offchainKeyring struct {
-	signingKey    func() ed25519.PrivateKey
-	encryptionKey func() *[curve25519.ScalarSize]byte
+type OffchainKeyring struct {
+	signingKey    ed25519.PrivateKey
+	encryptionKey [curve25519.ScalarSize]byte
 }
 
-func newOffchainKeyring(encryptionMaterial, signingMaterial io.Reader) (*offchainKeyring, error) {
+func newOffchainKeyring(encryptionMaterial, signingMaterial io.Reader) (*OffchainKeyring, error) {
 	_, signingKey, err := ed25519.GenerateKey(signingMaterial)
 	if err != nil {
 		return nil, err
@@ -39,9 +39,9 @@ func newOffchainKeyring(encryptionMaterial, signingMaterial io.Reader) (*offchai
 		return nil, err
 	}
 
-	ok := &offchainKeyring{
-		signingKey:    func() ed25519.PrivateKey { return signingKey },
-		encryptionKey: func() *[32]byte { return &encryptionKey },
+	ok := &OffchainKeyring{
+		signingKey:    signingKey,
+		encryptionKey: encryptionKey,
 	}
 	_, err = ok.configEncryptionPublicKey()
 	if err != nil {
@@ -51,14 +51,14 @@ func newOffchainKeyring(encryptionMaterial, signingMaterial io.Reader) (*offchai
 }
 
 // NaclBoxOpenAnonymous decrypts a message that was encrypted using the OCR2 Offchain public key
-func (ok *offchainKeyring) NaclBoxOpenAnonymous(ciphertext []byte) (plaintext []byte, err error) {
+func (ok *OffchainKeyring) NaclBoxOpenAnonymous(ciphertext []byte) (plaintext []byte, err error) {
 	if len(ciphertext) < box.Overhead {
 		return nil, errors.New("ciphertext too short")
 	}
 
 	publicKey := [curve25519.PointSize]byte(ok.ConfigEncryptionPublicKey())
 
-	decrypted, success := box.OpenAnonymous(nil, ciphertext, &publicKey, ok.encryptionKey())
+	decrypted, success := box.OpenAnonymous(nil, ciphertext, &publicKey, &ok.encryptionKey)
 	if !success {
 		return nil, errors.New("decryption failed")
 	}
@@ -67,14 +67,14 @@ func (ok *offchainKeyring) NaclBoxOpenAnonymous(ciphertext []byte) (plaintext []
 }
 
 // OffchainSign signs message using private key
-func (ok *offchainKeyring) OffchainSign(msg []byte) (signature []byte, err error) {
-	return ed25519.Sign(ok.signingKey(), msg), nil
+func (ok *OffchainKeyring) OffchainSign(msg []byte) (signature []byte, err error) {
+	return ed25519.Sign(ok.signingKey, msg), nil
 }
 
 // ConfigDiffieHellman returns the shared point obtained by multiplying someone's
 // public key by a secret scalar ( in this case, the offchain key ring's encryption key.)
-func (ok *offchainKeyring) ConfigDiffieHellman(point [curve25519.PointSize]byte) ([curve25519.PointSize]byte, error) {
-	p, err := curve25519.X25519(ok.encryptionKey()[:], point[:])
+func (ok *OffchainKeyring) ConfigDiffieHellman(point [curve25519.PointSize]byte) ([curve25519.PointSize]byte, error) {
+	p, err := curve25519.X25519(ok.encryptionKey[:], point[:])
 	if err != nil {
 		return [curve25519.PointSize]byte{}, err
 	}
@@ -84,20 +84,20 @@ func (ok *offchainKeyring) ConfigDiffieHellman(point [curve25519.PointSize]byte)
 }
 
 // OffchainPublicKey returns the public component of this offchain keyring.
-func (ok *offchainKeyring) OffchainPublicKey() ocrtypes.OffchainPublicKey {
+func (ok *OffchainKeyring) OffchainPublicKey() ocrtypes.OffchainPublicKey {
 	var offchainPubKey [ed25519.PublicKeySize]byte
-	copy(offchainPubKey[:], ok.signingKey().Public().(ed25519.PublicKey)[:])
+	copy(offchainPubKey[:], ok.signingKey.Public().(ed25519.PublicKey)[:])
 	return offchainPubKey
 }
 
 // ConfigEncryptionPublicKey returns config public key
-func (ok *offchainKeyring) ConfigEncryptionPublicKey() ocrtypes.ConfigEncryptionPublicKey {
+func (ok *OffchainKeyring) ConfigEncryptionPublicKey() ocrtypes.ConfigEncryptionPublicKey {
 	cpk, _ := ok.configEncryptionPublicKey()
 	return cpk
 }
 
-func (ok *offchainKeyring) configEncryptionPublicKey() (ocrtypes.ConfigEncryptionPublicKey, error) {
-	rv, err := curve25519.X25519(ok.encryptionKey()[:], curve25519.Basepoint)
+func (ok *OffchainKeyring) configEncryptionPublicKey() (ocrtypes.ConfigEncryptionPublicKey, error) {
+	rv, err := curve25519.X25519(ok.encryptionKey[:], curve25519.Basepoint)
 	if err != nil {
 		return [curve25519.PointSize]byte{}, err
 	}
@@ -106,33 +106,31 @@ func (ok *offchainKeyring) configEncryptionPublicKey() (ocrtypes.ConfigEncryptio
 	return rvFixed, nil
 }
 
-func (ok *offchainKeyring) marshal() ([]byte, error) {
+func (ok *OffchainKeyring) marshal() ([]byte, error) {
 	buffer := new(bytes.Buffer)
-	err := binary.Write(buffer, binary.LittleEndian, ok.signingKey())
+	err := binary.Write(buffer, binary.LittleEndian, ok.signingKey)
 	if err != nil {
 		return nil, err
 	}
-	err = binary.Write(buffer, binary.LittleEndian, ok.encryptionKey())
+	err = binary.Write(buffer, binary.LittleEndian, ok.encryptionKey)
 	if err != nil {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
 }
 
-func (ok *offchainKeyring) unmarshal(in []byte) error {
+func (ok *OffchainKeyring) unmarshal(in []byte) error {
 	buffer := bytes.NewReader(in)
-	signingKey := make(ed25519.PrivateKey, ed25519.PrivateKeySize)
-	err := binary.Read(buffer, binary.LittleEndian, &signingKey)
+	ok.signingKey = make(ed25519.PrivateKey, ed25519.PrivateKeySize)
+	err := binary.Read(buffer, binary.LittleEndian, &ok.signingKey)
 	if err != nil {
 		return err
 	}
-	ok.signingKey = func() ed25519.PrivateKey { return signingKey }
-	encryptionKey := [curve25519.ScalarSize]byte{}
-	err = binary.Read(buffer, binary.LittleEndian, &encryptionKey)
+	ok.encryptionKey = [curve25519.ScalarSize]byte{}
+	err = binary.Read(buffer, binary.LittleEndian, &ok.encryptionKey)
 	if err != nil {
 		return err
 	}
-	ok.encryptionKey = func() *[32]byte { return &encryptionKey }
 	_, err = ok.configEncryptionPublicKey()
 	return err
 }

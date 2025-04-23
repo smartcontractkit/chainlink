@@ -109,10 +109,8 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 
 	key, err := ethkey.NewV2()
 	require.NoError(t, err)
-	oracleTransactor := &bind.TransactOpts{
-		From:   key.Address,
-		Signer: key.SignerFn(testutils.SimulatedChainID),
-	}
+	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+	require.NoError(t, err)
 
 	var f fluxAggregatorUniverse
 	f.evmChainID = *testutils.SimulatedChainID

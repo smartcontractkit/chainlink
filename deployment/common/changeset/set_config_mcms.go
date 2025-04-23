@@ -110,19 +110,13 @@ func (cfg MCMSConfigV2) Validate(e deployment.Environment, selectors []uint64) e
 
 		switch family {
 		case chain_selectors.FamilyEVM:
-			state, err := commonState.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
+			state, err := MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
 			if err != nil {
 				return err
 			}
-			chainState, ok := state[chainSelector]
+			_, ok := state[chainSelector]
 			if !ok {
 				return fmt.Errorf("chain selector: %d not found for MCMS state", chainSelector)
-			}
-			if cfg.ProposalConfig != nil {
-				err := cfg.ProposalConfig.Validate(e.Chains[chainSelector], *chainState)
-				if err != nil {
-					return err
-				}
 			}
 		case chain_selectors.FamilySolana:
 			state, err := commonState.MaybeLoadMCMSWithTimelockStateSolana(e, []uint64{chainSelector})
@@ -229,7 +223,7 @@ func setConfigPerRole(ctx context.Context, lggr logger.Logger, chain deployment.
 }
 
 // setConfigPerRoleV2 sets the configuration for each of the MCMS contract roles on the mcmsState.
-func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg ConfigPerRoleV2, mcmsState *commonState.MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
+func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg ConfigPerRoleV2, mcmsState *MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
 	// Proposer set config
 	proposerTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
 	if err != nil {
@@ -362,19 +356,13 @@ func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.Cha
 		switch family {
 		case chain_selectors.FamilyEVM:
 			chain := e.Chains[chainSelector]
-			mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
+			mcmsStatePerChain, err := MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
 			state := mcmsStatePerChain[chainSelector]
 			timelockAddressesPerChain[chainSelector] = state.Timelock.Address().Hex()
-			if cfg.ProposalConfig != nil {
-				mcmsContract, err := cfg.ProposalConfig.MCMBasedOnAction(*state)
-				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contract: %w", err)
-				}
-				proposerMcmsPerChain[chainSelector] = mcmsContract.Address().Hex()
-			}
+			proposerMcmsPerChain[chainSelector] = state.ProposerMcm.Address().Hex()
 			setConfigTxsChain, err := setConfigPerRoleV2(ctx, lggr, chain, c, state, useMCMS)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
@@ -408,7 +396,7 @@ func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.Cha
 	return deployment.ChangesetOutput{}, nil
 }
 
-func addTxsToProposalBatchV2(setConfigTxsChain setConfigTxs, chainSelector uint64, state commonState.MCMSWithTimelockState) mcmstypes.BatchOperation {
+func addTxsToProposalBatchV2(setConfigTxsChain setConfigTxs, chainSelector uint64, state MCMSWithTimelockState) mcmstypes.BatchOperation {
 	result := mcmstypes.BatchOperation{
 		ChainSelector: mcmstypes.ChainSelector(chainSelector),
 		Transactions:  []mcmstypes.Transaction{},

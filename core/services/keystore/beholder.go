@@ -13,7 +13,7 @@ func BuildBeholderAuth(ctx context.Context, keyStore CSA) (authHeaders map[strin
 		return nil, "", err
 	}
 
-	authHeaders, err = beholder.NewAuthHeaders(csaKey)
+	authHeaders, err = beholder.NewAuthHeaders(csaKey.Signer())
 	if err != nil {
 		return
 	}

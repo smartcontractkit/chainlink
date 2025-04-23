@@ -18,6 +18,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
@@ -68,10 +69,8 @@ type coordinatorV2PlusUniverse struct {
 
 func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumers int, trusting bool) coordinatorV2PlusUniverse {
 	tests.SkipShort(t, "VRFCoordinatorV2Universe")
-	oracleTransactor := &bind.TransactOpts{
-		From:   key.Address,
-		Signer: key.SignerFn(testutils.SimulatedChainID),
-	}
+	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+	require.NoError(t, err)
 	var (
 		sergey       = evmtestutils.MustNewSimTransactor(t)
 		neil         = evmtestutils.MustNewSimTransactor(t)

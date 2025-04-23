@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -21,30 +19,25 @@ var curve = crypto.S256()
 
 func KeyFor(raw internal.Raw) KeyV2 {
 	var privateKey ecdsa.PrivateKey
-	d := big.NewInt(0).SetBytes(internal.Bytes(raw))
+	d := big.NewInt(0).SetBytes(raw.Bytes())
 	privateKey.PublicKey.Curve = curve
 	privateKey.D = d
 	privateKey.PublicKey.X, privateKey.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
-	k := newKeyV2(&privateKey)
-	k.raw = raw
-	return k
-}
-
-type KeyV2 struct {
-	raw          internal.Raw
-	getPK        func() *ecdsa.PrivateKey
-	Address      common.Address
-	EIP55Address types.EIP55Address
-}
-
-func newKeyV2(privKey *ecdsa.PrivateKey) KeyV2 {
-	address := crypto.PubkeyToAddress(privKey.PublicKey)
+	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	eip55 := types.EIP55AddressFromAddress(address)
 	return KeyV2{
-		getPK:        func() *ecdsa.PrivateKey { return privKey },
 		Address:      address,
 		EIP55Address: eip55,
+		privateKey:   &privateKey,
 	}
+}
+
+var _ fmt.GoStringer = &KeyV2{}
+
+type KeyV2 struct {
+	Address      common.Address
+	EIP55Address types.EIP55Address
+	privateKey   *ecdsa.PrivateKey
 }
 
 func NewV2() (KeyV2, error) {
@@ -56,32 +49,36 @@ func NewV2() (KeyV2, error) {
 }
 
 func FromPrivateKey(privKey *ecdsa.PrivateKey) (key KeyV2) {
-	key = newKeyV2(privKey)
-	key.raw = internal.NewRaw(privKey.D.Bytes())
-	return
+	address := crypto.PubkeyToAddress(privKey.PublicKey)
+	eip55 := types.EIP55AddressFromAddress(address)
+	return KeyV2{
+		Address:      address,
+		EIP55Address: eip55,
+		privateKey:   privKey,
+	}
 }
 
 func (key KeyV2) ID() string {
 	return key.Address.Hex()
 }
 
-func (key KeyV2) Raw() internal.Raw { return key.raw }
+func (key KeyV2) Raw() internal.Raw {
+	return internal.NewRaw(key.privateKey.D.Bytes())
+}
 
-func (key KeyV2) Sign(data []byte) ([]byte, error) { return crypto.Sign(data, key.getPK()) }
+func (key KeyV2) ToEcdsaPrivKey() *ecdsa.PrivateKey {
+	return key.privateKey
+}
+
+func (key KeyV2) String() string {
+	return fmt.Sprintf("EthKeyV2{PrivateKey: <redacted>, Address: %s}", key.Address)
+}
+
+func (key KeyV2) GoString() string {
+	return key.String()
+}
 
 // Cmp uses byte-order address comparison to give a stable comparison between two keys
 func (key KeyV2) Cmp(key2 KeyV2) int {
 	return bytes.Compare(key.Address.Bytes(), key2.Address.Bytes())
-}
-
-func (key KeyV2) SignerFn(chainID *big.Int) bind.SignerFn {
-	return func(from common.Address, tx *gethtypes.Transaction) (*gethtypes.Transaction, error) {
-		signer := gethtypes.LatestSignerForChainID(chainID)
-		h := signer.Hash(tx)
-		sig, err := key.Sign(h[:])
-		if err != nil {
-			return nil, fmt.Errorf("failed to sign transaction: %w", err)
-		}
-		return tx.WithSignature(signer, sig)
-	}
 }

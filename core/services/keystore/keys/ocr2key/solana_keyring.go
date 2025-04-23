@@ -8,17 +8,16 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"golang.org/x/crypto/sha3"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"golang.org/x/crypto/sha3"
 )
 
 var _ ocrtypes.OnchainKeyring = &solanaKeyring{}
 
 type solanaKeyring struct {
-	privateKey func() *ecdsa.PrivateKey
+	privateKey ecdsa.PrivateKey
 }
 
 func newSolanaKeyring(material io.Reader) (*solanaKeyring, error) {
@@ -26,12 +25,12 @@ func newSolanaKeyring(material io.Reader) (*solanaKeyring, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &solanaKeyring{privateKey: func() *ecdsa.PrivateKey { return ecdsaKey }}, nil
+	return &solanaKeyring{privateKey: *ecdsaKey}, nil
 }
 
 // XXX: PublicKey returns the evm-style address of the public key not the public key itself
 func (skr *solanaKeyring) PublicKey() ocrtypes.OnchainPublicKey {
-	address := crypto.PubkeyToAddress(skr.privateKey().PublicKey)
+	address := crypto.PubkeyToAddress(*(&skr.privateKey).Public().(*ecdsa.PublicKey))
 	return address[:]
 }
 
@@ -70,7 +69,7 @@ func (skr *solanaKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint
 }
 
 func (skr *solanaKeyring) SignBlob(b []byte) (sig []byte, err error) {
-	return crypto.Sign(b, skr.privateKey())
+	return crypto.Sign(b, &skr.privateKey)
 }
 
 func (skr *solanaKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
@@ -101,11 +100,11 @@ func (skr *solanaKeyring) MaxSignatureLength() int {
 }
 
 func (skr *solanaKeyring) Marshal() ([]byte, error) {
-	return crypto.FromECDSA(skr.privateKey()), nil
+	return crypto.FromECDSA(&skr.privateKey), nil
 }
 
 func (skr *solanaKeyring) Unmarshal(in []byte) error {
 	privateKey, err := crypto.ToECDSA(in)
-	skr.privateKey = func() *ecdsa.PrivateKey { return privateKey }
+	skr.privateKey = *privateKey
 	return err
 }

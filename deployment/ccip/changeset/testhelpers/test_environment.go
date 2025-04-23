@@ -32,6 +32,8 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -595,10 +597,30 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	return e
 }
 
-func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
-	err := SavePreloadedSolAddresses(e.Env, solChainSelector)
-	if err != nil {
-		return nil, err
+func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
+	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
+	if preload {
+		// Pre load default programs
+		err := SavePreloadedSolAddresses(e.Env, solChainSelector)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		mcmsCfg = &commontypes.MCMSWithTimelockConfigV2{
+			Proposer: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000001")},
+			},
+			Canceller: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000002")},
+			},
+			Bypasser: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000002")},
+			},
+			TimelockMinDelay: big.NewInt(1),
+		}
 	}
 	state, err := changeset.LoadOnchainState(e.Env)
 	if err != nil {
@@ -644,6 +666,8 @@ func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([
 						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
 				},
+				BuildConfig:            buildSolConfig,
+				MCMSWithTimelockConfig: mcmsCfg,
 			},
 		)}, nil
 }
@@ -702,7 +726,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 	}...)
 	if len(solChains) != 0 {
-		solCs, err := deployChainContractsToSolChainCS(e, solChains[0])
+		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0], true, nil)
 		require.NoError(t, err)
 		apps = append(apps, solCs...)
 	}
@@ -939,8 +963,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		require.NotNil(t, state.Chains[chain].OffRamp)
 		require.NotNil(t, state.Chains[chain].OnRamp)
 	}
-	ValidateSolanaState(t, e.Env, solChains)
+	err = ValidateSolanaState(e.Env, solChains)
+	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
+
 	return e
 }
 

@@ -135,6 +135,6 @@ func (mc *moduleCache) evictOlderThan(duration time.Duration) {
 }
 
 type module struct {
-	module        host.ModuleV1
+	module        *host.Module
 	lastFetchedAt time.Time
 }

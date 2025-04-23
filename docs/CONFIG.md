@@ -1271,7 +1271,6 @@ ChainID = '1' # Default
 MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
-SyncStrategy = 'event' # Default
 ```
 
 
@@ -1310,13 +1309,6 @@ MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fet
 MaxConfigSize = '50.00kb' # Default
 ```
 MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
-
-### SyncStrategy
-```toml
-SyncStrategy = 'event' # Default
-```
-SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
-Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
 
 ## Workflows
 ```toml
@@ -2074,7 +2066,6 @@ InsecureConnection = false # Default
 TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
-ChipIngressEndpoint = '' # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2123,12 +2114,6 @@ EmitterBatchProcessor enables batching for telemetry events
 EmitterExportTimeout = '1s' # Default
 ```
 EmitterExportTimeout sets timeout for exporting telemetry events
-
-### ChipIngressEndpoint
-```toml
-ChipIngressEndpoint = '' # Default
-```
-ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 
 ## Telemetry.ResourceAttributes
 ```toml
@@ -16032,7 +16017,6 @@ ObservationGracePeriod sets `OCR.ObservationGracePeriod` for this EVM chain.
 Name = 'foo' # Example
 WSURL = 'wss://web.socket/test' # Example
 HTTPURL = 'https://foo.web' # Example
-HTTPURLExtraWrite = 'https://foo.web/extra' # Example
 SendOnly = false # Default
 Order = 100 # Default
 ```
@@ -16055,12 +16039,6 @@ WSURL is the WS(S) endpoint for this node. Required for primary nodes when `LogB
 HTTPURL = 'https://foo.web' # Example
 ```
 HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
-
-### HTTPURLExtraWrite
-```toml
-HTTPURLExtraWrite = 'https://foo.web/extra' # Example
-```
-HTTPURLExtraWrite is the HTTP(S) endpoint used for chains that require a separate endpoint for writing on-chain.
 
 ### SendOnly
 ```toml

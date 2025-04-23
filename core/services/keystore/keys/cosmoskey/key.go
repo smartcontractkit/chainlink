@@ -19,20 +19,20 @@ import (
 var secpSigningAlgo, _ = keyring.NewSigningAlgoFromString(string(hd.Secp256k1Type), []keyring.SignatureAlgo{hd.Secp256k1})
 
 func KeyFor(raw internal.Raw) Key {
-	d := big.NewInt(0).SetBytes(internal.Bytes(raw))
+	d := big.NewInt(0).SetBytes(raw.Bytes())
 	privKey := secpSigningAlgo.Generate()(d.Bytes())
 	return Key{
-		raw:    raw,
-		signFn: privKey.Sign,
-		pubKey: privKey.PubKey(),
+		d: d,
+		k: privKey,
 	}
 }
 
+var _ fmt.GoStringer = &Key{}
+
 // Key represents Cosmos key
 type Key struct {
-	raw    internal.Raw
-	signFn func([]byte) ([]byte, error)
-	pubKey cryptotypes.PubKey
+	d *big.Int
+	k cryptotypes.PrivKey
 }
 
 // New creates new Key
@@ -53,9 +53,8 @@ func newFrom(reader io.Reader) Key {
 	privKey := secpSigningAlgo.Generate()(rawKey.D.Bytes())
 
 	return Key{
-		raw:    internal.NewRaw(rawKey.D.Bytes()),
-		signFn: privKey.Sign,
-		pubKey: privKey.PubKey(),
+		d: rawKey.D,
+		k: privKey,
 	}
 }
 
@@ -64,15 +63,26 @@ func (key Key) ID() string {
 }
 
 func (key Key) PublicKey() (pubKey cryptotypes.PubKey) {
-	return key.pubKey
+	return key.k.PubKey()
 }
 
 func (key Key) PublicKeyStr() string {
-	return fmt.Sprintf("%X", key.pubKey.Bytes())
+	return fmt.Sprintf("%X", key.k.PubKey().Bytes())
 }
 
-func (key Key) Raw() internal.Raw { return key.raw }
+func (key Key) Raw() internal.Raw {
+	return internal.NewRaw(key.d.Bytes())
+}
 
-func (key Key) Sign(data []byte) ([]byte, error) {
-	return key.signFn(data)
+// ToPrivKey returns the key usable for signing.
+func (key Key) ToPrivKey() cryptotypes.PrivKey {
+	return key.k
+}
+
+func (key Key) String() string {
+	return fmt.Sprintf("CosmosKey{PrivateKey: <redacted>, Public Key: %s}", key.PublicKeyStr())
+}
+
+func (key Key) GoString() string {
+	return key.String()
 }

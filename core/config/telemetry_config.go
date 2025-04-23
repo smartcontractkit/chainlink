@@ -11,5 +11,4 @@ type Telemetry interface {
 	TraceSampleRatio() float64
 	EmitterBatchProcessor() bool
 	EmitterExportTimeout() time.Duration
-	ChipIngressEndpoint() string
 }

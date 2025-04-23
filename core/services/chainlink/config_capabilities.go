@@ -153,10 +153,6 @@ func (c *capabilitiesWorkflowRegistry) MaxConfigSize() utils.FileSize {
 	return *c.c.MaxConfigSize
 }
 
-func (c *capabilitiesWorkflowRegistry) SyncStrategy() string {
-	return *c.c.SyncStrategy
-}
-
 type gatewayConnector struct {
 	c toml.GatewayConnector
 }

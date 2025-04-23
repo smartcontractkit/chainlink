@@ -128,14 +128,14 @@ func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
 }
 
 func FundSolanaAccounts(
-	ctx context.Context, t *testing.T, accounts []solana.PublicKey, solAmount uint64, solanaGoClient *solRpc.Client,
-) {
-	t.Helper()
-
+	ctx context.Context, accounts []solana.PublicKey, solAmount uint64, solanaGoClient *solRpc.Client,
+) error {
 	var sigs = make([]solana.Signature, 0, len(accounts))
 	for _, account := range accounts {
 		sig, err := solanaGoClient.RequestAirdrop(ctx, account, solAmount*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		sigs = append(sigs, sig)
 	}
 
@@ -152,12 +152,18 @@ func FundSolanaAccounts(
 	for remaining > 0 {
 		select {
 		case <-timeoutCtx.Done():
-			require.NoError(t, errors.New("unable to find transaction within timeout"))
+			return errors.New("unable to find transaction within timeout")
 		case <-ticker.C:
 			statusRes, sigErr := solanaGoClient.GetSignatureStatuses(ctx, true, sigs...)
-			require.NoError(t, sigErr)
-			require.NotNil(t, statusRes)
-			require.NotNil(t, statusRes.Value)
+			if sigErr != nil {
+				return sigErr
+			}
+			if statusRes == nil {
+				return errors.New("Status response is nil")
+			}
+			if statusRes.Value == nil {
+				return errors.New("Status response value is nil")
+			}
 
 			unconfirmedTxCount := 0
 			for _, res := range statusRes.Value {
@@ -168,6 +174,7 @@ func FundSolanaAccounts(
 			remaining = unconfirmedTxCount
 		}
 	}
+	return nil
 }
 
 func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {

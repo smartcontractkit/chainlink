@@ -16,7 +16,7 @@ func TestOCRKeys_OnChainPrivateKey(t *testing.T) {
 	pk, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 	require.NoError(t, err)
 
-	k := onChainPrivateKey{func() *ecdsa.PrivateKey { return pk }}
+	k := onChainPrivateKey(*pk)
 
 	sig, err := k.Sign([]byte("hello world"))
 

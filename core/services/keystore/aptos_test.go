@@ -48,8 +48,7 @@ func Test_AptosKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		requireEqualKeys(t, key, retrievedKey)
-
+		require.Equal(t, key, retrievedKey)
 	})
 
 	t.Run("imports and exports a key", func(t *testing.T) {
@@ -74,7 +73,7 @@ func Test_AptosKeyStore_E2E(t *testing.T) {
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		requireEqualKeys(t, importedKey, retrievedKey)
+		require.Equal(t, importedKey, retrievedKey)
 	})
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {

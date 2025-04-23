@@ -51,7 +51,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.Equal(t, key.Address, retrievedKeys[0].Address)
 		foundKey, err := ethKeyStore.Get(ctx, key.Address.Hex())
 		require.NoError(t, err)
-		requireEqualKeys(t, key, foundKey)
+		require.Equal(t, key, foundKey)
 		// adds ethkey.State
 		cltest.AssertCount(t, db, statesTableName, 1)
 		var state ethkey.State
@@ -88,9 +88,7 @@ func Test_EthKeyStore(t *testing.T) {
 
 		sort.Slice(keys, func(i, j int) bool { return keys[i].Cmp(keys[j]) < 0 })
 
-		for i := range keys {
-			requireEqualKeys(t, keys[i], retrievedKeys[i])
-		}
+		assert.Equal(t, keys, retrievedKeys)
 	})
 
 	t.Run("RemoveKey", func(t *testing.T) {
@@ -143,9 +141,7 @@ func Test_EthKeyStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		require.Len(t, sendingKeys2, 1)
-		for i := range sendingKeys1 {
-			requireEqualKeys(t, sendingKeys1[i], sendingKeys2[i])
-		}
+		require.Equal(t, sendingKeys1, sendingKeys2)
 	})
 
 	t.Run("EnabledKeysForChain with specified chain ID", func(t *testing.T) {
@@ -159,12 +155,12 @@ func Test_EthKeyStore(t *testing.T) {
 		keys, err := ethKeyStore.EnabledKeysForChain(ctx, testutils.FixtureChainID)
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
-		requireEqualKeys(t, key, keys[0])
+		require.Equal(t, key, keys[0])
 
 		keys, err = ethKeyStore.EnabledKeysForChain(ctx, big.NewInt(1337))
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
-		requireEqualKeys(t, key2, keys[0])
+		require.Equal(t, key2, keys[0])
 
 		_, err = ethKeyStore.EnabledKeysForChain(ctx, nil)
 		assert.Error(t, err)
@@ -374,8 +370,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(ctx, key.ID())
 		require.NoError(t, err)
-		require.Equal(t, key.ID(), retrievedKey.ID())
-		require.Equal(t, key.Raw(), retrievedKey.Raw())
+		require.Equal(t, key, retrievedKey)
 	})
 
 	t.Run("imports and exports a key", func(t *testing.T) {
@@ -394,9 +389,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(ctx, key.ID())
 		require.NoError(t, err)
-
-		require.Equal(t, importedKey.ID(), retrievedKey.ID())
-		require.Equal(t, importedKey.Raw(), retrievedKey.Raw())
+		require.Equal(t, importedKey, retrievedKey)
 	})
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
@@ -457,6 +450,14 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 			states, err := ks.GetStatesForKeys(ctx, []ethkey.KeyV2{k1, k2})
 			require.NoError(t, err)
 			assert.Len(t, states, 1)
+
+			chainStates, err := ks.GetStatesForChain(ctx, testutils.FixtureChainID)
+			require.NoError(t, err)
+			assert.Len(t, chainStates, 2) // one created here, one created above
+
+			chainStates, err = ks.GetStatesForChain(ctx, testutils.SimulatedChainID)
+			require.NoError(t, err)
+			assert.Empty(t, chainStates)
 		})
 	})
 }

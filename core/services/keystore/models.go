@@ -214,40 +214,40 @@ func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ek
 
 func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, csaKey := range kr.CSA {
-		rawKeys.CSA = append(rawKeys.CSA, internal.RawBytes(csaKey))
+		rawKeys.CSA = append(rawKeys.CSA, csaKey.Raw().Bytes())
 	}
 	for _, ethKey := range kr.Eth {
-		rawKeys.Eth = append(rawKeys.Eth, internal.RawBytes(ethKey))
+		rawKeys.Eth = append(rawKeys.Eth, ethKey.Raw().Bytes())
 	}
 	for _, ocrKey := range kr.OCR {
-		rawKeys.OCR = append(rawKeys.OCR, internal.RawBytes(ocrKey))
+		rawKeys.OCR = append(rawKeys.OCR, ocrKey.Raw().Bytes())
 	}
 	for _, ocr2key := range kr.OCR2 {
-		rawKeys.OCR2 = append(rawKeys.OCR2, internal.RawBytes(ocr2key))
+		rawKeys.OCR2 = append(rawKeys.OCR2, ocr2key.Raw().Bytes())
 	}
 	for _, p2pKey := range kr.P2P {
-		rawKeys.P2P = append(rawKeys.P2P, internal.RawBytes(p2pKey))
+		rawKeys.P2P = append(rawKeys.P2P, p2pKey.Raw().Bytes())
 	}
 	for _, cosmoskey := range kr.Cosmos {
-		rawKeys.Cosmos = append(rawKeys.Cosmos, internal.RawBytes(cosmoskey))
+		rawKeys.Cosmos = append(rawKeys.Cosmos, cosmoskey.Raw().Bytes())
 	}
 	for _, solkey := range kr.Solana {
-		rawKeys.Solana = append(rawKeys.Solana, internal.RawBytes(solkey))
+		rawKeys.Solana = append(rawKeys.Solana, solkey.Raw().Bytes())
 	}
 	for _, starkkey := range kr.StarkNet {
-		rawKeys.StarkNet = append(rawKeys.StarkNet, internal.RawBytes(starkkey))
+		rawKeys.StarkNet = append(rawKeys.StarkNet, starkkey.Raw().Bytes())
 	}
 	for _, aptoskey := range kr.Aptos {
-		rawKeys.Aptos = append(rawKeys.Aptos, internal.RawBytes(aptoskey))
+		rawKeys.Aptos = append(rawKeys.Aptos, aptoskey.Raw().Bytes())
 	}
 	for _, tronkey := range kr.Tron {
-		rawKeys.Tron = append(rawKeys.Tron, internal.RawBytes(tronkey))
+		rawKeys.Tron = append(rawKeys.Tron, tronkey.Raw().Bytes())
 	}
 	for _, vrfKey := range kr.VRF {
-		rawKeys.VRF = append(rawKeys.VRF, internal.RawBytes(vrfKey))
+		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw().Bytes())
 	}
 	for _, workflowKey := range kr.Workflow {
-		rawKeys.Workflow = append(rawKeys.Workflow, internal.RawBytes(workflowKey))
+		rawKeys.Workflow = append(rawKeys.Workflow, workflowKey.Raw().Bytes())
 	}
 	return rawKeys
 }

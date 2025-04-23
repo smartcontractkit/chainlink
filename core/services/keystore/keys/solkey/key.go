@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	crypto_rand "crypto/rand"
+	"fmt"
 	"io"
 
 	"github.com/gagliardetto/solana-go"
@@ -13,19 +14,19 @@ import (
 )
 
 func KeyFor(raw internal.Raw) Key {
-	privKey := ed25519.NewKeyFromSeed(internal.Bytes(raw))
+	privKey := ed25519.NewKeyFromSeed(raw.Bytes())
 	return Key{
-		raw:    raw,
-		signFn: privKey.Sign,
-		pubKey: privKey.Public().(ed25519.PublicKey),
+		privkey: privKey,
+		pubKey:  privKey.Public().(ed25519.PublicKey),
 	}
 }
 
+var _ fmt.GoStringer = &Key{}
+
 // Key represents Solana key
 type Key struct {
-	raw    internal.Raw
-	signFn func(io.Reader, []byte, crypto.SignerOpts) ([]byte, error)
-	pubKey ed25519.PublicKey
+	privkey ed25519.PrivateKey
+	pubKey  ed25519.PublicKey
 }
 
 // New creates new Key
@@ -48,9 +49,8 @@ func newFrom(reader io.Reader) (Key, error) {
 		return Key{}, err
 	}
 	return Key{
-		raw:    internal.NewRaw(priv.Seed()),
-		signFn: priv.Sign,
-		pubKey: pub,
+		privkey: priv,
+		pubKey:  pub,
 	}, nil
 }
 
@@ -70,11 +70,23 @@ func (key Key) PublicKeyStr() string {
 }
 
 // Raw from private key
-func (key Key) Raw() internal.Raw { return key.raw }
+func (key Key) Raw() internal.Raw {
+	return internal.NewRaw(key.privkey.Seed())
+}
+
+// String is the print-friendly format of the Key
+func (key Key) String() string {
+	return fmt.Sprintf("SolanaKey{PrivateKey: <redacted>, Public Key: %s}", key.PublicKeyStr())
+}
+
+// GoString wraps String()
+func (key Key) GoString() string {
+	return key.String()
+}
 
 // Sign is used to sign a message
 func (key Key) Sign(msg []byte) ([]byte, error) {
-	return key.signFn(crypto_rand.Reader, msg, crypto.Hash(0))
+	return key.privkey.Sign(crypto_rand.Reader, msg, crypto.Hash(0))
 }
 
 // PublicKey copies public key slice

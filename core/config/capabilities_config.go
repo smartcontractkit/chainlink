@@ -27,7 +27,6 @@ type CapabilitiesWorkflowRegistry interface {
 	MaxBinarySize() utils.FileSize
 	MaxConfigSize() utils.FileSize
 	RelayID() types.RelayID
-	SyncStrategy() string
 }
 
 type GatewayConnector interface {

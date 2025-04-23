@@ -1,7 +1,6 @@
 package syncer
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"maps"
@@ -13,100 +12,64 @@ import (
 
 var errNotFound = errors.New("engine not found")
 
-type EngineRegistryKey struct {
-	Owner []byte
-	Name  string
-}
-
-// KeyFor generates a key that will be used to identify the engine in the engine registry.
-// This is used instead of a Workflow ID, because the WID will change if the workflow code is modified.
-func (k EngineRegistryKey) keyFor() string {
-	return hex.EncodeToString(k.Owner) + "-" + k.Name
-}
-
-type ServiceWithMetadata struct {
-	WorkflowID    WorkflowID
-	WorkflowName  string
-	WorkflowOwner []byte
-	services.Service
-}
-
 type EngineRegistry struct {
-	engines map[string]ServiceWithMetadata
+	engines map[string]services.Service
 	mu      sync.RWMutex
 }
 
 func NewEngineRegistry() *EngineRegistry {
 	return &EngineRegistry{
-		engines: make(map[string]ServiceWithMetadata),
+		engines: make(map[string]services.Service),
 	}
 }
 
 // Add adds an engine to the registry.
-func (r *EngineRegistry) Add(key EngineRegistryKey, engine services.Service, workflowID WorkflowID) error {
+func (r *EngineRegistry) Add(id string, engine services.Service) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	k := key.keyFor()
-	if _, found := r.engines[k]; found {
+	if _, found := r.engines[id]; found {
 		return errors.New("attempting to register duplicate engine")
 	}
-	r.engines[k] = ServiceWithMetadata{
-		WorkflowID:    workflowID,
-		WorkflowName:  key.Name,
-		WorkflowOwner: key.Owner,
-		Service:       engine,
-	}
+	r.engines[id] = engine
 	return nil
 }
 
-// Get retrieves an engine from the registry. If not found it returns an error.
-func (r *EngineRegistry) Get(key EngineRegistryKey) (ServiceWithMetadata, error) {
+// Get retrieves an engine from the registry.
+func (r *EngineRegistry) Get(id string) (services.Service, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	engine, found := r.engines[key.keyFor()]
+	engine, found := r.engines[id]
 	if !found {
-		return ServiceWithMetadata{}, errNotFound
+		return nil, errNotFound
 	}
 	return engine, nil
 }
 
-// GetAll retrieves all engines from the engine registry.
-func (r *EngineRegistry) GetAll() []ServiceWithMetadata {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	engines := []ServiceWithMetadata{}
-	for _, enginWithMetadata := range r.engines {
-		engines = append(engines, enginWithMetadata)
-	}
-	return engines
-}
-
 // Contains is true if the engine exists.
-func (r *EngineRegistry) Contains(key EngineRegistryKey) bool {
+func (r *EngineRegistry) Contains(id string) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	_, found := r.engines[key.keyFor()]
+	_, found := r.engines[id]
 	return found
 }
 
 // Pop removes an engine from the registry and returns the engine if found.
-func (r *EngineRegistry) Pop(key EngineRegistryKey) (ServiceWithMetadata, error) {
+func (r *EngineRegistry) Pop(id string) (services.Service, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	k := key.keyFor()
-	engine, ok := r.engines[k]
+	engine, ok := r.engines[id]
 	if !ok {
-		return ServiceWithMetadata{}, fmt.Errorf("pop failed: %w", errNotFound)
+		return nil, fmt.Errorf("pop failed: %w", errNotFound)
 	}
-	delete(r.engines, k)
+	delete(r.engines, id)
 	return engine, nil
 }
 
 // PopAll removes and returns all engines.
-func (r *EngineRegistry) PopAll() []ServiceWithMetadata {
+func (r *EngineRegistry) PopAll() []services.Service {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	all := slices.Collect(maps.Values(r.engines))
-	r.engines = make(map[string]ServiceWithMetadata)
+	r.engines = make(map[string]services.Service)
 	return all
 }

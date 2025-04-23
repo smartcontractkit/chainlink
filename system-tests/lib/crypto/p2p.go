@@ -22,6 +22,7 @@ func GenerateP2PKeys(password string, n int) (*types.P2PKeys, error) {
 
 		result.EncryptedJSONs = append(result.EncryptedJSONs, d)
 		result.PeerIDs = append(result.PeerIDs, key.PeerID().String())
+		result.PublicHexKeys = append(result.PublicHexKeys, key.PublicKeyHex())
 	}
 	return result, nil
 }

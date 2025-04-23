@@ -150,10 +150,8 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.E
 
 func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers int) coordinatorV2Universe {
 	tests.SkipShort(t, "VRFCoordinatorV2Universe")
-	oracleTransactor := &bind.TransactOpts{
-		From:   key.Address,
-		Signer: key.SignerFn(testutils.SimulatedChainID),
-	}
+	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+	require.NoError(t, err)
 	var (
 		sergey       = evmtestutils.MustNewSimTransactor(t)
 		neil         = evmtestutils.MustNewSimTransactor(t)
@@ -497,7 +495,7 @@ func sendEth(t *testing.T, key ethkey.KeyV2, b types.Backend, to common.Address,
 	})
 	balBefore, err := b.Client().BalanceAt(ctx, to, nil)
 	require.NoError(t, err)
-	signedTx, err := key.SignerFn(testutils.SimulatedChainID)(key.Address, tx)
+	signedTx, err := gethtypes.SignTx(tx, gethtypes.NewLondonSigner(testutils.SimulatedChainID), key.ToEcdsaPrivKey())
 	require.NoError(t, err)
 	err = b.Client().SendTransaction(ctx, signedTx)
 	require.NoError(t, err)

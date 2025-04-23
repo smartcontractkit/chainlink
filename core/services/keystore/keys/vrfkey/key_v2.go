@@ -19,7 +19,7 @@ import (
 var suite = secp256k1.NewBlakeKeccackSecp256k1()
 
 func KeyFor(raw internal.Raw) KeyV2 {
-	rawKeyInt := new(big.Int).SetBytes(internal.Bytes(raw))
+	rawKeyInt := new(big.Int).SetBytes(raw.Bytes())
 	k := secp256k1.IntToScalar(rawKeyInt)
 	key, err := keyFromScalar(k)
 	if err != nil {

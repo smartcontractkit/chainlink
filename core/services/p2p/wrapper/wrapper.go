@@ -2,8 +2,7 @@ package wrapper
 
 import (
 	"context"
-	"crypto"
-	"crypto/rand"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 
@@ -26,7 +25,7 @@ type peerWrapper struct {
 	peer        types.Peer
 	keystoreP2P keystore.P2P
 	p2pConfig   config.P2P
-	privateKey  crypto.Signer
+	privateKey  ed25519.PrivateKey
 	lggr        logger.Logger
 	ds          sqlutil.DataSource
 }
@@ -62,7 +61,7 @@ func (e *peerWrapper) convertPeerConfig() (p2p.PeerConfig, error) {
 	}
 
 	peerConfig := p2p.PeerConfig{
-		PrivateKey: key,
+		PrivateKey: key.PrivKey,
 
 		ListenAddresses:   e.p2pConfig.V2().ListenAddresses(),
 		AnnounceAddresses: e.p2pConfig.V2().AnnounceAddresses(),
@@ -135,5 +134,5 @@ func (e *peerWrapper) Sign(msg []byte) ([]byte, error) {
 	if e.privateKey == nil {
 		return nil, errors.New("private key not set")
 	}
-	return e.privateKey.Sign(rand.Reader, msg, crypto.Hash(0))
+	return ed25519.Sign(e.privateKey, msg), nil
 }

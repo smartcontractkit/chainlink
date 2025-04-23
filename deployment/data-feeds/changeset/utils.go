@@ -8,13 +8,12 @@ import (
 
 	workflowUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 )
 
 func FeedIDsToBytes16(feedIDs []string) ([][16]byte, error) {
 	dataIDs := make([][16]byte, len(feedIDs))
 	for i, feedID := range feedIDs {
-		err := shared.ValidateFeedID(feedID)
+		err := ValidateFeedID(feedID)
 		if err != nil {
 			return nil, err
 		}
@@ -65,7 +64,7 @@ func LoadJSON[T any](pth string, fs fs.ReadFileFS) (T, error) {
 }
 
 func GetDecimalsFromFeedID(feedID string) (uint8, error) {
-	err := shared.ValidateFeedID(feedID)
+	err := ValidateFeedID(feedID)
 	if err != nil {
 		return 0, fmt.Errorf("invalid feed ID: %w", err)
 	}

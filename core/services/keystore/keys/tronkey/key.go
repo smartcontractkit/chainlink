@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"math/big"
 
@@ -18,22 +19,21 @@ var curve = crypto.S256()
 // Key generates a public-private key pair from the raw private key
 func KeyFor(raw internal.Raw) Key {
 	var privKey ecdsa.PrivateKey
-	d := big.NewInt(0).SetBytes(internal.Bytes(raw))
+	d := big.NewInt(0).SetBytes(raw.Bytes())
 	privKey.PublicKey.Curve = curve
 	privKey.D = d
 	privKey.PublicKey.X, privKey.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
 	return Key{
-		raw:    raw,
-		signFn: func(bytes []byte) ([]byte, error) { return crypto.Sign(bytes, &privKey) },
-		pubKey: &privKey.PublicKey,
+		pubKey:  &privKey.PublicKey,
+		privKey: &privKey,
 	}
 }
 
-type Key struct {
-	raw    internal.Raw
-	signFn func([]byte) ([]byte, error)
+var _ fmt.GoStringer = &Key{}
 
-	pubKey *ecdsa.PublicKey
+type Key struct {
+	privKey *ecdsa.PrivateKey
+	pubKey  *ecdsa.PublicKey
 }
 
 func New() (Key, error) {
@@ -56,9 +56,8 @@ func newFrom(reader io.Reader) (Key, error) {
 		return Key{}, err
 	}
 	return Key{
-		raw:    internal.NewRaw(privKeyECDSA.D.Bytes()),
-		signFn: func(bytes []byte) ([]byte, error) { return crypto.Sign(bytes, privKeyECDSA) },
-		pubKey: &privKeyECDSA.PublicKey,
+		privKey: privKeyECDSA,
+		pubKey:  &privKeyECDSA.PublicKey,
 	}, nil
 }
 
@@ -66,10 +65,27 @@ func (key Key) ID() string {
 	return key.Base58Address()
 }
 
-func (key Key) Raw() internal.Raw { return key.raw }
+func (key Key) Raw() internal.Raw {
+	return internal.NewRaw(key.privKey.D.Bytes())
+}
+
+func (key Key) ToEcdsaPrivKey() *ecdsa.PrivateKey {
+	return key.privKey
+}
+
+func (key Key) String() string {
+	return fmt.Sprintf("TronKey{PrivateKey: <redacted>, Address: %s}", key.Base58Address())
+}
+
+// GoString wraps String()
+func (key Key) GoString() string {
+	return key.String()
+}
 
 // Sign is used to sign a message
-func (key Key) Sign(msg []byte) ([]byte, error) { return key.signFn(msg) }
+func (key Key) Sign(msg []byte) ([]byte, error) {
+	return crypto.Sign(msg, key.privKey)
+}
 
 // PublicKeyStr returns the public key as a hexadecimal string
 func (key Key) PublicKeyStr() string {
