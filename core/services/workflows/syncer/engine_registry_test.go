@@ -9,12 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestEngineRegistry(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-588")
-
 	var srv services.Service = &fakeService{}
 
 	const id1 = "foo"
