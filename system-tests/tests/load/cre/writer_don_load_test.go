@@ -259,7 +259,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			if i == 0 { // Skip bootstrap node
 				continue
 			}
-			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.main.stage.cldev.sh:443", in.Infra.CRIB.Namespace, setupOutput.nodeOutput[1].NodeSetName, i-1))
+			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.main.stage.cldev.sh:443", in.Infra.CRIB.Namespace, setupOutput.nodeOutput[0].NodeSetName, i-1))
 		}
 	}
 
