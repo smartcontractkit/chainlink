@@ -186,7 +186,7 @@ func BuildProposalFromBatchesV2(
 	for chainID, tl := range timelockAddressPerChain {
 		tlsPerChainID[types.ChainSelector(chainID)] = tl
 	}
-	mcmsMd, err := buildProposalMetadataV2(e, chains.ToSlice(), inspectorPerChain, mcmsAddressPerChain)
+	mcmsMd, err := buildProposalMetadataV2(e, chains.ToSlice(), inspectorPerChain, mcmsAddressPerChain, mcmsCfg.MCMSAction)
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +218,7 @@ func buildProposalMetadataV2(
 	chainSelectors []uint64,
 	inspectorPerChain map[uint64]mcmssdk.Inspector,
 	mcmsPerChain map[uint64]string, // can be proposer, canceller or bypasser
+	mcmsAction types.TimelockAction,
 ) (map[types.ChainSelector]types.ChainMetadata, error) {
 	metaDataPerChain := make(map[types.ChainSelector]types.ChainMetadata)
 	for _, selector := range chainSelectors {
@@ -249,10 +250,23 @@ func buildProposalMetadataV2(
 			if err != nil {
 				return nil, fmt.Errorf("failed to load solana state: %w", err)
 			}
+
+			var instanceSeed mcmssolanasdk.PDASeed
+			switch mcmsAction {
+			case types.TimelockActionSchedule:
+				instanceSeed = mcmssolanasdk.PDASeed(solanaState.ProposerMcmSeed)
+			case types.TimelockActionCancel:
+				instanceSeed = mcmssolanasdk.PDASeed(solanaState.CancellerMcmSeed)
+			case types.TimelockActionBypass:
+				instanceSeed = mcmssolanasdk.PDASeed(solanaState.BypasserMcmSeed)
+			default:
+				return nil, fmt.Errorf("invalid MCMS action %s", mcmsAction)
+			}
+
 			metaDataPerChain[chainID], err = mcmssolanasdk.NewChainMetadata(
 				opCount,
 				solanaState.McmProgram,
-				mcmssolanasdk.PDASeed(solanaState.ProposerMcmSeed),
+				instanceSeed,
 				solanaState.ProposerAccessControllerAccount,
 				solanaState.CancellerAccessControllerAccount,
 				solanaState.BypasserAccessControllerAccount)
