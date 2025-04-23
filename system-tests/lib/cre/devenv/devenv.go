@@ -2,15 +2,18 @@ package environment
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
@@ -28,22 +31,43 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 	dons := make([]*devenv.DON, len(input.NodeSetOutput))
 
 	var allNodesInfo []devenv.NodeInfo
-	chains := []devenv.ChainConfig{
-		{
-			ChainID:   input.SethClient.Cfg.Network.ChainID,
-			ChainName: input.SethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(input.BlockchainOutput.Family),
+	chains := make([]devenv.ChainConfig, 0)
+	for i, bcOut := range input.BlockchainOutputs {
+		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse chain ID: %w", err)
+		}
+		chains = append(chains, devenv.ChainConfig{
+			ChainID:   cID,
+			ChainName: input.SethClients[i].Cfg.Network.Name,
+			ChainType: strings.ToUpper(bcOut.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: input.BlockchainOutput.Nodes[0].ExternalWSUrl,
-				Internal: input.BlockchainOutput.Nodes[0].InternalWSUrl,
+				External: bcOut.Nodes[0].ExternalWSUrl,
+				Internal: bcOut.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: input.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				Internal: input.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+				External: bcOut.Nodes[0].ExternalHTTPUrl,
+				Internal: bcOut.Nodes[0].InternalHTTPUrl,
 			}},
-			DeployerKey: input.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
-		},
+			DeployerKey: input.SethClients[i].NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
+		})
 	}
+	//chains := []devenv.ChainConfig{
+	//	{
+	//		ChainID:   input.SethClient.Cfg.Network.ChainID,
+	//		ChainName: input.SethClient.Cfg.Network.Name,
+	//		ChainType: strings.ToUpper(input.BlockchainOutputs[0].Family),
+	//		WSRPCs: []devenv.CribRPCs{{
+	//			External: input.BlockchainOutputs[0].Nodes[0].ExternalWSUrl,
+	//			Internal: input.BlockchainOutputs[0].Nodes[0].InternalWSUrl,
+	//		}},
+	//		HTTPRPCs: []devenv.CribRPCs{{
+	//			External: input.BlockchainOutputs[0].Nodes[0].ExternalHTTPUrl,
+	//			Internal: input.BlockchainOutputs[0].Nodes[0].InternalHTTPUrl,
+	//		}},
+	//		DeployerKey: input.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
+	//	},
+	//}
 
 	for idx, nodeOutput := range input.NodeSetOutput {
 		// check how many bootstrap nodes we have in each DON

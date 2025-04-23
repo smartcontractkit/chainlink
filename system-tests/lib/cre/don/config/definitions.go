@@ -9,7 +9,25 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func BootstrapEVM(donBootstrapNodePeerID string, chainID string, capabilitiesRegistryAddress common.Address, httpRPC, wsRPC string) string {
+func BootstrapEVM(donBootstrapNodePeerID string, chainID string, capabilitiesRegistryAddress common.Address, chains []EVMChain) string {
+	evmChainsConfig := ""
+	for _, chain := range chains {
+		evmChainsConfig += fmt.Sprintf(`
+	[[EVM]]
+	ChainID = '%s'
+	AutoCreateKey = false
+
+	[[EVM.Nodes]]
+	Name = '%s'
+	WSURL = '%s'
+	HTTPURL = '%s'
+`,
+			chain.ChainID,
+			chain.Name,
+			chain.WSRPC,
+			chain.HTTPRPC,
+		)
+	}
 	return fmt.Sprintf(`
 	[Feature]
 	LogPoller = true
@@ -25,14 +43,7 @@ func BootstrapEVM(donBootstrapNodePeerID string, chainID string, capabilitiesReg
 	# bootstrap node in the DON always points to itself as the OCR peering bootstrapper
 	DefaultBootstrappers = ['%s@localhost:5001']
 
-	[[EVM]]
-	ChainID = '%s'
-
-	[[EVM.Nodes]]
-	Name = 'anvil'
-	WSURL = '%s'
-	HTTPURL = '%s'
-
+%s
 	# Capabilities registry address, required for do2don p2p mesh to work and for capabilities discovery
 	# Required even, when all capabilities are local to DON in a single DON scenario
 	[Capabilities.ExternalRegistry]
@@ -41,9 +52,7 @@ func BootstrapEVM(donBootstrapNodePeerID string, chainID string, capabilitiesReg
 	ChainID = '%s'
 `,
 		donBootstrapNodePeerID,
-		chainID,
-		wsRPC,
-		httpRPC,
+		evmChainsConfig,
 		capabilitiesRegistryAddress,
 		chainID,
 	)
@@ -69,7 +78,6 @@ type EVMChain struct {
 }
 
 func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData types.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, registryChainID string, chains []EVMChain) string {
-	// Build EVM chains configuration
 	evmChainsConfig := ""
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`

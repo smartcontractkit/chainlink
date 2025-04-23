@@ -27,6 +27,17 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 
 	homeChainID := input.BlockchainOutput[0].ChainID
 
+	// prepare chains
+	evmChains := make([]config.EVMChain, 0)
+	for i, bcOut := range input.BlockchainOutput {
+		evmChains = append(evmChains, config.EVMChain{
+			Name:    fmt.Sprintf("node-%d", i),
+			ChainID: bcOut.ChainID,
+			HTTPRPC: bcOut.Nodes[0].InternalHTTPUrl,
+			WSRPC:   bcOut.Nodes[0].InternalWSUrl,
+		})
+	}
+
 	// find bootstrap node for the Don
 	var donBootstrapNodeHost string
 	var donBootstrapNodePeerID string
@@ -72,7 +83,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		}
 
 		// generate configuration for the bootstrap node
-		configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, homeChainID, input.CapabilitiesRegistryAddress, input.BlockchainOutput[0].Nodes[0].InternalHTTPUrl, input.BlockchainOutput[0].Nodes[0].InternalWSUrl)
+		configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, homeChainID, input.CapabilitiesRegistryAddress, evmChains)
 
 		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
 			configOverrides[nodeIndex] += config.BoostrapDon2DonPeering(input.PeeringData)
@@ -86,27 +97,6 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find worker nodes")
 	}
-
-	// prepare chains
-	evmChains := make([]config.EVMChain, 0)
-	for i, bcOut := range input.BlockchainOutput {
-		evmChains = append(evmChains, config.EVMChain{
-			Name:    fmt.Sprintf("node-%d", i),
-			ChainID: bcOut.ChainID,
-			HTTPRPC: bcOut.Nodes[0].InternalHTTPUrl,
-			WSRPC:   bcOut.Nodes[0].InternalWSUrl,
-		})
-	}
-
-	// TODO: remove, this works
-	//evmChains := []config.EVMChain{
-	//	{
-	//		Name:    "node-1",
-	//		ChainID: input.BlockchainOutput[0].ChainID,
-	//		HTTPRPC: input.BlockchainOutput[0].Nodes[0].InternalHTTPUrl,
-	//		WSRPC:   input.BlockchainOutput[0].Nodes[0].InternalWSUrl,
-	//	},
-	//}
 
 	for i := range workflowNodeSet {
 		var nodeIndex int

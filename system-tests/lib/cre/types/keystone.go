@@ -500,8 +500,8 @@ func (g *GenerateSecretsInput) Validate() error {
 
 type FullCLDEnvironmentInput struct {
 	JdOutput          *jd.Output
-	BlockchainOutput  *blockchain.Output
-	SethClient        *seth.Client
+	BlockchainOutputs []*blockchain.Output
+	SethClients       []*seth.Client
 	NodeSetOutput     []*WrappedNodeOutput
 	ExistingAddresses deployment.AddressBook
 	Topology          *Topology
@@ -511,11 +511,11 @@ func (f *FullCLDEnvironmentInput) Validate() error {
 	if f.JdOutput == nil {
 		return errors.New("jd output not set")
 	}
-	if f.BlockchainOutput == nil {
+	if len(f.BlockchainOutputs) == 0 {
 		return errors.New("blockchain output not set")
 	}
-	if f.SethClient == nil {
-		return errors.New("seth client not set")
+	if len(f.SethClients) == 0 {
+		return errors.New("seth clients are not set")
 	}
 	if len(f.NodeSetOutput) == 0 {
 		return errors.New("node set output not set")

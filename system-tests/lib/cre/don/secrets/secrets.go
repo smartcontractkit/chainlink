@@ -93,28 +93,6 @@ func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysO
 		}
 
 		chainIDsToEVMKeys := keys.EVMKeys[donMetadata.ID]
-		// First, verify that all chain IDs have the same EVM keys for each node
-		// This is a limitation of our current testing SDK implementation, because we only have 1 label for ETH address for each node
-		// If in the future we need to support multiple chain IDs, we will need to change this and prefix the label with the chain ID
-		// For now let's just make sure that all the chain IDs have the same EVM keys for each node to avoid hard to debug issues
-		var firstChainID int
-		var firstEVMKeys *types.EVMKeys
-		for chainID, evmKeys := range chainIDsToEVMKeys {
-			if firstEVMKeys == nil {
-				firstChainID = chainID
-				firstEVMKeys = evmKeys
-				continue
-			}
-			if len(evmKeys.PublicAddresses) != len(firstEVMKeys.PublicAddresses) {
-				return nil, fmt.Errorf("number of EVM keys for DON %d differs between chain IDs %d and %d", donMetadata.ID, firstChainID, chainID)
-			}
-			// TODO: no longer the case, remove
-			//for i := range evmKeys.PublicAddresses {
-			//	if evmKeys.PublicAddresses[i] != firstEVMKeys.PublicAddresses[i] {
-			//		return nil, fmt.Errorf("EVM public address mismatch for DON %d, node %d between chain IDs %d and %d", donMetadata.ID, i, firstChainID, chainID)
-			//	}
-			//}
-		}
 
 		// Now add the EVM addresses to the node metadata
 		for chainID, evmKeys := range chainIDsToEVMKeys {
