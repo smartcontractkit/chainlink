@@ -762,10 +762,8 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e deployment.Environment, cha
 }
 
 func (c CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
-	m := make(map[string]view.ChainView)
-	mu := sync.Mutex{}
-	sm := make(map[string]view.SolChainView)
-	solanaMu := sync.Mutex{}
+	m := sync.Map{}
+	sm := sync.Map{}
 	grp := errgroup.Group{}
 	for _, chainSelector := range chains {
 		var name string
@@ -799,9 +797,7 @@ func (c CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[
 				}
 				chainView.ChainSelector = chainSelector
 				chainView.ChainID = id
-				mu.Lock()
-				m[name] = chainView
-				mu.Unlock()
+				m.Store(name, chainView)
 			case chain_selectors.FamilySolana:
 				if _, ok := c.SolChains[chainSelector]; !ok {
 					return fmt.Errorf("chain not supported %d", chainSelector)
@@ -813,16 +809,27 @@ func (c CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[
 				}
 				chainView.ChainSelector = chainSelector
 				chainView.ChainID = id
-				solanaMu.Lock()
-				sm[name] = chainView
-				solanaMu.Unlock()
+				sm.Store(name, chainView)
 			default:
 				return fmt.Errorf("unsupported chain family %s", family)
 			}
 			return nil
 		})
 	}
-	return m, sm, grp.Wait()
+	if err := grp.Wait(); err != nil {
+		return nil, nil, err
+	}
+	finalEVMMap := make(map[string]view.ChainView)
+	m.Range(func(key, value interface{}) bool {
+		finalEVMMap[key.(string)] = value.(view.ChainView)
+		return true
+	})
+	finalSolanaMap := make(map[string]view.SolChainView)
+	sm.Range(func(key, value interface{}) bool {
+		finalSolanaMap[key.(string)] = value.(view.SolChainView)
+		return true
+	})
+	return finalEVMMap, finalSolanaMap, grp.Wait()
 }
 
 func (c CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, error) {
