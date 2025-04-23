@@ -20,7 +20,7 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 	const donName = "don"
 	const envName = "envName"
 
-	e := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
+	env := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
 		ShouldDeployLinkToken: false,
 		NumNodes:              3,
@@ -39,11 +39,11 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 	}).Environment
 
 	// pick the first EVM chain selector
-	chainSelector := e.AllChainSelectors()[0]
+	chainSelector := env.AllChainSelectors()[0]
 
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
-	err := e.ExistingAddresses.Save(chainSelector, configuratorAddr,
+	err := env.ExistingAddresses.Save(chainSelector, configuratorAddr,
 		deployment.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
@@ -150,7 +150,8 @@ ask_price [type=median allowedFaults=3 index=2];
 			wantNumJobs: 3,
 		},
 		{
-			name:        "success2",
+			// This test only makes sense when run after "success" because the two use the same ExternalJobID.
+			name:        "success proposing updates to existing jobs",
 			config:      config,
 			wantSpec:    renderedSpec,
 			wantNumJobs: 3,
@@ -206,30 +207,30 @@ ask_price [type=median allowedFaults=3 index=2];
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			conf := tt.config
-			if tt.prepConfFn != nil {
-				conf = tt.prepConfFn(tt.config)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			conf := tc.config
+			if tc.prepConfFn != nil {
+				conf = tc.prepConfFn(tc.config)
 			}
 			_, out, err := changeset.ApplyChangesetsV2(t,
-				e,
+				env,
 				[]changeset.ConfiguredChangeSet{
 					changeset.Configure(CsDistributeStreamJobSpecs{}, conf),
 				},
 			)
 
-			if tt.wantErr != nil {
+			if tc.wantErr != nil {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), *tt.wantErr)
+				require.Contains(t, err.Error(), *tc.wantErr)
 				return
 			}
 			require.NoError(t, err)
 			require.Len(t, out, 1)
-			require.Len(t, out[0].Jobs, tt.wantNumJobs)
-			for i := 0; i < tt.wantNumJobs; i++ {
+			require.Len(t, out[0].Jobs, tc.wantNumJobs)
+			for i := 0; i < tc.wantNumJobs; i++ {
 				require.Equal(t,
-					testutil.StripLineContaining(tt.wantSpec, []string{"externalJobID"}),
+					testutil.StripLineContaining(tc.wantSpec, []string{"externalJobID"}),
 					testutil.StripLineContaining(out[0].Jobs[i].Spec, []string{"externalJobID"}),
 				)
 			}

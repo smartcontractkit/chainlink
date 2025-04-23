@@ -63,7 +63,12 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 	labels := append([]*ptypes.Label(nil),
 		&ptypes.Label{
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
-		})
+		},
+		&ptypes.Label{
+			Key:   LabelJobType,
+			Value: JobTypeLLO,
+		},
+	)
 
 	bootstrapProposals, err := generateBootstrapProposals(ctx, e, cfg, chainID, labels)
 	if err != nil {
@@ -85,31 +90,55 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 }
 
 func generateBootstrapProposals(ctx context.Context, e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig, chainID string, labels []*ptypes.Label) ([]*jobv1.ProposeJobRequest, error) {
-	bootstrapSpec := jobs.NewBootstrapSpec(
-		cfg.ConfiguratorAddress,
-		cfg.Filter.DONID,
-		jobs.RelayTypeEVM,
-		jobs.RelayConfig{
-			ChainID: chainID,
-		},
-	)
-
-	renderedSpec, err := bootstrapSpec.MarshalTOML()
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal bootstrap spec: %w", err)
-	}
-
 	bootstrapNodes, err := jd.FetchDONBootstrappersFromJD(ctx, e.Offchain, cfg.Filter, cfg.NodeNames)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bootstrap nodes: %w", err)
 	}
 
+	localLabels := append(labels,
+		&ptypes.Label{
+			Key:   LabelNodeType,
+			Value: pointer.To(jd.NodeTypeBootstrap.String()),
+		},
+	)
+
 	var proposals []*jobv1.ProposeJobRequest
 	for _, btNode := range bootstrapNodes {
+		externalJobID, err := fetchExternalJobID(e, []string{btNode.Id}, []*ptypes.Selector{
+			{
+				Key:   LabelJobType,
+				Value: JobTypeLLO,
+				Op:    ptypes.SelectorOp_EQ,
+			},
+			{
+				Key:   LabelNodeType,
+				Value: pointer.To(jd.NodeTypeBootstrap.String()),
+				Op:    ptypes.SelectorOp_EQ,
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get externalJobID: %w", err)
+		}
+
+		bootstrapSpec := jobs.NewBootstrapSpec(
+			cfg.ConfiguratorAddress,
+			cfg.Filter.DONID,
+			jobs.RelayTypeEVM,
+			jobs.RelayConfig{
+				ChainID: chainID,
+			},
+			externalJobID,
+		)
+
+		renderedSpec, err := bootstrapSpec.MarshalTOML()
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal bootstrap spec: %w", err)
+		}
+
 		proposals = append(proposals, &jobv1.ProposeJobRequest{
 			NodeId: btNode.Id,
 			Spec:   string(renderedSpec),
-			Labels: labels,
+			Labels: localLabels,
 		})
 	}
 
@@ -161,9 +190,35 @@ func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg 
 		return nil, fmt.Errorf("failed to get bootstrap bootstrapMultiaddr: %w", err)
 	}
 
+	localLabels := append(labels,
+		&ptypes.Label{
+			Key:   LabelNodeType,
+			Value: pointer.To(jd.NodeTypeOracle.String()),
+		},
+	)
+
 	var proposals []*jobv1.ProposeJobRequest
 	for _, n := range oracleNodes {
-		lloSpec.Base.ExternalJobID = uuid.New()
+		externalJobID, err := fetchExternalJobID(e, []string{n.Id}, []*ptypes.Selector{
+			{
+				Key:   LabelJobType,
+				Value: JobTypeLLO,
+				Op:    ptypes.SelectorOp_EQ,
+			},
+			{
+				Key:   LabelNodeType,
+				Value: pointer.To(jd.NodeTypeOracle.String()),
+				Op:    ptypes.SelectorOp_EQ,
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get externalJobID: %w", err)
+		}
+		if externalJobID == uuid.Nil {
+			externalJobID = uuid.New()
+		}
+
+		lloSpec.Base.ExternalJobID = externalJobID
 		lloSpec.TransmitterID = n.GetPublicKey() // CSAKey
 		lloSpec.OCRKeyBundleID = &nodeConfigMap[n.Id].OcrKeyBundle.BundleId
 
@@ -178,7 +233,7 @@ func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg 
 		proposals = append(proposals, &jobv1.ProposeJobRequest{
 			NodeId: n.Id,
 			Spec:   string(renderedSpec),
-			Labels: labels,
+			Labels: localLabels,
 		})
 	}
 
@@ -233,7 +288,7 @@ func getBootstrapMultiAddr(ctx context.Context, e deployment.Environment, cfg Cs
 				{
 					Key:   "product",
 					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To(jd.ProductLabel),
+					Value: pointer.To(utils.ProductLabel),
 				},
 			},
 		},

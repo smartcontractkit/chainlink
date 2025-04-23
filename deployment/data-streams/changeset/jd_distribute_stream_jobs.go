@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
 
 var _ deployment.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStreamJobSpecs{}
@@ -52,7 +52,8 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 	labels := append([]*ptypes.Label(nil),
 		&ptypes.Label{
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
-		})
+		},
+	)
 
 	oracleNodes, err := jd.FetchDONOraclesFromJD(ctx, e.Offchain, cfg.Filter, cfg.NodeNames)
 	if err != nil {
@@ -62,7 +63,31 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 	var proposals []*jobv1.ProposeJobRequest
 	for _, s := range cfg.Streams {
 		for _, n := range oracleNodes {
-			spec, err := generateJobSpec(s)
+			localLabels := append(labels,
+				&ptypes.Label{
+					Key:   LabelStreamID,
+					Value: pointer.To(fmt.Sprintf("%d", s.StreamID)),
+				},
+				&ptypes.Label{
+					Key:   LabelJobType,
+					Value: JobTypeStream,
+				},
+			)
+
+			// Check if there is already a job spec for this stream on this node:
+			externalJobID, err := fetchExternalJobID(e, []string{n.Id}, []*ptypes.Selector{
+				{
+					Key:   LabelStreamID,
+					Value: pointer.To(fmt.Sprintf("%d", s.StreamID)),
+					Op:    ptypes.SelectorOp_EQ,
+				},
+			})
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get externalJobID: %w", err)
+			}
+
+			spec, err := generateJobSpec(s, externalJobID)
+
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create stream job spec: %w", err)
 			}
@@ -74,7 +99,7 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 			proposals = append(proposals, &jobv1.ProposeJobRequest{
 				NodeId: n.Id,
 				Spec:   string(renderedSpec),
-				Labels: labels,
+				Labels: localLabels,
 			})
 		}
 	}
@@ -89,13 +114,16 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 	}, nil
 }
 
-func generateJobSpec(cc StreamSpecConfig) (spec *jobs.StreamJobSpec, err error) {
+func generateJobSpec(cc StreamSpecConfig, externalJobID uuid.UUID) (spec *jobs.StreamJobSpec, err error) {
+	if externalJobID == uuid.Nil {
+		externalJobID = uuid.New()
+	}
 	spec = &jobs.StreamJobSpec{
 		Base: jobs.Base{
 			Name:          fmt.Sprintf("%s | %d", cc.Name, cc.StreamID),
 			Type:          jobs.JobSpecTypeStream,
 			SchemaVersion: 1,
-			ExternalJobID: uuid.New(),
+			ExternalJobID: externalJobID,
 		},
 		StreamID: cc.StreamID,
 	}

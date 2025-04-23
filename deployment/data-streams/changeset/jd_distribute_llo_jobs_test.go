@@ -25,7 +25,7 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 	const donName = "don"
 	const envName = "env"
 
-	e := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
+	env := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
 		ShouldDeployLinkToken: false,
 		NumNodes:              2,
@@ -33,7 +33,7 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		NodeLabels: []*ptypes.Label{
 			{
 				Key:   "product",
-				Value: pointer.To(jd.ProductLabel),
+				Value: pointer.To(utils.ProductLabel),
 			},
 			{
 				Key:   "environment",
@@ -48,30 +48,30 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 	// Collect the names of the nodes.
 	bootstrapNodeNames := make([]string, 0, 1)
 	oracleNodeNames := make([]string, 0, 2)
-	resp, err := e.Offchain.ListNodes(context.Background(), &node.ListNodesRequest{
+	resp, err := env.Offchain.ListNodes(context.Background(), &node.ListNodesRequest{
 		Filter: &node.ListNodesRequest_Filter{},
 	})
 	require.NoError(t, err)
-	for _, node := range resp.Nodes {
-		for _, label := range node.Labels {
+	for _, n := range resp.Nodes {
+		for _, label := range n.Labels {
 			if label.Key == "nodeType" {
 				if *label.Value == jd.NodeTypeBootstrap.String() {
-					bootstrapNodeNames = append(bootstrapNodeNames, node.Name)
+					bootstrapNodeNames = append(bootstrapNodeNames, n.Name)
 				} else if *label.Value == jd.NodeTypeOracle.String() {
-					oracleNodeNames = append(oracleNodeNames, node.Name)
+					oracleNodeNames = append(oracleNodeNames, n.Name)
 				} else {
-					t.Fatalf("unexpected node type: %s", *label.Value)
+					t.Fatalf("unexpected n type: %s", *label.Value)
 				}
 			}
 		}
 	}
 
 	// pick the first EVM chain selector
-	chainSelector := e.AllChainSelectors()[0]
+	chainSelector := env.AllChainSelectors()[0]
 
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
-	err = e.ExistingAddresses.Save(chainSelector, configuratorAddr,
+	err = env.ExistingAddresses.Save(chainSelector, configuratorAddr,
 		deployment.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
@@ -134,7 +134,6 @@ chainID = '90000001'
 
 	tests := []struct {
 		name                 string
-		env                  deployment.Environment
 		config               CsDistributeLLOJobSpecsConfig
 		prepConfFn           func(CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig
 		wantErr              *string
@@ -145,7 +144,15 @@ chainID = '90000001'
 	}{
 		{
 			name:                 "success",
-			env:                  e,
+			config:               config,
+			wantOracleSpec:       oracleSpec,
+			wantBootstrapSpec:    bootstrapSpec,
+			wantNumOracleJobs:    2,
+			wantNumBootstrapJobs: 1,
+		},
+		{
+			// This test only makes sense when run after "success" because the two use the same ExternalJobID.
+			name:                 "success proposing updates to existing jobs",
 			config:               config,
 			wantOracleSpec:       oracleSpec,
 			wantBootstrapSpec:    bootstrapSpec,
@@ -154,7 +161,6 @@ chainID = '90000001'
 		},
 		{
 			name:   "success when sending jobs to a subset of nodes",
-			env:    e,
 			config: config,
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
 				c.NodeNames = append(bootstrapNodeNames, oracleNodeNames[:1]...)
@@ -174,7 +180,6 @@ chainID = '90000001'
 		},
 		{
 			name:   "success when sending jobs to the remaining nodes",
-			env:    e,
 			config: config,
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
 				c.NodeNames = []string{oracleNodeNames[0]}
@@ -194,7 +199,6 @@ chainID = '90000001'
 		},
 		{
 			name:   "missing channel config store",
-			env:    e,
 			config: config,
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
 				c.ChannelConfigStoreAddr = common.Address{}
@@ -204,7 +208,6 @@ chainID = '90000001'
 		},
 		{
 			name:   "missing servers",
-			env:    e,
 			config: config,
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
 				c.Servers = nil
@@ -214,32 +217,32 @@ chainID = '90000001'
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			conf := tt.config
-			if tt.prepConfFn != nil {
-				conf = tt.prepConfFn(tt.config)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			conf := tc.config
+			if tc.prepConfFn != nil {
+				conf = tc.prepConfFn(tc.config)
 			}
 			_, out, err := changeset.ApplyChangesetsV2(t,
-				tt.env,
+				env,
 				[]changeset.ConfiguredChangeSet{
 					changeset.Configure(CsDistributeLLOJobSpecs{}, conf),
 				},
 			)
 
-			if tt.wantErr != nil {
+			if tc.wantErr != nil {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), *tt.wantErr)
+				require.Contains(t, err.Error(), *tc.wantErr)
 				return
 			}
 			require.NoError(t, err)
 			require.Len(t, out, 1)
-			require.Len(t, out[0].Jobs, tt.wantNumOracleJobs+tt.wantNumBootstrapJobs)
+			require.Len(t, out[0].Jobs, tc.wantNumOracleJobs+tc.wantNumBootstrapJobs)
 
 			// These are lines with dynamic values which we cannot compare.
 			linesToStrip := []string{"externalJobID", "transmitterID", "p2pv2Bootstrappers", "ocrKeyBundleID"}
-			wantBootstrapSpec := testutil.StripLineContaining(tt.wantBootstrapSpec, linesToStrip)
-			wantOracleSpec := testutil.StripLineContaining(tt.wantOracleSpec, linesToStrip)
+			wantBootstrapSpec := testutil.StripLineContaining(tc.wantBootstrapSpec, linesToStrip)
+			wantOracleSpec := testutil.StripLineContaining(tc.wantOracleSpec, linesToStrip)
 
 			foundBootstrapJobs := 0
 			foundOracleJobs := 0
@@ -253,8 +256,8 @@ chainID = '90000001'
 					foundOracleJobs++
 				}
 			}
-			require.Equal(t, tt.wantNumBootstrapJobs, foundBootstrapJobs)
-			require.Equal(t, tt.wantNumOracleJobs, foundOracleJobs)
+			require.Equal(t, tc.wantNumBootstrapJobs, foundBootstrapJobs)
+			require.Equal(t, tc.wantNumOracleJobs, foundOracleJobs)
 		})
 	}
 }

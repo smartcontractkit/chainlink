@@ -14,10 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
 
-const (
-	ProductLabel = "data-streams"
-)
-
 // Source for a set of JD filters to apply when fetching a DON.
 // Should uniquely identify a set of nodes in JD which belong to a single DON.
 type ListFilter struct {
@@ -48,7 +44,7 @@ func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 			{
 				Key:   "product",
 				Op:    jdtypesv1.SelectorOp_EQ,
-				Value: pointer.To(ProductLabel),
+				Value: pointer.To(utils.ProductLabel),
 			},
 		},
 	}
@@ -75,7 +71,7 @@ func (f *ListFilter) oraclesFilter() *nodeapiv1.ListNodesRequest_Filter {
 			{
 				Key:   "product",
 				Op:    jdtypesv1.SelectorOp_EQ,
-				Value: pointer.To(ProductLabel),
+				Value: pointer.To(utils.ProductLabel),
 			},
 		},
 	}

@@ -265,7 +265,7 @@ func GetNodeLabels(donID uint64, donName string, env string) []*ptypes.Label {
 		},
 		{
 			Key:   "product",
-			Value: pointer.To(jd.ProductLabel),
+			Value: pointer.To(utils.ProductLabel),
 		},
 	}
 }

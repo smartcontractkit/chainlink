@@ -6,11 +6,30 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
+)
+
+type JobType *string
+
+var (
+	JobTypeLLO    JobType = pointer.To("llo")
+	JobTypeStream JobType = pointer.To("stream")
+)
+
+type DSLabel string
+
+var (
+	LabelJobType  = utils.DSLabel("job-type")
+	LabelStreamID = utils.DSLabel("stream-id")
+	LabelNodeType = utils.DSLabel("node-type")
 )
 
 const (
@@ -64,4 +83,33 @@ func proposeAllOrNothing(ctx context.Context, oc deployment.OffchainClient, prs 
 	}
 
 	return proposedJobs, err
+}
+
+// fetchExternalJobID looks for an existing job that matches the given labels and returns its ID.
+// If no job is found, it returns a nil UUID.
+func fetchExternalJobID(e deployment.Environment, nodeIDs []string, selectors []*ptypes.Selector) (externalJobID uuid.UUID, err error) {
+	jobsResp, err := e.Offchain.ListJobs(e.GetContext(), &job.ListJobsRequest{
+		Filter: &job.ListJobsRequest_Filter{
+			NodeIds:   nodeIDs,
+			Selectors: selectors,
+		},
+	})
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to list jobs: %w", err)
+	}
+
+	switch len(jobsResp.Jobs) {
+	case 0:
+		// No job found, return nil UUID
+	case 1:
+		// One job found, return its ID
+		externalJobID, err = uuid.Parse(jobsResp.Jobs[0].Uuid)
+		if err != nil {
+			err = fmt.Errorf("failed to parse external job ID: %w", err)
+		}
+	default:
+		// More than one job found, return error
+		err = fmt.Errorf("multiple jobs found: %d", len(jobsResp.Jobs))
+	}
+	return externalJobID, err
 }
