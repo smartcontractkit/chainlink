@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	commit_store_helper_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/commit_store_helper"
 	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_onramp"
@@ -1314,27 +1315,48 @@ func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) 
 
 func GetSVMExtraArgsV1(computeUnits uint32, accountIsWritable uint64, accounts []solana.PublicKey) ([]byte, error) {
 	// see Client.sol.
-	SVMV1Tag := hexutil.MustDecode("0x1f3b3aba")
+	tagBytes := hexutil.MustDecode("0x1f3b3aba")
 
 	accountsBytes := make([][32]byte, len(accounts))
 	for i, account := range accounts {
 		accountsBytes[i] = [32]byte(account.Bytes())
 	}
 
-	encodedArgs, err := utils.ABIEncode(`[{"type":"bytes4"},{"type":"uint32"},{"type":"uint64"},{"type":"bool"},{"type":"bytes32"},{"type":"bytes32[]"}]`,
-		[4]byte(SVMV1Tag), // struct tag cast to [4]byte
-		computeUnits,      // compute units
-		accountIsWritable, // account writable bitmap
-		true,              // allow out of order exec
-		[32]byte{0},       // token receiver, not needed for only message passing
-		accountsBytes,     // accounts
-	)
+	fmt.Println("ABI encoding arguments for SVM V1 ExtraArgs:")
+	fmt.Printf("- Tag: %x\n", [4]byte(tagBytes))
+	fmt.Printf("- Compute Units: %d\n", computeUnits)
+	fmt.Printf("- Account Writable Bitmap: %d\n", accountIsWritable)
+	fmt.Printf("- Allow Out of Order: %t\n", true)
+	fmt.Printf("- Token Receiver: %x\n", [32]byte{0x0})
+	fmt.Printf("- Number of Accounts: %d\n", len(accountsBytes))
+	for i, account := range accountsBytes {
+		fmt.Printf("  Account %d: %x\n", i, account)
+	}
+
+	abi, err := message_hasher.MessageHasherMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+
+	data := message_hasher.ClientSVMExtraArgsV1{
+		ComputeUnits:             computeUnits,
+		AccountIsWritableBitmap:  accountIsWritable,
+		AllowOutOfOrderExecution: true,
+		TokenReceiver:            [32]byte{},
+		Accounts:                 accountsBytes,
+	}
+
+	v, err := abi.Methods["encodeSVMExtraArgsV1"].Inputs.Pack(data)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return encodedArgs, nil
+	x := append(tagBytes, v...)
+
+	fmt.Printf("Encoded arguments: %x\n", x)
+	// return x, fmt.Errorf("encoded arguments: %x", x)
+	return x, nil
 }
 
 type ManualExecArgs struct {
