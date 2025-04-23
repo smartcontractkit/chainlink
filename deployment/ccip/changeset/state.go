@@ -308,10 +308,9 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			return nil
 		})
 	}
-	tpUpdateGrp := errgroup.Group{}
 	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tpUpdateGrp.Go(func() error {
+			grp.Go(func() error {
 				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
@@ -325,7 +324,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tpUpdateGrp.Go(func() error {
+			grp.Go(func() error {
 				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
@@ -339,7 +338,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for tokenSymbol, versionToPool := range c.BurnFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tpUpdateGrp.Go(func() error {
+			grp.Go(func() error {
 				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
@@ -353,7 +352,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for tokenSymbol, versionToPool := range c.LockReleaseTokenPools {
 		for _, tokenPool := range versionToPool {
-			tpUpdateGrp.Go(func() error {
+			grp.Go(func() error {
 				tokenPoolView, err := viewv1_5_1.GenerateLockReleaseTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
@@ -364,7 +363,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 	}
 	for _, pool := range c.USDCTokenPools {
-		tpUpdateGrp.Go(func() error {
+		grp.Go(func() error {
 			tokenPoolView, err := viewv1_5_1.GenerateUSDCTokenPoolView(pool)
 			if err != nil {
 				return errors.Wrapf(err, "failed to generate USDC token pool view for %s", pool.Address().String())
@@ -372,10 +371,6 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			chainView.UpdateTokenPool(string(USDCSymbol), pool.Address().Hex(), tokenPoolView)
 			return nil
 		})
-	}
-	// wait for all pool updates to finish to ensure we are not rate limited by rpc end point by a lot of concurrent calls for other contract queries
-	if err := tpUpdateGrp.Wait(); err != nil {
-		return chainView, err
 	}
 	if c.NonceManager != nil {
 		grp.Go(func() error {
