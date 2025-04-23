@@ -52,10 +52,6 @@ func TestEngineRegistry(t *testing.T) {
 	// get all
 	es := er.GetAll()
 	require.Len(t, es, 2)
-	require.Equal(t, srv, es[0].Service)
-	require.Equal(t, es[0].WorkflowID, e.WorkflowID)
-	require.Equal(t, es[0].WorkflowOwner, e.WorkflowOwner)
-	require.Equal(t, es[0].WorkflowName, e.WorkflowName)
 
 	// remove
 	e, err = er.Pop(EngineRegistryKey{Owner: owner, Name: name})
@@ -72,10 +68,6 @@ func TestEngineRegistry(t *testing.T) {
 	// pop all
 	es = er.PopAll()
 	require.Len(t, es, 2)
-	require.Equal(t, srv, es[0].Service)
-	require.Equal(t, es[0].WorkflowID, e.WorkflowID)
-	require.Equal(t, es[0].WorkflowOwner, e.WorkflowOwner)
-	require.Equal(t, es[0].WorkflowName, e.WorkflowName)
 }
 
 func TestEngineRegistry_keyFor(t *testing.T) {

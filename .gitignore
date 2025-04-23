@@ -100,9 +100,6 @@ go.work*
 # This sometimes shows up for some reason
 tools/flakeytests/coverage.txt
 
-# Fuzz tests can create these files
-**/testdata/fuzz/*
-
 # Runtime test configuration that might contain secrets
 override*.toml
 
