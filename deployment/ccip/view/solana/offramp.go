@@ -12,6 +12,7 @@ import (
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -95,7 +96,7 @@ func GetAddressFromBytes(chainSelector uint64, address []byte) string {
 
 	switch family {
 	case chain_selectors.FamilyEVM:
-		return common.BytesToAddress(address).Hex()
+		return common.BytesToAddress(address[:20]).Hex()
 	case chain_selectors.FamilySolana:
 		return base58.Encode(address)
 	default:
