@@ -26,6 +26,7 @@ func buildNoOPEVM(e deployment.Environment, selector uint64) (mcmstypes.Transact
 	if !ok {
 		return mcmstypes.Transaction{}, nil
 	}
+	//nolint
 	addresses, err := e.ExistingAddresses.AddressesForChain(selector)
 	if err != nil {
 		return mcmstypes.Transaction{}, err
@@ -115,6 +116,7 @@ func MCMSSignFireDrillChangeset(e deployment.Environment, cfg FireDrillConfig) (
 		}
 		switch family {
 		case chainsel.FamilyEVM:
+			//nolint
 			addresses, err := e.ExistingAddresses.AddressesForChain(selector)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
@@ -125,6 +127,9 @@ func MCMSSignFireDrillChangeset(e deployment.Environment, cfg FireDrillConfig) (
 			}
 			timelocks[selector] = state.Timelock.Address().String()
 			mcmAddress, err := getMcmAddressFromActionEVM(cfg.TimelockCfg.MCMSAction, state)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
 			mcmAddresses[selector] = mcmAddress
 			tx, err := buildNoOPEVM(e, selector)
 			if err != nil {
@@ -135,6 +140,7 @@ func MCMSSignFireDrillChangeset(e deployment.Environment, cfg FireDrillConfig) (
 				Transactions:  []mcmstypes.Transaction{tx},
 			})
 		case chainsel.FamilySolana:
+			//nolint
 			addresses, err := e.ExistingAddresses.AddressesForChain(selector)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
@@ -145,6 +151,9 @@ func MCMSSignFireDrillChangeset(e deployment.Environment, cfg FireDrillConfig) (
 			}
 			timelocks[selector] = mcmssolanasdk.ContractAddress(state.TimelockProgram, mcmssolanasdk.PDASeed(state.TimelockSeed))
 			mcmAddress, err := getMcmAddressFromActionSol(cfg.TimelockCfg.MCMSAction, state)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
 			mcmAddresses[selector] = mcmAddress
 			tx, err := buildNoOPSolana()
 			if err != nil {
