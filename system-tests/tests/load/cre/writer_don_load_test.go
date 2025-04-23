@@ -1,6 +1,8 @@
 package cre
 
 import (
+	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -16,7 +18,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
@@ -35,9 +39,11 @@ import (
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
+	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 type TestConfigLoadTestWriter struct {
@@ -97,20 +103,14 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	// Load and validate test configuration
 	in, err := framework.Load[TestConfigLoadTest](t)
 	require.NoError(t, err, "couldn't load test config")
-	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
+	require.Len(t, in.NodeSets, 1, "expected 1 node sets in the test config")
 
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
 			{
 				Input:              input[0],
-				Capabilities:       []string{keystonetypes.WriteEVMCapability},
-				DONTypes:           []string{keystonetypes.WorkflowDON},
-				BootstrapNodeIndex: 0,
-			},
-			{
-				Input:              input[1],
-				Capabilities:       []string{keystonetypes.MockCapability},
-				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				Capabilities:       []string{keystonetypes.WriteEVMCapability, keystonetypes.MockCapability, keystonetypes.OCR3Capability},
+				DONTypes:           []string{keystonetypes.CapabilitiesDON, keystonetypes.WorkflowDON},
 				BootstrapNodeIndex: 0,
 			},
 		}
@@ -254,7 +254,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		// Need to add addresses manually
 		mockClientsAddress = []string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}
 	} else {
-		for i := range setupOutput.nodeOutput[1].CLNodes {
+		for i := range setupOutput.nodeOutput[0].CLNodes {
 			// TODO: This is brittle, switch to checking the node label
 			if i == 0 { // Skip bootstrap node
 				continue
@@ -283,6 +283,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
+	//TODO: @george-dorin wait for cap to be exposed
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
@@ -290,7 +291,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			Schedule: wasp.Combine(
 				wasp.Plain(4, 120*time.Minute),
 			),
-			Gun:                   NewWriterGun(mocksClient, kb, "streams-trigger@2.0.0", receiveChannel),
+			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel),
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
@@ -315,6 +316,9 @@ func TestWriteWithReconnect(t *testing.T) {
 	mocksClient, err = mock_capability.NewMockCapabilityControllerFromCache(testLogger, false)
 	require.NoError(t, err, "could not create mock controller")
 
+	caps, err := mocksClient.List(ctx)
+	require.NoError(t, err, "error getting the nodes capabilities")
+	fmt.Println(caps)
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
 
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
@@ -326,14 +330,13 @@ func TestWriteWithReconnect(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	sg := NewWriterGun(mocksClient, kb, "streams-trigger@2.0.0", receiveChannel)
-	time.Sleep(time.Second * 5) // Give time for the report to be generated
+	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel)
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
-				wasp.Plain(4, 15*time.Minute),
+				wasp.Plain(10, 15*time.Minute),
 			),
 			Gun:                   sg,
 			Labels:                labels,
@@ -355,7 +358,6 @@ type WriterGun struct {
 	mu          sync.Mutex
 	event       *capabilities.OCRTriggerEvent
 	eventID     string
-	timestamp   time.Time
 }
 
 func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, triggerID string, ch <-chan capabilities.CapabilityRequest) *WriterGun {
@@ -369,18 +371,81 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 }
 
 func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
+	reportID := [2]byte{0x00, 0x01}
+	reportMetadata := evm.ReportV1Metadata{
+		Version:             1,
+		WorkflowExecutionID: [32]byte{},
+		Timestamp:           0,
+		DonID:               0,
+		DonConfigVersion:    0,
+		WorkflowCID:         [32]byte{},
+		WorkflowName:        [10]byte{},
+		WorkflowOwner:       [20]byte{},
+		ReportID:            reportID,
+	}
 
-	payload, err := s.event.ToMap()
+	reportMetadataBytes, err := reportMetadata.Encode()
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
 	}
 
-	payloadBytes, err := mock_capability.MapToBytes(payload)
+	signatures := [][]byte{}
+
+	validInputs, err := values.NewMap(map[string]any{
+		"signed_report": map[string]any{
+			"report":     reportMetadataBytes,
+			"signatures": signatures,
+			"context":    []byte{4, 5},
+			"id":         reportID[:],
+		},
+	})
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
 	}
 
-	err = s.capProxy.SendTrigger(l.ResponsesCtx, s.triggerID, s.eventID, payloadBytes)
+	validMetadata := capabilities.RequestMetadata{
+		WorkflowID:          hex.EncodeToString(reportMetadata.WorkflowCID[:]),
+		WorkflowOwner:       hex.EncodeToString(reportMetadata.WorkflowOwner[:]),
+		WorkflowName:        hex.EncodeToString(reportMetadata.WorkflowName[:]),
+		WorkflowExecutionID: hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]),
+	}
+
+	validConfig, err := values.NewMap(map[string]any{
+		"Address": testutils.NewAddress().String(),
+	})
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	//gasLimitDefault := uint64(400_000)
+
+	configBytes, err := mock_capability.MapToBytes(validConfig)
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
+	}
+	inputBytes, err := mock_capability.MapToBytes(validInputs)
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	req := &pb2.ExecutableRequest{
+		ID:             s.triggerID,
+		CapabilityType: 4,
+		RequestMetadata: &pb2.Metadata{
+			WorkflowID:               validMetadata.WorkflowID,
+			WorkflowOwner:            validMetadata.WorkflowOwner,
+			WorkflowExecutionID:      validMetadata.WorkflowExecutionID,
+			WorkflowName:             validMetadata.WorkflowName,
+			WorkflowDonID:            validMetadata.WorkflowDonID,
+			WorkflowDonConfigVersion: validMetadata.WorkflowDonConfigVersion,
+			ReferenceID:              validMetadata.ReferenceID,
+			DecodedWorkflowName:      validMetadata.DecodedWorkflowName,
+		},
+		Config: configBytes,
+		Inputs: inputBytes,
+	}
+
+	err = s.capProxy.Execute(context.TODO(), req)
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
 	}

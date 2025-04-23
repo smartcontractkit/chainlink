@@ -10,10 +10,10 @@ mock_capability_binary_path = "/Users/ionita/chainlink/plugins/amd64_mock"
 image = "job-distributor:0.9.0"
 
 [[mock_capabilities]]
-  name="streams-triggeer"
-  version= "2.0.0"
+  name="mock"
+  version= "1.0.0"
   type="trigger"
-  description="streams trigger mock"
+  description="mock for connection"
 
 
 [infra]
@@ -39,11 +39,11 @@ name = "writer"
 [nodesets.db]
 image = "postgres:12.0"
 port = 13000
-volume_name = "workflow_volume"
+volume_name = "writer_volume"
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:pr-17349-7d15031-plugins-amd64"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -57,31 +57,4 @@ user_config_overrides = """
         ListenAddresses = ['0.0.0.0:5001']
         [LOG]
         Level='debug'
-      """
-[[nodesets]]
-nodes = 4
-override_mode = "all"
-http_port_range_start = 10200
-name = "capabilities"
-
-[nodesets.db]
-image = "postgres:12.0"
-port = 13200
-
-[[nodesets.node_specs]]
-[nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
-#image = "localhost:5001/chainlink:develop"
-user_config_overrides = """
-      [Feature]
-      LogPoller = true
-      FeedsManager = true
-      [OCR2]
-      Enabled = true
-      DatabaseTimeout = '1s'
-      [P2P.V2]
-      Enabled = true
-      ListenAddresses = ['0.0.0.0:5001']
-      [LOG]
-      Level='debug'
       """
