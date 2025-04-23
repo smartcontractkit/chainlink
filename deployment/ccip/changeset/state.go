@@ -581,14 +581,14 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 
 	if c.EVM2EVMOffRamp != nil {
 		grp.Go(func() error {
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
 			for source, offRamp := range c.EVM2EVMOffRamp {
 				offRampView, err := viewv1_5.GenerateOffRampView(offRamp)
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate off ramp view for off ramp %s for source %d", offRamp.Address().String(), source)
 				}
-				chainView.UpdateMu.Lock()
 				chainView.EVM2EVMOffRamp[offRamp.Address().Hex()] = offRampView
-				chainView.UpdateMu.Unlock()
 			}
 			return nil
 		})
@@ -596,14 +596,14 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 
 	if c.EVM2EVMOnRamp != nil {
 		grp.Go(func() error {
+			chainView.UpdateMu.Lock()
+			defer chainView.UpdateMu.Unlock()
 			for dest, onRamp := range c.EVM2EVMOnRamp {
 				onRampView, err := viewv1_5.GenerateOnRampView(onRamp)
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate on ramp view for on ramp %s for dest %d", onRamp.Address().String(), dest)
 				}
-				chainView.UpdateMu.Lock()
 				chainView.EVM2EVMOnRamp[onRamp.Address().Hex()] = onRampView
-				chainView.UpdateMu.Unlock()
 			}
 			return nil
 		})
