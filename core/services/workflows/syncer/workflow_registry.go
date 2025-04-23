@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const name = "WorkflowRegistrySyncer"
@@ -45,7 +46,7 @@ type GetWorkflowMetadataListByDONParams struct {
 }
 
 type GetWorkflowMetadata struct {
-	WorkflowID   WorkflowID
+	WorkflowID   wftypes.WorkflowID
 	Owner        []byte
 	DonID        uint32
 	Status       uint8

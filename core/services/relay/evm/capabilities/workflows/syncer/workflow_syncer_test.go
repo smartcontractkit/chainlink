@@ -22,7 +22,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -35,7 +34,6 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
@@ -635,12 +633,6 @@ func (m *mockService) Ready() error { return nil }
 
 func (m *mockService) Name() string { return "svc" }
 
-type mockEngineFactory struct{}
-
-func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
-	return &mockService{}, nil
-}
-
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
@@ -677,7 +669,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
-	mf := &mockEngineFactory{}
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
@@ -687,7 +678,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
 	handler, err := syncer.NewEventHandler(lggr, nil, nil, er,
-		emitter, rl, wl, store, syncer.WithEngineFactoryFn(mf.new))
+		emitter, rl, wl, store, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(

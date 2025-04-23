@@ -9,40 +9,29 @@ import (
 	"github.com/dominikbraun/graph"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 
-type WorkflowNamer interface {
-	// Should be 10 bytes, hex-encoded (i.e. 20 characters long)
-	// Used in the metadata we send onchain and for authorizing
-	// the workflow with the consumer
-	// TODO: in practice we validate that this can be max 10 bytes (rather than exactly 10),
-	// but this should be avoided due to a bug in the consensus capability.
-	Hex() string
-
-	// Human-readable version of the name
-	// This has no restriction on size, and is only
-	// used for logging and metrics.
-	String() string
-}
-
-type defaultName struct {
+// LegacyWorkflowName is used for YAML workflows only.
+// It has to be exactly 10 bytes long and Hex() encodes it without hashing.
+type legacyWorkflowName struct {
 	name string
 }
 
-func (d defaultName) Hex() string {
+func (d legacyWorkflowName) Hex() string {
 	return hex.EncodeToString([]byte(d.name))
 }
 
-func (d defaultName) String() string {
+func (d legacyWorkflowName) String() string {
 	return d.name
 }
 
-func NewNamer(name string) WorkflowNamer {
-	return defaultName{name: name}
+func NewLegacyWorkflowName(name string) types.WorkflowName {
+	return legacyWorkflowName{name: name}
 }
 
 // workflow is a directed graph of nodes, where each node is a step.
@@ -53,7 +42,7 @@ func NewNamer(name string) WorkflowNamer {
 type workflow struct {
 	id    string
 	owner string
-	name  WorkflowNamer
+	name  types.WorkflowName
 	graph.Graph[string, *step]
 
 	triggers []*triggerCapability

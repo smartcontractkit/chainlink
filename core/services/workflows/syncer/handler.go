@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
@@ -60,7 +61,7 @@ type WorkflowRegistryForceUpdateSecretsRequestedV1 struct {
 }
 
 type WorkflowRegistryWorkflowRegisteredV1 struct {
-	WorkflowID    WorkflowID
+	WorkflowID    types.WorkflowID
 	WorkflowOwner []byte
 	DonID         uint32
 	Status        uint8
@@ -71,10 +72,10 @@ type WorkflowRegistryWorkflowRegisteredV1 struct {
 }
 
 type WorkflowRegistryWorkflowUpdatedV1 struct {
-	OldWorkflowID WorkflowID
+	OldWorkflowID types.WorkflowID
 	WorkflowOwner []byte
 	DonID         uint32
-	NewWorkflowID WorkflowID
+	NewWorkflowID types.WorkflowID
 	WorkflowName  string
 	BinaryURL     string
 	ConfigURL     string
@@ -83,27 +84,27 @@ type WorkflowRegistryWorkflowUpdatedV1 struct {
 }
 
 type WorkflowRegistryWorkflowPausedV1 struct {
-	WorkflowID    WorkflowID
+	WorkflowID    types.WorkflowID
 	WorkflowOwner []byte
 	DonID         uint32
 	WorkflowName  string
 }
 
 type WorkflowRegistryWorkflowActivatedV1 struct {
-	WorkflowID    WorkflowID
+	WorkflowID    types.WorkflowID
 	WorkflowOwner []byte
 	DonID         uint32
 	WorkflowName  string
 }
 
 type WorkflowRegistryWorkflowDeletedV1 struct {
-	WorkflowID    WorkflowID
+	WorkflowID    types.WorkflowID
 	WorkflowOwner []byte
 	DonID         uint32
 	WorkflowName  string
 }
 
-type engineFactoryFn func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error)
+type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error)
 
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding
 // method that handles the event.
@@ -134,6 +135,14 @@ func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.engineFactory = efn
+	}
+}
+
+func WithStaticEngine(engine services.Service) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ []byte, _ []byte) (services.Service, error) {
+			return engine, nil
+		}
 	}
 }
 
@@ -321,46 +330,6 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 	}
 }
 
-type workflowName struct {
-	name string
-}
-
-func (w workflowName) String() string {
-	return w.name
-}
-
-func (w workflowName) Hex() string {
-	// Internal workflow names must not exceed 10 bytes for workflow engine and on-chain use.
-	// A name is used internally that is first hashed to avoid collisions,
-	// hex encoded to ensure UTF8 encoding, then truncated to 10 bytes.
-	truncatedName := pkgworkflows.HashTruncateName(w.name)
-	hexName := hex.EncodeToString([]byte(truncatedName))
-	return hexName
-}
-
-type WorkflowID [32]byte
-
-func (w WorkflowID) Hex() string {
-	return hex.EncodeToString(w[:])
-}
-
-func (w WorkflowID) Equal(o WorkflowID) bool {
-	return w.Hex() == o.Hex()
-}
-
-func WorkflowIDFromHex(h string) (WorkflowID, error) {
-	b, err := hex.DecodeString(h)
-	if err != nil {
-		return [32]byte{}, err
-	}
-
-	if len(b) != 32 {
-		return [32]byte{}, fmt.Errorf("invalid workflow id: incorrect length, expected 32, got %d", len(b))
-	}
-
-	return WorkflowID([32]byte(b)), nil
-}
-
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
 // This method must remain idempotent and must not error if retried multiple times.
 // workflowRegisteredEvent proceeds in two phases:
@@ -468,7 +437,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	}
 
 	// Pre-check: verify that the workflowID matches; if it doesn't abort and log an error via Beholder.
-	if !WorkflowID(hash).Equal(payload.WorkflowID) {
+	if !types.WorkflowID(hash).Equal(payload.WorkflowID) {
 		return nil, fmt.Errorf("workflowID mismatch: %x != %x", hash, payload.WorkflowID)
 	}
 
@@ -499,7 +468,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	return entry, nil
 }
 
-func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
+func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
 	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
 	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
@@ -536,7 +505,9 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		CapRegistry:     h.capRegistry,
 		ExecutionsStore: h.workflowStore,
 
-		WorkflowID: workflowID,
+		WorkflowID:    workflowID,
+		WorkflowOwner: owner,
+		WorkflowName:  name,
 
 		Limits: v2.EngineLimits{}, // all defaults
 	}
@@ -695,13 +666,15 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	}
 
 	// Start a new WorkflowEngine instance, and add it to local engine registry
+	workflowName, err := types.NewWorkflowName(spec.WorkflowName)
+	if err != nil {
+		return fmt.Errorf("invalid workflow name: %w", err)
+	}
 	engine, err := h.engineFactory(
 		ctx,
 		spec.WorkflowID,
 		spec.WorkflowOwner,
-		workflowName{
-			name: spec.WorkflowName,
-		},
+		workflowName,
 		[]byte(spec.Config),
 		decodedBinary,
 	)
@@ -718,7 +691,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return err
 	}
 
-	wid, err := WorkflowIDFromHex(spec.WorkflowID)
+	wid, err := types.WorkflowIDFromHex(spec.WorkflowID)
 	if err != nil {
 		return err
 	}
