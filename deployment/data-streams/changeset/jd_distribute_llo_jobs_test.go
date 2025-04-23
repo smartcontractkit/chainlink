@@ -136,7 +136,6 @@ chainID = '90000001'
 
 	tests := []struct {
 		name                 string
-		config               CsDistributeLLOJobSpecsConfig
 		prepConfFn           func(CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig
 		wantErr              *string
 		wantOracleSpec       string
@@ -146,7 +145,6 @@ chainID = '90000001'
 	}{
 		{
 			name:                 "success",
-			config:               config,
 			wantOracleSpec:       oracleSpec,
 			wantBootstrapSpec:    bootstrapSpec,
 			wantNumOracleJobs:    2,
@@ -155,15 +153,13 @@ chainID = '90000001'
 		{
 			// This test only makes sense when run after "success" because the two use the same ExternalJobID.
 			name:                 "success proposing updates to existing jobs",
-			config:               config,
 			wantOracleSpec:       oracleSpec,
 			wantBootstrapSpec:    bootstrapSpec,
 			wantNumOracleJobs:    2,
 			wantNumBootstrapJobs: 1,
 		},
 		{
-			name:   "success when sending jobs to a subset of nodes",
-			config: config,
+			name: "success when sending jobs to a subset of nodes",
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
 				c.NodeNames = append(bootstrapNodeNames, oracleNodeNames[:1]...) //nolint: gocritic
 				c.Filter = &jd.ListFilter{
@@ -181,8 +177,7 @@ chainID = '90000001'
 			wantNumBootstrapJobs: 1,
 		},
 		{
-			name:   "success when sending jobs to the remaining nodes",
-			config: config,
+			name: "success when sending jobs to the remaining nodes",
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
 				c.NodeNames = []string{oracleNodeNames[0]}
 				c.Filter = &jd.ListFilter{
@@ -200,8 +195,7 @@ chainID = '90000001'
 			wantNumBootstrapJobs: 0,
 		},
 		{
-			name:   "missing channel config store",
-			config: config,
+			name: "missing channel config store",
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
 				c.ChannelConfigStoreAddr = common.Address{}
 				return c
@@ -209,8 +203,7 @@ chainID = '90000001'
 			wantErr: pointer.To("channel config store address is required"),
 		},
 		{
-			name:   "missing servers",
-			config: config,
+			name: "missing servers",
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
 				c.Servers = nil
 				return c
@@ -221,9 +214,9 @@ chainID = '90000001'
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			conf := tc.config
+			conf := config
 			if tc.prepConfFn != nil {
-				conf = tc.prepConfFn(tc.config)
+				conf = tc.prepConfFn(conf)
 			}
 			_, out, err := changeset.ApplyChangesetsV2(t,
 				env,

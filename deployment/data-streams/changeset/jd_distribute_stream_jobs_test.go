@@ -137,7 +137,6 @@ ask_price [type=median allowedFaults=3 index=2];
 
 	tests := []struct {
 		name        string
-		config      CsDistributeStreamJobSpecsConfig
 		prepConfFn  func(CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig
 		wantErr     *string
 		wantSpec    string
@@ -145,21 +144,18 @@ ask_price [type=median allowedFaults=3 index=2];
 	}{
 		{
 			name:        "success",
-			config:      config,
 			wantSpec:    renderedSpec,
 			wantNumJobs: 3,
 		},
 		{
 			// This test only makes sense when run after "success" because the two use the same ExternalJobID.
 			name:        "success proposing updates to existing jobs",
-			config:      config,
 			wantSpec:    renderedSpec,
 			wantNumJobs: 3,
 		},
 		{
 			// This happens to also be a job update when run after "success" because the two use the same ExternalJobID.
-			name:   "success sending jobs to a subset of nodes",
-			config: config,
+			name: "success sending jobs to a subset of nodes",
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
 				c.NodeNames = []string{"node-0"}
 				c.Filter = &jd.ListFilter{
@@ -175,8 +171,7 @@ ask_price [type=median allowedFaults=3 index=2];
 		},
 		{
 			// This happens to also be a job update when run after "success" because the two use the same ExternalJobID.
-			name:   "success sending jobs to a different subset of nodes",
-			config: config,
+			name: "success sending jobs to a different subset of nodes",
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
 				c.NodeNames = []string{"node-1", "node-2"}
 				c.Filter = &jd.ListFilter{
@@ -191,8 +186,7 @@ ask_price [type=median allowedFaults=3 index=2];
 			wantNumJobs: 2,
 		},
 		{
-			name:   "failure when the node name is not found",
-			config: config,
+			name: "failure when the node name is not found",
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
 				c.NodeNames = []string{"non-existing-node"}
 				c.Filter = &jd.ListFilter{
@@ -209,9 +203,9 @@ ask_price [type=median allowedFaults=3 index=2];
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			conf := tc.config
+			conf := config
 			if tc.prepConfFn != nil {
-				conf = tc.prepConfFn(tc.config)
+				conf = tc.prepConfFn(conf)
 			}
 			_, out, err := changeset.ApplyChangesetsV2(t,
 				env,

@@ -18,11 +18,11 @@ const (
 )
 
 var (
-	LabelJobType     = "job-type"
-	LabelStreamID    = "stream-id"
-	LabelNodeType    = "node-type"
 	LabelEnvironment = "environment"
+	LabelJobType     = "jobType"
+	LabelNodeType    = "nodeType"
 	LabelProduct     = "product"
+	LabelStreamID    = "streamID"
 )
 
 // DonIdentifier generates a unique identifier for a DON based on its ID and name.
