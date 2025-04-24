@@ -521,7 +521,7 @@ func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, er
 		return false, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	pda, _, err := solState.FindOfframpSourceChainPDA(selector, state.SolChains[c.selector].OffRampStatePDA)
+	pda, _, err := solState.FindOfframpSourceChainPDA(selector, state.SolChains[c.selector].OffRamp)
 	if err != nil {
 		return false, fmt.Errorf("failed to find offramp source chain pda: %w", err)
 	}

@@ -237,8 +237,8 @@ func TestRMNCurseNoConnectedLanes(t *testing.T) {
 	verifyTestCaseAssertions(t, &e, CurseTestCase{
 		curseAssertions: []curseAssertion{
 			{chainID: 0, globalCurse: true, cursed: true},
-			{chainID: 0, subject: 1, cursed: true},
-			{chainID: 0, subject: 2, cursed: true},
+			{chainID: 0, subject: 1, cursed: true}, // 0 is globally cursed return true for everything
+			{chainID: 0, subject: 2, cursed: true}, // 0 is globally cursed return true for everything
 			{chainID: 1, subject: 0, cursed: false},
 			{chainID: 1, subject: 2, cursed: false},
 			{chainID: 2, subject: 0, cursed: false},
@@ -286,10 +286,10 @@ func TestRMNCurseOneConnectedLanes(t *testing.T) {
 		curseAssertions: []curseAssertion{
 			{chainID: 0, globalCurse: true, cursed: true},
 			{chainID: 0, subject: 1, cursed: true},
-			{chainID: 0, subject: 2, cursed: true},
+			{chainID: 0, subject: 2, cursed: true}, // 2 is not connected to 0 but 0 is globally cursed return true for everything
 			{chainID: 1, subject: 0, cursed: true},
 			{chainID: 1, subject: 2, cursed: false},
-			{chainID: 2, subject: 0, cursed: true},
+			{chainID: 2, subject: 0, cursed: false}, // 2 is not connected to 0
 			{chainID: 2, subject: 1, cursed: false},
 		},
 	}, mapIDToSelector)
@@ -307,6 +307,7 @@ func TestRMNCurseOneConnectedLanesSolana(t *testing.T) {
 		UpdatesByChain: map[uint64]ccipChangesetSolana.OffRampConfig{
 			mapIDToSelector(0): {
 				EnabledAsSource: true,
+				IsUpdate:        false,
 			},
 		},
 	})
