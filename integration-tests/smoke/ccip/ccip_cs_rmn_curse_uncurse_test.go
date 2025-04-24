@@ -150,14 +150,14 @@ var testCases = []CurseTestCase{
 	},
 }
 
-func TestRMNCurse(t *testing.T) {
+func TestRMNCurseBase(t *testing.T) {
 	t.Parallel()
 	for _, tc := range testCases {
 		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
 			runRmnCurseTest(t, tc)
 		})
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
-			runRmnCurseMCMSTest(t, tc, types.TimelockActionSchedule)
+			runRmnCurseMCMSTest(t, tc, types.TimelockActionBypass)
 		})
 	}
 }
