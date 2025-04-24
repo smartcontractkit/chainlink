@@ -514,16 +514,9 @@ func BuildMcmAddressesPerChainByAction(e deployment.Environment, onchainState CC
 	for selector, chain := range e.SolChains {
 		addresses, _ := addressForChain(e, selector)
 		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-		var address string
-		switch mcmCfg.MCMSAction {
-		case mcmstypes.TimelockActionBypass:
-			address = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.BypasserMcmSeed))
-		case mcmstypes.TimelockActionSchedule:
-			address = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
-		case mcmstypes.TimelockActionCancel:
-			address = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.CancellerMcmSeed))
-		default:
-			return nil, fmt.Errorf("unsupported action %s for chain %d", mcmCfg.MCMSAction, selector)
+		address, err := mcmCfg.MCMBasedOnActionSolana(*mcmState)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mcms for action %s: %w", mcmCfg.MCMSAction, err)
 		}
 		addressPerChain[selector] = address
 	}
@@ -532,15 +525,5 @@ func BuildMcmAddressesPerChainByAction(e deployment.Environment, onchainState CC
 }
 
 func addressForChain(e deployment.Environment, selector uint64) (map[string]deployment.TypeAndVersion, error) {
-	// addresses := e.DataStore.Addresses()
-	// addressesForChain := addresses.Filter(datastore.AddressRefByChainSelector(selector))
-	// addressesByType := make(map[string]deployment.TypeAndVersion)
-	// for _, address := range addressesForChain {
-	// 	addressesByType[address.Address] = deployment.TypeAndVersion{
-	// 		Type:    deployment.ContractType(address.Type),
-	// 		Version: *address.Version,
-	// 	}
-	// }
-
 	return e.ExistingAddresses.AddressesForChain(selector) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
 }
