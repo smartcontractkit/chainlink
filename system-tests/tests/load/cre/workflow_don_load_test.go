@@ -36,6 +36,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -128,12 +129,15 @@ func setupLoadTestEnvironment(
 
 	// Set inputs in the test config, so that they can be saved
 	in.KeystoneContracts = &keystonetypes.KeystoneContractsInput{}
-	in.KeystoneContracts.Out = universalSetupOutput.KeystoneContractsOutput
+	// in.KeystoneContracts.Out = universalSetupOutput.KeystoneContractsOutput
 	in.WorkflowRegistryConfiguration = &keystonetypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
+	forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, keystone_changeset.KeystoneForwarder.String())
+	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+
 	return &loadTestSetupOutput{
-		forwarderAddress: universalSetupOutput.KeystoneContractsOutput.ForwarderAddress,
+		forwarderAddress: forwarderAddress,
 		blockchainOutput: universalSetupOutput.BlockchainOutput,
 		donTopology:      universalSetupOutput.DonTopology,
 		nodeOutput:       universalSetupOutput.NodeOutput,

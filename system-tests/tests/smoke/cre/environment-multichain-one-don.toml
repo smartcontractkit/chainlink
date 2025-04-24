@@ -1,4 +1,5 @@
 
+# first one is the home chain
 [[blockchains]]
   chain_id = "1337"
   port = "8545"
@@ -36,9 +37,25 @@
 
     [nodesets.node_specs.node]
       image = "chainlink-tmp:latest"
-      user_config_overrides = "            [Telemetry]\n            Enabled = true\n            Endpoint = 'host.docker.internal:4317'\n            InsecureConnection = true\n            TraceSampleRatio = 1\n\n            [Log]\n            Level = 'debug'\n            JSONConsole = true\n\n            [Feature]\n\t\t\tLogPoller = true\n\n\t\t\t[OCR2]\n\t\t\tEnabled = true\n\t\t\tDatabaseTimeout = '1s'\n\n\t\t\t[P2P.V2]\n\t\t\tEnabled = true\n\t\t\tListenAddresses = ['0.0.0.0:5001']\n      "
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
 
 [workflow_config]
+  # feedIDs differ by one digit, look closely
   feed_ids = ["018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"]
   should_compile_new_workflow = true
   use_cre_cli = true

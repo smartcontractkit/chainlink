@@ -617,10 +617,10 @@ type CapabilitiesBinaryPathFactoryFn = func(donMetadata *DonMetadata) ([]string,
 type JobSpecFactoryFn = func(input *JobSpecFactoryInput) (DonsToJobSpecs, error)
 
 type JobSpecFactoryInput struct {
-	CldEnvironment          *deployment.Environment
-	BlockchainOutput        *blockchain.Output
-	DonTopology             *DonTopology
-	KeystoneContractsOutput *KeystoneContractsOutput
+	CldEnvironment   *deployment.Environment
+	BlockchainOutput *blockchain.Output
+	DonTopology      *DonTopology
+	AddressBook      deployment.AddressBook
 }
 
 type RegisterWorkflowWithCRECLIInput struct {

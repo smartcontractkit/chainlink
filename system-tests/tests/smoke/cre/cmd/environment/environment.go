@@ -162,12 +162,16 @@ var startCmd = &cobra.Command{
 		sErr := func() error {
 			creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
 				homeChainOut.SethClient.MustGetRootKeyAddress(),
-				output.KeystoneContractsOutput.CapabilitiesRegistryAddress,
-				output.KeystoneContractsOutput.WorkflowRegistryAddress,
-				nil,
+				output.CldEnvironment.ExistingAddresses,
+				// output.KeystoneContractsOutput.CapabilitiesRegistryAddress,
+				// output.KeystoneContractsOutput.WorkflowRegistryAddress,
+				// nil,
 				output.DonTopology.WorkflowDonID,
 				homeChainOut.ChainSelector,
-				homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
+				map[uint64]string{
+					homeChainOut.ChainSelector: homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+				},
+			)
 
 			if settingsErr != nil {
 				return settingsErr
@@ -378,7 +382,7 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		webapi.WebAPIJobSpecFactoryFn,
 		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(chainIDInt))),
 		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.CronCapabilityBinaryPath))),
-		cregateway.GatewayJobSpecFactoryFn(libc.MustSafeUint64(int64(chainIDInt)), []int{}, []string{}, []string{"0.0.0.0/0"}),
+		cregateway.GatewayJobSpecFactoryFn([]int{}, []string{}, []string{"0.0.0.0/0"}),
 		crecompute.ComputeJobSpecFactoryFn,
 	}
 

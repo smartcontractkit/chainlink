@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment"
+	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
+	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -29,6 +31,7 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
@@ -42,13 +45,13 @@ import (
 )
 
 type multiPorSetupOutput struct {
-	priceProvider           PriceProvider
-	dataFeedsCacheAddresses []common.Address
-	forwarderAddresses      []common.Address
-	sethClients             []*seth.Client
-	blockchainsOutput       []*blockchain.Output
-	donTopology             *keystonetypes.DonTopology
-	nodeOutput              []*keystonetypes.WrappedNodeOutput
+	priceProvider                   PriceProvider
+	addressBook                     deployment.AddressBook
+	chainSelectorToSethClient       map[uint64]*seth.Client
+	chainSelectorToBlockchainOutput map[uint64]*blockchain.Output
+	donTopology                     *keystonetypes.DonTopology
+	nodeOutput                      []*keystonetypes.WrappedNodeOutput
+	chainSelectorToFeedID           map[uint64]string
 }
 
 func setupPoRMultiChainTestEnvironment(
@@ -118,18 +121,28 @@ func setupPoRMultiChainTestEnvironment(
 		}
 	}
 
-	var dataFeedsCacheAddresses []common.Address
+	chainSelectorToFeedID := make(map[uint64]string)
+	chainSelectorToSethClient := make(map[uint64]*seth.Client)
+	chainSelectorToBlockchainOutput := make(map[uint64]*blockchain.Output)
 
 	for idx, bo := range universalSetupOutput.BlockchainOutput {
-		workflowName := in.WorkflowConfig.WorkflowName + "-" + fmt.Sprint(bo.ChainID)
-		deployDataFeedsInput := &keystonetypes.DeployDataFeedsCacheInput{
-			ChainSelector: bo.ChainSelector,
-			CldEnv:        universalSetupOutput.CldEnvironment,
-		}
-		deployDataFeedsCacheOutput, dfErr := libcontracts.DeployDataFeedsCache(testLogger, deployDataFeedsInput)
-		require.NoError(t, dfErr, "failed to deploy data feeds cache")
+		chainSelectorToFeedID[bo.ChainSelector] = in.WorkflowConfig.FeedIDs[idx]
+		chainSelectorToSethClient[bo.ChainSelector] = bo.SethClient
+		chainSelectorToBlockchainOutput[bo.ChainSelector] = bo.BlockchainOutput
 
-		dataFeedsCacheAddresses = append(dataFeedsCacheAddresses, deployDataFeedsCacheOutput.DataFeedsCacheAddress)
+		workflowName := in.WorkflowConfig.WorkflowName + "-" + fmt.Sprint(bo.ChainID)
+
+		deployConfig := df_changeset_types.DeployConfig{
+			ChainsToDeploy: []uint64{bo.ChainSelector},
+			Labels:         []string{"data-feeds"}, // label required by the changeset
+		}
+
+		dfOutput, dfErr := df_changeset.RunChangeset(df_changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
+		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
+
+		mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook)
+		require.NoError(t, mergeErr, "failed to merge address book")
+
 		var creCLIAbsPath string
 		var creCLISettingsFile *os.File
 		if in.WorkflowConfig.UseCRECLI {
@@ -153,48 +166,35 @@ func setupPoRMultiChainTestEnvironment(
 			require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 		}
 
-		chainAddrBook, addrErr := universalSetupOutput.CldEnvironment.ExistingAddresses.AddressesForChain(bo.ChainSelector)
-		require.NoError(t, addrErr, "failed to get existing addresses for chain %d", bo.ChainSelector)
-
-		var forwarderAddr common.Address
-		for addrStr, tv := range chainAddrBook {
-			if strings.Contains(tv.String(), "KeystoneForwarder") {
-				forwarderAddr = common.HexToAddress(addrStr)
-				break
-			}
-		}
-
 		dfConfigInput := &configureDataFeedsCacheInput{
-			useCRECLI:             in.WorkflowConfig.UseCRECLI,
-			chainSelector:         bo.ChainSelector,
-			fullCldEnvironment:    universalSetupOutput.CldEnvironment,
-			forwarderAddress:      forwarderAddr,
-			dataFeedsCacheAddress: deployDataFeedsCacheOutput.DataFeedsCacheAddress,
-			workflowName:          workflowName,
-			feedID:                in.WorkflowConfig.FeedIDs[idx],
-			sethClient:            bo.SethClient,
-			blockchain:            bo.BlockchainOutput,
-			creCLIAbsPath:         creCLIAbsPath,
-			settingsFile:          creCLISettingsFile,
-			deployerPrivateKey:    bo.DeployerPrivateKey,
+			useCRECLI:          in.WorkflowConfig.UseCRECLI,
+			chainSelector:      bo.ChainSelector,
+			fullCldEnvironment: universalSetupOutput.CldEnvironment,
+			workflowName:       workflowName,
+			feedID:             in.WorkflowConfig.FeedIDs[idx],
+			sethClient:         bo.SethClient,
+			blockchain:         bo.BlockchainOutput,
+			creCLIAbsPath:      creCLIAbsPath,
+			settingsFile:       creCLISettingsFile,
+			deployerPrivateKey: bo.DeployerPrivateKey,
 		}
 		dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
 		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
 
 		registerInput := registerPoRWorkflowInput{
-			WorkflowConfig:          in.WorkflowConfig,
-			workflowName:            workflowName,
-			chainSelector:           bo.ChainSelector,
-			workflowDonID:           universalSetupOutput.DonTopology.WorkflowDonID,
-			feedID:                  in.WorkflowConfig.FeedIDs[idx],
-			workflowRegistryAddress: universalSetupOutput.KeystoneContractsOutput.WorkflowRegistryAddress,
-			dataFeedsCacheAddress:   deployDataFeedsCacheOutput.DataFeedsCacheAddress,
-			priceProvider:           priceProvider,
-			sethClient:              bo.SethClient,
-			deployerPrivateKey:      bo.DeployerPrivateKey,
-			creCLIAbsPath:           creCLIAbsPath,
-			creCLIsettingsFile:      creCLISettingsFile,
-			writeTargetName:         corevm.GenerateWriteTargetName(bo.ChainID),
+			WorkflowConfig:     in.WorkflowConfig,
+			workflowName:       workflowName,
+			homeChainSelector:  homeChainOutput.ChainSelector,
+			chainSelector:      bo.ChainSelector,
+			workflowDonID:      universalSetupOutput.DonTopology.WorkflowDonID,
+			feedID:             in.WorkflowConfig.FeedIDs[idx],
+			addressBook:        universalSetupOutput.CldEnvironment.ExistingAddresses,
+			priceProvider:      priceProvider,
+			sethClient:         bo.SethClient,
+			deployerPrivateKey: bo.DeployerPrivateKey,
+			creCLIAbsPath:      creCLIAbsPath,
+			creCLIsettingsFile: creCLISettingsFile,
+			writeTargetName:    corevm.GenerateWriteTargetName(bo.ChainID),
 		}
 
 		workflowErr := registerPoRWorkflow(registerInput)
@@ -203,7 +203,7 @@ func setupPoRMultiChainTestEnvironment(
 	// Workflow-specific configuration -- END
 
 	// Set inputs in the test config, so that they can be saved
-	//TODO this should be a map
+	//TODO this should be a map, do it in a separate ticket
 	// in.KeystoneContracts = &keystonetypes.KeystoneContractsInput{
 	// 	Out: universalSetupOutput.KeystoneContractsOutput,
 	// }
@@ -216,20 +216,15 @@ func setupPoRMultiChainTestEnvironment(
 	// 	Out: universalSetupOutput.WorkflowRegistryConfigurationOutput,
 	// }
 
-	ret := &multiPorSetupOutput{
-		priceProvider:           priceProvider,
-		dataFeedsCacheAddresses: dataFeedsCacheAddresses,
-		donTopology:             universalSetupOutput.DonTopology,
-		nodeOutput:              universalSetupOutput.NodeOutput,
+	return &multiPorSetupOutput{
+		priceProvider:                   priceProvider,
+		chainSelectorToSethClient:       chainSelectorToSethClient,
+		chainSelectorToBlockchainOutput: chainSelectorToBlockchainOutput,
+		donTopology:                     universalSetupOutput.DonTopology,
+		nodeOutput:                      universalSetupOutput.NodeOutput,
+		addressBook:                     universalSetupOutput.CldEnvironment.ExistingAddresses,
+		chainSelectorToFeedID:           chainSelectorToFeedID,
 	}
-
-	for _, bo := range universalSetupOutput.BlockchainOutput {
-		ret.forwarderAddresses = append(ret.forwarderAddresses, universalSetupOutput.KeystoneContractsOutput.ForwarderAddress)
-		ret.sethClients = append(ret.sethClients, bo.SethClient)
-		ret.blockchainsOutput = append(ret.blockchainsOutput, bo.BlockchainOutput)
-	}
-
-	return ret
 }
 
 // config file to use: environment-multichain-one-don.toml
@@ -281,8 +276,14 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
-			for idx, feedID := range in.WorkflowConfig.FeedIDs {
-				logTestInfo(testLogger, feedID, in.WorkflowConfig.WorkflowName, setupOutput.dataFeedsCacheAddresses[idx].Hex(), setupOutput.forwarderAddresses[idx].Hex())
+			for chainSelector, feedID := range setupOutput.chainSelectorToFeedID {
+				dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, df_changeset.DataFeedsCache.String())
+				require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
+
+				forwarderAddresses, forwarderErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, keystone_changeset.KeystoneForwarder.String())
+				require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", chainSelector)
+
+				logTestInfo(testLogger, feedID, in.WorkflowConfig.WorkflowName, dataFeedsCacheAddresses.Hex(), forwarderAddresses.Hex())
 
 				// log scanning is not supported for CRIB
 				if in.Infra.InfraType == libtypes.CRIB {
@@ -318,7 +319,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 
 				debugInput := keystonetypes.DebugInput{
 					DebugDons:        debugDons,
-					BlockchainOutput: setupOutput.blockchainsOutput[idx],
+					BlockchainOutput: setupOutput.chainSelectorToBlockchainOutput[chainSelector],
 					InfraInput:       in.Infra,
 				}
 				lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
@@ -326,17 +327,20 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 		}
 	})
 
-	for idx, feedID := range in.WorkflowConfig.FeedIDs {
+	for chainSelector, feedID := range setupOutput.chainSelectorToFeedID {
 		testLogger.Info().Msgf("Waiting for feed %s to update...", feedID)
 		timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
 
-		dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(setupOutput.dataFeedsCacheAddresses[idx], setupOutput.sethClients[idx].Client)
+		dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, df_changeset.DataFeedsCache.String())
+		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
+
+		dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(dataFeedsCacheAddresses, setupOutput.chainSelectorToSethClient[chainSelector].Client)
 		require.NoError(t, instanceErr, "failed to create data feeds cache instance")
 
 		startTime := time.Now()
 		assert.Eventually(t, func() bool {
 			elapsed := time.Since(startTime).Round(time.Second)
-			price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClients[idx].NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
+			price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.chainSelectorToSethClient[chainSelector].NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
 			require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
 
 			// if there are no more prices to be found, we can stop waiting
