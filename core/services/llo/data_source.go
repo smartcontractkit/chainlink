@@ -168,7 +168,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			defer wg.Done()
 
 			// check for valid cached value
-			cacheKey := fmt.Sprintf("%d", streamID)
+			cacheKey := strconv.FormatUint(uint64(streamID), 10)
 
 			if d.shouldCache.Load() {
 				if cachedVal, found := d.cache.Get(cacheKey); found && cachedVal != nil {
