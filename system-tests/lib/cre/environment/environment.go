@@ -131,9 +131,11 @@ func SetupTestEnvironment(
 
 	homeChainOutput := blockchainsOutput[0]
 
+	// Home chain, where we deploy the Keystone
+
 	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability, workflow registry)
 	// but first, we need to create deployment.Environment that will contain only chain information in order to deploy contracts with the CLD
-	chainsConfig := []devenv.ChainConfig{
+	homeChainConfigs := []devenv.ChainConfig{
 		{
 			ChainID:   homeChainOutput.SethClient.Cfg.Network.ChainID,
 			ChainName: homeChainOutput.SethClient.Cfg.Network.Name,
@@ -150,12 +152,12 @@ func SetupTestEnvironment(
 		},
 	}
 
-	chains, chainsErr := devenv.NewChains(singeFileLogger, chainsConfig)
+	chains, chainsErr := devenv.NewChains(singeFileLogger, homeChainConfigs)
 	if chainsErr != nil {
 		return nil, pkgerrors.Wrap(chainsErr, "failed to create chains")
 	}
 
-	chainsOnlyCld := &deployment.Environment{
+	homeChainCLDEnvironment := &deployment.Environment{
 		Logger:            singeFileLogger,
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
@@ -166,21 +168,22 @@ func SetupTestEnvironment(
 
 	keystoneContractsInput := &keystonetypes.KeystoneContractsInput{
 		ChainSelector: homeChainOutput.ChainSelector,
-		CldEnv:        chainsOnlyCld,
+		CldEnv:        homeChainCLDEnvironment,
 	}
 	keystoneContractsOutput, keyContrErr := libcontracts.DeployKeystone(testLogger, keystoneContractsInput)
 	if keyContrErr != nil {
 		return nil, pkgerrors.Wrap(keyContrErr, "failed to deploy keystone contracts")
 	}
 
+	// Target chains where we deploy Forwarders and other contracts
 	// we need another CLD environment to deploy forwarders for all the chains except the home chain
-	nonHomeChainsConfig := make([]devenv.ChainConfig, 0)
+	targetChainsConfigs := make([]devenv.ChainConfig, 0)
 	for idx, bcOut := range blockchainsOutput {
 		if idx == 0 {
 			// skip home chain
 			continue
 		}
-		nonHomeChainsConfig = append(nonHomeChainsConfig, devenv.ChainConfig{
+		targetChainsConfigs = append(targetChainsConfigs, devenv.ChainConfig{
 			ChainID:   bcOut.SethClient.Cfg.Network.ChainID,
 			ChainName: bcOut.SethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
@@ -196,14 +199,14 @@ func SetupTestEnvironment(
 		})
 	}
 
-	nonHomeChains, chainsErr := devenv.NewChains(singeFileLogger, nonHomeChainsConfig)
+	targetChains, chainsErr := devenv.NewChains(singeFileLogger, targetChainsConfigs)
 	if chainsErr != nil {
 		return nil, pkgerrors.Wrap(chainsErr, "failed to create chains")
 	}
 
-	nonHomeChainsOnlyCld := &deployment.Environment{
+	targetChainsCLDEnvironment := &deployment.Environment{
 		Logger:            singeFileLogger,
-		Chains:            nonHomeChains,
+		Chains:            targetChains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
 		GetContext: func() context.Context {
 			return ctx
@@ -215,16 +218,19 @@ func SetupTestEnvironment(
 			// skip home chain
 			continue
 		}
-		_, err := libcontracts.DeployKeystoneForwarder(testLogger, nonHomeChainsOnlyCld, chain.ChainSelector)
+		_, err := libcontracts.DeployKeystoneForwarder(testLogger, targetChainsCLDEnvironment, chain.ChainSelector)
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to deploy Keystone Forwarder contract")
 		}
-
-		mergeErr := chainsOnlyCld.ExistingAddresses.Merge(nonHomeChainsOnlyCld.ExistingAddresses)
-		if mergeErr != nil {
-			return nil, pkgerrors.Wrap(mergeErr, "failed to merge existing addresses")
-		}
 	}
+
+	// merge all the addresses for home and target chains
+	mergeErr := homeChainCLDEnvironment.ExistingAddresses.Merge(targetChainsCLDEnvironment.ExistingAddresses)
+	if mergeErr != nil {
+		return nil, pkgerrors.Wrap(mergeErr, "failed to merge existing addresses")
+	}
+
+	mergedAddressBook := homeChainCLDEnvironment.ExistingAddresses
 
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
@@ -233,13 +239,15 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
 
-	// Generate EVM and P2P keys or read them from the config
-	// That way we can pass them final configs and do away with restarting the nodes
-	var keys *keystonetypes.GenerateKeysOutput
+	// get chainIDs, they'll be used for identifying ETH keys and Forwarder addresses
 	chainIDs := make([]int, 0)
 	for _, bcOut := range blockchainsOutput {
 		chainIDs = append(chainIDs, int(bcOut.ChainID))
 	}
+
+	// Generate EVM and P2P keys or read them from the config
+	// That way we can pass them final configs and do away with restarting the nodes
+	var keys *keystonetypes.GenerateKeysOutput
 
 	keysOutput, keysOutputErr := cresecrets.KeysOutputFromConfig(input.CapabilitiesAwareNodeSets)
 	if keysOutputErr != nil {
@@ -266,7 +274,7 @@ func SetupTestEnvironment(
 	// Configure Workflow Registry contract
 	workflowRegistryInput := &keystonetypes.WorkflowRegistryInput{
 		ChainSelector:  homeChainOutput.ChainSelector,
-		CldEnv:         chainsOnlyCld,
+		CldEnv:         homeChainCLDEnvironment,
 		AllowedDonIDs:  []uint32{topology.WorkflowDONID},
 		WorkflowOwners: []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
 	}
@@ -322,6 +330,7 @@ func SetupTestEnvironment(
 					DonID:                       donMetadata.ID,
 					Flags:                       donMetadata.Flags,
 					PeeringData:                 peeringData,
+					AddressBook:                 mergedAddressBook,
 					CapabilitiesRegistryAddress: keystoneContractsOutput.CapabilitiesRegistryAddress,
 					WorkflowRegistryAddress:     keystoneContractsOutput.WorkflowRegistryAddress,
 					ForwarderAddress:            keystoneContractsOutput.ForwarderAddress,
@@ -452,7 +461,7 @@ func SetupTestEnvironment(
 		BlockchainOutputs: bcOuts,
 		SethClients:       sethClients,
 		NodeSetOutput:     nodeSetOutput,
-		ExistingAddresses: chainsOnlyCld.ExistingAddresses,
+		ExistingAddresses: homeChainCLDEnvironment.ExistingAddresses,
 		Topology:          topology,
 	}
 
@@ -475,8 +484,6 @@ func SetupTestEnvironment(
 	for _, metaDon := range fullCldOutput.DonTopology.DonsWithMetadata {
 		for _, node := range metaDon.DON.Nodes {
 			for _, bcOut := range blockchainsOutput {
-				fmt.Printf("funding addr: %s\n", node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)])
-				fmt.Printf("funding addr chain id: %s\n", strconv.FormatUint(bcOut.ChainID, 10))
 				_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, bcOut.SethClient, libtypes.FundsToSend{
 					ToAddress: common.HexToAddress(
 						node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]),

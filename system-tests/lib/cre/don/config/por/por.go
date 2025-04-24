@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -27,14 +27,23 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 
 	homeChainID := input.BlockchainOutput[0].ChainID
 
-	// prepare chains
-	evmChains := make([]config.EVMChain, 0)
+	// prepare chains, we need chainIDs, URLs and selectors to get contracts from AddressBook
+	workerEVMInputs := make([]*config.WorkerEVMInput, 0)
 	for i, bcOut := range input.BlockchainOutput {
-		evmChains = append(evmChains, config.EVMChain{
-			Name:    fmt.Sprintf("node-%d", i),
-			ChainID: bcOut.ChainID,
-			HTTPRPC: bcOut.Nodes[0].InternalHTTPUrl,
-			WSRPC:   bcOut.Nodes[0].InternalWSUrl,
+		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
+		if err != nil {
+			return configOverrides, errors.Wrapf(err, "failed to parse chain ID %s", bcOut.ChainID)
+		}
+		c, exists := chain_selectors.ChainByEvmChainID(cID)
+		if !exists {
+			return configOverrides, errors.Errorf("failed to find selector for chain ID %d", cID)
+		}
+		workerEVMInputs = append(workerEVMInputs, &config.WorkerEVMInput{
+			Name:          fmt.Sprintf("node-%d", i),
+			ChainID:       bcOut.ChainID,
+			ChainSelector: c.Selector,
+			HTTPRPC:       bcOut.Nodes[0].InternalHTTPUrl,
+			WSRPC:         bcOut.Nodes[0].InternalWSUrl,
 		})
 	}
 
@@ -83,7 +92,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		}
 
 		// generate configuration for the bootstrap node
-		configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, homeChainID, input.CapabilitiesRegistryAddress, evmChains)
+		configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, homeChainID, input.CapabilitiesRegistryAddress, workerEVMInputs)
 
 		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
 			configOverrides[nodeIndex] += config.BoostrapDon2DonPeering(input.PeeringData)
@@ -109,8 +118,6 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 			}
 		}
 
-		// connect worker nodes to all the chains, add chain ID for registry (home chain)
-		configOverrides[nodeIndex] = config.WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, input.CapabilitiesRegistryAddress, homeChainID, evmChains)
 		var nodeEthAddr common.Address
 		for _, label := range workflowNodeSet[i].Labels {
 			if label.Key == node.EthAddressKey {
@@ -122,12 +129,23 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 			}
 		}
 
-		if keystoneflags.HasFlag(input.Flags, cretypes.WriteEVMCapability) {
-			configOverrides[nodeIndex] += config.WorkerWriteEMV(
-				nodeEthAddr,
-				input.ForwarderAddress,
-			)
+		// get all the forwarders and add workflow config for each node ETH key + Forwarder for that chain
+		for _, wi := range workerEVMInputs {
+			addrsForChains, err := input.AddressBook.AddressesForChain(wi.ChainSelector)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get addresses from address book")
+			}
+			for addr, addrValue := range addrsForChains {
+				if addrValue.Type == "KeystoneForwarder" {
+					wi.ForwarderAddress = addr
+					wi.FromAddress = nodeEthAddr
+				}
+			}
 		}
+
+		// connect worker nodes to all the chains, add chain ID for registry (home chain)
+		// we configure both EVM chains, nodes and EVM.Workflow with Forwarder
+		configOverrides[nodeIndex] = config.WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, input.CapabilitiesRegistryAddress, homeChainID, workerEVMInputs)
 
 		// if it's workflow DON configure workflow registry, unless there's no gateway connector data
 		// which means that the workflow DON is using only workflow jobs and won't be downloading any WASM-compiled workflows

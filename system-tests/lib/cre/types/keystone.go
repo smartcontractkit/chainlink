@@ -316,6 +316,7 @@ type GeneratePoRConfigsInput struct {
 	DonID                       uint32
 	Flags                       []string
 	PeeringData                 CapabilitiesPeeringData
+	AddressBook                 deployment.AddressBook
 	CapabilitiesRegistryAddress common.Address
 	WorkflowRegistryAddress     common.Address
 	ForwarderAddress            common.Address

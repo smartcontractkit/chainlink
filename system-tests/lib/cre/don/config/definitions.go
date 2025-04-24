@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func BootstrapEVM(donBootstrapNodePeerID string, chainID string, capabilitiesRegistryAddress common.Address, chains []EVMChain) string {
+func BootstrapEVM(donBootstrapNodePeerID string, chainID string, capabilitiesRegistryAddress common.Address, chains []*WorkerEVMInput) string {
 	evmChainsConfig := ""
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
@@ -70,14 +70,17 @@ func BoostrapDon2DonPeering(peeringData types.CapabilitiesPeeringData) string {
 	)
 }
 
-type EVMChain struct {
-	Name    string
-	ChainID string
-	HTTPRPC string
-	WSRPC   string
+type WorkerEVMInput struct {
+	Name             string
+	ChainID          string
+	ChainSelector    uint64
+	HTTPRPC          string
+	WSRPC            string
+	FromAddress      common.Address
+	ForwarderAddress string
 }
 
-func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData types.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, registryChainID string, chains []EVMChain) string {
+func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData types.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, registryChainID string, chains []*WorkerEVMInput) string {
 	evmChainsConfig := ""
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
@@ -89,11 +92,19 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	Name = '%s'
 	WSURL = '%s'
 	HTTPURL = '%s'
+
+	[EVM.Workflow]
+	FromAddress = '%s'
+	ForwarderAddress = '%s'
+	GasLimitDefault = 400_000
+
 `,
 			chain.ChainID,
 			chain.Name,
 			chain.WSRPC,
 			chain.HTTPRPC,
+			chain.FromAddress,
+			chain.ForwarderAddress,
 		)
 	}
 
@@ -134,17 +145,25 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	)
 }
 
-func WorkerWriteEMV(nodeAddress, forwarderAddress common.Address) string {
-	return fmt.Sprintf(`
-	# Required for the target capability to be initialized
+type WorkerWriteEVMInput struct {
+	FromAddress      common.Address
+	ForwarderAddress string
+}
+
+func WorkerWriteEMV(in []*WorkerWriteEVMInput) string {
+	toml := ""
+	for _, node := range in {
+		toml += fmt.Sprintf(`
 	[EVM.Workflow]
 	FromAddress = '%s'
 	ForwarderAddress = '%s'
 	GasLimitDefault = 400_000
 `,
-		nodeAddress.Hex(),
-		forwarderAddress.Hex(),
-	)
+			node.FromAddress.Hex(),
+			node.ForwarderAddress,
+		)
+	}
+	return toml
 }
 
 func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, chainID string) string {
