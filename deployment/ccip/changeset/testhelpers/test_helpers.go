@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
-	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -795,8 +794,6 @@ func MatchTokenToTokenPool(ctx context.Context, client *rpc.Client, tokenPubKey 
 }
 
 // bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
-var messageHasherABI = evmtypes.MustGetABI(message_hasher.MessageHasherABI)
-
 const GenericExtraArgsV2Tag = "0x181dcf10"
 const SVMExtraArgsV1Tag = "0x1f3b3aba"
 
