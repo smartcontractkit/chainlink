@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
@@ -74,9 +76,9 @@ func GetCurrentOutboundRateLimiterState(t TokenPoolContract, remoteChainSelector
 
 type RemoteChainConfig struct {
 	// RemoteTokenAddress is the raw representation of the token address on the remote chain.
-	RemoteTokenAddress []byte
+	RemoteTokenAddress string
 	// RemotePoolAddresses are raw addresses of valid token pools on the remote chain.
-	RemotePoolAddresses [][]byte
+	RemotePoolAddresses []string
 	// InboundRateLimiterConfig is the rate limiter config for inbound transfers from the remote chain.
 	InboundRateLimterConfig token_pool.RateLimiterConfig
 	// OutboundRateLimiterConfig is the rate limiter config for outbound transfers to the remote chain.
@@ -138,7 +140,11 @@ func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (To
 	}
 	remoteChainConfigs := make(map[uint64]RemoteChainConfig)
 	for _, remoteChain := range remoteChains {
-		remotePools, err := pool.GetRemotePools(nil, remoteChain)
+		remotePoolsBytes, err := pool.GetRemotePools(nil, remoteChain)
+		remotePools := make([]string, len(remotePoolsBytes))
+		for i, remotePoolBytes := range remotePoolsBytes {
+			remotePools[i] = shared.GetAddressFromBytes(remoteChain, remotePoolBytes)
+		}
 		if err != nil {
 			return TokenPoolView{}, err
 		}
@@ -155,7 +161,7 @@ func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (To
 			return TokenPoolView{}, err
 		}
 		remoteChainConfigs[remoteChain] = RemoteChainConfig{
-			RemoteTokenAddress:  remoteToken,
+			RemoteTokenAddress:  shared.GetAddressFromBytes(remoteChain, remoteToken),
 			RemotePoolAddresses: remotePools,
 			InboundRateLimterConfig: token_pool.RateLimiterConfig{
 				IsEnabled: inboundState.IsEnabled,
