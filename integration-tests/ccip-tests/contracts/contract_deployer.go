@@ -5,7 +5,6 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/testhelpers_1_4_0"
 	"math/big"
 	"strings"
 	"time"
@@ -61,6 +60,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/testhelpers_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
