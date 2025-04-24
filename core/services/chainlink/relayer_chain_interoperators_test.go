@@ -37,7 +37,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		cfg := toml.Defaults(evmChainID1)
 		node1_1 := toml.Node{
 			Name:     ptr("Test node chain1:1"),
 			WSURL:    commonconfig.MustParseURL("ws://localhost:8546"),
@@ -62,7 +61,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		c.EVM[0] = &toml.EVMConfig{
 			ChainID: evmChainID1,
 			Enabled: ptr(true),
-			Chain:   cfg,
+			Chain:   toml.Defaults(evmChainID1),
 			Nodes:   toml.EVMNodes{&node1_1, &node1_2},
 		}
 		id2 := ubig.New(big.NewInt(2))
@@ -73,14 +72,11 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			Nodes:   toml.EVMNodes{&node2_1},
 		})
 
-		solChainCfg := solcfg.Chain{}
-		solChainCfg.SetDefaults()
-
 		c.Solana = solcfg.TOMLConfigs{
 			&solcfg.TOMLConfig{
 				ChainID: &solanaChainID1,
 				Enabled: ptr(true),
-				Chain:   solChainCfg,
+				Chain:   solcfg.Chain{},
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 1 node 1"),
 					URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
@@ -89,7 +85,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			&solcfg.TOMLConfig{
 				ChainID: &solanaChainID2,
 				Enabled: ptr(true),
-				Chain:   solChainCfg,
+				Chain:   solcfg.Chain{},
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 2 node 1"),
 					URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8527").URL())),
