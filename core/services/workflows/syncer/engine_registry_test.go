@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 func TestEngineRegistry(t *testing.T) {
@@ -17,7 +18,7 @@ func TestEngineRegistry(t *testing.T) {
 	const id1 = "foo"
 	owner := []byte{1, 2, 3, 4, 5}
 	name := "my-workflow"
-	workflowID := WorkflowID([32]byte{0, 1, 2, 3, 4})
+	workflowID := types.WorkflowID([32]byte{0, 1, 2, 3, 4})
 	er := NewEngineRegistry()
 	require.False(t, er.Contains(EngineRegistryKey{Owner: owner, Name: name}))
 

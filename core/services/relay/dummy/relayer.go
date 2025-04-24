@@ -39,6 +39,11 @@ func (r *relayer) NewContractWriter(ctx context.Context, chainWriterConfig []byt
 func (r *relayer) NewContractReader(ctx context.Context, contractReaderConfig []byte) (types.ContractReader, error) {
 	return nil, nil
 }
+
+func (r *relayer) AsEVMRelayer() (loop.EVMRelayer, error) {
+	return nil, nil
+}
+
 func (r *relayer) NewConfigProvider(_ context.Context, rargs types.RelayArgs) (types.ConfigProvider, error) {
 	var cfg RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &cfg); err != nil {

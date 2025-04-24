@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 var errNotFound = errors.New("engine not found")
@@ -25,7 +26,7 @@ func (k EngineRegistryKey) keyFor() string {
 }
 
 type ServiceWithMetadata struct {
-	WorkflowID    WorkflowID
+	WorkflowID    types.WorkflowID
 	WorkflowName  string
 	WorkflowOwner []byte
 	services.Service
@@ -43,7 +44,7 @@ func NewEngineRegistry() *EngineRegistry {
 }
 
 // Add adds an engine to the registry.
-func (r *EngineRegistry) Add(key EngineRegistryKey, engine services.Service, workflowID WorkflowID) error {
+func (r *EngineRegistry) Add(key EngineRegistryKey, engine services.Service, workflowID types.WorkflowID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	k := key.keyFor()
