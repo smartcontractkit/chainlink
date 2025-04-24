@@ -123,6 +123,8 @@ func Test_CCIPGasPriceUpdatesWriteFrequency(t *testing.T) {
 
 // price reaches some deviation threshold
 func Test_CCIPGasPriceUpdatesDeviation(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-576")
+
 	ctx := testhelpers.Context(t)
 	callOpts := &bind.CallOpts{Context: ctx}
 
