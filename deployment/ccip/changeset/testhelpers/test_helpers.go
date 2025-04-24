@@ -1349,7 +1349,7 @@ func DeployTransferableTokenSolana(
 					// this can be potentially read from the state if we are given the token symbol
 					PoolAddresses: []solTestTokenPool.RemoteAddress{
 						{
-							Address: common.LeftPadBytes(evmPool.Address().Bytes(), 32),
+							Address: evmPool.Address().Bytes(),
 						},
 					},
 					TokenAddress: solTestTokenPool.RemoteAddress{
