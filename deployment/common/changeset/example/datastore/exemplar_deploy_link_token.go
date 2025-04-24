@@ -1,13 +1,17 @@
 package example
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	exemplarMd "github.com/smartcontractkit/chainlink/deployment/exemplar/metadata"
 )
@@ -80,7 +84,7 @@ func (cs ExemplarDeployLinkToken) Apply(e deployment.Environment, chainSelector 
 			Address:       addr.String(),
 			Type:          "LinkToken",
 			Version:       semver.MustParse("1.0.0"),
-			Qualifier:     fmt.Sprintf("LinkTokenContractV1_%s", addr.String()),
+			Qualifier:     "LinkTokenContractV1_" + addr.String(),
 			Labels: ds.NewLabelSet(
 				"LinkToken",
 				"LinkTokenV1_0_0",
@@ -110,7 +114,8 @@ func (cs ExemplarDeployLinkToken) Apply(e deployment.Environment, chainSelector 
 	// Fetch the existing env metadata so we can update it with the new deployment count.
 	envMetadata, err := envDatastore.EnvMetadata().Get()
 	if err != nil {
-		if err != ds.ErrEnvMetadataNotSet {
+		// if err is different from ds.ErrEnvMetadataNotSet, return the error
+		if !errors.Is(err, ds.ErrEnvMetadataNotSet) {
 			return deployment.ChangesetOutput{},
 				fmt.Errorf("failed to fetch existing env metadata: %w", err)
 		}

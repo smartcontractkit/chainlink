@@ -11,6 +11,8 @@ import (
 )
 
 func Test_ExemplarDeployLinkToken(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
