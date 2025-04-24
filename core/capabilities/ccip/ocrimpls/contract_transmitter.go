@@ -43,6 +43,7 @@ type ccipTransmitter struct {
 }
 
 func XXXNewContractTransmitterTestsOnly(
+	lggr logger.Logger,
 	cw commontypes.ContractWriter,
 	fromAccount ocrtypes.Account,
 	contractName string,
@@ -59,6 +60,7 @@ func XXXNewContractTransmitterTestsOnly(
 		return contractName, method, args, err
 	}
 	return &ccipTransmitter{
+		lggr:           lggr,
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
