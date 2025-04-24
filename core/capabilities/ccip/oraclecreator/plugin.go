@@ -81,7 +81,7 @@ var plugins = map[string]plugin{
 			return ccipsolana.NewMessageHasherV1(lggr, extraDataCodec)
 		},
 		TokenDataEncoder:           ccipsolana.NewSolanaTokenDataEncoder(),
-		GasEstimateProvider:        ccipsolana.NewGasEstimateProvider(),
+		GasEstimateProvider:        ccipsolana.NewGasEstimateProvider(extraDataCodec),
 		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
 		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
 		ContractTransmitterFactory: &ocrimpls.SVMContractTransmitterFactory{},
