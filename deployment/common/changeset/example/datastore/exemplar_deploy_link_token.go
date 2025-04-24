@@ -6,9 +6,9 @@ import (
 	"github.com/Masterminds/semver/v3"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 	"github.com/smartcontractkit/chainlink/deployment"
-	ds "github.com/smartcontractkit/chainlink/deployment/datastore"
 	exemplarMd "github.com/smartcontractkit/chainlink/deployment/exemplar/metadata"
 )
 
