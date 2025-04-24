@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const name = "WorkflowRegistrySyncer"
@@ -45,7 +46,7 @@ type GetWorkflowMetadataListByDONParams struct {
 }
 
 type GetWorkflowMetadata struct {
-	WorkflowID   [32]byte
+	WorkflowID   wftypes.WorkflowID
 	Owner        []byte
 	DonID        uint32
 	Status       uint8
@@ -98,10 +99,9 @@ type WorkflowRegistryEventResponse struct {
 	Event *WorkflowRegistryEvent
 }
 
-// WorkflowEventPollerConfig is the configuration needed to poll for events on a contract.  Currently
-// requires the ContractEventName.
-type WorkflowEventPollerConfig struct {
-	QueryCount uint64
+type Config struct {
+	QueryCount   uint64
+	SyncStrategy SyncStrategy
 }
 
 // FetcherFunc is an abstraction for fetching the contents stored at a URL.
@@ -149,10 +149,9 @@ type workflowRegistry struct {
 
 	newContractReaderFn newContractReaderFn
 
-	// TODO: combine config
-	eventPollerCfg WorkflowEventPollerConfig
-	syncStrategy   SyncStrategy
-	handler        evtHandler
+	config Config
+
+	handler evtHandler
 
 	workflowDonNotifier donNotifier
 
@@ -164,13 +163,6 @@ type workflowRegistry struct {
 func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.ticker = ticker
-	}
-}
-
-// WithSyncStrategyReconciliation allows external callers to change the sync strategy to reconciliation mode.
-func WithSyncStrategy(strategy SyncStrategy) func(*workflowRegistry) {
-	return func(wr *workflowRegistry) {
-		wr.syncStrategy = strategy
 	}
 }
 
@@ -191,15 +183,12 @@ func NewWorkflowRegistry(
 	lggr logger.Logger,
 	newContractReaderFn newContractReaderFn,
 	addr string,
-	eventPollerConfig WorkflowEventPollerConfig,
+	config Config,
 	handler evtHandler,
 	workflowDonNotifier donNotifier,
 	engineRegistry *EngineRegistry,
 	opts ...func(*workflowRegistry),
 ) (*workflowRegistry, error) {
-	// TODO: take in SyncStrategy from toml config
-	strategy := SyncStrategy(defaultSyncStrategy)
-
 	if engineRegistry == nil {
 		return nil, errors.New("engine registry must be provided")
 	}
@@ -208,8 +197,7 @@ func NewWorkflowRegistry(
 		lggr:                    lggr,
 		newContractReaderFn:     newContractReaderFn,
 		workflowRegistryAddress: addr,
-		eventPollerCfg:          eventPollerConfig,
-		syncStrategy:            strategy,
+		config:                  config,
 		eventCh:                 make(chan Event),
 		stopCh:                  make(services.StopChan),
 		handler:                 handler,
@@ -221,7 +209,7 @@ func NewWorkflowRegistry(
 		opt(wr)
 	}
 
-	switch strategy {
+	switch wr.config.SyncStrategy {
 	case SyncStrategyEvent:
 	case SyncStrategyReconciliation:
 		break
@@ -255,7 +243,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			}
 
 			// Start goroutines to gather changes from Workflow Registry contract
-			switch w.syncStrategy {
+			switch w.config.SyncStrategy {
 			case SyncStrategyEvent:
 				w.syncUsingEventStrategy(ctx, don, reader)
 			case SyncStrategyReconciliation:
@@ -335,10 +323,10 @@ func (w *workflowRegistry) readRegistryEventsLoop(ctx context.Context, eventType
 		case <-ticker:
 			limitAndSort := query.LimitAndSort{
 				SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
-				Limit:  query.Limit{Count: w.eventPollerCfg.QueryCount},
+				Limit:  query.Limit{Count: w.config.QueryCount},
 			}
 			if cursor != "" {
-				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, w.eventPollerCfg.QueryCount)
+				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, w.config.QueryCount)
 			}
 
 			logsIter, err := reader.QueryKeys(ctx, keyQueries, limitAndSort)
@@ -465,14 +453,12 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 	seenMap := map[string]bool{}
 
 	for _, wfMeta := range workflowMetadata {
-		// TODO: ensure that the WorkflowRegisteredEvent sets the engine registry as the very last step
-		// TODO: ensure that the WorkflowDeletedEvent clears the engine registry as the very last step
 		engine, engineErr := w.engineRegistry.Get(EngineRegistryKey{Owner: wfMeta.Owner, Name: wfMeta.WorkflowName})
-		engineKeyStr := wfMeta.WorkflowName + hex.EncodeToString(wfMeta.Owner)
-		currWfID := hex.EncodeToString(wfMeta.WorkflowID[:])
-		prevWfID := hex.EncodeToString(engine.workflowID[:])
+		currWfID := wfMeta.WorkflowID.Hex()
+		prevWfID := engine.WorkflowID.Hex()
 		logger := w.lggr.With("workflowID", currWfID)
 
+		engineKeyStr := wfMeta.WorkflowName + hex.EncodeToString(wfMeta.Owner)
 		switch {
 		// if the workflow is active, but unable to get engine from the engine registry
 		// then handle as registered event
@@ -497,7 +483,7 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 		// then handle as updated event
 		case wfMeta.Status == uint8(WorkflowStatusActive) && currWfID != prevWfID:
 			toUpdatedEvent := WorkflowRegistryWorkflowUpdatedV1{
-				OldWorkflowID: engine.workflowID,
+				OldWorkflowID: engine.WorkflowID,
 				NewWorkflowID: wfMeta.WorkflowID,
 				WorkflowOwner: wfMeta.Owner,
 				DonID:         wfMeta.DonID,
@@ -505,6 +491,7 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 				BinaryURL:     wfMeta.BinaryURL,
 				ConfigURL:     wfMeta.ConfigURL,
 				SecretsURL:    wfMeta.SecretsURL,
+				Status:        wfMeta.Status,
 			}
 			events = append(events, workflowAsEvent{
 				Data:      toUpdatedEvent,
@@ -520,7 +507,7 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 		// Paused means we skip for processing as a deleted event
 		// To be handled below as a deleted event, which clears the DB workflow spec.
 		case wfMeta.Status == uint8(WorkflowStatusPaused):
-			logger.Debugf("Workflow is paused")
+			logger.Debugf("workflow is paused, not generating event")
 
 		default:
 			logger.Errorf("Unable to determine difference from workflow metadata")
@@ -530,14 +517,14 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 	// Shut down engines that are no longer in the contract's latest workflow metadata state
 	allEngines := w.engineRegistry.GetAll()
 	for _, engine := range allEngines {
-		engineKey := engine.workflowName + hex.EncodeToString(engine.workflowOwner)
+		engineKey := engine.WorkflowName + hex.EncodeToString(engine.WorkflowOwner)
 		_, exists := seenMap[engineKey]
 		if !exists {
 			toDeletedEvent := WorkflowRegistryWorkflowDeletedV1{
-				WorkflowID:    engine.workflowID,
-				WorkflowOwner: engine.workflowOwner,
+				WorkflowID:    engine.WorkflowID,
+				WorkflowOwner: engine.WorkflowOwner,
 				DonID:         donID,
-				WorkflowName:  engine.workflowName,
+				WorkflowName:  engine.WorkflowName,
 			}
 			events = append(events, workflowAsEvent{
 				Data:      toDeletedEvent,
@@ -577,7 +564,9 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 				}
 				events := w.workflowMetadataToEvents(ctx, workflowMetadata, don.ID)
 				// Send events generated from differences to the event channel to be handled
+				reconcileReport := map[string]int{}
 				for _, event := range events {
+					reconcileReport[string(event.EventType)]++
 					select {
 					case <-ctx.Done():
 						w.lggr.Debug("readRegistryStateLoop stopped during processing")
@@ -585,6 +574,8 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 					case w.eventCh <- event:
 					}
 				}
+
+				w.lggr.Debugw("generated events to reconcile", "num", len(events), "report", reconcileReport)
 			}
 		}
 	}()

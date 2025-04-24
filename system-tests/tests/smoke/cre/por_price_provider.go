@@ -17,7 +17,7 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 )
 
-func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, expectedPrices []float64, priceIndex *int) (string, error) {
+func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey string, expectedPrices []float64, priceIndex *int) (string, error) {
 	_, err := fake.NewFakeDataProvider(input)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to set up fake data provider")
@@ -45,6 +45,13 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, expecte
 	}
 
 	err = fake.Func("GET", fakeAPIPath, func(c *gin.Context) {
+		authHeader := c.Request.Header.Get("Authorization")
+		if authHeader != authKey {
+			testLogger.Info().Msgf("Unauthorized request, expected auth key: %s actual auth key: %s", authKey, authHeader)
+			c.JSON(401, gin.H{"error": "unauthorized"})
+			return
+		}
+
 		c.JSON(200, getPriceResponseFn())
 	})
 	if err != nil {
@@ -64,6 +71,7 @@ type PriceProvider interface {
 	NextPrice(price *big.Int, elapsed time.Duration) bool
 	ExpectedPrices() []*big.Int
 	ActualPrices() []*big.Int
+	AuthKey() string
 }
 
 // TrueUSDPriceProvider is a PriceProvider implementation that uses a live feed to get the price
@@ -110,6 +118,10 @@ func (l *TrueUSDPriceProvider) ActualPrices() []*big.Int {
 	return l.actualPrices
 }
 
+func (l *TrueUSDPriceProvider) AuthKey() string {
+	return ""
+}
+
 // FakePriceProvider is a PriceProvider implementation that uses a mocked feed to get the price
 // It returns a configured price sequence and makes sure that the feed has been correctly updated
 type FakePriceProvider struct {
@@ -118,9 +130,10 @@ type FakePriceProvider struct {
 	url            string
 	expectedPrices []*big.Int
 	actualPrices   []*big.Int
+	authKey        string
 }
 
-func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input) (PriceProvider, error) {
+func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey string) (PriceProvider, error) {
 	priceIndex := ptr.Ptr(0)
 	// Add more prices here as needed
 	expectedPricesFloat64 := []float64{182.9}
@@ -131,7 +144,7 @@ func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input) (PricePr
 		expectedPrices[i] = libc.Float64ToBigInt(p)
 	}
 
-	url, err := setupFakeDataProvider(testLogger, input, expectedPricesFloat64, priceIndex)
+	url, err := setupFakeDataProvider(testLogger, input, authKey, expectedPricesFloat64, priceIndex)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to set up fake data provider")
 	}
@@ -141,6 +154,7 @@ func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input) (PricePr
 		expectedPrices: expectedPrices,
 		priceIndex:     priceIndex,
 		url:            url,
+		authKey:        authKey,
 	}, nil
 }
 
@@ -194,4 +208,8 @@ func (f *FakePriceProvider) ExpectedPrices() []*big.Int {
 
 func (f *FakePriceProvider) URL() string {
 	return f.url
+}
+
+func (f *FakePriceProvider) AuthKey() string {
+	return f.authKey
 }

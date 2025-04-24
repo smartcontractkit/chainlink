@@ -22,7 +22,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -35,7 +34,6 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
@@ -158,8 +156,9 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{
-			QueryCount: 20,
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
 		},
 		testEventHandler,
 		&testDonNotifier{
@@ -284,8 +283,9 @@ func Test_InitialStateSync(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{
-			QueryCount: 20,
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
 		},
 		testEventHandler,
 		&testDonNotifier{
@@ -407,7 +407,10 @@ func Test_SecretsWorker(t *testing.T) {
 					return backendTH.NewContractReader(ctx, t, bytes)
 				},
 				wfRegistryAddr.Hex(),
-				syncer.WorkflowEventPollerConfig{QueryCount: 20},
+				syncer.Config{
+					QueryCount:   20,
+					SyncStrategy: tt.ss,
+				},
 				handler,
 				&testDonNotifier{
 					don: capabilities.DON{
@@ -417,7 +420,6 @@ func Test_SecretsWorker(t *testing.T) {
 				},
 				engineRegistry,
 				syncer.WithTicker(giveTicker.C),
-				syncer.WithSyncStrategy(tt.ss),
 			)
 			require.NoError(t, err)
 
@@ -494,7 +496,10 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{QueryCount: 20},
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
+		},
 		handler,
 		&testDonNotifier{
 			don: capabilities.DON{
@@ -578,7 +583,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{QueryCount: 20},
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
+		},
 		handler,
 		&testDonNotifier{
 			don: capabilities.DON{
@@ -625,12 +633,6 @@ func (m *mockService) Ready() error { return nil }
 
 func (m *mockService) Name() string { return "svc" }
 
-type mockEngineFactory struct{}
-
-func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
-	return &mockService{}, nil
-}
-
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
@@ -667,7 +669,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
-	mf := &mockEngineFactory{}
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
@@ -677,7 +678,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
 	handler, err := syncer.NewEventHandler(lggr, nil, nil, er,
-		emitter, rl, wl, store, syncer.WithEngineFactoryFn(mf.new))
+		emitter, rl, wl, store, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -686,7 +687,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{QueryCount: 20},
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
+		},
 		handler,
 		&testDonNotifier{
 			don: capabilities.DON{
@@ -763,8 +767,9 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 				return backendTH.NewContractReader(ctx, t, bytes)
 			},
 			wfRegistryAddr.Hex(),
-			syncer.WorkflowEventPollerConfig{
-				QueryCount: 20,
+			syncer.Config{
+				QueryCount:   20,
+				SyncStrategy: syncer.SyncStrategyReconciliation,
 			},
 			testEventHandler,
 			&testDonNotifier{
@@ -774,7 +779,6 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 				err: nil,
 			},
 			syncer.NewEngineRegistry(),
-			syncer.WithSyncStrategy(syncer.SyncStrategyReconciliation),
 		)
 		require.NoError(t, err)
 

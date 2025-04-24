@@ -423,6 +423,7 @@ type GenerateKeysInput struct {
 	GenerateP2PKeys            bool
 	Topology                   *Topology
 	Password                   string
+	Out                        *GenerateKeysOutput
 }
 
 func (g *GenerateKeysInput) Validate() error {
@@ -438,7 +439,13 @@ func (g *GenerateKeysInput) Validate() error {
 	return nil
 }
 
-type DonsToEVMKeys = map[uint32]*types.EVMKeys
+// chainID -> EVMKeys
+type ChainIDToEVMKeys = map[int]*types.EVMKeys
+
+// donID -> chainID -> EVMKeys
+type DonsToEVMKeys = map[uint32]ChainIDToEVMKeys
+
+// donID -> P2PKeys
 type DonsToP2PKeys = map[uint32]*types.P2PKeys
 
 type GenerateKeysOutput struct {
@@ -448,7 +455,7 @@ type GenerateKeysOutput struct {
 
 type GenerateSecretsInput struct {
 	DonMetadata *DonMetadata
-	EVMKeys     *types.EVMKeys
+	EVMKeys     ChainIDToEVMKeys
 	P2PKeys     *types.P2PKeys
 }
 
@@ -457,16 +464,33 @@ func (g *GenerateSecretsInput) Validate() error {
 		return errors.New("don metadata not set")
 	}
 	if g.EVMKeys != nil {
-		if len(g.EVMKeys.ChainIDs) == 0 {
+		if len(g.EVMKeys) == 0 {
 			return errors.New("chain ids not set")
 		}
-		if len(g.EVMKeys.EncryptedJSONs) == 0 {
-			return errors.New("encrypted jsons not set")
+		for chainID, evmKeys := range g.EVMKeys {
+			if len(evmKeys.EncryptedJSONs) == 0 {
+				return errors.New("encrypted jsons not set")
+			}
+			if len(evmKeys.PublicAddresses) == 0 {
+				return errors.New("public addresses not set")
+			}
+			if len(evmKeys.EncryptedJSONs) != len(evmKeys.PublicAddresses) {
+				return errors.New("encrypted jsons and public addresses must have the same length")
+			}
+			if chainID == 0 {
+				return errors.New("chain id 0 not allowed")
+			}
 		}
 	}
 	if g.P2PKeys != nil {
 		if len(g.P2PKeys.EncryptedJSONs) == 0 {
 			return errors.New("encrypted jsons not set")
+		}
+		if len(g.P2PKeys.PeerIDs) == 0 {
+			return errors.New("peer ids not set")
+		}
+		if len(g.P2PKeys.EncryptedJSONs) != len(g.P2PKeys.PeerIDs) {
+			return errors.New("encrypted jsons and peer ids must have the same length")
 		}
 	}
 
@@ -620,9 +644,11 @@ type RegisterWorkflowWithCRECLIInput struct {
 }
 
 type NewWorkflow struct {
-	FolderLocation  string
-	ConfigFilePath  *string
-	SecretsFilePath *string
+	WorkflowFileName string
+	FolderLocation   string
+	ConfigFilePath   *string
+	SecretsFilePath  *string
+	Secrets          map[string]string
 }
 
 type ExistingWorkflow struct {
@@ -658,6 +684,9 @@ func (w *RegisterWorkflowWithCRECLIInput) Validate() error {
 	}
 	if w.NewWorkflow != nil && w.NewWorkflow.FolderLocation == "" {
 		return errors.New("WorkflowFolderLocation is required when ShouldCompileNewWorkflow is true")
+	}
+	if w.NewWorkflow != nil && w.NewWorkflow.WorkflowFileName == "" {
+		return errors.New("WorkflowFileName is required when ShouldCompileNewWorkflow is true")
 	}
 	if w.ExistingWorkflow != nil && w.ExistingWorkflow.BinaryURL == "" {
 		return errors.New("BinaryURL is required when ShouldCompileNewWorkflow is false")

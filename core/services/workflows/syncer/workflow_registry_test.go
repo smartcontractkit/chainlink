@@ -37,8 +37,9 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 				return nil, nil
 			},
 			"",
-			WorkflowEventPollerConfig{
-				QueryCount: 20,
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyEvent,
 			},
 			&eventHandler{},
 			workflowDonNotifier,
@@ -102,8 +103,9 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 				return nil, nil
 			},
 			"",
-			WorkflowEventPollerConfig{
-				QueryCount: 20,
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyEvent,
 			},
 			&eventHandler{},
 			workflowDonNotifier,
@@ -166,8 +168,9 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 				return nil, nil
 			},
 			"",
-			WorkflowEventPollerConfig{
-				QueryCount: 20,
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyEvent,
 			},
 			&eventHandler{},
 			workflowDonNotifier,
@@ -205,8 +208,9 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 				return nil, nil
 			},
 			"",
-			WorkflowEventPollerConfig{
-				QueryCount: 20,
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyEvent,
 			},
 			&eventHandler{},
 			workflowDonNotifier,
@@ -273,8 +277,9 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 				return nil, nil
 			},
 			"",
-			WorkflowEventPollerConfig{
-				QueryCount: 20,
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyEvent,
 			},
 			&eventHandler{},
 			workflowDonNotifier,
@@ -325,8 +330,9 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 				return nil, nil
 			},
 			"",
-			WorkflowEventPollerConfig{
-				QueryCount: 20,
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyEvent,
 			},
 			&eventHandler{},
 			workflowDonNotifier,

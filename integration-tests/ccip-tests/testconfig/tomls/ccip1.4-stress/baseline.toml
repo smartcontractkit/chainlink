@@ -5,7 +5,7 @@
 ## throughput 1msg / 5s
 ## 20% Token, 60% DataWithToken, 15% Regular size msgs, 5% Large msgs
 ##
-## make test_load_ccip testimage=<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip-tests:bd48750f7072c2a40454483f2e36bad7efaaeba5 \
+## make test_load_ccip testimage=<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-tests:develop \
 ##      testname=TestLoadCCIPStableRequestTriggeringWithNetworkChaos \
 ##      override_toml=./testconfig/tomls/ccip1.4-stress/baseline.toml
 

@@ -956,8 +956,9 @@ func newCREServices(
 						return wfRegRelayer.NewContractReader(ctx, bytes)
 					},
 					capCfg.WorkflowRegistry().Address(),
-					syncer.WorkflowEventPollerConfig{
-						QueryCount: 100,
+					syncer.Config{
+						QueryCount:   100,
+						SyncStrategy: syncer.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
 					},
 					eventHandler,
 					workflowDonNotifier,

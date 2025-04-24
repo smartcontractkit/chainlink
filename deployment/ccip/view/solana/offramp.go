@@ -7,11 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
-
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -77,11 +76,12 @@ func GenerateOffRampView(chain deployment.SolChain, program solana.PublicKey, re
 		if err = chain.GetAccountDataBorshInto(context.Background(), remoteChainPDA, &chainStateAccount); err != nil {
 			return view, fmt.Errorf("remote %d is not configured on solana chain %d", remote, chain.Selector)
 		}
+		onRamp := chainStateAccount.Config.OnRamp
 		view.SourceChains[remote] = OffRampSourceChainConfig{
 			IsEnabled:                 chainStateAccount.Config.IsEnabled,
 			IsRmnVerificationDisabled: chainStateAccount.Config.IsRmnVerificationDisabled,
 			LaneCodeVersion:           chainStateAccount.Config.LaneCodeVersion.String(),
-			OnRamp:                    GetAddressFromBytes(remote, chainStateAccount.Config.OnRamp.Bytes[:]),
+			OnRamp:                    GetAddressFromBytes(remote, onRamp.Bytes[:onRamp.Len]),
 		}
 	}
 	return view, nil
