@@ -268,7 +268,7 @@ func Test_DataSource(t *testing.T) {
 
 			vals := makeStreamValues()
 			err := ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Verify initial values
 			assert.Equal(t, llo.StreamValues{
@@ -284,7 +284,7 @@ func Test_DataSource(t *testing.T) {
 			// Second observation should use cached values
 			vals = makeStreamValues()
 			err = ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Should still have original values from cache
 			assert.Equal(t, llo.StreamValues{
@@ -294,10 +294,10 @@ func Test_DataSource(t *testing.T) {
 			}, vals)
 
 			// Verify cache metrics
-			assert.Equal(t, float64(1), testutil.ToFloat64(promCacheHitCount.WithLabelValues("1")))
-			assert.Equal(t, float64(1), testutil.ToFloat64(promCacheHitCount.WithLabelValues("2")))
-			assert.Equal(t, float64(1), testutil.ToFloat64(promCacheMissCount.WithLabelValues("1")))
-			assert.Equal(t, float64(1), testutil.ToFloat64(promCacheMissCount.WithLabelValues("2")))
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheHitCount.WithLabelValues("1")), 0.0001)
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheHitCount.WithLabelValues("2")), 0.0001)
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheMissCount.WithLabelValues("1")), 0.0001)
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheMissCount.WithLabelValues("2")), 0.0001)
 		})
 
 		t.Run("refreshes cache after expiration", func(t *testing.T) {
@@ -310,7 +310,7 @@ func Test_DataSource(t *testing.T) {
 			vals := llo.StreamValues{1: nil}
 
 			err := ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Wait for cache to expire
 			time.Sleep(20 * time.Millisecond)
@@ -321,7 +321,7 @@ func Test_DataSource(t *testing.T) {
 			// Second observation should use new value
 			vals = llo.StreamValues{1: nil}
 			err = ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(200))}, vals)
 		})
@@ -336,7 +336,7 @@ func Test_DataSource(t *testing.T) {
 			// First observation to cache
 			vals := llo.StreamValues{1: nil}
 			err := ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Run multiple observations concurrently
 			var wg sync.WaitGroup
@@ -364,13 +364,13 @@ func Test_DataSource(t *testing.T) {
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, nil, errors.New("pipeline error"))
 			vals := makeStreamValues()
 			err := ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err) // Observe returns nil error even if some streams fail
+			require.NoError(t, err) // Observe returns nil error even if some streams fail
 
 			// Second observation should try again (not use cache for error case)
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
 			vals = llo.StreamValues{1: nil}
 			err = ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(100))}, vals)
 		})
