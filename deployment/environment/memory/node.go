@@ -37,7 +37,11 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
+	dsUtils "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -65,7 +69,9 @@ import (
 )
 
 type Node struct {
-	App chainlink.Application
+	ID   string
+	Name string
+	App  chainlink.Application
 	// Transmitter key/OCR keys for this node
 	Chains     []uint64 // chain selectors
 	Keys       Keys
@@ -179,6 +185,7 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 		transmitter := n.Keys.Transmitters[selector]
 
 		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
+			NodeId: n.ID,
 			Chain: &nodev1.Chain{
 				Id:   chainID,
 				Type: ctype,
@@ -373,9 +380,23 @@ func NewNode(
 		UnrestrictedHTTPClient:   &http.Client{},
 		RestrictedHTTPClient:     &http.Client{},
 		AuditLogger:              audit.NoopLogger,
+		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, db),
 	})
 	require.NoError(t, err)
 	keys := CreateKeys(t, app, nodecfg.Chains, nodecfg.Solchains, nodecfg.Aptoschains)
+
+	nodeLabels := make([]*ptypes.Label, 1)
+	if nodecfg.Bootstrap {
+		nodeLabels[0] = &ptypes.Label{
+			Key:   dsUtils.LabelNodeType,
+			Value: pointer.To(jd.NodeTypeBootstrap.String()),
+		}
+	} else {
+		nodeLabels[0] = &ptypes.Label{
+			Key:   dsUtils.LabelNodeType,
+			Value: pointer.To(jd.NodeTypeOracle.String()),
+		}
+	}
 
 	// JD
 
@@ -390,6 +411,7 @@ func NewNode(
 		Keys:       keys,
 		Addr:       net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: nodecfg.Port},
 		IsBoostrap: nodecfg.Bootstrap,
+		Labels:     nodeLabels,
 	}
 }
 

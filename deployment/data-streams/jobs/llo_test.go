@@ -17,10 +17,10 @@ externalJobID = '00000000-0000-0000-0000-000000000000'
 contractID = 'contract-123'
 transmitterID = 'tx-123'
 forwardingAllowed = true
-p2pv2Bootstrappers = ['bootstrap1', 'bootstrap2']
+p2pv2Bootstrappers = [' PeerID@Host1:Port1/Host2:Port2', 'PeerID@Host1:Port1/Host2:Port2']
 ocrKeyBundleID = 'ocr-bundle-123'
-maxTaskDuration = 10000000000
-contractConfigTrackerPollInterval = 60000000000
+maxTaskDuration = '10s'
+contractConfigTrackerPollInterval = '60s'
 relay = 'testrelay'
 pluginType = 'testplugin'
 
@@ -71,10 +71,10 @@ func TestLLOJobSpec_MarshalTOML(t *testing.T) {
 				ContractID:                        "contract-123",
 				TransmitterID:                     "tx-123",
 				ForwardingAllowed:                 pointer.To(true),
-				P2PV2Bootstrappers:                []string{"bootstrap1", "bootstrap2"},
+				P2PV2Bootstrappers:                []string{" PeerID@Host1:Port1/Host2:Port2", "PeerID@Host1:Port1/Host2:Port2"},
 				OCRKeyBundleID:                    pointer.To("ocr-bundle-123"),
-				MaxTaskDuration:                   10 * time.Second,
-				ContractConfigTrackerPollInterval: 1 * time.Minute,
+				MaxTaskDuration:                   TOMLDuration(10 * time.Second),
+				ContractConfigTrackerPollInterval: TOMLDuration(60 * time.Second),
 				Relay:                             "testrelay",
 				PluginType:                        "testplugin",
 				RelayConfig: RelayConfigLLO{

@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,32 +18,32 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 
 	const donID = 1
 	const donName = "don"
-	const env = "env"
+	const envName = "envName"
 
-	e := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
+	env := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
 		ShouldDeployLinkToken: false,
-		NumNodes:              1,
-		NodeLabels:            testutil.GetNodeLabels(donID, donName, env),
+		NumNodes:              3,
+		NodeLabels:            testutil.GetNodeLabels(donID, donName, envName),
 		CustomDBSetup: []string{
-			// Setup the database with the list of bridges we're using.
-			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
-				" VALUES ('bridge-api1', 'http://url', 0, '', '', '', now(), now());",
-			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
-				" VALUES ('bridge-api2', 'http://url', 0, '', '', '', now(), now());",
-			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
-				" VALUES ('bridge-api3', 'http://url', 0, '', '', '', now(), now());",
-			"INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)" +
-				" VALUES ('bridge-api4', 'http://url', 0, '', '', '', now(), now());",
+			// Seed the database with the list of bridges we're using.
+			`INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)
+				VALUES ('bridge-api1', 'http://url', 0, '', '', '', now(), now());`,
+			`INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)
+				VALUES ('bridge-api2', 'http://url', 0, '', '', '', now(), now());`,
+			`INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)
+				VALUES ('bridge-api3', 'http://url', 0, '', '', '', now(), now());`,
+			`INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)
+				VALUES ('bridge-api4', 'http://url', 0, '', '', '', now(), now());`,
 		},
 	}).Environment
 
 	// pick the first EVM chain selector
-	chainSelector := e.AllChainSelectors()[0]
+	chainSelector := env.AllChainSelectors()[0]
 
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
-	err := e.ExistingAddresses.Save(chainSelector, configuratorAddr,
+	err := env.ExistingAddresses.Save(chainSelector, configuratorAddr, //nolint: staticcheck // I don't care that ExistingAddresses is deprecated. We will fix it later.
 		deployment.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
@@ -104,10 +103,10 @@ ask_price [type=median allowedFaults=3 index=2];
 
 	config := CsDistributeStreamJobSpecsConfig{
 		Filter: &jd.ListFilter{
-			DONID:    donID,
-			DONName:  donName,
-			EnvLabel: "env",
-			Size:     1,
+			DONID:          donID,
+			DONName:        donName,
+			EnvLabel:       envName,
+			NumOracleNodes: 3,
 		},
 		Streams: []StreamSpecConfig{
 			{
@@ -133,51 +132,102 @@ ask_price [type=median allowedFaults=3 index=2];
 				APIs: []string{"api1", "api2", "api3", "api4"},
 			},
 		},
+		NodeNames: []string{"node-0", "node-1", "node-2"},
 	}
 
 	tests := []struct {
-		name       string
-		config     CsDistributeStreamJobSpecsConfig
-		prepConfFn func(CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig
-		wantErr    *string
-		wantSpec   string
+		name        string
+		prepConfFn  func(CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig
+		wantErr     *string
+		wantSpec    string
+		wantNumJobs int
 	}{
 		{
-			name:     "success",
-			config:   config,
-			wantSpec: renderedSpec,
+			name:        "success",
+			wantSpec:    renderedSpec,
+			wantNumJobs: 3,
 		},
-		// TODO add more tests
+		{
+			// This test only makes sense when run after "success" because the two use the same ExternalJobID.
+			name:        "success proposing updates to existing jobs",
+			wantSpec:    renderedSpec,
+			wantNumJobs: 3,
+		},
+		{
+			// This happens to also be a job update when run after "success" because the two use the same ExternalJobID.
+			name: "success sending jobs to a subset of nodes",
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.NodeNames = []string{"node-0"}
+				c.Filter = &jd.ListFilter{
+					DONID:          donID,
+					DONName:        donName,
+					EnvLabel:       envName,
+					NumOracleNodes: 1,
+				}
+				return c
+			},
+			wantSpec:    renderedSpec,
+			wantNumJobs: 1,
+		},
+		{
+			// This happens to also be a job update when run after "success" because the two use the same ExternalJobID.
+			name: "success sending jobs to a different subset of nodes",
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.NodeNames = []string{"node-1", "node-2"}
+				c.Filter = &jd.ListFilter{
+					DONID:          donID,
+					DONName:        donName,
+					EnvLabel:       envName,
+					NumOracleNodes: 2,
+				}
+				return c
+			},
+			wantSpec:    renderedSpec,
+			wantNumJobs: 2,
+		},
+		{
+			name: "failure when the node name is not found",
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.NodeNames = []string{"non-existing-node"}
+				c.Filter = &jd.ListFilter{
+					DONID:          donID,
+					DONName:        donName,
+					EnvLabel:       envName,
+					NumOracleNodes: 1,
+				}
+				return c
+			},
+			wantErr: pointer.To("failed to get oracle nodes"),
+		},
 	}
 
-	// Remove the externalJobID line from the spec. This is needed because the externalJobID is generated randomly
-	// and we want to exclude it from the comparison.
-	stripExternalJobID := func(spec string) string {
-		return regexp.MustCompile(`externalJobID = '[a-fA-F0-9\-]+'`).ReplaceAllString(spec, "")
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			conf := tt.config
-			if tt.prepConfFn != nil {
-				conf = tt.prepConfFn(tt.config)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			conf := config
+			if tc.prepConfFn != nil {
+				conf = tc.prepConfFn(conf)
 			}
 			_, out, err := changeset.ApplyChangesetsV2(t,
-				e,
+				env,
 				[]changeset.ConfiguredChangeSet{
 					changeset.Configure(CsDistributeStreamJobSpecs{}, conf),
 				},
 			)
 
-			if tt.wantErr != nil {
+			if tc.wantErr != nil {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), *tt.wantErr)
+				require.Contains(t, err.Error(), *tc.wantErr)
 				return
 			}
 			require.NoError(t, err)
 			require.Len(t, out, 1)
-			require.Len(t, out[0].Jobs, 1)
-			require.Equal(t, stripExternalJobID(tt.wantSpec), stripExternalJobID(out[0].Jobs[0].Spec))
+			require.Len(t, out[0].Jobs, tc.wantNumJobs)
+			for i := 0; i < tc.wantNumJobs; i++ {
+				require.Equal(t,
+					testutil.StripLineContaining(tc.wantSpec, []string{"externalJobID"}),
+					testutil.StripLineContaining(out[0].Jobs[i].Spec, []string{"externalJobID"}),
+				)
+			}
 		})
 	}
 }
@@ -189,10 +239,10 @@ func TestValidatePreconditions(t *testing.T) {
 
 	config := CsDistributeStreamJobSpecsConfig{
 		Filter: &jd.ListFilter{
-			DONID:    1,
-			DONName:  "don",
-			EnvLabel: "env",
-			Size:     1,
+			DONID:          1,
+			DONName:        "don",
+			EnvLabel:       "env",
+			NumOracleNodes: 1,
 		},
 		Streams: []StreamSpecConfig{
 			{
@@ -218,6 +268,7 @@ func TestValidatePreconditions(t *testing.T) {
 				APIs: []string{"api1", "api2", "api3", "api4"},
 			},
 		},
+		NodeNames: []string{"testnode-0"},
 	}
 
 	tests := []struct {
@@ -377,24 +428,23 @@ func TestValidatePreconditions(t *testing.T) {
 			wantErr: pointer.To("at least one API is required for each stream"),
 		},
 		{
-			name:   "empty APIs",
+			name:   "no node names",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.Streams = []StreamSpecConfig{
-					{
-						StreamID:     1000001038,
-						Name:         "ICP/USD-RefPrice",
-						StreamType:   jobs.StreamTypeQuote,
-						ReportFields: jobs.QuoteReportFields{},
-						EARequestParams: EARequestParams{
-							Endpoint: "cryptolwba",
-						},
-						APIs: []string{},
-					},
-				}
+				c.NodeNames = []string{}
 				return c
 			},
-			wantErr: pointer.To("at least one API is required for each stream"),
+			wantErr: pointer.To("at least one node name is required"),
+		},
+		{
+			name:   "filter size does not match node names",
+			config: config,
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				c.Filter.NumOracleNodes = 2
+				c.NodeNames = []string{"node-0"}
+				return c
+			},
+			wantErr: pointer.To("number of node names (1) does not match filter size (2)"),
 		},
 	}
 

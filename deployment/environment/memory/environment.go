@@ -274,7 +274,11 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	}
 	nodes := NewNodes(t, c)
 	var nodeIDs []string
-	for id := range nodes {
+	for id, node := range nodes {
+		require.NoError(t, node.App.Start(t.Context()))
+		t.Cleanup(func() {
+			require.NoError(t, node.App.Stop())
+		})
 		nodeIDs = append(nodeIDs, id)
 	}
 	return *deployment.NewEnvironment(
