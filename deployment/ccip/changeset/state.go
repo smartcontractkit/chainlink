@@ -9,8 +9,9 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -134,8 +135,8 @@ var (
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
 	commonstate.MCMSWithTimelockState
-	commoncs.LinkTokenState
-	commoncs.StaticLinkTokenState
+	commonstate.LinkTokenState
+	commonstate.StaticLinkTokenState
 	ABIByAddress       map[string]string
 	OnRamp             onramp.OnRampInterface
 	OffRamp            offramp.OffRampInterface
@@ -1094,12 +1095,12 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	linkState, err := commoncs.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.LinkTokenState = *linkState
-	staticLinkState, err := commoncs.MaybeLoadStaticLinkTokenState(chain, addresses)
+	staticLinkState, err := commonstate.MaybeLoadStaticLinkTokenState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
