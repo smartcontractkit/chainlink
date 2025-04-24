@@ -250,9 +250,7 @@ func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (s
 	var authority solana.PublicKey = d.e.SolChains[chain].DeployerKey.PublicKey()
 
 	if d.mcmConfig != nil {
-
-		//lint:ignore SA1019 TODO use DataStore to fetch address
-		addresses, err := d.e.ExistingAddresses.AddressesForChain(chain)
+		addresses, err := addressForChain(d.e, chain)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load addresses for chain %d: %w", chain, err)
 		}
@@ -489,8 +487,7 @@ func BuildTimelockAddressPerChain(e deployment.Environment, onchainState CCIPOnC
 
 	// TODO: This should come from the Solana chain state which should be enhanced to contain timlock and MCMS address
 	for selector, chain := range e.SolChains {
-		//lint:ignore SA1019 TODO use DataStore to fetch address
-		addresses, _ := e.ExistingAddresses.AddressesForChain(selector)
+		addresses, _ := addressForChain(e, selector)
 		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 		addressPerChain[selector] = mcmsSolana.ContractAddress(mcmState.TimelockProgram, mcmsSolana.PDASeed(mcmState.TimelockSeed))
 	}
@@ -513,8 +510,7 @@ func BuildMcmAddressesPerChainByAction(e deployment.Environment, onchainState CC
 
 	// TODO: This should come from the Solana chain state which should be enhanced to contain timlock and MCMS address
 	for selector, chain := range e.SolChains {
-		//lint:ignore SA1019 TODO use DataStore to fetch address
-		addresses, _ := e.ExistingAddresses.AddressesForChain(selector)
+		addresses, _ := addressForChain(e, selector)
 		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 		var address string
 		switch mcmCfg.MCMSAction {
@@ -531,4 +527,18 @@ func BuildMcmAddressesPerChainByAction(e deployment.Environment, onchainState CC
 	}
 
 	return addressPerChain, nil
+}
+
+func addressForChain(e deployment.Environment, selector uint64) (map[string]deployment.TypeAndVersion, error) {
+	// addresses := e.DataStore.Addresses()
+	// addressesForChain := addresses.Filter(datastore.AddressRefByChainSelector(selector))
+	// addressesByType := make(map[string]deployment.TypeAndVersion)
+	// for _, address := range addressesForChain {
+	// 	addressesByType[address.Address] = deployment.TypeAndVersion{
+	// 		Type:    deployment.ContractType(address.Type),
+	// 		Version: *address.Version,
+	// 	}
+	// }
+
+	return e.ExistingAddresses.AddressesForChain(selector) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
 }

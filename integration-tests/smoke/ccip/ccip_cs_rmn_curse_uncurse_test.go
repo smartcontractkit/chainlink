@@ -129,9 +129,11 @@ var testCases = []CurseTestCase{
 		},
 		curseAssertions: []curseAssertion{
 			{chainID: 2, globalCurse: true, cursed: true},
+			{chainID: 0, subject: 1, cursed: false},
+			{chainID: 0, subject: 2, cursed: true},
 			{chainID: 1, subject: 0, cursed: false},
 			{chainID: 1, subject: 2, cursed: true},
-			{chainID: 2, subject: 0, cursed: false},
+			{chainID: 2, subject: 0, cursed: true},
 			{chainID: 2, subject: 1, cursed: true},
 		},
 	},
@@ -150,7 +152,7 @@ var testCases = []CurseTestCase{
 	},
 }
 
-func TestRMNCurseBase(t *testing.T) {
+func TestRMNCurse(t *testing.T) {
 	t.Parallel()
 	for _, tc := range testCases {
 		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
@@ -158,6 +160,9 @@ func TestRMNCurseBase(t *testing.T) {
 		})
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
 			runRmnCurseMCMSTest(t, tc, types.TimelockActionBypass)
+		})
+		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			runRmnCurseMCMSTest(t, tc, types.TimelockActionSchedule)
 		})
 	}
 }
