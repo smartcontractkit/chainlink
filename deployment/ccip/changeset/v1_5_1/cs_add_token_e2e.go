@@ -151,6 +151,7 @@ type DeployTokenConfig struct {
 	PoolType        deployment.ContractType // This is the type of the token pool that will be deployed for this token.
 	PoolAllowList   []common.Address
 	AcceptLiquidity *bool
+	TransferToken map[common.Address]*big.Int // TransferToken is a map of recipient address to amount to be transferred or minted and provided minting role after token deployment.
 }
 
 func (c *DeployTokenConfig) Validate() error {
@@ -243,7 +244,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 		}
 		// deploy token pools if token deployment config is provided and populate pool deployment configuration
 		if len(tokenDeployCfg) > 0 {
-			deployedTokens, ab, err := deployTokenPools(e, tokenDeployCfg)
+			deployedTokens, ab, err := deployTokens(e, tokenDeployCfg)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
@@ -352,7 +353,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 	return *finalCSOut, nil
 }
 
-func deployTokenPools(e deployment.Environment, tokenDeployCfg map[uint64]DeployTokenConfig) (map[uint64]common.Address, deployment.AddressBook, error) {
+func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployTokenConfig) (map[uint64]common.Address, deployment.AddressBook, error) {
 	ab := deployment.NewMemoryAddressBook()
 	tokenAddresses := make(map[uint64]common.Address) // This will hold the token addresses for each chain.
 	for selector, cfg := range tokenDeployCfg {
@@ -380,6 +381,19 @@ func deployTokenPools(e deployment.Environment, tokenDeployCfg map[uint64]Deploy
 			if err != nil {
 				return nil, ab, fmt.Errorf("failed to deploy BurnMintERC677 token %s on chain %d: %w", cfg.TokenName, selector, err)
 			}
+			if len(cfg.TransferToken) > 0 {
+				for recipient, amount := range cfg.TransferToken {
+					_, err := token.Contract.GrantMintRole(e.Chains[selector].DeployerKey, recipient)
+					if err != nil {
+						return nil, ab, fmt.Errorf("failed to grant mint role to %s on chain %d: %w", recipient.Hex(), selector, err)
+					}
+					_, err = token.Contract.Mint(e.Chains[selector].DeployerKey, recipient, amount)
+					if err != nil {
+						return nil, ab, fmt.Errorf("failed to mint %s tokens to %s on chain %d: %w", cfg.TokenName, recipient.Hex(), selector, err)
+					}
+				}
+			}
+
 			tokenAddresses[selector] = token.Address
 		case changeset.ERC20Token:
 			token, err := deployment.DeployContract(e.Logger, e.Chains[selector], ab,
@@ -399,8 +413,17 @@ func deployTokenPools(e deployment.Environment, tokenDeployCfg map[uint64]Deploy
 					}
 				},
 			)
+
 			if err != nil {
 				return nil, ab, fmt.Errorf("failed to deploy ERC20 token %s on chain %d: %w", cfg.TokenName, selector, err)
+			}
+			if len(cfg.TransferToken) > 0 {
+				for recipient, amount := range cfg.TransferToken {
+					_, err = token.Contract.Transfer(e.Chains[selector].DeployerKey, recipient, amount)
+					if err != nil {
+						return nil, ab, fmt.Errorf("failed to transfer %s tokens to %s on chain %d: %w", cfg.TokenName, recipient.Hex(), selector, err)
+					}
+				}
 			}
 			tokenAddresses[selector] = token.Address
 		case changeset.ERC677Token:
@@ -424,10 +447,19 @@ func deployTokenPools(e deployment.Environment, tokenDeployCfg map[uint64]Deploy
 			if err != nil {
 				return nil, ab, fmt.Errorf("failed to deploy ERC677 token %s on chain %d: %w", cfg.TokenName, selector, err)
 			}
+			if len(cfg.TransferToken) > 0 {
+				for recipient, amount := range cfg.TransferToken {
+					_, err = token.Contract.Transfer(e.Chains[selector].DeployerKey, recipient, amount)
+					if err != nil {
+						return nil, ab, fmt.Errorf("failed to transfer %s tokens to %s on chain %d: %w", cfg.TokenName, recipient.Hex(), selector, err)
+					}
+				}
+			}
 			tokenAddresses[selector] = token.Address
 		default:
 			return nil, ab, fmt.Errorf("unsupported token %s type %s for deployment on chain %d", cfg.TokenName, cfg.Type, selector)
 		}
 	}
+
 	return tokenAddresses, ab, nil
 }
