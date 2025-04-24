@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/AlekSi/pointer"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -13,9 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
@@ -45,8 +41,9 @@ type DeployTokenPoolInput struct {
 	LocalTokenDecimals uint8
 	// AcceptLiquidity indicates whether or not the new pool can accept liquidity from a rebalancer address (lock-release only).
 	AcceptLiquidity *bool
-	// GrantAccessToPool indicates whether or not the new pool should be granted access to the token. This should be set only when the token is deployed through this changeset.
-	GrantAccessToPool bool
+	// grantAccessToPool indicates whether or not the new pool should be granted access to the token.
+	// Internal usage and will be set only when token deployment is requested and it is BurnAndMint pool type.
+	grantAccessToPool bool
 }
 
 func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Chain, state changeset.CCIPChainState, tokenSymbol changeset.TokenSymbol) error {
@@ -178,7 +175,7 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 			if err != nil {
 				return fmt.Errorf("failed to deploy token pool contract: %w", err)
 			}
-			if poolConfig.GrantAccessToPool {
+			if poolConfig.grantAccessToPool {
 				err := grantAccessToPool(chain, contract.Address, poolConfig.TokenAddress)
 				if err != nil {
 					return fmt.Errorf("failed to grant token pool access to token: %s %w", poolConfig.TokenAddress, err)
@@ -196,25 +193,6 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 	return deployment.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
-}
-
-// grantAccessToPool grants the token pool contract access to mint and burn tokens.
-func grantAccessToPool(
-	chain deployment.Chain,
-	tpAddress common.Address,
-	tokenAddress common.Address,
-) error {
-	token, err := burn_mint_erc677.NewBurnMintERC677(tokenAddress, chain.Client)
-	if err != nil {
-		return fmt.Errorf("failed to connect address %s with erc677 bindings: %w", tokenAddress, err)
-	}
-
-	_, err = token.GrantMintAndBurnRoles(chain.DeployerKey, tpAddress)
-	if err != nil {
-		return fmt.Errorf("failed to grant mint and burn roles to token pool address: %s for token: %s %w", tpAddress, tokenAddress, err)
-	}
-
-	return nil
 }
 
 // deployTokenPool deploys a token pool contract based on a given type & configuration.
