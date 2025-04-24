@@ -157,16 +157,6 @@ runner-test-matrix:
     test_cmd: go test smoke/ccip/ccip_cs_update_rmn_config_test.go -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:*
-    path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
-    test_env_type: in-memory
-    runs_on: ubuntu-latest
-    triggers:
-      - PR Integration CCIP Tests
-      - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -timeout 20m -test.parallel=1 -count=1 -json
-    test_go_project_path: integration-tests
-
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurse
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory

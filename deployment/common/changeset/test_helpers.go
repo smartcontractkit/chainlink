@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
