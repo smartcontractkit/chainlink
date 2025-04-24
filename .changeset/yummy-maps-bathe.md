@@ -2,4 +2,5 @@
 "chainlink": patch
 ---
 
-Bump chainlink-evm version for Log index fixes (for Hedera & Rootstock)
+#added  Hedera & Rootstock to Log index fixes
+#updated Bumped chainlink-evm version
