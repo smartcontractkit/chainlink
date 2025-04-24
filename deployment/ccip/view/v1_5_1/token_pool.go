@@ -140,11 +140,7 @@ func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (To
 	}
 	remoteChainConfigs := make(map[uint64]RemoteChainConfig)
 	for _, remoteChain := range remoteChains {
-		remotePoolsBytes, err := pool.GetRemotePools(nil, remoteChain)
-		remotePools := make([]string, len(remotePoolsBytes))
-		for i, remotePoolBytes := range remotePoolsBytes {
-			remotePools[i] = shared.GetAddressFromBytes(remoteChain, remotePoolBytes)
-		}
+		remotePools, err := pool.GetRemotePools(nil, remoteChain)
 		if err != nil {
 			return TokenPoolView{}, err
 		}
@@ -162,7 +158,7 @@ func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (To
 		}
 		remoteChainConfigs[remoteChain] = RemoteChainConfig{
 			RemoteTokenAddress:  shared.GetAddressFromBytes(remoteChain, remoteToken),
-			RemotePoolAddresses: remotePools,
+			RemotePoolAddresses: make([]string, len(remotePools)),
 			InboundRateLimterConfig: token_pool.RateLimiterConfig{
 				IsEnabled: inboundState.IsEnabled,
 				Capacity:  inboundState.Capacity,
@@ -173,6 +169,9 @@ func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (To
 				Capacity:  outboundState.Capacity,
 				Rate:      outboundState.Rate,
 			},
+		}
+		for i, remotePool := range remotePools {
+			remoteChainConfigs[remoteChain].RemotePoolAddresses[i] = shared.GetAddressFromBytes(remoteChain, remotePool)
 		}
 	}
 
