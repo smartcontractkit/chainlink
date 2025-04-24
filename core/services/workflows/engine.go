@@ -46,11 +46,6 @@ const (
 	maxStepTimeoutOverrideSec    = 10 * 60 // 10 minutes
 )
 
-var (
-	errGlobalWorkflowCountLimitReached   = errors.New("global workflow count limit reached")
-	errPerOwnerWorkflowCountLimitReached = errors.New("per owner workflow count limit reached")
-)
-
 type stepRequest struct {
 	stepRef string
 	state   store.WorkflowExecution
@@ -169,14 +164,14 @@ func (e *Engine) Start(_ context.Context) error {
 		ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
 		if !globalAllow {
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitGlobalCounter(ctx)
-			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errGlobalWorkflowCountLimitReached.Error(), e.logger)
-			return errGlobalWorkflowCountLimitReached
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), types.ErrGlobalWorkflowCountLimitReached.Error(), e.logger)
+			return types.ErrGlobalWorkflowCountLimitReached
 		}
 
 		if !ownerAllow {
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitPerOwnerCounter(ctx)
-			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errPerOwnerWorkflowCountLimitReached.Error(), e.logger)
-			return errPerOwnerWorkflowCountLimitReached
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), types.ErrPerOwnerWorkflowCountLimitReached.Error(), e.logger)
+			return types.ErrPerOwnerWorkflowCountLimitReached
 		}
 
 		e.metrics.incrementWorkflowInitializationCounter(ctx)

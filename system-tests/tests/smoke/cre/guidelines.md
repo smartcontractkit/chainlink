@@ -1,168 +1,155 @@
 # Test Modification and Execution Guide
 
 ## Table of Contents
-1. [How to Run the Test](#how-to-run-the-test)
+
+1. [Running the Test](#1-running-the-test)
    - [Chainlink Node Image](#chainlink-node-image)
    - [Environment Variables](#environment-variables)
    - [Job Distributor Image](#job-distributor-image)
    - [CRE CLI Binary](#cre-cli-binary)
-   - [cron Binary](#cron-binary)
+   - [cron Capability Binary](#cron-capability-binary)
    - [PoR Workflow Source Code](#por-workflow-source-code)
    - [Test Timeout](#test-timeout)
-2. [Adding a New Capability](#adding-a-new-capability)
-   - [Copying the Binary to the Container](#copying-the-binary-to-the-container)
-   - [Adding support for the new capability in the testing code](#adding-support-for-the-new-capability-in-the-testing-code)
-     - [Defining a CapabilityFlag for the Capability](#defining-a-capabilityflag-for-the-capability)
-     - [Defining Additional Node Configuration](#defining-additional-node-configuration)
-     - [Defining a Job Spec for the New Capability](#defining-a-job-spec-for-the-new-capability)
-     - [Registering the Capability in the Capabilities Registry contract](#registering-the-capability-in-the-capabilities-registry-contract)
-3. [Using a New Workflow](#using-a-new-workflow)
-   - [Test Uploads the Binary](#test-uploads-the-binary)
-   - [Workflow Configuration](#workflow-configuration)
-   - [Workflow Secrets](#workflow-secrets)
-   - [Manual Upload of the Binary](#manual-upload-of-the-binary)
-   - [YAML workflows](#yaml-workflows)
-      - [Workfow definition](#workfow-definition)
-      - [Proposing the workflow using JD](#proposing-the-workflow-using-jd)
-4. [Deployer Address or Deployment Sequence Changes](#deployer-address-or-deployment-sequence-changes)
-5. [Multiple DONs](#multiple-dons)
-   - [DON Type](#don-type)
-   - [Capabilities](#capabilities)
-   - [HTTP Port Range Start](#http-port-range-start)
-   - [Database (DB) Port](#database-db-port)
-   - [Number of Nodes](#number-of-nodes)
-6. [Price Data Source](#price-data-source)
-   - [Live Source](#live-source)
-   - [Mocked Data Source](#mocked-data-source)
-7. [Using a Specific Docker Image for Chainlink Node](#using-a-specific-docker-image-for-chainlink-node)
-8. [Troubleshooting](#troubleshooting)
-   - [Chainlink Node migrations fail](#chainlink-node-migrations-fail)
-   - [Chainlink image not found in local Docker registry](#chainlink-image-not-found-in-local-docker-registry)
-9. [Docker vs Kubernetes (k8s)](#docker-vs-kubernetes-k8s)
-10. [CRIB Requirements](#crib-requirements)
-11. [Setting Docker Images for CRIB Execution](#setting-docker-images-for-crib-execution)
-12. [Running Tests in Local Kubernetes (`kind`)](#running-tests-in-local-kubernetes-kind)
-13. [CRIB Deployment Flow](#crib-deployment-flow)
-14. [Switching from kind to AWS provider](#switching-from-kind-to-aws-provider)
-15. [CRIB Limitations & Considerations](#crib-limitations--considerations)
-16. [CLI Usage](#cli-usage)
-17. [Using existing EVM & P2P keys](#using-existing-evm--p2p-keys)
+   - [Visual Studio Code Debug Configuration](#visual-studio-code-debug-configuration)
+
+2. [Docker vs Kubernetes (k8s)](#2-docker-vs-kubernetes-k8s)
+3. [CRIB Requirements](#3-crib-requirements)
+4. [Setting Docker Images for CRIB Execution](#4-setting-docker-images-for-crib-execution)
+5. [Running Tests in Local Kubernetes (kind)](#5-running-tests-in-local-kubernetes-kind)
+6. [CRIB Deployment Flow](#6-crib-deployment-flow)
+7. [Switching from kind to AWS Provider](#7-switching-from-kind-to-aws-provider)
+8. [CRIB Limitations & Considerations](#8-crib-limitations--considerations)
+9. [Adding a New Capability](#9-adding-a-new-capability)
+10. [Using a New Workflow](#10-using-a-new-workflow)
+11. [Deployer Address or Deployment Sequence Changes](#11-deployer-address-or-deployment-sequence-changes)
+12. [Adding a New Test to the CI](#12-adding-a-new-test-to-the-ci)
+13. [Multiple DONs](#13-multiple-dons)
+14. [Price Data Source](#14-price-data-source)
+15. [Using a Specific Docker Image for Chainlink Node](#15-using-a-specific-docker-image-for-chainlink-node)
+16. [Troubleshooting](#16-troubleshooting)
+17. [CLI Usage](#17-cli-usage)
+   - [Start Environment](#start-environment)
+   - [Stop Environment](#stop-environment)
+   - [Before You Start](#before-you-start)
+   - [Environment Variables](#environment-variables-1)
+   - [Cleanup](#cleanup)
+18. [Using Existing EVM & P2P Keys](#18-using-existing-evm--p2p-keys)
 
 ---
 
-## How to Run the Test
+## Test Modification and Execution Guide
 
-Before running the test, several prerequisites must be met.
+This guide explains how to set up and run system tests for Chainlink workflows using the CRE (Composable Runtime Environment) framework. It includes support for Docker and Kubernetes (via CRIB), multiple capabilities, and integration with Chainlink nodes and job distributor services.
+
+---
+
+## 1. Running the Test
+
+Before starting, you’ll need to configure your environment correctly.
 
 ### Chainlink Node Image
 
-The TOML configuration allows you to choose whether to:
+The TOML config defines how Chainlink node images are used:
 
-- Use an existing Docker image
-- Build a Docker image from the currently checked-out branch
+- **Default behavior**: Builds the Docker image from your current branch.
+  ```toml
+  [nodesets.node_specs.node]
+    docker_ctx = "../../../.."
+    docker_file = "plugins/chainlink.Dockerfile"
+  ```
 
-By default, the test builds the image from the current branch. This is expressed in the config as follows:
+- **Using a pre-built image**: Replace the config with:
+  ```toml
+  [nodesets.node_specs.node]
+    image = "my-docker-image:my-tag"
+  ```
+  Apply this to every `nodesets.node_specs.node` section.
 
-```toml
-[nodesets.node_specs.node]
-  docker_ctx = "../../../.."
-  docker_file = "plugins/chainlink.Dockerfile"
-```
-
-If you prefer to use an existing image, update the config to:
-
-```toml
-[nodesets.node_specs.node]
-  image = "my-docker-image:my-tag"
-```
-
-Make this change for each `nodesets.node_specs.node` entry in the config.
-
-**Supported version**: ≥ [e13e5675d3852b04e18dad9881e958066a2bf87a](https://github.com/smartcontractkit/chainlink/commit/e13e5675d3852b04e18dad9881e958066a2bf87a) (merged on 2025-02-25)
+**Minimum required version**: Commit [e13e5675](https://github.com/smartcontractkit/chainlink/commit/e13e5675d3852b04e18dad9881e958066a2bf87a) (Feb 25, 2025)
 
 ---
 
 ### Environment Variables
 
-Required environment variables:
+Set these before running your test:
 
-- **`CTF_CONFIGS`** – Always required. A comma-separated list of TOML config files to use.
-- **`PRIVATE_KEY`** – A plaintext private key used for all contract deployments, configuration, and Chainlink node funding. This key must be sufficiently funded.
-- **`GIST_WRITE_TOKEN`** – Required only when compiling and uploading a new workflow. This must be a fine-grained personal access token with `gist:read:write` permissions tied to your personal GitHub account.
+- `CTF_CONFIGS`: Required. Comma-separated list of TOML config files.
+- `PRIVATE_KEY`: Required. Plaintext private key for contract deployment and node funding.
+- `GIST_WRITE_TOKEN`: Optional. Needed only when uploading a new workflow. Must have `gist:read:write` scope on GitHub.
 
 ---
 
 ### Job Distributor Image
 
-The test requires the Job Distributor image to be available locally. By default, `environment-*.toml` files expect an image tagged as `job-distributor:0.9.0`.
+Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.9.0`.
 
-The easiest way to build it locally is:
-
+To build locally:
 ```bash
+git clone https://github.com/smartcontractkit/job-distributor
+cd job-distributor
+git checkout v0.9.0
 docker build -t job-distributor:0.9.0 -f e2e/Dockerfile.e2e .
 ```
 
-If you have access to the production ECR, you can also pull the image from there. Alternatively, update the `environment-*.toml` files with the full name of the image from your registry.
-
-**Supported version**: v0.9.0
+Or pull from your internal registry and update the image name in `environment-*.toml`.
 
 ---
 
 ### CRE CLI Binary
 
-Download the CRE CLI binary compiled for your host machine's architecture from the [smartcontractkit/dev-platform](https://github.com/smartcontractkit/dev-platform) repository. Alternatively, build it on your local machine for operating system and architecture matching yours.
+Download the CLI binary for your system from the [dev-platform repo](https://github.com/smartcontractkit/dev-platform). You can also build it locally.
 
-**Supported version**: v0.1.5
+**Required version**: `v0.1.5`
 
 ---
 
-### `cron` Binary
+### `cron` Capability Binary
 
-You must ensure the test environment has access to the `cron` capability binary. You can either:
+This binary is needed for tests using the cron capability.
 
-1. **Use a CL node image that already includes the binary**, or
-2. **Make the binary available on your host machine** so that the test can copy it into the running container.
-
-If you choose the first option, comment out the relevant line in your TOML config to specify the binary path, like this:
+**Option 1**: Use a CL node image that already includes the binary. If so, comment this in TOML:
 ```toml
 [workflow_config.dependencies]
   # cron_capability_binary_path = "./cron"
 ```
 
-If you choose the second option, update the relevant line in your TOML config to match the binary path:
-
+**Option 2**: Provide a path to a locally built binary:
 ```toml
 [workflow_config.dependencies]
   cron_capability_binary_path = "./some-folder/cron"
 ```
 
-To obtain the binary, you can:
-- Clone the [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities) repo and build it locally
-- Download it from the release assets
+You can build it from [capabilities repo](https://github.com/smartcontractkit/capabilities) or download the release.
 
-Ensure the binary is built for **Linux** and **amd64** architecture.
-
-**Supported version**: v0.1.2-alpha
+**Note**: Binary must be compiled for **Linux** and **amd64**.
 
 ---
 
 ### PoR Workflow Source Code
 
-By default, the test compiles the workflow each time it runs. Therefore, you must clone the [smartcontractkit/proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test) repository.
-
-Then, update the TOML config to point to the workflow's location (relative or absolute paths are supported):
-
-```toml
-[workflow_config]
-workflow_folder_location = "/Users/my-user/repositories/proof-of-reserves-workflow-e2e-test"
+By default, tests compile the workflow at runtime. Clone the repo:
+```bash
+git clone https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test
 ```
 
-### Test timeout
-If building Docker image set Go test timeout to 20 minutes. Test should build the image and execute in 12-15 minutes on most machines. When using existing images execution time varies between 4 and 7 minutes.
+Then, update the TOML:
+```toml
+[workflow_config]
+  workflow_folder_location = "/path/to/proof-of-reserves-workflow-e2e-test"
+```
 
-### Visual Studio Code configuration
-Below is a launch configuration that can be used with the VCS:
+---
 
+### Test Timeout
+
+- If building the image: Set Go test timeout to **20 minutes**.
+- If using pre-built images: Execution takes **4–7 minutes**.
+
+---
+
+### Visual Studio Code Debug Configuration
+
+Example `launch.json` entry:
 ```json
 {
   "name": "Launch Capability Test",
@@ -182,147 +169,143 @@ Below is a launch configuration that can be used with the VCS:
 }
 ```
 
-In CI the flow is a bit different, because we generate one-time access tokens to these two repositories and testing code downloads required assets on its own.
-There the test code modifies the config during runtime to production JD image hardcoded in the [.github/e2e-tests.yml](.github/e2e-tests.yml) file as `E2E_JD_VERSION` env var.
+**CI behavior differs**: In CI, workflows and binaries are uploaded ahead of time, and images are injected via:
+- `E2E_JD_VERSION`
+- `E2E_TEST_CHAINLINK_IMAGE`
+- `E2E_TEST_CHAINLINK_VERSION`
 
-## Docker vs Kubernetes (k8s)
+---
 
-The following TOML configuration determines whether a test is executed in Docker or Kubernetes:
+## 2. Docker vs Kubernetes (k8s)
 
+The environment type is set in your TOML config:
 ```toml
 [infra]
-  # Choose either "docker" or "crib"
-  type = "crib"
+  type = "crib"  # Options: "docker" or "crib"
 ```
 
-The only way to execute tests in Kubernetes (k8s) is through CRIB, which supports both a local cluster (`kind`) and AWS. When executing in CRIB, you must provide the following configuration:
+To run tests in Kubernetes, you must use the `crib` option. CRIB supports both:
+- **Local cluster (`kind`)**
+- **AWS cloud provider**
 
+Example TOML for CRIB:
 ```toml
 [infra.crib]
   namespace = "crib-local"
-  folder_location = "$(pwd of crib repository)/deployments/cre"
-  # Choose either "aws" or "kind"
-  provider = "kind"
+  folder_location = "/absolute/path/to/crib/deployments/cre"
+  provider = "kind"  # or "aws"
 ```
 
 ---
 
-## CRIB Requirements
+## 3. CRIB Requirements
 
-Before running tests in CRIB, follow these steps:
+Before using CRIB, ensure the following:
 
-1. **Read the CRIB Instructions** – Follow the [CRIB deployment guide](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/660145339/General+CRIB+-+Deploy+Access+Instructions).
-2. **Obtain AWS Role** – If you plan to run tests on AWS, acquire the necessary AWS role for CRIB. Running on a local `kind` cluster does not require any roles.
-3. **Manually Download Docker Registry Image** – If using the `kind` provider, download the required Docker registry image:
+1. **Read the CRIB Setup Guide**
+   Follow the official [CRIB deployment instructions](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/660145339/General+CRIB+-+Deploy+Access+Instructions).
+
+2. **AWS Role (for AWS provider)**
+   Required only for AWS. Local `kind` setup does not require role access.
+
+3. **Pull Local Registry Image** (for `kind` only):
    ```bash
    docker pull registry:2
    ```
-4. **Clone the CRIB Repository** – Clone the [CRIB repository](https://github.com/smartcontractkit/crib) and determine its absolute path using `pwd`.
-5. **Update the TOML Configuration** – Set the `folder_location` parameter to the absolute path of the `deployments/cre` folder within the CRIB repository.
-   ```toml
-   [infra.crib]
-   folder_location = "/Users/me/repositories/crib/deployments/cre"
+
+4. **Clone CRIB Repository**
+   ```bash
+   git clone https://github.com/smartcontractkit/crib
+   cd crib
+   pwd  # to get absolute path for config
    ```
-6. **Adjust Namespace and Provider** – If using AWS, you **must** provide cost attribution details:
+
+5. **Update `folder_location` in TOML**:
+   ```toml
+   folder_location = "/your/absolute/path/to/crib/deployments/cre"
+   ```
+
+6. **Add Cost Attribution (for AWS)**:
    ```toml
    [infra.crib.team_input]
-   team = "your team"
-   product = "name of the product you are working on"
-   cost_center = "crib"
-   component = "crib"
+     team = "your-team"
+     product = "product-name"
+     cost_center = "crib"
+     component = "crib"
    ```
-7. **Start VPN** - If using AWS.
+
+7. **Connect VPN** (for AWS provider only)
+
 ---
 
-## Setting Docker Images for CRIB Execution
+## 4. Setting Docker Images for CRIB Execution
 
-CRIB does **not** support dynamically built Docker images from local `Dockerfile`s during test execution. Using the following TOML configuration will result in an error:
+CRIB does **not** support building Docker images from source during test runtime.
 
+❌ Not allowed:
 ```toml
 [nodesets.node_specs.node]
   docker_ctx = "../../../.."
   docker_file = "plugins/chainlink.Dockerfile"
 ```
 
-Instead, you **must** use the `image` key:
-
+✅ Required:
 ```toml
 [nodesets.node_specs.node]
   image = "localhost:5001/chainlink:112b9323-plugins-cron"
 ```
 
-### Image Restrictions
-- Each nodeset **must** use the same Docker image.
-- The image tag **must** be explicit (omitting tag, so that implicitly `latest` is used is **not** supported).
+### Notes:
+- All nodes in a single nodeset **must** use the same image.
+- You must specify an image tag explicitly (e.g., `:v1.2.3`).
 
-#### Job Distribution (JD) Image
-Currently, CRIB reads only the **image tag** from the TOML configuration. The following setting:
+### Job Distributor (JD) Image in CRIB
 
+CRIB extracts only the image **tag** from your TOML:
 ```toml
 [jd]
   image = "jd-test-1:my-awesome-tag"
 ```
 
-Will result in CRIB using an image from the main AWS ECR repository with the tag `my-awesome-tag`.
-
-If an image tag is omitted, an error will occur:
-
+If you leave off the tag, CRIB will fail:
 ```toml
 [jd]
-  image = "jd-test-1"  # This will fail
+  image = "jd-test-1"  # ❌ This will fail
 ```
 
 ---
 
-## Running Tests in Local Kubernetes (`kind`)
+## 5. Running Tests in Local Kubernetes (`kind`)
 
 ### Docker Registry Setup
-Ensure you have pulled the `registry:2` Docker image:
+
+Pull the required local registry image:
 ```bash
 docker pull registry:2
 ```
 
-### Hostname Routing
-All routing to the `kind` cluster is done via `/etc/hosts`. CRIB automatically adds new host entries for detected ingresses, but since `/etc/hosts` is protected, root privileges are required. However, running tests does **not** allow interactive password input, leading to failures when new hostnames must be added.
+### Hostname Routing with `/etc/hosts`
 
-#### Workarounds
-1. **Manually add `/etc/hosts` entries** (tedious but straightforward).
-2. **Run `devspace` manually** for each chain/DON before starting tests. This allows CRIB to add entries while you enter the root password interactively.
+CRIB dynamically creates hostname entries, but modifying `/etc/hosts` requires root. Tests fail if routing isn't set up.
 
-### Manually Adding `/etc/hosts` Entries
-For each component, manually add the following entries:
+#### Solutions:
+1. **Manually add host entries**.
+2. **Run `devspace` manually before starting tests** to allow interactive root access.
 
-#### Geth Chain
-```bash
-127.0.0.1 <NAMESPACE>-geth-<CHAIN_ID>-http.main.stage.cldev.sh
-127.0.0.1 <NAMESPACE>-geth-<CHAIN_ID>-ws.main.stage.cldev.sh
-```
-Example:
+#### Example Manual Entries
+
+**Geth Chain**:
 ```bash
 127.0.0.1 crib-local-geth-1337-http.main.stage.cldev.sh
 127.0.0.1 crib-local-geth-1337-ws.main.stage.cldev.sh
 ```
 
-#### Job Distributor
-```bash
-127.0.0.1 <NAMESPACE>-job-distributor-grpc.main.stage.cldev.sh
-```
-Example:
+**Job Distributor**:
 ```bash
 127.0.0.1 crib-local-job-distributor-grpc.main.stage.cldev.sh
 ```
 
-#### Chainlink Nodes
-For bootstrap nodes:
-```bash
-127.0.0.1 <NAMESPACE>-<DON_TYPE>-bt-<INDEX>.main.stage.cldev.sh
-```
-For worker nodes:
-```bash
-127.0.0.1 <NAMESPACE>-<DON_TYPE>-<INDEX>.main.stage.cldev.sh
-```
-
-Example (1 bootstrap + 3 worker nodes in `workflow` DON):
+**Chainlink Nodes (1 bootstrap, 3 workers)**:
 ```bash
 127.0.0.1 crib-local-workflow-bt-0.main.stage.cldev.sh
 127.0.0.1 crib-local-workflow-0.main.stage.cldev.sh
@@ -330,267 +313,301 @@ Example (1 bootstrap + 3 worker nodes in `workflow` DON):
 127.0.0.1 crib-local-workflow-2.main.stage.cldev.sh
 ```
 
-### Automating Hostname Setup with `devspace`
-Run the following commands **inside the `cre/deployment` subfolder** and a shell where `nix develop` was executed:
+### Automating Host Setup with `devspace`
 
-#### Geth Chain
+From within `cre/deployment` and a `nix develop` shell:
+
+**Deploy Geth Chain**:
 ```bash
-CHAIN_ID=<CHAIN_ID> devspace run deploy-custom-geth-chain
+CHAIN_ID=<id> devspace run deploy-custom-geth-chain
 ```
-#### Job Distributor
+
+**Deploy JD**:
 ```bash
 devspace run deploy-jd
 ```
-#### Chainlink Nodes
+
+**Deploy DON**:
 ```bash
-DON_TYPE=<type of don> DON_NODE_COUNT=<number of worker nodes> DON_BOOT_NODE_COUNT=<number of bootstrap nodes> devspace run deploy-don
+DON_TYPE=<name> DON_NODE_COUNT=<n> DON_BOOT_NODE_COUNT=<b> devspace run deploy-don
 ```
 
-Ensure `DON_TYPE` matches the `name` field in your TOML config:
-
-```toml
-[[nodesets]]
-  nodes = 5
-  name = "workflow"
-```
+Ensure DON type matches the `name` field in your TOML config.
 
 ---
 
-## CRIB Deployment Flow
+## 6. CRIB Deployment Flow
 
-1. **Initialize a `nix develop` shell** and set environment variables.
-    - Set environment variables: `PROVIDER`, `DEVSPACE_NAMESPACE`, `CONFIG_OVERRIDES_DIR`
-2. **Start Blockchains**:
-   - Set `CHAIN_ID` from TOML.
-   - Deploy with `devspace run deploy-custom-geth-chain`.
-   - Read endpoints from `chain-<CHAIN_ID>-urls.json`.
-3. **Deploy Keystone Contracts**.
-4. **Generate CL Node Configs & Secrets** (stored in `./crib-configs`).
-5. **Start Each DON**:
-   - Set environment variables: `DEVSPACE_IMAGE`, `DEVSPACE_IMAGE_TAG`, `DON_BOOT_NODE_COUNT`, `DON_NODE_COUNT` and `DON_TYPE`.
-   - Deploy with `devspace run deploy-don`.
-   - Read DON URLs from `don-<DON_TYPE>-urls.json`.
-   - Copy capabilities binaries to pods with `devspace run copy-to-pods` (if needed).
-6. **Start Job Distributor**:
-   - Set environment variable: `JOB_DISTRIBUTOR_IMAGE_TAG`.
-   - Deploy with `devspace run deploy-jd`.
-   - Read JD URLs from `jd-url.json`.
-7. **Create Jobs & Configure CRE Contracts** (same as Docker).
+1. **Start a `nix develop` shell**, set:
+   - `PROVIDER`, `DEVSPACE_NAMESPACE`, `CONFIG_OVERRIDES_DIR`
+
+2. **Deploy chains**:
+   ```bash
+   CHAIN_ID=<id>
+   devspace run deploy-custom-geth-chain
+   ```
+   Read endpoints from `chain-<CHAIN_ID>-urls.json`
+
+3. **Deploy Keystone contracts**
+
+4. **Generate CL node configs and secrets** (`./crib-configs`)
+
+5. **Start each DON**:
+   - Set `DEVSPACE_IMAGE`, `DEVSPACE_IMAGE_TAG`, `DON_BOOT_NODE_COUNT`, `DON_NODE_COUNT`, `DON_TYPE`
+   - Run: `devspace run deploy-don`
+   - Get URLs from `don-<DON_TYPE>-urls.json`
+   - Copy binaries (if needed): `devspace run copy-to-pods`
+
+6. **Deploy JD**:
+   - Set `JOB_DISTRIBUTOR_IMAGE_TAG`
+   - Run: `devspace run deploy-jd`
+   - Get JD URLs from `jd-url.json`
+
+7. **Create jobs and configure CRE contracts**
+   - Same as Docker-based flow
+
+...
 
 ---
 
-## Switching from kind to AWS provider
-Since `kind` provider uses `/ets/hosts` for routing you **must remove** all entries added previously if you are using the same namespace you used in `kind`. Otherwise traffic will be incorrectly redirected to localhost instead of AWS.
+## 7. Switching from `kind` to AWS Provider
 
-It is thus advised to change namespace names, when switching providers.
+When switching from a local `kind` setup to AWS:
+
+- **Remove `/etc/hosts` entries** added by CRIB for the `kind` namespace. If reused, these entries will redirect traffic incorrectly to `localhost`.
+- **Use a new namespace** in your TOML config to avoid DNS conflicts.
+
+Recommended: Always switch namespaces when changing providers.
 
 ---
 
-## CRIB Limitations & Considerations
+## 8. CRIB Limitations & Considerations
 
 ### Gateway DON
-- Must always be on a **dedicated node**.
-- Identified using `DON_TYPE=gateway`.
-- No bootstrap node required, but multiple worker nodes are allowed.
+- Must run on a **dedicated node**
+- Use `DON_TYPE = gateway`
+- No bootstrap node required, but worker nodes are supported
 
 ### Mocked Price Provider
-- CRIB does **not** support the mocked data source used in PoR smoke tests, as it runs outside a container.
-- Only tests using **live endpoints** can be executed in CRIB.
+- Not supported in CRIB
+- CRIB can only use **live endpoints**
 
-### Environment variables
-- Some are set by the Go code, others are taken from `./deployments/cre/.env` and applied when `nix develop` is run. Make sure that variables set from Go code are not present in `.env` file as it might lead to inconsistent behaviour.
+### Environment Variables
+- Some are set by Go code, others by `.env` in `deployments/cre`
+- Avoid overlapping values to prevent inconsistent behavior
 
-### DNS propagation
-- When running in AWS DNS propagation of Ingress domains might be painfully slow. Be patient and try again if failures occur.
-- Ingress check on `kind` cluster is also sometimes faulty and fails, even though all systems are operational. Currently, the only remedy is re-running.
+### DNS Propagation (AWS only)
+- DNS may take time to propagate
+- If tests fail early, retry after a few minutes
 
-### Connection Issues
-If you encounter connection problems:
-Check pod health:
+### Ingress Check (local `kind` only)
+- May fail even when the environment is healthy
+- If this happens, re-run the test
+
+### Connectivity Troubleshooting
+Check pod status:
 ```bash
 kubectl get pods
 ```
-
-Ensure all pods show "Running" status.
-View pod logs:
+Inspect logs:
 ```bash
 kubectl logs <POD_NAME>
 ```
+
 ---
 
-## Adding a New Capability
+## 9. Adding a New Capability
 
-To add a new capability to the test, follow these steps:
+To add a new capability (e.g., writing to the Aptos chain), follow these detailed steps:
 
-1. Copy the capability binary to the Chainlink node's Docker container (must be in `linux/amd64` format).
-   - You can skip this step if the capability is already included in the Chainlink image you are using or if it's built-in.
-2. Add support for the new capability in the testing code:
-   - Define a new `CapabilityFlag` representing the capability.
-   - (Optional) Define additional node configuration if required.
-   - Define the job spec for the new capability.
-   - Register the capability in the Capabilities Registry contract.
-3. Update the TOML configuration to assign the new capability to one of the DONs.
+### 1. Define the Capability Flag
 
-Once these steps are complete, you can run a workflow that requires the new capability.
-
-Let's assume we want to add a capability that represents writing to Aptos chain.
-
-### Copying the Binary to the Container
-
-The test configuration is defined in a TOML file (e.g. `environment-*.toml`), which specifies properties for Chainlink nodes. The `capabilities` property of the `node_specs.node` determines which binaries are copied to the container.
-We use Go code to programmatically modify that `node_spec` based on the capabilities each DON has to copy required binary files to the container during runtime.
-
-Config part that's effectively modified:
-
-```toml
-  [[nodeset.node_specs]]
-
-    [nodeset.node_specs.node]
-      # it's best if you don't use this directive in TOML and instead copy your capability using Go code, like we do for cron
-      capabilities = ["./aptos_linux_amd64"]
-```
-
-This instructs the framework to copy `./aptos_linux_amd64` to the container's `/home/capabilities/` directory, making it available as `/home/capabilities/aptos_linux_amd64`.
-
-> **Note:** Copying the binary to the bootstrap node is unnecessary since it does not handle capability-related tasks.
-
-### Adding Support for the New Capability in the Testing Code
-
-#### Defining a CapabilityFlag for the Capability
-
-The testing code uses string flags to map DON capabilities to node configuration, job creation, and the Capabilities Registry contract. This means that adding a new capability requires defining a unique flag. Let's name our capability flag as `WriteAptosCapability`.
-
-First, define the new flag:
-
+Create a unique flag in `flags.go` that represents your capability. This is used throughout the test framework:
 ```go
 const (
-	OCR3Capability          CapabilityFlag = "ocr3"
-	CronCapability          CapabilityFlag = "cron"
-	CustomComputeCapability CapabilityFlag = "custom-compute"
-	WriteEVMCapability      CapabilityFlag = "write-evm"
-  WriteAptosCapability    CapabilityFlag = "write-aptos"               // <------------ New entry
-
-	// Add more capabilities as needed
+  WriteAptosCapability CapabilityFlag = "write-aptos" // <--- NEW ENTRY
 )
 ```
 
-This ensures the TOML configuration correctly maps each DON to its capabilities.
+### 2. Copy the Binary to the Container/Pod
 
-Now that the flag is defined, let's configure the nodes and jobs.
-
-#### Defining Additional Node Configuration
-
-This step is optional, as not every capability requires additional node configuration. However, writing to the Aptos chain does. Depending on the capability, adjustments might be needed for the bootstrap node, the workflow nodes, or all nodes.
-
-The following code snippet adds the required settings:
+Use the TOML config or inject the binary programmatically. The latter is recommended so you can reuse the binary path later in your job spec factory function:
 
 ```go
+customBinariesPaths := map[string]string{}
+containerPath, pathErr := capabilities.DefaultContainerDirectory(in.Infra.InfraType)
+require.NoError(t, pathErr, "failed to get container directory")
+
+var aptosBinaryPathInTheContainer string
+if in.WorkflowConfig.DependenciesConfig.AptosCapabilityBinaryPath != "" {
+  aptosBinaryPathInTheContainer = filepath.Join(containerPath, filepath.Base(in.WorkflowConfig.DependenciesConfig.AptosCapabilityBinaryPath))
+  customBinariesPaths[keystonetypes.AptosWriteCapability] = in.WorkflowConfig.DependenciesConfig.AptosCapabilityBinaryPath
+} else {
+  aptosBinaryPathInTheContainer = filepath.Join(containerPath, "aptos")
+}
+```
+
+You can now pass `customBinariesPaths` and the constructed path to the `SetupInput`.
+
+> Note: Bootstrap nodes do not run capabilities, so binaries are only copied to worker nodes.
+
+### 3. Define Additional Node Configuration (Optional)
+
+Some capabilities require node-specific TOML config. Here’s a sample:
+```go
 if hasFlag(flags, WriteAptosCapability) {
-  writeAptosConfig := fmt.Sprintf(`
-    # Required for initializing the capability
+  workerNodeConfig += fmt.Sprintf(`
+    [[Aptos]]
+    ChainID = '%s'
+    Enabled = true
+
+    [[Aptos.Nodes]]
+    Name = 'aptos'
+    URL = '%s'
+
+    [Aptos.TransactionManager]
+    BroadcastChanSize = 100
+    ConfirmPollSecs = 2
+    DefaultMaxGasAmount = 200000
+    MaxSimulateAttempts = 5
+    MaxSubmitRetryAttempts = 5
+    MaxTxRetryAttempts = 3
+    PruneIntervalSecs = 14400
+    PruneTxExpirationSecs = 7200
+    SubmitDelayDuration = 3
+    TxExpirationSecs = 30
+
     [Aptos.Workflow]
-    # Configuration parameters
-    param_1 = "%s"
-    `,
-    "some value",
-  )
-  workerNodeConfig += writeAptosConfig
+    ForwarderAddress = '%s'
+
+    [Aptos.WriteTargetCap]
+    ConfirmerPollPeriod = '300ms'
+    ConfirmerTimeout = '30s'
+  `, chainID, rpcURL, forwarderAddress)
 }
 ```
 
-This is a placeholder snippet—you should replace it with the actual configuration required for the capability. Ensure it is added before restarting the nodes.
+### 4. Define the Job Spec
 
-#### Defining a Job Spec for the New Capability
-
-Unlike node configuration, defining a new job spec is always required for a new capability. Jobs should only be added to worker nodes.
-
-Assume the Aptos capability job does not require special configuration (this may or may not be true):
-
+Use a factory function to generate the job spec dynamically:
 ```go
-if hasFlag(flags, WriteAptosCapability) {
-  aptosJobSpec := fmt.Sprintf(`
-    type = "standardcapabilities"
-    schemaVersion = 1
-    externalJobID = "%s"
-    name = "aptos-write-capability"
-    command = "/home/capabilities/%s"             # <-------- location of the capability binary within the container
-    config = ""
-  `,
-    uuid.NewString(),
-    "aptos_linux_amd64")
+func AptosJobSpecFactoryFn(binaryPath string) keystonetypes.JobSpecFactoryFn {
+  return func(ctx context.Context, node *types.Node, env *devenv.Environment) (*jobv1.ProposeJobRequest, error) {
+    jobSpec := fmt.Sprintf(`
+      type = "standardcapabilities"
+      schemaVersion = 1
+      externalJobID = "%s"
+      name = "aptos-write-capability"
+      command = "%s"
+      config = ""
+    `, uuid.NewString(), binaryPath)
 
-  aptosJobRequest := &jobv1.ProposeJobRequest{
-    NodeId: node.NodeID,
-    Spec:   aptosJobSpec,
-  }
-
-  _, aptosErr := ctfEnv.Offchain.ProposeJob(context.Background(), aptosJobRequest)
-  if aptosErr != nil {
-    errCh <- errors.Wrapf(aptosErr, "failed to propose Aptos write job for node %s", node.NodeID)
-    return
+    nodeID, _ := node.FindLabelValue(node, libnode.NodeIDKey)
+    return &jobv1.ProposeJobRequest{NodeId: nodeID, Spec: jobSpec}, nil
   }
 }
 ```
 
-This code must be integrated into the section responsible for proposing and approving new jobs using the Job Distributor (JD).
+### 5. Register Capability in Capabilities Registry
 
-> **Note:** If the new capability requires a different job type, you may need to update the Chainlink Node code. If it works with `standardcapabilities`, no changes are necessary.
-
-#### Registering the Capability in the Capabilities Registry Contract
-
-The final step is adding support for registration of the capability with the Capabilities Registry contract:
-
+Use a factory to register capabilities dynamically:
 ```go
-if hasFlag(donTopology.Flags, WriteAptosCapability) {
-  capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-    Capability: kcr.CapabilitiesRegistryCapability{
-      LabelledName:   "write_aptos-testnet",          // <------- Ensure correct name (it might be dynamic and depend on things like chainID)
-      Version:        "1.0.0",                        // <------- Ensure correct version
-      CapabilityType: 3, // TARGET
-      ResponseType:   1, // OBSERVATION_IDENTICAL
-    },
-    Config: &capabilitiespb.CapabilityConfig{},
-  })
+func AptosCapabilityFactoryFn() keystonetypes.DONCapabilityWithConfigFactoryFn {
+  return func(flags []string) []keystone_changeset.DONCapabilityWithConfig {
+    if hasFlag(flags, WriteAptosCapability) {
+      return []keystone_changeset.DONCapabilityWithConfig{
+        {
+          Capability: kcr.CapabilitiesRegistryCapability{
+            LabelledName:   "write_aptos-testnet",
+            Version:        "1.0.0",
+            CapabilityType: 3,
+            ResponseType:   1,
+          },
+          Config: &capabilitiespb.CapabilityConfig{},
+        },
+      }
+    }
+    return nil
+  }
 }
 ```
 
-Ensure that the **name and version** match:
-- The values used by the capability itself.
-- The values used in the workflow definition.
+### 6. Update DON Topology
 
-If they do not match, the test will likely fail in a way that is difficult to diagnose.
+Update DON assignment with the new capability:
+```go
+dons := []*cretypes.CapabilitiesAwareNodeSet{
+  {
+    Input:              in.NodeSets[0],
+    Capabilities:       []string{cretypes.OCR3Capability, cretypes.WriteAptosCapability},
+    DONTypes:           []string{cretypes.WorkflowDON},
+    BootstrapNodeIndex: 0,
+  },
+}
+```
 
-Some capabilities may also require a `ConfigurationContract`. Check with the capability author for the necessary values and ensure the correct capability type is set.
+Ensure that the corresponding TOML defines the nodeset correctly, including node count and mode.
 
-You can either add your new capability to an existing Capability Factory Function or to a new one (as long as it has the following type: `func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig`). In the latter case remember to pass it as an argument, when calling `func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn) error {`.
+### 7. Pass all inputs to `setupInput`
 
-> **Note:** Since this test code is constantly evolving, no specific line numbers or function names are provided.
+Now, pass your custom factories to the `setupInput` and the universal setup function:
+```go
+universalSetupInput := creenv.SetupInput{
+  CapabilitiesAwareNodeSets:            dons,
+  CapabilitiesContractFactoryFunctions: []keystonetypes.DONCapabilityWithConfigFactoryFn{
+    creconsensus.ConsensusJobSpecFactoryFn(chainIDUint64),
+    AptosCapabilityFactoryFn,
+  },
+  BlockchainsInput:                     *in.BlockchainA,
+  JdInput:                              *in.JD,
+  InfraInput:                           *in.Infra,
+  CustomBinariesPaths:                  customBinariesPaths,
+  JobSpecFactoryFunctions: []keystonetypes.JobSpecFactoryFn{
+    creconsensus.ConsensusJobSpecFactoryFn(chainIDUint64),
+    AptosJobSpecFactoryFn(aptosBinaryPathInTheContainer),
+  },
+}
 
-## Using a New Workflow
+universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
+if setupErr != nil {
+  panic(setupErr)
+}
+```
 
-To test a new workflow, you have two options:
+### 7. Run the Test
 
-1. Compile the workflow to a WASM binary and upload it to Gist **inside the test**.
-2. Manually upload the binary and specify the workflow URL in the test configuration.
+Once all pieces are configured, run the test as normal. Ensure that the logs show the capability was registered and the job executed successfully.
 
-### Test Uploads the Binary
+> Reminder: Capabilities and DON types are defined in Go. Infrastructure (images, ports) lives in TOML.
 
-For the test to compile and upload the binary, modify your TOML configuration:
+---
 
+## 10. Using a New Workflow
+
+You can test new workflows in two ways:
+
+### Option 1: Test Uploads the Binary
+
+The test itself compiles the workflow to a WASM binary and uploads it to Gist using the CRE CLI. This is the preferred method for local development.
+
+Update your TOML config:
 ```toml
 [workflow_config]
   use_cre_cli = true
   should_compile_new_workflow = true
-  workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
+  workflow_folder_location = "path-to-folder-with-main.go"
 ```
 
-### Workflow Configuration
-
-If your workflow requires configuration, modify the test to create and pass the configuration data to CRE CLI:
-
+If your workflow accepts configuration parameters, define them in a Go struct and serialize to a temporary config file:
 ```go
 configFile, err := os.CreateTemp("", "config.json")
 require.NoError(t, err, "failed to create workflow config file")
+
+type PoRWorkflowConfig struct {
+  FeedID          string `json:"feedId"`
+  URL             string `json:"url"`
+  ConsumerAddress string `json:"consumerAddress"`
+}
 
 workflowConfig := PoRWorkflowConfig{
   FeedID:          feedID,
@@ -599,54 +616,89 @@ workflowConfig := PoRWorkflowConfig{
 }
 ```
 
-> **Note:** If the workflow is **not configurable**, do not pass configuration data. Instead, pass an empty `[]byte` when compiling or registering it.
-> **Note:** Currently, we do not allow to update the configuration alone. Each configuration change is treated as workflow change and thus requires following the **upload mode**.
+> ⚠️ Currently, we treat config changes as a new workflow version and require re-upload.
+
+If the workflow is not configurable, pass an empty byte slice `[]byte{}` during registration.
+
+Workflows can be registered using:
+```go
+input := keystonetypes.RegisterWorkflowWithCRECLIInput{
+  NewWorkflow: workflow,
+  ShouldCompileNewWorkflow: true,
+}
+err := creworkflow.RegisterWithCRECLI(input)
+```
 
 ---
 
-### Workflow Secrets
-Currently, workflow secrets are **not supported** yet.
+### Option 2: Manual Upload of the Binary
 
----
-
-### Manual Upload of the Binary
-
-If you compiled and uploaded the binary yourself, set the following in your configuration:
-
+You can manually compile the workflow binary to WASM and upload it to an accessible location (e.g. Gist, S3, IPFS). Then reference it in your TOML config:
 ```toml
 [workflow_config]
   use_cre_cli = true
   should_compile_new_workflow = false
 
   [workflow_config.compiled_config]
-    binary_url = "<binary-url>"
-    config_url = "<config-url>"
+    binary_url = "https://gist.githubusercontent.com/user/binary.wasm.br.b64"
+    config_url = "https://gist.githubusercontent.com/user/config.json"  # Optional
+    secrets_url = "https://gist.githubusercontent.com/user/secrets.json"  # Optional
 ```
 
-Both URLs must be accessible by the bootstrap node.
+All URLs must be accessible from within the DON Gateway node.
 
-### YAML workflows
+---
 
-When using workflows expressed in YAML you do not need to compile, upload and register them anywhere, manually or using `CRE CLI`. So all the above-mentioned parts of the test can be left out. All you need to do is:
-1. Define the workflow as `string`
-2. Use JD to propose is it in the same way that jobs are proposed
+### Workflow Secrets
 
-#### Workfow definition
-Here's an example of a workflow:
+To use secrets:
+1. Create a `secrets.config.yaml` mapping secrets to env vars
+2. Encrypt them using the CRE CLI and upload
+3. Reference them in your workflow
+
+> Secrets are encrypted using the CSA public key from each DON. They are not shareable across DONs unless they use the same keys.
+
+Use `_ENV_VAR_ALL` suffix for shared secrets across nodes:
+```go
+newWorkflow := keystonetypes.NewWorkflow{
+  SecretsFilePath:  secretsFilePath,
+  Secrets: map[string]string{
+    "FIRST_SECRET_ENV_VAR_ALL": "first secret value",
+    "SECOND_SECRET_ENV_VAR_ALL": "second secret value",
+  },
+}
+```
+
+Register it:
+```go
+input := keystonetypes.RegisterWorkflowWithCRECLIInput{
+  NewWorkflow: newWorkflow,
+  ShouldCompileNewWorkflow: true,
+}
+
+registerErr := creworkflow.RegisterWithCRECLI(input)
+```
+
+---
+
+### YAML Workflows (Data Feeds DSL)
+
+No compilation required. Define YAML workflow inline and propose it like any job:
+
 ```toml
 type = "workflow"
 schemaVersion = 1
-name = "my-df-workflow"
-externalJobID = "my-df-workflow-f712hdf"
+name = "df-workflow"
+externalJobID = "df-workflow-id"
 workflow = """
-name: "my-df-workflow"
-owner: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
+name: df-workflow
+owner: '0xabc...'
 triggers:
  - id: streams-trigger@1.0.0
    config:
      maxFrequencyMs: 5000
      feedIds:
-       - '0x018bfe88407000400000000000000000'
+       - '0xfeed...'
 consensus:
  - id: offchain_reporting@1.0.0
    ref: ccip_feeds
@@ -657,126 +709,129 @@ consensus:
      report_id: '0001'
      key_id: 'evm'
      aggregation_method: data_feeds
-     aggregation_config:
-       allowedPartialStaleness: '0.5'
-       feeds:
-        '0x018bfe88407000400000000000000000':
-          deviation: '0.01'
-          heartbeat: 600
      encoder: EVM
      encoder_config:
        abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
 targets:
-  - id: write_geth-testnet@1.0.0
-    inputs:
-      signed_report: $(ccip_feeds.outputs)
-    config:
-      address: '0x24309990d635A6C5FF711503BfCb942dd25F96A0'
-      deltaStage: 10s
-      schedule: oneAtATime
+ - id: write_geth@1.0.0
+   inputs:
+     signed_report: $(ccip_feeds.outputs)
+   config:
+     address: '0xcontract...'
+     deltaStage: 10s
+     schedule: oneAtATime
+"""
 ```
 
-It will be triggered by streams update, take the trigger data as input for consensus and once it's reached upload the report on EVM chain.
-
-Things to keep in mind:
-- job type must be `workflow`
-- actual workflow code is passed in the `workflow` field
-
-#### Proposing the workflow using JD
-
-You start by creating a job proposal:
+Then propose the job using JD, either directly:
 ```go
-// assume it contains above-mentioned workflow spec
-var workflowSpec string
-
-job := &jobv1.ProposeJobRequest{
-		NodeId: nodeID, // nodeID with which it registered itself in JD
-    Spec: workflowSpec}
+offChainClient.ProposeJob(ctx, &jobv1.ProposeJobRequest{NodeId: nodeID, Spec: workflowSpec})
 ```
 
-Then you either call JD directly:
+Or using the `CreateJobs` helper:
 ```go
-timeout := time.Second * 60
-ctx, cancel := context.WithTimeout(context.Background(), timeout)
-defer cancel()
-_, err := offChainClient.ProposeJob(ctx, jobReq)
-if err != nil {
-  return errors.Wrapf(err, "failed to propose job %s for node %s", jobDesc.Flag, jobReq.NodeId)
-}
-```
-
-Or if you are using our wrappers:
-```go
-import (
-  libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-  keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-)
-
-// assuming you have devenv.Environment and keystonetypes.DonTopology references already
-var env *devenv.Environment
-var donTopology *keystonetypes.DonTopology
-donToJobSpecs := make(keystonetypes.DonsToJobSpecs)
-
 createJobsInput := keystonetypes.CreateJobsInput{
-  CldEnv:        env,
-  DonTopology:   donTopology,
+  CldEnv: env,
+  DonTopology: donTopology,
   DonToJobSpecs: donToJobSpecs,
 }
-
-// assuming there's only 1 DON in topology and that its ID is 1
-// we want to create that workflow for all worker nodes, bootstrap doesn't need it
-workflowNodeSet, err := node.FindManyWithLabel(donTopology[0].NodesMetadata, &keystonetypes.Label{Key: libnode.NodeTypeKey, Value: keystonetypes.WorkerNode}, libnode.EqualLabels)
-if err != nil {
-  // there should be no DON without worker nodes, even gateway DON is composed of a single worker node
-  return nil, errors.Wrap(err, "failed to find worker nodes")
-}
-
-donToJobSpecs[donTopology.WorkflowDonID] = make(keystonetypes.DonJobs)
-
-jobDesc := keystonetypes.JobDescription{Flag: keystonetypes.OCR3Capability, NodeType: keystonetypes.WorkerNode}
-
-for idx, workerNode := range workflowNodeSet {
-    nodeID, nodeIDErr := workerNode.FindLabelValue(workerNode, libnode.NodeIDKey)
-		if nodeIDErr != nil {
-			return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
-		}
-
-  donToJobSpecs[donTopology.WorkflowDonID][jobDesc] = append(donToJobSpecs[donTopology.WorkflowDonID][jobDesc], &jobv1.ProposeJobRequest{
-		NodeId: nodeID, // nodeID with which it registered itself in JD
-    Spec: workflowSpec} // spec we previously created
-  )
-}
-
 createJobsErr := libdon.CreateJobs(testLogger, createJobsInput)
-if createJobsErr != nil {
-  panic(createJobsErr)
-}
 ```
 
 ---
 
-## Deployer Address or Deployment Sequence Changes
+## 11. Deployer Address or Deployment Sequence Changes
 
-By default, the test reuses an existing workflow and configuration. The feed consumer address remains the same **as long as the deployer address (`f39fd6e51aad88f6f4ce6ab8827279cfffb92266`) and contract deployment sequence do not change**.
+CI assumes a stable deployer address and deployment sequence for consistency. This ensures contracts like the Data Feeds Cache remain at fixed addresses.
 
-If the deployer private key or deployment sequence changes, run the test in **upload mode**:
-
+### When to Trigger Re-upload
+If either the deployer private key or deployment sequence changes, you must recompile and re-upload the workflow:
 ```toml
 [workflow_config]
   use_cre_cli = true
   should_compile_new_workflow = true
-  workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
+  workflow_folder_location = "path-to-your-workflow"
 ```
+
+After uploading, update the `config_url` in your CI-specific TOML config.
+
+> Note: In most CI flows, existing pre-uploaded workflows are reused to avoid unnecessary binary changes.
 
 ---
 
-## Multiple DONs
+## 12. Adding a New Test to the CI
 
-You can choose to use one or multiple DONs. Configuring multiple DONs requires only TOML modifications, assuming they use capabilities already supported in the testing code.
+CI currently does not support uploading to Gist during test execution. Workflow binaries and configurations must be pre-uploaded.
 
-Currently, the supported capabilities are:
-- `cron`
+### Step 1: CI-Specific Configuration
+Prepare a TOML file with:
+```toml
+[workflow_config]
+  workflow_name = "my-workflow"
+  feed_id = "018e..."
+  use_cre_cli = true
+  should_compile_new_workflow = false
+
+  [workflow_config.compiled_config]
+    binary_url = "https://gist.githubusercontent.com/user/.../binary.wasm.br.b64"
+    config_url = "https://gist.githubusercontent.com/user/.../config.json"
+```
+
+> Use URLs from a local test run that compiles and uploads the workflow.
+
+### Step 2: Add Entry in `.github/e2e-tests.yaml`
+Example entry:
+```yaml
+- id: system-tests/smoke/cre/por_test.go:TestCRE_OCR3_PoR_Workflow_MultiDon
+  path: system-tests/tests/smoke/cre/por_test.go
+  test_env_type: docker
+  runs_on: ubuntu-latest
+  triggers:
+    - PR CRE E2E Core Tests
+    - Merge Queue CRE E2E Core Tests
+  test_cmd: >
+    cd tests && pushd smoke/cre/cmd > /dev/null && \
+    go run main.go download all --output-dir ../ \
+      --gh-token-env-var-name GITHUB_API_TOKEN \
+      --cre-cli-version v0.1.5 --capabilities-name cron \
+      --capabilities-version v1.0.2-alpha 1>&2 && \
+    popd > /dev/null && \
+    go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre \
+      -v -run "^(TestCRE_OCR3_PoR_Workflow_MultiDon)$" -timeout 30m -count=1 -test.parallel=1 -json; \
+    exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code;
+  pyroscope_env: ci-smoke-capabilities-evm-simulated
+  test_env_vars:
+    E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}"
+    E2E_JD_VERSION: 0.9.0
+    GITHUB_READ_TOKEN: "{{ env.GITHUB_API_TOKEN }}"
+    CI: "true"
+    CTF_CONFIGS: "my-ci-config.toml"
+    PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  test_go_project_path: system-tests
+```
+
+#### Key Fields to Adjust
+- `id`: `<relative-path>:<TestFunctionName>`
+- `path`: Relative to repo root
+- `test_cmd`: Include test runner, download helpers, and cleanup
+- `test_env_vars`: Include all required secrets and flags
+
+> Talk to DevEx if you need dynamic or sensitive env vars set securely.
+
+---
+
+
+... (previous content preserved)
+
+---
+
+## 13. Multiple DONs
+
+You can configure multiple DONs (Decentralized Oracle Networks) by modifying your TOML config and Go code accordingly.
+
+### Supported Capabilities
 - `ocr3`
+- `cron`
 - `custom-compute`
 - `write-evm`
 - `read contract`
@@ -784,308 +839,232 @@ Currently, the supported capabilities are:
 - `web-api-trigger` (under development)
 - `web-api-target` (under development)
 
-To enable multi-DON support, update the configuration file by:
-- Defining a new nodeset.
-- Explicitly assigning capabilities to each nodeset.
-- Copying the required capabilities to the containers (if they are not built into the image already).
-
-Here's an example configuration for a nodeset that only supports writing to an EVM chain:
-
-```toml
-[[nodesets]]
-  don_type = "capabilities"
-  name = "capabilities"
-  capabilities = ["write-evm"]
-  nodes = 5
-  override_mode = "each"
-  http_port_range_start = 10200
-
-  [nodesets.db]
-    image = "postgres:12.0"
-    port = 13100
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      image = "some-CL-image"
-      # Rest of the node configuration follows
-
-  # Additional nodes configuration follows
-```
-
-### Key Considerations
-When configuring multiple DONs, keep the following in mind:
-- **DON Type**
-- **Capabilities List**
-- **HTTP Port Range Start**
-- **Database (DB) Port**
-- **Number of nodes**
-
-### DON Type
-
-Three types of DONs are supported:
+### DON Types
 - `workflow`
 - `capabilities`
 - `gateway`
 
-There should only be **one** `workflow` and `gateway` DON, but multiple `capabilities` DONs can be defined.
+You can only have **one** `workflow` and **one** `gateway` DON. You can define multiple `capabilities` DONs.
 
-### Capabilities
+### Go Code (DON Assignment Example)
+```go
+[]*cretypes.CapabilitiesAwareNodeSet{
+  {
+    Input:              in.NodeSets[0],
+    Capabilities:       []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability},
+    DONTypes:           []string{cretypes.WorkflowDON},
+    BootstrapNodeIndex: 0,
+  },
+  {
+    Input:              in.NodeSets[1],
+    Capabilities:       []string{cretypes.WriteEVMCapability},
+    DONTypes:           []string{cretypes.CapabilitiesDON},
+    BootstrapNodeIndex: 0,
+  },
+  {
+    Input:              in.NodeSets[2],
+    Capabilities:       []string{},
+    DONTypes:           []string{cretypes.GatewayDON},
+    BootstrapNodeIndex: -1,
+    GatewayNodeIndex:   0,
+  },
+}
+```
 
-- In a **single DON setup**, you can omit the capabilities list, as all known capabilities will be assigned and configured by default (as long as they are included in the `SingleDonFlags` constant).
-- In a **multi-DON setup**, you must explicitly define the capabilities for each DON.
+> ⚠️ The framework does not validate capability compatibility with DON type. Some capabilities **must** run in the `workflow` DON (e.g. `ocr3`, `cron`, `custom-compute`).
 
-Currently, the framework does not enforce validation on whether capabilities are assigned to the correct DON types. However, some capabilities **must** run on the `workflow` DON. These include:
-* `ocr3`
-* `cron`
-* `custom-compute`
-and possibly some other ones.
-
-The following capabilities are supported:
-- `ocr3`
-- `cron`
-- `custom-compute`
-- `write-evm`
-- `read contract` (no test uses it)
-- `log-event-trigger` (no test uses it)
-- `web-api-trigger` (no test uses it)
-- `web-api-target` (no test uses it)
-
-### HTTP Port Range Start
-
-Each node exposes a port to the host. To prevent port conflicts, assign a distinct range to each nodeset. A good practice is to separate port ranges by **50 or 100** between nodesets.
-
-### Database (DB) Port
-
-Similar to HTTP ports, ensure each nodeset has a unique database port.
-
-For a working example of a multi-DON setup, refer to the [`environment-capabilities-don.toml`](environment-capabilities-don.toml) file.
-
-### Number of nodes
-When defining number of nodes you need not only to modify the `nodes` key, but also too add **nodespecs** for each node. In other words, the number of `nodespecs` needs to be equal to `nodes` count.
-
-This is not enough:
+### TOML Configuration
+Use `override_mode = "all"` for uniform nodeset config:
 ```toml
 [[nodesets]]
   nodes = 5
-  override_mode = "each"
+  override_mode = "all"
+  name = "workflow"
 
   [[nodesets.node_specs]]
-
     [nodesets.node_specs.node]
       image = "localhost:5001/chainlink:112b9323-plugins-cron"
       user_config_overrides = """
       [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
+        LogPoller = true
+      [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
       """
 ```
 
-If there are `5` nodes you need to repeat this nodespec `5` times:
-```toml
-    [nodesets.node_specs.node]
-      image = "localhost:5001/chainlink:112b9323-plugins-cron"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-```
-
-Also, `override_mode = "all"` is currently not supported.
+For per-node customization (e.g. to import secrets), use `override_mode = "each"`.
 
 ---
 
-## Price Data Source
+## 14. Price Data Source
 
-The test supports both **live** and **mocked** data sources, configurable via TOML.
+Supports both **live** and **mocked** price feeds.
 
 ### Live Source
-
-The PoR workflow is designed to work with the following API:
-[http://api.real-time-reserves.verinumus.io](http://api.real-time-reserves.verinumus.io)
-
-Only this response structure is supported. If you want to use a different data source, you must modify both the workflow code and its configuration.
-
-To configure a live data source, use the following TOML settings:
-
 ```toml
 [price_provider]
-  # Without the 0x prefix!
   feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
   url = "api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD"
 ```
 
-### Blockchain Configuration
-
-Tests are working with `Anvil` by default. All the configurations are using `0s` blocks when deploying contracts but `DeployFeedsConsumer` requires blocks to be mined so `custom_anvil_miner` controls the speed of blocks after the initial deployment is complete.
-
-This allows us to test changes faster.
-```
-[blockchain_a]
-  type = "anvil"
-  chain_id = "1337"
-
-[custom_anvil_miner]
-  block_speed_seconds = 5
-```
-
-If you need to switch to a slow chain you can do it like this, `-b` controls block production speed.
-```
-[blockchain_a]
-  chain_id = "1337"
-  docker_cmd_params = ["-b", "5"]
-  type = "anvil"
-```
+> ⚠️ The PoR workflow only supports this response structure.
 
 ### Mocked Data Source
-
-A mocked data source has been introduced to:
-- Avoid dependency on a third-party endpoint.
-- Enable verification of price values returned by the mock against those stored in the consumer contract.
-
-To configure a mocked data source, use the following TOML settings:
-
+For local testing without live API dependency:
 ```toml
 [price_provider]
-  # Without the 0x prefix!
   feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
-
   [price_provider.fake]
     port = 8171
-    prices = [182.9, 162.71, 172.02]
 ```
 
-This configuration launches a mock server on **port 8171** on the host machine. It will return prices in the sequence `[182.9, 162.71, 172.02]`. A new price is returned **only after the previous one has been observed in the consumer contract**. The test completes once all prices have been matched.
+The mock server:
+- Runs on host port 8171
+- Returns a new price only when the last value has been confirmed in the contract
 
 ---
 
-## Using a Specific Docker Image for Chainlink Node
+## 15. Using a Specific Docker Image for Chainlink Node
 
-By default, the test builds a Docker image from the current branch:
-
+Default behavior builds an image from your current branch:
 ```toml
 [[nodeset.node_specs]]
   [nodeset.node_specs.node]
-  docker_ctx = "../../.."
-  docker_file = "plugins/chainlink.Dockerfile"
+    docker_ctx = "../../.."
+    docker_file = "plugins/chainlink.Dockerfile"
 ```
 
-To use an existing image, change it to:
-
+To use a prebuilt image:
 ```toml
 [[nodeset.node_specs]]
   [nodeset.node_specs.node]
-  image = "image-you-want-to-use"
+    image = "image-you-want-to-use"
 ```
 
-Apply this change to **all node entries** in the test configuration.
+Apply this to every node in your config.
 
-## Troubleshooting
+---
 
-### Chainlink Node migrations fail
+## 16. Troubleshooting
 
-If you see Chainlink Node migrations fail it might, because the Postgres volume has some old data on it. Do remove it and run the test again.
-If you have the `ctf` CLI you can use following command: `ctf d rm`.
+### Chainlink Node Migrations Fail
+Remove old Postgres volumes:
+```bash
+ctf d rm
+```
+Or remove volumes manually if `ctf` CLI is unavailable.
 
-### Chainlink image not found in local Docker registry
+### Docker Image Not Found
+If Docker build succeeds but the image isn’t found at runtime:
+- Restart your machine
+- Retry the test
 
-If you are building the Chainlink image using the Dockerfile, image is successfuly built and yet nodes do not start, because image cannot be found in the local machine, simply restart your computer and try again.
+---
 
-## CLI Usage
+## 17. CLI Usage
 
-The CRE CLI provides commands to manage the local environment. The main commands are:
+The CRE CLI manages local test environments. Run from `system-tests/smoke/cre/`.
 
 ### Start Environment
-
 ```bash
-ctf cre env start [flags]
+cd cmd && go run main.go env start -t simplified -w 5m -e 8080,8081
 ```
 
-Flags:
-- `-t, --topology string` - Topology to use for the environment (simplified or full) (default "simplified")
-- `-w, --wait-on-error-timeout string` - Wait on error timeout duration (e.g. 10s, 1m, 1h)
-- `-e, --extra-allowed-ports intSlice` - Extra allowed ports (e.g. 8080,8081)
-
-Example:
-```bash
-cd cmd
-go run main.go env start -t simplified -w 5m -e 8080,8081
-```
-
-Simplified topology will lanuch a single DON with all capabilities. Full topology will start 3 DONs:
-- workflow DON (5 nodes)
-- capabilities DON (2 nodes)
-- gateway DON (1 node)
-
-Wait on error timeout flag is useful if you want to wait until containers are removed during a failed startup. For example if containers failed to start it allows you to inspect the failure reason.
-
-Extra allowed ports are useful if your gateway needs to access servces running on ports different than `80` and `443`.
+- `-t`: Topology (`simplified` or `full`)
+- `-w`: Wait on error before cleanup (e.g. inspect logs)
+- `-e`: Extra ports for gateway access
 
 ### Stop Environment
-
 ```bash
-cd cmd
-go run main.go env stop
+cd cmd && go run main.go env stop
 ```
 
-This command stops the local CRE environment. If the environment is not running, it will simply fall through.
+### Before You Start
 
-### Environment Variables
+Before launching the CRE environment with the CLI, make sure you:
 
-The CLI uses the following environment variables:
+1. **Choose the Right Topology**
+   - For a single DON with all capabilities: `configs/single-don.toml`
+   - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-capabilities-don.toml`
 
-- `CTF_CONFIGS` - Path to the TOML configuration file. If not set, defaults to:
-  - `configs/single-don.toml` for simplified topology
-  - `configs/workflow-capabilities-don.toml` for full topology
-- `PRIVATE_KEY` - Private key used for contract deployments and node funding. If not set, defaults to a test key.
-- `TESTCONTAINERS_RYUK_DISABLED` - Set to "true" to disable Ryuk container cleanup
+2. **Download or Build Capability Binaries**
+   - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
+   - If not bundled in the image, you must:
+     - Download binaries from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities/releases)
+     - Make sure they are built for `linux/amd64`
+     - Reference them in your TOML like:
+       ```toml
+       [extra_capabilities]
+       cron_capability_binary_path = "../cron"
+       ```
+   - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying.
+
+3. **Build or Reuse Chainlink Docker Image**
+   - To build from your local branch:
+     ```toml
+     [nodesets.node_specs.node]
+     docker_ctx = "../../../.."
+     docker_file = "plugins/chainlink.Dockerfile"
+     ```
+   - To reuse a prebuilt image:
+     ```toml
+     [nodesets.node_specs.node]
+     image = "localhost:5001/chainlink:<tag>"
+     ```
+
+4. **Build or Pull the Job Distributor Image**
+   - Build manually as described earlier or pull from internal ECR.
+
+5. **Ensure Binaries Are in the Right Location**
+   - The `main.go` CLI command will look for `cron`, `cre`, and other binaries in `system-tests/tests/smoke/cre/`
+   - If you use the CLI download helper:
+     ```bash
+     go run main.go download all --output-dir ../ --cre-cli-version v0.1.5 --capabilities-name cron --capabilities-version v1.0.2-alpha
+     ```
+     Binaries will be saved in the correct location automatically.
+
+6. **(Optional) Start Observability Stack**
+   - If you want Grafana/Prometheus support, run:
+     ```bash
+     ctf obs up
+     ```
+- `CTF_CONFIGS`: TOML config path
+- `PRIVATE_KEY`: Default test key if not set
+- `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup
+
+When starting the environment make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
 
 ### Cleanup
-
-If the environment encounters an unexpected error during startup, you may need to manually clean up resources. Use the following command:
-
 ```bash
 ctf d rm
 ```
 
-This will remove all containers with the 'ctf' label and their associated volumes.
+---
 
-# Using existing EVM & P2P keys
+## 18. Using Existing EVM & P2P Keys
 
-It is a good practice, when nodes are connected to public chains on which we have limited access to funding. If nodes use exiting EVM keys we can fund them once and restart/redeploy nodes without losing access to these funds. In both cases we support only encrypted JSON keys. They need to be added to TOML config in a following manner:
+When using public chains with limited funding, use pre-funded, encrypted keys:
+
+TOML format:
 ```toml
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      # other fields go here...
-      test_secrets_overrides = """
-      [EVM]
-      [[EVM.Keys]]
-      JSON = '{"address":"4e132a27812dfc644e2c23bfdbc961d9fde6dfca","crypto":{"cipher":"aes-128-ctr","ciphertext":"7ea055f7ef9f643354da1aed91ffc72675b602ed6e4842078ff1ae0a9c2de9e5","cipherparams":{"iv":"83b4e57106f933fc23f70df24d1ccc08"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"dfeab65812944899a7fd9973023d8b5db9985b0b358c08f5ab2445c59bbb7457"},"mac":"59fc362b8c7f5e48369af5e63d8ea8351db3f80a3558fc906ef162b4172fa153"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
-      Password = ''
-      ID = 1337
-      [P2PKey]
-      JSON = '{"keyType":"P2P","publicKey":"c317793efae82840441811dd47ea3ddc4ebbc6d315b60021dcc6b3b6fa78eb5a","peerID":"p2p_12D3KooWNwvRtyW3MJQEBK5YfvH8NicvYFMdkByDNaU6DAbkqmsf","crypto":{"cipher":"aes-128-ctr","ciphertext":"4f1fa051e495d9ef2a691989df42f8188a181583a7a58f9daec659686f0c4afba60bccda959bcffa9e538e4e1b0bf3aa3bc2cf3a79e2f9d31a4a9163057f26a50447db97","cipherparams":{"iv":"913448f73b824da66400784a00e64d7a"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"ad42b3dbac2b1da586dec40608eb0341eaaceb5af32f5e93c3012b4db4da6602"},"mac":"b9727ac0aeca91fd9cadd950a0cb4eff82b9ddb4afc6f8346af02fd767f5419b"}}'
-      Password = ''
-      """
-  ```
+[[nodesets.node_specs]]
+  [nodesets.node_specs.node]
+    test_secrets_overrides = """
+    [EVM]
+    [[EVM.Keys]]
+    JSON = '{...}'
+    Password = ''
+    ID = 1337
+    [P2PKey]
+    JSON = '{...}'
+    Password = ''
+    """
+```
 
-  That functionality is available only for `nodesets` using `override_mode` equal to `each`, because we need to supply keys for all nodes from the nodeset. Furthermore, if we have more than one DON, then either no DON can use existing keys or all DONs must. This is a limitation of current implementation, which we might remove in the future, if there's such a need. There are some more limitations to bear in mind:
-  - you need to import **both** P2P keys and EVM keys
-  - when importing EVM keys for multiple chains, the same keys must be used for each chain
+> Requires `override_mode = "each"` and the same keys across all chains
 
-  These limitations are related to our CRE SDK and some shortcuts we took in the past (we don't need very complex import support for tests), and not of the CL node itself.
+These limitations come from the current CRE SDK logic and not Chainlink itself.
