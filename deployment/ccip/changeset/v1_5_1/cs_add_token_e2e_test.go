@@ -163,7 +163,7 @@ func TestAddTokenE2E(t *testing.T) {
 						TokenName:     string(testhelpers.TestTokenSymbol),
 						TokenSymbol:   testhelpers.TestTokenSymbol,
 						TokenDecimals: testhelpers.LocalTokenDecimals,
-						MaxSupply: big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+						MaxSupply:     big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 						Type:          changeset.BurnMintToken,
 						PoolType:      changeset.BurnMintTokenPool,
 						TransferToken: map[common.Address]*big.Int{

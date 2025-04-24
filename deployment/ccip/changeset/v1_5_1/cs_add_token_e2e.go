@@ -158,7 +158,7 @@ type DeployTokenConfig struct {
 	PoolType        deployment.ContractType // This is the type of the token pool that will be deployed for this token.
 	PoolAllowList   []common.Address
 	AcceptLiquidity *bool
-	TransferToken map[common.Address]*big.Int // TransferToken is a map of recipient address to amount to be transferred or minted and provided minting role after token deployment.
+	TransferToken   map[common.Address]*big.Int // TransferToken is a map of recipient address to amount to be transferred or minted and provided minting role after token deployment.
 }
 
 func (c *DeployTokenConfig) Validate() error {
