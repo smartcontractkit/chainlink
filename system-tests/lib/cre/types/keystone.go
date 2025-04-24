@@ -1,10 +1,10 @@
 package types
 
 import (
-	"errors"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -311,16 +311,13 @@ func (g *GeneratePoRJobSpecsInput) Validate() error {
 }
 
 type GeneratePoRConfigsInput struct {
-	DonMetadata                 *DonMetadata
-	BlockchainOutput            []*blockchain.Output
-	HomeChainSelector           uint64
-	Flags                       []string
-	PeeringData                 CapabilitiesPeeringData
-	AddressBook                 deployment.AddressBook
-	CapabilitiesRegistryAddress common.Address
-	WorkflowRegistryAddress     common.Address
-	ForwarderAddress            common.Address
-	GatewayConnectorOutput      *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
+	DonMetadata            *DonMetadata
+	BlockchainOutput       []*blockchain.Output
+	HomeChainSelector      uint64
+	Flags                  []string
+	PeeringData            CapabilitiesPeeringData
+	AddressBook            deployment.AddressBook
+	GatewayConnectorOutput *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
 
 func (g *GeneratePoRConfigsInput) Validate() error {
@@ -339,16 +336,10 @@ func (g *GeneratePoRConfigsInput) Validate() error {
 	if g.PeeringData == (CapabilitiesPeeringData{}) {
 		return errors.New("peering data not set")
 	}
-	if g.CapabilitiesRegistryAddress == (common.Address{}) {
-		return errors.New("capabilities registry address not set")
+	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
+	if addrErr != nil {
+		return errors.Wrapf(addrErr, "failed to get addresses for chain %d", g.HomeChainSelector)
 	}
-	if g.WorkflowRegistryAddress == (common.Address{}) {
-		return errors.New("workflow registry address not set")
-	}
-	if g.ForwarderAddress == (common.Address{}) {
-		return errors.New("forwarder address not set")
-	}
-
 	return nil
 }
 

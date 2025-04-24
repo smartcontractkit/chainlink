@@ -116,12 +116,13 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 
 	for i, don := range dons {
 		for j, node := range input.Topology.DonsMetadata[i].NodesMetadata {
-			// both are required for job creation
+			// required for job proposals, because they need to include the ID of the node in Job Distributor
 			node.Labels = append(node.Labels, &types.Label{
 				Key:   libnode.NodeIDKey,
 				Value: don.NodeIds()[j],
 			})
 
+			// required for OCR2/3 job specs
 			node.Labels = append(node.Labels, &types.Label{
 				Key:   libnode.NodeOCR2KeyBundleIDKey,
 				Value: don.Nodes[j].Ocr2KeyBundleID,

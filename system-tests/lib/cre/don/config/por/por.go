@@ -6,7 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -26,6 +30,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 	}
 
 	homeChainID := input.BlockchainOutput[0].ChainID
+
 	// prepare chains, we need chainIDs, URLs and selectors to get contracts from AddressBook
 	workerEVMInputs := make([]*config.WorkerEVMInput, 0)
 	for i, bcOut := range input.BlockchainOutput {
@@ -44,6 +49,20 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 			HTTPRPC:       bcOut.Nodes[0].InternalHTTPUrl,
 			WSRPC:         bcOut.Nodes[0].InternalWSUrl,
 		})
+	}
+
+	// find contract addresses
+	ocr3CapabilityAddress, ocr3Err := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.OCR3Capability.String())
+	if ocr3Err != nil {
+		return nil, errors.Wrap(ocr3Err, "failed to find OCR3Capability address")
+	}
+	workflowRegistryAddress, workErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
+	if workErr != nil {
+		return nil, errors.Wrap(workErr, "failed to find WorkflowRegistry address")
+	}
+	capabilitiesRegistryAddress, capErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
+	if capErr != nil {
+		return nil, errors.Wrap(capErr, "failed to find CapabilitiesRegistry address")
 	}
 
 	// find bootstrap node for the Don
@@ -91,7 +110,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		}
 
 		// generate configuration for the bootstrap node
-		configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, homeChainID, input.CapabilitiesRegistryAddress, workerEVMInputs)
+		configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, homeChainID, ocr3CapabilityAddress, workerEVMInputs)
 
 		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
 			configOverrides[nodeIndex] += config.BoostrapDon2DonPeering(input.PeeringData)
@@ -116,17 +135,6 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 				}
 			}
 		}
-
-		// var nodeEthAddr common.Address
-		// for _, label := range workflowNodeSet[i].Labels {
-		// 	if label.Key == node.EthAddressKey {
-		// 		if label.Value == "" {
-		// 			return nil, errors.New("eth address label value is empty")
-		// 		}
-		// 		nodeEthAddr = common.HexToAddress(label.Value)
-		// 		break
-		// 	}
-		// }
 
 		// get all the forwarders and add workflow config for each node ETH key + Forwarder for that chain
 		for _, wi := range workerEVMInputs {
@@ -156,13 +164,13 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 
 		// connect worker nodes to all the chains, add chain ID for registry (home chain)
 		// we configure both EVM chains, nodes and EVM.Workflow with Forwarder
-		configOverrides[nodeIndex] = config.WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, input.CapabilitiesRegistryAddress, homeChainID, workerEVMInputs)
+		configOverrides[nodeIndex] = config.WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, capabilitiesRegistryAddress, homeChainID, workerEVMInputs)
 
 		// if it's workflow DON configure workflow registry, unless there's no gateway connector data
 		// which means that the workflow DON is using only workflow jobs and won't be downloading any WASM-compiled workflows
 		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) && input.GatewayConnectorOutput != nil {
 			configOverrides[nodeIndex] += config.WorkerWorkflowRegistry(
-				input.WorkflowRegistryAddress, homeChainID)
+				workflowRegistryAddress, homeChainID)
 		}
 
 		// workflow DON nodes might need gateway connector to download WASM workflow binaries,

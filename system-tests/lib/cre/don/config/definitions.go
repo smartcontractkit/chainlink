@@ -145,27 +145,6 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	)
 }
 
-type WorkerWriteEVMInput struct {
-	FromAddress      common.Address
-	ForwarderAddress string
-}
-
-func WorkerWriteEMV(in []*WorkerWriteEVMInput) string {
-	toml := ""
-	for _, node := range in {
-		toml += fmt.Sprintf(`
-	[EVM.Workflow]
-	FromAddress = '%s'
-	ForwarderAddress = '%s'
-	GasLimitDefault = 400_000
-`,
-			node.FromAddress.Hex(),
-			node.ForwarderAddress,
-		)
-	}
-	return toml
-}
-
 func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, chainID string) string {
 	return fmt.Sprintf(`
 	[Capabilities.WorkflowRegistry]

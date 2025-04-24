@@ -142,14 +142,14 @@ func setupPoRMultiChainTestEnvironment(
 			var settingsErr error
 			creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(
 				bo.SethClient.MustGetRootKeyAddress(),
-				universalSetupOutput.KeystoneContractsOutput.CapabilitiesRegistryAddress,
-				universalSetupOutput.KeystoneContractsOutput.WorkflowRegistryAddress,
-				&deployDataFeedsCacheOutput.DataFeedsCacheAddress,
+				universalSetupOutput.CldEnvironment.ExistingAddresses,
 				universalSetupOutput.DonTopology.WorkflowDonID,
 				homeChainOutput.ChainSelector,
-				bo.ChainSelector,
-				homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				bo.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
+				map[uint64]string{
+					homeChainOutput.ChainSelector: homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+					bo.ChainSelector:              bo.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+				},
+			)
 			require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 		}
 
@@ -219,12 +219,8 @@ func setupPoRMultiChainTestEnvironment(
 	ret := &multiPorSetupOutput{
 		priceProvider:           priceProvider,
 		dataFeedsCacheAddresses: dataFeedsCacheAddresses,
-		// dataFeedsCacheAddress: deployDataFeedsCacheOutput.DataFeedsCacheAddress,
-		// forwarderAddress:      universalSetupOutput.KeystoneContractsOutput.ForwarderAddress,
-		// sethClient:            homeChainOutput.SethClient,
-		// blockchainOutput:      homeChainOutput.BlockchainOutput,
-		donTopology: universalSetupOutput.DonTopology,
-		nodeOutput:  universalSetupOutput.NodeOutput,
+		donTopology:             universalSetupOutput.DonTopology,
+		nodeOutput:              universalSetupOutput.NodeOutput,
 	}
 
 	for _, bo := range universalSetupOutput.BlockchainOutput {

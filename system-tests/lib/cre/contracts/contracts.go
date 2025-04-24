@@ -267,6 +267,21 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 	return nil
 }
 
+func FindAddressesForChain(addressBook deployment.AddressBook, chainSelector uint64, contractName string) (common.Address, error) {
+	addresses, err := addressBook.AddressesForChain(chainSelector)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "failed to get addresses for chain")
+	}
+
+	for addrStr, tv := range addresses {
+		if strings.Contains(tv.String(), contractName) {
+			return common.HexToAddress(addrStr), nil
+		}
+	}
+
+	return common.Address{}, fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector)
+}
+
 func DeployKeystone(testLogger zerolog.Logger, input *types.KeystoneContractsInput) (*types.KeystoneContractsOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
@@ -320,24 +335,12 @@ func DeployOCR3(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chain
 		return common.Address{}, errors.Wrap(err, "failed to merge address book")
 	}
 
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
+	addr, addrErr := FindAddressesForChain(ctfEnv.ExistingAddresses, chainSelector, keystone_changeset.OCR3Capability.String())
+	if addrErr == nil {
+		testLogger.Info().Msgf("Deployed OCR3Capability contract at %s", addr.Hex())
 	}
 
-	var ocr3capabilityAddr common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "OCR3Capability") {
-			ocr3capabilityAddr = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed OCR3Capability contract at %s", ocr3capabilityAddr.Hex())
-			break
-		}
-	}
-	if ocr3capabilityAddr == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find OCR3Capability address in the address book")
-	}
-
-	return ocr3capabilityAddr, nil
+	return addr, addrErr
 }
 
 func DeployCapabilitiesRegistry(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) (common.Address, error) {
@@ -351,24 +354,12 @@ func DeployCapabilitiesRegistry(testLogger zerolog.Logger, ctfEnv *deployment.En
 		return common.Address{}, errors.Wrap(err, "failed to merge address book")
 	}
 
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
+	addr, addrErr := FindAddressesForChain(ctfEnv.ExistingAddresses, chainSelector, keystone_changeset.CapabilitiesRegistry.String())
+	if addrErr == nil {
+		testLogger.Info().Msgf("Deployed CapabilitiesRegistry contract at %s on chain %d", addr.Hex(), chainSelector)
 	}
 
-	var capabilitiesRegistryAddr common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "CapabilitiesRegistry") {
-			capabilitiesRegistryAddr = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed Capabilities Registry contract at %s", capabilitiesRegistryAddr.Hex())
-			break
-		}
-	}
-	if capabilitiesRegistryAddr == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find Capabilities Registry address in the address book")
-	}
-
-	return capabilitiesRegistryAddr, nil
+	return addr, addrErr
 }
 
 func DeployKeystoneForwarder(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) (common.Address, error) {
@@ -384,24 +375,12 @@ func DeployKeystoneForwarder(testLogger zerolog.Logger, ctfEnv *deployment.Envir
 		return common.Address{}, errors.Wrap(err, "failed to merge address book")
 	}
 
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
+	addr, addrErr := FindAddressesForChain(ctfEnv.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String())
+	if addrErr == nil {
+		testLogger.Info().Msgf("Deployed KeystoneForwarder contract at %s on chain %d", addr.Hex(), chainSelector)
 	}
 
-	var forwarderAddress common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "KeystoneForwarder") {
-			forwarderAddress = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed KeystoneForwarder contract at %s", forwarderAddress.Hex())
-			break
-		}
-	}
-	if forwarderAddress == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find KeystoneForwarder address in the address book")
-	}
-
-	return forwarderAddress, nil
+	return addr, addrErr
 }
 
 func DeployWorkflowRegistry(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) (common.Address, error) {
@@ -415,23 +394,12 @@ func DeployWorkflowRegistry(testLogger zerolog.Logger, ctfEnv *deployment.Enviro
 		return common.Address{}, errors.Wrap(err, "failed to merge address book")
 	}
 
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
+	addr, addrErr := FindAddressesForChain(ctfEnv.ExistingAddresses, chainSelector, keystone_changeset.WorkflowRegistry.String())
+	if addrErr == nil {
+		testLogger.Info().Msgf("Deployed WorkflowRegistry contract at %s on chain %d", addr.Hex(), chainSelector)
 	}
 
-	var workflowRegistryAddr common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "WorkflowRegistry") {
-			workflowRegistryAddr = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed WorkflowRegistry contract at %s", workflowRegistryAddr.Hex())
-		}
-	}
-	if workflowRegistryAddr == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find WorkflowRegistry address in the address book")
-	}
-
-	return workflowRegistryAddr, nil
+	return addr, addrErr
 }
 
 func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowRegistryInput) (*types.WorkflowRegistryOutput, error) {

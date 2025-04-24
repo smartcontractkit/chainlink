@@ -493,14 +493,13 @@ func setupPoRTestEnvironment(
 		var settingsErr error
 		creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(
 			homeChainOutput.SethClient.MustGetRootKeyAddress(),
-			universalSetupOutput.KeystoneContractsOutput.CapabilitiesRegistryAddress,
-			universalSetupOutput.KeystoneContractsOutput.WorkflowRegistryAddress,
-			&deployDataFeedsCacheOutput.DataFeedsCacheAddress,
+			universalSetupOutput.CldEnvironment.ExistingAddresses,
 			universalSetupOutput.DonTopology.WorkflowDonID,
 			homeChainOutput.ChainSelector,
-			homeChainOutput.ChainSelector,
-			homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-			homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
+			map[uint64]string{
+				homeChainOutput.ChainSelector: homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+			},
+		)
 		require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 	}
 
@@ -812,7 +811,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	chainIDInt, chainErr := strconv.Atoi(firstBlockchain.ChainID)
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
-	priceProvider := NewTrueUSDPriceProvider(testLogger)
+	priceProvider := NewTrueUSDPriceProvider(testLogger, in.WorkflowConfig.FeedIDs)
 	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
 
 	// Log extra information that might help debugging

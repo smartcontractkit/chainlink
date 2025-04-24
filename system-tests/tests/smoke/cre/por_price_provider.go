@@ -106,26 +106,33 @@ type PriceProvider interface {
 type TrueUSDPriceProvider struct {
 	testLogger   zerolog.Logger
 	url          string
-	actualPrices []*big.Int
+	actualPrices map[string][]*big.Int
 }
 
-func NewTrueUSDPriceProvider(testLogger zerolog.Logger) PriceProvider {
-	return &TrueUSDPriceProvider{
-		testLogger: testLogger,
-		url:        "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD",
+func NewTrueUSDPriceProvider(testLogger zerolog.Logger, feedIDs []string) PriceProvider {
+	pr := &TrueUSDPriceProvider{
+		testLogger:   testLogger,
+		url:          "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD",
+		actualPrices: make(map[string][]*big.Int),
 	}
+
+	for _, feedID := range feedIDs {
+		pr.actualPrices[feedID] = make([]*big.Int, 0)
+	}
+
+	return pr
 }
 
-// TODO make this respect feedID
 func (l *TrueUSDPriceProvider) NextPrice(feedID string, price *big.Int, elapsed time.Duration) bool {
+	cleanFeedID := cleanFeedID(feedID)
 	// if price is nil or 0 it means that the feed hasn't been updated yet
 	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
-		l.testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
+		l.testLogger.Info().Msgf("Feed %s not updated yet, waiting for %s", cleanFeedID, elapsed)
 		return true
 	}
 
-	l.testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
-	l.actualPrices = append(l.actualPrices, price)
+	l.testLogger.Info().Msgf("Feed %s updated after %s - price set, price=%s", cleanFeedID, elapsed, price)
+	l.actualPrices[cleanFeedID] = append(l.actualPrices[cleanFeedID], price)
 
 	// no other price to return, we are done
 	return false
@@ -135,16 +142,16 @@ func (l *TrueUSDPriceProvider) URL() string {
 	return l.url
 }
 
-func (l *TrueUSDPriceProvider) ExpectedPrices(_ string) []*big.Int {
+func (l *TrueUSDPriceProvider) ExpectedPrices(feedID string) []*big.Int {
 	// we don't have a way to check the price in the live feed, so we always assume it's correct
 	// as long as it's != 0. And we only wait for the first price to be set.
-	return l.actualPrices
+	return l.actualPrices[cleanFeedID(feedID)]
 }
 
-func (l *TrueUSDPriceProvider) ActualPrices(_ string) []*big.Int {
+func (l *TrueUSDPriceProvider) ActualPrices(feedID string) []*big.Int {
 	// we don't have a way to check the price in the live feed, so we always assume it's correct
 	// as long as it's != 0. And we only wait for the first price to be set.
-	return l.actualPrices
+	return l.actualPrices[cleanFeedID(feedID)]
 }
 
 func (l *TrueUSDPriceProvider) AuthKey() string {

@@ -325,16 +325,13 @@ func SetupTestEnvironment(
 		if configsFound == 0 {
 			config, configErr := keystoneporconfig.GenerateConfigs(
 				keystonetypes.GeneratePoRConfigsInput{
-					DonMetadata:                 donMetadata,
-					BlockchainOutput:            bcOuts,
-					Flags:                       donMetadata.Flags,
-					PeeringData:                 peeringData,
-					AddressBook:                 mergedAddressBook,
-					CapabilitiesRegistryAddress: keystoneContractsOutput.CapabilitiesRegistryAddress,
-					WorkflowRegistryAddress:     keystoneContractsOutput.WorkflowRegistryAddress,
-					ForwarderAddress:            keystoneContractsOutput.ForwarderAddress,
-					GatewayConnectorOutput:      topology.GatewayConnectorOutput,
-					HomeChainSelector:           topology.HomeChainSelector,
+					DonMetadata:            donMetadata,
+					BlockchainOutput:       bcOuts,
+					Flags:                  donMetadata.Flags,
+					PeeringData:            peeringData,
+					AddressBook:            mergedAddressBook,
+					GatewayConnectorOutput: topology.GatewayConnectorOutput,
+					HomeChainSelector:      topology.HomeChainSelector,
 				},
 			)
 			if configErr != nil {
