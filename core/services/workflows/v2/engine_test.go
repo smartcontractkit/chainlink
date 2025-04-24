@@ -11,6 +11,7 @@ import (
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
@@ -23,12 +24,16 @@ func TestEngine_Init(t *testing.T) {
 
 	initDoneCh := make(chan error)
 
+	name, err := types.NewWorkflowName(testWorkflowName)
+	require.NoError(t, err)
 	cfg := v2.EngineConfig{
 		Lggr:            logger.TestLogger(t),
 		Module:          module,
 		CapRegistry:     capreg,
 		ExecutionsStore: store.NewInMemoryStore(logger.TestLogger(t), clockwork.NewRealClock()),
-		WorkflowID:      "test-workflow",
+		WorkflowID:      testWorkflowID,
+		WorkflowOwner:   testWorkflowOwner,
+		WorkflowName:    name,
 		Limits:          v2.EngineLimits{},
 		Hooks: v2.LifecycleHooks{
 			OnInitialized: func(err error) {

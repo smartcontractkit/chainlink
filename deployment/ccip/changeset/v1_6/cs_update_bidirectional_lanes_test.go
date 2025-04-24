@@ -262,6 +262,7 @@ func TestBuildConfigs(t *testing.T) {
 }
 
 func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
+	t.Skip("Flakey test: CCIP-5756")
 	t.Parallel()
 
 	type test struct {

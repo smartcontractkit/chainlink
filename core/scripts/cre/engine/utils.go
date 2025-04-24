@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const (
@@ -59,12 +60,16 @@ func NewStandaloneEngine(ctx context.Context, lggr logger.Logger, registry *capa
 		return nil, err
 	}
 
+	name, err := types.NewWorkflowName(defaultName)
+	if err != nil {
+		return nil, err
+	}
 	cfg := workflows.Config{
 		Lggr:                 lggr,
 		Workflow:             *sdkSpec,
 		WorkflowID:           defaultWorkflowID,
 		WorkflowOwner:        defaultOwner,
-		WorkflowName:         workflows.NewNamer(defaultName),
+		WorkflowName:         name,
 		Registry:             registry,
 		Store:                store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 		Config:               config,

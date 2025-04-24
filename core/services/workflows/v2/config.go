@@ -2,11 +2,13 @@ package v2
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 type EngineConfig struct {
@@ -15,7 +17,9 @@ type EngineConfig struct {
 	CapRegistry     core.CapabilitiesRegistry
 	ExecutionsStore store.Store
 
-	WorkflowID string
+	WorkflowID    string // hex-encoded [32]byte, no "0x" prefix
+	WorkflowOwner string // hex-encoded [20]byte, no "0x" prefix
+	WorkflowName  types.WorkflowName
 
 	Limits EngineLimits
 	Hooks  LifecycleHooks
@@ -51,9 +55,16 @@ func (c *EngineConfig) Validate() error {
 		return errors.New("executions store not set")
 	}
 
-	// TODO(CAPPL-733): add owner and name; validate format
-	if c.WorkflowID == "" {
-		return errors.New("workflowID not set")
+	_, err := types.WorkflowIDFromHex(c.WorkflowID)
+	if err != nil {
+		return fmt.Errorf("invalid workflowID: %w", err)
+	}
+	err = types.ValidateWorkflowOwner(c.WorkflowOwner)
+	if err != nil {
+		return fmt.Errorf("invalid workflowOwner: %w", err)
+	}
+	if c.WorkflowName == nil {
+		return errors.New("workflowName not set")
 	}
 
 	c.setDefaultLimits()
