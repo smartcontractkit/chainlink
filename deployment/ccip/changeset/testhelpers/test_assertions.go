@@ -164,12 +164,12 @@ func ConfirmTokenPriceUpdated(
 	return nil
 }
 
-// SourceDestPair is represents a pair of source and destination chain selectors.
+// SourceDestPair represents a pair of source and destination chain selectors.
 // Use this as a key in maps that need to identify sequence numbers, nonces, or
 // other things that require identification.
 type SourceDestPair struct {
-	SourceChainSelector uint64
-	DestChainSelector   uint64
+	SourceChainSelector uint64 `json:"src"`
+	DestChainSelector   uint64 `json:"dst"`
 }
 
 // ConfirmCommitForAllWithExpectedSeqNums waits for all chains in the environment to commit the given expectedSeqNums.

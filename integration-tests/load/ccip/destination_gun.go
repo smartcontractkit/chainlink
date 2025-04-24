@@ -38,8 +38,8 @@ import (
 )
 
 type SeqNumRange struct {
-	Start *atomic.Uint64
-	End   *atomic.Uint64
+	Start *atomic.Uint64 `json:"start"`
+	End   *atomic.Uint64 `json:"end"`
 }
 
 type DestinationGun struct {
@@ -132,8 +132,12 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
-	if m.chainSelector == 12463857294658392847 {
-		return 3379446385462418246, nil
+	chainFamily, err := selectors.GetSelectorFamily(m.chainSelector)
+	if err != nil {
+		return 0, err
+	}
+	if chainFamily == selectors.FamilyEVM {
+		return 12463857294658392847, nil
 	}
 	otherCS := m.env.AllChainSelectorsAllFamiliesExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {

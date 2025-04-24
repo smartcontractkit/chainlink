@@ -427,14 +427,14 @@ MessageDetails = [
 #    {Ratio = 5,  MsgType = "Messaging", DataLengthBytes = 10_000, DestGasLimit=2_500_000},
 ]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
-RequestFrequency = "10s"
-LoadDuration = "1h"
-TestLabel = "crib-solana-test"
+RequestFrequency = "30s"
+LoadDuration = "1m"
+TestLabel = "crib-solana-test-bugfix"
 # destination chain selectors to send messages to
-NumDestinationChains = 2
+NumDestinationChains = 6
 # Directory where we receive environment configuration from crib
 CribEnvDirectory = "../../../../crib/deployments/ccip-v2/.tmp"
-TimeoutDuration = "30m"
+TimeoutDuration = "1h"
 OOOExecution = false
 
 [CCIP.Chaos]

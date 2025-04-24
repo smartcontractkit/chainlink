@@ -76,6 +76,7 @@ func subscribeTransmitEvents(
 	defer wg.Done()
 	lggr.Infow("starting transmit event subscriber for ",
 		"srcChain", srcChainSel,
+		"otherChains", otherChains,
 		"startblock", startBlock,
 	)
 
@@ -90,6 +91,8 @@ func subscribeTransmitEvents(
 			End:   atomic.NewUint64(0),
 		}
 	}
+
+	fmt.Printf("Initial transmit watcher for chain %d has seqnums %+v\n", srcChainSel, seqNums)
 
 	sink := make(chan *onramp.OnRampCCIPMessageSent)
 	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
@@ -145,23 +148,26 @@ func subscribeTransmitEvents(
 				"srcChain", srcChainSel)
 			return
 		case <-loadFinished:
-			lggr.Debugw("load finished, closing transmit watchers", "srcChainSel", srcChainSel)
-			for csPair, seqNums := range seqNums {
-				lggr.Infow("pushing finalized sequence numbers for ",
-					"srcChainSelector", srcChainSel,
-					"destChainSelector", csPair.DestChainSelector,
-					"seqNums", seqNums)
-				finalSeqNrCommitChannels[csPair.DestChainSelector] <- finalSeqNrReport{
-					sourceChainSelector: csPair.SourceChainSelector,
+			fmt.Printf("srcChainSel %d has otherChains %+v\n", srcChainSel, otherChains)
+			for _, destChain := range otherChains {
+				fmt.Printf("Pushing seqNum %d -> %d\n\n", srcChainSel, destChain)
+
+				csPair := testhelpers.SourceDestPair{
+					SourceChainSelector: srcChainSel,
+					DestChainSelector:   destChain,
+				}
+				seqNumRange := seqNums[csPair]
+				finalSeqNrCommitChannels[destChain] <- finalSeqNrReport{
+					sourceChainSelector: srcChainSel,
 					expectedSeqNrRange: ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
+						ccipocr3.SeqNum(seqNumRange.Start.Load()), ccipocr3.SeqNum(seqNumRange.End.Load()),
 					},
 				}
 
-				finalSeqNrExecChannels[csPair.DestChainSelector] <- finalSeqNrReport{
-					sourceChainSelector: csPair.SourceChainSelector,
+				finalSeqNrExecChannels[destChain] <- finalSeqNrReport{
+					sourceChainSelector: srcChainSel,
 					expectedSeqNrRange: ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
+						ccipocr3.SeqNum(seqNumRange.Start.Load()), ccipocr3.SeqNum(seqNumRange.End.Load()),
 					},
 				}
 			}

@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"slices"
 	"sync"
@@ -36,6 +37,7 @@ func subscribeSolTransmitEvents(
 	defer wg.Done()
 	lggr.Infow("starting solana chain transmit event subscriber for ",
 		"srcChain", srcChainSel,
+		"otherChains", otherChains,
 		"startSlot", startSlot,
 	)
 
@@ -50,6 +52,7 @@ func subscribeSolTransmitEvents(
 			End:   atomic.NewUint64(0),
 		}
 	}
+	fmt.Printf("Initial transmit watcher for chain %d has seqnums %+v", srcChainSel, seqNums)
 
 	done := make(chan any)
 	sink, errCh := testhelpers.SolEventEmitter[solccip.EventCCIPMessageSent](client, onrampAddress, "CCIPMessageSent", startSlot, done, time.NewTicker(15*time.Second))
@@ -100,23 +103,25 @@ func subscribeSolTransmitEvents(
 			done <- struct{}{}
 			return
 		case <-loadFinished:
-			lggr.Debugw("load finished, closing transmit watchers", "srcChainSel", srcChainSel)
-			for csPair, seqNums := range seqNums {
-				lggr.Infow("pushing finalized sequence numbers for ",
-					"srcChainSelector", srcChainSel,
-					"destChainSelector", csPair.DestChainSelector,
-					"seqNums", seqNums)
-				finalSeqNrCommitChannels[csPair.DestChainSelector] <- finalSeqNrReport{
-					sourceChainSelector: csPair.SourceChainSelector,
+			fmt.Printf("srcChainSel %d has otherChains %+v\n", srcChainSel, otherChains)
+			for _, destChain := range otherChains {
+				fmt.Printf("Pushing seqNum %d -> %d\n\n", srcChainSel, destChain)
+				csPair := testhelpers.SourceDestPair{
+					SourceChainSelector: srcChainSel,
+					DestChainSelector:   destChain,
+				}
+				seqNumRange := seqNums[csPair]
+				finalSeqNrCommitChannels[destChain] <- finalSeqNrReport{
+					sourceChainSelector: srcChainSel,
 					expectedSeqNrRange: ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
+						ccipocr3.SeqNum(seqNumRange.Start.Load()), ccipocr3.SeqNum(seqNumRange.End.Load()),
 					},
 				}
 
-				finalSeqNrExecChannels[csPair.DestChainSelector] <- finalSeqNrReport{
-					sourceChainSelector: csPair.SourceChainSelector,
+				finalSeqNrExecChannels[destChain] <- finalSeqNrReport{
+					sourceChainSelector: srcChainSel,
 					expectedSeqNrRange: ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
+						ccipocr3.SeqNum(seqNumRange.Start.Load()), ccipocr3.SeqNum(seqNumRange.End.Load()),
 					},
 				}
 			}
@@ -307,6 +312,7 @@ func subscribeSolExecutionEvents(
 				"sourceChain", event.SourceChainSelector,
 				"sequenceNumber", event.SequenceNumber,
 				"timestamp", uint64(*eventWithTxn.Txn.BlockTime)) //nolint:gosec // G115
+
 			// push metrics to loki here
 			data := messageData{
 				eventType: executed,
