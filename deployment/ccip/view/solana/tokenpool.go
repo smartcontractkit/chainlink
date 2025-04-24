@@ -8,6 +8,7 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 )
 
 type TokenPoolView struct {
@@ -65,7 +66,7 @@ func GenerateTokenPoolView(chain deployment.SolChain, program solana.PublicKey, 
 			if err := chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount); err == nil {
 				view.TokenPoolChainConfig[remote][token.String()] = TokenPoolChainConfig{
 					PoolAddresses: make([]string, len(remoteChainConfigAccount.Base.Remote.PoolAddresses)),
-					TokenAddress:  GetAddressFromBytes(remote, remoteChainConfigAccount.Base.Remote.TokenAddress.Address),
+					TokenAddress:  shared.GetAddressFromBytes(remote, remoteChainConfigAccount.Base.Remote.TokenAddress.Address),
 					Decimals:      remoteChainConfigAccount.Base.Remote.Decimals,
 					InboundRateLimit: TokenPoolRateLimitTokenBucket{
 						Tokens:      remoteChainConfigAccount.Base.InboundRateLimit.Tokens,
@@ -81,7 +82,7 @@ func GenerateTokenPoolView(chain deployment.SolChain, program solana.PublicKey, 
 						Rate:        remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Rate},
 				}
 				for i, addr := range remoteChainConfigAccount.Base.Remote.PoolAddresses {
-					view.TokenPoolChainConfig[remote][token.String()].PoolAddresses[i] = GetAddressFromBytes(remote, addr.Address)
+					view.TokenPoolChainConfig[remote][token.String()].PoolAddresses[i] = shared.GetAddressFromBytes(remote, addr.Address)
 				}
 			}
 		}
