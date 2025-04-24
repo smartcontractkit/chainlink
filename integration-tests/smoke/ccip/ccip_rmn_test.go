@@ -20,13 +20,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -41,8 +41,6 @@ import (
 )
 
 func TestRMN_IncorrectSig(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-396")
-
 	runRmnTestCase(t, rmnTestCase{
 		nodesWithIncorrectSigner: []int{0, 1},
 		name:                     "messages with incorrect RMN signature",
@@ -67,8 +65,6 @@ func TestRMN_IncorrectSig(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-199")
-
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching one lane RMN-enabled the other RMN-disabled",
 		waitForExec: true,
@@ -119,8 +115,6 @@ func TestRMN_SimpleVerificationDisabledOnDestination(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-123")
-
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching",
 		waitForExec: true,
@@ -144,8 +138,6 @@ func TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause(t *testing
 }
 
 func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-201")
-
 	runRmnTestCase(t, rmnTestCase{
 		name:        "multiple messages for rmn batching inspection and one rmn node down",
 		waitForExec: false, // do not wait for execution reports
@@ -168,8 +160,6 @@ func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
 }
 
 func TestRMN_NotEnoughObservers(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-295")
-
 	runRmnTestCase(t, rmnTestCase{
 		name:                "one message but not enough observers, should not get a commit report",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -192,8 +182,6 @@ func TestRMN_NotEnoughObservers(t *testing.T) {
 }
 
 func TestRMN_DifferentSigners(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-200")
-
 	runRmnTestCase(t, rmnTestCase{
 		name: "different signers and different observers",
 		homeChainConfig: homeChainConfig{
@@ -243,8 +231,6 @@ func TestRMN_NotEnoughSigners(t *testing.T) {
 }
 
 func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-202")
-
 	runRmnTestCase(t, rmnTestCase{
 		name:        "different rmn nodes support different chains",
 		waitForExec: false,
@@ -271,8 +257,6 @@ func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-297")
-
 	runRmnTestCase(t, rmnTestCase{
 		name:                "two messages, one source chain is cursed the other chain was cursed but curse is revoked",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -302,8 +286,6 @@ func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
 }
 
 func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-294")
-
 	runRmnTestCase(t, rmnTestCase{
 		name:        "global curse messages on two lanes",
 		waitForExec: false,
@@ -347,13 +329,10 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	envWithRMN, rmnCluster, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithRMNEnabled(len(tc.rmnNodes)),
 	)
-	t.Logf("envWithRmn: %#v", envWithRMN)
-
 	tc.populateFields(t, envWithRMN, rmnCluster)
 
 	onChainState, err := changeset.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
-	t.Logf("onChainState: %#v", onChainState)
 
 	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
 	require.True(t, ok)
@@ -471,9 +450,14 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 				if (hasCommitReportBeenReceived) || tc.passIfNoCommitAfter > 0 {
 					return
 				}
-				t.Logf("replaying logs after waiting for more than 1 minute")
 				// Do not assert on error as we replay logs to avoid race condition where nodes are being shut down and we call replay
-				testhelpers.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks, testhelpers.WithAssertOnError(false))
+				replayBlocks := make(map[uint64]uint64)
+				for srcDestPair := range seqNumCommit {
+					replayBlocks[srcDestPair.SourceChainSelector] = 1
+					replayBlocks[srcDestPair.DestChainSelector] = 1
+				}
+				t.Logf("replaying logs after waiting for more than 1 minute (%v)", replayBlocks)
+				testhelpers.ReplayLogs(t, envWithRMN.Env.Offchain, replayBlocks, testhelpers.WithAssertOnError(false))
 			case <-t.Context().Done():
 				return
 			}
@@ -905,7 +889,6 @@ func configureAndPromoteRMNHome(
 	// Load on-chain state
 	onChainState, err := changeset.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
-	t.Logf("onChainState: %#v", onChainState)
 
 	// Get the home chain state and the candidate/active digests
 	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]

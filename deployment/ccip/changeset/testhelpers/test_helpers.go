@@ -21,9 +21,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -311,6 +312,7 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 ) (*types.Transaction, uint64, error) {
 	const errCodeInsufficientFee = "0x07da6ee6"
 	const cannotDecodeErrorReason = "could not decode error reason"
+	const errMsgMissingTrieNode = "missing trie node"
 
 	defer func() { cfg.Sender.Value = nil }()
 
@@ -335,7 +337,8 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 				// Don't count insufficient fee as part of the retry count
 				// because this is expected and we need to adjust the fee
 				continue
-			} else if strings.Contains(err.Error(), cannotDecodeErrorReason) {
+			} else if strings.Contains(err.Error(), cannotDecodeErrorReason) ||
+				strings.Contains(err.Error(), errMsgMissingTrieNode) {
 				// If the error reason cannot be decoded, we retry to avoid transient issues. The retry behavior is disabled by default
 				// It is configured in the CCIPSendReqConfig.
 				// This retry was originally added to solve transient failure in end to end tests
