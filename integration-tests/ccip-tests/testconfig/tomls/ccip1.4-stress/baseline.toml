@@ -72,15 +72,15 @@ block_time = 1
 
 [CCIP.Env.NewCLCluster]
 NoOfNodes = 17
-NodeMemory = '16Gi'
-NodeCPU = '4'
-DBMemory = '32Gi'
-DBCPU = '8'
+NodeMemory = '8Gi'
+NodeCPU = '2'
+DBMemory = '8Gi'
+DBCPU = '2'
 DBStorageClass = 'gp3'
 PromPgExporter = true
 DBCapacity = '70Gi'
 IsStateful = true
-DBArgs = ['shared_buffers=8192MB', 'effective_cache_size=16384MB', 'work_mem=128MB']
+DBArgs = ['shared_buffers=4000MB', 'effective_cache_size=4000MB', 'work_mem=64MB']
 
 [CCIP.Env.NewCLCluster.Common]
 BaseConfigTOML = """
