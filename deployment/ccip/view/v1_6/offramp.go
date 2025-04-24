@@ -5,10 +5,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
 	router1_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
@@ -63,7 +63,7 @@ func GenerateOffRampView(
 			IsEnabled:                 sourceChainConfig.IsEnabled,
 			MinSeqNr:                  sourceChainConfig.MinSeqNr,
 			IsRMNVerificationDisabled: sourceChainConfig.IsRMNVerificationDisabled,
-			OnRamp:                    ccipocr3.UnknownAddress(sourceChainConfig.OnRamp).String(),
+			OnRamp:                    shared.GetAddressFromBytes(sourceChainSelector, sourceChainConfig.OnRamp),
 		}
 	}
 
