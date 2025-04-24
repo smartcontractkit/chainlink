@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sync/atomic"
+	"sync"
 
 	"github.com/dominikbraun/graph"
 
@@ -112,7 +112,9 @@ type triggerCapability struct {
 	// flag to track registration of the trigger and avoid removal of non registered triggers
 	registered bool
 
-	config atomic.Pointer[values.Map]
+	config *values.Map
+
+	mu sync.Mutex
 }
 
 func Parse(sdkSpec sdk.WorkflowSpec) (*workflow, error) {

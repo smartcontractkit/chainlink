@@ -3,10 +3,13 @@ package v1_5
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
@@ -48,17 +51,32 @@ func getAllConfiguredTokensPaginated(taContract *token_admin_registry.TokenAdmin
 	if err != nil {
 		return nil, fmt.Errorf("failed to get supported tokens for tokenAdminRegistry %s: %w", taContract.Address().String(), err)
 	}
+	tokenDetailsSyncMap := sync.Map{}
+	grp := errgroup.Group{}
+	// try to get all token details in parallel
 	for _, token := range allTokens {
-		config, err := taContract.GetTokenConfig(nil, token)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get token config for token %s tokenAdminReg %s: %w",
-				token.String(), taContract.Address().String(), err)
-		}
-		tokenDetails[token] = TokenDetails{
-			Pool:         config.TokenPool,
-			Admin:        config.Administrator,
-			PendingAdmin: config.PendingAdministrator,
-		}
+		token := token
+		grp.Go(func() error {
+			config, err := taContract.GetTokenConfig(nil, token)
+			if err != nil {
+				return fmt.Errorf("failed to get token config for token %s tokenAdminReg %s: %w",
+					token.String(), taContract.Address().String(), err)
+			}
+			tokenDetailsSyncMap.Store(token, TokenDetails{
+				Pool:         config.TokenPool,
+				Admin:        config.Administrator,
+				PendingAdmin: config.PendingAdministrator,
+			})
+			return nil
+		})
 	}
+	if err := grp.Wait(); err != nil {
+		return nil, fmt.Errorf("failed to get token details for tokenAdminRegistry %s: %w", taContract.Address().String(), err)
+	}
+	// convert sync map to regular map
+	tokenDetailsSyncMap.Range(func(key, value interface{}) bool {
+		tokenDetails[key.(common.Address)] = value.(TokenDetails)
+		return true
+	})
 	return tokenDetails, nil
 }

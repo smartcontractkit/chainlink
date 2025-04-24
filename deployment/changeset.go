@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 )
 
 var (

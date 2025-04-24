@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const (
@@ -796,7 +797,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 		err = eng.Start(context.Background())
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errGlobalWorkflowCountLimitReached)
+		assert.ErrorIs(t, err, types.ErrGlobalWorkflowCountLimitReached)
 	})
 
 	t.Run("per owner workflow limit", func(t *testing.T) {
@@ -848,7 +849,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 		err = eng.Start(context.Background())
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errPerOwnerWorkflowCountLimitReached)
+		assert.ErrorIs(t, err, types.ErrPerOwnerWorkflowCountLimitReached)
 	})
 
 	// Verify that overriding the perOwner limit enables an external workflow
@@ -919,7 +920,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 		err = eng.Start(context.Background())
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errPerOwnerWorkflowCountLimitReached)
+		assert.ErrorIs(t, err, types.ErrPerOwnerWorkflowCountLimitReached)
 	})
 }
 
@@ -1220,7 +1221,7 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 
 	<-hooks.initSuccessful
 
-	assert.Equal(t, node, eng.localNode)
+	assert.Equal(t, node, *eng.localNode.Load())
 }
 
 const passthroughInterpolationWorkflow = `
