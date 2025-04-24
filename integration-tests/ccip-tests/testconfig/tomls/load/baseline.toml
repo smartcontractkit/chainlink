@@ -1,19 +1,19 @@
 ## Baseline performance test on simulated environment (with chaos)
-## 50 chains / 300 lanes
+## 60 chains / 300 lanes
 ## historyDepth 200 / finalityDepth 200
 ## block_time = 1s
 ## throughput 1msg / 5s
 ## 20% Token, 60% DataWithToken, 15% Regular size msgs, 5% Large msgs
 ##
-## make test_load_ccip testimage=<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip-tests:bd48750f7072c2a40454483f2e36bad7efaaeba5 \
+## make test_load_ccip testimage=<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-tests:develop \
 ##      testname=TestLoadCCIPStableRequestTriggeringWithNetworkChaos \
-##      override_toml=./testconfig/tomls/ccip1.4-stress/baseline.toml
+##      override_toml=./testconfig/tomls/load/baseline.toml
 
 ## Adjust this value depending on what you want to test.
 # Using releases and git tag requires changing the image name to the correct one in `~/.testsecrets`, e.g.
 # E2E_TEST_CHAINLINK_IMAGE="public.ecr.aws/chainlink/ccip"
 # If you want to use a specific commit or a branch you need to switch to the internal ECR in `~/.testsecrets`
-# E2E_TEST_CHAINLINK_IMAGE="<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip"
+# E2E_TEST_CHAINLINK_IMAGE="<aws account number>.dkr.ecr.<aws region>.amazonaws.com/ccip"
 [CCIP.Env.NewCLCluster.Common.ChainlinkImage]
 version = "2.23.0-ccip"
 
@@ -149,7 +149,7 @@ NoOfCommitNodes = 16
 PhaseTimeout = '40m'
 NodeFunding = 1000.0
 NoOfRoutersPerPair = 1
-NoOfNetworks = 50
+NoOfNetworks = 60
 MaxNoOfLanes = 300
 
 [CCIP.Groups.load.OffRampConfig]

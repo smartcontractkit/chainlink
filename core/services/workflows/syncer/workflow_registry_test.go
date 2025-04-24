@@ -71,8 +71,8 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 
 		// The only event is WorkflowRegisteredEvent
 		require.Len(t, events, 1)
-		require.Equal(t, WorkflowRegisteredEvent, events[0].GetEventType())
-		expectedRegisteredEvent := WorkflowRegistryWorkflowRegisteredV1{
+		require.Equal(t, WorkflowRegisteredEvent, events[0].EventType)
+		expectedRegisteredEvent := WorkflowRegisteredV1{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
 			DonID:         donID,
@@ -82,7 +82,7 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 			ConfigURL:     configURL,
 			SecretsURL:    secretsURL,
 		}
-		require.Equal(t, expectedRegisteredEvent, events[0].GetData())
+		require.Equal(t, expectedRegisteredEvent, events[0].Data)
 	})
 
 	t.Run("WorkflowUpdatedEvent", func(t *testing.T) {
@@ -136,8 +136,8 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 
 		// The only event is WorkflowUpdatedEvent
 		require.Len(t, events, 1)
-		require.Equal(t, WorkflowUpdatedEvent, events[0].GetEventType())
-		expectedUpdatedEvent := WorkflowRegistryWorkflowUpdatedV1{
+		require.Equal(t, WorkflowUpdatedEvent, events[0].EventType)
+		expectedUpdatedEvent := WorkflowUpdatedV1{
 			OldWorkflowID: wfID,
 			NewWorkflowID: wfID2,
 			WorkflowOwner: owner,
@@ -147,7 +147,7 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 			ConfigURL:     configURL,
 			SecretsURL:    secretsURL,
 		}
-		require.Equal(t, expectedUpdatedEvent, events[0].GetData())
+		require.Equal(t, expectedUpdatedEvent, events[0].Data)
 	})
 
 	t.Run("WorkflowDeletedEvent", func(t *testing.T) {
@@ -185,14 +185,14 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 
 		// The only event is WorkflowDeletedEvent
 		require.Len(t, events, 1)
-		require.Equal(t, WorkflowDeletedEvent, events[0].GetEventType())
-		expectedUpdatedEvent := WorkflowRegistryWorkflowDeletedV1{
+		require.Equal(t, WorkflowDeletedEvent, events[0].EventType)
+		expectedUpdatedEvent := WorkflowDeletedV1{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
 			DonID:         donID,
 			WorkflowName:  wfName,
 		}
-		require.Equal(t, expectedUpdatedEvent, events[0].GetData())
+		require.Equal(t, expectedUpdatedEvent, events[0].Data)
 	})
 
 	t.Run("No change", func(t *testing.T) {
@@ -242,8 +242,8 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 
 		// The only event is WorkflowRegisteredEvent
 		require.Len(t, events, 1)
-		require.Equal(t, WorkflowRegisteredEvent, events[0].GetEventType())
-		expectedRegisteredEvent := WorkflowRegistryWorkflowRegisteredV1{
+		require.Equal(t, WorkflowRegisteredEvent, events[0].EventType)
+		expectedRegisteredEvent := WorkflowRegisteredV1{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
 			DonID:         donID,
@@ -253,7 +253,7 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 			ConfigURL:     configURL,
 			SecretsURL:    secretsURL,
 		}
-		require.Equal(t, expectedRegisteredEvent, events[0].GetData())
+		require.Equal(t, expectedRegisteredEvent, events[0].Data)
 
 		// Add the workflow to the engine registry as the handler would
 		err = er.Add(EngineRegistryKey{Owner: owner, Name: wfName}, &mockService{}, wfID)
@@ -362,13 +362,13 @@ func Test_workflowMetadataToEvents(t *testing.T) {
 
 		// The only event is WorkflowDeletedEvent
 		require.Len(t, events, 1)
-		require.Equal(t, WorkflowDeletedEvent, events[0].GetEventType())
-		expectedUpdatedEvent := WorkflowRegistryWorkflowDeletedV1{
+		require.Equal(t, WorkflowDeletedEvent, events[0].EventType)
+		expectedUpdatedEvent := WorkflowDeletedV1{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
 			DonID:         donID,
 			WorkflowName:  wfName,
 		}
-		require.Equal(t, expectedUpdatedEvent, events[0].GetData())
+		require.Equal(t, expectedUpdatedEvent, events[0].Data)
 	})
 }

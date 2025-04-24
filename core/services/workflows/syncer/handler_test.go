@@ -19,16 +19,17 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	wfstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	"github.com/jonboulle/clockwork"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -129,9 +130,9 @@ func Test_Handler(t *testing.T) {
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -160,7 +161,7 @@ func Test_Handler(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
-		giveEvent := WorkflowRegistryEvent{}
+		giveEvent := Event{}
 		fetcher := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte("contents"), nil
 		}
@@ -196,9 +197,9 @@ func Test_Handler(t *testing.T) {
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -222,9 +223,9 @@ func Test_Handler(t *testing.T) {
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -257,9 +258,9 @@ func Test_Handler(t *testing.T) {
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -298,7 +299,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	var encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 	var workflowName = "workflow-name"
 
-	defaultValidationFn := func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+	defaultValidationFn := func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 		err := h.workflowRegisteredEvent(ctx, event)
 		require.NoError(t, err)
 
@@ -316,7 +317,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	defaultValidationFnWithFetch := func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+	defaultValidationFnWithFetch := func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 		defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
 		// Verify that the URLs have been called
@@ -333,7 +334,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
 				return &mockEngine{}, nil
 			},
 			GiveConfig: config,
@@ -342,8 +343,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -362,7 +363,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
 				if _, err := hex.DecodeString(name.Hex()); err != nil {
 					return nil, fmt.Errorf("invalid workflow name: %w", err)
 				}
@@ -378,8 +379,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -398,7 +399,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
 				return &mockEngine{StartErr: assert.AnError}, nil
 			},
 			GiveConfig: config,
@@ -407,8 +408,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -418,7 +419,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler,
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				err := h.workflowRegisteredEvent(ctx, event)
 				require.Error(t, err)
@@ -438,8 +439,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -449,7 +450,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				me := &mockEngine{}
 				var wfIDBytes [32]byte
 				copy(wfIDBytes[:], wfID)
@@ -472,8 +473,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -483,7 +484,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				me := &mockEngine{}
 				oldWfIDBytes := [32]byte{0, 1, 2, 3, 5}
 				err := h.engineRegistry.Add(EngineRegistryKey{Owner: wfOwner, Name: workflowName}, me, oldWfIDBytes)
@@ -508,8 +509,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(1),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -519,7 +520,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler,
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				err := h.workflowRegisteredEvent(ctx, event)
 				require.NoError(t, err)
@@ -549,8 +550,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -560,7 +561,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler,
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				// Create the record in the database
 				entry := &job.WorkflowSpec{
@@ -605,7 +606,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				binaryURL:  {Body: encodedBinary, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
 				// Verify that the URLs have been called
@@ -613,8 +614,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.Equal(t, 0, fetcher.Calls(event.ConfigURL))
 				require.Equal(t, 1, fetcher.Calls(event.SecretsURL))
 			},
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -635,7 +636,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				binaryURL: {Body: encodedBinary, Err: nil},
 				configURL: {Body: config, Err: nil},
 			}),
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
 				// Verify that the URLs have been called
@@ -643,8 +644,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.Equal(t, 1, fetcher.Calls(event.ConfigURL))
 				require.Equal(t, 0, fetcher.Calls(event.SecretsURL))
 			},
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -665,7 +666,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				binaryURL: {Body: encodedBinary, Err: nil},
 				configURL: {Body: config, Err: nil},
 			}),
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				// Create the record in the database
 				entry := &job.WorkflowSpec{
 					Workflow:      hex.EncodeToString(binary),
@@ -688,8 +689,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.Equal(t, 0, fetcher.Calls(event.ConfigURL))
 				require.Equal(t, 0, fetcher.Calls(event.SecretsURL))
 			},
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -715,9 +716,9 @@ type testCase struct {
 	ConfigURL       string
 	WFOwner         []byte
 	fetcher         *mockFetcher
-	Event           func([]byte) WorkflowRegistryWorkflowRegisteredV1
-	validationFn    func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher)
-	engineFactoryFn func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error)
+	Event           func([]byte) WorkflowRegisteredV1
+	validationFn    func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher)
+	engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -846,7 +847,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		require.NoError(t, err)
 
-		active := WorkflowRegistryWorkflowRegisteredV1{
+		active := WorkflowRegisteredV1{
 			Status:        uint8(0),
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
@@ -887,7 +888,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		err = engine.Ready()
 		require.NoError(t, err)
 
-		deleteEvent := WorkflowRegistryWorkflowDeletedV1{
+		deleteEvent := WorkflowDeletedV1{
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -944,7 +945,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
 		require.NoError(t, err)
 
-		deleteEvent := WorkflowRegistryWorkflowDeletedV1{
+		deleteEvent := WorkflowDeletedV1{
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -986,7 +987,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		require.NoError(t, err)
 
-		active := WorkflowRegistryWorkflowRegisteredV1{
+		active := WorkflowRegisteredV1{
 			Status:        uint8(0),
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
@@ -1028,7 +1029,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		err = engine.Ready()
 		require.NoError(t, err)
 
-		deleteEvent := WorkflowRegistryWorkflowDeletedV1{
+		deleteEvent := WorkflowDeletedV1{
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -1080,7 +1081,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.NoError(t, err)
 		newWFIDs := hex.EncodeToString(updatedWFID[:])
 
-		active := WorkflowRegistryWorkflowRegisteredV1{
+		active := WorkflowRegisteredV1{
 			Status:        uint8(0),
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
@@ -1122,7 +1123,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		// create a paused event
-		pauseEvent := WorkflowRegistryWorkflowPausedV1{
+		pauseEvent := WorkflowPausedV1{
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -1143,7 +1144,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Error(t, err)
 
 		// create an updated event
-		updatedEvent := WorkflowRegistryWorkflowUpdatedV1{
+		updatedEvent := WorkflowUpdatedV1{
 			OldWorkflowID: giveWFID,
 			NewWorkflowID: updatedWFID,
 			WorkflowOwner: wfOwner,
@@ -1172,6 +1173,6 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		err = engine.Ready()
 		require.NoError(t, err)
 		// old engine is no longer running
-		require.Equal(t, WorkflowID(updatedWFID), engine.WorkflowID)
+		require.Equal(t, types.WorkflowID(updatedWFID), engine.WorkflowID)
 	})
 }
