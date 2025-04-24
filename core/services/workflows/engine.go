@@ -1037,7 +1037,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	defer cancel()
 
 	e.metrics.with(platform.KeyCapabilityID, curStep.ID).incrementCapabilityInvocationCounter(ctx)
-	err = emitCapabilityStartedEvent(ctx, e.cma, curStep.ID, msg.stepRef)
+	err = emitCapabilityStartedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef)
 	if err != nil {
 		e.logger.Errorf("failed to emit capability event: %v", err)
 	}
@@ -1052,7 +1052,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	}
 
 	defer func() {
-		if err := emitCapabilityFinishedEvent(ctx, e.cma, curStep.ID, msg.stepRef, status); err != nil {
+		if err := emitCapabilityFinishedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef, status); err != nil {
 			e.logger.Errorf("failed to emit capability event: %v", err)
 		}
 	}()
@@ -1690,7 +1690,8 @@ func emitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 	return emitProtoMessage(ctx, event)
 }
 
-func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef string) error {
+func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, workflowExecutionID, capabilityID, stepRef string) error {
+	cma = cma.With(platform.KeyWorkflowExecutionID, workflowExecutionID)
 	metadata := buildWorkflowMetadata(cma.Labels())
 
 	event := &pb.CapabilityExecutionStarted{
@@ -1703,7 +1704,8 @@ func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 	return emitProtoMessage(ctx, event)
 }
 
-func emitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef, status string) error {
+func emitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, workflowExecutionID, capabilityID, stepRef, status string) error {
+	cma = cma.With(platform.KeyWorkflowExecutionID, workflowExecutionID)
 	metadata := buildWorkflowMetadata(cma.Labels())
 
 	event := &pb.CapabilityExecutionFinished{
