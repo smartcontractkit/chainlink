@@ -1,6 +1,8 @@
 package shared
 
 import (
+	"strings"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mr-tron/base58"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -37,7 +39,7 @@ func GetAddressFromBytes(chainSelector uint64, address []byte) string {
 
 	switch family {
 	case chain_selectors.FamilyEVM:
-		return common.BytesToAddress(address).Hex()
+		return strings.ToLower(common.BytesToAddress(address).Hex())
 	case chain_selectors.FamilySolana:
 		return base58.Encode(address)
 	default:
