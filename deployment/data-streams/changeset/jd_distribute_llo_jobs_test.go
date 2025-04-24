@@ -1,14 +1,12 @@
 package changeset
 
 import (
-	"context"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -46,34 +44,14 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		},
 	}).Environment
 
-	// Collect the names of the nodes.
-	bootstrapNodeNames := make([]string, 0, 1)
-	oracleNodeNames := make([]string, 0, 2)
-	resp, err := env.Offchain.ListNodes(context.Background(), &node.ListNodesRequest{
-		Filter: &node.ListNodesRequest_Filter{},
-	})
-	require.NoError(t, err)
-	for _, n := range resp.Nodes {
-		for _, label := range n.Labels {
-			if label.Key == utils.LabelNodeType {
-				switch *label.Value {
-				case jd.NodeTypeBootstrap.String():
-					bootstrapNodeNames = append(bootstrapNodeNames, n.Name)
-				case jd.NodeTypeOracle.String():
-					oracleNodeNames = append(oracleNodeNames, n.Name)
-				default:
-					t.Fatalf("unexpected n type: %s", *label.Value)
-				}
-			}
-		}
-	}
+	bootstrapNodeNames, oracleNodeNames := collectNodeNames(t, env, 2, 1)
 
 	// pick the first EVM chain selector
 	chainSelector := env.AllChainSelectors()[0]
 
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
-	err = env.ExistingAddresses.Save(chainSelector, configuratorAddr, //nolint: staticcheck // I don't care that ExistingAddresses is deprecated. We will fix it later.
+	err := env.ExistingAddresses.Save(chainSelector, configuratorAddr, //nolint: staticcheck // I don't care that ExistingAddresses is deprecated. We will fix it later.
 		deployment.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
