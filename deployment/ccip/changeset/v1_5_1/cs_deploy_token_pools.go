@@ -41,9 +41,6 @@ type DeployTokenPoolInput struct {
 	LocalTokenDecimals uint8
 	// AcceptLiquidity indicates whether or not the new pool can accept liquidity from a rebalancer address (lock-release only).
 	AcceptLiquidity *bool
-	// grantAccessToPool indicates whether or not the new pool should be granted access to the token.
-	// Internal usage and will be set only when token deployment is requested and it is BurnAndMint pool type.
-	grantAccessToPool bool
 }
 
 func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Chain, state changeset.CCIPChainState, tokenSymbol changeset.TokenSymbol) error {
@@ -175,7 +172,7 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 			if err != nil {
 				return fmt.Errorf("failed to deploy token pool contract: %w", err)
 			}
-			if poolConfig.grantAccessToPool {
+			if poolConfig.Type == changeset.BurnMintTokenPool {
 				err := grantAccessToPool(chain, contract.Address, poolConfig.TokenAddress)
 				if err != nil {
 					return fmt.Errorf("failed to grant token pool access to token: %s %w", poolConfig.TokenAddress, err)

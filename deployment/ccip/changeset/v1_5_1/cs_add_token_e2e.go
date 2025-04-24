@@ -1,16 +1,13 @@
 package v1_5_1
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/mcms"
 	"golang.org/x/exp/maps"
 
@@ -138,9 +135,6 @@ func (c *AddTokenE2EConfig) newDeployTokenPoolConfigAfterTokenDeployment(tokenAd
 			Type:               p.TokenDeploymentConfig.PoolType,      // The type of the token pool (e.g. LockRelease, BurnMint).
 			AllowList:          p.TokenDeploymentConfig.PoolAllowList,
 			AcceptLiquidity:    p.TokenDeploymentConfig.AcceptLiquidity,
-		}
-		if tp.Type == changeset.BurnMintTokenPool {
-			tp.grantAccessToPool = true
 		}
 		deployTokenCfg[chain] = tp // Add the pool configuration for the chain to the deployment config.
 		p.DeployPoolConfig = &tp
@@ -463,15 +457,19 @@ func grantAccessToPool(
 	if err != nil {
 		return fmt.Errorf("failed to connect address %s with erc677 bindings: %w", tokenAddress, err)
 	}
-
-	tx, err := token.GrantMintAndBurnRoles(chain.DeployerKey, tpAddress)
+	owner, err := token.Owner(&bind.CallOpts{})
 	if err != nil {
-		return fmt.Errorf("failed to grant mint and burn roles to token pool address: %s for token: %s %w", tpAddress, tokenAddress, err)
+		return fmt.Errorf("failed to get owner of token %s: %w", tokenAddress, err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute) // Set a timeout
-	defer cancel()
-	if err = waitForTx(ctx, chain.Client, tx); err != nil {
-		return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), chain.Selector, err)
+	// check if the owner is the deployer key and in that case grant access to the token pool
+	if owner == chain.DeployerKey.From {
+		tx, err := token.GrantMintAndBurnRoles(chain.DeployerKey, tpAddress)
+		if err != nil {
+			return fmt.Errorf("failed to grant mint and burn roles to token pool address: %s for token: %s %w", tpAddress, tokenAddress, err)
+		}
+		if _, err = chain.Confirm(tx); err != nil {
+			return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), chain.Selector, err)
+		}
 	}
 
 	return nil
@@ -480,17 +478,15 @@ func grantAccessToPool(
 // addMinterAndMintToken adds the minter role to the recipient and mints the specified amount of tokens to the recipient's address.
 func addMinterAndMintToken(env deployment.Environment, selector uint64, token *burn_mint_erc677.BurnMintERC677, recipient common.Address, amount *big.Int) error {
 	deployerKey := env.Chains[selector].DeployerKey
-	client := env.Chains[selector].Client
-	ctx := env.GetContext()
 	// Grant minter role to the given address
 	tx, err := token.GrantMintRole(deployerKey, recipient)
 	if err != nil {
 		return fmt.Errorf("failed to grant mint role to %s on chain %d: %w", recipient.Hex(), selector, err)
 	}
-	if err = waitForTx(ctx, client, tx); err != nil {
+	if _, err := env.Chains[selector].Confirm(tx); err != nil {
 		return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), selector, err)
 	}
-	env.Logger.Infof("Transaction granting mint role mined successfully: %s\n", tx.Hash().Hex())
+	env.Logger.Infow("Transaction granting mint role mined successfully", "Hash", tx.Hash().Hex())
 
 	// Mint tokens to the given address and verify the balance
 	tx, err = token.Mint(deployerKey, recipient, amount)
@@ -498,11 +494,12 @@ func addMinterAndMintToken(env deployment.Environment, selector uint64, token *b
 		return fmt.Errorf("failed to mint %s tokens to %s on chain %d: %w",
 			token.Address().Hex(), recipient.Hex(), selector, err)
 	}
-	if err = waitForTx(ctx, client, tx); err != nil {
+	if _, err := env.Chains[selector].Confirm(tx); err != nil {
 		return fmt.Errorf("failed to wait for transaction %s on chain %d: %w",
 			tx.Hash().Hex(), selector, err)
 	}
-	env.Logger.Infof("Transaction minting token mined successfully: %s\n", tx.Hash().Hex())
+	env.Logger.Infow("Transaction minting token mined successfully", "Hash", tx.Hash().Hex())
+
 	balance, err := token.BalanceOf(nil, recipient)
 	if err != nil {
 		return fmt.Errorf("failed to get balance of %s on chain %d: %w",
@@ -517,23 +514,10 @@ func addMinterAndMintToken(env deployment.Environment, selector uint64, token *b
 		return fmt.Errorf("failed to get token symbol for %s on chain %d: %w",
 			token.Address().Hex(), selector, err)
 	}
-	env.Logger.Infof("Receipient - Address: %s, Balance: %s, Token Symbol: %s, "+
-		"Token address: %s", recipient.Hex(), balance.String(), symbol, token.Address().Hex())
+	env.Logger.Infow("Recipient added as minter and token minted",
+		"Address", recipient.Hex(),
+		"Balance", balance.String(), "Token Symbol", symbol,
+		"Token address", token.Address().Hex())
 
-	return nil
-}
-
-// waitForTx waits for the transaction to be mined and checks the status of the transaction.
-func waitForTx(ctx context.Context, client deployment.OnchainClient, tx *types.Transaction) error {
-	// Wait for the transaction to be mined
-	receipt, err := bind.WaitMined(ctx, client, tx)
-	if err != nil {
-		return fmt.Errorf("failed to wait for transaction to be mined: %w", err)
-	}
-
-	// Check the transaction status
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return fmt.Errorf("transaction failed with status: %d", receipt.Status)
-	}
 	return nil
 }
