@@ -1923,23 +1923,8 @@ func (o *evmTxStore) FindAttemptsRequiringReceiptFetch(ctx context.Context, chai
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	var dbTxAttempts []DbEthTxAttempt
-	/*
-		query := `
-			SELECT evm.tx_attempts.* FROM evm.tx_attempts
-			JOIN evm.txes ON evm.txes.ID = evm.tx_attempts.eth_tx_id
-			WHERE evm.tx_attempts.state = 'broadcast' AND evm.txes.nonce IS NOT NULL AND evm.txes.state IN ('confirmed', 'confirmed_missing_receipt', 'fatal_error') AND evm.txes.evm_chain_id = $1 AND evm.txes.ID NOT IN (
-				SELECT DISTINCT evm.txes.ID FROM evm.txes
-				JOIN evm.tx_attempts ON evm.tx_attempts.eth_tx_id = evm.txes.ID
-				JOIN evm.receipts ON evm.receipts.tx_hash = evm.tx_attempts.hash
-				WHERE evm.txes.evm_chain_id = $1 AND evm.txes.state IN ('confirmed', 'confirmed_missing_receipt', 'fatal_error') AND evm.receipts.ID IS NOT NULL
-			)
-			ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas_tip_cap DESC
-		`
-	*/
-
-	optimized := `
-		SELECT a.*
-		FROM evm.tx_attempts a
+	query := `
+		SELECT a.* FROM evm.tx_attempts a
 		JOIN evm.txes t ON t.ID = a.eth_tx_id
 		WHERE a.state = 'broadcast'
   			AND t.nonce IS NOT NULL
@@ -1952,7 +1937,7 @@ func (o *evmTxStore) FindAttemptsRequiringReceiptFetch(ctx context.Context, chai
     		WHERE a2.eth_tx_id = t.ID)
 		ORDER BY t.nonce ASC, a.gas_price DESC, a.gas_tip_cap DESC`
 
-	err = o.q.SelectContext(ctx, &dbTxAttempts, optimized, chainID.String())
+	err = o.q.SelectContext(ctx, &dbTxAttempts, query, chainID.String())
 	attempts = dbEthTxAttemptsToEthTxAttempts(dbTxAttempts)
 	return attempts, err
 }

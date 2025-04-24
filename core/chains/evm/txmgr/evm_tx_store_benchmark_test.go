@@ -38,7 +38,6 @@ func BenchmarkCreateTransactionTxStore(b *testing.B) {
 			txStore := newTxStore(b, db)
 			kst := cltest.NewKeyStore(b, db)
 			_, fromAddress := cltest.MustInsertRandomKey(b, kst.Eth())
-			toAddress := testutils.NewAddress()
 			gasLimit := uint64(1000)
 			payload := []byte{1, 2, 3}
 			ethClient := clienttest.NewClientWithDefaultChainID(b)
@@ -47,18 +46,32 @@ func BenchmarkCreateTransactionTxStore(b *testing.B) {
 			strategy := newMockTxStrategy(b)
 			strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 
+			for i := 0; i < size; i++ {
+				toAddress := testutils.NewAddress()
+				_, err := txStore.CreateTransaction(tests.Context(b), txmgr.TxRequest{
+					FromAddress:    fromAddress,
+					ToAddress:      toAddress,
+					EncodedPayload: payload,
+					FeeLimit:       gasLimit,
+					Strategy:       strategy,
+				}, ethClient.ConfiguredChainID())
+				assert.NoError(b, err)
+			}
+
+			b.StopTimer()
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				for i := 0; i < size; i++ {
-					_, err := txStore.CreateTransaction(tests.Context(b), txmgr.TxRequest{
-						FromAddress:    fromAddress,
-						ToAddress:      toAddress,
-						EncodedPayload: payload,
-						FeeLimit:       gasLimit,
-						Strategy:       strategy,
-					}, ethClient.ConfiguredChainID())
-					assert.NoError(b, err)
-				}
+				toAddress := testutils.NewAddress()
+				b.StartTimer()
+				_, err := txStore.CreateTransaction(tests.Context(b), txmgr.TxRequest{
+					FromAddress:    fromAddress,
+					ToAddress:      toAddress,
+					EncodedPayload: payload,
+					FeeLimit:       gasLimit,
+					Strategy:       strategy,
+				}, ethClient.ConfiguredChainID())
+				b.StopTimer()
+				assert.NoError(b, err)
 			}
 		})
 	}
