@@ -29,7 +29,7 @@
   cre_cli_binary_path = "./cre_v0.1.5_linux_amd64"
 
   [workflow_config.compiled_config]
-    binary_url = "https://gist.githubusercontent.com/Tofel/1a2f6f7d9424bcb176a7cee31112bc11/raw/0e3859564f92c141cb856c65ef7a3db711588c08/binary.wasm.br.b64"
+    binary_url = "https://gist.githubusercontent.com/Tofel/e0b01e434eea52c619fc1b75c36704b4/raw/1bd684d59647c5b66e94b6cfa4766e5453781182/binary.wasm.br.b64"
     # Every time that consumer address changes (e.g. due code sequence changes) we need to update the config used in CI. That config is identical to the one used, when executing local machine
     # unless test uses fake data provider. In that case the IP of the fake data provider will be different in the CI, because it uses linux not macOS operating system and that changes the IP
     # of 'host.docker.internal'. TL;DR is that when updating this config you can use config created during local execution, but you need to use data provider URL copied from the previous CI config.

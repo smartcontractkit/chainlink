@@ -52,22 +52,6 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 			DeployerKey: input.SethClients[i].NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
 		})
 	}
-	//chains := []devenv.ChainConfig{
-	//	{
-	//		ChainID:   input.SethClient.Cfg.Network.ChainID,
-	//		ChainName: input.SethClient.Cfg.Network.Name,
-	//		ChainType: strings.ToUpper(input.BlockchainOutputs[0].Family),
-	//		WSRPCs: []devenv.CribRPCs{{
-	//			External: input.BlockchainOutputs[0].Nodes[0].ExternalWSUrl,
-	//			Internal: input.BlockchainOutputs[0].Nodes[0].InternalWSUrl,
-	//		}},
-	//		HTTPRPCs: []devenv.CribRPCs{{
-	//			External: input.BlockchainOutputs[0].Nodes[0].ExternalHTTPUrl,
-	//			Internal: input.BlockchainOutputs[0].Nodes[0].InternalHTTPUrl,
-	//		}},
-	//		DeployerKey: input.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
-	//	},
-	//}
 
 	for idx, nodeOutput := range input.NodeSetOutput {
 		// check how many bootstrap nodes we have in each DON

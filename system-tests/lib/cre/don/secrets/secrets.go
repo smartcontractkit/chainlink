@@ -10,6 +10,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -98,7 +99,7 @@ func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysO
 
 		// Now add the EVM addresses to the node metadata
 		for chainID, evmKeys := range chainIDsToEVMKeys {
-			chainSelector, selectorErr := chainselectors.SelectorFromChainId(uint64(chainID))
+			chainSelector, selectorErr := chainselectors.SelectorFromChainId(libc.MustSafeUint64(int64(chainID)))
 			if selectorErr != nil {
 				return nil, errors.Wrapf(selectorErr, "failed to get chain selector for chain ID %d", chainID)
 			}
@@ -107,7 +108,7 @@ func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysO
 			}
 			for idx, nodeMetadata := range donMetadata.NodesMetadata {
 				nodeMetadata.Labels = append(nodeMetadata.Labels, &cretypes.Label{
-					Key:   node.NodeAddressKeyFromSelector(chainSelector),
+					Key:   node.AddressKeyFromSelector(chainSelector),
 					Value: evmKeys.PublicAddresses[idx].Hex(),
 				})
 			}

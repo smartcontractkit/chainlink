@@ -78,7 +78,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, addressBook deployment.Add
 					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 				}
 
-				nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.NodeAddressKeyFromSelector(donTopology.HomeChainSelector))
+				nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.AddressKeyFromSelector(donTopology.HomeChainSelector))
 				if ethErr != nil {
 					return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
 				}

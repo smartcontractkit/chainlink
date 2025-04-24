@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -23,8 +24,8 @@ const (
 	NodeP2PIDKey           = "p2p_id"
 )
 
-func NodeAddressKeyFromSelector(chainSelector uint64) string {
-	return fmt.Sprint(chainSelector) + "_public_address"
+func AddressKeyFromSelector(chainSelector uint64) string {
+	return strconv.FormatUint(chainSelector, 10) + "_public_address"
 }
 
 type stringTransformer func(string) string

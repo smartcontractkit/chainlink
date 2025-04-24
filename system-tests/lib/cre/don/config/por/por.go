@@ -7,9 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
@@ -145,7 +146,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 			for addr, addrValue := range addrsForChains {
 				if addrValue.Type == "KeystoneForwarder" {
 					wi.ForwarderAddress = addr
-					expectedAddressKey := node.NodeAddressKeyFromSelector(wi.ChainSelector)
+					expectedAddressKey := node.AddressKeyFromSelector(wi.ChainSelector)
 					for _, label := range workflowNodeSet[i].Labels {
 						if label.Key == expectedAddressKey {
 							if label.Value == "" {
@@ -178,7 +179,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		// gateway is also required by various capabilities
 		if (keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) && input.GatewayConnectorOutput != nil) || don.NodeNeedsGateway(input.Flags) {
 			var nodeEthAddr common.Address
-			expectedAddressKey := node.NodeAddressKeyFromSelector(input.HomeChainSelector)
+			expectedAddressKey := node.AddressKeyFromSelector(input.HomeChainSelector)
 			for _, label := range workflowNodeSet[i].Labels {
 				if label.Key == expectedAddressKey {
 					if label.Value == "" {

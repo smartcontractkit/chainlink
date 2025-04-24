@@ -49,7 +49,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, extraAllowedPorts []int, e
 			ethAddresses := make([]string, len(workflowNodeSet))
 			var ethAddressErr error
 			for i, n := range workflowNodeSet {
-				ethAddresses[i], ethAddressErr = node.FindLabelValue(n, node.NodeAddressKeyFromSelector(donTopology.HomeChainSelector))
+				ethAddresses[i], ethAddressErr = node.FindLabelValue(n, node.AddressKeyFromSelector(donTopology.HomeChainSelector))
 				if ethAddressErr != nil {
 					return nil, errors.Wrap(ethAddressErr, "failed to get eth address from labels")
 				}

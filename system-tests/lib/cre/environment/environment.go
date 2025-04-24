@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -22,21 +21,21 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
+	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
-
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
@@ -48,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 	libinfra "github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
@@ -228,7 +228,7 @@ func SetupTestEnvironment(
 	// get chainIDs, they'll be used for identifying ETH keys and Forwarder addresses
 	chainIDs := make([]int, 0)
 	for _, bcOut := range blockchainsOutput {
-		chainIDs = append(chainIDs, int(bcOut.ChainID))
+		chainIDs = append(chainIDs, libc.MustSafeInt(bcOut.ChainID))
 	}
 
 	generateKeysInput := &keystonetypes.GenerateKeysInput{

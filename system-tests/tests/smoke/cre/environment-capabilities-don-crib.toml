@@ -20,7 +20,7 @@
   # either "aws" or "kind"
   provider = "kind"
 
-[workflow_config]
+[[workflow_config]]
   workflow_name = "abcdefgasd"
   # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
   feed_ids = ["018e16c39e000320000000000000000000000000000000000000000000000000"]
@@ -31,9 +31,9 @@
   # config below assumes that you have it cloned next to chainlink repository
   workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
 
-  [workflow_config.dependencies]
-  cron_capability_binary_path = "cron"
-  cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
+[dependencies]
+  cron_capability_binary_path = "./cron"
+  cre_cli_binary_path = "./cre_v0.1.5_linux_amd64"
 
 [[nodesets]]
   nodes = 5

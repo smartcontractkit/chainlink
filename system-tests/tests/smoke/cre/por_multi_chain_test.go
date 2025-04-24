@@ -71,11 +71,11 @@ func setupPoRMultiChainTestEnvironment(
 	containerPath, pathErr := capabilities.DefaultContainerDirectory(in.Infra.InfraType)
 	require.NoError(t, pathErr, "failed to get default container directory")
 	var cronBinaryPathInTheContainer string
-	if in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath != "" {
+	if in.DependenciesConfig.CronCapabilityBinaryPath != "" {
 		// where cron binary is located in the container
-		cronBinaryPathInTheContainer = filepath.Join(containerPath, filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath))
+		cronBinaryPathInTheContainer = filepath.Join(containerPath, filepath.Base(in.DependenciesConfig.CronCapabilityBinaryPath))
 		// where cron binary is located on the host
-		customBinariesPaths[keystonetypes.CronCapability] = in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath
+		customBinariesPaths[keystonetypes.CronCapability] = in.DependenciesConfig.CronCapabilityBinaryPath
 	} else {
 		// assume that if cron binary is already in the image it is in the default location and has default name
 		cronBinaryPathInTheContainer = filepath.Join(containerPath, "cron")
@@ -126,11 +126,9 @@ func setupPoRMultiChainTestEnvironment(
 	chainSelectorToBlockchainOutput := make(map[uint64]*blockchain.Output)
 
 	for idx, bo := range universalSetupOutput.BlockchainOutput {
-		chainSelectorToFeedID[bo.ChainSelector] = in.WorkflowConfig.FeedIDs[idx]
+		chainSelectorToFeedID[bo.ChainSelector] = in.WorkflowConfigs[idx].FeedID
 		chainSelectorToSethClient[bo.ChainSelector] = bo.SethClient
 		chainSelectorToBlockchainOutput[bo.ChainSelector] = bo.BlockchainOutput
-
-		workflowName := in.WorkflowConfig.WorkflowName + "-" + fmt.Sprint(bo.ChainID)
 
 		deployConfig := df_changeset_types.DeployConfig{
 			ChainsToDeploy: []uint64{bo.ChainSelector},
@@ -145,10 +143,10 @@ func setupPoRMultiChainTestEnvironment(
 
 		var creCLIAbsPath string
 		var creCLISettingsFile *os.File
-		if in.WorkflowConfig.UseCRECLI {
+		if in.WorkflowConfigs[idx].UseCRECLI {
 			// make sure that path is indeed absolute
 			var pathErr error
-			creCLIAbsPath, pathErr = filepath.Abs(in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath)
+			creCLIAbsPath, pathErr = filepath.Abs(in.DependenciesConfig.CRECLIBinaryPath)
 			require.NoError(t, pathErr, "failed to get absolute path for CRE CLI")
 
 			// create CRE CLI settings file
@@ -167,11 +165,11 @@ func setupPoRMultiChainTestEnvironment(
 		}
 
 		dfConfigInput := &configureDataFeedsCacheInput{
-			useCRECLI:          in.WorkflowConfig.UseCRECLI,
+			useCRECLI:          in.WorkflowConfigs[idx].UseCRECLI,
 			chainSelector:      bo.ChainSelector,
 			fullCldEnvironment: universalSetupOutput.CldEnvironment,
-			workflowName:       workflowName,
-			feedID:             in.WorkflowConfig.FeedIDs[idx],
+			workflowName:       in.WorkflowConfigs[idx].WorkflowName,
+			feedID:             in.WorkflowConfigs[idx].FeedID,
 			sethClient:         bo.SethClient,
 			blockchain:         bo.BlockchainOutput,
 			creCLIAbsPath:      creCLIAbsPath,
@@ -182,12 +180,11 @@ func setupPoRMultiChainTestEnvironment(
 		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
 
 		registerInput := registerPoRWorkflowInput{
-			WorkflowConfig:     in.WorkflowConfig,
-			workflowName:       workflowName,
+			WorkflowConfig:     in.WorkflowConfigs[idx],
 			homeChainSelector:  homeChainOutput.ChainSelector,
 			chainSelector:      bo.ChainSelector,
 			workflowDonID:      universalSetupOutput.DonTopology.WorkflowDonID,
-			feedID:             in.WorkflowConfig.FeedIDs[idx],
+			feedID:             in.WorkflowConfigs[idx].FeedID,
 			addressBook:        universalSetupOutput.CldEnvironment.ExistingAddresses,
 			priceProvider:      priceProvider,
 			sethClient:         bo.SethClient,
@@ -203,7 +200,7 @@ func setupPoRMultiChainTestEnvironment(
 	// Workflow-specific configuration -- END
 
 	// Set inputs in the test config, so that they can be saved
-	//TODO this should be a map, do it in a separate ticket
+	// TODO this should be a map, do it in a separate ticket
 	// in.KeystoneContracts = &keystonetypes.KeystoneContractsInput{
 	// 	Out: universalSetupOutput.KeystoneContractsOutput,
 	// }
@@ -250,7 +247,12 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 		}
 	}
 
-	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey, in.WorkflowConfig.FeedIDs)
+	feedIDs := make([]string, 0, len(in.WorkflowConfigs))
+	for _, wc := range in.WorkflowConfigs {
+		feedIDs = append(feedIDs, wc.FeedID)
+	}
+
+	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey, feedIDs)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
 	homeChain := in.Blockchains[0]
@@ -276,6 +278,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
+			counter := 0
 			for chainSelector, feedID := range setupOutput.chainSelectorToFeedID {
 				dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, df_changeset.DataFeedsCache.String())
 				require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
@@ -283,8 +286,8 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 				forwarderAddresses, forwarderErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, keystone_changeset.KeystoneForwarder.String())
 				require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", chainSelector)
 
-				logTestInfo(testLogger, feedID, in.WorkflowConfig.WorkflowName, dataFeedsCacheAddresses.Hex(), forwarderAddresses.Hex())
-
+				logTestInfo(testLogger, feedID, in.WorkflowConfigs[counter].WorkflowName, dataFeedsCacheAddresses.Hex(), forwarderAddresses.Hex())
+				counter++
 				// log scanning is not supported for CRIB
 				if in.Infra.InfraType == libtypes.CRIB {
 					return
