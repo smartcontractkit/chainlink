@@ -198,8 +198,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		}
 		wg2.Wait()
 
-		finalSeqNrCommitChannels[cs] = make(chan finalSeqNrReport)
-		finalSeqNrExecChannels[cs] = make(chan finalSeqNrReport)
+		finalSeqNrCommitChannels[cs] = make(chan finalSeqNrReport, len(env.AllChainSelectors()))
+		finalSeqNrExecChannels[cs] = make(chan finalSeqNrReport, len(env.AllChainSelectors()))
 
 		selectorFamily, err := selectors.GetSelectorFamily(cs)
 		require.NoError(t, err)
@@ -296,7 +296,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				*startBlocks[cs],
 				cs,
 				env.SolChains[cs].Client,
-				finalSeqNrCommitChannels[cs],
+				finalSeqNrExecChannels[cs],
 				&wg,
 				mm.InputChan)
 		}
@@ -342,7 +342,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	require.NoError(t, err)
 	// wait some duration so that transmits can happen
 	go func() {
-		time.Sleep(tickerDuration)
+		time.Sleep(1 * time.Minute)
 		close(loadFinished)
 	}()
 

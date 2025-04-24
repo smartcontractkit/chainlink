@@ -7,16 +7,7 @@ import (
 	"math/big"
 	"slices"
 	"sync"
-	"testing"
 	"time"
-
-	"github.com/gagliardetto/solana-go"
-
-	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
-	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
@@ -91,9 +82,7 @@ func subscribeTransmitEvents(
 			End:   atomic.NewUint64(0),
 		}
 	}
-
-	fmt.Printf("Initial transmit watcher for chain %d has seqnums %+v\n", srcChainSel, seqNums)
-
+	
 	sink := make(chan *onramp.OnRampCCIPMessageSent)
 	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
 		return onRamp.WatchCCIPMessageSent(&bind.WatchOpts{
@@ -148,28 +137,30 @@ func subscribeTransmitEvents(
 				"srcChain", srcChainSel)
 			return
 		case <-loadFinished:
-			fmt.Printf("srcChainSel %d has otherChains %+v\n", srcChainSel, otherChains)
+			lggr.Debugw("Load finished signal received, processing final sequence numbers",
+				"srcChain", srcChainSel,
+				"otherChains", otherChains,
+				"seqNums", seqNums)
+
 			for _, destChain := range otherChains {
-				fmt.Printf("Pushing seqNum %d -> %d\n\n", srcChainSel, destChain)
+				commitChan := finalSeqNrCommitChannels[destChain]
+				execChan := finalSeqNrExecChannels[destChain]
 
 				csPair := testhelpers.SourceDestPair{
 					SourceChainSelector: srcChainSel,
 					DestChainSelector:   destChain,
 				}
-				seqNumRange := seqNums[csPair]
-				finalSeqNrCommitChannels[destChain] <- finalSeqNrReport{
+
+				report := finalSeqNrReport{
 					sourceChainSelector: srcChainSel,
 					expectedSeqNrRange: ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(seqNumRange.Start.Load()), ccipocr3.SeqNum(seqNumRange.End.Load()),
+						ccipocr3.SeqNum(seqNums[csPair].Start.Load()),
+						ccipocr3.SeqNum(seqNums[csPair].End.Load()),
 					},
 				}
 
-				finalSeqNrExecChannels[destChain] <- finalSeqNrReport{
-					sourceChainSelector: srcChainSel,
-					expectedSeqNrRange: ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(seqNumRange.Start.Load()), ccipocr3.SeqNum(seqNumRange.End.Load()),
-					},
-				}
+				commitChan <- report
+				execChan <- report
 			}
 			return
 		}
@@ -258,11 +249,11 @@ func subscribeCommitEvents(
 				"expectedSeqNumbers", expectedRange)
 			return
 
-		case finalSeqNrUpdate, ok := <-finalSeqNrs:
+		case finalSeqNrUpdate := <-finalSeqNrs:
 			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 || finalSeqNrUpdate.expectedSeqNrRange.End() == 0 {
 				delete(completedSrcChains, finalSeqNrUpdate.sourceChainSelector)
 				delete(seenMessages, finalSeqNrUpdate.sourceChainSelector)
-			} else if ok {
+			} else {
 				// only add to range if channel is still open
 				expectedRange[finalSeqNrUpdate.sourceChainSelector] = finalSeqNrUpdate.expectedSeqNrRange
 			}
@@ -349,14 +340,14 @@ func subscribeExecutionEvents(
 			lggr.Errorw("error in execution subscription",
 				"err", subErr)
 			return
-		case event := <-sink:
+		case execEvent := <-sink:
 			lggr.Debugw("received execution event for",
-				"sourceChain", event.SourceChainSelector,
+				"sourceChain", execEvent.SourceChainSelector,
 				"destChain", chainSelector,
-				"sequenceNumber", event.SequenceNumber,
-				"blockNumber", event.Raw.BlockNumber)
+				"sequenceNumber", execEvent.SequenceNumber,
+				"blockNumber", execEvent.Raw.BlockNumber)
 			// push metrics to loki here
-			blockNum := event.Raw.BlockNumber
+			blockNum := execEvent.Raw.BlockNumber
 			header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 			if err != nil {
 				lggr.Errorw("error getting header by number")
@@ -364,16 +355,16 @@ func subscribeExecutionEvents(
 			data := messageData{
 				eventType: executed,
 				srcDstSeqNum: srcDstSeqNum{
-					src:    event.SourceChainSelector,
+					src:    execEvent.SourceChainSelector,
 					dst:    chainSelector,
-					seqNum: event.SequenceNumber,
+					seqNum: execEvent.SequenceNumber,
 				},
 			}
 			if header != nil {
 				data.timestamp = header.Time
 			}
 			metricPipe <- data
-			seenMessages[event.SourceChainSelector] = append(seenMessages[event.SourceChainSelector], event.SequenceNumber)
+			seenMessages[execEvent.SourceChainSelector] = append(seenMessages[execEvent.SourceChainSelector], execEvent.SequenceNumber)
 
 		case <-ctx.Done():
 			lggr.Errorw("timed out waiting for execution event",
@@ -603,66 +594,4 @@ func reclaimFunds(lggr logger.Logger, e deployment.Environment, addressesByChain
 	}
 
 	return g.Wait()
-}
-
-func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *deployment.Environment, solAccounts []solana.PrivateKey, sourceChain uint64, router solana.PublicKey) error {
-	deployer := *e.SolChains[sourceChain].DeployerKey
-	rpcClient := e.SolChains[sourceChain].Client
-	lggr.Infow("deployer account", "account", deployer.PublicKey().String(), "pk", deployer.String())
-	soltestutils.FundAccounts(ctx, solAccounts, rpcClient, t)
-	for _, acc := range solAccounts {
-		// create ATA for user
-		tokenProgram := solana.TokenProgramID
-		wSOL := solana.SolMint
-		ixAtaUser, accountWSOL, err := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, acc.PublicKey(), acc.PublicKey())
-		if err != nil {
-			lggr.Errorw("failed to create associated token account", "error", err)
-			return err
-		}
-
-		billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(router)
-		if err != nil {
-			lggr.Errorw("failed to find fee billing signer pda", "error", err)
-			return err
-		}
-
-		// Approve CCIP to transfer the user's token for billing
-		ixApprove, err := soltokens.TokenApproveChecked(1e2*1e9, 9, tokenProgram, accountWSOL, wSOL, billingSignerPDA, acc.PublicKey(), []solana.PublicKey{})
-		if err != nil {
-			lggr.Errorw("failed to approve token transfer", "error", err)
-			return err
-		}
-
-		info, err := rpcClient.GetAccountInfo(ctx, acc.PublicKey())
-		if err != nil {
-			lggr.Errorw("failed to get account info", "error", err)
-			return err
-		}
-		lggr.Infow("account info ", "account", acc.PublicKey().String(), "info", info)
-
-		_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixAtaUser, ixApprove}, acc, solconfig.DefaultCommitment)
-		if err != nil {
-			lggr.Errorw("failed to send and confirm 1", "error", err)
-			return err
-		}
-
-		// fund user WSOL (transfer SOL + syncNative)
-		transferAmount := 1e2 * solana.LAMPORTS_PER_SOL
-		ixTransfer, err := soltokens.NativeTransfer(tokenProgram, transferAmount, acc.PublicKey(), accountWSOL)
-		if err != nil {
-			lggr.Errorw("failed to create transfer instruction", "error", err)
-			return err
-		}
-		ixSync, err := soltokens.SyncNative(tokenProgram, accountWSOL)
-		if err != nil {
-			lggr.Errorw("failed to create sync instruction", "error", err)
-			return err
-		}
-		_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixTransfer, ixSync}, acc, solconfig.DefaultCommitment)
-		if err != nil {
-			lggr.Errorw("failed to send and confirm 2", "error", err)
-			return err
-		}
-	}
-	return nil
 }
