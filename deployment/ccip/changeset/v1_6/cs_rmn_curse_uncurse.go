@@ -1,12 +1,14 @@
 package v1_6
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -524,7 +526,12 @@ func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, er
 		return false, fmt.Errorf("failed to find offramp source chain pda: %w", err)
 	}
 
-	return pda != solana.PublicKey{}, nil
+	var chainStateAccount solOffRamp.SourceChain
+	if err = c.env.SolChains[c.selector].GetAccountDataBorshInto(context.Background(), pda, &chainStateAccount); err != nil {
+		return false, nil
+	}
+
+	return chainStateAccount.Config.IsEnabled, nil
 }
 
 func (c SolanaCursableChain) Name() string {

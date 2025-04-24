@@ -153,16 +153,20 @@ var testCases = []CurseTestCase{
 }
 
 func TestRMNCurse(t *testing.T) {
-	t.Parallel()
 	for _, tc := range testCases {
 		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
 			runRmnCurseTest(t, tc)
 		})
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
-			runRmnCurseMCMSTest(t, tc, types.TimelockActionBypass)
-		})
-		t.Run(tc.name+"_MCMS", func(t *testing.T) {
 			runRmnCurseMCMSTest(t, tc, types.TimelockActionSchedule)
+		})
+	}
+}
+
+func TestRMNCurseBypass(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			runRmnCurseMCMSTest(t, tc, types.TimelockActionBypass)
 		})
 	}
 }
@@ -189,7 +193,15 @@ func TestRMNUncurse(t *testing.T) {
 			runRmnUncurseTest(t, tc)
 		})
 		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
-			runRmnUncurseMCMSTest(t, tc)
+			runRmnUncurseMCMSTest(t, tc, types.TimelockActionSchedule)
+		})
+	}
+}
+
+func TestRMNUncurseBypass(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
+			runRmnUncurseMCMSTest(t, tc, types.TimelockActionBypass)
 		})
 	}
 }
@@ -414,7 +426,7 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state c
 	require.NoError(t, err)
 }
 
-func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
+func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase, action types.TimelockAction) {
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1))
 
 	mapIDToSelector := func(id uint64) uint64 {
@@ -422,9 +434,12 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 	}
 
 	config := v1_6.RMNCurseConfig{
-		CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
-		Reason:                   "test curse",
-		MCMS:                     &proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
+		Reason:       "test curse",
+		MCMS: &proposalutils.TimelockConfig{
+			MinDelay:   1 * time.Second,
+			MCMSAction: action,
+		},
 		IncludeNotConnectedLanes: true,
 	}
 
