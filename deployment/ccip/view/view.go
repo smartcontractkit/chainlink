@@ -114,6 +114,15 @@ func (v *ChainView) UpdateTokenPool(tokenSymbol string, tokenPoolAddress string,
 	v.TokenPools = helpers.AddValueToNestedMap(v.TokenPools, tokenSymbol, tokenPoolAddress, poolView)
 }
 
+func (v *ChainView) UpdateRegistryModuleView(registryModuleAddress string, registryModuleView shared.RegistryModulesView) {
+	v.UpdateMu.Lock()
+	defer v.UpdateMu.Unlock()
+	if v.RegistryModules == nil {
+		v.RegistryModules = make(map[string]shared.RegistryModulesView)
+	}
+	v.RegistryModules[registryModuleAddress] = registryModuleView
+}
+
 type CCIPView struct {
 	Chains    map[string]ChainView    `json:"chains,omitempty"`
 	SolChains map[string]SolChainView `json:"solChains,omitempty"`

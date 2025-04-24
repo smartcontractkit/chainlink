@@ -565,24 +565,30 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		})
 	}
 
-	if c.RegistryModules1_6 != nil {
-		for _, registryModule := range c.RegistryModules1_6 {
+	for _, registryModule := range c.RegistryModules1_6 {
+		grp.Go(func() error {
 			registryModuleView, err := shared.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
 			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate registry module view for registry module %s", registryModule.Address().Hex())
+				return errors.Wrapf(err, "failed to generate registry module view for registry module %s", registryModule.Address().Hex())
 			}
-			chainView.RegistryModules[registryModule.Address().Hex()] = registryModuleView
-		}
+			chainView.UpdateRegistryModuleView(registryModule.Address().Hex(), registryModuleView)
+			lggr.Infow("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
+			return nil
+		})
 	}
-	if c.RegistryModules1_5 != nil {
-		for _, registryModule := range c.RegistryModules1_5 {
+
+	for _, registryModule := range c.RegistryModules1_5 {
+		grp.Go(func() error {
 			registryModuleView, err := shared.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
 			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate registry module view for registry module %s", registryModule.Address().Hex())
+				return errors.Wrapf(err, "failed to generate registry module view for registry module %s", registryModule.Address().Hex())
 			}
-			chainView.RegistryModules[registryModule.Address().Hex()] = registryModuleView
-		}
+			chainView.UpdateRegistryModuleView(registryModule.Address().Hex(), registryModuleView)
+			lggr.Infow("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
+			return nil
+		})
 	}
+
 	// Legacy contracts
 	if c.CommitStore != nil {
 		grp.Go(func() error {
