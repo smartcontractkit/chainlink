@@ -8,8 +8,10 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/exp/maps"
@@ -36,6 +38,22 @@ var (
 		Subsystem: "datasource",
 		Name:      "stream_observation_error_count",
 		Help:      "Number of times we tried to observe a stream, but it failed with an error",
+	},
+		[]string{"streamID"},
+	)
+	promCacheHitCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "cache_hit_count",
+		Help:      "Number of local observation cache hits",
+	},
+		[]string{"streamID"},
+	)
+	promCacheMissCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "cache_miss_count",
+		Help:      "Number of local observation cache misses",
 	},
 		[]string{"streamID"},
 	)
@@ -77,16 +95,27 @@ var _ llo.DataSource = &dataSource{}
 type dataSource struct {
 	lggr     logger.Logger
 	registry Registry
+	t        Telemeter
 
-	t Telemeter
+	shouldCache *atomic.Bool
+	cache       *cache.Cache
 }
 
 func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llo.DataSource {
-	return newDataSource(lggr, registry, t)
+	return newDataSource(lggr, registry, t, true)
 }
 
-func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSource {
-	return &dataSource{logger.Named(lggr, "DataSource"), registry, t}
+func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, cacheEnabled bool) *dataSource {
+	shouldCache := &atomic.Bool{}
+	shouldCache.Store(cacheEnabled)
+
+	return &dataSource{
+		lggr:        logger.Named(lggr, "DataSource"),
+		registry:    registry,
+		t:           t,
+		shouldCache: shouldCache,
+		cache:       cache.New(time.Second, time.Minute),
+	}
 }
 
 // Observe looks up all streams in the registry and populates a map of stream ID => value
@@ -137,6 +166,26 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	for _, streamID := range maps.Keys(streamValues) {
 		go func(streamID llotypes.StreamID) {
 			defer wg.Done()
+
+			// check for valid cached value
+			cacheKey := fmt.Sprintf("%d", streamID)
+
+			if d.shouldCache.Load() {
+				if cachedVal, found := d.cache.Get(cacheKey); found && cachedVal != nil {
+					streamValue, ok := cachedVal.(llo.StreamValue)
+					if ok {
+						promCacheHitCount.WithLabelValues(cacheKey).Inc()
+						mu.Lock()
+						successfulStreamIDs = append(successfulStreamIDs, streamID)
+						streamValues[streamID] = streamValue
+						mu.Unlock()
+						return
+					}
+				}
+
+				promCacheMissCount.WithLabelValues(cacheKey).Inc()
+			}
+
 			val, err := oc.Observe(ctx, streamID, opts)
 			if err != nil {
 				strmIDStr := strconv.FormatUint(uint64(streamID), 10)
@@ -156,6 +205,11 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			successfulStreamIDs = append(successfulStreamIDs, streamID)
 			if val != nil {
 				streamValues[streamID] = val
+
+				// set with default expiration
+				if d.shouldCache.Load() {
+					d.cache.SetDefault(cacheKey, val)
+				}
 			}
 		}(streamID)
 	}
