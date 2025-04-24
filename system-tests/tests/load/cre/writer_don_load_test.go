@@ -2,9 +2,12 @@ package cre
 
 import (
 	"context"
+	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,13 +17,18 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
@@ -42,8 +50,10 @@ import (
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 
 type TestConfigLoadTestWriter struct {
@@ -242,6 +252,8 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		}
 	}
 
+	require.NoError(t, saveForwarderAddress(setupOutput.forwarderAddress.String()), "could not save forwarder address")
+
 	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
 	require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
 
@@ -283,7 +295,6 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	//TODO: @george-dorin wait for cap to be exposed
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
@@ -291,7 +302,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			Schedule: wasp.Combine(
 				wasp.Plain(4, 120*time.Minute),
 			),
-			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel),
+			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel, setupOutput.dataFeedsCacheAddress.String()),
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
@@ -307,6 +318,9 @@ func TestWriteWithReconnect(t *testing.T) {
 	testLogger := framework.L
 	ctx := t.Context()
 
+	dataFeedsCacheAddress, err := loadDataFeedsCacheFromCache()
+	require.NoError(t, err, "could not load forwarder address from cache")
+
 	kb, err := loadKeyBundlesFromCache()
 	require.NoError(t, err, "could not load OCR2 keys")
 
@@ -316,9 +330,6 @@ func TestWriteWithReconnect(t *testing.T) {
 	mocksClient, err = mock_capability.NewMockCapabilityControllerFromCache(testLogger, false)
 	require.NoError(t, err, "could not create mock controller")
 
-	caps, err := mocksClient.List(ctx)
-	require.NoError(t, err, "error getting the nodes capabilities")
-	fmt.Println(caps)
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
 
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
@@ -330,7 +341,7 @@ func TestWriteWithReconnect(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel)
+	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel, dataFeedsCacheAddress)
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
@@ -350,51 +361,97 @@ func TestWriteWithReconnect(t *testing.T) {
 var _ wasp.Gun = (*WriterGun)(nil)
 
 type WriterGun struct {
-	capProxy    *mock_capability.Controller
-	keyBundles  []ocr2key.KeyBundle
-	triggerID   string
-	waitChans   map[int64]chan interface{}
-	receiveChan <-chan capabilities.CapabilityRequest
-	mu          sync.Mutex
-	event       *capabilities.OCRTriggerEvent
-	eventID     string
+	capProxy              *mock_capability.Controller
+	keyBundles            []ocr2key.KeyBundle
+	triggerID             string
+	waitChans             map[int64]chan interface{}
+	receiveChan           <-chan capabilities.CapabilityRequest
+	mu                    sync.Mutex
+	event                 *capabilities.OCRTriggerEvent
+	eventID               string
+	dataFeedsCacheAddress string
 }
 
-func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, triggerID string, ch <-chan capabilities.CapabilityRequest) *WriterGun {
+func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, triggerID string, ch <-chan capabilities.CapabilityRequest, dataFeedsCacheAddress string) *WriterGun {
 	sg := &WriterGun{
-		capProxy:    capProxy,
-		keyBundles:  keyBundles,
-		triggerID:   triggerID,
-		receiveChan: ch,
+		capProxy:              capProxy,
+		keyBundles:            keyBundles,
+		triggerID:             triggerID,
+		receiveChan:           ch,
+		dataFeedsCacheAddress: dataFeedsCacheAddress,
 	}
 	return sg
 }
 
 func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 	reportID := [2]byte{0x00, 0x01}
-	reportMetadata := evm.ReportV1Metadata{
-		Version:             1,
-		WorkflowExecutionID: [32]byte{},
-		Timestamp:           0,
-		DonID:               0,
-		DonConfigVersion:    0,
-		WorkflowCID:         [32]byte{},
-		WorkflowName:        [10]byte{},
-		WorkflowOwner:       [20]byte{},
-		ReportID:            reportID,
+
+	//Create report
+	feeds := make([]FeedWithStreamID, 0)
+	for i := range 10 {
+		buf := [32]byte{}
+		_, err := crand.Read(buf[:])
+		if err != nil {
+			panic(err)
+		}
+		feeds = append(feeds, FeedWithStreamID{
+			Feed:     "0x" + hex.EncodeToString(buf[:]),
+			StreamID: int32(i),
+		})
 	}
 
-	reportMetadataBytes, err := reportMetadata.Encode()
+	reports := []*datastreams.FeedReport{}
+	for _, f := range feeds {
+		price := decimal.NewFromInt(int64(rand.IntN(100)))
+		reports = append(reports, createFeedReportDataStreams(price.BigInt(), time.Now().Unix(), f.Feed, s.keyBundles))
+	}
+
+	wrappedReports, err := wrapReports(reports, 12, datastreams.Metadata{})
 	if err != nil {
-		return &wasp.Response{Error: err.Error()}
+		panic(err)
 	}
 
-	signatures := [][]byte{}
+	executionID, err := workflows.EncodeExecutionID("5dbe5f217ff07d6b1dddb43519fe7bf13ccb10b540578fafdbea86b508abbd71", "")
+	if err != nil {
+		panic(err)
+	}
+	metadata := pb2.Metadata{
+		WorkflowID:               "5dbe5f217ff07d6b1dddb43519fe7bf13ccb10b540578fafdbea86b508abbd71",
+		WorkflowOwner:            "0100000000000000000000000000000000000001",
+		WorkflowExecutionID:      executionID,
+		WorkflowName:             "61626364656630313233",
+		WorkflowDonID:            1,
+		WorkflowDonConfigVersion: 1,
+		ReferenceID:              "write_geth-testnet@1.0.0",
+		DecodedWorkflowName:      "abcdef0123",
+	}
+
+	rMetadata := evm.ReportV1Metadata{
+		Version:             1,
+		WorkflowExecutionID: stringTo32Byte(metadata.WorkflowExecutionID),
+		Timestamp:           0,
+		DonID:               metadata.WorkflowDonID,
+		DonConfigVersion:    metadata.WorkflowDonConfigVersion,
+		WorkflowCID:         stringTo32Byte(metadata.WorkflowID),
+		WorkflowName:        stringTo10Byte(metadata.WorkflowName),
+		WorkflowOwner:       stringTo20Byte(metadata.WorkflowOwner),
+		ReportID:            [2]byte{0, 1},
+	}
+
+	rMetaBytes, err := rMetadata.Encode()
+	if err != nil {
+		panic(err)
+	}
+
+	reportBytes, err := mock_capability.MapToBytes(wrappedReports)
+	if err != nil {
+		panic(err)
+	}
 
 	validInputs, err := values.NewMap(map[string]any{
 		"signed_report": map[string]any{
-			"report":     reportMetadataBytes,
-			"signatures": signatures,
+			"report":     append(rMetaBytes, reportBytes...),
+			"signatures": reports[0].Signatures,
 			"context":    []byte{4, 5},
 			"id":         reportID[:],
 		},
@@ -403,21 +460,17 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error()}
 	}
 
-	validMetadata := capabilities.RequestMetadata{
-		WorkflowID:          hex.EncodeToString(reportMetadata.WorkflowCID[:]),
-		WorkflowOwner:       hex.EncodeToString(reportMetadata.WorkflowOwner[:]),
-		WorkflowName:        hex.EncodeToString(reportMetadata.WorkflowName[:]),
-		WorkflowExecutionID: hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]),
-	}
-
 	validConfig, err := values.NewMap(map[string]any{
-		"Address": testutils.NewAddress().String(),
+		"Address":    s.dataFeedsCacheAddress,
+		"abi":        "receive(report bytes)",
+		"schedule":   "oneAtATime",
+		"params":     []string{"$(report)"},
+		"gasLimit":   400000,
+		"deltaStage": "2s",
 	})
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
 	}
-
-	//gasLimitDefault := uint64(400_000)
 
 	configBytes, err := mock_capability.MapToBytes(validConfig)
 	if err != nil {
@@ -429,20 +482,11 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 	}
 
 	req := &pb2.ExecutableRequest{
-		ID:             s.triggerID,
-		CapabilityType: 4,
-		RequestMetadata: &pb2.Metadata{
-			WorkflowID:               validMetadata.WorkflowID,
-			WorkflowOwner:            validMetadata.WorkflowOwner,
-			WorkflowExecutionID:      validMetadata.WorkflowExecutionID,
-			WorkflowName:             validMetadata.WorkflowName,
-			WorkflowDonID:            validMetadata.WorkflowDonID,
-			WorkflowDonConfigVersion: validMetadata.WorkflowDonConfigVersion,
-			ReferenceID:              validMetadata.ReferenceID,
-			DecodedWorkflowName:      validMetadata.DecodedWorkflowName,
-		},
-		Config: configBytes,
-		Inputs: inputBytes,
+		ID:              s.triggerID,
+		CapabilityType:  4, //Target
+		RequestMetadata: &metadata,
+		Config:          configBytes,
+		Inputs:          inputBytes,
 	}
 
 	err = s.capProxy.Execute(context.TODO(), req)
@@ -454,4 +498,125 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error()}
 	}
 	return &wasp.Response{}
+}
+func saveForwarderAddress(forwarderAddress string) error {
+	cacheDir := "./cache"
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	forwarderPath := filepath.Join(cacheDir, "forwarder_address.txt")
+	if err := os.WriteFile(forwarderPath, []byte(forwarderAddress), 0644); err != nil {
+		return fmt.Errorf("failed to save forwarder address: %w", err)
+	}
+
+	return nil
+}
+func loadDataFeedsCacheFromCache() (string, error) {
+	forwarderPath := filepath.Join("./cache", "df_cache_address.txt")
+	data, err := os.ReadFile(forwarderPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read df cache address from cache: %w", err)
+	}
+	return string(data), nil
+}
+func stringTo32Byte(input string) [32]byte {
+	var result [32]byte
+	decoded, err := hex.DecodeString(input)
+	if err != nil {
+		panic(fmt.Sprintf("invalid string for conversion to [32]byte: %v", err))
+	}
+	copy(result[:], decoded)
+	return result
+}
+
+func stringTo10Byte(input string) [10]byte {
+	var result [10]byte
+	decoded, err := hex.DecodeString(input)
+	if err != nil {
+		panic(fmt.Sprintf("invalid string for conversion to [32]byte: %v", err))
+	}
+	copy(result[:], decoded)
+	return result
+}
+
+func stringTo20Byte(input string) [20]byte {
+	var result [20]byte
+	decoded, err := hex.DecodeString(input)
+	if err != nil {
+		panic(fmt.Sprintf("invalid string for conversion to [32]byte: %v", err))
+	}
+	copy(result[:], decoded)
+	return result
+}
+
+func createFeedReportDataStreams(price *big.Int, observationTimestamp int64,
+	feedIDString string,
+	keyBundles []ocr2key.KeyBundle) *datastreams.FeedReport {
+	reportCtx := ocrTypes.ReportContext{}
+	rawCtx := RawReportContext(reportCtx)
+
+	bytes, err := hex.DecodeString(feedIDString[2:])
+	if err != nil {
+		panic(err)
+	}
+	var feedIDBytes [32]byte
+	copy(feedIDBytes[:], bytes)
+
+	report := &datastreams.FeedReport{
+		FeedID:               feedIDString,
+		FullReport:           newReport(feedIDBytes, price, observationTimestamp),
+		BenchmarkPrice:       price.Bytes(),
+		ObservationTimestamp: observationTimestamp,
+		Signatures:           [][]byte{},
+		ReportContext:        rawCtx,
+	}
+
+	for _, key := range keyBundles {
+		sig, err := key.Sign(reportCtx, report.FullReport)
+		if err != nil {
+			panic(err)
+		}
+		report.Signatures = append(report.Signatures, sig)
+	}
+
+	return report
+}
+func newReport(feedID [32]byte, price *big.Int, timestamp int64) []byte {
+	v3Codec := reportcodec.NewReportCodec(feedID, logger.NullLogger)
+	raw, err := v3Codec.BuildReport(context.TODO(), v3.ReportFields{
+		BenchmarkPrice: price,
+
+		Timestamp: uint32(timestamp), //nolint:gosec // G115
+		Bid:       big.NewInt(0),
+		Ask:       big.NewInt(0),
+		LinkFee:   big.NewInt(0),
+		NativeFee: big.NewInt(0),
+	})
+	if err != nil {
+		panic(err)
+	}
+	return raw
+}
+func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
+	rc := evmutil.RawReportContext(reportCtx)
+	flat := []byte{}
+	for _, r := range rc {
+		flat = append(flat, r[:]...)
+	}
+	return flat
+}
+
+func wrapReports(reportList []*datastreams.FeedReport,
+	timestamp int64, meta datastreams.Metadata) (*values.Map, error) {
+	rl := make([]datastreams.FeedReport, 0, len(reportList))
+	for _, r := range reportList {
+		rl = append(rl, *r)
+	}
+
+	return values.WrapMap(datastreams.StreamsTriggerEvent{
+		Payload:   rl,
+		Metadata:  meta,
+		Timestamp: timestamp,
+	})
 }

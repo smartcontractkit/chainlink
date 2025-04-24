@@ -43,7 +43,7 @@ volume_name = "writer_volume"
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:pr-17349-7d15031-plugins-amd64"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:pr-17349-450f9a3-plugins-amd64"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
