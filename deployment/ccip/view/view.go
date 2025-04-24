@@ -49,7 +49,7 @@ type ChainView struct {
 	LinkToken          common_v1_0.LinkTokenView                     `json:"linkToken,omitempty"`
 	StaticLinkToken    common_v1_0.StaticLinkTokenView               `json:"staticLinkToken,omitempty"`
 
-	UpdateMu *sync.Mutex
+	UpdateMu *sync.Mutex `json:"-"`
 }
 
 func NewChain() ChainView {
