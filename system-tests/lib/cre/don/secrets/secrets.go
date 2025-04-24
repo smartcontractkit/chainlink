@@ -8,6 +8,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -96,17 +98,19 @@ func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysO
 
 		// Now add the EVM addresses to the node metadata
 		for chainID, evmKeys := range chainIDsToEVMKeys {
+			chainSelector, selectorErr := chainselectors.SelectorFromChainId(uint64(chainID))
+			if selectorErr != nil {
+				return nil, errors.Wrapf(selectorErr, "failed to get chain selector for chain ID %d", chainID)
+			}
 			if len(evmKeys.PublicAddresses) != len(donMetadata.NodesMetadata) {
 				return nil, fmt.Errorf("number of EVM keys for DON %d and chain ID %d does not match the number of nodes. Expected %d, got %d", donMetadata.ID, chainID, len(donMetadata.NodesMetadata), len(evmKeys.PublicAddresses))
 			}
 			for idx, nodeMetadata := range donMetadata.NodesMetadata {
 				nodeMetadata.Labels = append(nodeMetadata.Labels, &cretypes.Label{
-					Key:   node.EthAddressKey,
+					Key:   node.NodeAddressKeyFromSelector(chainSelector),
 					Value: evmKeys.PublicAddresses[idx].Hex(),
 				})
 			}
-			// Use first ETH address for the DON metadata, because all of them are the same
-			break
 		}
 	}
 

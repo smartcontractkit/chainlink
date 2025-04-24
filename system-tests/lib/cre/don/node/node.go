@@ -17,12 +17,15 @@ const (
 	NodeTypeKey            = "type"
 	HostLabelKey           = "host"
 	IndexKey               = "node_index"
-	EthAddressKey          = "eth_address"
 	ExtraRolesKey          = "extra_roles"
 	NodeIDKey              = "node_id"
 	NodeOCR2KeyBundleIDKey = "ocr2_key_bundle_id"
 	NodeP2PIDKey           = "p2p_id"
 )
+
+func NodeAddressKeyFromSelector(chainSelector uint64) string {
+	return fmt.Sprint(chainSelector) + "_public_address"
+}
 
 type stringTransformer func(string) string
 

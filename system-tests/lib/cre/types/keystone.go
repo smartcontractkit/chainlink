@@ -313,7 +313,7 @@ func (g *GeneratePoRJobSpecsInput) Validate() error {
 type GeneratePoRConfigsInput struct {
 	DonMetadata                 *DonMetadata
 	BlockchainOutput            []*blockchain.Output
-	DonID                       uint32
+	HomeChainSelector           uint64
 	Flags                       []string
 	PeeringData                 CapabilitiesPeeringData
 	AddressBook                 deployment.AddressBook
@@ -330,8 +330,8 @@ func (g *GeneratePoRConfigsInput) Validate() error {
 	if g.BlockchainOutput == nil {
 		return errors.New("blockchain output not set")
 	}
-	if g.DonID == 0 {
-		return errors.New("don id not set")
+	if g.HomeChainSelector == 0 {
+		return errors.New("home chain selector not set")
 	}
 	if len(g.Flags) == 0 {
 		return errors.New("flags not set")
@@ -390,12 +390,14 @@ type NodeMetadata struct {
 
 type Topology struct {
 	WorkflowDONID          uint32
+	HomeChainSelector      uint64
 	DonsMetadata           []*DonMetadata
 	GatewayConnectorOutput *GatewayConnectorOutput
 }
 
 type DonTopology struct {
 	WorkflowDonID          uint32
+	HomeChainSelector      uint64
 	DonsWithMetadata       []*DonWithMetadata
 	GatewayConnectorOutput *GatewayConnectorOutput
 }

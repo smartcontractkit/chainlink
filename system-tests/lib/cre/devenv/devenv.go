@@ -170,6 +170,7 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 
 	donTopology := &types.DonTopology{}
 	donTopology.WorkflowDonID = input.Topology.WorkflowDONID
+	donTopology.HomeChainSelector = input.Topology.HomeChainSelector
 
 	for i, donMetadata := range input.Topology.DonsMetadata {
 		donTopology.DonsWithMetadata = append(donTopology.DonsWithMetadata, &types.DonWithMetadata{

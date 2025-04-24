@@ -5,7 +5,7 @@
   type = "anvil"
 
 [[blockchains]]
-  chain_id = "31337"
+  chain_id = "2337"
   port = "8550"
   type = "anvil"
 
@@ -47,4 +47,4 @@
 
   [workflow_config.dependencies]
     cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
-    cron_capability_binary_path = "./cron"
+    cron_capability_binary_path = "/Users/bartektofel/Desktop/repos/capabilities-compiled/cron"

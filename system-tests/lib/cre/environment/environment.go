@@ -234,7 +234,7 @@ func SetupTestEnvironment(
 
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
-	topology, topoErr := libdon.BuildTopology(input.CapabilitiesAwareNodeSets, *homeChainInput.infraInput)
+	topology, topoErr := libdon.BuildTopology(input.CapabilitiesAwareNodeSets, *homeChainInput.infraInput, homeChainOutput.ChainSelector)
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
@@ -327,7 +327,6 @@ func SetupTestEnvironment(
 				keystonetypes.GeneratePoRConfigsInput{
 					DonMetadata:                 donMetadata,
 					BlockchainOutput:            bcOuts,
-					DonID:                       donMetadata.ID,
 					Flags:                       donMetadata.Flags,
 					PeeringData:                 peeringData,
 					AddressBook:                 mergedAddressBook,
@@ -335,6 +334,7 @@ func SetupTestEnvironment(
 					WorkflowRegistryAddress:     keystoneContractsOutput.WorkflowRegistryAddress,
 					ForwarderAddress:            keystoneContractsOutput.ForwarderAddress,
 					GatewayConnectorOutput:      topology.GatewayConnectorOutput,
+					HomeChainSelector:           topology.HomeChainSelector,
 				},
 			)
 			if configErr != nil {

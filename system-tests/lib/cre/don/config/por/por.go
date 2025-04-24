@@ -26,7 +26,6 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 	}
 
 	homeChainID := input.BlockchainOutput[0].ChainID
-
 	// prepare chains, we need chainIDs, URLs and selectors to get contracts from AddressBook
 	workerEVMInputs := make([]*config.WorkerEVMInput, 0)
 	for i, bcOut := range input.BlockchainOutput {
@@ -118,16 +117,16 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 			}
 		}
 
-		var nodeEthAddr common.Address
-		for _, label := range workflowNodeSet[i].Labels {
-			if label.Key == node.EthAddressKey {
-				if label.Value == "" {
-					return nil, errors.New("eth address label value is empty")
-				}
-				nodeEthAddr = common.HexToAddress(label.Value)
-				break
-			}
-		}
+		// var nodeEthAddr common.Address
+		// for _, label := range workflowNodeSet[i].Labels {
+		// 	if label.Key == node.EthAddressKey {
+		// 		if label.Value == "" {
+		// 			return nil, errors.New("eth address label value is empty")
+		// 		}
+		// 		nodeEthAddr = common.HexToAddress(label.Value)
+		// 		break
+		// 	}
+		// }
 
 		// get all the forwarders and add workflow config for each node ETH key + Forwarder for that chain
 		for _, wi := range workerEVMInputs {
@@ -138,7 +137,19 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 			for addr, addrValue := range addrsForChains {
 				if addrValue.Type == "KeystoneForwarder" {
 					wi.ForwarderAddress = addr
-					wi.FromAddress = nodeEthAddr
+					expectedAddressKey := node.NodeAddressKeyFromSelector(wi.ChainSelector)
+					for _, label := range workflowNodeSet[i].Labels {
+						if label.Key == expectedAddressKey {
+							if label.Value == "" {
+								return nil, errors.Errorf("%s label value is empty", expectedAddressKey)
+							}
+							wi.FromAddress = common.HexToAddress(label.Value)
+							break
+						}
+					}
+					if wi.FromAddress == (common.Address{}) {
+						return nil, errors.Errorf("failed to get from address for chain %d", wi.ChainSelector)
+					}
 				}
 			}
 		}
@@ -158,10 +169,22 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector
 		// gateway is also required by various capabilities
 		if (keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) && input.GatewayConnectorOutput != nil) || don.NodeNeedsGateway(input.Flags) {
+			var nodeEthAddr common.Address
+			expectedAddressKey := node.NodeAddressKeyFromSelector(input.HomeChainSelector)
+			for _, label := range workflowNodeSet[i].Labels {
+				if label.Key == expectedAddressKey {
+					if label.Value == "" {
+						return nil, errors.Errorf("%s label value is empty", expectedAddressKey)
+					}
+					nodeEthAddr = common.HexToAddress(label.Value)
+					break
+				}
+			}
+
 			configOverrides[nodeIndex] += config.WorkerGateway(
 				nodeEthAddr,
 				homeChainID,
-				input.DonID,
+				input.DonMetadata.ID,
 				*input.GatewayConnectorOutput,
 			)
 		}

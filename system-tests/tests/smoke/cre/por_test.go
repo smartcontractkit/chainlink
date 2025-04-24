@@ -205,6 +205,7 @@ func validateEnvVars(t *testing.T, in *TestConfig) {
 
 type registerPoRWorkflowInput struct {
 	*WorkflowConfig
+	workflowName            string
 	chainSelector           uint64
 	writeTargetName         string
 	workflowDonID           uint32
@@ -301,7 +302,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 			input.sethClient,
 			input.workflowRegistryAddress,
 			input.workflowDonID,
-			input.WorkflowConfig.WorkflowName,
+			input.workflowName, // pass it directly, don't get it from config, since it is chain-specific
 			input.WorkflowConfig.CompiledWorkflowConfig.BinaryURL,
 			&input.WorkflowConfig.CompiledWorkflowConfig.ConfigURL,
 			&input.WorkflowConfig.CompiledWorkflowConfig.SecretsURL,
@@ -358,7 +359,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 		CRECLIPrivateKey:         input.deployerPrivateKey,
 		CRECLIAbsPath:            input.creCLIAbsPath,
 		CRESettingsFile:          input.creCLIsettingsFile,
-		WorkflowName:             input.WorkflowConfig.WorkflowName,
+		WorkflowName:             input.workflowName,
 		ShouldCompileNewWorkflow: input.WorkflowConfig.ShouldCompileNewWorkflow,
 	}
 
@@ -450,7 +451,7 @@ func setupPoRTestEnvironment(
 		JobSpecFactoryFunctions: []keystonetypes.JobSpecFactoryFn{
 			creconsensus.ConsensusJobSpecFactoryFn(chainIDUint64),
 			crecron.CronJobSpecFactoryFn(cronBinaryPathInTheContainer),
-			cregateway.GatewayJobSpecFactoryFn(chainIDUint64, extraAllowedPorts, []string{}, []string{"0.0.0.0/0"}),
+			cregateway.GatewayJobSpecFactoryFn(extraAllowedPorts, []string{}, []string{"0.0.0.0/0"}),
 			crecompute.ComputeJobSpecFactoryFn,
 		},
 	}
@@ -497,6 +498,8 @@ func setupPoRTestEnvironment(
 			&deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 			universalSetupOutput.DonTopology.WorkflowDonID,
 			homeChainOutput.ChainSelector,
+			homeChainOutput.ChainSelector,
+			homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
 			homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
 		require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 	}

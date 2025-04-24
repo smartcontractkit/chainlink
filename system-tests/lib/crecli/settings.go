@@ -63,7 +63,9 @@ type PoRWorkflowConfig struct {
 	AuthKeySecretName *string `json:"auth_key_secret_name,omitempty"`
 }
 
-func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr common.Address, dataFeedsCacheAddress *common.Address, donID uint32, chainSelector uint64, rpcHTTPURL string) (*os.File, error) {
+// todo pass map[uint64]string for RPC URLs and only home chain selector, assume that everything else are non-home chains
+// optionally chainselector for DF cache?
+func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr common.Address, dataFeedsCacheAddress *common.Address, donID uint32, homeChainSelector, dfCacheChainSelector uint64, homeRPCURL, rpcHTTPURL string) (*os.File, error) {
 	settingsFile, err := os.CreateTemp("", CRECLISettingsFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create CRE CLI settings file")
@@ -87,18 +89,22 @@ func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr c
 				{
 					Name:          "CapabilitiesRegistry",
 					Address:       capRegAddr.Hex(),
-					ChainSelector: chainSelector,
+					ChainSelector: homeChainSelector,
 				},
 				{
 					Name:          "WorkflowRegistry",
 					Address:       workflowRegistryAddr.Hex(),
-					ChainSelector: chainSelector,
+					ChainSelector: homeChainSelector,
 				},
 			},
 		},
 		Rpcs: []RPC{
 			{
-				ChainSelector: chainSelector,
+				ChainSelector: homeChainSelector,
+				URL:           homeRPCURL,
+			},
+			{
+				ChainSelector: dfCacheChainSelector,
 				URL:           rpcHTTPURL,
 			},
 		},
@@ -109,7 +115,7 @@ func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr c
 			{
 				Name:          "DataFeedsCache",
 				Address:       dataFeedsCacheAddress.Hex(),
-				ChainSelector: chainSelector,
+				ChainSelector: dfCacheChainSelector,
 			},
 		}
 	}

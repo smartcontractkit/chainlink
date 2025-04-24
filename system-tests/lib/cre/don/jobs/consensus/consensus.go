@@ -71,7 +71,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, oCR3CapabilityAddress comm
 					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 				}
 
-				nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.EthAddressKey)
+				nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.NodeAddressKeyFromSelector(donTopology.HomeChainSelector))
 				if ethErr != nil {
 					return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
 				}
