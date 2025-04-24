@@ -1171,7 +1171,7 @@ func DeployTransferableToken(
 	// Configure pools in parallel
 	configurePoolGrp := errgroup.Group{}
 	configurePoolGrp.Go(func() error {
-		err := setTokenPoolCounterPart(chains[src], srcPool, srcActor, dst, common.LeftPadBytes(dstToken.Address().Bytes(), 32), common.LeftPadBytes(dstPool.Address().Bytes(), 32))
+		err := setTokenPoolCounterPart(chains[src], srcPool, srcActor, dst, dstToken.Address().Bytes(), dstPool.Address().Bytes())
 		if err != nil {
 			return fmt.Errorf("failed to set token pool counter part chain %d: %w", src, err)
 		}
@@ -1182,7 +1182,7 @@ func DeployTransferableToken(
 		return nil
 	})
 	configurePoolGrp.Go(func() error {
-		err := setTokenPoolCounterPart(chains[dst], dstPool, dstActor, src, common.LeftPadBytes(srcToken.Address().Bytes(), 32), common.LeftPadBytes(srcPool.Address().Bytes(), 32))
+		err := setTokenPoolCounterPart(chains[dst], dstPool, dstActor, src, srcToken.Address().Bytes(), srcPool.Address().Bytes())
 		if err != nil {
 			return fmt.Errorf("failed to set token pool counter part chain %d: %w", dst, err)
 		}
