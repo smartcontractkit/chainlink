@@ -614,7 +614,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 					return errors.Wrapf(err, "failed to generate off ramp view for off ramp %s for source %d", offRamp.Address().String(), source)
 				}
 				chainView.EVM2EVMOffRamp[offRamp.Address().Hex()] = offRampView
-				lggr.Infow("generated off ramp view", "offRamp", offRamp.Address().Hex(), "chain", chain)
+				lggr.Infow("generated EVM2EVMOffRamp view", "offRamp", offRamp.Address().Hex(), "chain", chain)
 			}
 			return nil
 		})
@@ -630,7 +630,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 					return errors.Wrapf(err, "failed to generate on ramp view for on ramp %s for dest %d", onRamp.Address().String(), dest)
 				}
 				chainView.EVM2EVMOnRamp[onRamp.Address().Hex()] = onRampView
-				lggr.Infow("generated on ramp view", "onRamp", onRamp.Address().Hex(), "chain", chain)
+				lggr.Infow("generated EVM2EVMOnRamp view", "onRamp", onRamp.Address().Hex(), "chain", chain)
 			}
 			return nil
 		})
