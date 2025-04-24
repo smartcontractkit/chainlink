@@ -315,5 +315,18 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
 }
 
+func SerializeExtraArgs(tag []byte, method string, inputs ...any) ([]byte, error) {
+	v, err := messageHasherABI.Methods[method].Inputs.Pack(inputs...)
+	return append(tag, v...), err
+}
+
+func SerializeEVMExtraArgsV1(data message_hasher.ClientEVMExtraArgsV1) ([]byte, error) {
+	return SerializeExtraArgs(evmExtraArgsV1Tag, "encodeEVMExtraArgsV1", data)
+}
+
+func SerializeClientGenericExtraArgsV2(data message_hasher.ClientGenericExtraArgsV2) ([]byte, error) {
+	return SerializeExtraArgs(evmExtraArgsV2Tag, "encodeGenericExtraArgsV2", data)
+}
+
 // Interface compliance check
 var _ cciptypes.MessageHasher = (*MessageHasherV1)(nil)

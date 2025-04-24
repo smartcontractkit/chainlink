@@ -2,15 +2,12 @@ package ccipsolana
 
 import (
 	"encoding/binary"
-	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -107,13 +104,13 @@ func TestCalculateMaxGas(t *testing.T) {
 }
 
 func makeExtraArgsV2(computeUnits uint32, allowOOO bool) []byte {
-	extraArgs, err := ccip.SerializeExtraArgs(fee_quoter.SVMExtraArgsV1{
+	extraArgs, err := SerializeExtraArgs(svmExtraArgsV1Tag, fee_quoter.SVMExtraArgsV1{
 		AllowOutOfOrderExecution: allowOOO,
 		ComputeUnits:             computeUnits,
 		AccountIsWritableBitmap:  0,
 		TokenReceiver:            [32]uint8{},
 		Accounts:                 [][32]uint8{},
-	}, strings.TrimPrefix(hexutil.Encode(svmExtraArgsV1Tag), "0x"))
+	})
 	if err != nil {
 		panic(err)
 	}

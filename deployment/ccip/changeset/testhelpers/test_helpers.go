@@ -17,7 +17,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -801,7 +801,7 @@ const SVMExtraArgsV1Tag = "0x1f3b3aba"
 // MakeEVMExtraArgsV2 creates the extra args for the EVM2Any message that is destined
 // for an EVM chain. The extra args contain the gas limit and allow out of order flag.
 func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
-	extraArgs, err := SerializeClientGenericExtraArgsV2(message_hasher.ClientGenericExtraArgsV2{
+	extraArgs, err := ccipevm.SerializeClientGenericExtraArgsV2(message_hasher.ClientGenericExtraArgsV2{
 		GasLimit:                 new(big.Int).SetUint64(gasLimit),
 		AllowOutOfOrderExecution: allowOOO,
 	})
@@ -809,21 +809,6 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 		panic(err)
 	}
 	return extraArgs
-}
-
-// TODO: import from ccipevm
-func SerializeExtraArgs(tag string, method string, inputs ...any) ([]byte, error) {
-	tagBytes := hexutil.MustDecode(tag)
-	v, err := messageHasherABI.Methods[method].Inputs.Pack(inputs...)
-	return append(tagBytes, v...), err
-}
-
-func SerializeClientGenericExtraArgsV2(data message_hasher.ClientGenericExtraArgsV2) ([]byte, error) {
-	return SerializeExtraArgs(GenericExtraArgsV2Tag, "encodeGenericExtraArgsV2", data)
-}
-
-func SerializeSVMExtraArgs(data message_hasher.ClientSVMExtraArgsV1) ([]byte, error) {
-	return SerializeExtraArgs(SVMExtraArgsV1Tag, "encodeSVMExtraArgsV1", data)
 }
 
 func AddLane(
