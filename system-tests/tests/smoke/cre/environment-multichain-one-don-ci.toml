@@ -21,11 +21,6 @@
 
 [jd]
   image = "injected-at-runtime"
-
-[dependencies]
-  cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
-  cron_capability_binary_path = "./cron"
-
 [[workflow_config]]
   workflow_name = "porfeedone"
   feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
@@ -50,6 +45,10 @@
   [workflow_config.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/e0b01e434eea52c619fc1b75c36704b4/raw/1bd684d59647c5b66e94b6cfa4766e5453781182/binary.wasm.br.b64"
     config_url = "https://gist.githubusercontent.com/Tofel/103c913a48c2c5bcd7cb4673f3bde54d/raw/ba23c36e2409ca3c655254862a7195662a1b0f5e/one_don_config-second-feed.json_24_04_2025"
+
+[dependencies]
+  cron_capability_binary_path = "./cron"
+  cre_cli_binary_path = "./cre_v0.1.5_linux_amd64" # must be linux/amd64 to match our CI runner
 
 [[nodesets]]
   http_port_range_start = 10100
