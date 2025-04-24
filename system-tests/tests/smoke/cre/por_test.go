@@ -93,7 +93,7 @@ type WorkflowConfig struct {
 	CompiledWorkflowConfig *CompiledConfig     `toml:"compiled_config" validate:"required_if=ShouldCompileNewWorkflow false"`
 	DependenciesConfig     *DependenciesConfig `toml:"dependencies" validate:"required"`
 	WorkflowName           string              `toml:"workflow_name" validate:"required" `
-	FeedID                 string              `toml:"feed_id" validate:"required,startsnotwith=0x"`
+	FeedIDs                []string            `toml:"feed_ids" validate:"required,startsnotwith=0x"`
 }
 
 // noCRENoCompilation is a custom validator for the tag "no_cre_no_compilation".
@@ -511,7 +511,7 @@ func setupPoRTestEnvironment(
 		forwarderAddress:      universalSetupOutput.KeystoneContractsOutput.ForwarderAddress,
 		dataFeedsCacheAddress: deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 		workflowName:          in.WorkflowConfig.WorkflowName,
-		feedID:                in.WorkflowConfig.FeedID,
+		feedID:                in.WorkflowConfig.FeedIDs[0],
 		sethClient:            homeChainOutput.SethClient,
 		blockchain:            homeChainOutput.BlockchainOutput,
 		creCLIAbsPath:         creCLIAbsPath,
@@ -525,7 +525,7 @@ func setupPoRTestEnvironment(
 		WorkflowConfig:          in.WorkflowConfig,
 		chainSelector:           homeChainOutput.ChainSelector,
 		workflowDonID:           universalSetupOutput.DonTopology.WorkflowDonID,
-		feedID:                  in.WorkflowConfig.FeedID,
+		feedID:                  in.WorkflowConfig.FeedIDs[0],
 		workflowRegistryAddress: universalSetupOutput.KeystoneContractsOutput.WorkflowRegistryAddress,
 		dataFeedsCacheAddress:   deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 		priceProvider:           priceProvider,
@@ -588,7 +588,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 		}
 	}
 
-	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey)
+	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey, in.WorkflowConfig.FeedIDs)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
 	firstBlockchain := in.Blockchains[0]
@@ -607,7 +607,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.dataFeedsCacheAddress.Hex(), setupOutput.forwarderAddress.Hex())
+			logTestInfo(testLogger, in.WorkflowConfig.FeedIDs[0], in.WorkflowConfig.WorkflowName, setupOutput.dataFeedsCacheAddress.Hex(), setupOutput.forwarderAddress.Hex())
 
 			// log scanning is not supported for CRIB
 			if in.Infra.InfraType == libtypes.CRIB {
@@ -659,15 +659,15 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	startTime := time.Now()
 	assert.Eventually(t, func() bool {
 		elapsed := time.Since(startTime).Round(time.Second)
-		price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(in.WorkflowConfig.FeedID)))
+		price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(in.WorkflowConfig.FeedIDs[0])))
 		require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
 
 		// if there are no more prices to be found, we can stop waiting
-		return !setupOutput.priceProvider.NextPrice(price, elapsed)
+		return !setupOutput.priceProvider.NextPrice(in.WorkflowConfig.FeedIDs[0], price, elapsed)
 	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
 
-	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "prices do not match")
-	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
+	require.EqualValues(t, priceProvider.ExpectedPrices(in.WorkflowConfig.FeedIDs[0]), priceProvider.ActualPrices(in.WorkflowConfig.FeedIDs[0]), "prices do not match")
+	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices(in.WorkflowConfig.FeedIDs[0])))
 }
 
 // config file to use: environment-gateway-don.toml
@@ -699,7 +699,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 		}
 	}
 
-	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey)
+	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey, in.WorkflowConfig.FeedIDs)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
 	firstBlockchain := in.Blockchains[0]
@@ -711,7 +711,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.dataFeedsCacheAddress.Hex(), setupOutput.forwarderAddress.Hex())
+			logTestInfo(testLogger, in.WorkflowConfig.FeedIDs[0], in.WorkflowConfig.WorkflowName, setupOutput.dataFeedsCacheAddress.Hex(), setupOutput.forwarderAddress.Hex())
 
 			// log scanning is not supported for CRIB
 			if in.Infra.InfraType == libtypes.CRIB {
@@ -763,15 +763,15 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	startTime := time.Now()
 	assert.Eventually(t, func() bool {
 		elapsed := time.Since(startTime).Round(time.Second)
-		price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(in.WorkflowConfig.FeedID)))
+		price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(in.WorkflowConfig.FeedIDs[0])))
 		require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
 
 		// if there are no more prices to be found, we can stop waiting
-		return !setupOutput.priceProvider.NextPrice(price, elapsed)
+		return !setupOutput.priceProvider.NextPrice(in.WorkflowConfig.FeedIDs[0], price, elapsed)
 	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
 
-	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "pricesup do not match")
-	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
+	require.EqualValues(t, priceProvider.ExpectedPrices(in.WorkflowConfig.FeedIDs[0]), priceProvider.ActualPrices(in.WorkflowConfig.FeedIDs[0]), "prices do not match")
+	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices(in.WorkflowConfig.FeedIDs[0])))
 }
 
 // config file to use: environment-capabilities-don.toml
@@ -818,7 +818,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.dataFeedsCacheAddress.Hex(), setupOutput.forwarderAddress.Hex())
+			logTestInfo(testLogger, in.WorkflowConfig.FeedIDs[0], in.WorkflowConfig.WorkflowName, setupOutput.dataFeedsCacheAddress.Hex(), setupOutput.forwarderAddress.Hex())
 
 			// log scanning is not supported for CRIB
 			if in.Infra.InfraType == libtypes.CRIB {
@@ -870,13 +870,13 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	startTime := time.Now()
 	assert.Eventually(t, func() bool {
 		elapsed := time.Since(startTime).Round(time.Second)
-		price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(in.WorkflowConfig.FeedID)))
+		price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(in.WorkflowConfig.FeedIDs[0])))
 		require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
 
 		// if there are no more prices to be found, we can stop waiting
-		return !setupOutput.priceProvider.NextPrice(price, elapsed)
+		return !setupOutput.priceProvider.NextPrice(in.WorkflowConfig.FeedIDs[0], price, elapsed)
 	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
 
-	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "prices do not match")
-	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
+	require.EqualValues(t, priceProvider.ExpectedPrices(in.WorkflowConfig.FeedIDs[0]), priceProvider.ActualPrices(in.WorkflowConfig.FeedIDs[0]), "prices do not match")
+	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices(in.WorkflowConfig.FeedIDs[0])))
 }

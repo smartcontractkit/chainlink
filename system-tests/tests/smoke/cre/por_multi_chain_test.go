@@ -120,7 +120,7 @@ func setupPoRMultiChainTestEnvironment(
 
 	var dataFeedsCacheAddresses []common.Address
 
-	for _, bo := range universalSetupOutput.BlockchainOutput {
+	for idx, bo := range universalSetupOutput.BlockchainOutput {
 		workflowName := in.WorkflowConfig.WorkflowName + "-" + fmt.Sprint(bo.ChainID)
 		deployDataFeedsInput := &keystonetypes.DeployDataFeedsCacheInput{
 			ChainSelector: bo.ChainSelector,
@@ -171,7 +171,7 @@ func setupPoRMultiChainTestEnvironment(
 			forwarderAddress:      forwarderAddr,
 			dataFeedsCacheAddress: deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 			workflowName:          workflowName,
-			feedID:                in.WorkflowConfig.FeedID,
+			feedID:                in.WorkflowConfig.FeedIDs[idx],
 			sethClient:            bo.SethClient,
 			blockchain:            bo.BlockchainOutput,
 			creCLIAbsPath:         creCLIAbsPath,
@@ -186,7 +186,7 @@ func setupPoRMultiChainTestEnvironment(
 			workflowName:            workflowName,
 			chainSelector:           bo.ChainSelector,
 			workflowDonID:           universalSetupOutput.DonTopology.WorkflowDonID,
-			feedID:                  in.WorkflowConfig.FeedID,
+			feedID:                  in.WorkflowConfig.FeedIDs[idx],
 			workflowRegistryAddress: universalSetupOutput.KeystoneContractsOutput.WorkflowRegistryAddress,
 			dataFeedsCacheAddress:   deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 			priceProvider:           priceProvider,
@@ -259,7 +259,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 		}
 	}
 
-	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, "")
+	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey, in.WorkflowConfig.FeedIDs)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
 	homeChain := in.Blockchains[0]
@@ -285,82 +285,69 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.dataFeedsCacheAddresses[0].Hex(), setupOutput.forwarderAddresses[0].Hex())
+			for idx, feedID := range in.WorkflowConfig.FeedIDs {
+				logTestInfo(testLogger, feedID, in.WorkflowConfig.WorkflowName, setupOutput.dataFeedsCacheAddresses[idx].Hex(), setupOutput.forwarderAddresses[idx].Hex())
 
-			// log scanning is not supported for CRIB
-			if in.Infra.InfraType == libtypes.CRIB {
-				return
-			}
-
-			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
-
-			removeErr := os.RemoveAll(logDir)
-			if removeErr != nil {
-				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
-				return
-			}
-
-			_, saveErr := framework.SaveContainerLogs(logDir)
-			if saveErr != nil {
-				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
-				return
-			}
-
-			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
-			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
-				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
-					containerNames = append(containerNames, output.Node.ContainerName)
+				// log scanning is not supported for CRIB
+				if in.Infra.InfraType == libtypes.CRIB {
+					return
 				}
-				debugDons = append(debugDons, &keystonetypes.DebugDon{
-					NodesMetadata:  donWithMetadata.NodesMetadata,
-					Flags:          donWithMetadata.Flags,
-					ContainerNames: containerNames,
-				})
-			}
 
-			debugInput := keystonetypes.DebugInput{
-				DebugDons:        debugDons,
-				BlockchainOutput: setupOutput.blockchainsOutput[0],
-				InfraInput:       in.Infra,
+				logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
+
+				removeErr := os.RemoveAll(logDir)
+				if removeErr != nil {
+					testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
+					return
+				}
+
+				_, saveErr := framework.SaveContainerLogs(logDir)
+				if saveErr != nil {
+					testLogger.Error().Err(saveErr).Msg("failed to save container logs")
+					return
+				}
+
+				debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
+				for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
+					containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
+					for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+						containerNames = append(containerNames, output.Node.ContainerName)
+					}
+					debugDons = append(debugDons, &keystonetypes.DebugDon{
+						NodesMetadata:  donWithMetadata.NodesMetadata,
+						Flags:          donWithMetadata.Flags,
+						ContainerNames: containerNames,
+					})
+				}
+
+				debugInput := keystonetypes.DebugInput{
+					DebugDons:        debugDons,
+					BlockchainOutput: setupOutput.blockchainsOutput[idx],
+					InfraInput:       in.Infra,
+				}
+				lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
 			}
-			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
 		}
 	})
 
-	testLogger.Info().Msg("Waiting for feed to update...")
-	timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
+	for idx, feedID := range in.WorkflowConfig.FeedIDs {
+		testLogger.Info().Msgf("Waiting for feed %s to update...", feedID)
+		timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
 
-	dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(setupOutput.dataFeedsCacheAddresses[0], setupOutput.sethClients[0].Client)
-	require.NoError(t, instanceErr, "failed to create data feeds cache instance")
+		dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(setupOutput.dataFeedsCacheAddresses[idx], setupOutput.sethClients[idx].Client)
+		require.NoError(t, instanceErr, "failed to create data feeds cache instance")
 
-	startTime := time.Now()
-	assert.Eventually(t, func() bool {
-		elapsed := time.Since(startTime).Round(time.Second)
-		price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClients[0].NewCallOpts(), [16]byte(common.Hex2Bytes(in.WorkflowConfig.FeedID)))
-		require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
+		startTime := time.Now()
+		assert.Eventually(t, func() bool {
+			elapsed := time.Since(startTime).Round(time.Second)
+			price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClients[idx].NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
+			require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
 
-		// if there are no more prices to be found, we can stop waiting
-		return !setupOutput.priceProvider.NextPrice(price, elapsed)
-	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
+			// if there are no more prices to be found, we can stop waiting
+			return !setupOutput.priceProvider.NextPrice(feedID, price, elapsed)
+		}, timeout, 10*time.Second, "feed %s did not update, timeout after: %s", feedID, timeout)
 
-	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "prices do not match")
-	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
-
-	// second workflow
-	dataFeedsCacheInstance, instanceErr = data_feeds_cache.NewDataFeedsCache(setupOutput.dataFeedsCacheAddresses[1], setupOutput.sethClients[1].Client)
-	require.NoError(t, instanceErr, "failed to create data feeds cache instance")
-
-	startTime = time.Now()
-	assert.Eventually(t, func() bool {
-		elapsed := time.Since(startTime).Round(time.Second)
-		price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClients[1].NewCallOpts(), [16]byte(common.Hex2Bytes(in.WorkflowConfig.FeedID)))
-		require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
-
-		// if there are no more prices to be found, we can stop waiting
-		return !setupOutput.priceProvider.NextPrice(price, elapsed)
-	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
-
-	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "prices do not match")
-	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
+		require.EqualValues(t, priceProvider.ExpectedPrices(feedID), priceProvider.ActualPrices(feedID), "prices do not match")
+		testLogger.Info().Msgf("All %d prices were found in the feed %s", len(priceProvider.ExpectedPrices(feedID)), feedID)
+	}
 }

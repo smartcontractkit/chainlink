@@ -39,7 +39,7 @@
       user_config_overrides = "            [Telemetry]\n            Enabled = true\n            Endpoint = 'host.docker.internal:4317'\n            InsecureConnection = true\n            TraceSampleRatio = 1\n\n            [Log]\n            Level = 'debug'\n            JSONConsole = true\n\n            [Feature]\n\t\t\tLogPoller = true\n\n\t\t\t[OCR2]\n\t\t\tEnabled = true\n\t\t\tDatabaseTimeout = '1s'\n\n\t\t\t[P2P.V2]\n\t\t\tEnabled = true\n\t\t\tListenAddresses = ['0.0.0.0:5001']\n      "
 
 [workflow_config]
-  feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
+  feed_ids = ["018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"]
   should_compile_new_workflow = true
   use_cre_cli = true
   workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"

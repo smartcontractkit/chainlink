@@ -126,11 +126,6 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 				Key:   libnode.NodeOCR2KeyBundleIDKey,
 				Value: don.Nodes[j].Ocr2KeyBundleID,
 			})
-
-			node.Labels = append(node.Labels, &types.Label{
-				Key:   libnode.NodeOCR2KeyBundleIDKey,
-				Value: don.Nodes[j].Ocr2KeyBundleID,
-			})
 		}
 	}
 
