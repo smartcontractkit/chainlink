@@ -289,6 +289,8 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 	}
 	if c.TokenAdminRegistry != nil {
 		grp.Go(func() error {
+			lggr.Infow("generating token admin registry view, this might take a while based on number of tokens",
+				"tokenAdminRegistry", c.TokenAdminRegistry.Address().Hex(), "chain", chain)
 			taView, err := viewv1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
 			if err != nil {
 				return errors.Wrapf(err, "failed to generate token admin registry view for token admin registry %s", c.TokenAdminRegistry.Address().String())
@@ -928,6 +930,7 @@ func (c CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[
 				chainView.ChainSelector = chainSelector
 				chainView.ChainID = id
 				m.Store(name, chainView)
+				e.Logger.Infow("Completed view for", "chainSelector", chainSelector, "chainName", name, "chainID", id)
 			case chain_selectors.FamilySolana:
 				if _, ok := c.SolChains[chainSelector]; !ok {
 					return fmt.Errorf("chain not supported %d", chainSelector)
