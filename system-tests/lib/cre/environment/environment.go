@@ -133,23 +133,6 @@ func SetupTestEnvironment(
 
 	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability, workflow registry)
 	// but first, we need to create deployment.Environment that will contain only chain information in order to deploy contracts with the CLD
-	//chainConfigs := make([]devenv.ChainConfig, 0)
-	//for _, bcOut := range blockchainsOutput {
-	//	chainConfigs = append(chainConfigs, devenv.ChainConfig{
-	//		ChainID:   bcOut.SethClient.Cfg.Network.ChainID,
-	//		ChainName: bcOut.SethClient.Cfg.Network.Name,
-	//		ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
-	//		WSRPCs: []devenv.CribRPCs{{
-	//			External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
-	//			Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
-	//		}},
-	//		HTTPRPCs: []devenv.CribRPCs{{
-	//			External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-	//			Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-	//		}},
-	//		DeployerKey: bcOut.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
-	//	})
-	//}
 	chainsConfig := []devenv.ChainConfig{
 		{
 			ChainID:   homeChainOutput.SethClient.Cfg.Network.ChainID,
@@ -190,7 +173,8 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(keyContrErr, "failed to deploy keystone contracts")
 	}
 
-	nonHomeChainsConfig := []devenv.ChainConfig{}
+	// we need another CLD environment to deploy forwarders for all the chains except the home chain
+	nonHomeChainsConfig := make([]devenv.ChainConfig, 0)
 	for idx, bcOut := range blockchainsOutput {
 		if idx == 0 {
 			// skip home chain
@@ -486,31 +470,6 @@ func SetupTestEnvironment(
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}
-
-	fmt.Printf("bc out len: %d", len(blockchainsOutput))
-
-	//for _, nodeSet := range nodeSetOutput {
-	//	clClients, err := clclient.New(nodeSet.CLNodes)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	for _, c := range clClients {
-	//		addrs, err := c.EthAddresses()
-	//		if err != nil {
-	//			return nil, err
-	//		}
-	//		for _, a := range addrs {
-	//			_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, blockchainsOutput[0].SethClient, libtypes.FundsToSend{
-	//				ToAddress:  common.HexToAddress(a),
-	//				Amount:     big.NewInt(5000000000000000000),
-	//				PrivateKey: blockchainsOutput[0].SethClient.MustGetRootPrivateKey(),
-	//			})
-	//			if fundingErr != nil {
-	//				return nil, pkgerrors.Wrapf(fundingErr, "failed to fund node with address %s", a)
-	//			}
-	//		}
-	//	}
-	//}
 
 	// Fund the nodes
 	for _, metaDon := range fullCldOutput.DonTopology.DonsWithMetadata {
