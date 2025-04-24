@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
@@ -343,6 +344,8 @@ func TestVRFv2Basic(t *testing.T) {
 			Msg("Random Words Fulfilment Details For Link Billing")
 	})
 	t.Run("Oracle Withdraw", func(t *testing.T) {
+		tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-527")
+
 		configCopy := config.MustCopy().(tc.TestConfig)
 		consumers, subIDsForOracleWithDraw, err := vrfv2.SetupNewConsumersAndSubs(
 			sethClient,
@@ -681,6 +684,8 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 }
 
 func TestVRFOwner(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-565")
+
 	t.Parallel()
 	var (
 		testEnv                      *test_env.CLClusterTestEnv

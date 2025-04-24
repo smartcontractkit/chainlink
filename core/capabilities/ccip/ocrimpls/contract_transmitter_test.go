@@ -478,7 +478,9 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	require.NoError(t, chainWriter.Start(testutils.Context(t)), "failed to start chain writer")
 	t.Cleanup(func() { require.NoError(t, chainWriter.Close()) })
 
+	lggr := logger.TestLogger(t)
 	transmitterWithSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
+		lggr,
 		chainWriter,
 		ocrtypes.Account(transmitters[0].Hex()),
 		contractName,
@@ -487,6 +489,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		ocrimpls.NewEVMCommitCalldataFunc(consts.MethodCommit),
 	)
 	transmitterWithoutSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
+		lggr,
 		chainWriter,
 		ocrtypes.Account(transmitters[0].Hex()),
 		contractName,
