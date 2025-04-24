@@ -16557,6 +16557,7 @@ FinalizedBlockOffset is the offset from the finalized block to use for finality 
 Name = 'primary' # Example
 URL = 'http://solana.web' # Example
 SendOnly = false # Default
+Order = 100 # Default
 ```
 
 
@@ -16577,6 +16578,12 @@ URL is the HTTP(S) endpoint for this node.
 SendOnly = false # Default
 ```
 SendOnly is a multinode config that only sends transactions to a node and does not read state
+
+### Order
+```toml
+Order = 100 # Default
+```
+Order specifies the priority for each node. 1 is highest priority down to 100 being the lowest.
 
 ## Starknet
 ```toml
