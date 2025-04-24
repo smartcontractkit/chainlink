@@ -169,7 +169,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(ocr3Err, "failed to deploy OCR3 contract")
 	}
 
-	mergeErr := allChainsCLDEnvironment.ExistingAddresses.Merge(ocr3Output.AddressBook)
+	mergeErr := allChainsCLDEnvironment.ExistingAddresses.Merge(ocr3Output.AddressBook) //nolint:staticcheck // won't migrate now
 	if mergeErr != nil {
 		return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 	}
@@ -179,7 +179,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(capabilitiesRegistryErr, "failed to deploy Capabilities Registry contract")
 	}
 
-	mergeErr = allChainsCLDEnvironment.ExistingAddresses.Merge(capabilitiesRegistryOutput.AddressBook)
+	mergeErr = allChainsCLDEnvironment.ExistingAddresses.Merge(capabilitiesRegistryOutput.AddressBook) //nolint:staticcheck // won't migrate now
 	if mergeErr != nil {
 		return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 	}
@@ -189,7 +189,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(workflowRegistryErr, "failed to deploy workflow registry contract")
 	}
 
-	mergeErr = allChainsCLDEnvironment.ExistingAddresses.Merge(workflowRegistryOutput.AddressBook)
+	mergeErr = allChainsCLDEnvironment.ExistingAddresses.Merge(workflowRegistryOutput.AddressBook) //nolint:staticcheck // won't migrate now
 	if mergeErr != nil {
 		return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 	}
@@ -203,7 +203,7 @@ func SetupTestEnvironment(
 			return nil, pkgerrors.Wrap(err, "failed to deploy forwarder contract")
 		}
 
-		mergeErr = allChainsCLDEnvironment.ExistingAddresses.Merge(output.AddressBook)
+		mergeErr = allChainsCLDEnvironment.ExistingAddresses.Merge(output.AddressBook) //nolint:staticcheck // won't migrate now
 		if mergeErr != nil {
 			return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 		}
@@ -306,7 +306,7 @@ func SetupTestEnvironment(
 					BlockchainOutput:       bcOuts,
 					Flags:                  donMetadata.Flags,
 					PeeringData:            peeringData,
-					AddressBook:            allChainsCLDEnvironment.ExistingAddresses,
+					AddressBook:            allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 					GatewayConnectorOutput: topology.GatewayConnectorOutput,
 					HomeChainSelector:      topology.HomeChainSelector,
 				},
@@ -435,7 +435,7 @@ func SetupTestEnvironment(
 		BlockchainOutputs: bcOuts,
 		SethClients:       sethClients,
 		NodeSetOutput:     nodeSetOutput,
-		ExistingAddresses: allChainsCLDEnvironment.ExistingAddresses,
+		ExistingAddresses: allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		Topology:          topology,
 	}
 
@@ -479,7 +479,7 @@ func SetupTestEnvironment(
 			CldEnvironment:   fullCldOutput.Environment,
 			BlockchainOutput: homeChainOutput.BlockchainOutput,
 			DonTopology:      fullCldOutput.DonTopology,
-			AddressBook:      allChainsCLDEnvironment.ExistingAddresses,
+			AddressBook:      allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		})
 		if jobSpecsErr != nil {
 			return nil, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")

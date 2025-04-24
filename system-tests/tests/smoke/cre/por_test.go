@@ -245,12 +245,12 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 		return errors.Wrap(intErr, "failed to convert chain ID to int")
 	}
 
-	forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(input.fullCldEnvironment.ExistingAddresses, input.chainSelector, keystone_changeset.KeystoneForwarder.String())
+	forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(input.fullCldEnvironment.ExistingAddresses, input.chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
 	if forwarderErr != nil {
 		return errors.Wrapf(forwarderErr, "failed to find forwarder address for chain %d", input.chainSelector)
 	}
 
-	dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(input.fullCldEnvironment.ExistingAddresses, input.chainSelector, df_changeset.DataFeedsCache.String())
+	dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(input.fullCldEnvironment.ExistingAddresses, input.chainSelector, df_changeset.DataFeedsCache.String()) //nolint:staticcheck // won't migrate now
 	if dataFeedsCacheErr != nil {
 		return errors.Wrapf(dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", input.chainSelector)
 	}
@@ -523,7 +523,7 @@ func setupPoRTestEnvironment(
 	dfOutput, dfErr := df_changeset.RunChangeset(df_changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
 	require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
-	mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook)
+	mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
 	require.NoError(t, mergeErr, "failed to merge address book")
 
 	var creCLIAbsPath string
@@ -538,7 +538,7 @@ func setupPoRTestEnvironment(
 		var settingsErr error
 		creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(
 			homeChainOutput.SethClient.MustGetRootKeyAddress(),
-			universalSetupOutput.CldEnvironment.ExistingAddresses,
+			universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 			universalSetupOutput.DonTopology.WorkflowDonID,
 			homeChainOutput.ChainSelector,
 			map[uint64]string{
@@ -569,7 +569,7 @@ func setupPoRTestEnvironment(
 		homeChainSelector:  homeChainOutput.ChainSelector,
 		workflowDonID:      universalSetupOutput.DonTopology.WorkflowDonID,
 		feedID:             in.WorkflowConfigs[0].FeedID,
-		addressBook:        universalSetupOutput.CldEnvironment.ExistingAddresses,
+		addressBook:        universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		priceProvider:      priceProvider,
 		sethClient:         homeChainOutput.SethClient,
 		deployerPrivateKey: homeChainOutput.DeployerPrivateKey,
@@ -589,7 +589,7 @@ func setupPoRTestEnvironment(
 	// 	Out: universalSetupOutput.KeystoneContractsOutput,
 	// }
 
-	dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, df_changeset.DataFeedsCache.String())
+	dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, df_changeset.DataFeedsCache.String()) //nolint:staticcheck // won't migrate now
 	require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", homeChainOutput.ChainSelector)
 
 	in.DataFeedsCacheContract = &keystonetypes.DeployDataFeedsCacheInput{
@@ -601,7 +601,7 @@ func setupPoRTestEnvironment(
 		Out: universalSetupOutput.WorkflowRegistryConfigurationOutput,
 	}
 
-	forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.KeystoneForwarder.String())
+	forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
 	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", homeChainOutput.ChainSelector)
 
 	return &porSetupOutput{

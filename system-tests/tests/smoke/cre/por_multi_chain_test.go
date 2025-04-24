@@ -138,7 +138,7 @@ func setupPoRMultiChainTestEnvironment(
 		dfOutput, dfErr := df_changeset.RunChangeset(df_changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
 		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
-		mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook)
+		mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
 		require.NoError(t, mergeErr, "failed to merge address book")
 
 		var creCLIAbsPath string
@@ -153,7 +153,7 @@ func setupPoRMultiChainTestEnvironment(
 			var settingsErr error
 			creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(
 				bo.SethClient.MustGetRootKeyAddress(),
-				universalSetupOutput.CldEnvironment.ExistingAddresses,
+				universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				universalSetupOutput.DonTopology.WorkflowDonID,
 				homeChainOutput.ChainSelector,
 				map[uint64]string{
@@ -185,7 +185,7 @@ func setupPoRMultiChainTestEnvironment(
 			chainSelector:      bo.ChainSelector,
 			workflowDonID:      universalSetupOutput.DonTopology.WorkflowDonID,
 			feedID:             in.WorkflowConfigs[idx].FeedID,
-			addressBook:        universalSetupOutput.CldEnvironment.ExistingAddresses,
+			addressBook:        universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 			priceProvider:      priceProvider,
 			sethClient:         bo.SethClient,
 			deployerPrivateKey: bo.DeployerPrivateKey,
@@ -219,7 +219,7 @@ func setupPoRMultiChainTestEnvironment(
 		chainSelectorToBlockchainOutput: chainSelectorToBlockchainOutput,
 		donTopology:                     universalSetupOutput.DonTopology,
 		nodeOutput:                      universalSetupOutput.NodeOutput,
-		addressBook:                     universalSetupOutput.CldEnvironment.ExistingAddresses,
+		addressBook:                     universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		chainSelectorToFeedID:           chainSelectorToFeedID,
 	}
 }
