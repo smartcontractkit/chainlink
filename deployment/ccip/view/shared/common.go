@@ -3,7 +3,9 @@ package shared
 import (
 	"github.com/ethereum/go-ethereum/common"
 
+	registryModuleOwnerCustomv15 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
+	registryModuleOwnerCustomv16 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 )
 
 const (
@@ -30,4 +32,30 @@ func GetSupportedTokens(taContract *token_admin_registry.TokenAdminRegistry) ([]
 		}
 	}
 	return allTokens, nil
+}
+
+func GetRegistryModuleView(registryModule any, tokenAdminRegistry common.Address) (RegistryModulesView, error) {
+	switch module := registryModule.(type) {
+	case *registryModuleOwnerCustomv15.RegistryModuleOwnerCustom:
+		tv, err := module.TypeAndVersion(nil)
+		if err != nil {
+			return RegistryModulesView{}, err
+		}
+		return RegistryModulesView{
+			TypeAndVersion:     tv,
+			TokenAdminRegistry: tokenAdminRegistry.Hex(),
+		}, nil
+
+	case *registryModuleOwnerCustomv16.RegistryModuleOwnerCustom:
+		tv, err := module.TypeAndVersion(nil)
+		if err != nil {
+			return RegistryModulesView{}, err
+		}
+		return RegistryModulesView{
+			TypeAndVersion:     tv,
+			TokenAdminRegistry: tokenAdminRegistry.Hex(),
+		}, nil
+	default:
+		return RegistryModulesView{}, nil
+	}
 }

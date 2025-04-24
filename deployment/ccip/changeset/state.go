@@ -465,26 +465,20 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 
 	if c.RegistryModules1_6 != nil {
 		for _, registryModule := range c.RegistryModules1_6 {
-			tv, err := registryModule.TypeAndVersion(nil)
+			registryModuleView, err := shared.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
 			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to get type and version for registry module %s", registryModule.Address().Hex())
+				return chainView, errors.Wrapf(err, "failed to generate registry module view for registry module %s", registryModule.Address().Hex())
 			}
-			chainView.RegistryModules[registryModule.Address().Hex()] = shared.RegistryModulesView{
-				TypeAndVersion:     tv,
-				TokenAdminRegistry: c.TokenAdminRegistry.Address().Hex(),
-			}
+			chainView.RegistryModules[registryModule.Address().Hex()] = registryModuleView
 		}
 	}
 	if c.RegistryModules1_5 != nil {
 		for _, registryModule := range c.RegistryModules1_5 {
-			tv, err := registryModule.TypeAndVersion(nil)
+			registryModuleView, err := shared.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
 			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to get type and version for registry module %s", registryModule.Address().Hex())
+				return chainView, errors.Wrapf(err, "failed to generate registry module view for registry module %s", registryModule.Address().Hex())
 			}
-			chainView.RegistryModules[registryModule.Address().Hex()] = shared.RegistryModulesView{
-				TypeAndVersion:     tv,
-				TokenAdminRegistry: c.TokenAdminRegistry.Address().Hex(),
-			}
+			chainView.RegistryModules[registryModule.Address().Hex()] = registryModuleView
 		}
 	}
 	// Legacy contracts
