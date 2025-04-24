@@ -162,10 +162,7 @@ var startCmd = &cobra.Command{
 		sErr := func() error {
 			creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
 				homeChainOut.SethClient.MustGetRootKeyAddress(),
-				output.CldEnvironment.ExistingAddresses,
-				// output.KeystoneContractsOutput.CapabilitiesRegistryAddress,
-				// output.KeystoneContractsOutput.WorkflowRegistryAddress,
-				// nil,
+				output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				output.DonTopology.WorkflowDonID,
 				homeChainOut.ChainSelector,
 				map[uint64]string{

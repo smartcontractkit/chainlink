@@ -192,7 +192,7 @@ func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey 
 	pricesToServe := make(map[string][]float64)
 	for _, feedID := range cleanFeedIDs {
 		// Add more prices here as needed
-		pricesFloat64 := []float64{math.Round((rand.Float64()*199+1)*100) / 100, math.Round((rand.Float64()*199+1)*100) / 100} //nolint:gosec // we don't care how random it is
+		pricesFloat64 := []float64{math.Round((rand.Float64()*199+1)*100) / 100, math.Round((rand.Float64()*199+1)*100) / 100}
 		pricesToServe[feedID] = pricesFloat64
 
 		expectedPrices[feedID] = make([]*big.Int, len(pricesFloat64))
