@@ -273,6 +273,10 @@ func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf bo
 //	    MCMS: &MCMSConfig{MinDelay: 0},
 //	}
 //	output, err := RMNCurseChangeset(env, cfg)
+//
+// This changeset is following an anti-pattern of supporting multiple chain families. Most changeset should be family specific.
+// The decision to support multiple chain families here is due to the fact that curse changesets are emergency actions
+// we want to keep a simple unified interface for all chain families to streamline emergency procedures.
 func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {
@@ -340,6 +344,7 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 }
 
 // RMNUncurseChangeset creates a new changeset for uncursing chains or lanes on RMNRemote contracts.
+// Curse actions are reused and reverted instead of applied in this changeset
 // Example usage:
 //
 //	cfg := RMNCurseConfig{
@@ -351,7 +356,9 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 //	}
 //	output, err := RMNUncurseChangeset(env, cfg)
 //
-// Curse actions are reused and reverted instead of applied in this changeset
+// This changeset is following an anti-pattern of supporting multiple chain families. Most changeset should be family specific.
+// The decision to support multiple chain families here is due to the fact that curse changesets are emergency actions
+// we want to keep a simple unified interface for all chain families to streamline emergency procedures.
 func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {

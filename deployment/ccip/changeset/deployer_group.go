@@ -68,6 +68,8 @@ func (d SolanaDescribedTransaction) ToMCMS(selector uint64) (mcmstypes.Transacti
 	if err != nil {
 		return mcmstypes.Transaction{}, fmt.Errorf("failed to extract data: %w", err)
 	}
+
+	// We clear the signer as we will add back timelock PDA signer
 	for _, account := range d.Tx.Accounts() {
 		if account.IsSigner {
 			account.IsSigner = false
