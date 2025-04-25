@@ -166,7 +166,7 @@ func TestAddTokenE2E(t *testing.T) {
 						MaxSupply:     big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 						Type:          changeset.BurnMintToken,
 						PoolType:      changeset.BurnMintTokenPool,
-						TransferToken: map[common.Address]*big.Int{
+						MintTokenForRecipients: map[common.Address]*big.Int{
 							recipientAddress: topupAmount,
 						},
 					}
@@ -205,11 +205,11 @@ func TestAddTokenE2E(t *testing.T) {
 						Contract: token,
 					}
 					// check token balance
-					balance, err := token.BalanceOf(&bind.CallOpts{}, recipientAddress)
+					balance, err := token.BalanceOf(&bind.CallOpts{Context: ctx}, recipientAddress)
 					require.NoError(t, err)
 					require.Equal(t, balance, topupAmount)
 					// check minter role
-					minterCheck, err := token.IsMinter(&bind.CallOpts{}, recipientAddress)
+					minterCheck, err := token.IsMinter(&bind.CallOpts{Context: ctx}, recipientAddress)
 					require.NoError(t, err)
 					require.True(t, minterCheck)
 				}
@@ -255,12 +255,12 @@ func TestAddTokenE2E(t *testing.T) {
 				)
 				if test.withNewToken {
 					// check token pool is added as minter
-					minterCheck, err := token.Contract.IsMinter(&bind.CallOpts{}, tokenPoolC.Address())
+					minterCheck, err := token.Contract.IsMinter(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
 					require.NoError(t, err)
 					require.True(t, minterCheck)
 
 					// check token pool is added as burner
-					burnerCheck, err := token.Contract.IsBurner(&bind.CallOpts{}, tokenPoolC.Address())
+					burnerCheck, err := token.Contract.IsBurner(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
 					require.NoError(t, err)
 					require.True(t, burnerCheck)
 				}

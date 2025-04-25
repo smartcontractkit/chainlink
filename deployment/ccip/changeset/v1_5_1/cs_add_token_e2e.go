@@ -1,6 +1,7 @@
 package v1_5_1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -144,15 +145,15 @@ func (c *AddTokenE2EConfig) newDeployTokenPoolConfigAfterTokenDeployment(tokenAd
 }
 
 type DeployTokenConfig struct {
-	TokenName       string
-	TokenSymbol     changeset.TokenSymbol
-	TokenDecimals   uint8    // needed for BurnMintToken only
-	MaxSupply       *big.Int // needed for BurnMintToken only
-	Type            deployment.ContractType
-	PoolType        deployment.ContractType // This is the type of the token pool that will be deployed for this token.
-	PoolAllowList   []common.Address
-	AcceptLiquidity *bool
-	TransferToken   map[common.Address]*big.Int // TransferToken is a map of recipient address to amount to be transferred or minted and provided minting role after token deployment.
+	TokenName              string
+	TokenSymbol            changeset.TokenSymbol
+	TokenDecimals          uint8    // needed for BurnMintToken only
+	MaxSupply              *big.Int // needed for BurnMintToken only
+	Type                   deployment.ContractType
+	PoolType               deployment.ContractType // This is the type of the token pool that will be deployed for this token.
+	PoolAllowList          []common.Address
+	AcceptLiquidity        *bool
+	MintTokenForRecipients map[common.Address]*big.Int // MintTokenForRecipients is a map of recipient address to amount to be transferred or minted and provided minting role after token deployment.
 }
 
 func (c *DeployTokenConfig) Validate() error {
@@ -380,15 +381,20 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 				},
 			)
 			if err != nil {
-				return nil, ab, fmt.Errorf("failed to deploy BurnMintERC677 token %s on chain %d: %w", cfg.TokenName, selector, err)
+				return nil, ab, fmt.Errorf("failed to deploy BurnMintERC677 token "+
+					"%s on chain %d: %w", cfg.TokenName, selector, err)
 			}
-			if err := addMinterAndMintToken(e, selector, token.Contract, e.Chains[selector].DeployerKey.From, new(big.Int).Mul(big.NewInt(1_000), big.NewInt(1_000_000_000))); err != nil {
-				return nil, ab, fmt.Errorf("failed to add minter and mint token %s on chain %d: %w", cfg.TokenName, selector, err)
+			if err := addMinterAndMintToken(e, selector, token.Contract, e.Chains[selector].DeployerKey.From,
+				new(big.Int).Mul(big.NewInt(1_000), big.NewInt(1_000_000_000))); err != nil {
+				return nil, ab, fmt.Errorf("failed to add minter and mint token "+
+					"%s on chain %d: %w", cfg.TokenName, selector, err)
 			}
-			if len(cfg.TransferToken) > 0 {
-				for recipient, amount := range cfg.TransferToken {
-					if err := addMinterAndMintToken(e, selector, token.Contract, recipient, amount); err != nil {
-						return nil, ab, fmt.Errorf("failed to add minter and mint token %s on chain %d: %w", cfg.TokenName, selector, err)
+			if len(cfg.MintTokenForRecipients) > 0 {
+				for recipient, amount := range cfg.MintTokenForRecipients {
+					if err := addMinterAndMintToken(e, selector, token.Contract, recipient,
+						amount); err != nil {
+						return nil, ab, fmt.Errorf("failed to add minter and mint "+
+							"token %s on chain %d: %w", cfg.TokenName, selector, err)
 					}
 				}
 			}
@@ -449,6 +455,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 
 // grantAccessToPool grants the token pool contract access to mint and burn tokens.
 func grantAccessToPool(
+	ctx context.Context,
 	chain deployment.Chain,
 	tpAddress common.Address,
 	tokenAddress common.Address,
@@ -457,7 +464,7 @@ func grantAccessToPool(
 	if err != nil {
 		return fmt.Errorf("failed to connect address %s with erc677 bindings: %w", tokenAddress, err)
 	}
-	owner, err := token.Owner(&bind.CallOpts{})
+	owner, err := token.Owner(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get owner of token %s: %w", tokenAddress, err)
 	}
@@ -478,6 +485,15 @@ func grantAccessToPool(
 // addMinterAndMintToken adds the minter role to the recipient and mints the specified amount of tokens to the recipient's address.
 func addMinterAndMintToken(env deployment.Environment, selector uint64, token *burn_mint_erc677.BurnMintERC677, recipient common.Address, amount *big.Int) error {
 	deployerKey := env.Chains[selector].DeployerKey
+	ctx := env.GetContext()
+	// check if owner is the deployer key
+	owner, err := token.Owner(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get owner of token %s on chain %d: %w", token.Address().Hex(), selector, err)
+	}
+	if owner != deployerKey.From {
+		return fmt.Errorf("owner of token %s on chain %d is not the deployer key", token.Address().Hex(), selector)
+	}
 	// Grant minter role to the given address
 	tx, err := token.GrantMintRole(deployerKey, recipient)
 	if err != nil {
@@ -486,7 +502,8 @@ func addMinterAndMintToken(env deployment.Environment, selector uint64, token *b
 	if _, err := env.Chains[selector].Confirm(tx); err != nil {
 		return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), selector, err)
 	}
-	env.Logger.Infow("Transaction granting mint role mined successfully", "Hash", tx.Hash().Hex())
+	env.Logger.Infow("Transaction granting mint role mined successfully",
+		"Hash", tx.Hash().Hex(), "Selector", selector)
 
 	// Mint tokens to the given address and verify the balance
 	tx, err = token.Mint(deployerKey, recipient, amount)
@@ -500,7 +517,7 @@ func addMinterAndMintToken(env deployment.Environment, selector uint64, token *b
 	}
 	env.Logger.Infow("Transaction minting token mined successfully", "Hash", tx.Hash().Hex())
 
-	balance, err := token.BalanceOf(nil, recipient)
+	balance, err := token.BalanceOf(&bind.CallOpts{Context: ctx}, recipient)
 	if err != nil {
 		return fmt.Errorf("failed to get balance of %s on chain %d: %w",
 			recipient.Hex(), selector, err)
@@ -509,7 +526,7 @@ func addMinterAndMintToken(env deployment.Environment, selector uint64, token *b
 		return fmt.Errorf("expected balance of %s, got %s",
 			amount.String(), balance.String())
 	}
-	symbol, err := token.Symbol(nil)
+	symbol, err := token.Symbol(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get token symbol for %s on chain %d: %w",
 			token.Address().Hex(), selector, err)

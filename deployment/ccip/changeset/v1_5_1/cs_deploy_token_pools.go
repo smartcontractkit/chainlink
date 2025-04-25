@@ -173,7 +173,7 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 				return fmt.Errorf("failed to deploy token pool contract: %w", err)
 			}
 			if poolConfig.Type == changeset.BurnMintTokenPool {
-				err := grantAccessToPool(chain, contract.Address, poolConfig.TokenAddress)
+				err := grantAccessToPool(env.GetContext(), chain, contract.Address, poolConfig.TokenAddress)
 				if err != nil {
 					return fmt.Errorf("failed to grant token pool access to token: %s %w", poolConfig.TokenAddress, err)
 				}
