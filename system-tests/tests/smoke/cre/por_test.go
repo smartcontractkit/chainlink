@@ -604,7 +604,7 @@ func setupPoRTestEnvironment(
 	}
 }
 
-// config file to use: environment-multichain-one-don.toml
+// config file to use: environment-one-don-multichain.toml
 func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.T) {
 	testLogger := framework.L
 

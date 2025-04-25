@@ -118,16 +118,14 @@ func SetupTestEnvironment(
 		infra:    &input.InfraInput,
 		nixShell: nixShell,
 	}
-	for _, bcInput := range input.BlockchainsInput {
-		bi.blockchainsInput = append(bi.blockchainsInput, bcInput)
-	}
+	bi.blockchainsInput = append(bi.blockchainsInput, input.BlockchainsInput...)
 
 	blockchainsOutput, bcOutErr := CreateBlockchains(testLogger, bi)
 	if bcOutErr != nil {
 		return nil, pkgerrors.Wrap(bcOutErr, "failed to create blockchains")
 	}
 
-	//create deployment.Environment that will contain only chain information in order to deploy contracts with the CLD
+	// create deployment.Environment that will contain only chain information in order to deploy contracts with the CLD
 	homeChainOutput := blockchainsOutput[0]
 	chainsConfigs := []devenv.ChainConfig{}
 	for _, bcOut := range blockchainsOutput {
