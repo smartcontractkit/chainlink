@@ -403,9 +403,9 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 func toSpecStatus(s uint8) job.WorkflowSpecStatus {
 	switch s {
-	case 0:
+	case WorkflowStatusActive:
 		return job.WorkflowSpecStatusActive
-	case 1:
+	case WorkflowStatusPaused:
 		return job.WorkflowSpecStatusPaused
 	default:
 		return job.WorkflowSpecStatusDefault
