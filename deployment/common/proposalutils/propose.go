@@ -125,7 +125,7 @@ func (tc *TimelockConfig) ValidateSolana(e deployment.Environment, chainSelector
 	}
 
 	validateContract := func(contractType deployment.ContractType) error {
-		timelockID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, contractType)
+		timelockID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, contractType) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
 		if err != nil {
 			return fmt.Errorf("%s not present on the chain %w", contractType, err)
 		}
