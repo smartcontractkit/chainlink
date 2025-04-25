@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 )
@@ -58,7 +59,6 @@ func (c DonConfig) Validate() error {
 }
 
 type testEnvIface interface {
-	ContractSets() map[uint64]changeset.ContractSet
 	CapabilitiesRegistry() *kcr.CapabilitiesRegistry
 	CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo
 	Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded
@@ -109,15 +109,6 @@ type EnvWrapper struct {
 	dons testDons
 }
 
-func (te EnvWrapper) ContractSets() map[uint64]changeset.ContractSet {
-	r, err := changeset.GetContractSets(te.Env.Logger, &changeset.GetContractSetsRequest{
-		Chains:      te.Env.Chains,
-		AddressBook: te.Env.ExistingAddresses,
-	})
-	require.NoError(te.t, err)
-	return r.ContractSets
-}
-
 func (te EnvWrapper) CapabilitiesRegistry() *kcr.CapabilitiesRegistry {
 	return te.OwnedCapabilityRegistry().Contract
 }
@@ -130,11 +121,24 @@ func (te EnvWrapper) CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo 
 }
 
 func (te EnvWrapper) OwnedCapabilityRegistry() *changeset.OwnedContract[*kcr.CapabilitiesRegistry] {
-	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(registryQualifier))
-	require.Len(te.t, addrs, 1)
-	c, err := changeset.GetOwnedContractV2[*kcr.CapabilitiesRegistry](te.Env.DataStore.Addresses(), te.Env.Chains[te.RegistrySelector], addrs[0].Address)
-	require.NoError(te.t, err)
-	require.NotNil(te.t, c)
+	/*
+		addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(registryQualifier))
+		require.Len(te.t, addrs, 1)
+		c, err := changeset.GetOwnedContractV2[*kcr.CapabilitiesRegistry](te.Env.DataStore.Addresses(), te.Env.Chains[te.RegistrySelector], addrs[0].Address)
+		require.NoError(te.t, err)
+		require.NotNil(te.t, c)
+		return c
+	*/
+	return loadOneContract[*kcr.CapabilitiesRegistry](te.t, te.Env, te.Env.Chains[te.RegistrySelector], registryQualifier)
+}
+
+func loadOneContract[T changeset.Ownable](t *testing.T, env deployment.Environment, chain deployment.Chain, qualifier string) *changeset.OwnedContract[T] {
+	t.Helper()
+	addrs := env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))
+	require.Len(t, addrs, 1)
+	c, err := changeset.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address)
+	require.NoError(t, err)
+	require.NotNil(t, c)
 	return c
 }
 
@@ -142,6 +146,29 @@ func (te EnvWrapper) CapabilityRegistryAddressRef() datastore.AddressRefKey {
 	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(registryQualifier))
 	require.Len(te.t, addrs, 1)
 	return datastore.NewAddressRefKey(addrs[0].ChainSelector, addrs[0].Type, addrs[0].Version, addrs[0].Qualifier)
+}
+
+func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
+	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
+	require.Greater(te.t, len(addrs), 0)
+	out := make([]datastore.AddressRefKey, len(addrs))
+	for i, addr := range addrs {
+		out[i] = datastore.NewAddressRefKey(addr.ChainSelector, addr.Type, addr.Version, addr.Qualifier)
+	}
+	return out
+}
+
+func (te EnvWrapper) OwnedForwarders() map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder] { // chain selector -> forwarders
+	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
+	require.Greater(te.t, len(addrs), 0)
+	out := make(map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder])
+	for _, addr := range addrs {
+		c, err := changeset.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.Chains[addr.ChainSelector], addr.Address)
+		require.NoError(te.t, err)
+		require.NotNil(te.t, c)
+		out[addr.ChainSelector] = append(out[addr.ChainSelector], c)
+	}
+	return out
 }
 
 func (te EnvWrapper) Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded {
@@ -179,7 +206,20 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 		DataStore:         datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]().Seal(),
 	}
 
-	env, err := commonchangeset.Apply(t, env, nil,
+	forwarderChangesets := make([]commonchangeset.ConfiguredChangeSet, nChains)
+	i := 0
+	for _, c := range chains {
+		forwarderChangesets[i] = commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployForwarderV2),
+			&changeset.DeployRequestV2{
+				ChainSel:  c.Selector,
+				Qualifier: forwarderQualifier,
+			},
+		)
+		i++
+	}
+
+	changes := []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2),
 			&changeset.DeployRequestV2{
@@ -196,10 +236,12 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 				Labels:    nil,
 			},
 		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployForwarder),
-			changeset.DeployForwarderRequest{},
-		),
+		/*
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset.DeployForwarder),
+				changeset.DeployForwarderRequest{},
+			),
+		*/
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(workflowregistry.DeployV2),
 			&changeset.DeployRequestV2{
@@ -208,6 +250,10 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 				Labels:    nil,
 			},
 		),
+	}
+	changes = append(changes, forwarderChangesets...)
+	env, err := commonchangeset.ApplyChangesets(t, env, nil,
+		changes,
 	)
 	require.NoError(t, err)
 	require.NotNil(t, env)
@@ -304,19 +350,13 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	require.NoError(t, err)
 	require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
 
-	req := changeset.GetContractSetsRequestV2{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	}
-
-	contractSetsResp, err := changeset.GetContractSetsV2(lggr, req)
-	require.NoError(t, err)
-	require.Len(t, contractSetsResp.ContractSets, len(env.Chains))
 	// check the registry
-	gotRegistry := contractSetsResp.ContractSets[registryChainSel].CapabilitiesRegistry.Contract
-	require.NotNil(t, gotRegistry)
+	gotOwnedRegistry := loadOneContract[*kcr.CapabilitiesRegistry](t, env, env.Chains[registryChainSel], registryQualifier)
+	//gotRegistry := contractSetsResp.ContractSets[registryChainSel].CapabilitiesRegistry.Contract
+	require.NotNil(t, gotOwnedRegistry)
 	// validate the registry
 	// check the nodes
+	gotRegistry := gotOwnedRegistry.Contract
 	gotNodes, err := gotRegistry.GetNodes(nil)
 	require.NoError(t, err)
 	require.Len(t, gotNodes, len(dons.P2PIDs()))

@@ -36,6 +36,14 @@ func TestSetupEnv(t *testing.T) {
 				require.Len(t, te.Env.Chains, 3)
 				require.NotEmpty(t, te.RegistrySelector)
 				require.NotNil(t, te.Env.Offchain)
+				// one forwarder on each chain
+				forwardersByChain := te.OwnedForwarders()
+				require.Len(t, forwardersByChain, 3)
+				for _, forwarders := range forwardersByChain {
+					require.Len(t, forwarders, 1)
+					require.NotNil(t, forwarders[0])
+					require.NotNil(t, forwarders[0].Contract)
+				}
 				r, err := te.Env.Offchain.ListNodes(ctx, &node.ListNodesRequest{})
 				require.NoError(t, err)
 				require.Len(t, r.Nodes, 12)

@@ -154,12 +154,14 @@ func TestConfigureForwarders(t *testing.T) {
 				require.Empty(t, csOut.Proposals)
 				// check that forwarder
 				// TODO set up a listener to check that the forwarder is configured
-				contractSet := te.ContractSets()
+				forwardersByChain := te.OwnedForwarders()
 				for selector := range te.Env.Chains {
-					cs, ok := contractSet[selector]
+					forwarders, ok := forwardersByChain[selector]
 					require.True(t, ok)
-					require.NotNil(t, cs.Forwarder)
-					requireConfigUpdate(t, cs.Forwarder, chainToExclude == selector)
+					require.NotNil(t, forwarders)
+					require.Len(t, forwarders, 1)
+					f := forwarders[0]
+					requireConfigUpdate(t, f.Contract, chainToExclude == selector)
 				}
 			})
 		}
@@ -205,12 +207,15 @@ func TestConfigureForwarders(t *testing.T) {
 				require.Nil(t, csOut.AddressBook)
 
 				timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-				for selector, contractSet := range te.ContractSets() {
-					require.NotNil(t, contractSet.Timelock)
-					require.NotNil(t, contractSet.CallProxy)
+				x := te.OwnedForwarders()
+				for selector, forwardersByChain := range x {
+					require.Len(t, forwardersByChain, 1)
+					f := forwardersByChain[0]
+					require.NotNil(t, f.McmsContracts.Timelock)
+					require.NotNil(t, f.McmsContracts.CallProxy)
 					timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-						Timelock:  contractSet.Timelock,
-						CallProxy: contractSet.CallProxy,
+						Timelock:  f.McmsContracts.Timelock,
+						CallProxy: f.McmsContracts.CallProxy,
 					}
 				}
 				_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
@@ -221,8 +226,10 @@ func TestConfigureForwarders(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				for selector, cs := range te.ContractSets() {
-					requireConfigUpdate(t, cs.Forwarder, chainToExclude == selector)
+				for selector, forwardersByChain := range te.OwnedForwarders() {
+					require.Len(t, forwardersByChain, 1)
+					f := forwardersByChain[0]
+					requireConfigUpdate(t, f.Contract, chainToExclude == selector)
 				}
 			})
 		}

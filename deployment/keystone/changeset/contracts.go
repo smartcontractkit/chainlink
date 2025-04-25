@@ -344,7 +344,7 @@ func loadCapabilityRegistry(registryChain deployment.Chain, env deployment.Envir
 		}
 		cr, err = GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](env.DataStore.Addresses(), registryChain, a.Address)
 	} else {
-		cs, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
+		cs, err := getContractSetsV2(env.Logger, getContractSetsRequestV2{
 			Chains:      map[uint64]deployment.Chain{registryChain.Selector: registryChain},
 			AddressBook: env.ExistingAddresses,
 		})

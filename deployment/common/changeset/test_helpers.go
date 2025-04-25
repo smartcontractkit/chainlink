@@ -57,6 +57,13 @@ func Apply(t *testing.T, e deployment.Environment, timelockContractsPerChain map
 	return ApplyChangesets(t, e, timelockContractsPerChain, append([]ConfiguredChangeSet{first}, rest...))
 }
 
+// Apply applies the changeset applications to the environment and returns the updated environment. This is the
+// variadic function equivalent of ApplyChangesets, but allowing you to simply pass in one or more changesets as
+// parameters at the end of the function. e.g. `changeset.Apply(t, e, nil, configuredCS1, configuredCS2)` etc.
+func ApplyV2(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, cs ...ConfiguredChangeSet) (deployment.Environment, error) {
+	return ApplyChangesets(t, e, timelockContractsPerChain, cs)
+}
+
 // ApplyChangesets applies the changeset applications to the environment and returns the updated environment.
 func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, changesetApplications []ConfiguredChangeSet) (deployment.Environment, error) {
 	currentEnv := e

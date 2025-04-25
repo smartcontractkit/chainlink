@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -278,24 +277,11 @@ func TestConfigureOCR3(t *testing.T) {
 		assert.NotNil(t, csOut.MCMSTimelockProposals)
 		t.Logf("got: %v", csOut.MCMSTimelockProposals[0])
 
-		contracts := te.ContractSets()[te.RegistrySelector]
-		require.NoError(t, err)
-		var timelockContracts = map[uint64]*proposalutils.TimelockExecutionContracts{
-			te.RegistrySelector: {
-				Timelock:  contracts.Timelock,
-				CallProxy: contracts.CallProxy,
-			},
-		}
-
 		// now apply the changeset such that the proposal is signed and execed
 		w2 := &bytes.Buffer{}
 		cfg.WriteGeneratedConfig = w2
-		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset.ConfigureOCR3Contract),
-				cfg,
-			),
-		)
+
+		err = applyProposal(t, te, commonchangeset.Configure(deployment.CreateLegacyChangeSet(changeset.ConfigureOCR3Contract), cfg))
 		require.NoError(t, err)
 	})
 }

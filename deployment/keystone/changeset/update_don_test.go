@@ -142,7 +142,7 @@ func TestUpdateDon(t *testing.T) {
 						}
 					}
 
-					assertDonContainsCapabilities(t, te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry, caps, p2pIDs)
+					assertDonContainsCapabilities(t, te.CapabilitiesRegistry(), caps, p2pIDs)
 				})
 			}
 		})
