@@ -102,3 +102,5 @@ Name = 'primary' # Example
 URL = 'http://solana.web' # Example
 # SendOnly is a multinode config that only sends transactions to a node and does not read state
 SendOnly = false # Default
+# Order specifies the priority for each node. 1 is highest priority down to 100 being the lowest.
+Order = 100 # Default

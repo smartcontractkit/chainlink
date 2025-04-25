@@ -20,7 +20,7 @@
 
 [[nodesets]]
   nodes = 5
-  override_mode = "all"
+  override_mode = "each"
   http_port_range_start = 10100
   name = "workflow"
 
@@ -29,7 +29,31 @@
     port = 13000
 
   [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']g
+      custom_ports = ["5002:5002"]
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
 
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [OCR2]
+      Enabled = true
+      DatabaseTimeout = '1s'
+
+      [P2P.V2]
+      Enabled = true
+      ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
     [nodesets.node_specs.node]
       docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
@@ -44,11 +68,83 @@
       Level = 'debug'
       JSONConsole = true
 
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
+      [OCR2]
+      Enabled = true
+      DatabaseTimeout = '1s'
 
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
+      [P2P.V2]
+      Enabled = true
+      ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [OCR2]
+      Enabled = true
+      DatabaseTimeout = '1s'
+
+      [P2P.V2]
+      Enabled = true
+      ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [OCR2]
+      Enabled = true
+      DatabaseTimeout = '1s'
+
+      [P2P.V2]
+      Enabled = true
+      ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [OCR2]
+      Enabled = true
+      DatabaseTimeout = '1s'
+
+      [P2P.V2]
+      Enabled = true
+      ListenAddresses = ['0.0.0.0:5001']
       """
