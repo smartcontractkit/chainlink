@@ -1,10 +1,12 @@
 package solana
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -22,10 +24,10 @@ func (t UpdateTimelockDelaySolana) VerifyPreconditions(
 	env deployment.Environment, config UpdateTimelockDelaySolanaCfg,
 ) error {
 	if len(config.DelayPerChain) == 0 {
-		return fmt.Errorf("no delay configs provided")
+		return errors.New("no delay configs provided")
 	}
 	if len(env.SolChains) == 0 {
-		return fmt.Errorf("no solana chains provided")
+		return errors.New("no solana chains provided")
 	}
 	// check the timelock program is deployed
 	for chainSelector := range config.DelayPerChain {
@@ -33,6 +35,8 @@ func (t UpdateTimelockDelaySolana) VerifyPreconditions(
 		if !ok {
 			return fmt.Errorf("solana chain not found for selector %d", chainSelector)
 		}
+
+		//nolint:staticcheck // will wait till we can migrate from address book before using data store
 		addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return fmt.Errorf("failed to get existing addresses: %w", err)
@@ -56,6 +60,7 @@ func (t UpdateTimelockDelaySolana) Apply(
 ) (deployment.ChangesetOutput, error) {
 	for chainSelector, delay := range cfg.DelayPerChain {
 		solChain := env.SolChains[chainSelector]
+		//nolint:staticcheck // will wait till we can migrate from address book before using data store
 		addreses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)

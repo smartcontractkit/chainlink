@@ -5,9 +5,10 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
-	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
@@ -36,6 +37,7 @@ func setupUpdateDelayTestEnv(t *testing.T) deployment.Environment {
 	err := testhelpers.SavePreloadedSolAddresses(env, chainSelector)
 	require.NoError(t, err)
 	// Initialize the address book with a dummy address to avoid deploy precondition errors.
+	//nolint:staticcheck // will wait till we can migrate from address book before using data store
 	err = env.ExistingAddresses.Save(chainSelector, "dummyAddress", deployment.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
 	require.NoError(t, err)
 
@@ -66,6 +68,7 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	)
 	mcmDummyProgram := solana.NewWallet().PublicKey()
 
+	//nolint:staticcheck // will wait till we can migrate from address book before using data store
 	err := validEnv.ExistingAddresses.Save(validSolChainSelector, timelockID, deployment.TypeAndVersion{
 		Type:    types.RBACTimelock,
 		Version: deployment.Version1_0_0,
@@ -84,6 +87,8 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 		Nodes:     1,
 	})
 	noTimelockEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
+
+	//nolint:staticcheck // will wait till we can migrate from address book before using data store
 	err = noTimelockEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, deployment.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
@@ -184,6 +189,7 @@ func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
 
 	chainSelector := env.AllChainSelectorsSolana()[0]
 	solChain := env.SolChains[chainSelector]
+	//nolint:staticcheck // will wait till we can migrate from address book before using data store
 	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 
@@ -196,5 +202,4 @@ func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
 	err = solChain.GetAccountDataBorshInto(env.GetContext(), timelockConfigPDA, &timelockConfig)
 	require.NoError(t, err)
 	require.Equal(t, timelockConfig.MinDelay, uint64(newDelayDuration.Seconds()))
-
 }
