@@ -110,6 +110,7 @@ func (r *RelayerFactory) NewSolana(ks coretypes.Keystore, config SolanaFactoryCo
 	unique := make(map[string]struct{})
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
+		chainCfg.SetDefaults()
 		relayID := types.RelayID{Network: relay.NetworkSolana, ChainID: *chainCfg.ChainID}
 		_, alreadyExists := unique[relayID.Name()]
 		if alreadyExists {
