@@ -61,13 +61,13 @@ func (t UpdateTimelockDelaySolana) Apply(
 	for chainSelector, delay := range cfg.DelayPerChain {
 		solChain := env.SolChains[chainSelector]
 		//nolint:staticcheck // will wait till we can migrate from address book before using data store
-		addreses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+		addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addreses)
-		confiPDA := state.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-		updateDelayIx := timelockBindings.NewUpdateDelayInstruction(mcmState.TimelockSeed, uint64(delay.Seconds()), confiPDA, solChain.DeployerKey.PublicKey())
+		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
+		configPDA := state.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		updateDelayIx := timelockBindings.NewUpdateDelayInstruction(mcmState.TimelockSeed, uint64(delay.Seconds()), configPDA, solChain.DeployerKey.PublicKey())
 		ix, err := updateDelayIx.ValidateAndBuild()
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create update delay instruction: %w", err)
