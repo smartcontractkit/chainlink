@@ -29,7 +29,6 @@
     port = 13000
 
   [[nodesets.node_specs]]
-
     [nodesets.node_specs.node]
       docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
@@ -64,7 +63,6 @@
     port = 13100
 
   [[nodesets.node_specs]]
-
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
@@ -88,7 +86,7 @@
 
 [[nodesets]]
   nodes = 1
-  override_mode = "all"
+  override_mode = "each"
   http_port_range_start = 10300
   name = "gateway"
 
@@ -97,11 +95,11 @@
     port = 13200
 
   [[nodesets.node_specs]]
-
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
+      custom_ports = ["5002:5002"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
