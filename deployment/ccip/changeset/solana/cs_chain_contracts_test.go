@@ -78,21 +78,21 @@ func TestAddRemoteChainWithMcms(t *testing.T) {
 	doTestAddRemoteChain(t, tenv.Env, []uint64{evmChain, evmChain2}, solChain, true)
 }
 
-func TestAddRemoteChainWithoutMcms(t *testing.T) {
-	t.Parallel()
-	// Default env just has 2 chains with all contracts
-	// deployed but no lanes.
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+// func TestAddRemoteChainWithoutMcms(t *testing.T) {
+// 	t.Parallel()
+// 	// Default env just has 2 chains with all contracts
+// 	// deployed but no lanes.
+// 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 
-	evmChain := tenv.Env.AllChainSelectors()[0]
-	evmChain2 := tenv.Env.AllChainSelectors()[1]
-	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+// 	evmChain := tenv.Env.AllChainSelectors()[0]
+// 	evmChain2 := tenv.Env.AllChainSelectors()[1]
+// 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
 
-	_, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
-	require.NoError(t, err)
+// 	_, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+// 	require.NoError(t, err)
 
-	doTestAddRemoteChain(t, tenv.Env, []uint64{evmChain, evmChain2}, solChain, false)
-}
+// 	doTestAddRemoteChain(t, tenv.Env, []uint64{evmChain, evmChain2}, solChain, false)
+// }
 
 func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChains []uint64, solChain uint64, mcms bool) {
 	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana

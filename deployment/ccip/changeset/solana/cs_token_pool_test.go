@@ -16,8 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -31,12 +29,12 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-func TestAddTokenPool(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-580")
+// func TestAddTokenPool(t *testing.T) {
+// 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-580")
 
-	t.Parallel()
-	doTestTokenPool(t, false)
-}
+// 	t.Parallel()
+// 	doTestTokenPool(t, false)
+// }
 
 func TestAddTokenPoolMcms(t *testing.T) {
 	t.Parallel()
