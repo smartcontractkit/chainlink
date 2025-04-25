@@ -204,10 +204,10 @@ func resultMapToTimestampedStreamValue(m map[string]interface{}) (*llo.Timestamp
 	// providerIndicatedTimeUnixMs is the best option, with providerDataReceivedUnixMs as a fallback
 	k := "providerIndicatedTimeUnixMs"
 	rawObservedAtMillis, exists := ts[k]
-	if !exists {
+	if !exists || rawObservedAtMillis == nil {
 		k = "providerDataReceivedUnixMs"
 		rawObservedAtMillis, exists = ts[k]
-		if !exists {
+		if !exists || rawObservedAtMillis == nil {
 			return nil, errors.New("expected a key labeled 'providerIndicatedTimeUnixMs' or 'providerDataReceivedUnixMs'")
 		}
 	}
