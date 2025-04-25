@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -76,6 +77,6 @@ func GetRegistryModuleView(registryModule any, tokenAdminRegistry common.Address
 			TokenAdminRegistry: tokenAdminRegistry.Hex(),
 		}, nil
 	default:
-		return RegistryModulesView{}, nil
+		return RegistryModulesView{}, fmt.Errorf("unsupported registry module type: %T", module)
 	}
 }
