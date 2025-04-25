@@ -1308,16 +1308,8 @@ func DeployTransferableTokenSolana(
 						PoolType:    changeset.BurnMintTokenPool,
 						PoolVersion: changeset.CurrentTokenPoolVersion,
 						RateLimiterConfig: ccipChangeSetSolana.RateLimiterConfig{
-							Inbound: solTestTokenPool.RateLimitConfig{
-								Enabled:  false,
-								Capacity: uint64(0),
-								Rate:     1,
-							},
-							Outbound: solTestTokenPool.RateLimitConfig{
-								Enabled:  false,
-								Capacity: uint64(0),
-								Rate:     1,
-							},
+							Inbound:  solTestTokenPool.RateLimitConfig{},
+							Outbound: solTestTokenPool.RateLimitConfig{},
 						},
 					},
 				},
