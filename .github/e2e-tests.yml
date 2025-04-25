@@ -1023,7 +1023,7 @@ runner-test-matrix:
     triggers:
       - Nightly E2E Tests
       - Push E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestCronV2Pipeline|TestCronV2Schedule" -timeout 30m -count=1 -test.parallel=2 -json
+    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestCronBasic|TestCronJobReplacement" -timeout 30m -count=1 -test.parallel=2 -json
     pyroscope_env: ci-smoke-cron-evm-simulated
     test_go_project_path: integration-tests
 

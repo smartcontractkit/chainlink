@@ -29,7 +29,6 @@ import (
 )
 
 const (
-	OfframpAddressLookupTable deployment.ContractType = "OfframpAddressLookupTable"
 	TokenPool                 deployment.ContractType = "TokenPool"
 	Receiver                  deployment.ContractType = "Receiver"
 	SPL2022Tokens             deployment.ContractType = "SPL2022Tokens"

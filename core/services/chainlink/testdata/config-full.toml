@@ -539,13 +539,16 @@ FinalizedBlockOffset = 0
 Name = 'primary'
 URL = 'http://solana.web'
 SendOnly = false
+Order = 1
 
 [[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
 SendOnly = true
+Order = 2
 
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
 SendOnly = true
+Order = 3
