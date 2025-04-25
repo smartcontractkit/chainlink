@@ -295,6 +295,101 @@ func TestRMNCurseOneConnectedLanes(t *testing.T) {
 	}, mapIDToSelector)
 }
 
+func TestRMNCurseOneConnectedLanesGlobalOnly(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1))
+
+	mapIDToSelector := func(id uint64) uint64 {
+		return v1_6.GetAllCursableChainsSelector(e.Env)[id]
+	}
+
+	_, err := v1_6.UpdateOffRampSourcesChangeset(e.Env,
+		v1_6.UpdateOffRampSourcesConfig{
+			UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
+				mapIDToSelector(0): { // to
+					mapIDToSelector(1): { // from
+						IsEnabled:                 true,
+						TestRouter:                false,
+						IsRMNVerificationDisabled: true,
+					},
+				},
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	verifyNoActiveCurseOnAllChains(t, &e)
+
+	config := v1_6.RMNCurseConfig{
+		CurseActions: []v1_6.CurseAction{
+			v1_6.CurseGloballyOnlyOnChain(mapIDToSelector(0)),
+		},
+		Reason:                   "test curse",
+		IncludeNotConnectedLanes: false, // This will filter out non connected lanes
+	}
+
+	_, err = v1_6.RMNCurseChangeset(e.Env, config)
+	require.NoError(t, err)
+
+	verifyTestCaseAssertions(t, &e, CurseTestCase{
+		curseAssertions: []curseAssertion{
+			{chainID: 0, globalCurse: true, cursed: true},
+			{chainID: 0, subject: 1, cursed: true},
+			{chainID: 0, subject: 2, cursed: true}, // 2 is not connected to 0 but 0 is globally cursed return true for everything
+			{chainID: 1, subject: 0, cursed: false},
+			{chainID: 1, subject: 2, cursed: false},
+			{chainID: 2, subject: 0, cursed: false},
+			{chainID: 2, subject: 1, cursed: false},
+		},
+	}, mapIDToSelector)
+}
+
+func TestRMNCurseOneConnectedLanesLaneOnlyOnSource(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1))
+
+	mapIDToSelector := func(id uint64) uint64 {
+		return v1_6.GetAllCursableChainsSelector(e.Env)[id]
+	}
+
+	_, err := v1_6.UpdateOffRampSourcesChangeset(e.Env,
+		v1_6.UpdateOffRampSourcesConfig{
+			UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
+				mapIDToSelector(0): { // to
+					mapIDToSelector(1): { // from
+						IsEnabled:                 true,
+						TestRouter:                false,
+						IsRMNVerificationDisabled: true,
+					},
+				},
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	verifyNoActiveCurseOnAllChains(t, &e)
+
+	config := v1_6.RMNCurseConfig{
+		CurseActions: []v1_6.CurseAction{
+			v1_6.CurseLaneOnlyOnSource(mapIDToSelector(0), mapIDToSelector(1)),
+		},
+		Reason:                   "test curse",
+		IncludeNotConnectedLanes: false, // This will filter out non connected lanes
+	}
+
+	_, err = v1_6.RMNCurseChangeset(e.Env, config)
+	require.NoError(t, err)
+
+	verifyTestCaseAssertions(t, &e, CurseTestCase{
+		curseAssertions: []curseAssertion{
+			{chainID: 0, subject: 1, cursed: true},
+			{chainID: 0, subject: 2, cursed: false},
+			{chainID: 1, subject: 0, cursed: false},
+			{chainID: 1, subject: 2, cursed: false},
+			{chainID: 2, subject: 0, cursed: false},
+			{chainID: 2, subject: 1, cursed: false},
+		},
+	}, mapIDToSelector)
+}
+
 func TestRMNCurseOneConnectedLanesSolana(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1))
 

@@ -331,8 +331,9 @@ func ValidateMCMS(env deployment.Environment, selector uint64, mcmConfig *propos
 			return fmt.Errorf("mcm config is invalid for chain %d: %w", selector, err)
 		}
 	case chain_selectors.FamilySolana:
-		// TODO: Implement MCMS validation for Solana
-		return nil
+		if err := mcmConfig.ValidateSolana(env, selector); err != nil {
+			return fmt.Errorf("mcm config is invalid for chain %d: %w", selector, err)
+		}
 	default:
 		return fmt.Errorf("unsupported chain family: %s", family)
 	}
