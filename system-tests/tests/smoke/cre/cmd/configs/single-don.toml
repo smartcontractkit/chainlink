@@ -34,7 +34,7 @@
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
+      # capabilities = ['./cron']g
       custom_ports = ["5002:5002"]
       user_config_overrides = """
       [Feature]
