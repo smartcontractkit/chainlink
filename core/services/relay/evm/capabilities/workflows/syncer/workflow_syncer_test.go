@@ -18,11 +18,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -35,7 +35,6 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
@@ -182,7 +181,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
-		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
 	}
 
 	testEventHandler.ClearEvents()
@@ -230,15 +229,15 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			for idx, event := range events {
 				switch idx % 5 {
 				case 0:
-					assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
 				case 1:
-					assert.Equal(t, syncer.WorkflowActivatedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowActivatedEvent, event.EventType)
 				case 2:
-					assert.Equal(t, syncer.WorkflowPausedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowPausedEvent, event.EventType)
 				case 3:
-					assert.Equal(t, syncer.WorkflowUpdatedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowUpdatedEvent, event.EventType)
 				case 4:
-					assert.Equal(t, syncer.WorkflowDeletedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowDeletedEvent, event.EventType)
 				}
 			}
 			return true
@@ -308,7 +307,7 @@ func Test_InitialStateSync(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
-		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
 	}
 }
 
@@ -635,12 +634,6 @@ func (m *mockService) Ready() error { return nil }
 
 func (m *mockService) Name() string { return "svc" }
 
-type mockEngineFactory struct{}
-
-func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
-	return &mockService{}, nil
-}
-
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
@@ -677,7 +670,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
-	mf := &mockEngineFactory{}
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
@@ -687,7 +679,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
 	handler, err := syncer.NewEventHandler(lggr, nil, nil, er,
-		emitter, rl, wl, store, syncer.WithEngineFactoryFn(mf.new))
+		emitter, rl, wl, store, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -801,7 +793,7 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 		}, defaultTicker*2, 1*time.Second)
 
 		for _, event := range testEventHandler.GetEvents() {
-			assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+			assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
 		}
 	})
 }
@@ -954,13 +946,13 @@ func (m *testSecretsWorkEventHandler) Close() error { return m.wrappedHandler.Cl
 
 func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event syncer.Event) error {
 	switch {
-	case event.GetEventType() == syncer.ForceUpdateSecretsEvent:
+	case event.EventType == syncer.ForceUpdateSecretsEvent:
 		return m.wrappedHandler.Handle(ctx, event)
-	case event.GetEventType() == syncer.WorkflowRegisteredEvent:
+	case event.EventType == syncer.WorkflowRegisteredEvent:
 		m.registeredCh <- event
 		return nil
 	default:
-		panic(fmt.Sprintf("unexpected event type: %v", event.GetEventType()))
+		panic(fmt.Sprintf("unexpected event type: %v", event.EventType))
 	}
 }
 

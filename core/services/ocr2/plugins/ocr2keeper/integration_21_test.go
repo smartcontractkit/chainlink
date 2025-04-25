@@ -33,6 +33,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	automationForwarderLogic "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_forwarder_logic"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/basic_upkeep_contract"
@@ -277,6 +278,8 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-575")
+
 	g := gomega.NewWithT(t)
 
 	// setup blockchain

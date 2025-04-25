@@ -1049,6 +1049,28 @@ func (o *evmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKe
 	return
 }
 
+func (o *evmTxStore) FindReceiptWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID *big.Int) (ChainReceipt, error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.stopCh.Ctx(ctx)
+	defer cancel()
+	query := `
+		SELECT receipt FROM evm.receipts r  JOIN evm.tx_attempts ta ON r.tx_hash = ta.hash JOIN evm.txes txs ON ta.eth_tx_id = txs.id 
+		WHERE txs.idempotency_key = $1 AND txs.evm_chain_id = $2
+	`
+
+	var r types.Receipt
+	err := o.q.GetContext(ctx, &r, query, idempotencyKey, chainID.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("FindReceiptWithIdempotencyKey failed to load evm.receipts: %w", err)
+	}
+
+	return &r, nil
+}
+
 // FindTxWithSequence returns any broadcast ethtx with the given nonce
 func (o *evmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common.Address, nonce types.Nonce) (etx *Tx, err error) {
 	var cancel context.CancelFunc

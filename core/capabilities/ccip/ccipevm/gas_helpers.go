@@ -125,6 +125,6 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 		SupportsInterfaceCheck +
 		adminRegistryOverhead +
 		rateLimiterOverhead +
-		PerTokenOverheadGas*uint64(numTokens) +
+		PerTokenOverheadGas*uint64(numTokens) + // TODO: remove
 		totalTokenDestGasOverhead, nil
 }

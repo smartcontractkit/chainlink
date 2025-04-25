@@ -49,7 +49,7 @@ type ChainView struct {
 	LinkToken          common_v1_0.LinkTokenView                     `json:"linkToken,omitempty"`
 	StaticLinkToken    common_v1_0.StaticLinkTokenView               `json:"staticLinkToken,omitempty"`
 
-	tpUpdateMu *sync.Mutex
+	UpdateMu *sync.Mutex `json:"-"`
 }
 
 func NewChain() ChainView {
@@ -78,7 +78,7 @@ func NewChain() ChainView {
 		MCMSWithTimelock:   common_v1_0.MCMSWithTimelockView{},
 		LinkToken:          common_v1_0.LinkTokenView{},
 		StaticLinkToken:    common_v1_0.StaticLinkTokenView{},
-		tpUpdateMu:         &sync.Mutex{},
+		UpdateMu:           &sync.Mutex{},
 	}
 }
 
@@ -107,8 +107,8 @@ func NewSolChain() SolChainView {
 }
 
 func (v *ChainView) UpdateTokenPool(tokenSymbol string, tokenPoolAddress string, poolView v1_5_1.PoolView) {
-	v.tpUpdateMu.Lock()
-	defer v.tpUpdateMu.Unlock()
+	v.UpdateMu.Lock()
+	defer v.UpdateMu.Unlock()
 	v.TokenPools = helpers.AddValueToNestedMap(v.TokenPools, tokenSymbol, tokenPoolAddress, poolView)
 }
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -17,12 +18,15 @@ const (
 	NodeTypeKey            = "type"
 	HostLabelKey           = "host"
 	IndexKey               = "node_index"
-	EthAddressKey          = "eth_address"
 	ExtraRolesKey          = "extra_roles"
 	NodeIDKey              = "node_id"
 	NodeOCR2KeyBundleIDKey = "ocr2_key_bundle_id"
 	NodeP2PIDKey           = "p2p_id"
 )
+
+func AddressKeyFromSelector(chainSelector uint64) string {
+	return strconv.FormatUint(chainSelector, 10) + "_public_address"
+}
 
 type stringTransformer func(string) string
 

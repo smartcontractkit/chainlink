@@ -118,8 +118,9 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 				Fields: map[string]string{"RawExecutionReport": "Report"},
 			},
 		},
-		ChainSpecificName: "execute",
-		ArgsTransform:     "CCIPExecute",
+		ChainSpecificName:        "execute",
+		ArgsTransform:            "CCIPExecute",
+		ComputeUnitLimitOverhead: 150_000,
 		LookupTables: chainwriter.LookupTables{
 			DerivedLookupTables: []chainwriter.DerivedLookupTable{
 				{
