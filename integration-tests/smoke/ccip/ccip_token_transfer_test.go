@@ -450,10 +450,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, srcToken, ownerSourceChain)
 	require.NoError(t, err)
 
-	externalTokenPoolsSignerPDA, _, err := solstate.FindExternalTokenPoolsSignerPDA(state.SolChains[sourceChain].BurnMintTokenPool, state.SolChains[sourceChain].Router)
-	require.NoError(t, err)
-
-	ixApprove2, err := soltokens.TokenApproveChecked(1000, 9, solana.Token2022ProgramID, userTokenAccount, srcToken, externalTokenPoolsSignerPDA, ownerSourceChain, nil)
+	ixApprove2, err := soltokens.TokenApproveChecked(1000, 9, solana.Token2022ProgramID, userTokenAccount, srcToken, billingSignerPDA, ownerSourceChain, nil)
 	require.NoError(t, err)
 
 	ixs := []solana.Instruction{ixApprove2}
