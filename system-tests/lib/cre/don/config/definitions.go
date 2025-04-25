@@ -133,7 +133,7 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	[Capabilities.ExternalRegistry]
 	Address = '%s'
 	NetworkID = 'evm'
-	ChainID = '%s'
+	ChainID = '%d'
 `,
 		donBootstrapNodePeerID,
 		donBootstrapNodeHost,
