@@ -98,7 +98,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		err = emitTransmissionScheduleEvent(ctx,
 			req.Metadata.WorkflowExecutionID,
 			requestID,
-			req.Metadata.ReferenceID,
+			remoteCapabilityInfo.ID,
 			req.Metadata.ReferenceID,
 			peerIDToTransmissionDelay,
 		)
@@ -210,7 +210,7 @@ func emitTransmissionScheduleEvent(ctx context.Context, workflowExecutionID, tra
 		sortedStringPeers = append(sortedStringPeers, peer.String())
 	}
 
-	msg := &TransmitScheduleEvent{
+	msg := &TransmissionsScheduledEvent{
 		Timestamp:           time.Now().Format(time.RFC3339),
 		WorkflowExecutionID: workflowExecutionID,
 		TransmissionID:      transmissionID,

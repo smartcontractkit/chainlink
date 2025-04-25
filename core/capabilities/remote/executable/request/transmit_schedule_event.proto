@@ -3,11 +3,12 @@ syntax = "proto3";
 option go_package = "github.com/smartcontractkit/chainlink/core/capabilities/remote/executable/request";
 package request;
 
-message TransmitScheduleEvent {
+message TransmissionsScheduledEvent {
   string timestamp = 1;
   string workflowExecutionID = 2;
   string transmissionID = 3;
   string capabilityID = 4;
   string stepRef = 5;
+  // peerID transmission schedule. transmissionOrder[0] is first picked to transmit
   repeated string transmissionOrder = 6;
 }
