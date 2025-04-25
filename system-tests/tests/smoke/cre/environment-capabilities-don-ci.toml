@@ -13,7 +13,7 @@
   # either "docker" or "crib"
   type = "docker"
 
-[[workflow_config]]
+[[workflow_configs]]
   workflow_name = "abcdefgasd"
   # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
   feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
@@ -21,7 +21,7 @@
   use_cre_cli = true
   should_compile_new_workflow = false
 
-  [workflow_config.compiled_config]
+  [workflow_configs.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/e0b01e434eea52c619fc1b75c36704b4/raw/1bd684d59647c5b66e94b6cfa4766e5453781182/binary.wasm.br.b64"
     # Every time that consumer address changes (e.g. due code sequence changes) we need to update the config used in CI. That config is identical to the one used, when executing local machine
     # unless test uses fake data provider. In that case the IP of the fake data provider will be different in the CI, because it uses linux not macOS operating system and that changes the IP

@@ -282,6 +282,14 @@ func FindAddressesForChain(addressBook deployment.AddressBook, chainSelector uin
 	return common.Address{}, fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector)
 }
 
+func MustFindAddressesForChain(addressBook deployment.AddressBook, chainSelector uint64, contractName string) common.Address {
+	addr, err := FindAddressesForChain(addressBook, chainSelector, contractName)
+	if err != nil {
+		panic(err)
+	}
+	return addr
+}
+
 func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowRegistryInput) (*types.WorkflowRegistryOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")

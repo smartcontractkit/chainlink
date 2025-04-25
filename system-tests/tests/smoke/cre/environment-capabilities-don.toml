@@ -14,7 +14,7 @@
   # either "docker" or "crib"
   type = "docker"
 
-[[workflow_config]]
+[[workflow_configs]]
   workflow_name = "abcdefgasd"
   # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
   feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"

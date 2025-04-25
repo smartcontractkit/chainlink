@@ -103,9 +103,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../../.."
-      #docker_file = "plugins/chainlink.Dockerfile"
-      image = "chainlink-tmp:latest"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """

@@ -320,7 +320,7 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 				Input:              in.NodeSets[1],
 				Capabilities:       capabiliitesDONCapabilities,
 				DONTypes:           []string{cretypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: 0,
+				BootstrapNodeIndex: -1,                                 // <----- it's crucial to indicate there's no bootstrap node
 			},
 			{
 				Input:              in.NodeSets[2],
@@ -345,17 +345,9 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		fmt.Println()
 	}
 
-	homeChainInput := in.Blockchains[0]
-	chainIDInt, chainErr := strconv.Atoi(homeChainInput.ChainID)
-	if chainErr != nil {
-		return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
-	}
-
 	// add support for more capabilities if needed
 	capabilityFactoryFns := []cretypes.DONCapabilityWithConfigFactoryFn{
 		crecontracts.DefaultCapabilityFactoryFn,
-		crecontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
-		crecontracts.ChainReaderCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"), // for now support only evm
 		crecontracts.WebAPICapabilityFactoryFn,
 	}
 
@@ -364,23 +356,35 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		return nil, fmt.Errorf("failed to get default container directory: %w", pathErr)
 	}
 
-	chainReaderJobSpecFactoryFn := chainreader.ChainReaderJobSpecFactoryFn(
-		chainIDInt,
-		"evm",
-		// path within the container/pod
-		filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.LogEventTriggerBinaryPath)),
-		filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.ReadContractBinaryPath)),
-	)
+	homeChainIDInt, chainErr := strconv.Atoi(in.Blockchains[0].ChainID)
+	if chainErr != nil {
+		return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
+	}
 
 	jobSpecFactoryFunctions := []cretypes.JobSpecFactoryFn{
 		// add support for more job spec factory functions if needed
-
-		chainReaderJobSpecFactoryFn,
 		webapi.WebAPIJobSpecFactoryFn,
-		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(chainIDInt))),
+		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
 		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.CronCapabilityBinaryPath))),
 		cregateway.GatewayJobSpecFactoryFn([]int{}, []string{}, []string{"0.0.0.0/0"}),
 		crecompute.ComputeJobSpecFactoryFn,
+	}
+
+	for _, blockchain := range in.Blockchains {
+		chainIDInt, chainErr := strconv.Atoi(blockchain.ChainID)
+		if chainErr != nil {
+			return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
+		}
+		capabilityFactoryFns = append(capabilityFactoryFns, crecontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
+		capabilityFactoryFns = append(capabilityFactoryFns, crecontracts.ChainReaderCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+
+		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, chainreader.ChainReaderJobSpecFactoryFn(
+			chainIDInt,
+			"evm",
+			// path within the container/pod
+			filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.LogEventTriggerBinaryPath)),
+			filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.ReadContractBinaryPath)),
+		))
 	}
 
 	universalSetupInput := creenv.SetupInput{

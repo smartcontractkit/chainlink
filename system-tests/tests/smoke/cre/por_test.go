@@ -67,7 +67,7 @@ type TestConfig struct {
 	Blockchains                   []*blockchain.Input                      `toml:"blockchains" validate:"required"`
 	CustomAnvilMiner              *CustomAnvilMiner                        `toml:"custom_anvil_miner"`
 	NodeSets                      []*ns.Input                              `toml:"nodesets" validate:"required"`
-	WorkflowConfigs               []WorkflowConfig                         `toml:"workflow_config" validate:"required"`
+	WorkflowConfigs               []WorkflowConfig                         `toml:"workflow_configs" validate:"required"`
 	JD                            *jd.Input                                `toml:"jd" validate:"required"`
 	Fake                          *fake.Input                              `toml:"fake"`
 	KeystoneContracts             *keystonetypes.KeystoneContractsInput    `toml:"keystone_contracts"`

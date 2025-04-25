@@ -53,10 +53,6 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 	}
 
 	// find contract addresses
-	ocr3CapabilityAddress, ocr3Err := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.OCR3Capability.String())
-	if ocr3Err != nil {
-		return nil, errors.Wrap(ocr3Err, "failed to find OCR3Capability address")
-	}
 	workflowRegistryAddress, workErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	if workErr != nil {
 		return nil, errors.Wrap(workErr, "failed to find WorkflowRegistry address")
@@ -111,7 +107,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		}
 
 		// generate configuration for the bootstrap node
-		configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, homeChainID, ocr3CapabilityAddress, workerEVMInputs)
+		configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, homeChainID, capabilitiesRegistryAddress, workerEVMInputs)
 
 		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
 			configOverrides[nodeIndex] += config.BoostrapDon2DonPeering(input.PeeringData)

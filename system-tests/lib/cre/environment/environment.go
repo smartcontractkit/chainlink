@@ -173,6 +173,7 @@ func SetupTestEnvironment(
 	if mergeErr != nil {
 		return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 	}
+	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String()))
 
 	capabilitiesRegistryOutput, capabilitiesRegistryErr := keystone_changeset.DeployCapabilityRegistry(*allChainsCLDEnvironment, homeChainOutput.ChainSelector)
 	if capabilitiesRegistryErr != nil {
@@ -183,6 +184,7 @@ func SetupTestEnvironment(
 	if mergeErr != nil {
 		return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 	}
+	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String()))
 
 	workflowRegistryOutput, workflowRegistryErr := workflow_registry_changeset.Deploy(*allChainsCLDEnvironment, homeChainOutput.ChainSelector)
 	if workflowRegistryErr != nil {
@@ -193,6 +195,7 @@ func SetupTestEnvironment(
 	if mergeErr != nil {
 		return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 	}
+	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String()))
 
 	// Deploy forwarders for all chains
 	for _, bcOut := range blockchainsOutput {
@@ -207,6 +210,7 @@ func SetupTestEnvironment(
 		if mergeErr != nil {
 			return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 		}
+		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", bcOut.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String()))
 	}
 
 	// Translate node input to structure required further down the road and put as much information
