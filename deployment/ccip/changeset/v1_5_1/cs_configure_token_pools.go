@@ -313,6 +313,7 @@ func configureTokenPool(
 	}
 
 	// For adding chain support
+	var chainRemovals []uint64
 	var chainAdditions []token_pool.TokenPoolChainUpdate
 	// For updating rate limits
 	var remoteChainSelectorsToUpdate []uint64
@@ -330,13 +331,27 @@ func configureTokenPool(
 		if err != nil {
 			return fmt.Errorf("failed to check if %d is supported on pool with address %s on %s: %w", remoteChainSelector, tokenPool.Address(), chain.String(), err)
 		}
+		addChain := !isSupportedChain
+
 		if isSupportedChain {
-			// Just update the rate limits if the chain is already supported
-			remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
-			updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
-			updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
-			// we dont need to add a new remote pool because solana only supports one remote pool per token
-		} else {
+			remoteToken, err := tokenPool.GetRemoteToken(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+			if err != nil {
+				return fmt.Errorf("failed to get remote token for chain with selector %d: %w", remoteChainSelector, err)
+			}
+			if !bytes.Equal(remoteTokenAddress.Bytes(), remoteToken) {
+				// Remove & later re-add the chain if the token has changed
+				chainRemovals = append(chainRemovals, remoteChainSelector)
+				addChain = true
+			} else {
+				// Update the rate limits if the chain is already supported
+				// We dont need to add a new remote pool because solana only supports one remote pool per token
+				remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
+				updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
+				updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
+			}
+		}
+
+		if addChain {
 			chainAdditions = append(chainAdditions, token_pool.TokenPoolChainUpdate{
 				RemoteChainSelector:       remoteChainSelector,
 				InboundRateLimiterConfig:  chainUpdate.RateLimiterConfig.Inbound,
@@ -406,7 +421,7 @@ func configureTokenPool(
 
 	// Handle new chain support
 	if len(chainAdditions) > 0 {
-		_, err := tokenPool.ApplyChainUpdates(opts, []uint64{}, chainAdditions)
+		_, err := tokenPool.ApplyChainUpdates(opts, chainRemovals, chainAdditions)
 		if err != nil {
 			return fmt.Errorf("failed to create applyChainUpdates transaction for token pool with address %s: %w", tokenPool.Address(), err)
 		}

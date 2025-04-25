@@ -8,6 +8,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/mcms"
@@ -364,7 +365,7 @@ func getOnChainEVMPoolConfig(e deployment.Environment, state ccipChangeset.CCIPO
 	}
 	onChainEVMRemoteConfig := solBaseTokenPool.RemoteConfig{
 		TokenAddress: solBaseTokenPool.RemoteAddress{
-			Address: evmTokenAddress.Bytes(),
+			Address: common.LeftPadBytes(evmTokenAddress.Bytes(), 32),
 		},
 		PoolAddresses: []solBaseTokenPool.RemoteAddress{
 			{

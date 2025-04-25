@@ -139,11 +139,27 @@ type NodeConfig struct {
 	InputFS       embed.FS
 }
 
-type ProposeWfJobsConfig struct {
-	InputFileName   string // workflow yaml file path
-	InputFS         embed.FS
-	WorkflowJobName string
-	NodeFilter      *offchain.NodesFilter
+type WorkflowSpecConfig struct {
+	TargetContractEncoderType        string // Required. "data-feeds_decimal", "aptos" or "ccip"
+	ConsensusAggregationMethod       string // Required. "llo_streams" or "data_feeds"
+	WorkflowName                     string // Required
+	ConsensusReportID                string // Required
+	WriteTargetTrigger               string // Required
+	ConsensusRef                     string // Default "data-feeds"
+	ConsensusConfigKeyID             string // Default "evm"
+	ConsensusAllowedPartialStaleness string // Default "0.5"
+	DeltaStageSec                    *int   // Default 45
+	TargetsSchedule                  string // Default "oneAtATime"
+	TriggersMaxFrequencyMs           *int   // Default 5000
+	CREStepTimeout                   int64
+}
+
+type ProposeWFJobsConfig struct {
+	ChainSelector      uint64
+	InputFS            embed.FS // filesystem to read the feeds json mapping
+	WorkflowJobName    string   // Required
+	WorkflowSpecConfig WorkflowSpecConfig
+	NodeFilter         *offchain.NodesFilter
 }
 
 type ProposeBtJobsConfig struct {
