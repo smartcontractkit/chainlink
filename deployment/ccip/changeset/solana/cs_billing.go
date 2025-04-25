@@ -94,8 +94,6 @@ func AddBillingToken(
 	var ixConfig solana.Instruction
 	if isUpdate {
 		ixConfig, err = solFeeQuoter.NewUpdateBillingTokenConfigInstruction(
-			// TODO: this needs to be merged with what the user is sending in and whats their onchain.
-			// right now, the user will have to send the final version of the config.
 			billingTokenConfig,
 			feeQuoterConfigPDA,
 			tokenBillingPDA,

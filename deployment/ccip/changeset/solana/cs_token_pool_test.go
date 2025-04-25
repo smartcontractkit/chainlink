@@ -35,7 +35,7 @@ func TestAddTokenPool(t *testing.T) {
 
 func TestAddTokenPoolMcms(t *testing.T) {
 	t.Parallel()
-	// doTestTokenPool(t, true)
+	doTestTokenPool(t, true)
 }
 
 func deployEVMTokenPool(t *testing.T, e deployment.Environment, evmChain uint64) (deployment.Environment, common.Address, error) {
@@ -117,11 +117,6 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 	inboundConfig := rateLimitConfig
 	outboundConfig := rateLimitConfig
 
-	// tokenMap := map[deployment.ContractType]solana.PublicKey{
-	// 	ccipChangeset.SPL2022Tokens: newTokenAddress,
-	// 	ccipChangeset.SPLTokens:     state.SolChains[solChain].WSOL,
-	// }
-
 	type poolTestType struct {
 		poolType    solTestTokenPool.PoolType
 		poolAddress solana.PublicKey
@@ -161,7 +156,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
 				ccipChangesetSolana.RemoteChainTokenPoolConfig{
 					SolChainSelector: solChain,
-					SolTokenPubKey:   tokenAddress.String(),
+					SolTokenPubKey:   tokenAddress,
 					SolPoolType:      testCase.poolType,
 					EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 						evmChain: {
@@ -260,7 +255,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
 				ccipChangesetSolana.RemoteChainTokenPoolConfig{
 					SolChainSelector: solChain,
-					SolTokenPubKey:   tokenAddress.String(),
+					SolTokenPubKey:   tokenAddress,
 					SolPoolType:      testCase.poolType,
 					EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 						evmChain: {
@@ -281,7 +276,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				ccipChangesetSolana.AppendRemoteTokenPoolConfig{
 					SolChainSelector:    solChain,
 					RemoteChainSelector: evmChain,
-					SolTokenPubKey:      tokenAddress.String(),
+					SolTokenPubKey:      tokenAddress,
 					RemoteConfig: &solBaseTokenPool.RemoteConfig{
 						PoolAddresses: []solTestTokenPool.RemoteAddress{{Address: []byte{7, 8, 9}}},
 						TokenAddress:  solTestTokenPool.RemoteAddress{Address: evmTokenAddress.Bytes()},
@@ -448,7 +443,7 @@ func TestDoTestTokenPoolv2(t *testing.T) {
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
 				ccipChangesetSolana.RemoteChainTokenPoolConfig{
 					SolChainSelector: solChain,
-					SolTokenPubKey:   tokenAddress.String(),
+					SolTokenPubKey:   tokenAddress,
 					SolPoolType:      poolType,
 					EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 						evmChain: {
@@ -488,7 +483,7 @@ func TestDoTestTokenPoolv2(t *testing.T) {
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
 				ccipChangesetSolana.RemoteChainTokenPoolConfig{
 					SolChainSelector: solChain,
-					SolTokenPubKey:   tokenAddress.String(),
+					SolTokenPubKey:   tokenAddress,
 					SolPoolType:      poolType,
 					EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 						evmChain: {

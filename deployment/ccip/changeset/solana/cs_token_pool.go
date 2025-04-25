@@ -112,12 +112,11 @@ func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAdd
 
 // get pool pdas
 func getPoolPDAs(
-	solTokenPubKey string, poolAddress solana.PublicKey, remoteChainSelector uint64,
-) (tokenPubKey solana.PublicKey, poolConfigPDA solana.PublicKey, remoteChainConfigPDA solana.PublicKey) {
-	tokenPubKey = solana.MustPublicKeyFromBase58(solTokenPubKey)
-	poolConfigPDA, _ = solTokenUtil.TokenPoolConfigAddress(tokenPubKey, poolAddress)
-	remoteChainConfigPDA, _, _ = solTokenUtil.TokenPoolChainConfigPDA(remoteChainSelector, tokenPubKey, poolAddress)
-	return tokenPubKey, poolConfigPDA, remoteChainConfigPDA
+	solTokenPubKey solana.PublicKey, poolAddress solana.PublicKey, remoteChainSelector uint64,
+) (poolConfigPDA solana.PublicKey, remoteChainConfigPDA solana.PublicKey) {
+	poolConfigPDA, _ = solTokenUtil.TokenPoolConfigAddress(solTokenPubKey, poolAddress)
+	remoteChainConfigPDA, _, _ = solTokenUtil.TokenPoolChainConfigPDA(remoteChainSelector, solTokenPubKey, poolAddress)
+	return poolConfigPDA, remoteChainConfigPDA
 }
 
 type TokenPoolConfig struct {
@@ -321,26 +320,25 @@ func (cfg EVMRemoteConfig) Validate(e deployment.Environment, state ccipChangese
 
 type RemoteChainTokenPoolConfig struct {
 	SolChainSelector uint64
-	SolTokenPubKey   string
+	SolTokenPubKey   solana.PublicKey
 	SolPoolType      solTestTokenPool.PoolType
 	EVMRemoteConfigs map[uint64]EVMRemoteConfig
 	MCMSSolana       *MCMSConfigSolana
 }
 
 func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
-	if err := commonValidation(e, cfg.SolChainSelector, tokenPubKey); err != nil {
+	if err := commonValidation(e, cfg.SolChainSelector, cfg.SolTokenPubKey); err != nil {
 		return err
 	}
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.SolChainSelector]
 	chain := e.SolChains[cfg.SolChainSelector]
 
-	if err := validatePoolDeployment(&e, cfg.SolPoolType, cfg.SolChainSelector, tokenPubKey, true); err != nil {
+	if err := validatePoolDeployment(&e, cfg.SolPoolType, cfg.SolChainSelector, cfg.SolTokenPubKey, true); err != nil {
 		return err
 	}
 
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, cfg.SolTokenPubKey); err != nil {
 		return err
 	}
 	// validate EVMRemoteConfig
@@ -386,7 +384,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 	chain := e.SolChains[cfg.SolChainSelector]
 	envState, _ := ccipChangeset.LoadOnchainState(e)
 	solChainState := envState.SolChains[cfg.SolChainSelector]
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
+	tokenPubKey := cfg.SolTokenPubKey
 
 	var instructions []solana.Instruction
 	var txns []mcmsTypes.Transaction
@@ -467,7 +465,8 @@ func getNewSetuptInstructionsForBurnMint(
 	rateLimiterConfig RateLimiterConfig,
 	onChainEVMPoolConfig solBaseTokenPool.RemoteConfig,
 ) ([]solana.Instruction, error) {
-	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, chainState.BurnMintTokenPool, evmChainSelector)
+	tokenPubKey := cfg.SolTokenPubKey
+	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, chainState.BurnMintTokenPool, evmChainSelector)
 	ixns := make([]solana.Instruction, 0)
 	authority, err := GetAuthorityForIxn(
 		&e,
@@ -538,7 +537,8 @@ func getInstructionsForBurnMint(
 	evmChainSelector uint64,
 	evmRemoteConfig EVMRemoteConfig,
 ) ([]solana.Instruction, error) {
-	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, solChainState.BurnMintTokenPool, evmChainSelector)
+	tokenPubKey := cfg.SolTokenPubKey
+	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, solChainState.BurnMintTokenPool, evmChainSelector)
 	solBurnMintTokenPool.SetProgramID(solChainState.BurnMintTokenPool)
 	ixns := make([]solana.Instruction, 0)
 	authority, err := GetAuthorityForIxn(
@@ -614,7 +614,8 @@ func getNewSetuptInstructionsForLockRelease(
 	rateLimiterConfig RateLimiterConfig,
 	onChainEVMPoolConfig solBaseTokenPool.RemoteConfig,
 ) ([]solana.Instruction, error) {
-	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, chainState.LockReleaseTokenPool, evmChainSelector)
+	tokenPubKey := cfg.SolTokenPubKey
+	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, chainState.LockReleaseTokenPool, evmChainSelector)
 	ixns := make([]solana.Instruction, 0)
 	authority, err := GetAuthorityForIxn(
 		&e,
@@ -685,7 +686,8 @@ func getInstructionsForLockRelease(
 	evmChainSelector uint64,
 	evmRemoteConfig EVMRemoteConfig,
 ) ([]solana.Instruction, error) {
-	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, solChainState.LockReleaseTokenPool, evmChainSelector)
+	tokenPubKey := cfg.SolTokenPubKey
+	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, solChainState.LockReleaseTokenPool, evmChainSelector)
 	solLockReleaseTokenPool.SetProgramID(solChainState.LockReleaseTokenPool)
 	ixns := make([]solana.Instruction, 0)
 	authority, err := GetAuthorityForIxn(
@@ -753,7 +755,7 @@ func getInstructionsForLockRelease(
 type AppendRemoteTokenPoolConfig struct {
 	SolChainSelector    uint64
 	RemoteChainSelector uint64
-	SolTokenPubKey      string
+	SolTokenPubKey      solana.PublicKey
 	PoolType            solTestTokenPool.PoolType
 	// this is actually derivable from on chain given token symbol
 	RemoteConfig *solBaseTokenPool.RemoteConfig
@@ -761,7 +763,7 @@ type AppendRemoteTokenPoolConfig struct {
 }
 
 func (cfg AppendRemoteTokenPoolConfig) Validate(e deployment.Environment) error {
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
+	tokenPubKey := cfg.SolTokenPubKey
 	if err := commonValidation(e, cfg.SolChainSelector, tokenPubKey); err != nil {
 		return err
 	}
@@ -814,7 +816,7 @@ func AppendRemoteTokenPool(e deployment.Environment, cfg AppendRemoteTokenPoolCo
 	chain := e.SolChains[cfg.SolChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.SolChainSelector]
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
+	tokenPubKey := cfg.SolTokenPubKey
 
 	var instructions []solana.Instruction
 	var txns []mcmsTypes.Transaction
@@ -869,7 +871,8 @@ func getAppendPoolInstructionsForBurnMint(
 	chainState ccipChangeset.SolCCIPChainState,
 	cfg AppendRemoteTokenPoolConfig,
 ) ([]solana.Instruction, error) {
-	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, chainState.BurnMintTokenPool, cfg.RemoteChainSelector)
+	tokenPubKey := cfg.SolTokenPubKey
+	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, chainState.BurnMintTokenPool, cfg.RemoteChainSelector)
 	solBurnMintTokenPool.SetProgramID(chainState.BurnMintTokenPool)
 	ixns := make([]solana.Instruction, 0)
 	authority, err := GetAuthorityForIxn(
@@ -918,7 +921,8 @@ func getAppendPoolInstructionsForLockRelease(
 	chainState ccipChangeset.SolCCIPChainState,
 	cfg AppendRemoteTokenPoolConfig,
 ) ([]solana.Instruction, error) {
-	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, chainState.LockReleaseTokenPool, cfg.RemoteChainSelector)
+	tokenPubKey := cfg.SolTokenPubKey
+	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, chainState.LockReleaseTokenPool, cfg.RemoteChainSelector)
 	solLockReleaseTokenPool.SetProgramID(chainState.LockReleaseTokenPool)
 	authority, err := GetAuthorityForIxn(
 		&e,
