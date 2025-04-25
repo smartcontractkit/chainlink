@@ -37,7 +37,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 
 	// prepare chains, we need chainIDs, URLs and selectors to get contracts from AddressBook
 	workerEVMInputs := make([]*config.WorkerEVMInput, 0)
-	for i, bcOut := range input.BlockchainOutput {
+	for chainSelector, bcOut := range input.BlockchainOutput {
 		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
 		if err != nil {
 			return configOverrides, errors.Wrapf(err, "failed to parse chain ID %s", bcOut.ChainID)
@@ -47,7 +47,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 			return configOverrides, errors.Errorf("failed to find selector for chain ID %d", cID)
 		}
 		workerEVMInputs = append(workerEVMInputs, &config.WorkerEVMInput{
-			Name:          fmt.Sprintf("node-%d", i),
+			Name:          fmt.Sprintf("node-%d", chainSelector),
 			ChainID:       bcOut.ChainID,
 			ChainSelector: c.Selector,
 			HTTPRPC:       bcOut.Nodes[0].InternalHTTPUrl,

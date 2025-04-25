@@ -61,16 +61,14 @@ import (
 )
 
 type TestConfigLoadTest struct {
-	Blockchains                   []*blockchain.Input                      `toml:"blockchains" validate:"required"`
-	NodeSets                      []*ns.Input                              `toml:"nodesets" validate:"required"`
-	JD                            *jd.Input                                `toml:"jd" validate:"required"`
-	KeystoneContracts             *keystonetypes.KeystoneContractsInput    `toml:"keystone_contracts"`
-	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput     `toml:"workflow_registry_configuration"`
-	DataFeedsCache                *keystonetypes.DeployDataFeedsCacheInput `toml:"feed_consumer"`
-	Infra                         *libtypes.InfraInput                     `toml:"infra" validate:"required"`
-	WorkflowDONLoad               *WorkflowLoad                            `toml:"workflow_load"`
-	MockCapabilities              []*MockCapabilities                      `toml:"mock_capabilities"`
-	BinariesConfig                *BinariesConfig                          `toml:"binaries_config"`
+	Blockchains                   []*blockchain.Input                  `toml:"blockchains" validate:"required"`
+	NodeSets                      []*ns.Input                          `toml:"nodesets" validate:"required"`
+	JD                            *jd.Input                            `toml:"jd" validate:"required"`
+	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
+	Infra                         *libtypes.InfraInput                 `toml:"infra" validate:"required"`
+	WorkflowDONLoad               *WorkflowLoad                        `toml:"workflow_load"`
+	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
+	BinariesConfig                *BinariesConfig                      `toml:"binaries_config"`
 }
 
 type BinariesConfig struct {
@@ -128,8 +126,6 @@ func setupLoadTestEnvironment(
 	require.NoError(t, setupErr, "failed to setup test environment")
 
 	// Set inputs in the test config, so that they can be saved
-	in.KeystoneContracts = &keystonetypes.KeystoneContractsInput{}
-	// in.KeystoneContracts.Out = universalSetupOutput.KeystoneContractsOutput
 	in.WorkflowRegistryConfiguration = &keystonetypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
@@ -274,17 +270,17 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return capabilities
 	}
 
-	firstChain := in.Blockchains[0]
-	chainIDUint64, chainErr := strconv.ParseUint(firstChain.ChainID, 10, 64)
-	require.NoError(t, chainErr, "failed to convert chain ID to int")
+	homeChain := in.Blockchains[0]
+	homeChainIDUint64, homeChainErr := strconv.ParseUint(homeChain.ChainID, 10, 64)
+	require.NoError(t, homeChainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupLoadTestEnvironment(
 		t,
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
-		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(chainIDUint64)},
-		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(chainIDUint64)},
+		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(homeChainIDUint64)},
+		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(homeChainIDUint64)},
 	)
 
 	ctx := t.Context()

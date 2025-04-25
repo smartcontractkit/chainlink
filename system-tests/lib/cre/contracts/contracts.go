@@ -285,7 +285,7 @@ func FindAddressesForChain(addressBook deployment.AddressBook, chainSelector uin
 func MustFindAddressesForChain(addressBook deployment.AddressBook, chainSelector uint64, contractName string) common.Address {
 	addr, err := FindAddressesForChain(addressBook, chainSelector, contractName)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector))
 	}
 	return addr
 }

@@ -62,7 +62,6 @@ const (
 )
 
 type SetupOutput struct {
-	// KeystoneContractsOutput             *keystonetypes.KeystoneContractsOutput
 	WorkflowRegistryConfigurationOutput *keystonetypes.WorkflowRegistryOutput
 	CldEnvironment                      *deployment.Environment
 	BlockchainOutput                    []*BlockchainOutput
@@ -115,13 +114,12 @@ func SetupTestEnvironment(
 		}
 	}()
 
-	bi := make([]BlockchainsInput, 0)
-	for _, bcInfraInput := range input.BlockchainsInput {
-		bi = append(bi, BlockchainsInput{
-			blockchainInput: bcInfraInput,
-			infraInput:      &input.InfraInput,
-			nixShell:        nixShell,
-		})
+	bi := BlockchainsInput{
+		infra:    &input.InfraInput,
+		nixShell: nixShell,
+	}
+	for _, bcInput := range input.BlockchainsInput {
+		bi.blockchainsInput = append(bi.blockchainsInput, bcInput)
 	}
 
 	blockchainsOutput, bcOutErr := CreateBlockchains(testLogger, bi)
@@ -129,8 +127,8 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(bcOutErr, "failed to create blockchains")
 	}
 
+	//create deployment.Environment that will contain only chain information in order to deploy contracts with the CLD
 	homeChainOutput := blockchainsOutput[0]
-
 	chainsConfigs := []devenv.ChainConfig{}
 	for _, bcOut := range blockchainsOutput {
 		chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
@@ -215,7 +213,7 @@ func SetupTestEnvironment(
 
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
-	topology, topoErr := libdon.BuildTopology(input.CapabilitiesAwareNodeSets, *bi[0].infraInput, homeChainOutput.ChainSelector)
+	topology, topoErr := libdon.BuildTopology(input.CapabilitiesAwareNodeSets, input.InfraInput, homeChainOutput.ChainSelector)
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
@@ -230,9 +228,14 @@ func SetupTestEnvironment(
 	}
 
 	// get chainIDs, they'll be used for identifying ETH keys and Forwarder addresses
+	// and also for creating the CLD environment
 	chainIDs := make([]int, 0)
+	bcOuts := make(map[uint64]*blockchain.Output)
+	sethClients := make(map[uint64]*seth.Client)
 	for _, bcOut := range blockchainsOutput {
 		chainIDs = append(chainIDs, libc.MustSafeInt(bcOut.ChainID))
+		bcOuts[bcOut.ChainSelector] = bcOut.BlockchainOutput
+		sethClients[bcOut.ChainSelector] = bcOut.SethClient
 	}
 
 	generateKeysInput := &keystonetypes.GenerateKeysInput{
@@ -268,13 +271,6 @@ func SetupTestEnvironment(
 	peeringData, peeringErr := libdon.FindPeeringData(topology)
 	if peeringErr != nil {
 		return nil, pkgerrors.Wrap(peeringErr, "failed to find peering data")
-	}
-
-	bcOuts := make([]*blockchain.Output, 0)
-	sethClients := make([]*seth.Client, 0)
-	for _, bcOut := range blockchainsOutput {
-		bcOuts = append(bcOuts, bcOut.BlockchainOutput)
-		sethClients = append(sethClients, bcOut.SethClient)
 	}
 
 	for i, donMetadata := range topology.DonsMetadata {
@@ -544,9 +540,9 @@ func SetupTestEnvironment(
 }
 
 type BlockchainsInput struct {
-	blockchainInput *blockchain.Input
-	infraInput      *libtypes.InfraInput
-	nixShell        *libnix.Shell
+	blockchainsInput []*blockchain.Input
+	infra            *libtypes.InfraInput
+	nixShell         *libnix.Shell
 }
 
 type BlockchainOutput struct {
@@ -562,23 +558,23 @@ type BlockchainOutput struct {
 
 func CreateBlockchains(
 	testLogger zerolog.Logger,
-	input []BlockchainsInput,
+	input BlockchainsInput,
 ) ([]*BlockchainOutput, error) {
-	if len(input) == 0 {
+	if len(input.blockchainsInput) == 0 {
 		return nil, pkgerrors.New("blockchain input is nil")
 	}
 	blockchainOutput := make([]*BlockchainOutput, 0)
-	for _, bi := range input {
+	for _, bi := range input.blockchainsInput {
 		var bcOut *blockchain.Output
 		var bcErr error
-		if bi.infraInput.InfraType == libtypes.CRIB {
-			if bi.nixShell == nil {
+		if input.infra.InfraType == libtypes.CRIB {
+			if input.nixShell == nil {
 				return nil, pkgerrors.New("nix shell is nil")
 			}
 
 			deployCribBlockchainInput := &keystonetypes.DeployCribBlockchainInput{
-				BlockchainInput: bi.blockchainInput,
-				NixShell:        bi.nixShell,
+				BlockchainInput: bi,
+				NixShell:        input.nixShell,
 				CribConfigsDir:  cribConfigsDir,
 			}
 			bcOut, bcErr = crib.DeployBlockchain(deployCribBlockchainInput)
@@ -590,7 +586,7 @@ func CreateBlockchains(
 				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
 			}
 		} else {
-			bcOut, bcErr = blockchain.NewBlockchainNetwork(bi.blockchainInput)
+			bcOut, bcErr = blockchain.NewBlockchainNetwork(bi)
 			if bcErr != nil {
 				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
 			}

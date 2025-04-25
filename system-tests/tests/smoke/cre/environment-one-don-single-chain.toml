@@ -19,7 +19,7 @@
   type = "docker"
 
 [[workflow_configs]]
-	workflow_name = "abcdefgasd"
+  workflow_name = "abcdefgasd"
   # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
   feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
 
@@ -52,20 +52,9 @@
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
       [Log]
       Level = 'debug'
       JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
       """
       # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
       test_secrets_overrides = """
@@ -88,20 +77,9 @@
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
       [Log]
       Level = 'debug'
       JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
       """
       # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
       test_secrets_overrides = """
@@ -124,20 +102,9 @@
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
       [Log]
       Level = 'debug'
       JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
       """
       # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
       test_secrets_overrides = """
@@ -160,20 +127,9 @@
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
       [Log]
       Level = 'debug'
       JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
       """
       # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
       test_secrets_overrides = """
@@ -196,20 +152,9 @@
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
       [Log]
       Level = 'debug'
       JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
       """
       # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
       test_secrets_overrides = """

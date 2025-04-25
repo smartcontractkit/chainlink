@@ -48,20 +48,9 @@
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
       [Log]
       Level = 'debug'
       JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
       """
 
 [[nodesets]]
@@ -81,20 +70,9 @@
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
       [Log]
       Level = 'debug'
       JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
       """
 
 [[nodesets]]
@@ -114,18 +92,7 @@
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
       [Log]
       Level = 'debug'
       JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
       """

@@ -32,14 +32,20 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 
 	var allNodesInfo []devenv.NodeInfo
 	chains := make([]devenv.ChainConfig, 0)
-	for i, bcOut := range input.BlockchainOutputs {
+	for chainSelector, bcOut := range input.BlockchainOutputs {
 		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse chain ID: %w", err)
 		}
+
+		sethClient, ok := input.SethClients[chainSelector]
+		if !ok {
+			return nil, fmt.Errorf("seth client not found for chain selector: %d", chainSelector)
+		}
+
 		chains = append(chains, devenv.ChainConfig{
 			ChainID:   cID,
-			ChainName: input.SethClients[i].Cfg.Network.Name,
+			ChainName: sethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(bcOut.Family),
 			WSRPCs: []devenv.CribRPCs{{
 				External: bcOut.Nodes[0].ExternalWSUrl,
@@ -49,7 +55,7 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 				External: bcOut.Nodes[0].ExternalHTTPUrl,
 				Internal: bcOut.Nodes[0].InternalHTTPUrl,
 			}},
-			DeployerKey: input.SethClients[i].NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
+			DeployerKey: sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
 		})
 	}
 

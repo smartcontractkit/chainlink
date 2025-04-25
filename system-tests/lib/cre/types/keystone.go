@@ -39,30 +39,6 @@ type DonsToJobSpecs = map[uint32]DonJobs
 type NodeIndexToConfigOverride = map[int]string
 type NodeIndexToSecretsOverride = map[int]string
 
-type KeystoneContractsInput struct {
-	ChainSelector uint64                   `toml:"-"`
-	CldEnv        *deployment.Environment  `toml:"-"`
-	Out           *KeystoneContractsOutput `toml:"out"`
-}
-
-func (k *KeystoneContractsInput) Validate() error {
-	if k.ChainSelector == 0 {
-		return errors.New("chain selector not set")
-	}
-	if k.CldEnv == nil {
-		return errors.New("chainlink deployment env not set")
-	}
-	return nil
-}
-
-type KeystoneContractsOutput struct {
-	UseCache                    bool           `toml:"use_cache"`
-	CapabilitiesRegistryAddress common.Address `toml:"capabilities_registry_address"`
-	ForwarderAddress            common.Address `toml:"forwarder_address"`
-	OCR3CapabilityAddress       common.Address `toml:"ocr3_capability_address"`
-	WorkflowRegistryAddress     common.Address `toml:"workflow_registry_address"`
-}
-
 type WorkflowRegistryInput struct {
 	ChainSelector  uint64                  `toml:"-"`
 	CldEnv         *deployment.Environment `toml:"-"`
@@ -95,26 +71,6 @@ type WorkflowRegistryOutput struct {
 	WorkflowOwners []common.Address `toml:"workflow_owners"`
 }
 
-type DeployDataFeedsCacheInput struct {
-	ChainSelector uint64                      `toml:"-"`
-	CldEnv        *deployment.Environment     `toml:"-"`
-	Out           *DeployDataFeedsCacheOutput `toml:"out"`
-}
-
-func (i *DeployDataFeedsCacheInput) Validate() error {
-	if i.ChainSelector == 0 {
-		return errors.New("chain selector not set")
-	}
-	if i.CldEnv == nil {
-		return errors.New("chainlink deployment env not set")
-	}
-	return nil
-}
-
-type DeployDataFeedsCacheOutput struct {
-	UseCache              bool           `toml:"use_cache"`
-	DataFeedsCacheAddress common.Address `toml:"data_feeds_cache_address"`
-}
 type ConfigureDataFeedsCacheOutput struct {
 	UseCache              bool             `toml:"use_cache"`
 	DataFeedsCacheAddress common.Address   `toml:"data_feeds_cache_address"`
@@ -312,7 +268,7 @@ func (g *GeneratePoRJobSpecsInput) Validate() error {
 
 type GeneratePoRConfigsInput struct {
 	DonMetadata            *DonMetadata
-	BlockchainOutput       []*blockchain.Output
+	BlockchainOutput       map[uint64]*blockchain.Output
 	HomeChainSelector      uint64
 	Flags                  []string
 	PeeringData            CapabilitiesPeeringData
@@ -324,7 +280,7 @@ func (g *GeneratePoRConfigsInput) Validate() error {
 	if len(g.DonMetadata.NodesMetadata) == 0 {
 		return errors.New("don nodes not set")
 	}
-	if g.BlockchainOutput == nil {
+	if len(g.BlockchainOutput) == 0 {
 		return errors.New("blockchain output not set")
 	}
 	if g.HomeChainSelector == 0 {
@@ -494,8 +450,8 @@ func (g *GenerateSecretsInput) Validate() error {
 
 type FullCLDEnvironmentInput struct {
 	JdOutput          *jd.Output
-	BlockchainOutputs []*blockchain.Output
-	SethClients       []*seth.Client
+	BlockchainOutputs map[uint64]*blockchain.Output
+	SethClients       map[uint64]*seth.Client
 	NodeSetOutput     []*WrappedNodeOutput
 	ExistingAddresses deployment.AddressBook
 	Topology          *Topology
@@ -510,6 +466,9 @@ func (f *FullCLDEnvironmentInput) Validate() error {
 	}
 	if len(f.SethClients) == 0 {
 		return errors.New("seth clients are not set")
+	}
+	if len(f.BlockchainOutputs) != len(f.SethClients) {
+		return errors.New("blockchain outputs and seth clients must have the same length")
 	}
 	if len(f.NodeSetOutput) == 0 {
 		return errors.New("node set output not set")

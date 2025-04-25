@@ -68,9 +68,7 @@ type PoRWorkflowConfig struct {
 	AuthKeySecretName *string `json:"auth_key_secret_name,omitempty"`
 }
 
-// dataFeedsCacheAddress: chainSelector -> address
 // rpcs: chainSelector -> url
-// func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr common.Address, donID uint32, homeChainSelector uint64, dataFeedsCacheAddress map[uint64]common.Address, rpcs map[uint64]string) (*os.File, error) {
 func PrepareCRECLISettingsFile(workflowOwner common.Address, addressBook deployment.AddressBook, donID uint32, homeChainSelector uint64, rpcs map[uint64]string) (*os.File, error) {
 	settingsFile, err := os.CreateTemp("", CRECLISettingsFileName)
 	if err != nil {

@@ -58,22 +58,11 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "chainlink-tmp:latest"
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
       [Log]
       Level = 'debug'
       JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
       """
-
-
