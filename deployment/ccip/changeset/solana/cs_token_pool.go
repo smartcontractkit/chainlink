@@ -269,10 +269,8 @@ func (cfg RateLimiterConfig) Validate() error {
 	if err := validateRateLimiterConfig(cfg.Inbound); err != nil {
 		return err
 	}
-	if err := validateRateLimiterConfig(cfg.Outbound); err != nil {
-		return err
-	}
-	return nil
+	err := validateRateLimiterConfig(cfg.Outbound)
+	return err
 }
 
 type EVMRemoteConfig struct {
@@ -300,23 +298,20 @@ func (cfg EVMRemoteConfig) Validate(e deployment.Environment, state ccipChangese
 		return fmt.Errorf("%s does not exist in state", chain.String())
 	}
 	// Ensure that the inputted type is known
-	if _, ok := ccipChangeset.TokenPoolTypes[cfg.PoolType]; !ok {
+	if _, typeOk := ccipChangeset.TokenPoolTypes[cfg.PoolType]; !typeOk {
 		return fmt.Errorf("%s is not a known token pool type", cfg.PoolType)
 	}
 	// Ensure that the inputted version is known
-	if _, ok := ccipChangeset.TokenPoolVersions[cfg.PoolVersion]; !ok {
+	if _, versionOk := ccipChangeset.TokenPoolVersions[cfg.PoolVersion]; !versionOk {
 		return fmt.Errorf("%s is not a known token pool version", cfg.PoolVersion)
 	}
 	// Ensure that a pool with given symbol, type and version is known to the environment
-	_, ok = ccipChangeset.GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, cfg.TokenSymbol, cfg.PoolType, cfg.PoolVersion)
-	if !ok {
+	_, getPoolOk := ccipChangeset.GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, cfg.TokenSymbol, cfg.PoolType, cfg.PoolVersion)
+	if !getPoolOk {
 		return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), cfg.TokenSymbol, cfg.PoolType, cfg.PoolVersion)
 	}
-	if err := cfg.RateLimiterConfig.Validate(); err != nil {
-		return err
-	}
-
-	return nil
+	err = cfg.RateLimiterConfig.Validate()
+	return err
 }
 
 type RemoteChainTokenPoolConfig struct {
