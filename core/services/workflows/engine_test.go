@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	billing "github.com/smartcontractkit/chainlink-common/pkg/billing/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const (
@@ -228,14 +229,12 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	cfg := Config{
 		WorkflowID:    testWorkflowID,
 		WorkflowOwner: testWorkflowOwner,
-		WorkflowName: defaultName{
-			name: testWorkflowName,
-		},
-		Lggr:       logger.TestLogger(t),
-		Registry:   reg,
-		Workflow:   sdkSpec,
-		maxRetries: 1,
-		retryMs:    100,
+		WorkflowName:  NewLegacyWorkflowName(testWorkflowName),
+		Lggr:          logger.TestLogger(t),
+		Registry:      reg,
+		Workflow:      sdkSpec,
+		maxRetries:    1,
+		retryMs:       100,
 		afterInit: func(success bool) {
 			if success {
 				close(initSuccessful)
@@ -255,19 +254,6 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		clock:          clock,
 		RateLimiter:    rl,
 		WorkflowLimits: sl,
-		sendMeteringReport: func(report *MeteringReport, name string, ID string, execID string) {
-			detail := report.Description()
-			bClient := beholder.GetClient()
-			// kvAttrs is what the test client matches on, view pkg/utils/test in common for more detail
-			kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain,
-				"beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, detail.Entity),
-				platform.KeyWorkflowName, name, platform.KeyWorkflowID, ID, platform.KeyWorkflowExecutionID, execID}
-
-			data, mErr := proto.Marshal(report.Message())
-			require.NoError(t, mErr)
-
-			require.NoError(t, bClient.Emitter.Emit(t.Context(), data, kvAttrs...))
-		},
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -357,6 +343,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	beholderTester := tests.Beholder(t)
+	mBillingClient := new(mockBillingClient)
 
 	trigger, cr := mockTrigger(t)
 
@@ -384,7 +371,14 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 		t,
 		reg,
 		hardcodedWorkflow,
+		func(cfg *Config) {
+			cfg.BillingClient = mBillingClient
+		},
 	)
+
+	mBillingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+		return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
+	})).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
 
 	servicetest.Run(t, eng)
 
@@ -405,6 +399,87 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionFinished)))
 	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionStarted)))
 	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionFinished)))
+
+	mBillingClient.AssertExpectations(t)
+}
+
+type mc struct {
+	capabilities.CapabilityInfo
+}
+
+func (m *mc) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+	dl, ok := ctx.Deadline()
+	if !ok {
+		return capabilities.CapabilityResponse{}, errors.New("no deadline set")
+	}
+
+	if time.Until(dl) < 0 {
+		return capabilities.CapabilityResponse{}, errors.New("deadline exceeded")
+	}
+
+	return capabilities.CapabilityResponse{}, nil
+}
+
+func (m *mc) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+	return nil
+}
+
+func (m *mc) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+	return nil
+}
+
+func TestEngine_WriteStepHasZeroStepTimeout(t *testing.T) {
+	cmd := "core/services/workflows/test/zerotimeout/cmd"
+	binary := "test/zerotimeout/cmd/testmodule.wasm"
+
+	ctx := t.Context()
+	log := logger.TestLogger(t)
+	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
+
+	spec, err := host.GetWorkflowSpec(
+		ctx,
+		&host.ModuleConfig{Logger: log},
+		binaryB,
+		nil, // config
+	)
+	require.NoError(t, err)
+
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTriggerWithName(t, "basic-test-trigger@1.0.0")
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+
+	target := &mc{
+		CapabilityInfo: capabilities.MustNewRemoteCapabilityInfo(
+			"write_ethereum-testnet-sepolia@1.0.0",
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting ethereum sepolia testnet",
+			&capabilities.DON{},
+		),
+	}
+	require.NoError(t, reg.Add(ctx, target))
+
+	eng, testHooks, err := newTestEngine(
+		t,
+		reg,
+		*spec,
+		func(c *Config) {
+			c.Binary = binaryB
+			c.Config = nil
+		},
+	)
+	require.NoError(t, err)
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionID(t, eng, testHooks)
+
+	state, err := eng.executionsStore.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, store.StatusCompleted, state.Status, state)
 }
 
 const (
@@ -722,7 +797,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 		err = eng.Start(context.Background())
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errGlobalWorkflowCountLimitReached)
+		assert.ErrorIs(t, err, types.ErrGlobalWorkflowCountLimitReached)
 	})
 
 	t.Run("per owner workflow limit", func(t *testing.T) {
@@ -774,7 +849,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 		err = eng.Start(context.Background())
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errPerOwnerWorkflowCountLimitReached)
+		assert.ErrorIs(t, err, types.ErrPerOwnerWorkflowCountLimitReached)
 	})
 
 	// Verify that overriding the perOwner limit enables an external workflow
@@ -845,7 +920,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 		err = eng.Start(context.Background())
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errPerOwnerWorkflowCountLimitReached)
+		assert.ErrorIs(t, err, types.ErrPerOwnerWorkflowCountLimitReached)
 	})
 }
 
@@ -1146,7 +1221,7 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 
 	<-hooks.initSuccessful
 
-	assert.Equal(t, node, eng.localNode)
+	assert.Equal(t, node, *eng.localNode.Load())
 }
 
 const passthroughInterpolationWorkflow = `
@@ -2285,4 +2360,19 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 	assert.Equal(t, 2, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, MeteringReportEntity)))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid2))
+}
+
+type mockBillingClient struct {
+	mock.Mock
+}
+
+func (_m *mockBillingClient) SubmitWorkflowReceipt(ctx context.Context, req *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error) {
+	args := _m.Called(ctx, req)
+
+	var a0 *billing.SubmitWorkflowReceiptResponse
+	if arg, ok := args.Get(0).(*billing.SubmitWorkflowReceiptResponse); ok {
+		a0 = arg
+	}
+
+	return a0, args.Error(1)
 }

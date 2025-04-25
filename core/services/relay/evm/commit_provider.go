@@ -68,7 +68,7 @@ type DstCommitProvider struct {
 	startBlock          uint64
 	client              client.Client
 	lp                  logpoller.LogPoller
-	contractTransmitter *contractTransmitter
+	contractTransmitter ContractTransmitter
 	configWatcher       *configWatcher
 	gasEstimator        gas.EvmFeeEstimator
 	maxGasPrice         big.Int
@@ -87,7 +87,7 @@ func NewDstCommitProvider(
 	lp logpoller.LogPoller,
 	gasEstimator gas.EvmFeeEstimator,
 	maxGasPrice big.Int,
-	contractTransmitter contractTransmitter,
+	contractTransmitter ContractTransmitter,
 	configWatcher *configWatcher,
 	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
 ) commontypes.CCIPCommitProvider {
@@ -97,7 +97,7 @@ func NewDstCommitProvider(
 		startBlock:          startBlock,
 		client:              client,
 		lp:                  lp,
-		contractTransmitter: &contractTransmitter,
+		contractTransmitter: contractTransmitter,
 		configWatcher:       configWatcher,
 		gasEstimator:        gasEstimator,
 		maxGasPrice:         maxGasPrice,
@@ -196,6 +196,7 @@ func (p *DstCommitProvider) Close() error {
 			multiErr = multierr.Append(multiErr, err)
 		}
 	}
+
 	return multiErr
 }
 

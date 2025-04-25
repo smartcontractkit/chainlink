@@ -19,7 +19,7 @@
   type = "docker"
 
 [workflow_config]
-	workflow_name = "abcdefgasd"
+  workflow_name = "abcdefgasd"
   # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
   feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
 
@@ -49,7 +49,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
-      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
       [Feature]

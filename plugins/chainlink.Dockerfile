@@ -1,117 +1,102 @@
-# Build image: Chainlink binary
+##
+# Build image: Chainlink binary with plugins.
+##
 FROM golang:1.24-bullseye AS buildgo
 RUN go version
+RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /chainlink
 
 COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
-RUN go mod download
-
-# Env vars needed for chainlink build
-ARG COMMIT_SHA
-ARG APTOS_RELAYER_GIT_REF
-ARG CAPABILITIES_GIT_REF
-ARG COSMOS_SHA
-ARG STARKNET_SHA
-# Flag to control installation of private plugins (default: false)
-ARG CL_INSTALL_PRIVATE_PLUGINS=false
-
-# Flags for Go Delve debugger
-ARG GO_GCFLAGS
-
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 COPY . .
 
-# Used to authenticate with GitHub to fetch private dependencies.
-RUN --mount=type=secret,id=GIT_AUTH_TOKEN ./plugins/scripts/setup_git_auth.sh
+# Install Delve for debugging with cache mounts
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go install github.com/go-delve/delve/cmd/dlv@v1.24.2
 
-RUN apt-get update && apt-get install -y jq
+# Flag to control installation of private plugins (default: false).
+ARG CL_INSTALL_PRIVATE_PLUGINS=false
+# Flags for Go Delve debugger
+ARG GO_GCFLAGS
+# Env vars needed for chainlink build
+ARG COMMIT_SHA
 
-# Install Delve for debugging
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
+ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output
+RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    ./plugins/scripts/setup_git_auth.sh && \
+    mkdir -p /gobins && mkdir -p "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
+    GOBIN=/go/bin make install-loopinstall && \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-local install-plugins-public && \
+    if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
+        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
+    fi
 
-# Build the golang binaries
-RUN make GO_GCFLAGS="${GO_GCFLAGS}" install-chainlink
+# Copy any shared libraries.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    mkdir -p /tmp/lib && \
+    ./plugins/scripts/copy_loopinstall_libs.sh \
+    "$CL_LOOPINSTALL_OUTPUT_DIR" \
+    /tmp/lib
 
-# Install medianpoc binary
-RUN make install-medianpoc
+# Build chainlink.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOBIN=/gobins make GO_GCFLAGS="${GO_GCFLAGS}" install-chainlink
 
-# Install ocr3-capability binary
-RUN make install-ocr3-capability
-
-# Install LOOP Plugins
-RUN make install-plugins \
-  APTOS_RELAYER_GIT_REF=${APTOS_RELAYER_GIT_REF} \
-  CAPABILITIES_GIT_REF=${CAPABILITIES_GIT_REF} \
-  COSMOS_SHA=${COSMOS_SHA} \
-  STARKNET_SHA=${STARKNET_SHA} \
-  CL_INSTALL_PRIVATE_PLUGINS=${CL_INSTALL_PRIVATE_PLUGINS}
-
-# -----------------------------------------------------------------------------
-# Final image: common base stage for the final images
-FROM ubuntu:24.04 AS final-base
+##
+# Final Image
+##
+FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
+RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl && rm -rf /var/lib/apt/lists/*
 
 # Install Postgres for CLI tools, needed specifically for DB backups
 RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |tee /etc/apt/sources.list.d/pgdg.list \
   && apt-get update && apt-get install -y postgresql-client-16 \
-  && apt-get clean all
+  && rm -rf /var/lib/apt/lists/*
 
-# Copy Delve debugger from build stage
+RUN if [ ${CHAINLINK_USER} != root ]; then useradd --uid 14933 --create-home ${CHAINLINK_USER}; fi
+USER ${CHAINLINK_USER}
+
+# Copy Delve debugger from build stage.
 COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
 
-COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
-COPY --from=buildgo /go/bin/chainlink-medianpoc /usr/local/bin/
-COPY --from=buildgo /go/bin/chainlink-ocr3-capability /usr/local/bin/
-COPY --from=buildgo /go/bin/chainlink-feeds /usr/local/bin/
+# Set plugin environment variable configuration.
 ENV CL_MEDIAN_CMD=chainlink-feeds
-COPY --from=buildgo /go/bin/chainlink-mercury /usr/local/bin/
 ENV CL_MERCURY_CMD=chainlink-mercury
-COPY --from=buildgo /go/bin/chainlink-cosmos /usr/local/bin/
-COPY --from=buildgo /go/bin/chainlink-solana /usr/local/bin/
 ENV CL_SOLANA_CMD=chainlink-solana
-COPY --from=buildgo /go/bin/chainlink-starknet /usr/local/bin/
-
-# Dependency of CosmWasm/wasmd
-COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
-RUN chmod 755 /usr/lib/libwasmvm.*.so
+ARG CL_APTOS_CMD
+ENV CL_APTOS_CMD=${CL_APTOS_CMD}
 
 # CCIP specific
 COPY ./cci[p]/confi[g] /ccip-config
 ARG CL_CHAIN_DEFAULTS
 ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
 
-RUN if [ ${CHAINLINK_USER} != root ]; then \
-  useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
-  fi
+# Copy the binaries from the build stage (plugins + chainlink).
+COPY --from=buildgo /gobins/ /usr/local/bin/
+# Copy shared libraries from the build stage.
+COPY --from=buildgo /tmp/lib /usr/lib/
 
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
-# explicit set the cache dir. needed so both root and non-root user has an explicit location
+
+# Explicitly set the cache dir. Needed so both root and non-root user has an explicit location.
 ENV XDG_CACHE_HOME=/home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
 EXPOSE 6688
-
-# -----------------------------------------------------------------------------
-# Final image with private plugins (placed earlier so it's not the default target/stage)
-FROM final-base AS final-private-plugins
-COPY --from=buildgo /go/bin/chainlink-aptos /usr/local/bin/
-ENV CL_APTOS_CMD=chainlink-aptos
-COPY --from=buildgo /go/bin/cron /usr/local/bin/
-COPY --from=buildgo /go/bin/readcontract /usr/local/bin/
-ENTRYPOINT ["chainlink"]
-HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
-CMD ["local", "node"]
-
-# -----------------------------------------------------------------------------
-# Final image without private plugins (this is the last stage, so it will be built by default)
-FROM final-base AS final
 ENTRYPOINT ["chainlink"]
 HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
 CMD ["local", "node"]

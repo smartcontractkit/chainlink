@@ -297,6 +297,7 @@ ChainID = '1'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
+SyncStrategy = 'event'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = '11155111'
@@ -318,6 +319,7 @@ InsecureConnection = true
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+ChipIngressEndpoint = 'example.com/chip-ingress'
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'
