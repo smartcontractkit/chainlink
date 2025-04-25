@@ -735,6 +735,8 @@ lloConfigMode = "bluegreen"
 		deribitFundingTimeStreamID := uint32(10)
 		deribitFundingIntervalHoursStreamID := uint32(11)
 		timestampedStonkPriceStreamID := uint32(12)
+		nullTimestampPriceStreamID := uint32(13)
+		missingTimestampPriceStreamID := uint32(14)
 
 		mustEncodeOpts := func(opts any) []byte {
 			encoded, err := json.Marshal(opts)
@@ -945,6 +947,14 @@ lloConfigMode = "bluegreen"
 						StreamID:   timestampedStonkPriceStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
+					{
+						StreamID:   nullTimestampPriceStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   missingTimestampPriceStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
 				},
 			},
 		}
@@ -982,6 +992,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	},
 	"timestamps": {
 		"providerIndicatedTimeUnixMs": 1742314713000,
+		"providerIndicatedTimeUnixMs_TestNull": null,
 		"providerDataReceivedUnixMs": 1742314713050
 	}
 }`
@@ -1019,13 +1030,34 @@ dp [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 market_status_parse [type=jsonparse path="data,marketStatus" streamID=%d];
 stonk_price_parse [type=jsonparse path="data,benchmarkPrice"];
 
-# Left is the raw response from the DP which contains the "timestamps" top level field.
-# Right contains streamValueType: 2, indicating a timestamped field, and the stream value as the "result".
-stonk_price_timestamped [type=merge left="$(dp)" right="{\\"streamValueType\\": %d, \\"result\\": $(stonk_price_parse)}" streamID=%d];
-
 dp -> market_status_parse;
+
+provider_indicated_time_parse [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs"];
+provider_data_received_parse [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
+stonk_price_timestamped [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(provider_indicated_time_parse),\\"providerDataReceivedUnixMs\\":$(provider_data_received_parse)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
+
+dp -> provider_indicated_time_parse;
+dp -> provider_data_received_parse;
 dp -> stonk_price_parse -> stonk_price_timestamped;
-`, bridgeName, marketStatusStreamID, datastreamsllo.LLOStreamValue_TimestampedStreamValue, timestampedStonkPriceStreamID)
+
+# test null providerIndicatedTimeUnixMs
+null_provider_indicated_time_parse [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs_TestNull"];
+stonk_price_timestamped_null_indicated_time [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(null_provider_indicated_time_parse),\\"providerDataReceivedUnixMs\\":$(provider_data_received_parse)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
+
+dp -> null_provider_indicated_time_parse;
+dp -> stonk_price_parse -> stonk_price_timestamped_null_indicated_time;
+
+# test missing providerIndicatedTimeUnixMs
+missing_provider_indicated_time_parse [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs_TestMissing"];
+stonk_price_timestamped_missing_indicated_time [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(missing_provider_indicated_time_parse),\\"providerDataReceivedUnixMs\\":$(provider_data_received_parse)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
+
+dp -> missing_provider_indicated_time_parse;
+dp -> stonk_price_parse -> stonk_price_timestamped_missing_indicated_time;
+`, bridgeName, marketStatusStreamID,
+			datastreamsllo.LLOStreamValue_TimestampedStreamValue, timestampedStonkPriceStreamID,
+			datastreamsllo.LLOStreamValue_TimestampedStreamValue, nullTimestampPriceStreamID,
+			datastreamsllo.LLOStreamValue_TimestampedStreamValue, missingTimestampPriceStreamID,
+		)
 
 		benchmarkPricePipeline := fmt.Sprintf(`
 dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
@@ -1255,10 +1287,19 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				report := v["report"].(map[string]interface{})
 				cid := report["ChannelID"].(float64)
 				delete(feedIDs, pad32bytes(uint32(cid)))
-				assert.Len(t, report["Values"].([]interface{}), 1)
-				tsv := report["Values"].([]interface{})[0].(map[string]interface{})
-				assert.Equal(t, 2, int(tsv["t"].(float64)))
-				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713000000000, StreamValue: {"t":0,"v":"111.22"}}`, tsv["v"].(string))
+				assert.Len(t, report["Values"].([]interface{}), 3)
+				// default uses provider indicated time
+				tsv1 := report["Values"].([]interface{})[0].(map[string]interface{})
+				assert.Equal(t, 2, int(tsv1["t"].(float64)))
+				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713000000000, StreamValue: {"t":0,"v":"111.22"}}`, tsv1["v"].(string))
+				// null provider indicated time - uses data received time fallback
+				tsv2 := report["Values"].([]interface{})[1].(map[string]interface{})
+				assert.Equal(t, 2, int(tsv2["t"].(float64)))
+				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713050000000, StreamValue: {"t":0,"v":"111.22"}}`, tsv2["v"].(string))
+				// missing provider indicated time - uses data received time fallback
+				tsv3 := report["Values"].([]interface{})[2].(map[string]interface{})
+				assert.Equal(t, 2, int(tsv3["t"].(float64)))
+				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713050000000, StreamValue: {"t":0,"v":"111.22"}}`, tsv3["v"].(string))
 			default:
 				t.Fatalf("unexpected report format: %d", req.ReportFormat)
 			}
