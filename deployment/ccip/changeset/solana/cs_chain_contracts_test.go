@@ -49,7 +49,7 @@ func deployTokenAndMint(t *testing.T, tenv deployment.Environment, solChain uint
 			},
 		),
 	)
-	addresses, err := e.ExistingAddresses.AddressesForChain(solChain) //nolint
+	addresses, err := e.ExistingAddresses.AddressesForChain(solChain) //nolint:staticcheck
 	require.NoError(t, err)
 	tokenAddress := ccipChangeset.FindSolanaAddress(
 		deployment.TypeAndVersion{

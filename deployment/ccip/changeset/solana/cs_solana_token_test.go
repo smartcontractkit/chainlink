@@ -41,7 +41,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(solChain1)
+	addresses, err := e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck
 	require.NoError(t, err)
 	tokenAddress := ccipChangeset.FindSolanaAddress(
 		deployment.TypeAndVersion{
@@ -121,7 +121,7 @@ func TestSolanaTokenOps(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-	addresses, err = e.ExistingAddresses.AddressesForChain(solChain1)
+	addresses, err = e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck
 	require.NoError(t, err)
 	tokenAddress2 := ccipChangeset.FindSolanaAddress(
 		deployment.TypeAndVersion{
