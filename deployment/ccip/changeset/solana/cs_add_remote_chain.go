@@ -32,6 +32,10 @@ type AddRemoteChainToRouterConfig struct {
 }
 
 type RouterConfig struct {
+	// if enabling AllowedSender -> it needs to be a complete list
+	// onchain just clones what we pass in
+	// and tooling does not handle upserts
+	// so you have to clone what is in state, edit the list, and then pass into this changeset
 	RouterDestinationConfig solRouter.DestChainConfig
 	// We have different instructions for add vs update, so we need to know which one to use
 	IsUpdate bool

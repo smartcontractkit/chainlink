@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/mcms"
@@ -24,9 +26,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	ccipChangeset_v1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 )
 
-var _ deployment.ChangeSet[TokenPoolConfig] = AddTokenPool
+var _ deployment.ChangeSet[TokenPoolConfig] = AddTokenPoolAndLookupTable
 var _ deployment.ChangeSet[RemoteChainTokenPoolConfig] = SetupTokenPoolForRemoteChain
 
 func validatePoolDeployment(
@@ -89,30 +92,6 @@ func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, po
 	return nil
 }
 
-// get rate limit config for remote chain
-func getRateLimitConfig(
-	e deployment.Environment, cfg RemoteChainTokenPoolConfig, remoteChainConfigAccount solBaseTokenPool.BaseChain,
-) (setRateLimit bool, inboundRateLimit *solBaseTokenPool.RateLimitConfig, outboundRateLimit *solBaseTokenPool.RateLimitConfig) {
-	inboundRateLimit = cfg.InboundRateLimit
-	outboundRateLimit = cfg.OutboundRateLimit
-	setRateLimit = false // it will turn true if its a new remote chain and there is a rate limit update
-	// check if there is a rate limit update
-	if !cfg.IsUpdate {
-		setRateLimit = true
-	} else if cfg.IsUpdate && (inboundRateLimit != nil || outboundRateLimit != nil) {
-		e.Logger.Infof("Updating token pool rate limits for remote chain %d for token %s", cfg.RemoteChainSelector, cfg.SolTokenPubKey)
-		setRateLimit = true
-		if inboundRateLimit == nil {
-			inboundRateLimit = &remoteChainConfigAccount.InboundRateLimit.Cfg
-		}
-		if outboundRateLimit == nil {
-			outboundRateLimit = &remoteChainConfigAccount.OutboundRateLimit.Cfg
-		}
-	}
-
-	return setRateLimit, inboundRateLimit, outboundRateLimit
-}
-
 // get diff of pool addresses
 func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAddresses []solBaseTokenPool.RemoteAddress) []solBaseTokenPool.RemoteAddress {
 	var result []solBaseTokenPool.RemoteAddress
@@ -156,7 +135,7 @@ func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 	return validatePoolDeployment(&e, cfg.PoolType, cfg.ChainSelector, tokenPubKey, false)
 }
 
-func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.ChangesetOutput, error) {
+func AddTokenPoolAndLookupTable(e deployment.Environment, cfg TokenPoolConfig) (deployment.ChangesetOutput, error) {
 	e.Logger.Infow("Adding token pool", "token_pubkey", cfg.TokenPubKey)
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -244,6 +223,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		instructions = append(instructions, authI)
+		e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
 	}
 
 	// add signer here if authority is different from deployer key
@@ -251,23 +231,100 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
-	e.Logger.Infow("Set mint authority", "poolSigner", poolSigner.String())
 
-	return deployment.ChangesetOutput{}, nil
+	csOutput, err := AddTokenPoolLookupTable(e, TokenPoolLookupTableConfig{
+		ChainSelector: cfg.ChainSelector,
+		TokenPubKey:   cfg.TokenPubKey,
+		PoolType:      cfg.PoolType,
+	})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
+	}
+
+	return csOutput, nil
 }
 
-// ADD TOKEN POOL FOR REMOTE CHAIN
+// SETUP REMOTE CHAIN TOKEN POOL FOR A GIVEN TOKEN
+type RateLimiterConfig struct {
+	// Inbound is the rate limiter config for inbound transfers from a remote chain.
+	Inbound solBaseTokenPool.RateLimitConfig
+	// Outbound is the rate limiter config for outbound transfers to a remote chain.
+	Outbound solBaseTokenPool.RateLimitConfig
+}
+
+func validateRateLimiterConfig(rateLimiterConfig solBaseTokenPool.RateLimitConfig) error {
+	if rateLimiterConfig.Enabled {
+		if rateLimiterConfig.Rate >= rateLimiterConfig.Capacity || rateLimiterConfig.Rate == 0 {
+			return errors.New("rate must be greater than 0 and less than capacity if enabled")
+		}
+	} else {
+		if rateLimiterConfig.Rate != 0 || rateLimiterConfig.Capacity != 0 {
+			return errors.New("rate and capacity must be 0 if not enabled")
+		}
+	}
+	return nil
+}
+
+func (cfg RateLimiterConfig) Validate() error {
+	if err := validateRateLimiterConfig(cfg.Inbound); err != nil {
+		return err
+	}
+	if err := validateRateLimiterConfig(cfg.Outbound); err != nil {
+		return err
+	}
+	return nil
+}
+
+type EVMRemoteConfig struct {
+	TokenSymbol       ccipChangeset.TokenSymbol
+	PoolType          deployment.ContractType
+	PoolVersion       semver.Version
+	RateLimiterConfig RateLimiterConfig
+	OverrideConfig    bool
+}
+
+func (cfg EVMRemoteConfig) Validate(e deployment.Environment, state ccipChangeset.CCIPOnChainState, evmChainSelector uint64) error {
+	if cfg.TokenSymbol == "" {
+		return errors.New("token symbol must be defined")
+	}
+	err := deployment.IsValidChainSelector(evmChainSelector)
+	if err != nil {
+		return fmt.Errorf("failed to validate chain selector %d: %w", evmChainSelector, err)
+	}
+	chain, ok := e.Chains[evmChainSelector]
+	if !ok {
+		return fmt.Errorf("chain with selector %d does not exist in environment", evmChainSelector)
+	}
+	chainState, ok := state.Chains[evmChainSelector]
+	if !ok {
+		return fmt.Errorf("%s does not exist in state", chain.String())
+	}
+	// Ensure that the inputted type is known
+	if _, ok := ccipChangeset.TokenPoolTypes[cfg.PoolType]; !ok {
+		return fmt.Errorf("%s is not a known token pool type", cfg.PoolType)
+	}
+	// Ensure that the inputted version is known
+	if _, ok := ccipChangeset.TokenPoolVersions[cfg.PoolVersion]; !ok {
+		return fmt.Errorf("%s is not a known token pool version", cfg.PoolVersion)
+	}
+	// Ensure that a pool with given symbol, type and version is known to the environment
+	_, ok = ccipChangeset.GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, cfg.TokenSymbol, cfg.PoolType, cfg.PoolVersion)
+	if !ok {
+		return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), cfg.TokenSymbol, cfg.PoolType, cfg.PoolVersion)
+	}
+	if err := cfg.RateLimiterConfig.Validate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 type RemoteChainTokenPoolConfig struct {
-	SolChainSelector    uint64
-	RemoteChainSelector uint64
-	SolTokenPubKey      string
-	PoolType            solTestTokenPool.PoolType
-	// this is actually derivable from on chain given token symbol
-	RemoteConfig      *solBaseTokenPool.RemoteConfig
-	InboundRateLimit  *solBaseTokenPool.RateLimitConfig
-	OutboundRateLimit *solBaseTokenPool.RateLimitConfig
-	MCMSSolana        *MCMSConfigSolana
-	IsUpdate          bool
+	SolChainSelector uint64
+	SolTokenPubKey   string
+	SolPoolType      solTestTokenPool.PoolType
+	EVMRemoteConfigs map[uint64]EVMRemoteConfig
+	MCMSSolana       *MCMSConfigSolana
 }
 
 func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
@@ -279,82 +336,93 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 	chainState := state.SolChains[cfg.SolChainSelector]
 	chain := e.SolChains[cfg.SolChainSelector]
 
-	if err := validatePoolDeployment(&e, cfg.PoolType, cfg.SolChainSelector, tokenPubKey, true); err != nil {
+	if err := validatePoolDeployment(&e, cfg.SolPoolType, cfg.SolChainSelector, tokenPubKey, true); err != nil {
 		return err
 	}
 
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
 		return err
 	}
-
-	var tokenPool solana.PublicKey
-	var remoteChainConfigAccount interface{}
-
-	switch cfg.PoolType {
-	case solTestTokenPool.BurnAndMint_PoolType:
-		tokenPool = chainState.BurnMintTokenPool
-		remoteChainConfigAccount = solBurnMintTokenPool.ChainConfig{}
-	case solTestTokenPool.LockAndRelease_PoolType:
-		tokenPool = chainState.LockReleaseTokenPool
-		remoteChainConfigAccount = solLockReleaseTokenPool.ChainConfig{}
-	default:
-		return fmt.Errorf("invalid pool type: %s", cfg.PoolType)
-	}
-
-	// check if this remote chain is already configured for this token
-	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(cfg.RemoteChainSelector, tokenPubKey, tokenPool)
-	if err != nil {
-		return fmt.Errorf("failed to get token pool remote chain config pda (remoteSelector: %d, mint: %s, pool: %s): %w", cfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), err)
-	}
-	err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
-
-	if !cfg.IsUpdate && err == nil {
-		return fmt.Errorf("remote chain config already exists for (remoteSelector: %d, mint: %s, pool: %s, type: %s)", cfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), cfg.PoolType)
-	} else if cfg.IsUpdate && err != nil {
-		return fmt.Errorf("remote chain config not found for (remoteSelector: %d, mint: %s, pool: %s, type: %s): %w", cfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), cfg.PoolType, err)
+	// validate EVMRemoteConfig
+	for evmChainSelector, evmRemoteConfig := range cfg.EVMRemoteConfigs {
+		if err := evmRemoteConfig.Validate(e, state, evmChainSelector); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
+func getOnChainEVMPoolConfig(e deployment.Environment, state ccipChangeset.CCIPOnChainState, evmChainSelector uint64, evmRemoteConfig EVMRemoteConfig) (solBaseTokenPool.RemoteConfig, error) {
+	evmChain := e.Chains[evmChainSelector]
+	evmChainState := state.Chains[evmChainSelector]
+	evmTokenPool, evmTokenAddress, _, evmErr := ccipChangeset_v1_5_1.GetTokenStateFromPoolEVM(context.Background(), evmRemoteConfig.TokenSymbol, evmRemoteConfig.PoolType, evmRemoteConfig.PoolVersion, evmChain, evmChainState)
+	if evmErr != nil {
+		return solBaseTokenPool.RemoteConfig{}, fmt.Errorf("failed to get token evm token pool and token address: %w", evmErr)
+	}
+	evmTokenPoolAddress := evmTokenPool.Address()
+	evmTokenDecimals, err := evmTokenPool.GetTokenDecimals(&bind.CallOpts{Context: context.Background()})
+	if err != nil {
+		return solBaseTokenPool.RemoteConfig{}, fmt.Errorf("failed to get token decimals: %w", err)
+	}
+	onChainEVMRemoteConfig := solBaseTokenPool.RemoteConfig{
+		TokenAddress: solBaseTokenPool.RemoteAddress{
+			Address: evmTokenAddress.Bytes(),
+		},
+		PoolAddresses: []solBaseTokenPool.RemoteAddress{
+			{
+				Address: evmTokenPoolAddress.Bytes(),
+			},
+		},
+		Decimals: evmTokenDecimals,
+	}
+	return onChainEVMRemoteConfig, nil
+}
+
 func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainTokenPoolConfig) (deployment.ChangesetOutput, error) {
-	e.Logger.Infow("Setting up token pool for remote chain", "remote_chain_selector", cfg.RemoteChainSelector, "token_pubkey", cfg.SolTokenPubKey)
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.SolChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.SolChainSelector]
+	envState, _ := ccipChangeset.LoadOnchainState(e)
+	solChainState := envState.SolChains[cfg.SolChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 
 	var instructions []solana.Instruction
 	var txns []mcmsTypes.Transaction
-	var err error
-	switch cfg.PoolType {
+	switch cfg.SolPoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
-		instructions, err = getInstructionsForBurnMint(e, chain, chainState, cfg)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+		for evmChainSelector, evmRemoteConfig := range cfg.EVMRemoteConfigs {
+			e.Logger.Infow("Setting up token pool for remote chain", "remote_chain_selector", evmChainSelector, "token_pubkey", tokenPubKey.String(), "pool_type", cfg.SolPoolType)
+			chainIxs, err := getInstructionsForBurnMint(e, chain, envState, solChainState, cfg, evmChainSelector, evmRemoteConfig)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+			instructions = append(instructions, chainIxs...)
 		}
 		if cfg.MCMSSolana != nil && cfg.MCMSSolana.BurnMintTokenPoolOwnedByTimelock[tokenPubKey] {
-			err = appendTxs(instructions, chainState.BurnMintTokenPool, ccipChangeset.BurnMintTokenPool, &txns)
+			err := appendTxs(instructions, solChainState.BurnMintTokenPool, ccipChangeset.BurnMintTokenPool, &txns)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 			}
 		}
 	case solTestTokenPool.LockAndRelease_PoolType:
-		instructions, err = getInstructionsForLockRelease(e, chain, chainState, cfg)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+		for evmChainSelector, evmRemoteConfig := range cfg.EVMRemoteConfigs {
+			e.Logger.Infow("Setting up token pool for remote chain", "remote_chain_selector", evmChainSelector, "token_pubkey", tokenPubKey.String(), "pool_type", cfg.SolPoolType)
+			chainIxs, err := getInstructionsForLockRelease(e, chain, envState, solChainState, cfg, evmChainSelector, evmRemoteConfig)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+			instructions = append(instructions, chainIxs...)
 		}
 		if cfg.MCMSSolana != nil && cfg.MCMSSolana.LockReleaseTokenPoolOwnedByTimelock[tokenPubKey] {
-			err = appendTxs(instructions, chainState.LockReleaseTokenPool, ccipChangeset.LockReleaseTokenPool, &txns)
+			err := appendTxs(instructions, solChainState.LockReleaseTokenPool, ccipChangeset.LockReleaseTokenPool, &txns)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 			}
 		}
 	default:
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", cfg.PoolType)
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", cfg.SolPoolType)
 	}
 
 	if len(txns) > 0 {
@@ -367,21 +435,39 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
-	if err = chain.Confirm(instructions); err != nil {
+	if err := chain.Confirm(instructions); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
-	e.Logger.Infow("Configured token pool for remote chain", "remote_chain_selector", cfg.RemoteChainSelector, "token_pubkey", tokenPubKey.String())
 	return deployment.ChangesetOutput{}, nil
 }
 
-func getInstructionsForBurnMint(
+// checks if the evmChainSelector is supported for the given token and pool type
+func isSupportedChain(chain deployment.SolChain, solTokenPubKey solana.PublicKey, solPoolAddress solana.PublicKey, evmChainSelector uint64) (bool, solTestTokenPool.ChainConfig, error) {
+	fmt.Println("entering isSupportedChain")
+	var remoteChainConfigAccount solTestTokenPool.ChainConfig
+	// check if this remote chain is already configured for this token
+	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(evmChainSelector, solTokenPubKey, solPoolAddress)
+	if err != nil {
+		return false, solTestTokenPool.ChainConfig{}, fmt.Errorf("failed to get token pool remote chain config pda (remoteSelector: %d, mint: %s, pool: %s): %w", evmChainSelector, solTokenPubKey.String(), solPoolAddress.String(), err)
+	}
+	err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
+	fmt.Println("remoteChainConfigAccount", remoteChainConfigAccount)
+	if err != nil { // not a supported chain for this combination of token and pool type
+		return false, solTestTokenPool.ChainConfig{}, nil
+	}
+	return true, remoteChainConfigAccount, nil
+}
+
+func getNewSetuptInstructionsForBurnMint(
 	e deployment.Environment,
 	chain deployment.SolChain,
 	chainState ccipChangeset.SolCCIPChainState,
 	cfg RemoteChainTokenPoolConfig,
+	evmChainSelector uint64,
+	rateLimiterConfig RateLimiterConfig,
+	onChainEVMPoolConfig solBaseTokenPool.RemoteConfig,
 ) ([]solana.Instruction, error) {
-	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, chainState.BurnMintTokenPool, cfg.RemoteChainSelector)
-	solBurnMintTokenPool.SetProgramID(chainState.BurnMintTokenPool)
+	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, chainState.BurnMintTokenPool, evmChainSelector)
 	ixns := make([]solana.Instruction, 0)
 	authority, err := GetAuthorityForIxn(
 		&e,
@@ -392,52 +478,97 @@ func getInstructionsForBurnMint(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
-	if !cfg.IsUpdate {
-		ixConfigure, err := solBurnMintTokenPool.NewInitChainRemoteConfigInstruction(
-			cfg.RemoteChainSelector,
-			tokenPubKey,
-			*cfg.RemoteConfig,
-			poolConfigPDA,
-			remoteChainConfigPDA,
-			authority,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate instructions: %w", err)
-		}
-		ixns = append(ixns, ixConfigure)
-	} else if cfg.RemoteConfig != nil {
-		e.Logger.Infof("Updating token pool remote chain config for remote chain %d for token %s", cfg.RemoteChainSelector, tokenPubKey.String())
-		ixConfigure, err := solBurnMintTokenPool.NewEditChainRemoteConfigInstruction(
-			cfg.RemoteChainSelector,
-			tokenPubKey,
-			*cfg.RemoteConfig,
-			poolConfigPDA,
-			remoteChainConfigPDA,
-			authority,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate instructions: %w", err)
-		}
-		ixns = append(ixns, ixConfigure)
+	onChainEVMPoolConfigWithoutPoolAddress := solBaseTokenPool.RemoteConfig{
+		TokenAddress:  onChainEVMPoolConfig.TokenAddress,
+		PoolAddresses: []solBaseTokenPool.RemoteAddress{},
+		Decimals:      onChainEVMPoolConfig.Decimals,
 	}
 
-	var remoteChainConfigAccount solBurnMintTokenPool.ChainConfig
-	if cfg.IsUpdate {
-		err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get remote chain config: %w", err)
-		}
+	ixConfigure, err := solBurnMintTokenPool.NewInitChainRemoteConfigInstruction(
+		evmChainSelector,
+		tokenPubKey,
+		onChainEVMPoolConfigWithoutPoolAddress,
+		poolConfigPDA,
+		remoteChainConfigPDA,
+		authority,
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate instructions: %w", err)
+	}
+	ixns = append(ixns, ixConfigure)
+
+	ixRates, err := solBurnMintTokenPool.NewSetChainRateLimitInstruction(
+		evmChainSelector,
+		tokenPubKey,
+		rateLimiterConfig.Inbound,
+		rateLimiterConfig.Outbound,
+		poolConfigPDA,
+		remoteChainConfigPDA,
+		authority,
+	).ValidateAndBuild()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate instructions: %w", err)
+	}
+	ixns = append(ixns, ixRates)
+
+	ixAppend, err := solBurnMintTokenPool.NewAppendRemotePoolAddressesInstruction(
+		evmChainSelector,
+		tokenPubKey,
+		onChainEVMPoolConfig.PoolAddresses, // evm supports multiple remote pools per token
+		poolConfigPDA,
+		remoteChainConfigPDA,
+		authority,
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate instructions: %w", err)
+	}
+	ixns = append(ixns, ixAppend)
+
+	return ixns, nil
+}
+
+func getInstructionsForBurnMint(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	envState ccipChangeset.CCIPOnChainState,
+	solChainState ccipChangeset.SolCCIPChainState,
+	cfg RemoteChainTokenPoolConfig,
+	evmChainSelector uint64,
+	evmRemoteConfig EVMRemoteConfig,
+) ([]solana.Instruction, error) {
+	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, solChainState.BurnMintTokenPool, evmChainSelector)
+	solBurnMintTokenPool.SetProgramID(solChainState.BurnMintTokenPool)
+	ixns := make([]solana.Instruction, 0)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.BurnMintTokenPool,
+		tokenPubKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 
-	setRateLimit, inboundRateLimit, outboundRateLimit := getRateLimitConfig(e, cfg, remoteChainConfigAccount.Base)
-	if setRateLimit {
+	onChainEVMPoolConfig, err := getOnChainEVMPoolConfig(e, envState, evmChainSelector, evmRemoteConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get onchain evm config: %w", err)
+	}
+
+	isSupportedChain, remoteChainConfigAccount, err := isSupportedChain(chain, tokenPubKey, solChainState.BurnMintTokenPool, evmChainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if chain is supported: %w", err)
+	}
+
+	if isSupportedChain {
+		// override the rate limits if the chain is already supported
+		e.Logger.Infof("overriding rate limits for chain %d", evmChainSelector)
 		ixRates, err := solBurnMintTokenPool.NewSetChainRateLimitInstruction(
-			cfg.RemoteChainSelector,
+			evmChainSelector,
 			tokenPubKey,
-			*inboundRateLimit,
-			*outboundRateLimit,
+			evmRemoteConfig.RateLimiterConfig.Inbound,
+			evmRemoteConfig.RateLimiterConfig.Outbound,
 			poolConfigPDA,
 			remoteChainConfigPDA,
 			authority,
@@ -446,18 +577,45 @@ func getInstructionsForBurnMint(
 			return nil, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		ixns = append(ixns, ixRates)
+
+		// if the token address has changed or if the override config flag is set, edit the remote config (just overwrite the existing remote config)
+		if !bytes.Equal(remoteChainConfigAccount.Base.Remote.TokenAddress.Address, onChainEVMPoolConfig.TokenAddress.Address) || evmRemoteConfig.OverrideConfig {
+			e.Logger.Infof("overriding remote config for chain %d", evmChainSelector)
+			ixConfigure, err := solBurnMintTokenPool.NewEditChainRemoteConfigInstruction(
+				evmChainSelector,
+				tokenPubKey,
+				onChainEVMPoolConfig,
+				poolConfigPDA,
+				remoteChainConfigPDA,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+			ixns = append(ixns, ixConfigure)
+		}
+	} else {
+		ixns, err = getNewSetuptInstructionsForBurnMint(e, chain, solChainState, cfg, evmChainSelector, evmRemoteConfig.RateLimiterConfig, onChainEVMPoolConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate instructions: %w", err)
+		}
 	}
+
 	return ixns, nil
 }
 
-func getInstructionsForLockRelease(
+func getNewSetuptInstructionsForLockRelease(
 	e deployment.Environment,
 	chain deployment.SolChain,
 	chainState ccipChangeset.SolCCIPChainState,
 	cfg RemoteChainTokenPoolConfig,
+	evmChainSelector uint64,
+	rateLimiterConfig RateLimiterConfig,
+	onChainEVMPoolConfig solBaseTokenPool.RemoteConfig,
 ) ([]solana.Instruction, error) {
-	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, chainState.LockReleaseTokenPool, cfg.RemoteChainSelector)
-	solLockReleaseTokenPool.SetProgramID(chainState.LockReleaseTokenPool)
+	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, chainState.LockReleaseTokenPool, evmChainSelector)
+	ixns := make([]solana.Instruction, 0)
 	authority, err := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -467,51 +625,96 @@ func getInstructionsForLockRelease(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
-	ixns := make([]solana.Instruction, 0)
-	if !cfg.IsUpdate {
-		ixConfigure, err := solLockReleaseTokenPool.NewInitChainRemoteConfigInstruction(
-			cfg.RemoteChainSelector,
-			tokenPubKey,
-			*cfg.RemoteConfig,
-			poolConfigPDA,
-			remoteChainConfigPDA,
-			authority,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate instructions: %w", err)
-		}
-		ixns = append(ixns, ixConfigure)
-	} else if cfg.RemoteConfig != nil {
-		ixConfigure, err := solLockReleaseTokenPool.NewEditChainRemoteConfigInstruction(
-			cfg.RemoteChainSelector,
-			tokenPubKey,
-			*cfg.RemoteConfig,
-			poolConfigPDA,
-			remoteChainConfigPDA,
-			authority,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate instructions: %w", err)
-		}
-		ixns = append(ixns, ixConfigure)
-	}
-	var remoteChainConfigAccount solLockReleaseTokenPool.ChainConfig
-	if cfg.IsUpdate {
-		err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get remote chain config: %w", err)
-		}
+	onChainEVMPoolConfigWithoutPoolAddress := solBaseTokenPool.RemoteConfig{
+		TokenAddress:  onChainEVMPoolConfig.TokenAddress,
+		PoolAddresses: []solBaseTokenPool.RemoteAddress{},
+		Decimals:      onChainEVMPoolConfig.Decimals,
 	}
 
-	setRateLimit, inboundRateLimit, outboundRateLimit := getRateLimitConfig(e, cfg, remoteChainConfigAccount.Base)
-	if setRateLimit {
+	ixConfigure, err := solLockReleaseTokenPool.NewInitChainRemoteConfigInstruction(
+		evmChainSelector,
+		tokenPubKey,
+		onChainEVMPoolConfigWithoutPoolAddress,
+		poolConfigPDA,
+		remoteChainConfigPDA,
+		authority,
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate instructions: %w", err)
+	}
+	ixns = append(ixns, ixConfigure)
+
+	ixRates, err := solLockReleaseTokenPool.NewSetChainRateLimitInstruction(
+		evmChainSelector,
+		tokenPubKey,
+		rateLimiterConfig.Inbound,
+		rateLimiterConfig.Outbound,
+		poolConfigPDA,
+		remoteChainConfigPDA,
+		authority,
+	).ValidateAndBuild()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate instructions: %w", err)
+	}
+	ixns = append(ixns, ixRates)
+
+	ixAppend, err := solLockReleaseTokenPool.NewAppendRemotePoolAddressesInstruction(
+		evmChainSelector,
+		tokenPubKey,
+		onChainEVMPoolConfig.PoolAddresses, // evm supports multiple remote pools per token
+		poolConfigPDA,
+		remoteChainConfigPDA,
+		authority,
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate instructions: %w", err)
+	}
+	ixns = append(ixns, ixAppend)
+
+	return ixns, nil
+}
+
+func getInstructionsForLockRelease(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	envState ccipChangeset.CCIPOnChainState,
+	solChainState ccipChangeset.SolCCIPChainState,
+	cfg RemoteChainTokenPoolConfig,
+	evmChainSelector uint64,
+	evmRemoteConfig EVMRemoteConfig,
+) ([]solana.Instruction, error) {
+	tokenPubKey, poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(cfg.SolTokenPubKey, solChainState.LockReleaseTokenPool, evmChainSelector)
+	solLockReleaseTokenPool.SetProgramID(solChainState.LockReleaseTokenPool)
+	ixns := make([]solana.Instruction, 0)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.LockReleaseTokenPool,
+		tokenPubKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
+
+	onChainEVMPoolConfig, err := getOnChainEVMPoolConfig(e, envState, evmChainSelector, evmRemoteConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get on chain evm pool config: %w", err)
+	}
+
+	isSupportedChain, remoteChainConfigAccount, err := isSupportedChain(chain, tokenPubKey, solChainState.LockReleaseTokenPool, evmChainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if chain is supported: %w", err)
+	}
+	if isSupportedChain {
+		// override the rate limits if the chain is already supported
+		e.Logger.Infof("overriding rate limits for chain %d", evmChainSelector)
 		ixRates, err := solLockReleaseTokenPool.NewSetChainRateLimitInstruction(
-			cfg.RemoteChainSelector,
+			evmChainSelector,
 			tokenPubKey,
-			*inboundRateLimit,
-			*outboundRateLimit,
+			evmRemoteConfig.RateLimiterConfig.Inbound,
+			evmRemoteConfig.RateLimiterConfig.Outbound,
 			poolConfigPDA,
 			remoteChainConfigPDA,
 			authority,
@@ -520,6 +723,27 @@ func getInstructionsForLockRelease(
 			return nil, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		ixns = append(ixns, ixRates)
+		if !bytes.Equal(remoteChainConfigAccount.Base.Remote.TokenAddress.Address, onChainEVMPoolConfig.TokenAddress.Address) || evmRemoteConfig.OverrideConfig {
+			e.Logger.Infof("overriding remote config for chain %d", evmChainSelector)
+			ixConfigure, err := solLockReleaseTokenPool.NewEditChainRemoteConfigInstruction(
+				evmChainSelector,
+				tokenPubKey,
+				onChainEVMPoolConfig,
+				poolConfigPDA,
+				remoteChainConfigPDA,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+			ixns = append(ixns, ixConfigure)
+		}
+	} else {
+		ixns, err = getNewSetuptInstructionsForLockRelease(e, chain, solChainState, cfg, evmChainSelector, evmRemoteConfig.RateLimiterConfig, onChainEVMPoolConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate instructions: %w", err)
+		}
 	}
 
 	return ixns, nil
@@ -942,6 +1166,8 @@ func (cfg ConfigureTokenPoolAllowListConfig) Validate(e deployment.Environment) 
 	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey)
 }
 
+// input only the ones you want to add
+// onchain throws error when we pass already configured accounts
 func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoolAllowListConfig) (deployment.ChangesetOutput, error) {
 	e.Logger.Infof("Configuring token pool allowlist for token %s", cfg.SolTokenPubKey)
 	if err := cfg.Validate(e); err != nil {

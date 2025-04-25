@@ -31,22 +31,34 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-func deployToken(t *testing.T, tenv deployment.Environment, solChain uint64) (deployment.Environment, solana.PublicKey, error) {
+func deployTokenAndMint(t *testing.T, tenv deployment.Environment, solChain uint64, walletPubKeys []string) (deployment.Environment, solana.PublicKey, error) {
+	mintMap := make(map[string]uint64)
+	for _, key := range walletPubKeys {
+		mintMap[key] = uint64(1000)
+	}
 	e, err := commonchangeset.Apply(t, tenv, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeploySolanaToken),
 			ccipChangesetSolana.DeploySolanaTokenConfig{
-				ChainSelector:    solChain,
-				TokenProgramName: ccipChangeset.SPL2022Tokens,
-				TokenDecimals:    9,
-				TokenSymbol:      "TEST_TOKEN",
+				ChainSelector:       solChain,
+				TokenProgramName:    ccipChangeset.SPL2022Tokens,
+				TokenDecimals:       9,
+				TokenSymbol:         "TEST_TOKEN",
+				ATAList:             walletPubKeys,
+				MintAmountToAddress: mintMap,
 			},
 		),
 	)
+	addresses, err := e.ExistingAddresses.AddressesForChain(solChain)
 	require.NoError(t, err)
-	state, err := ccipChangeset.LoadOnchainStateSolana(e)
-	require.NoError(t, err)
-	tokenAddress := state.SolChains[solChain].SPL2022Tokens[0]
+	tokenAddress := ccipChangeset.FindSolanaAddress(
+		deployment.TypeAndVersion{
+			Type:    ccipChangeset.SPL2022Tokens,
+			Version: deployment.Version1_0_0,
+			Labels:  deployment.NewLabelSet("TEST_TOKEN"),
+		},
+		addresses,
+	)
 	return e, tokenAddress, err
 }
 
@@ -367,7 +379,7 @@ func TestBilling(t *testing.T) {
 			evmChain := tenv.Env.AllChainSelectors()[0]
 			solChain := tenv.Env.AllChainSelectorsSolana()[0]
 
-			e, tokenAddress, err := deployToken(t, tenv.Env, solChain)
+			e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
 			require.NoError(t, err)
 			state, err := ccipChangeset.LoadOnchainStateSolana(e)
 			require.NoError(t, err)
@@ -651,7 +663,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 			solChain := tenv.Env.AllChainSelectorsSolana()[0]
-			e, tokenAddress, err := deployToken(t, tenv.Env, solChain)
+			e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
 			require.NoError(t, err)
 			state, err := ccipChangeset.LoadOnchainStateSolana(e)
 			require.NoError(t, err)
@@ -829,7 +841,7 @@ func TestPoolLookupTable(t *testing.T) {
 				newAdmin = timelockSignerPDA
 			}
 
-			e, tokenAddress, err := deployToken(t, tenv.Env, solChain)
+			e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
 			require.NoError(t, err)
 			e, err = commonchangeset.Apply(t, e, nil,
 				commonchangeset.Configure(

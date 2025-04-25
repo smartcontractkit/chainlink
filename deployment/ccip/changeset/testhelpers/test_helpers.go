@@ -1312,7 +1312,7 @@ func DeployTransferableTokenSolana(
 		),
 		commoncs.Configure(
 			// deploy token pool and set the burn/mint authority to the tokenPool
-			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenPool),
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenPoolAndLookupTable),
 			ccipChangeSetSolana.TokenPoolConfig{
 				ChainSelector: solChainSel,
 				TokenPubKey:   solTokenAddress.String(),
@@ -1336,50 +1336,50 @@ func DeployTransferableTokenSolana(
 		commoncs.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.SetupTokenPoolForRemoteChain),
 			ccipChangeSetSolana.RemoteChainTokenPoolConfig{
-				SolChainSelector:    solChainSel,
-				RemoteChainSelector: evmChainSel,
-				SolTokenPubKey:      solTokenAddress.String(),
-				PoolType:            solTestTokenPool.BurnAndMint_PoolType,
-				RemoteConfig: &solTestTokenPool.RemoteConfig{
-					// Needs to be empty on the initial setup
-					PoolAddresses: []solTestTokenPool.RemoteAddress{},
-					TokenAddress: solTestTokenPool.RemoteAddress{
-						Address: evmToken.Address().Bytes(),
-					},
-					Decimals: 18,
-				},
-				InboundRateLimit: &solTestTokenPool.RateLimitConfig{
-					Enabled:  true,
-					Capacity: uint64(1000e9),
-					Rate:     1,
-				},
-				OutboundRateLimit: &solTestTokenPool.RateLimitConfig{
-					Enabled:  true,
-					Capacity: uint64(1000e9),
-					Rate:     1,
-				},
+				SolChainSelector: solChainSel,
+				// RemoteChainSelector: evmChainSel,
+				// SolTokenPubKey:      solTokenAddress.String(),
+				// PoolType:            solTestTokenPool.BurnAndMint_PoolType,
+				// RemoteConfig: &solTestTokenPool.RemoteConfig{
+				// 	// Needs to be empty on the initial setup
+				// 	PoolAddresses: []solTestTokenPool.RemoteAddress{},
+				// 	TokenAddress: solTestTokenPool.RemoteAddress{
+				// 		Address: evmToken.Address().Bytes(),
+				// 	},
+				// 	Decimals: 18,
+				// },
+				// InboundRateLimit: &solTestTokenPool.RateLimitConfig{
+				// 	Enabled:  true,
+				// 	Capacity: uint64(1000e9),
+				// 	Rate:     1,
+				// },
+				// OutboundRateLimit: &solTestTokenPool.RateLimitConfig{
+				// 	Enabled:  true,
+				// 	Capacity: uint64(1000e9),
+				// 	Rate:     1,
+				// },
 			},
 		),
-		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AppendRemoteTokenPool),
-			ccipChangeSetSolana.AppendRemoteTokenPoolConfig{
-				SolChainSelector:    solChainSel,
-				RemoteChainSelector: evmChainSel,
-				SolTokenPubKey:      solTokenAddress.String(),
-				PoolType:            solTestTokenPool.BurnAndMint_PoolType,
-				RemoteConfig: &solTestTokenPool.RemoteConfig{
-					// this can be potentially read from the state if we are given the token symbol
-					PoolAddresses: []solTestTokenPool.RemoteAddress{
-						{
-							Address: evmPool.Address().Bytes(),
-						},
-					},
-					TokenAddress: solTestTokenPool.RemoteAddress{
-						Address: evmToken.Address().Bytes(),
-					},
-				},
-			},
-		),
+		// commoncs.Configure(
+		// 	deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AppendRemoteTokenPool),
+		// 	ccipChangeSetSolana.AppendRemoteTokenPoolConfig{
+		// 		SolChainSelector:    solChainSel,
+		// 		RemoteChainSelector: evmChainSel,
+		// 		SolTokenPubKey:      solTokenAddress.String(),
+		// 		PoolType:            solTestTokenPool.BurnAndMint_PoolType,
+		// 		RemoteConfig: &solTestTokenPool.RemoteConfig{
+		// 			// this can be potentially read from the state if we are given the token symbol
+		// 			PoolAddresses: []solTestTokenPool.RemoteAddress{
+		// 				{
+		// 					Address: evmPool.Address().Bytes(),
+		// 				},
+		// 			},
+		// 			TokenAddress: solTestTokenPool.RemoteAddress{
+		// 				Address: evmToken.Address().Bytes(),
+		// 			},
+		// 		},
+		// 	},
+		// ),
 		commoncs.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenTransferFeeForRemoteChain),
 			ccipChangeSetSolana.TokenTransferFeeForRemoteChainConfig{
@@ -1412,14 +1412,14 @@ func DeployTransferableTokenSolana(
 				TokenPubKey:   solTokenAddress.String(),
 			},
 		),
-		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenPoolLookupTable),
-			ccipChangeSetSolana.TokenPoolLookupTableConfig{
-				ChainSelector: solChainSel,
-				TokenPubKey:   solTokenAddress.String(),
-				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
-			},
-		),
+		// commoncs.Configure(
+		// 	deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenPoolLookupTable),
+		// 	ccipChangeSetSolana.TokenPoolLookupTableConfig{
+		// 		ChainSelector: solChainSel,
+		// 		TokenPubKey:   solTokenAddress.String(),
+		// 		PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+		// 	},
+		// ),
 		commoncs.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.SetPool),
 			ccipChangeSetSolana.SetPoolConfig{

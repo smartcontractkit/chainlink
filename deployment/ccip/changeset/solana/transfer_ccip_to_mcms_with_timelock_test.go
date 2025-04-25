@@ -282,7 +282,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(solanachangesets.AddTokenPool),
+			deployment.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
 			solanachangesets.TokenPoolConfig{
 				ChainSelector: solChain1,
 				TokenPubKey:   tokenAddressLockRelease.String(),
@@ -290,7 +290,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(solanachangesets.AddTokenPool),
+			deployment.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
 			solanachangesets.TokenPoolConfig{
 				ChainSelector: solChain1,
 				TokenPubKey:   tokenAddressBurnMint.String(),
