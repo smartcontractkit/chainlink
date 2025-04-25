@@ -29,12 +29,12 @@ import (
 )
 
 const (
-	TokenPool                 deployment.ContractType = "TokenPool"
-	Receiver                  deployment.ContractType = "Receiver"
-	SPL2022Tokens             deployment.ContractType = "SPL2022Tokens"
-	SPLTokens                 deployment.ContractType = "SPLTokens"
-	WSOL                      deployment.ContractType = "WSOL"
-	CCIPCommon                deployment.ContractType = "CCIPCommon"
+	TokenPool     deployment.ContractType = "TokenPool"
+	Receiver      deployment.ContractType = "Receiver"
+	SPL2022Tokens deployment.ContractType = "SPL2022Tokens"
+	SPLTokens     deployment.ContractType = "SPLTokens"
+	WSOL          deployment.ContractType = "WSOL"
+	CCIPCommon    deployment.ContractType = "CCIPCommon"
 	// for PDAs from AddRemoteChainToSolana
 	RemoteSource deployment.ContractType = "RemoteSource"
 	RemoteDest   deployment.ContractType = "RemoteDest"
@@ -370,7 +370,7 @@ func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
 	return receiverTargetAccount
 }
 
-func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolChainView, error) {
+func (s SolCCIPChainState) GenerateView(e *deployment.Environment, selector uint64) (view.SolChainView, error) {
 	chainView := view.NewSolChain()
 	var remoteChains []uint64
 	for selector := range s.DestChainStatePDAs {
@@ -387,7 +387,7 @@ func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolC
 			if err != nil {
 				return chainView, fmt.Errorf("failed to find token program for token %s: %w", token, err)
 			}
-			tokenView, err := viewSolana.GenerateTokenView(solChain, token, program.String())
+			tokenView, err := viewSolana.GenerateTokenView(e.SolChains[selector], token, program.String())
 			if err != nil {
 				return chainView, fmt.Errorf("failed to generate token view for token %s: %w", token, err)
 			}
@@ -399,47 +399,56 @@ func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolC
 		}
 	}
 	if !s.FeeQuoter.IsZero() {
-		fqView, err := viewSolana.GenerateFeeQuoterView(solChain, s.FeeQuoter, remoteChains, allTokens)
+		fqView, err := viewSolana.GenerateFeeQuoterView(e.SolChains[selector], s.FeeQuoter, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate fee quoter view %s: %w", s.FeeQuoter, err)
 		}
 		chainView.FeeQuoter[s.FeeQuoter.String()] = fqView
 	}
 	if !s.Router.IsZero() {
-		routerView, err := viewSolana.GenerateRouterView(solChain, s.Router, remoteChains, allTokens)
+		routerView, err := viewSolana.GenerateRouterView(e.SolChains[selector], s.Router, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate router view %s: %w", s.Router, err)
 		}
 		chainView.Router[s.Router.String()] = routerView
 	}
 	if !s.OffRamp.IsZero() {
-		offRampView, err := viewSolana.GenerateOffRampView(solChain, s.OffRamp, remoteChains, allTokens)
+		offRampView, err := viewSolana.GenerateOffRampView(e.SolChains[selector], s.OffRamp, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate offramp view %s: %w", s.OffRamp, err)
 		}
 		chainView.OffRamp[s.OffRamp.String()] = offRampView
 	}
 	if !s.RMNRemote.IsZero() {
-		rmnRemoteView, err := viewSolana.GenerateRMNRemoteView(solChain, s.RMNRemote, remoteChains, allTokens)
+		rmnRemoteView, err := viewSolana.GenerateRMNRemoteView(e.SolChains[selector], s.RMNRemote, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate rmn remote view %s: %w", s.RMNRemote, err)
 		}
 		chainView.RMNRemote[s.RMNRemote.String()] = rmnRemoteView
 	}
 	if !s.BurnMintTokenPool.IsZero() {
-		tokenPoolView, err := viewSolana.GenerateTokenPoolView(solChain, s.BurnMintTokenPool, remoteChains, allTokens, "BurnMintTokenPool")
+		tokenPoolView, err := viewSolana.GenerateTokenPoolView(e.SolChains[selector], s.BurnMintTokenPool, remoteChains, allTokens, "BurnMintTokenPool")
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate burn mint token pool view %s: %w", s.BurnMintTokenPool, err)
 		}
 		chainView.TokenPool[s.BurnMintTokenPool.String()] = tokenPoolView
 	}
 	if !s.LockReleaseTokenPool.IsZero() {
-		tokenPoolView, err := viewSolana.GenerateTokenPoolView(solChain, s.LockReleaseTokenPool, remoteChains, allTokens, "LockReleaseTokenPool")
+		tokenPoolView, err := viewSolana.GenerateTokenPoolView(e.SolChains[selector], s.LockReleaseTokenPool, remoteChains, allTokens, "LockReleaseTokenPool")
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate lock release token pool view %s: %w", s.LockReleaseTokenPool, err)
 		}
 		chainView.TokenPool[s.LockReleaseTokenPool.String()] = tokenPoolView
 	}
+	addresses, err := e.ExistingAddresses.AddressesForChain(selector)
+	if err != nil {
+		return chainView, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	chainView.MCMSWithTimelock, err = viewSolana.GenerateMCMSWithTimelockView(e.SolChains[selector], addresses)
+	if err != nil {
+		return chainView, fmt.Errorf("failed to generate mcms with timelock view: %w", err)
+	}
+
 	return chainView, nil
 }
 

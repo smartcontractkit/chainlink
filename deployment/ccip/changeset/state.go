@@ -964,7 +964,7 @@ func (c CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[
 					return fmt.Errorf("chain not supported %d", chainSelector)
 				}
 				chainState := c.SolChains[chainSelector]
-				chainView, err := chainState.GenerateView(e.SolChains[chainSelector])
+				chainView, err := chainState.GenerateView(e, chainSelector)
 				if err != nil {
 					return err
 				}
