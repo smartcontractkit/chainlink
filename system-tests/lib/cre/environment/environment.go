@@ -173,7 +173,7 @@ func SetupTestEnvironment(
 	if mergeErr != nil {
 		return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 	}
-	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String()))
+	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String())) //nolint:staticcheck // won't migrate now
 
 	capabilitiesRegistryOutput, capabilitiesRegistryErr := keystone_changeset.DeployCapabilityRegistry(*allChainsCLDEnvironment, homeChainOutput.ChainSelector)
 	if capabilitiesRegistryErr != nil {
@@ -184,7 +184,7 @@ func SetupTestEnvironment(
 	if mergeErr != nil {
 		return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 	}
-	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String()))
+	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String())) //nolint:staticcheck // won't migrate now
 
 	workflowRegistryOutput, workflowRegistryErr := workflow_registry_changeset.Deploy(*allChainsCLDEnvironment, homeChainOutput.ChainSelector)
 	if workflowRegistryErr != nil {
@@ -195,7 +195,7 @@ func SetupTestEnvironment(
 	if mergeErr != nil {
 		return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 	}
-	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String()))
+	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String())) //nolint:staticcheck // won't migrate now
 
 	// Deploy forwarders for all chains
 	for _, bcOut := range blockchainsOutput {
@@ -210,7 +210,7 @@ func SetupTestEnvironment(
 		if mergeErr != nil {
 			return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
 		}
-		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", bcOut.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String()))
+		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", bcOut.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String())) //nolint:staticcheck // won't migrate now
 	}
 
 	// Translate node input to structure required further down the road and put as much information
@@ -270,6 +270,13 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(peeringErr, "failed to find peering data")
 	}
 
+	bcOuts := make([]*blockchain.Output, 0)
+	sethClients := make([]*seth.Client, 0)
+	for _, bcOut := range blockchainsOutput {
+		bcOuts = append(bcOuts, bcOut.BlockchainOutput)
+		sethClients = append(sethClients, bcOut.SethClient)
+	}
+
 	for i, donMetadata := range topology.DonsMetadata {
 		configsFound := 0
 		secretsFound := 0
@@ -295,11 +302,6 @@ func SetupTestEnvironment(
 		// And that configs match the secrets
 		if configsFound > 0 && secretsFound == 0 {
 			return nil, fmt.Errorf("nodese config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
-		}
-
-		bcOuts := make([]*blockchain.Output, 0)
-		for _, bcOut := range blockchainsOutput {
-			bcOuts = append(bcOuts, bcOut.BlockchainOutput)
 		}
 
 		// generate configs only if they are not provided
@@ -423,13 +425,6 @@ func SetupTestEnvironment(
 			NodeSetName:  nodeSetInput.Name,
 			Capabilities: nodeSetInput.Capabilities,
 		})
-	}
-
-	bcOuts := make([]*blockchain.Output, 0)
-	sethClients := make([]*seth.Client, 0)
-	for _, bcOut := range blockchainsOutput {
-		bcOuts = append(bcOuts, bcOut.BlockchainOutput)
-		sethClients = append(sethClients, bcOut.SethClient)
 	}
 
 	// Prepare the CLD environment that's required by the keystone changeset

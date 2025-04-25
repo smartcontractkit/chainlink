@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func BootstrapEVM(donBootstrapNodePeerID string, chainID string, capabilitiesRegistryAddress common.Address, chains []*WorkerEVMInput) string {
+func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitiesRegistryAddress common.Address, chains []*WorkerEVMInput) string {
 	evmChainsConfig := ""
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
@@ -49,12 +49,12 @@ func BootstrapEVM(donBootstrapNodePeerID string, chainID string, capabilitiesReg
 	[Capabilities.ExternalRegistry]
 	Address = '%s'
 	NetworkID = 'evm'
-	ChainID = '%s'
+	ChainID = '%d'
 `,
 		donBootstrapNodePeerID,
 		evmChainsConfig,
 		capabilitiesRegistryAddress,
-		chainID,
+		homeChainID,
 	)
 }
 
@@ -80,7 +80,7 @@ type WorkerEVMInput struct {
 	ForwarderAddress string
 }
 
-func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData types.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, registryChainID string, chains []*WorkerEVMInput) string {
+func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData types.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) string {
 	evmChainsConfig := ""
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
@@ -141,29 +141,29 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 		peeringData.GlobalBootstraperHost,
 		evmChainsConfig,
 		capabilitiesRegistryAddress,
-		registryChainID,
+		homeChainID,
 	)
 }
 
-func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, chainID string) string {
+func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, homeChainID uint64) string {
 	return fmt.Sprintf(`
 	[Capabilities.WorkflowRegistry]
 	Address = "%s"
 	NetworkID = "evm"
-	ChainID = "%s"
+	ChainID = "%d"
 `,
 		workflowRegistryAddr.Hex(),
-		chainID,
+		homeChainID,
 	)
 }
 
-func WorkerGateway(nodeAddress common.Address, chainID string, donID uint32, gatewayConnectorData types.GatewayConnectorOutput) string {
+func WorkerGateway(nodeAddress common.Address, homeChainID uint64, donID uint32, gatewayConnectorData types.GatewayConnectorOutput) string {
 	gatewayURL := fmt.Sprintf("ws://%s:%d/%s", gatewayConnectorData.Host, 5003, "node")
 
 	return fmt.Sprintf(`
 	[Capabilities.GatewayConnector]
 	DonID = "%s"
-	ChainIDForNodeKey = "%s"
+	ChainIDForNodeKey = "%d"
 	NodeAddress = '%s'
 
 	[[Capabilities.GatewayConnector.Gateways]]
@@ -171,7 +171,7 @@ func WorkerGateway(nodeAddress common.Address, chainID string, donID uint32, gat
 	URL = "%s"
 `,
 		strconv.FormatUint(uint64(donID), 10),
-		chainID,
+		homeChainID,
 		nodeAddress,
 		gatewayURL,
 	)

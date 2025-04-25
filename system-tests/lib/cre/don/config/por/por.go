@@ -30,7 +30,10 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		return configOverrides, nil
 	}
 
-	homeChainID := input.BlockchainOutput[0].ChainID
+	homeChainID, homeErr := chain_selectors.ChainIdFromSelector(input.HomeChainSelector)
+	if homeErr != nil {
+		return nil, errors.Wrap(homeErr, "failed to get home chain ID")
+	}
 
 	// prepare chains, we need chainIDs, URLs and selectors to get contracts from AddressBook
 	workerEVMInputs := make([]*config.WorkerEVMInput, 0)
