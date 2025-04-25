@@ -335,7 +335,12 @@ func GetOwnedContractV2[T Ownable](addrs datastore.AddressRefStore, chain deploy
 	return ownedContract, nil
 }
 
+// loadCapabilityRegistry loads the CapabilitiesRegistry contract from the address book or datastore.
 func loadCapabilityRegistry(registryChain deployment.Chain, env deployment.Environment, ref datastore.AddressRefKey) (*OwnedContract[*capabilities_registry.CapabilitiesRegistry], error) {
+	err := shouldUseDatastore(env, ref)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check registry ref: %w", err)
+	}
 	var cr *OwnedContract[*capabilities_registry.CapabilitiesRegistry]
 	if ref != nil {
 		a, err := env.DataStore.Addresses().Get(ref)
@@ -344,6 +349,8 @@ func loadCapabilityRegistry(registryChain deployment.Chain, env deployment.Envir
 		}
 		cr, err = GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](env.DataStore.Addresses(), registryChain, a.Address)
 	} else {
+		// TODO: CRE-400 remove this once we have migrated all environments to use datastore
+		// This is a temporary backward compatibility until all the CLD environments are migrated to use datastore
 		cs, err := getContractSetsV2(env.Logger, getContractSetsRequestV2{
 			Chains:      map[uint64]deployment.Chain{registryChain.Selector: registryChain},
 			AddressBook: env.ExistingAddresses,

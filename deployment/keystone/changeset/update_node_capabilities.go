@@ -78,7 +78,7 @@ func (req *MutateNodeCapabilitiesRequest) Validate(e deployment.Environment) err
 	if !exists {
 		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", req.RegistryChainSel)
 	}
-	if err := checkDatastore(e, req.RegistryRef); err != nil {
+	if err := shouldUseDatastore(e, req.RegistryRef); err != nil {
 		return fmt.Errorf("invalid registry reference: %w", err)
 	}
 	return nil

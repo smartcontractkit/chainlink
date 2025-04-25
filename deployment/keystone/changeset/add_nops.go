@@ -32,7 +32,7 @@ func (req *AddNopsRequest) Validate(env deployment.Environment) error {
 	if req.RegistryChainSel == 0 {
 		return errors.New("registry chain selector is required")
 	}
-	if err := checkDatastore(env, req.RegistryRef); err != nil {
+	if err := shouldUseDatastore(env, req.RegistryRef); err != nil {
 		return fmt.Errorf("invalid registry reference: %w", err)
 	}
 	return nil

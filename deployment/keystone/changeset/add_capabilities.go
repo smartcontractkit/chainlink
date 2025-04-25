@@ -35,14 +35,15 @@ func (r *AddCapabilitiesRequest) Validate(env deployment.Environment) error {
 		return errors.New("capabilities must be set")
 	}
 
-	if err := checkDatastore(env, r.RegistryRef); err != nil {
+	if err := shouldUseDatastore(env, r.RegistryRef); err != nil {
 		return fmt.Errorf("failed to check registry ref: %w", err)
 	}
 	return nil
 }
 
-func checkDatastore(env deployment.Environment, ref datastore.AddressRefKey) error {
-	// if the environment has a non-empty datastore, the registry ref must be set
+// if the environment has a non-empty datastore, the registry ref must be set
+// prevents accidental usage of the old address book
+func shouldUseDatastore(env deployment.Environment, ref datastore.AddressRefKey) error {
 	if addrs, err := env.DataStore.Addresses().Fetch(); err == nil {
 		if len(addrs) != 0 && ref == nil {
 			return errors.New("This environment has been migrated to DataStore: address ref key must not be nil")
@@ -117,52 +118,4 @@ func AddCapabilities(env deployment.Environment, req *AddCapabilitiesRequest) (d
 		out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
 	}
 	return out, nil
-}
-
-func xx(registryChain deployment.Chain, env deployment.Environment, req *AddCapabilitiesRequest) (deployment.ChangesetOutput, error) {
-
-	cr, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
-	}
-	useMCMS := req.MCMSConfig != nil
-	ops, err := internal.AddCapabilities(env.Logger, cr.Contract, registryChain, req.Capabilities, useMCMS)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to add capabilities: %w", err)
-	}
-	out := deployment.ChangesetOutput{}
-	if useMCMS {
-		if ops == nil {
-			return out, errors.New("expected MCMS operation to be non-nil")
-		}
-		timelocksPerChain := map[uint64]string{
-			registryChain.Selector: cr.McmsContracts.Timelock.Address().Hex(),
-		}
-		proposerMCMSes := map[uint64]string{
-			registryChain.Selector: cr.McmsContracts.ProposerMcm.Address().Hex(),
-		}
-		inspector, err := proposalutils.McmsInspectorForChain(env, registryChain.Selector)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		inspectorPerChain := map[uint64]mcmssdk.Inspector{
-			req.RegistryChainSel: inspector,
-		}
-
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			env,
-			timelocksPerChain,
-			proposerMCMSes,
-			inspectorPerChain,
-			[]mcmstypes.BatchOperation{*ops},
-			"proposal to add capabilities",
-			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
-		)
-		if err != nil {
-			return out, fmt.Errorf("failed to build proposal: %w", err)
-		}
-		out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
-	}
-	return out, nil
-
 }

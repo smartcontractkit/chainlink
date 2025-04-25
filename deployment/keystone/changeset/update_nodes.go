@@ -50,7 +50,7 @@ func (r *UpdateNodesRequest) Validate(e deployment.Environment) error {
 		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", r.RegistryChainSel)
 	}
 
-	if err := checkDatastore(e, r.RegistryRef); err != nil {
+	if err := shouldUseDatastore(e, r.RegistryRef); err != nil {
 		return fmt.Errorf("invalid registry reference: %w", err)
 	}
 	return nil

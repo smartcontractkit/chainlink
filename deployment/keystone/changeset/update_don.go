@@ -35,7 +35,7 @@ func (r *UpdateDonRequest) Validate(env deployment.Environment) error {
 	if len(r.CapabilityConfigs) == 0 {
 		return errors.New("capabilityConfigs is required")
 	}
-	if err := checkDatastore(env, r.RegistryRef); err != nil {
+	if err := shouldUseDatastore(env, r.RegistryRef); err != nil {
 		return fmt.Errorf("invalid registry reference: %w", err)
 	}
 	return nil

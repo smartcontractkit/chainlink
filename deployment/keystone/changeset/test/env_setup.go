@@ -121,14 +121,6 @@ func (te EnvWrapper) CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo 
 }
 
 func (te EnvWrapper) OwnedCapabilityRegistry() *changeset.OwnedContract[*kcr.CapabilitiesRegistry] {
-	/*
-		addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(registryQualifier))
-		require.Len(te.t, addrs, 1)
-		c, err := changeset.GetOwnedContractV2[*kcr.CapabilitiesRegistry](te.Env.DataStore.Addresses(), te.Env.Chains[te.RegistrySelector], addrs[0].Address)
-		require.NoError(te.t, err)
-		require.NotNil(te.t, c)
-		return c
-	*/
 	return loadOneContract[*kcr.CapabilitiesRegistry](te.t, te.Env, te.Env.Chains[te.RegistrySelector], registryQualifier)
 }
 
@@ -236,12 +228,6 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 				Labels:    nil,
 			},
 		),
-		/*
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset.DeployForwarder),
-				changeset.DeployForwarderRequest{},
-			),
-		*/
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(workflowregistry.DeployV2),
 			&changeset.DeployRequestV2{
@@ -352,7 +338,6 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 
 	// check the registry
 	gotOwnedRegistry := loadOneContract[*kcr.CapabilitiesRegistry](t, env, env.Chains[registryChainSel], registryQualifier)
-	//gotRegistry := contractSetsResp.ContractSets[registryChainSel].CapabilitiesRegistry.Contract
 	require.NotNil(t, gotOwnedRegistry)
 	// validate the registry
 	// check the nodes

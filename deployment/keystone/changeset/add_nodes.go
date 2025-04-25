@@ -190,7 +190,7 @@ func (r *AddNodesRequest) Validate(env deployment.Environment) error {
 			return fmt.Errorf("invalid create node request for node %s: %w", nodeName, err)
 		}
 	}
-	if err := checkDatastore(env, r.RegistryRef); err != nil {
+	if err := shouldUseDatastore(env, r.RegistryRef); err != nil {
 		return fmt.Errorf("failed to check registry ref: %w", err)
 	}
 	return nil
