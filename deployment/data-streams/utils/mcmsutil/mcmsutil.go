@@ -117,10 +117,10 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab de
 	// create a merged addressbook with the existing + new addresses. Sub-changesets will need all addresses
 	// This is required when chaining together changesets
 	abTemp := deployment.NewMemoryAddressBook()
-	if err := abTemp.Merge(ab); err != nil {
+	if err = abTemp.Merge(ab); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging new addresses into temp addresses: %w", err)
 	}
-	if err := abTemp.Merge(e.ExistingAddresses); err != nil {
+	if err = abTemp.Merge(e.ExistingAddresses); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging existing addresses into temp addresses: %w", err)
 	}
 

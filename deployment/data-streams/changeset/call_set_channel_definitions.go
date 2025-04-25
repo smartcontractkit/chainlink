@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -164,7 +165,7 @@ func transferOrBuildTx(
 	}
 	// only wait for tx if we are not using MCMS
 	if mcmsConfig == nil {
-		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		if _, err = deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 			e.Logger.Errorw("Failed to confirm transfer tx", "chain", chain.String(), "err", err)
 			return nil, err
 		}

@@ -37,6 +37,7 @@ type CsDistributeLLOJobSpecsConfig struct {
 	ChannelConfigStoreAddr      common.Address
 	ChannelConfigStoreFromBlock uint64
 	ConfiguratorAddress         string
+	Labels                      []*ptypes.Label
 
 	// Servers is a list of Data Engine Producer endpoints, where the key is the server URL and the value is its public key.
 	//
@@ -60,7 +61,7 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 	}
 
 	// Add a label to the job spec to identify the related DON
-	labels := append([]*ptypes.Label(nil),
+	cfg.Labels = append(cfg.Labels,
 		&ptypes.Label{
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
 		},
@@ -70,11 +71,11 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 		},
 	)
 
-	bootstrapProposals, err := generateBootstrapProposals(ctx, e, cfg, chainID, labels)
+	bootstrapProposals, err := generateBootstrapProposals(ctx, e, cfg, chainID, cfg.Labels)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate bootstrap proposals: %w", err)
 	}
-	oracleProposals, err := generateOracleProposals(ctx, e, cfg, chainID, labels)
+	oracleProposals, err := generateOracleProposals(ctx, e, cfg, chainID, cfg.Labels)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate oracle proposals: %w", err)
 	}

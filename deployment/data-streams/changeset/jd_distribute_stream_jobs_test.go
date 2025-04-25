@@ -5,6 +5,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	job2 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
@@ -132,6 +135,12 @@ ask_price [type=median allowedFaults=3 index=2];
 				APIs: []string{"api1", "api2", "api3", "api4"},
 			},
 		},
+		Labels: []*ptypes.Label{
+			{
+				Key:   "customTestLabel",
+				Value: pointer.To("customTestValue"),
+			},
+		},
 		NodeNames: []string{"node-0", "node-1", "node-2"},
 	}
 
@@ -227,6 +236,21 @@ ask_price [type=median allowedFaults=3 index=2];
 					testutil.StripLineContaining(tc.wantSpec, []string{"externalJobID"}),
 					testutil.StripLineContaining(out[0].Jobs[i].Spec, []string{"externalJobID"}),
 				)
+			}
+			// Ensure the labels are set correctly
+			for _, job := range out[0].Jobs {
+				j, err := env.Offchain.GetJob(t.Context(), &job2.GetJobRequest{
+					IdOneof: &job2.GetJobRequest_Id{Id: job.JobID},
+				})
+				require.NoError(t, err)
+				foundLabel := false
+				for _, label := range j.GetJob().GetLabels() {
+					if label.GetKey() == "customTestLabel" && label.GetValue() == "customTestValue" {
+						foundLabel = true
+						break
+					}
+				}
+				require.True(t, foundLabel, "customTestLabel not found in job labels")
 			}
 		})
 	}

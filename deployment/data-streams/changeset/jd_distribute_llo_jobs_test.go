@@ -7,6 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	job2 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -106,6 +108,12 @@ chainID = '90000001'
 		ChannelConfigStoreAddr:      common.HexToAddress("DEAD"),
 		ChannelConfigStoreFromBlock: 0,
 		ConfiguratorAddress:         configuratorAddr,
+		Labels: []*ptypes.Label{
+			{
+				Key:   "customTestLabel",
+				Value: pointer.To("customTestValue"),
+			},
+		},
 		Servers: map[string]string{
 			"mercury-pipeline-testnet-producer.TEST.cldev.cloud:1340": "0000005187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c",
 		},
@@ -228,6 +236,20 @@ chainID = '90000001'
 					require.Equal(t, wantOracleSpec, spec)
 					foundOracleJobs++
 				}
+
+				// Ensure the labels are set correctly.
+				job, err := env.Offchain.GetJob(t.Context(), &job2.GetJobRequest{
+					IdOneof: &job2.GetJobRequest_Id{Id: j.JobID},
+				})
+				require.NoError(t, err)
+				foundLabel := false
+				for _, label := range job.GetJob().GetLabels() {
+					if label.GetKey() == "customTestLabel" && label.GetValue() == "customTestValue" {
+						foundLabel = true
+						break
+					}
+				}
+				require.True(t, foundLabel, "customTestLabel not found in job labels")
 			}
 			require.Equal(t, tc.wantNumBootstrapJobs, foundBootstrapJobs)
 			require.Equal(t, tc.wantNumOracleJobs, foundOracleJobs)

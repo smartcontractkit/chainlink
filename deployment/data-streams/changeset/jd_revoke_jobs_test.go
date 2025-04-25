@@ -4,8 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
@@ -40,12 +41,12 @@ func TestRevokeJobSpecs(t *testing.T) {
 	}).Environment
 
 	// Create some jobs:
-	out := sendTestLLOJobs(t, env, numOracles, numBootstraps)
-	require.Len(t, out, 1)
-	require.Len(t, out[0].Jobs, numBootstraps+numOracles)
+	sentJobs := sendTestLLOJobs(t, env, numOracles, numBootstraps, false)
+	require.Len(t, sentJobs, 1)
+	require.Len(t, sentJobs[0].Jobs, numBootstraps+numOracles)
 
 	var oracleJobID, btJobID string
-	for _, job := range out[0].Jobs {
+	for _, job := range sentJobs[0].Jobs {
 		if strings.Contains(job.Spec, "bootstrap") {
 			btJobID = job.JobID
 		} else {
@@ -65,6 +66,11 @@ func TestRevokeJobSpecs(t *testing.T) {
 			wantJobID: oracleJobID,
 		},
 		{
+			name:    "Revoke the same job again",
+			jobID:   oracleJobID,
+			wantErr: "failed to revoke job",
+		},
+		{
 			name:      "Revoke a bootstrap job",
 			jobID:     btJobID,
 			wantJobID: btJobID,
@@ -72,12 +78,7 @@ func TestRevokeJobSpecs(t *testing.T) {
 		{
 			name:    "Revoke a non-existing job",
 			jobID:   "non-existing-job",
-			wantErr: "failed to revoke job",
-		},
-		{
-			name:    "Revoke the same job again",
-			jobID:   oracleJobID,
-			wantErr: "failed to revoke job",
+			wantErr: "no proposals found for job",
 		},
 	}
 
@@ -92,15 +93,13 @@ func TestRevokeJobSpecs(t *testing.T) {
 				})
 			if tc.wantErr != "" {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tc.wantErr)
+				require.Contains(t, err.Error(), tc.wantErr, "unexpected error message")
 				return
 			}
 			require.NoError(t, err)
 			require.Len(t, out, 1)
 			require.Len(t, out[0].Jobs, 1)
 			require.Equal(t, tc.wantJobID, out[0].Jobs[0].JobID)
-
 		})
-
 	}
 }

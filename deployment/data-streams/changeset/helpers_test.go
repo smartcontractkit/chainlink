@@ -10,17 +10,20 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+	"github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
 
 // sendTestLLOJobs sends some test LLO jobs, which we can then revoke, retrieve, delete, etc.
-func sendTestLLOJobs(t *testing.T, e deployment.Environment, numOracles, numBootstraps int) []deployment.ChangesetOutput {
+func sendTestLLOJobs(t *testing.T, e deployment.Environment, numOracles, numBootstraps int, autoApproveJobs bool) []deployment.ChangesetOutput {
 	chainSel := e.AllChainSelectors()[0]
 	configurator := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
 	err := e.ExistingAddresses.Save(chainSel, configurator, //nolint: staticcheck // I don't care that ExistingAddresses is deprecated. We will fix it later.
@@ -32,6 +35,13 @@ func sendTestLLOJobs(t *testing.T, e deployment.Environment, numOracles, numBoot
 	require.NoError(t, err)
 
 	bootstrapNodeNames, oracleNodeNames := collectNodeNames(t, e, numOracles, numBootstraps)
+
+	var labels []*ptypes.Label
+	if !autoApproveJobs {
+		labels = append(labels, &ptypes.Label{
+			Key: test.LabelDoNotAutoApprove,
+		})
+	}
 
 	config := CsDistributeLLOJobSpecsConfig{
 		ChainSelectorEVM: chainSel,
@@ -47,6 +57,7 @@ func sendTestLLOJobs(t *testing.T, e deployment.Environment, numOracles, numBoot
 		ChannelConfigStoreAddr:      common.HexToAddress("DEAD"),
 		ChannelConfigStoreFromBlock: 0,
 		ConfiguratorAddress:         configurator,
+		Labels:                      labels,
 		Servers: map[string]string{
 			"mercury-pipeline-testnet-producer.TEST.cldev.cloud:1340": "0000005187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c",
 		},

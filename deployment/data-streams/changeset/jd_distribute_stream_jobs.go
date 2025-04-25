@@ -23,6 +23,7 @@ var _ deployment.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStr
 type CsDistributeStreamJobSpecsConfig struct {
 	Filter  *jd.ListFilter
 	Streams []StreamSpecConfig
+	Labels  []*ptypes.Label
 
 	// NodeNames specifies on which nodes to distribute the job specs.
 	NodeNames []string
@@ -51,7 +52,7 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 	defer cancel()
 
 	// Add a label to the job spec to identify the related DON
-	labels := append([]*ptypes.Label(nil),
+	cfg.Labels = append(cfg.Labels,
 		&ptypes.Label{
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
 		},
@@ -65,7 +66,7 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 	var proposals []*jobv1.ProposeJobRequest
 	for _, s := range cfg.Streams {
 		for _, n := range oracleNodes {
-			localLabels := append(labels, //nolint: gocritic // obvious and readable locally modified copy of labels
+			localLabels := append(cfg.Labels, //nolint: gocritic // locally modified copy of labels
 				&ptypes.Label{
 					Key:   utils.LabelStreamID,
 					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),

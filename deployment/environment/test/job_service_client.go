@@ -30,6 +30,10 @@ type JobServiceClient struct {
 	jobApproverStore getter[JobApprover]
 }
 
+const (
+	LabelDoNotAutoApprove = "doNotAutoApprove"
+)
+
 func NewJobServiceClient(jg getter[JobApprover]) *JobServiceClient {
 	return &JobServiceClient{
 		jobStore:         newMapJobStore(),
@@ -156,19 +160,30 @@ func (j *JobServiceClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobR
 		RemoteUUID:     uuid.MustParse(extractor.ExternalJobID),
 		Version:        proposalVersion,
 	}
-	err = n.AutoApproveJob(ctx, pargs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to auto approve job: %w", err)
+	// Allow for skipping auto-approval by supplying the LabelDoNotAutoApprove label.
+	autoApprove := true
+	for _, label := range in.Labels {
+		if label.Key == LabelDoNotAutoApprove {
+			autoApprove = false
+			break
+		}
+	}
+	status := jobv1.ProposalStatus_PROPOSAL_STATUS_PENDING
+	if autoApprove {
+		err = n.AutoApproveJob(ctx, pargs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to auto approve job: %w", err)
+		}
+		status = jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED
 	}
 
 	storeProposalID := uuid.Must(uuid.NewRandom()).String()
 	p := &jobv1.ProposeJobResponse{Proposal: &jobv1.Proposal{
 		// make the proposal id the same as the job id for further reference
 		// if you are changing this make sure to change the GetProposal and ListJobs method implementation
-		Id:       storeProposalID,
-		Revision: int64(proposalVersion),
-		// Auto approve for now
-		Status:         jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED,
+		Id:             storeProposalID,
+		Revision:       int64(proposalVersion),
+		Status:         status,
 		DeliveryStatus: jobv1.ProposalDeliveryStatus_PROPOSAL_DELIVERY_STATUS_DELIVERED,
 		Spec:           in.Spec,
 		JobId:          extractor.ExternalJobID,
@@ -182,15 +197,15 @@ func (j *JobServiceClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobR
 		)
 
 		storeErr = j.proposalStore.put(storeProposalID, p.Proposal)
-		if err != nil {
-			return nil, fmt.Errorf("failed to save proposal: %w", err)
-		}
 		defer func() {
 			// cleanup if we fail to save the job
 			if storeErr != nil {
 				j.proposalStore.delete(storeProposalID) //nolint:errcheck // ignore error nothing to do
 			}
 		}()
+		if storeErr != nil {
+			return nil, fmt.Errorf("failed to save proposal: %w", err)
+		}
 
 		job, storeErr = j.jobStore.get(extractor.ExternalJobID)
 		if storeErr != nil && !errors.Is(storeErr, errNoExist) {
@@ -226,8 +241,39 @@ func getProposalVersion(proposals []*jobv1.Proposal) int32 {
 }
 
 func (j *JobServiceClient) RevokeJob(ctx context.Context, in *jobv1.RevokeJobRequest, opts ...grpc.CallOption) (*jobv1.RevokeJobResponse, error) {
-	// TODO CCIP-3108 implement me
-	panic("implement me")
+	// Get all proposals for this job.
+	proposals, err := j.proposalStore.list(&jobv1.ListProposalsRequest_Filter{
+		JobIds: []string{in.GetId()},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list proposals: %w", err)
+	}
+	if len(proposals) == 0 {
+		return nil, fmt.Errorf("no proposals found for job %s", in.GetId())
+	}
+	// Get the latest proposal.
+	prop := proposals[0]
+	for _, p := range proposals {
+		if p != nil && p.UpdatedAt != nil &&
+			(prop == nil || prop.UpdatedAt == nil || p.UpdatedAt.GetNanos() > prop.UpdatedAt.GetNanos()) {
+			prop = p
+		}
+	}
+	// Check if it's revokable.
+	if prop.Status != jobv1.ProposalStatus_PROPOSAL_STATUS_PENDING &&
+		prop.Status != jobv1.ProposalStatus_PROPOSAL_STATUS_CANCELLED {
+		return nil, fmt.Errorf("proposal %s is not revokable: status %s", prop.Id, prop.Status.String())
+	}
+	// Revoke it.
+	prop.Status = jobv1.ProposalStatus_PROPOSAL_STATUS_REVOKED
+	// Store the revoked version.
+	err = j.proposalStore.put(prop.Id, prop)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save proposal: %w", err)
+	}
+	return &jobv1.RevokeJobResponse{
+		Proposal: prop,
+	}, nil
 }
 
 func (j *JobServiceClient) DeleteJob(ctx context.Context, in *jobv1.DeleteJobRequest, opts ...grpc.CallOption) (*jobv1.DeleteJobResponse, error) {

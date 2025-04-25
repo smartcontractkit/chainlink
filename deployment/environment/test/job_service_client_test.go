@@ -7,9 +7,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/stretchr/testify/require"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
@@ -146,6 +148,30 @@ func TestProposeJob(t *testing.T) {
 		require.Equal(t, jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED, resp.Proposal.Status)
 	})
 
+	t.Run("successful job proposal without approval", func(t *testing.T) {
+		externalJobID := uuid.NewString()
+		jobSpec := createValidJobSpec(externalJobID)
+
+		req := &jobv1.ProposeJobRequest{
+			NodeId: "node-1",
+			Spec:   jobSpec,
+			Labels: []*ptypes.Label{
+				{
+					Key: LabelDoNotAutoApprove,
+				},
+			},
+		}
+
+		resp, err := client.ProposeJob(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.NotNil(t, resp.Proposal)
+		require.Equal(t, externalJobID, resp.Proposal.JobId)
+		require.Equal(t, jobSpec, resp.Proposal.Spec)
+		require.Equal(t, int64(1), resp.Proposal.Revision)
+		require.Equal(t, jobv1.ProposalStatus_PROPOSAL_STATUS_PENDING, resp.Proposal.Status)
+	})
+
 	t.Run("node not found", func(t *testing.T) {
 		externalJobID := uuid.NewString()
 		jobSpec := createValidJobSpec(externalJobID)
@@ -207,6 +233,83 @@ name = "Test Job"
 		// Reset for next tests
 		mockGetter.jobApprovers["node-1"].shouldFail = false
 	})
+}
+
+func TestRevokeJob(t *testing.T) {
+	t.Parallel()
+
+	mockGetter := &mockJobApproverGetter{
+		jobApprovers: make(map[string]*mockJobApprover),
+	}
+	mockGetter.jobApprovers["node-1"] = &mockJobApprover{}
+	client := NewJobServiceClient(mockGetter)
+
+	proposeJob := func(autoApprove bool) *jobv1.Proposal {
+		externalJobID := uuid.NewString()
+		jobSpec := createValidJobSpec(externalJobID)
+
+		labels := []*ptypes.Label{}
+		if !autoApprove {
+			labels = append(labels, &ptypes.Label{
+				Key: LabelDoNotAutoApprove,
+			})
+		}
+		req := &jobv1.ProposeJobRequest{
+			NodeId: "node-1",
+			Spec:   jobSpec,
+			Labels: labels,
+		}
+
+		resp, err := client.ProposeJob(t.Context(), req)
+		require.NoError(t, err)
+
+		return resp.GetProposal()
+	}
+
+	tests := []struct {
+		name          string
+		autoApprove   bool
+		overrideJobID string
+		expectedError string
+	}{
+		{
+			name:        "successful revoke job",
+			autoApprove: false,
+		},
+		{
+			name:          "cannot revoke approved job",
+			autoApprove:   true,
+			expectedError: "is not revokable: status PROPOSAL_STATUS_APPROVED",
+		},
+		{
+			name:          "job not found",
+			overrideJobID: "non-existent-job",
+			expectedError: "no proposals found for job",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			job := proposeJob(tc.autoApprove)
+
+			if tc.overrideJobID != "" {
+				job.JobId = tc.overrideJobID
+			}
+
+			resp, err := client.RevokeJob(t.Context(), &jobv1.RevokeJobRequest{
+				IdOneof: &jobv1.RevokeJobRequest_Id{Id: job.JobId},
+			})
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Nil(t, resp)
+				require.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				require.Equal(t, job.JobId, resp.Proposal.JobId)
+			}
+		})
+	}
 }
 
 func TestGetJob(t *testing.T) {
