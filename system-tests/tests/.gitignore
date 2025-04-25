@@ -17,4 +17,4 @@ cre_v*
 crib-configs/
 cache/
 
-smoke/cre/cmd/cre.settings.yaml
+cre.settings.yaml
