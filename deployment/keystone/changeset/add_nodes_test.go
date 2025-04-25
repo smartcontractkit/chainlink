@@ -246,6 +246,7 @@ func TestAddNodes(t *testing.T) {
 						RegistryChainSel:   tc.input.te.RegistrySelector,
 						CreateNodeRequests: tc.input.CreateNodeRequests,
 						MCMSConfig:         tc.input.MCMSConfig,
+						RegistryRef:        tc.input.te.CapabilityRegistryAddressRef(),
 					}
 					r, err := changeset.AddNodes(tc.input.te.Env, req)
 					if err != nil && tc.checkErr == nil {

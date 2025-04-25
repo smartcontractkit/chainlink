@@ -23,10 +23,15 @@ func DeployFeedsConsumer(env deployment.Environment, req *DeployFeedsConsumerReq
 		return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
 	ab := deployment.NewMemoryAddressBook()
-	deployResp, err := kslib.DeployFeedsConsumer(chain, ab)
+	deployResp, err := kslib.DeployFeedsConsumer(env.GetContext(), chain, ab)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy FeedsConsumer: %w", err)
 	}
 	lggr.Infof("Deployed %s chain selector %d addr %s", deployResp.Tv.String(), chain.Selector, deployResp.Address.String())
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
+}
+
+func DeployFeedsConsumerV2(env deployment.Environment, req *DeployRequestV2) (deployment.ChangesetOutput, error) {
+	req.deployFn = kslib.DeployFeedsConsumer
+	return deploy(env, req)
 }

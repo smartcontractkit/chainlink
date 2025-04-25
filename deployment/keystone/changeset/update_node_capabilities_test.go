@@ -49,6 +49,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			cfg := changeset.UpdateNodeCapabilitiesRequest{
 				RegistryChainSel:  te.RegistrySelector,
 				P2pToCapabilities: newCapabilities,
+				RegistryRef:       te.CapabilityRegistryAddressRef(),
 			}
 
 			_, err := changeset.UpdateNodeCapabilities(te.Env, &cfg)
@@ -65,6 +66,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			cfg := changeset.UpdateNodeCapabilitiesRequest{
 				RegistryChainSel:  te.RegistrySelector,
 				P2pToCapabilities: capabiltiesToSet,
+				RegistryRef:       te.CapabilityRegistryAddressRef(),
 			}
 
 			csOut, err := changeset.UpdateNodeCapabilities(te.Env, &cfg)
@@ -102,6 +104,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			RegistryChainSel:  te.RegistrySelector,
 			P2pToCapabilities: capabiltiesToSet,
 			MCMSConfig:        &changeset.MCMSConfig{MinDuration: 0},
+			RegistryRef:       te.CapabilityRegistryAddressRef(),
 		}
 
 		csOut, err := changeset.UpdateNodeCapabilities(te.Env, &cfg)

@@ -82,8 +82,11 @@ func DeployMCMSWithTimelockV2(
 			return deployment.ChangesetOutput{AddressBook: newAddresses}, err
 		}
 	}
-
-	return deployment.ChangesetOutput{AddressBook: newAddresses}, nil
+	ds, err := deployment.MigrateAddressBook(newAddresses)
+	if err != nil {
+		return deployment.ChangesetOutput{AddressBook: newAddresses}, fmt.Errorf("failed to migrate address book to data store: %w", err)
+	}
+	return deployment.ChangesetOutput{AddressBook: newAddresses, DataStore: ds}, nil
 }
 
 type GrantRoleInput struct {

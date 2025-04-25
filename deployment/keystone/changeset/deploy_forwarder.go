@@ -9,6 +9,8 @@ import (
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -23,7 +25,8 @@ type DeployForwarderRequest struct {
 // DeployForwarder deploys the KeystoneForwarder contract to all chains in the environment
 // callers must merge the output addressbook with the existing one
 // TODO: add selectors to deploy only to specific chains
-func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (deployment.ChangesetOutput, error) {
+// Deprecated: use DeployForwarderV2 instead
+func DeployForwarderX(env deployment.Environment, cfg DeployForwarderRequest) (deployment.ChangesetOutput, error) {
 	lggr := env.Logger
 	ab := deployment.NewMemoryAddressBook()
 	selectors := cfg.ChainSelectors
@@ -42,8 +45,41 @@ func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (de
 		}
 		lggr.Infof("Deployed %s chain selector %d addr %s", forwarderResp.Tv.String(), chain.Selector, forwarderResp.Address.String())
 	}
-
+	// convert all the addresses to t
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
+}
+
+func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (deployment.ChangesetOutput, error) {
+
+	var out deployment.ChangesetOutput
+	out.AddressBook = deployment.NewMemoryAddressBook()
+	out.DataStore = datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
+
+	selectors := cfg.ChainSelectors
+	if len(selectors) == 0 {
+		selectors = slices.Collect(maps.Keys(env.Chains))
+	}
+
+	for _, sel := range selectors {
+		req := &DeployRequestV2{
+			ChainSel: sel,
+			deployFn: internal.DeployForwarder,
+		}
+		csOut, err := deploy(env, req)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", sel, err)
+		}
+		out.AddressBook.Merge(csOut.AddressBook)
+		out.DataStore.Merge(csOut.DataStore.Seal())
+	}
+	// convert all the addresses to t
+	return out, nil
+}
+
+// DeployForwarderV2 deploys the KeystoneForwarder contract to the specified chain
+func DeployForwarderV2(env deployment.Environment, req *DeployRequestV2) (deployment.ChangesetOutput, error) {
+	req.deployFn = internal.DeployForwarder
+	return deploy(env, req)
 }
 
 var _ deployment.ChangeSet[ConfigureForwardContractsRequest] = ConfigureForwardContracts

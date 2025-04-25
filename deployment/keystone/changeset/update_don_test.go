@@ -107,7 +107,8 @@ func TestUpdateDon(t *testing.T) {
 								Capability: capB, Config: capBCfg,
 							},
 						},
-						MCMSConfig: tc.input.mcmsConfig,
+						MCMSConfig:  tc.input.mcmsConfig,
+						RegistryRef: te.CapabilityRegistryAddressRef(),
 					}
 
 					csOut, err := changeset.UpdateDon(te.Env, &cfg)

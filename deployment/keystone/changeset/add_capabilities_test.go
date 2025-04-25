@@ -40,6 +40,7 @@ func TestAddCapabilities(t *testing.T) {
 		csOut, err := changeset.AddCapabilities(te.Env, &changeset.AddCapabilitiesRequest{
 			RegistryChainSel: te.RegistrySelector,
 			Capabilities:     capabilitiesToAdd,
+			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		})
 		require.NoError(t, err)
 		require.Empty(t, csOut.Proposals)
@@ -60,6 +61,7 @@ func TestAddCapabilities(t *testing.T) {
 			RegistryChainSel: te.RegistrySelector,
 			Capabilities:     capabilitiesToAdd,
 			MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		}
 		csOut, err := changeset.AddCapabilities(te.Env, req)
 		require.NoError(t, err)

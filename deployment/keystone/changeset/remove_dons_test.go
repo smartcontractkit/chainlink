@@ -35,6 +35,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 			req: &changeset.RemoveDONsRequest{
 				RegistryChainSel: 1,
 				DONs:             []uint32{},
+				RegistryRef:      env.CapabilityRegistryAddressRef(),
 			},
 			env:     env,
 			wantErr: errors.New("dons is required"),
@@ -44,6 +45,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 			req: &changeset.RemoveDONsRequest{
 				RegistryChainSel: 100,
 				DONs:             []uint32{1, 2, 3},
+				RegistryRef:      env.CapabilityRegistryAddressRef(),
 			},
 			env:     env,
 			wantErr: errors.New("invalid registry chain selector 100: selector does not exist"),
@@ -53,6 +55,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 			req: &changeset.RemoveDONsRequest{
 				RegistryChainSel: env.RegistrySelector,
 				DONs:             []uint32{1, 2, 3},
+				RegistryRef:      env.CapabilityRegistryAddressRef(),
 			},
 			env:     env,
 			wantErr: nil,
@@ -124,6 +127,7 @@ func TestRemoveDONs(t *testing.T) {
 			req := &changeset.RemoveDONsRequest{
 				RegistryChainSel: te.RegistrySelector,
 				DONs:             donIDs,
+				RegistryRef:      te.CapabilityRegistryAddressRef(),
 			}
 			if tt.useMCMS {
 				req.MCMSConfig = &changeset.MCMSConfig{MinDuration: 0}

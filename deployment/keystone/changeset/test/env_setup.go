@@ -28,6 +28,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 )
 
+var (
+	registryQualifier         = "test registry"          // qualifier for the registry chain in the env datastore
+	ocr3Qualifier             = "test ocr3"              // qualifier for the ocr3 chain in the env datastore
+	forwarderQualifier        = "test forwarder"         // qualifier for the forwarder chain in the env datastore
+	workflowRegistryQualifier = "test workflow registry" // qualifier for the workflow registry chain in the env datastore
+)
+
 type DonConfig struct {
 	Name             string // required, must be unique across all dons
 	N                int
@@ -112,12 +119,7 @@ func (te EnvWrapper) ContractSets() map[uint64]changeset.ContractSet {
 }
 
 func (te EnvWrapper) CapabilitiesRegistry() *kcr.CapabilitiesRegistry {
-	r, err := changeset.GetContractSets(te.Env.Logger, &changeset.GetContractSetsRequest{
-		Chains:      te.Env.Chains,
-		AddressBook: te.Env.ExistingAddresses,
-	})
-	require.NoError(te.t, err)
-	return r.ContractSets[te.RegistrySelector].CapabilitiesRegistry
+	return te.OwnedCapabilityRegistry().Contract
 }
 
 func (te EnvWrapper) CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo {
@@ -125,6 +127,21 @@ func (te EnvWrapper) CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo 
 	caps, err := te.CapabilitiesRegistry().GetCapabilities(nil)
 	require.NoError(te.t, err)
 	return caps
+}
+
+func (te EnvWrapper) OwnedCapabilityRegistry() *changeset.OwnedContract[*kcr.CapabilitiesRegistry] {
+	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(registryQualifier))
+	require.Len(te.t, addrs, 1)
+	c, err := changeset.GetOwnedContractV2[*kcr.CapabilitiesRegistry](te.Env.DataStore.Addresses(), te.Env.Chains[te.RegistrySelector], addrs[0].Address)
+	require.NoError(te.t, err)
+	require.NotNil(te.t, c)
+	return c
+}
+
+func (te EnvWrapper) CapabilityRegistryAddressRef() datastore.AddressRefKey {
+	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(registryQualifier))
+	require.Len(te.t, addrs, 1)
+	return datastore.NewAddressRefKey(addrs[0].ChainSelector, addrs[0].Type, addrs[0].Version, addrs[0].Qualifier)
 }
 
 func (te EnvWrapper) Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded {
@@ -159,24 +176,37 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 		Logger:            logger.Test(t),
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		DataStore:         datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]().Seal(),
 	}
 
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
-			registryChainSel,
+			deployment.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2),
+			&changeset.DeployRequestV2{
+				ChainSel:  registryChainSel,
+				Qualifier: registryQualifier,
+				Labels:    nil,
+			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployOCR3),
-			registryChainSel,
+			deployment.CreateLegacyChangeSet(changeset.DeployOCR3V2),
+			&changeset.DeployRequestV2{
+				ChainSel:  registryChainSel,
+				Qualifier: ocr3Qualifier,
+				Labels:    nil,
+			},
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.DeployForwarder),
 			changeset.DeployForwarderRequest{},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(workflowregistry.Deploy),
-			registryChainSel,
+			deployment.CreateLegacyChangeSet(workflowregistry.DeployV2),
+			&changeset.DeployRequestV2{
+				ChainSel:  registryChainSel,
+				Qualifier: workflowRegistryQualifier,
+				Labels:    nil,
+			},
 		),
 	)
 	require.NoError(t, err)
@@ -215,6 +245,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	}
 	err := env.ExistingAddresses.Merge(envWithContracts.ExistingAddresses)
 	require.NoError(t, err)
+	env.DataStore = envWithContracts.DataStore
 
 	ocr3CapCfg := GetDefaultCapConfig(t, internal.OCR3Cap)
 	writerChainCapCfg := GetDefaultCapConfig(t, internal.WriteChainCap)

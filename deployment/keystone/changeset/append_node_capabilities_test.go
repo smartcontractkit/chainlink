@@ -46,6 +46,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 			cfg := changeset.AppendNodeCapabilitiesRequest{
 				RegistryChainSel:  te.RegistrySelector,
 				P2pToCapabilities: newCapabilities,
+				RegistryRef:       te.CapabilityRegistryAddressRef(),
 			}
 
 			csOut, err := changeset.AppendNodeCapabilities(te.Env, &cfg)
@@ -74,6 +75,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 			RegistryChainSel:  te.RegistrySelector,
 			P2pToCapabilities: newCapabilities,
 			MCMSConfig:        &changeset.MCMSConfig{MinDuration: 0},
+			RegistryRef:       te.CapabilityRegistryAddressRef(),
 		}
 
 		csOut, err := changeset.AppendNodeCapabilities(te.Env, &cfg)
