@@ -14,20 +14,20 @@ on:
   workflow_dispatch:
     inputs:
       cl_ref:
-        description: 'The ref to checkout, defaults to the calling branch'
+        description: "The ref to checkout, defaults to the calling branch"
         required: false
         type: string
       evm-ref:
-        description: 'The sha of the chainlink-evm commit to use if wanted'
+        description: "The sha of the chainlink-evm commit to use if wanted"
         required: false
         type: string
       run_solana:
-        description: 'Run solana tests'
+        description: "Run solana tests"
         required: false
         type: string
-        default: 'false'
+        default: "false"
       distinct_run_name:
-        description: 'A unique identifier for this run, only use from other repos'
+        description: "A unique identifier for this run, only use from other repos"
         required: false
         type: string
 
@@ -218,7 +218,7 @@ jobs:
       OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
-  
+
   run-core-cre-e2e-tests-for-merge-queue:
     name: Run Core CRE E2E Tests For Merge Queue
     permissions:
@@ -572,7 +572,16 @@ jobs:
     if: always()
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
-    needs: [build-chainlink, run-core-e2e-tests-for-pr, run-core-cre-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue, run-core-cre-e2e-tests-for-merge-queue]
+    needs:
+      [
+        build-chainlink,
+        run-core-e2e-tests-for-pr,
+        run-core-cre-e2e-tests-for-pr,
+        run-ccip-e2e-tests-for-pr,
+        run-core-e2e-tests-for-merge-queue,
+        run-ccip-e2e-tests-for-merge-queue,
+        run-core-cre-e2e-tests-for-merge-queue,
+      ]
     steps:
       - name: Check Core test results
         id: check_core_results
@@ -628,7 +637,13 @@ jobs:
   cleanup:
     name: Clean up integration environment deployments
     if: always()
-    needs: [run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    needs:
+      [
+        run-core-e2e-tests-for-pr,
+        run-ccip-e2e-tests-for-pr,
+        run-core-e2e-tests-for-merge-queue,
+        run-ccip-e2e-tests-for-merge-queue,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -650,7 +665,13 @@ jobs:
     name: Show Chainlink Node Go Coverage
     if: false
     # if: always()
-    needs: [run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    needs:
+      [
+        run-core-e2e-tests-for-pr,
+        run-ccip-e2e-tests-for-pr,
+        run-core-e2e-tests-for-merge-queue,
+        run-ccip-e2e-tests-for-merge-queue,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -784,11 +805,10 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build contracts
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@46b1311a5a83f33d08ffa8e1e0ab04f9ad51665d # node20 update on may 10, 2024
+        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@841f6229b6a0be0114c47cb676b1136d92f935c9 # node20 update on may 10, 2024
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
-          image: backpackapp/build
-          image-version: ${{ needs.get_projectserum_version.outputs.projectserum_version }}
+          runner-os: ${{ runner.os }}
 
   solana-build-test-image:
     environment: integration
@@ -907,7 +927,8 @@ jobs:
         env:
           GH_INPUTS_EVM_REF: ${{ inputs.evm-ref }}
           GH_SHA: ${{ inputs.cl_ref || github.sha }}
-        run: | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
+        run:
+          | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
           cat << EOF > config.toml
           [ChainlinkImage]
           version="${{ env.evm-ref || env.GH_SHA }}"
