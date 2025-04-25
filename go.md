@@ -8,6 +8,7 @@ flowchart LR
     chainlink-evm
     chainlink-solana
     chainlink-starknet/relayer
+    chainlink-tron/relayer
   end
 
   subgraph products
@@ -131,6 +132,7 @@ flowchart LR
     chainlink-evm
     chainlink-solana
     chainlink-starknet/relayer
+    chainlink-tron/relayer
   end
 
   subgraph products
