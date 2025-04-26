@@ -63,6 +63,9 @@ func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (deployment.
 		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
 	capReg, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
+	}
 
 	resp, err := internal.RemoveDONs(env.Logger, &internal.RemoveDONsRequest{
 		Chain:                registryChain,

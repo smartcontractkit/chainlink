@@ -51,7 +51,10 @@ func AddNops(env deployment.Environment, req *AddNopsRequest) (deployment.Change
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	capReg, err := loadCapabilityRegistry(registryChain, env, nil)
+	capReg, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
+	}
 
 	useMCMS := req.MCMSConfig != nil
 	req2 := internal.RegisterNOPSRequest{

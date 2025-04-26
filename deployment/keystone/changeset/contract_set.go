@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -63,12 +62,6 @@ func (cs contractSetV2) toContractSet() ContractSet {
 // transferableContracts returns a list of addresses of contracts that are transferable.
 func (cs contractSetV2) transferableContracts() []common.Address {
 	return cs.toContractSet().TransferableContracts()
-}
-
-// view is a view of the keystone chain. Internally, it uses the ContractSet view to get the state of the contracts.
-// This is to preserve the view functionality.
-func (cs contractSetV2) view(ctx context.Context, prevView KeystoneChainView, lggr logger.Logger) (KeystoneChainView, error) {
-	return cs.toContractSet().View(ctx, prevView, lggr)
 }
 
 // getContractSetsV2 retrieves the contract sets for the given chains and labels.

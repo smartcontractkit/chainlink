@@ -238,7 +238,6 @@ func GetOwnableContract[T Ownable](ab deployment.AddressBook, chain deployment.C
 // If `targetAddr` is provided, it will look for that specific address.
 // If not, it will default to looking one contract of type T, and if it doesn't find exactly one, it will error.
 func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain deployment.Chain, targetAddr string) (*T, error) {
-
 	// Determine contract type based on T
 	switch any(*new(T)).(type) {
 	case *forwarder.KeystoneForwarder:
@@ -261,8 +260,8 @@ func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain depl
 	if !foundAddr {
 		return nil, fmt.Errorf("address %s not found in address book", targetAddr)
 	}
-	return createContractInstance[T](targetAddr, chain)
 
+	return createContractInstance[T](targetAddr, chain)
 }
 
 // createContractInstance is a helper function to create contract instances
@@ -348,12 +347,15 @@ func loadCapabilityRegistry(registryChain deployment.Chain, env deployment.Envir
 			return nil, fmt.Errorf("failed to get address: %w", err)
 		}
 		cr, err = GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](env.DataStore.Addresses(), registryChain, a.Address)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get owned contract: %w", err)
+		}
 	} else {
 		// TODO: CRE-400 remove this once we have migrated all environments to use datastore
 		// This is a temporary backward compatibility until all the CLD environments are migrated to use datastore
 		cs, err := getContractSetsV2(env.Logger, getContractSetsRequestV2{
 			Chains:      map[uint64]deployment.Chain{registryChain.Selector: registryChain},
-			AddressBook: env.ExistingAddresses,
+			AddressBook: env.ExistingAddresses, //nolint:staticcheck  // TODO CRE-400 remove this once we have migrated all environments to use datastore
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to get contract sets: %w", err)

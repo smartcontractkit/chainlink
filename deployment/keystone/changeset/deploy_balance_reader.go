@@ -38,8 +38,12 @@ func DeployBalanceReader(env deployment.Environment, cfg DeployBalanceReaderRequ
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy BalanceReader to chain selector %d: %w", sel, err)
 		}
-		out.AddressBook.Merge(csOut.AddressBook)
-		out.DataStore.Merge(csOut.DataStore.Seal())
+		if err := out.AddressBook.Merge(csOut.AddressBook); err != nil { //nolint:staticcheck // TODO CRE-400
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge address book for chain selector %d: %w", sel, err)
+		}
+		if err := out.DataStore.Merge(csOut.DataStore.Seal()); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge datastore for chain selector %d: %w", sel, err)
+		}
 	}
 
 	return out, nil

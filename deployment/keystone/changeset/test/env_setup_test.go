@@ -32,7 +32,7 @@ func TestSetupEnv(t *testing.T) {
 				if useMCMS {
 					wantAddrCnt += 5 // time lock, call proxy, canceller, bypass, proposer
 				}
-				require.Equal(t, wantAddrCnt, len(addrs))
+				require.Len(t, addrs, wantAddrCnt)
 				require.Len(t, te.Env.Chains, 3)
 				require.NotEmpty(t, te.RegistrySelector)
 				require.NotNil(t, te.Env.Offchain)

@@ -50,9 +50,8 @@ func DeployForwarderX(env deployment.Environment, cfg DeployForwarderRequest) (d
 }
 
 func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (deployment.ChangesetOutput, error) {
-
 	var out deployment.ChangesetOutput
-	out.AddressBook = deployment.NewMemoryAddressBook()
+	out.AddressBook = deployment.NewMemoryAddressBook() //nolint:staticcheck // TODO CRE-400
 	out.DataStore = datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
 
 	selectors := cfg.ChainSelectors
@@ -69,8 +68,12 @@ func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (de
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", sel, err)
 		}
-		out.AddressBook.Merge(csOut.AddressBook)
-		out.DataStore.Merge(csOut.DataStore.Seal())
+		if err := out.AddressBook.Merge(csOut.AddressBook); err != nil { //nolint:staticcheck // TODO CRE-400
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge address book for chain selector %d: %w", sel, err)
+		}
+		if err := out.DataStore.Merge(csOut.DataStore.Seal()); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge datastore for chain selector %d: %w", sel, err)
+		}
 	}
 	// convert all the addresses to t
 	return out, nil

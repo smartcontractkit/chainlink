@@ -158,7 +158,6 @@ func TestRemoveDONs(t *testing.T) {
 
 				// If finalizeOnChain is true, we actually apply the proposals on-chain
 				if tt.finalizeOnChain {
-
 					err = applyProposal(t, te, commonchangeset.Configure(deployment.CreateLegacyChangeSet(changeset.RemoveDONs), req))
 					require.NoError(t, err, "failed to finalize MCMS proposal on-chain")
 

@@ -202,7 +202,6 @@ func TestConfigureForwarders(t *testing.T) {
 					expectedProposals--
 				}
 
-				//nolint:staticcheck // migration will be done in a separate PR
 				require.Len(t, csOut.MCMSTimelockProposals, expectedProposals)
 				require.Nil(t, csOut.AddressBook)
 

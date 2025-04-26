@@ -142,7 +142,7 @@ func (te EnvWrapper) CapabilityRegistryAddressRef() datastore.AddressRefKey {
 
 func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
 	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
-	require.Greater(te.t, len(addrs), 0)
+	require.NotEmpty(te.t, addrs)
 	out := make([]datastore.AddressRefKey, len(addrs))
 	for i, addr := range addrs {
 		out[i] = datastore.NewAddressRefKey(addr.ChainSelector, addr.Type, addr.Version, addr.Qualifier)
@@ -152,7 +152,7 @@ func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
 
 func (te EnvWrapper) OwnedForwarders() map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder] { // chain selector -> forwarders
 	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
-	require.Greater(te.t, len(addrs), 0)
+	require.NotEmpty(te.t, addrs)
 	out := make(map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder])
 	for _, addr := range addrs {
 		c, err := changeset.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.Chains[addr.ChainSelector], addr.Address)
