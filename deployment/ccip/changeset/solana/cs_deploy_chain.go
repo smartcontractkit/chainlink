@@ -844,6 +844,7 @@ func generateUpgradeTxns(
 		if err := chain.Confirm(ixns); err != nil {
 			return txns, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
+		return []mcmsTypes.Transaction{}, nil
 	}
 	upgradeTx, err := BuildMCMSTxn(upgradeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
 	if err != nil {
