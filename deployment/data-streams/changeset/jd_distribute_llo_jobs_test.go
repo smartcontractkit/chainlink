@@ -62,9 +62,9 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		for _, label := range n.Labels {
 			if label.Key == devenv.LabelNodeTypeKey {
 				switch *label.Value {
-				case jd.NodeTypeBootstrap.String():
+				case devenv.LabelNodeTypeValueBootstrap:
 					bootstrapNodeNames = append(bootstrapNodeNames, n.Name)
-				case jd.NodeTypePlugin.String():
+				case devenv.LabelNodeTypeValuePlugin:
 					oracleNodeNames = append(oracleNodeNames, n.Name)
 				default:
 					t.Fatalf("unexpected n type: %s", *label.Value)
