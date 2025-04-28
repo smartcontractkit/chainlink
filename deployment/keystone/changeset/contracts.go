@@ -88,7 +88,7 @@ func NewOwnableV2[T Ownable](contract T, ab datastore.AddressRefStore, chain dep
 		addressesMap[addr.Address] = deployment.TypeAndVersion{
 			Type:    deployment.ContractType(addr.Type),
 			Version: *addr.Version,
-			Labels:  deployment.LabelSet(addr.Labels),
+			Labels:  deployment.NewLabelSet(addr.Labels.List()...),
 		}
 	}
 	// Check if the owner is a timelock contract (owned by MCMS)
@@ -165,7 +165,7 @@ func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStor
 			return &deployment.TypeAndVersion{
 				Type:    deployment.ContractType(addr.Type),
 				Version: *addr.Version,
-				Labels:  deployment.LabelSet(addr.Labels),
+				Labels:  deployment.NewLabelSet(addr.Labels.List()...),
 			}, nil
 		}
 	}

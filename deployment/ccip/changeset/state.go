@@ -15,6 +15,7 @@ import (
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -68,11 +69,12 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
+	registryModuleOwnerCustomv15 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
+	registryModuleOwnerCustomv16 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -145,9 +147,9 @@ type CCIPChainState struct {
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	TokenPoolFactory   *token_pool_factory.TokenPoolFactory
-	RegistryModules1_6 []*registry_module_owner_custom.RegistryModuleOwnerCustom
+	RegistryModules1_6 []*registryModuleOwnerCustomv16.RegistryModuleOwnerCustom
 	// TODO change this to contract object for v1.5 RegistryModules once we have the wrapper available in chainlink-evm
-	RegistryModules1_5 []common.Address
+	RegistryModules1_5 []*registryModuleOwnerCustomv15.RegistryModuleOwnerCustom
 	Router             *router.Router
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
@@ -562,6 +564,31 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			return nil
 		})
 	}
+
+	for _, registryModule := range c.RegistryModules1_6 {
+		grp.Go(func() error {
+			registryModuleView, err := shared.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate registry module view for registry module %s", registryModule.Address().Hex())
+			}
+			chainView.UpdateRegistryModuleView(registryModule.Address().Hex(), registryModuleView)
+			lggr.Infow("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
+			return nil
+		})
+	}
+
+	for _, registryModule := range c.RegistryModules1_5 {
+		grp.Go(func() error {
+			registryModuleView, err := shared.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate registry module view for registry module %s", registryModule.Address().Hex())
+			}
+			chainView.UpdateRegistryModuleView(registryModule.Address().Hex(), registryModuleView)
+			lggr.Infow("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
+			return nil
+		})
+	}
+
 	// Legacy contracts
 	if c.CommitStore != nil {
 		grp.Go(func() error {
@@ -1191,14 +1218,19 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.TokenPoolFactory = tpf
 			state.ABIByAddress[address] = token_pool_factory.TokenPoolFactoryABI
 		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_6_0).String():
-			rm, err := registry_module_owner_custom.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
+			rm, err := registryModuleOwnerCustomv16.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RegistryModules1_6 = append(state.RegistryModules1_6, rm)
-			state.ABIByAddress[address] = registry_module_owner_custom.RegistryModuleOwnerCustomABI
+			state.ABIByAddress[address] = registryModuleOwnerCustomv16.RegistryModuleOwnerCustomABI
 		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0).String():
-			state.RegistryModules1_5 = append(state.RegistryModules1_5, common.HexToAddress(address))
+			rm, err := registryModuleOwnerCustomv15.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RegistryModules1_5 = append(state.RegistryModules1_5, rm)
+			state.ABIByAddress[address] = registryModuleOwnerCustomv15.RegistryModuleOwnerCustomABI
 		case deployment.NewTypeAndVersion(Router, deployment.Version1_2_0).String():
 			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
 			if err != nil {

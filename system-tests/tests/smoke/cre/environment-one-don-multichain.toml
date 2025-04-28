@@ -1,0 +1,68 @@
+
+# first one is the home chain
+[[blockchains]]
+  chain_id = "1337"
+  port = "8545"
+  type = "anvil"
+
+[[blockchains]]
+  chain_id = "2337"
+  port = "8550"
+  type = "anvil"
+
+[custom_anvil_miner]
+  block_speed_seconds = 5
+
+[fake]
+  port = 8171
+
+[infra]
+  type = "docker"
+
+[jd]
+  image = "job-distributor:0.9.0"
+
+[[workflow_configs]]
+  feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
+
+  should_compile_new_workflow = true
+  use_cre_cli = true
+
+  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
+  workflow_name = "porfeedone"
+
+[[workflow_configs]]
+  feed_id = "018e16c38e000320000000000000000000000000000000000000000000000000"
+
+  should_compile_new_workflow = true
+  use_cre_cli = true
+
+  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
+  workflow_name = "porfeedtwo"
+
+[dependencies]
+  cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
+  cron_capability_binary_path = "./cron"
+
+[[nodesets]]
+  http_port_range_start = 10100
+  name = "workflow"
+  nodes = 5
+  override_mode = "all"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+    volume_name = "workflow_volume"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """

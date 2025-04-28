@@ -23,8 +23,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
@@ -33,16 +31,9 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-)
 
-// OffchainClient interacts with the job-distributor
-// which is a family agnostic interface for performing
-// DON operations.
-type OffchainClient interface {
-	jobv1.JobServiceClient
-	nodev1.NodeServiceClient
-	csav1.CSAServiceClient
-}
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+)
 
 // Chain represents an EVM chain.
 type Chain struct {
@@ -95,7 +86,9 @@ type Environment struct {
 	Name   string
 	Logger logger.Logger
 	// Deprecated: AddressBook is deprecated and will be removed in future versions.
-	// Use DataStore instead
+	// Please use DataStore instead. If you still need to use AddressBook in your code,
+	// be aware that you may encounter CI failures due to linting errors.
+	// To work around this, you can disable the linter for that specific line using the //nolint directive.
 	ExistingAddresses AddressBook
 	DataStore         datastore.DataStore[
 		datastore.DefaultMetadata,
@@ -105,7 +98,7 @@ type Environment struct {
 	SolChains   map[uint64]SolChain
 	AptosChains map[uint64]AptosChain
 	NodeIDs     []string
-	Offchain    OffchainClient
+	Offchain    deployment.OffchainClient
 	GetContext  func() context.Context
 	OCRSecrets  OCRSecrets
 	// OperationsBundle contains dependencies required by the operations API.
@@ -124,7 +117,7 @@ func NewEnvironment(
 	solChains map[uint64]SolChain,
 	aptosChains map[uint64]AptosChain,
 	nodeIDs []string,
-	offchain OffchainClient,
+	offchain deployment.OffchainClient,
 	ctx func() context.Context,
 	secrets OCRSecrets,
 ) *Environment {
