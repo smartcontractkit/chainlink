@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	"github.com/smartcontractkit/chainlink-framework/metrics"
 )
 
 var (
@@ -38,17 +38,17 @@ var (
 )
 
 type evmTxmMetrics struct {
-	txmgr.GenericTXMMetrics
-	chainID                 string
-	numSuccessfulTxs        metric.Int64Counter
-	numRevertedTxs          metric.Int64Counter
-	fwdTxCount              metric.Int64Counter
-	txAttemptCount          metric.Float64Gauge
-	numFinalizedTxs         metric.Int64Counter
+	metrics.GenericTXMMetrics
+	chainID          string
+	numSuccessfulTxs metric.Int64Counter
+	numRevertedTxs   metric.Int64Counter
+	fwdTxCount       metric.Int64Counter
+	txAttemptCount   metric.Float64Gauge
+	numFinalizedTxs  metric.Int64Counter
 }
 
 func NewEVMTxmMetrics(chainID string) (*evmTxmMetrics, error) {
-	genericTXMMetrics, err := txmgr.NewGenericTxmMetrics(chainID)
+	genericTXMMetrics, err := metrics.NewGenericTxmMetrics(chainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize generic TXM metrics: %w", err)
 	}

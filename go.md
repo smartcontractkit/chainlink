@@ -49,7 +49,7 @@ flowchart LR
 	click chainlink-framework/capabilities href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/chains --> chainlink-framework/multinode
 	click chainlink-framework/chains href "https://github.com/smartcontractkit/chainlink-framework"
-	chainlink-framework/metrics
+	chainlink-framework/metrics --> chainlink-common
 	click chainlink-framework/metrics href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/multinode --> chainlink-common
 	click chainlink-framework/multinode href "https://github.com/smartcontractkit/chainlink-framework"
@@ -178,7 +178,7 @@ flowchart LR
 	click chainlink-framework/capabilities href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/chains --> chainlink-framework/multinode
 	click chainlink-framework/chains href "https://github.com/smartcontractkit/chainlink-framework"
-	chainlink-framework/metrics
+	chainlink-framework/metrics --> chainlink-common
 	click chainlink-framework/metrics href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/multinode --> chainlink-common
 	click chainlink-framework/multinode href "https://github.com/smartcontractkit/chainlink-framework"

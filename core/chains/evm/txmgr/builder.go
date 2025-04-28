@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-framework/metrics"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
@@ -182,7 +183,7 @@ func NewEvmConfirmer(
 	txAttemptBuilder TxAttemptBuilder,
 	lggr logger.Logger,
 	stuckTxDetector StuckTxDetector,
-	metrics txmgr.GenericTXMMetrics,
+	metrics metrics.GenericTXMMetrics,
 ) *Confirmer {
 	return txmgr.NewConfirmer(txStore, client, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *types.Receipt) bool { return r == nil }, stuckTxDetector, metrics)
 }
@@ -211,7 +212,7 @@ func NewEvmBroadcaster(
 	checkerFactory TransmitCheckerFactory,
 	autoSyncNonce bool,
 	chainType chaintype.ChainType,
-	metrics txmgr.GenericTXMMetrics,
+	metrics metrics.GenericTXMMetrics,
 ) *Broadcaster {
 	nonceTracker := NewNonceTracker(logger, txStore, client)
 	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, txAttemptBuilder, nonceTracker, logger, checkerFactory, autoSyncNonce, string(chainType), metrics)
