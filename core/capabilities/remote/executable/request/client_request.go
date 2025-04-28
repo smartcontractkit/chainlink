@@ -73,7 +73,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	}
 
 	lggr = lggr.With("requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, req)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID)
 }
 
 var (
@@ -82,7 +82,7 @@ var (
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, req commoncap.CapabilityRequest) (*ClientRequest, error) {
+	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
 		return nil, errors.New("remote capability info missing DON")
@@ -96,10 +96,10 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 	// send schedule through beholder for single execution performance tracking
 	if tc.Schedule == transmission.Schedule_OneAtATime {
 		err = emitTransmissionScheduleEvent(ctx,
-			req.Metadata.WorkflowExecutionID,
+			workflowExecutionID,
 			requestID,
 			remoteCapabilityInfo.ID,
-			req.Metadata.ReferenceID,
+			stepRef,
 			peerIDToTransmissionDelay,
 		)
 		if err != nil {
@@ -193,30 +193,35 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 }
 
 func emitTransmissionScheduleEvent(ctx context.Context, workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration) error {
-	// grab peers
-	sortedPeerIDs := make([]p2ptypes.PeerID, 0, len(peerIDToTransmissionDelay))
-	for id := range peerIDToTransmissionDelay {
-		sortedPeerIDs = append(sortedPeerIDs, id)
+	// Create a slice of peer IDs sorted by their delay values
+	type peerDelay struct {
+		peerID p2ptypes.PeerID
+		delay  time.Duration
 	}
 
-	// sort peers by ascending durations
-	sort.SliceStable(sortedPeerIDs, func(i, j int) bool {
-		return peerIDToTransmissionDelay[sortedPeerIDs[i]] < peerIDToTransmissionDelay[sortedPeerIDs[j]]
+	peerDelays := make([]peerDelay, 0, len(peerIDToTransmissionDelay))
+	for peerID, delay := range peerIDToTransmissionDelay {
+		peerDelays = append(peerDelays, peerDelay{peerID, delay})
+	}
+
+	// Sort by delay value
+	sort.Slice(peerDelays, func(i, j int) bool {
+		return peerDelays[i].delay < peerDelays[j].delay
 	})
 
-	// turn to string for emit
-	sortedStringPeers := make([]string, 0, len(sortedPeerIDs))
-	for _, peer := range sortedPeerIDs {
-		sortedStringPeers = append(sortedStringPeers, peer.String())
+	// Create map with sorted peers and their delays in milliseconds
+	peerDelaysMap := make(map[string]int64, len(peerDelays))
+	for _, pd := range peerDelays {
+		peerDelaysMap[pd.peerID.String()] = pd.delay.Milliseconds()
 	}
 
 	msg := &TransmissionsScheduledEvent{
-		Timestamp:           time.Now().Format(time.RFC3339),
-		WorkflowExecutionID: workflowExecutionID,
-		TransmissionID:      transmissionID,
-		CapabilityID:        capabilityID,
-		StepRef:             stepRef,
-		TransmissionOrder:   sortedStringPeers,
+		Timestamp:              time.Now().Format(time.RFC3339),
+		WorkflowExecutionID:    workflowExecutionID,
+		TransmissionID:         transmissionID,
+		CapabilityID:           capabilityID,
+		StepRef:                stepRef,
+		PeerTransmissionDelays: peerDelaysMap,
 	}
 
 	b, err := proto.Marshal(msg)

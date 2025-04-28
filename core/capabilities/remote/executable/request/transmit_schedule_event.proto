@@ -9,6 +9,6 @@ message TransmissionsScheduledEvent {
   string transmissionID = 3;
   string capabilityID = 4;
   string stepRef = 5;
-  // peerID transmission schedule. transmissionOrder[0] is first picked to transmit
-  repeated string transmissionOrder = 6;
+  // Map of peerID to transmission delay in nanoseconds
+  map<string, int64> peerTransmissionDelays = 6;
 }

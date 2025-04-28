@@ -28,10 +28,10 @@ type TransmissionsScheduledEvent struct {
 	TransmissionID      string                 `protobuf:"bytes,3,opt,name=transmissionID,proto3" json:"transmissionID,omitempty"`
 	CapabilityID        string                 `protobuf:"bytes,4,opt,name=capabilityID,proto3" json:"capabilityID,omitempty"`
 	StepRef             string                 `protobuf:"bytes,5,opt,name=stepRef,proto3" json:"stepRef,omitempty"`
-	// peerID transmission schedule. transmissionOrder[0] is first picked to transmit
-	TransmissionOrder []string `protobuf:"bytes,6,rep,name=transmissionOrder,proto3" json:"transmissionOrder,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Map of peerID to transmission delay in nanoseconds
+	PeerTransmissionDelays map[string]int64 `protobuf:"bytes,6,rep,name=peerTransmissionDelays,proto3" json:"peerTransmissionDelays,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *TransmissionsScheduledEvent) Reset() {
@@ -99,9 +99,9 @@ func (x *TransmissionsScheduledEvent) GetStepRef() string {
 	return ""
 }
 
-func (x *TransmissionsScheduledEvent) GetTransmissionOrder() []string {
+func (x *TransmissionsScheduledEvent) GetPeerTransmissionDelays() map[string]int64 {
 	if x != nil {
-		return x.TransmissionOrder
+		return x.PeerTransmissionDelays
 	}
 	return nil
 }
@@ -110,14 +110,17 @@ var File_transmit_schedule_event_proto protoreflect.FileDescriptor
 
 const file_transmit_schedule_event_proto_rawDesc = "" +
 	"\n" +
-	"\x1dtransmit_schedule_event.proto\x12\arequest\"\x81\x02\n" +
+	"\x1dtransmit_schedule_event.proto\x12\arequest\"\x98\x03\n" +
 	"\x1bTransmissionsScheduledEvent\x12\x1c\n" +
 	"\ttimestamp\x18\x01 \x01(\tR\ttimestamp\x120\n" +
 	"\x13workflowExecutionID\x18\x02 \x01(\tR\x13workflowExecutionID\x12&\n" +
 	"\x0etransmissionID\x18\x03 \x01(\tR\x0etransmissionID\x12\"\n" +
 	"\fcapabilityID\x18\x04 \x01(\tR\fcapabilityID\x12\x18\n" +
-	"\astepRef\x18\x05 \x01(\tR\astepRef\x12,\n" +
-	"\x11transmissionOrder\x18\x06 \x03(\tR\x11transmissionOrderBSZQgithub.com/smartcontractkit/chainlink/core/capabilities/remote/executable/requestb\x06proto3"
+	"\astepRef\x18\x05 \x01(\tR\astepRef\x12x\n" +
+	"\x16peerTransmissionDelays\x18\x06 \x03(\v2@.request.TransmissionsScheduledEvent.PeerTransmissionDelaysEntryR\x16peerTransmissionDelays\x1aI\n" +
+	"\x1bPeerTransmissionDelaysEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01BSZQgithub.com/smartcontractkit/chainlink/core/capabilities/remote/executable/requestb\x06proto3"
 
 var (
 	file_transmit_schedule_event_proto_rawDescOnce sync.Once
@@ -131,16 +134,18 @@ func file_transmit_schedule_event_proto_rawDescGZIP() []byte {
 	return file_transmit_schedule_event_proto_rawDescData
 }
 
-var file_transmit_schedule_event_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_transmit_schedule_event_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_transmit_schedule_event_proto_goTypes = []any{
 	(*TransmissionsScheduledEvent)(nil), // 0: request.TransmissionsScheduledEvent
+	nil,                                 // 1: request.TransmissionsScheduledEvent.PeerTransmissionDelaysEntry
 }
 var file_transmit_schedule_event_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: request.TransmissionsScheduledEvent.peerTransmissionDelays:type_name -> request.TransmissionsScheduledEvent.PeerTransmissionDelaysEntry
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_transmit_schedule_event_proto_init() }
@@ -154,7 +159,7 @@ func file_transmit_schedule_event_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_transmit_schedule_event_proto_rawDesc), len(file_transmit_schedule_event_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
