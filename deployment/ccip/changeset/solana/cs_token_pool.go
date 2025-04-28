@@ -194,7 +194,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 	instructions := []solana.Instruction{createI}
 
 	var poolInitI solana.Instruction
-	programData, err := solProgramData(e, chain, tokenPool)
+	programData, err := getSolProgramData(e, chain, tokenPool)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
 	}

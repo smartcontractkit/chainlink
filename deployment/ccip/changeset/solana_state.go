@@ -29,7 +29,6 @@ import (
 )
 
 const (
-	OfframpAddressLookupTable deployment.ContractType = "OfframpAddressLookupTable"
 	TokenPool                 deployment.ContractType = "TokenPool"
 	Receiver                  deployment.ContractType = "Receiver"
 	SPL2022Tokens             deployment.ContractType = "SPL2022Tokens"
@@ -135,6 +134,15 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 			state.RouterConfigPDA = routerConfigPDA
 		case Receiver:
+			receiverVersion, ok := versions[OffRamp]
+			// if we have an receiver version, we need to make sure it's a newer version
+			if ok {
+				// if the version is not newer, skip this address
+				if receiverVersion.GreaterThan(&tvStr.Version) {
+					log.Debug().Str("address", address).Str("type", string(tvStr.Type)).Msg("Skipping receiver address, already loaded newer version")
+					continue
+				}
+			}
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
 		case SPL2022Tokens:

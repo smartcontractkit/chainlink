@@ -3,6 +3,8 @@ package test
 import (
 	"crypto/rand"
 	"math/big"
+	"slices"
+	"strings"
 	"testing"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -11,6 +13,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -91,4 +94,45 @@ func testOCRConfig(t *testing.T, sel uint64, p2p p2pkey.KeyV2) deployment.OCRCon
 		ConfigEncryptionPublicKey: types2.ConfigEncryptionPublicKey(seed[:32]),
 		KeyBundleID:               "fake_orc_bundle_" + f,
 	}
+}
+
+func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) bool {
+	if filter == nil {
+		return true
+	}
+	if len(filter.Ids) > 0 {
+		idx := slices.IndexFunc(filter.Ids, func(id string) bool {
+			return node.Id == id
+		})
+		if idx < 0 {
+			return false
+		}
+	}
+	for _, selector := range filter.Selectors {
+		idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
+			return label.Key == selector.Key
+		})
+		if idx < 0 {
+			return false
+		}
+		label := node.Labels[idx]
+
+		switch selector.Op {
+		case ptypes.SelectorOp_IN:
+			values := strings.Split(*selector.Value, ",")
+			found := slices.Contains(values, *label.Value)
+			if !found {
+				return false
+			}
+		case ptypes.SelectorOp_EQ:
+			if *label.Value != *selector.Value {
+				return false
+			}
+		case ptypes.SelectorOp_EXIST:
+			// do nothing
+		default:
+			panic("unimplemented selector")
+		}
+	}
+	return true
 }

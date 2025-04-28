@@ -1,5 +1,5 @@
 
-[blockchain_a]
+[[blockchains]]
   type = "anvil"
   chain_id = "1337"
 
@@ -20,7 +20,7 @@
   # either "aws" or "kind"
   provider = "kind"
 
-[workflow_config]
+[[workflow_configs]]
   workflow_name = "abcdefgasd"
   # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
   feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
@@ -31,8 +31,8 @@
   # config below assumes that you have it cloned next to chainlink repository
   workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
 
-  [workflow_config.dependencies]
-  cron_capability_binary_path = "cron"
+[dependencies]
+  cron_capability_binary_path = "./cron"
   cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
 
 [[nodesets]]
@@ -49,23 +49,12 @@
 
     [nodesets.node_specs.node]
       image = "localhost:5001/chainlink:e530f1c"
-      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
       """
 
 [[nodesets]]
@@ -83,20 +72,9 @@
     [nodesets.node_specs.node]
       image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
       """
 
 [[nodesets]]
@@ -114,18 +92,7 @@
     [nodesets.node_specs.node]
       image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
       """
