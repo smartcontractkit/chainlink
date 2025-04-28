@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -256,15 +256,15 @@ func GetNodeLabels(donID uint64, donName string, env string) []*ptypes.Label {
 			Value: nil,
 		},
 		{
-			Key:   utils.LabelNodeType,
-			Value: pointer.To(jd.NodeTypeOracle.String()),
+			Key:   devenv.LabelNodeTypeKey,
+			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 		},
 		{
-			Key:   utils.LabelEnvironment,
+			Key:   devenv.LabelEnvironmentKey,
 			Value: pointer.To(env),
 		},
 		{
-			Key:   utils.LabelProduct,
+			Key:   devenv.LabelProductKey,
 			Value: pointer.To(utils.ProductLabel),
 		},
 	}

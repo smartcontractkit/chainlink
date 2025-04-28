@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
 func TestDistributeLLOJobSpecs(t *testing.T) {
@@ -37,11 +38,11 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		NumBootstrapNodes:     1,
 		NodeLabels: []*ptypes.Label{
 			{
-				Key:   utils.LabelProduct,
+				Key:   devenv.LabelProductKey,
 				Value: pointer.To(utils.ProductLabel),
 			},
 			{
-				Key:   utils.LabelEnvironment,
+				Key:   devenv.LabelEnvironmentKey,
 				Value: pointer.To(envName),
 			},
 			{
@@ -59,11 +60,11 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 	require.NoError(t, err)
 	for _, n := range resp.Nodes {
 		for _, label := range n.Labels {
-			if label.Key == utils.LabelNodeType {
+			if label.Key == devenv.LabelNodeTypeKey {
 				switch *label.Value {
 				case jd.NodeTypeBootstrap.String():
 					bootstrapNodeNames = append(bootstrapNodeNames, n.Name)
-				case jd.NodeTypeOracle.String():
+				case jd.NodeTypePlugin.String():
 					oracleNodeNames = append(oracleNodeNames, n.Name)
 				default:
 					t.Fatalf("unexpected n type: %s", *label.Value)

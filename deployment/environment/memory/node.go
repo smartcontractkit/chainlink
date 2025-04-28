@@ -376,13 +376,13 @@ func NewNode(
 	nodeLabels := make([]*ptypes.Label, 1)
 	if bootstrap {
 		nodeLabels[0] = &ptypes.Label{
-			Key:   "nodeType",
+			Key:   "type",
 			Value: ptr("bootstrap"),
 		}
 	} else {
 		nodeLabels[0] = &ptypes.Label{
-			Key:   "nodeType",
-			Value: ptr("oracle"),
+			Key:   "type",
+			Value: ptr("plugin"),
 		}
 	}
 
