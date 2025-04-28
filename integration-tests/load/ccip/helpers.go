@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
