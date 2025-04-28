@@ -318,7 +318,10 @@ func TestDeployCCIPContracts(t *testing.T) {
 
 func TestSetOcr3(t *testing.T) {
 	t.Parallel()
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t,
+		testhelpers.WithNumOfNodes(16),
+		testhelpers.WithNumOfBootstrapNodes(3),
+		testhelpers.WithSolChains(1))
 	var err error
 	evmSelectors := tenv.Env.AllChainSelectors()
 	homeChainSel := evmSelectors[0]

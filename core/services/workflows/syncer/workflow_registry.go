@@ -75,28 +75,13 @@ type GetWorkflowMetadataListByDONReturnVal struct {
 	WorkflowMetadataList []GetWorkflowMetadata
 }
 
-// WorkflowRegistryEvent is an event emitted by the WorkflowRegistry.  Each event is typed
-// so that the consumer can determine how to handle the event.
-type WorkflowRegistryEvent struct {
-	Cursor    string
-	Data      any
-	EventType WorkflowRegistryEventType
-	Head      Head
-	DonID     *uint32
-}
-
-func (we WorkflowRegistryEvent) GetEventType() WorkflowRegistryEventType {
-	return we.EventType
-}
-
-func (we WorkflowRegistryEvent) GetData() any {
-	return we.Data
-}
-
-// WorkflowRegistryEventResponse is a response to either parsing a queried event or handling the event.
-type WorkflowRegistryEventResponse struct {
-	Err   error
-	Event *WorkflowRegistryEvent
+// workflowRegistryEvent is the event emitted by the WorkflowRegistry in events mode.
+// Each event is typed so that the consumer can determine how to handle the event.
+type workflowRegistryEvent struct {
+	Event
+	Cursor string
+	Head   Head
+	DonID  *uint32
 }
 
 type Config struct {
@@ -260,7 +245,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				case event := <-w.eventCh:
 					err := w.handler.Handle(ctx, event)
 					if err != nil {
-						w.lggr.Errorw("failed to handle event", "err", err, "type", event.GetEventType())
+						w.lggr.Errorw("failed to handle event", "err", err, "type", event.EventType)
 					}
 				}
 			}
@@ -353,27 +338,31 @@ func (w *workflowRegistry) readRegistryEventsLoop(ctx context.Context, eventType
 				continue
 			}
 
-			var events []WorkflowRegistryEventResponse
+			var events []workflowRegistryEvent
 			for _, log := range logs {
 				if log.Sequence.Cursor == cursor {
 					continue
 				}
 
-				event := toWorkflowRegistryEventResponse(log.Sequence, log.EventType, w.lggr)
+				event, err := toWorkflowRegistryEventResponse(log.Sequence, log.EventType, w.lggr)
+				if err != nil {
+					w.lggr.Errorw("failed to convert log to workflow registry event, skipping...", "err", err)
+					continue
+				}
 
 				switch {
-				case event.Event.DonID == nil:
+				case event.DonID == nil:
 					// event is missing a DonID, so don't filter it out;
 					// it applies to all Dons
 					events = append(events, event)
-				case *event.Event.DonID == don.ID:
+				case *event.DonID == don.ID:
 					// event has a DonID and matches, so it applies to this DON.
 					events = append(events, event)
 				default:
 					// event doesn't match, let's skip it
 					donID := "MISSING_DON_ID"
-					if event.Event.DonID != nil {
-						donID = strconv.FormatUint(uint64(*event.Event.DonID), 10)
+					if event.DonID != nil {
+						donID = strconv.FormatUint(uint64(*event.DonID), 10)
 					}
 					w.lggr.Debugw("event belongs to a different don, skipping...", "don", don.ID, "gotDON", donID)
 				}
@@ -414,8 +403,8 @@ func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capab
 			case <-ctx.Done():
 				w.lggr.Debug("shut down during initial workflow registration")
 				return
-			case w.eventCh <- workflowAsEvent{
-				Data: WorkflowRegistryWorkflowRegisteredV1{
+			case w.eventCh <- Event{
+				Data: WorkflowRegisteredV1{
 					WorkflowID:    workflow.WorkflowID,
 					WorkflowOwner: workflow.Owner,
 					DonID:         workflow.DonID,
@@ -446,8 +435,8 @@ func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capab
 
 // workflowMetadataToEvents compares the workflow registry workflow metadata state against the engine registry's state.
 // Differences are handled by the event handler by creating events that are sent to the events channel for handling.
-func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflowMetadata []GetWorkflowMetadata, donID uint32) []workflowAsEvent {
-	var events []workflowAsEvent
+func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflowMetadata []GetWorkflowMetadata, donID uint32) []Event {
+	var events []Event
 
 	// Keep track of which of the engines in the engineRegistry have been touched
 	seenMap := map[string]bool{}
@@ -463,7 +452,7 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 		// if the workflow is active, but unable to get engine from the engine registry
 		// then handle as registered event
 		case wfMeta.Status == uint8(WorkflowStatusActive) && engineErr != nil:
-			toRegisteredEvent := WorkflowRegistryWorkflowRegisteredV1{
+			toRegisteredEvent := WorkflowRegisteredV1{
 				WorkflowID:    wfMeta.WorkflowID,
 				WorkflowOwner: wfMeta.Owner,
 				DonID:         wfMeta.DonID,
@@ -473,7 +462,7 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 				ConfigURL:     wfMeta.ConfigURL,
 				SecretsURL:    wfMeta.SecretsURL,
 			}
-			events = append(events, workflowAsEvent{
+			events = append(events, Event{
 				Data:      toRegisteredEvent,
 				EventType: WorkflowRegisteredEvent,
 			})
@@ -482,7 +471,7 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 		// if the workflow is active, the workflow engine is in the engine registry, but the metadata has changed
 		// then handle as updated event
 		case wfMeta.Status == uint8(WorkflowStatusActive) && currWfID != prevWfID:
-			toUpdatedEvent := WorkflowRegistryWorkflowUpdatedV1{
+			toUpdatedEvent := WorkflowUpdatedV1{
 				OldWorkflowID: engine.WorkflowID,
 				NewWorkflowID: wfMeta.WorkflowID,
 				WorkflowOwner: wfMeta.Owner,
@@ -493,7 +482,7 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 				SecretsURL:    wfMeta.SecretsURL,
 				Status:        wfMeta.Status,
 			}
-			events = append(events, workflowAsEvent{
+			events = append(events, Event{
 				Data:      toUpdatedEvent,
 				EventType: WorkflowUpdatedEvent,
 			})
@@ -520,13 +509,13 @@ func (w *workflowRegistry) workflowMetadataToEvents(ctx context.Context, workflo
 		engineKey := engine.WorkflowName + hex.EncodeToString(engine.WorkflowOwner)
 		_, exists := seenMap[engineKey]
 		if !exists {
-			toDeletedEvent := WorkflowRegistryWorkflowDeletedV1{
+			toDeletedEvent := WorkflowDeletedV1{
 				WorkflowID:    engine.WorkflowID,
 				WorkflowOwner: engine.WorkflowOwner,
 				DonID:         donID,
 				WorkflowName:  engine.WorkflowName,
 			}
-			events = append(events, workflowAsEvent{
+			events = append(events, Event{
 				Data:      toDeletedEvent,
 				EventType: WorkflowDeletedEvent,
 			})
@@ -683,19 +672,6 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	return reader, nil
 }
 
-type workflowAsEvent struct {
-	Data      any
-	EventType WorkflowRegistryEventType
-}
-
-func (r workflowAsEvent) GetEventType() WorkflowRegistryEventType {
-	return r.EventType
-}
-
-func (r workflowAsEvent) GetData() any {
-	return r.Data
-}
-
 // getWorkflowMetadata uses contract reader to query the contract for all workflow metadata using the method GetWorkflowMetadataListByDONMethodName
 func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabilities.DON, contractReader ContractReader) ([]GetWorkflowMetadata, *types.Head, error) {
 	contractBinding := types.BoundContract{
@@ -739,91 +715,69 @@ func toWorkflowRegistryEventResponse(
 	log types.Sequence,
 	evt WorkflowRegistryEventType,
 	lggr logger.Logger,
-) WorkflowRegistryEventResponse {
-	resp := WorkflowRegistryEventResponse{
-		Event: &WorkflowRegistryEvent{
-			Cursor:    log.Cursor,
+) (workflowRegistryEvent, error) {
+	resp := workflowRegistryEvent{
+		Cursor: log.Cursor,
+		Event: Event{
 			EventType: evt,
-			Head: Head{
-				Hash:      hex.EncodeToString(log.Hash),
-				Height:    log.Height,
-				Timestamp: log.Timestamp,
-			},
+		},
+		Head: Head{
+			Hash:      hex.EncodeToString(log.Hash),
+			Height:    log.Height,
+			Timestamp: log.Timestamp,
 		},
 	}
 
 	dataAsValuesMap, err := values.WrapMap(log.Data)
 	if err != nil {
-		return WorkflowRegistryEventResponse{
-			Err: err,
-		}
+		return workflowRegistryEvent{}, err
 	}
 
 	switch evt {
 	case ForceUpdateSecretsEvent:
-		var data WorkflowRegistryForceUpdateSecretsRequestedV1
+		var data ForceUpdateSecretsRequestedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
-			lggr.Errorf("failed to unwrap data: %+v", log.Data)
-			resp.Event = nil
-			resp.Err = err
-			return resp
+			return workflowRegistryEvent{}, err
 		}
 		resp.Event.Data = data
 	case WorkflowRegisteredEvent:
-		var data WorkflowRegistryWorkflowRegisteredV1
+		var data WorkflowRegisteredV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
-			lggr.Errorf("failed to unwrap data: %+v", log.Data)
-			resp.Event = nil
-			resp.Err = err
-			return resp
+			return workflowRegistryEvent{}, err
 		}
 		resp.Event.Data = data
-		resp.Event.DonID = &data.DonID
+		resp.DonID = &data.DonID
 	case WorkflowUpdatedEvent:
-		var data WorkflowRegistryWorkflowUpdatedV1
+		var data WorkflowUpdatedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
-			lggr.Errorf("failed to unwrap data: %+v", log.Data)
-			resp.Event = nil
-			resp.Err = err
-			return resp
+			return workflowRegistryEvent{}, err
 		}
 		resp.Event.Data = data
-		resp.Event.DonID = &data.DonID
+		resp.DonID = &data.DonID
 	case WorkflowPausedEvent:
-		var data WorkflowRegistryWorkflowPausedV1
+		var data WorkflowPausedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
-			lggr.Errorf("failed to unwrap data: %+v", log.Data)
-			resp.Event = nil
-			resp.Err = err
-			return resp
+			return workflowRegistryEvent{}, err
 		}
 		resp.Event.Data = data
-		resp.Event.DonID = &data.DonID
+		resp.DonID = &data.DonID
 	case WorkflowActivatedEvent:
-		var data WorkflowRegistryWorkflowActivatedV1
+		var data WorkflowActivatedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
-			lggr.Errorf("failed to unwrap data: %+v", log.Data)
-			resp.Event = nil
-			resp.Err = err
-			return resp
+			return workflowRegistryEvent{}, err
 		}
 		resp.Event.Data = data
-		resp.Event.DonID = &data.DonID
+		resp.DonID = &data.DonID
 	case WorkflowDeletedEvent:
-		var data WorkflowRegistryWorkflowDeletedV1
+		var data WorkflowDeletedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
-			lggr.Errorf("failed to unwrap data: %+v", log.Data)
-			resp.Event = nil
-			resp.Err = err
-			return resp
+			return workflowRegistryEvent{}, err
 		}
 		resp.Event.Data = data
-		resp.Event.DonID = &data.DonID
+		resp.DonID = &data.DonID
 	default:
-		lggr.Errorf("unknown event type: %s", evt)
-		resp.Event = nil
-		resp.Err = fmt.Errorf("unknown event type: %s", evt)
+		return workflowRegistryEvent{}, fmt.Errorf("unknown event type: %s", evt)
 	}
 
-	return resp
+	return resp, nil
 }

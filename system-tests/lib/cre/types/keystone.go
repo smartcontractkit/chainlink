@@ -1,22 +1,23 @@
 package types
 
 import (
-	"errors"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 )
 
 type NodeType = string
@@ -37,30 +38,6 @@ type DonsToJobSpecs = map[uint32]DonJobs
 
 type NodeIndexToConfigOverride = map[int]string
 type NodeIndexToSecretsOverride = map[int]string
-
-type KeystoneContractsInput struct {
-	ChainSelector uint64                   `toml:"-"`
-	CldEnv        *deployment.Environment  `toml:"-"`
-	Out           *KeystoneContractsOutput `toml:"out"`
-}
-
-func (k *KeystoneContractsInput) Validate() error {
-	if k.ChainSelector == 0 {
-		return errors.New("chain selector not set")
-	}
-	if k.CldEnv == nil {
-		return errors.New("chainlink deployment env not set")
-	}
-	return nil
-}
-
-type KeystoneContractsOutput struct {
-	UseCache                    bool           `toml:"use_cache"`
-	CapabilitiesRegistryAddress common.Address `toml:"capabilities_registry_address"`
-	ForwarderAddress            common.Address `toml:"forwarder_address"`
-	OCR3CapabilityAddress       common.Address `toml:"ocr3_capability_address"`
-	WorkflowRegistryAddress     common.Address `toml:"workflow_registry_address"`
-}
 
 type WorkflowRegistryInput struct {
 	ChainSelector  uint64                  `toml:"-"`
@@ -94,26 +71,6 @@ type WorkflowRegistryOutput struct {
 	WorkflowOwners []common.Address `toml:"workflow_owners"`
 }
 
-type DeployDataFeedsCacheInput struct {
-	ChainSelector uint64                      `toml:"-"`
-	CldEnv        *deployment.Environment     `toml:"-"`
-	Out           *DeployDataFeedsCacheOutput `toml:"out"`
-}
-
-func (i *DeployDataFeedsCacheInput) Validate() error {
-	if i.ChainSelector == 0 {
-		return errors.New("chain selector not set")
-	}
-	if i.CldEnv == nil {
-		return errors.New("chainlink deployment env not set")
-	}
-	return nil
-}
-
-type DeployDataFeedsCacheOutput struct {
-	UseCache              bool           `toml:"use_cache"`
-	DataFeedsCacheAddress common.Address `toml:"data_feeds_cache_address"`
-}
 type ConfigureDataFeedsCacheOutput struct {
 	UseCache              bool             `toml:"use_cache"`
 	DataFeedsCacheAddress common.Address   `toml:"data_feeds_cache_address"`
@@ -310,26 +267,24 @@ func (g *GeneratePoRJobSpecsInput) Validate() error {
 }
 
 type GeneratePoRConfigsInput struct {
-	DonMetadata                 *DonMetadata
-	BlockchainOutput            *blockchain.Output
-	DonID                       uint32
-	Flags                       []string
-	PeeringData                 CapabilitiesPeeringData
-	CapabilitiesRegistryAddress common.Address
-	WorkflowRegistryAddress     common.Address
-	ForwarderAddress            common.Address
-	GatewayConnectorOutput      *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
+	DonMetadata            *DonMetadata
+	BlockchainOutput       map[uint64]*blockchain.Output
+	HomeChainSelector      uint64
+	Flags                  []string
+	PeeringData            CapabilitiesPeeringData
+	AddressBook            deployment.AddressBook
+	GatewayConnectorOutput *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
 
 func (g *GeneratePoRConfigsInput) Validate() error {
 	if len(g.DonMetadata.NodesMetadata) == 0 {
 		return errors.New("don nodes not set")
 	}
-	if g.BlockchainOutput == nil {
+	if len(g.BlockchainOutput) == 0 {
 		return errors.New("blockchain output not set")
 	}
-	if g.DonID == 0 {
-		return errors.New("don id not set")
+	if g.HomeChainSelector == 0 {
+		return errors.New("home chain selector not set")
 	}
 	if len(g.Flags) == 0 {
 		return errors.New("flags not set")
@@ -337,16 +292,10 @@ func (g *GeneratePoRConfigsInput) Validate() error {
 	if g.PeeringData == (CapabilitiesPeeringData{}) {
 		return errors.New("peering data not set")
 	}
-	if g.CapabilitiesRegistryAddress == (common.Address{}) {
-		return errors.New("capabilities registry address not set")
+	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
+	if addrErr != nil {
+		return errors.Wrapf(addrErr, "failed to get addresses for chain %d", g.HomeChainSelector)
 	}
-	if g.WorkflowRegistryAddress == (common.Address{}) {
-		return errors.New("workflow registry address not set")
-	}
-	if g.ForwarderAddress == (common.Address{}) {
-		return errors.New("forwarder address not set")
-	}
-
 	return nil
 }
 
@@ -388,12 +337,14 @@ type NodeMetadata struct {
 
 type Topology struct {
 	WorkflowDONID          uint32
+	HomeChainSelector      uint64
 	DonsMetadata           []*DonMetadata
 	GatewayConnectorOutput *GatewayConnectorOutput
 }
 
 type DonTopology struct {
 	WorkflowDonID          uint32
+	HomeChainSelector      uint64
 	DonsWithMetadata       []*DonWithMetadata
 	GatewayConnectorOutput *GatewayConnectorOutput
 }
@@ -499,8 +450,8 @@ func (g *GenerateSecretsInput) Validate() error {
 
 type FullCLDEnvironmentInput struct {
 	JdOutput          *jd.Output
-	BlockchainOutput  *blockchain.Output
-	SethClient        *seth.Client
+	BlockchainOutputs map[uint64]*blockchain.Output
+	SethClients       map[uint64]*seth.Client
 	NodeSetOutput     []*WrappedNodeOutput
 	ExistingAddresses deployment.AddressBook
 	Topology          *Topology
@@ -510,11 +461,14 @@ func (f *FullCLDEnvironmentInput) Validate() error {
 	if f.JdOutput == nil {
 		return errors.New("jd output not set")
 	}
-	if f.BlockchainOutput == nil {
+	if len(f.BlockchainOutputs) == 0 {
 		return errors.New("blockchain output not set")
 	}
-	if f.SethClient == nil {
-		return errors.New("seth client not set")
+	if len(f.SethClients) == 0 {
+		return errors.New("seth clients are not set")
+	}
+	if len(f.BlockchainOutputs) != len(f.SethClients) {
+		return errors.New("blockchain outputs and seth clients must have the same length")
 	}
 	if len(f.NodeSetOutput) == 0 {
 		return errors.New("node set output not set")
@@ -622,10 +576,10 @@ type CapabilitiesBinaryPathFactoryFn = func(donMetadata *DonMetadata) ([]string,
 type JobSpecFactoryFn = func(input *JobSpecFactoryInput) (DonsToJobSpecs, error)
 
 type JobSpecFactoryInput struct {
-	CldEnvironment          *deployment.Environment
-	BlockchainOutput        *blockchain.Output
-	DonTopology             *DonTopology
-	KeystoneContractsOutput *KeystoneContractsOutput
+	CldEnvironment   *deployment.Environment
+	BlockchainOutput *blockchain.Output
+	DonTopology      *DonTopology
+	AddressBook      deployment.AddressBook
 }
 
 type RegisterWorkflowWithCRECLIInput struct {

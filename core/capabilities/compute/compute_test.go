@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/metering"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -139,6 +140,8 @@ func TestComputeExecuteMissingBinary(t *testing.T) {
 }
 
 func TestComputeExecute(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-560")
+
 	t.Parallel()
 	th := setup(t, defaultConfig)
 
@@ -273,6 +276,8 @@ func TestComputeFetch(t *testing.T) {
 }
 
 func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-573")
+
 	t.Parallel()
 
 	tests := []struct {

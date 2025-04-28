@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 type Engine struct {
@@ -16,12 +17,6 @@ type Engine struct {
 
 	cfg       EngineConfig
 	localNode capabilities.Node
-}
-
-type LifecycleHooks struct {
-	OnInitialized       func(err error)
-	OnExecutionFinished func(executionID string)
-	OnRateLimited       func(executionID string)
 }
 
 func NewEngine(ctx context.Context, cfg EngineConfig) (*Engine, error) {
@@ -41,24 +36,41 @@ func NewEngine(ctx context.Context, cfg EngineConfig) (*Engine, error) {
 }
 
 func (e *Engine) start(_ context.Context) error {
-	// TODO(CAPPL-733): apply global workflow limits
-
 	e.cfg.Module.Start()
 	e.srvcEng.Go(e.init)
 	return nil
 }
 
 func (e *Engine) init(ctx context.Context) {
+	// apply global engine instance limits
+	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
+	ownerAllow, globalAllow := e.cfg.GlobalLimits.Allow(e.cfg.WorkflowOwner)
+	if !globalAllow {
+		// TODO(CAPPL-736): observability
+		e.cfg.Hooks.OnInitialized(types.ErrGlobalWorkflowCountLimitReached)
+		return
+	}
+	if !ownerAllow {
+		// TODO(CAPPL-736): observability
+		e.cfg.Hooks.OnInitialized(types.ErrPerOwnerWorkflowCountLimitReached)
+		return
+	}
+
 	// retrieve info about the current node we are running on
-	retryErr := internal.RunWithRetries(ctx, e.cfg.Lggr, time.Millisecond*time.Duration(e.cfg.Limits.CapRegistryAccessRetryIntervalMs), e.cfg.Limits.MaxCapRegistryAccessRetries, func() error {
-		// retry until the underlying peerWrapper service is ready
-		node, err := e.cfg.CapRegistry.LocalNode(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get donInfo: %w", err)
-		}
-		e.localNode = node
-		return nil
-	})
+	retryErr := internal.RunWithRetries(
+		ctx,
+		e.cfg.Lggr,
+		time.Millisecond*time.Duration(e.cfg.LocalLimits.CapRegistryAccessRetryIntervalMs),
+		e.cfg.LocalLimits.MaxCapRegistryAccessRetries,
+		func() error {
+			// retry until the underlying peerWrapper service is ready
+			node, err := e.cfg.CapRegistry.LocalNode(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get donInfo: %w", err)
+			}
+			e.localNode = node
+			return nil
+		})
 
 	if retryErr != nil {
 		e.cfg.Lggr.Errorw("Workflow Engine initialization failed", "workflowID", e.cfg.WorkflowID, "err", retryErr)
@@ -88,6 +100,7 @@ func (e *Engine) runTriggerSubscriptionPhase(_ context.Context) error {
 }
 
 func (e *Engine) close() error {
+	e.cfg.GlobalLimits.Decrement(e.cfg.WorkflowOwner)
 	e.cfg.Module.Close()
 	return nil
 }
