@@ -322,7 +322,7 @@ func (c IDLConfig) Validate(e deployment.Environment) error {
 	if c.LockReleaseTokenPool && chainState.LockReleaseTokenPool.IsZero() {
 		return fmt.Errorf("lockReleaseTokenPool not deployed for chain %d, cannot upload idl", c.ChainSelector)
 	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector)
+	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector) //nolint:staticcheck
 	if err != nil {
 		return fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -391,7 +391,7 @@ func UploadIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutpu
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector)
+	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector) //nolint:staticcheck
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -473,7 +473,7 @@ func SetAuthorityIDL(e deployment.Environment, c IDLConfig) (deployment.Changese
 		}
 	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector) //nolint:staticcheck
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -577,7 +577,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector) //nolint:staticcheck
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
