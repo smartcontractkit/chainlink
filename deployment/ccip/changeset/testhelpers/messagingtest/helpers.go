@@ -188,6 +188,9 @@ func Run(tc TestCase) (out TestCaseOutput) {
 	}
 	out.MsgSentEvent = msgSentEvent
 
+	msgId := common.Bytes2Hex(out.MsgSentEvent.Message.Header.MessageId[:])
+	tc.T.Logf("https://ccip-ui-staging.vercel.app/#/side-drawer/msg/%s", msgId)
+
 	// hack
 	if !tc.Replayed {
 		require.NotNil(tc.T, tc.DeployedEnv)
@@ -197,9 +200,11 @@ func Run(tc TestCase) (out TestCaseOutput) {
 
 	if tc.ValidateResp {
 		commitStart := time.Now()
+		tc.T.Logf("waiting for commit of seq nums %+v", expectedSeqNum)
 		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
 		execStart := time.Now()
+		tc.T.Logf("waiting for exec of seq nums %+v", expectedSeqNumExec)
 		execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.T, tc.Env, tc.OnchainState, expectedSeqNumExec, startBlocks)
 		tc.T.Logf("confirmed exec of seq nums %+v in %s", expectedSeqNumExec, time.Since(execStart).String())
 
