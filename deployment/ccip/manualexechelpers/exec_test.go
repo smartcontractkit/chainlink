@@ -11,9 +11,9 @@ import (
 
 func TestRootMap_AddAndGet(t *testing.T) {
 	// Mock data
-	root1 := offramp.InternalMerkleRoot{MinSeqNr: 1, MaxSeqNr: 10}
-	root2 := offramp.InternalMerkleRoot{MinSeqNr: 11, MaxSeqNr: 20}
-	root3 := offramp.InternalMerkleRoot{MinSeqNr: 21, MaxSeqNr: 30}
+	root1 := manualexechelpers.RootCacheEntry{Root: offramp.InternalMerkleRoot{MinSeqNr: 1, MaxSeqNr: 10}, BlockNumber: 1}
+	root2 := manualexechelpers.RootCacheEntry{Root: offramp.InternalMerkleRoot{MinSeqNr: 11, MaxSeqNr: 20}, BlockNumber: 2}
+	root3 := manualexechelpers.RootCacheEntry{Root: offramp.InternalMerkleRoot{MinSeqNr: 21, MaxSeqNr: 30}, BlockNumber: 3}
 
 	// Initialize RootMap
 	rm := manualexechelpers.NewRootCache()
@@ -29,22 +29,22 @@ func TestRootMap_AddAndGet(t *testing.T) {
 	// Test cases
 	tests := []struct {
 		key      uint64
-		expected offramp.InternalMerkleRoot
+		expected manualexechelpers.RootCacheEntry
 		found    bool
 	}{
 		{key: 5, expected: root1, found: true},
 		{key: 15, expected: root2, found: true},
 		{key: 25, expected: root3, found: true},
-		{key: 31, expected: offramp.InternalMerkleRoot{}, found: false},
-		{key: 0, expected: offramp.InternalMerkleRoot{}, found: false},
+		{key: 31, expected: manualexechelpers.RootCacheEntry{}, found: false},
+		{key: 0, expected: manualexechelpers.RootCacheEntry{}, found: false},
 	}
 
 	for _, test := range tests {
 		result, found := rm.Get(test.key)
 		require.Equal(t, test.found, found)
 		if found {
-			require.Equal(t, test.expected.MinSeqNr, result.MinSeqNr)
-			require.Equal(t, test.expected.MaxSeqNr, result.MaxSeqNr)
+			require.Equal(t, test.expected.Root.MinSeqNr, result.MinSeqNr)
+			require.Equal(t, test.expected.Root.MaxSeqNr, result.MaxSeqNr)
 		}
 	}
 }
