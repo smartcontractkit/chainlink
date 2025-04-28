@@ -256,7 +256,13 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 				BackupPollerBlockDelay:   int64(cfg.EVM().BackupLogPollerBlockDelay()),
 				ClientErrors:             cfg.EVM().NodePool().Errors(),
 			}
-			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, opts.DS, l), cl, l, headTracker, lpOpts)
+
+			orm, err := logpoller.NewObservedORM(chainID, opts.DS, l)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create logpoller observed ORM: %w", err)
+			}
+
+			logPoller = logpoller.NewLogPoller(orm, cl, l, headTracker, lpOpts)
 		}
 	}
 
