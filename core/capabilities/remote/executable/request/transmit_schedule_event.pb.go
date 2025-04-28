@@ -24,12 +24,13 @@ const (
 type TransmissionsScheduledEvent struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	Timestamp           string                 `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	WorkflowExecutionID string                 `protobuf:"bytes,2,opt,name=workflowExecutionID,proto3" json:"workflowExecutionID,omitempty"`
-	TransmissionID      string                 `protobuf:"bytes,3,opt,name=transmissionID,proto3" json:"transmissionID,omitempty"`
-	CapabilityID        string                 `protobuf:"bytes,4,opt,name=capabilityID,proto3" json:"capabilityID,omitempty"`
-	StepRef             string                 `protobuf:"bytes,5,opt,name=stepRef,proto3" json:"stepRef,omitempty"`
-	// Map of peerID to transmission delay in nanoseconds
-	PeerTransmissionDelays map[string]int64 `protobuf:"bytes,6,rep,name=peerTransmissionDelays,proto3" json:"peerTransmissionDelays,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	ScheduleType        string                 `protobuf:"bytes,2,opt,name=scheduleType,proto3" json:"scheduleType,omitempty"`
+	WorkflowExecutionID string                 `protobuf:"bytes,3,opt,name=workflowExecutionID,proto3" json:"workflowExecutionID,omitempty"`
+	TransmissionID      string                 `protobuf:"bytes,4,opt,name=transmissionID,proto3" json:"transmissionID,omitempty"`
+	CapabilityID        string                 `protobuf:"bytes,5,opt,name=capabilityID,proto3" json:"capabilityID,omitempty"`
+	StepRef             string                 `protobuf:"bytes,6,opt,name=stepRef,proto3" json:"stepRef,omitempty"`
+	// Map of peerID to transmission delay in milliseconds
+	PeerTransmissionDelays map[string]int64 `protobuf:"bytes,7,rep,name=peerTransmissionDelays,proto3" json:"peerTransmissionDelays,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -67,6 +68,13 @@ func (*TransmissionsScheduledEvent) Descriptor() ([]byte, []int) {
 func (x *TransmissionsScheduledEvent) GetTimestamp() string {
 	if x != nil {
 		return x.Timestamp
+	}
+	return ""
+}
+
+func (x *TransmissionsScheduledEvent) GetScheduleType() string {
+	if x != nil {
+		return x.ScheduleType
 	}
 	return ""
 }
@@ -110,14 +118,15 @@ var File_transmit_schedule_event_proto protoreflect.FileDescriptor
 
 const file_transmit_schedule_event_proto_rawDesc = "" +
 	"\n" +
-	"\x1dtransmit_schedule_event.proto\x12\arequest\"\x98\x03\n" +
+	"\x1dtransmit_schedule_event.proto\x12\arequest\"\xbc\x03\n" +
 	"\x1bTransmissionsScheduledEvent\x12\x1c\n" +
-	"\ttimestamp\x18\x01 \x01(\tR\ttimestamp\x120\n" +
-	"\x13workflowExecutionID\x18\x02 \x01(\tR\x13workflowExecutionID\x12&\n" +
-	"\x0etransmissionID\x18\x03 \x01(\tR\x0etransmissionID\x12\"\n" +
-	"\fcapabilityID\x18\x04 \x01(\tR\fcapabilityID\x12\x18\n" +
-	"\astepRef\x18\x05 \x01(\tR\astepRef\x12x\n" +
-	"\x16peerTransmissionDelays\x18\x06 \x03(\v2@.request.TransmissionsScheduledEvent.PeerTransmissionDelaysEntryR\x16peerTransmissionDelays\x1aI\n" +
+	"\ttimestamp\x18\x01 \x01(\tR\ttimestamp\x12\"\n" +
+	"\fscheduleType\x18\x02 \x01(\tR\fscheduleType\x120\n" +
+	"\x13workflowExecutionID\x18\x03 \x01(\tR\x13workflowExecutionID\x12&\n" +
+	"\x0etransmissionID\x18\x04 \x01(\tR\x0etransmissionID\x12\"\n" +
+	"\fcapabilityID\x18\x05 \x01(\tR\fcapabilityID\x12\x18\n" +
+	"\astepRef\x18\x06 \x01(\tR\astepRef\x12x\n" +
+	"\x16peerTransmissionDelays\x18\a \x03(\v2@.request.TransmissionsScheduledEvent.PeerTransmissionDelaysEntryR\x16peerTransmissionDelays\x1aI\n" +
 	"\x1bPeerTransmissionDelaysEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01BSZQgithub.com/smartcontractkit/chainlink/core/capabilities/remote/executable/requestb\x06proto3"

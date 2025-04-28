@@ -5,10 +5,11 @@ package request;
 
 message TransmissionsScheduledEvent {
   string timestamp = 1;
-  string workflowExecutionID = 2;
-  string transmissionID = 3;
-  string capabilityID = 4;
-  string stepRef = 5;
-  // Map of peerID to transmission delay in nanoseconds
-  map<string, int64> peerTransmissionDelays = 6;
+  string scheduleType = 2;
+  string workflowExecutionID = 3;
+  string transmissionID = 4;
+  string capabilityID = 5;
+  string stepRef = 6;
+  // Map of peerID to transmission delay in milliseconds
+  map<string, int64> peerTransmissionDelays = 7;
 }

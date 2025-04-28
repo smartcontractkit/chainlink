@@ -406,6 +406,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the event fields
+		assert.Equal(t, transmission.Schedule_OneAtATime, event.ScheduleType)
 		assert.Equal(t, workflowExecutionID1, event.WorkflowExecutionID)
 		assert.Equal(t, "cap_id@1.0.0", event.CapabilityID)
 		assert.Equal(t, stepRef1, event.StepRef)

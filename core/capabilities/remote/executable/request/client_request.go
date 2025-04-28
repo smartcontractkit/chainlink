@@ -94,17 +94,16 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 	}
 
 	// send schedule through beholder for single execution performance tracking
-	if tc.Schedule == transmission.Schedule_OneAtATime {
-		err = emitTransmissionScheduleEvent(ctx,
-			workflowExecutionID,
-			requestID,
-			remoteCapabilityInfo.ID,
-			stepRef,
-			peerIDToTransmissionDelay,
-		)
-		if err != nil {
-			lggr.Errorw("failed to emit transmission schedule event", "error", err)
-		}
+	err = emitTransmissionScheduleEvent(ctx,
+		tc.Schedule,
+		workflowExecutionID,
+		requestID,
+		remoteCapabilityInfo.ID,
+		stepRef,
+		peerIDToTransmissionDelay,
+	)
+	if err != nil {
+		lggr.Errorw("failed to emit transmission schedule event", "error", err)
 	}
 
 	responseReceived := make(map[p2ptypes.PeerID]bool)
@@ -192,7 +191,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 	}, nil
 }
 
-func emitTransmissionScheduleEvent(ctx context.Context, workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration) error {
+func emitTransmissionScheduleEvent(ctx context.Context, scheduleType, workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration) error {
 	// Create a slice of peer IDs sorted by their delay values
 	type peerDelay struct {
 		peerID p2ptypes.PeerID
@@ -217,6 +216,7 @@ func emitTransmissionScheduleEvent(ctx context.Context, workflowExecutionID, tra
 
 	msg := &TransmissionsScheduledEvent{
 		Timestamp:              time.Now().Format(time.RFC3339),
+		ScheduleType:           scheduleType,
 		WorkflowExecutionID:    workflowExecutionID,
 		TransmissionID:         transmissionID,
 		CapabilityID:           capabilityID,
