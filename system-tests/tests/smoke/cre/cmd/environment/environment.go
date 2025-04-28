@@ -74,6 +74,9 @@ var startCmd = &cobra.Command{
 	Short: "Start the environment",
 	Long:  `Start the local CRE environment with all supported capabilities`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// remove all containers before starting the environment, just in case
+		_ = framework.RemoveTestContainers()
+
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
