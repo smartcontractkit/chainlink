@@ -31,6 +31,26 @@ type TimelockConfig struct {
 	OverrideRoot bool                 `json:"overrideRoot"` // if true, override the previous root with the new one.
 }
 
+func (tc *TimelockConfig) MCMBasedOnActionSolana(s state.MCMSWithTimelockStateSolana) (string, error) {
+	// if MCMSAction is not set, default to timelock.Schedule, this is to ensure no breaking changes for existing code
+	if tc.MCMSAction == "" {
+		tc.MCMSAction = types.TimelockActionSchedule
+	}
+	switch tc.MCMSAction {
+	case types.TimelockActionSchedule:
+		contractID := mcmssolanasdk.ContractAddress(s.McmProgram, mcmssolanasdk.PDASeed(s.ProposerMcmSeed))
+		return contractID, nil
+	case types.TimelockActionCancel:
+		contractID := mcmssolanasdk.ContractAddress(s.McmProgram, mcmssolanasdk.PDASeed(s.CancellerMcmSeed))
+		return contractID, nil
+	case types.TimelockActionBypass:
+		contractID := mcmssolanasdk.ContractAddress(s.McmProgram, mcmssolanasdk.PDASeed(s.BypasserMcmSeed))
+		return contractID, nil
+	default:
+		return "", errors.New("invalid MCMS action")
+	}
+}
+
 func (tc *TimelockConfig) MCMBasedOnAction(s state.MCMSWithTimelockState) (*gethwrappers.ManyChainMultiSig, error) {
 	// if MCMSAction is not set, default to timelock.Schedule, this is to ensure no breaking changes for existing code
 	if tc.MCMSAction == "" {

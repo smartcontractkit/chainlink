@@ -765,6 +765,8 @@ TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 # EmitterExportTimeout sets timeout for exporting telemetry events
 EmitterExportTimeout = '1s' # Default
+# ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
+ChipIngressEndpoint = '' # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]

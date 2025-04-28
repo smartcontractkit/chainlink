@@ -19,30 +19,31 @@ import (
 	billing "github.com/smartcontractkit/chainlink-common/pkg/billing/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	meteringpb "github.com/smartcontractkit/chainlink-common/pkg/metering/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
-	"github.com/smartcontractkit/chainlink/v2/core/platform"
-	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
-	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const (
@@ -228,14 +229,12 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	cfg := Config{
 		WorkflowID:    testWorkflowID,
 		WorkflowOwner: testWorkflowOwner,
-		WorkflowName: defaultName{
-			name: testWorkflowName,
-		},
-		Lggr:       logger.TestLogger(t),
-		Registry:   reg,
-		Workflow:   sdkSpec,
-		maxRetries: 1,
-		retryMs:    100,
+		WorkflowName:  NewLegacyWorkflowName(testWorkflowName),
+		Lggr:          logger.TestLogger(t),
+		Registry:      reg,
+		Workflow:      sdkSpec,
+		maxRetries:    1,
+		retryMs:       100,
 		afterInit: func(success bool) {
 			if success {
 				close(initSuccessful)
@@ -400,6 +399,64 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionFinished)))
 	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionStarted)))
 	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionFinished)))
+
+	// Verify the contents of each message type
+	messages := beholderTester.Messages(t)
+	for _, msg := range messages {
+		entity := msg.Attrs["beholder_entity"]
+		switch entity {
+		case fmt.Sprintf("%s.%s", EventsProtoPkg, MeteringReportEntity):
+			var report meteringpb.MeteringReport
+			require.NoError(t, proto.Unmarshal(msg.Body, &report))
+			assert.Equal(t, testWorkflowName, report.Metadata.WorkflowName)
+			assert.Equal(t, testWorkflowID, report.Metadata.WorkflowID)
+			assert.NotEmpty(t, report.Metadata.WorkflowExecutionID)
+			assert.Equal(t, testWorkflowOwner, report.Metadata.Owner)
+
+		case fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionStarted):
+			var started pb.WorkflowExecutionStarted
+			require.NoError(t, proto.Unmarshal(msg.Body, &started))
+			assert.Equal(t, testWorkflowName, started.M.WorkflowName)
+			assert.Equal(t, testWorkflowID, started.M.WorkflowID)
+			assert.NotEmpty(t, started.M.WorkflowExecutionID)
+			assert.Equal(t, testWorkflowOwner, started.M.WorkflowOwner)
+			assert.NotEmpty(t, started.Timestamp)
+			assert.NotEmpty(t, started.TriggerID)
+
+		case fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionFinished):
+			var finished pb.WorkflowExecutionFinished
+			require.NoError(t, proto.Unmarshal(msg.Body, &finished))
+			assert.Equal(t, testWorkflowName, finished.M.WorkflowName)
+			assert.Equal(t, testWorkflowID, finished.M.WorkflowID)
+			assert.NotEmpty(t, finished.M.WorkflowExecutionID)
+			assert.Equal(t, testWorkflowOwner, finished.M.WorkflowOwner)
+			assert.NotEmpty(t, finished.Timestamp)
+			assert.Equal(t, store.StatusCompleted, finished.Status)
+
+		case fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionStarted):
+			var capStarted pb.CapabilityExecutionStarted
+			require.NoError(t, proto.Unmarshal(msg.Body, &capStarted))
+			assert.Equal(t, testWorkflowName, capStarted.M.WorkflowName)
+			assert.Equal(t, testWorkflowID, capStarted.M.WorkflowID)
+			assert.NotEmpty(t, capStarted.M.WorkflowExecutionID)
+			assert.Equal(t, testWorkflowOwner, capStarted.M.WorkflowOwner)
+			assert.NotEmpty(t, capStarted.Timestamp)
+			assert.NotEmpty(t, capStarted.CapabilityID)
+			assert.NotEmpty(t, capStarted.StepRef)
+
+		case fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionFinished):
+			var capFinished pb.CapabilityExecutionFinished
+			require.NoError(t, proto.Unmarshal(msg.Body, &capFinished))
+			assert.Equal(t, testWorkflowName, capFinished.M.WorkflowName)
+			assert.Equal(t, testWorkflowID, capFinished.M.WorkflowID)
+			assert.NotEmpty(t, capFinished.M.WorkflowExecutionID)
+			assert.Equal(t, testWorkflowOwner, capFinished.M.WorkflowOwner)
+			assert.NotEmpty(t, capFinished.Timestamp)
+			assert.NotEmpty(t, capFinished.CapabilityID)
+			assert.NotEmpty(t, capFinished.StepRef)
+			assert.Equal(t, store.StatusCompleted, capFinished.Status)
+		}
+	}
 
 	mBillingClient.AssertExpectations(t)
 }
@@ -798,7 +855,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 		err = eng.Start(context.Background())
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errGlobalWorkflowCountLimitReached)
+		assert.ErrorIs(t, err, types.ErrGlobalWorkflowCountLimitReached)
 	})
 
 	t.Run("per owner workflow limit", func(t *testing.T) {
@@ -850,7 +907,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 		err = eng.Start(context.Background())
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errPerOwnerWorkflowCountLimitReached)
+		assert.ErrorIs(t, err, types.ErrPerOwnerWorkflowCountLimitReached)
 	})
 
 	// Verify that overriding the perOwner limit enables an external workflow
@@ -921,7 +978,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 		err = eng.Start(context.Background())
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errPerOwnerWorkflowCountLimitReached)
+		assert.ErrorIs(t, err, types.ErrPerOwnerWorkflowCountLimitReached)
 	})
 }
 
@@ -1222,7 +1279,7 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 
 	<-hooks.initSuccessful
 
-	assert.Equal(t, node, eng.localNode)
+	assert.Equal(t, node, *eng.localNode.Load())
 }
 
 const passthroughInterpolationWorkflow = `

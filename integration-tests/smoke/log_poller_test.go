@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -66,6 +67,7 @@ func TestLogPollerWithChaosFixedDepth(t *testing.T) {
 }
 
 func TestLogPollerWithChaosFinalityTag(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-562")
 	executeBasicLogPollerTest(t, logScannerSettings)
 }
 
@@ -74,6 +76,7 @@ func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
 }
 
 func TestLogPollerWithChaosPostgresFinalityTag(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-563")
 	executeBasicLogPollerTest(t, logScannerSettings)
 }
 

@@ -3,7 +3,10 @@ package cre
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
+	"math/rand/v2"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,7 +20,7 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 )
 
-func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, expectedPrices []float64, priceIndex *int) (string, error) {
+func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey string, expectedPrices map[string][]float64, priceIndexes map[string]*int) (string, error) {
 	_, err := fake.NewFakeDataProvider(input)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to set up fake data provider")
@@ -26,7 +29,18 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, expecte
 	host := framework.HostDockerInternal()
 	fakeFinalURL := fmt.Sprintf("%s:%d%s", host, input.Port, fakeAPIPath)
 
-	getPriceResponseFn := func() map[string]interface{} {
+	getPriceResponseFn := func(feedID string) (map[string]interface{}, error) {
+		testLogger.Info().Msgf("Preparing response for feedID: %s", feedID)
+		priceIndex, ok := priceIndexes[feedID]
+		if !ok {
+			return nil, fmt.Errorf("no price index not found for feedID: %s", feedID)
+		}
+
+		expectedPrices, ok := expectedPrices[feedID]
+		if !ok {
+			return nil, fmt.Errorf("no expected prices not found for feedID: %s", feedID)
+		}
+
 		response := map[string]interface{}{
 			"accountName": "TrueUSD",
 			"totalTrust":  expectedPrices[*priceIndex],
@@ -41,11 +55,32 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, expecte
 			testLogger.Info().Msgf("Returning response: %v", response)
 		}
 
-		return response
+		return response, nil
 	}
 
 	err = fake.Func("GET", fakeAPIPath, func(c *gin.Context) {
-		c.JSON(200, getPriceResponseFn())
+		authHeader := c.Request.Header.Get("Authorization")
+		if authHeader != authKey {
+			testLogger.Info().Msgf("Unauthorized request, expected auth key: %s actual auth key: %s", authKey, authHeader)
+			c.JSON(401, gin.H{"error": "unauthorized"})
+			return
+		}
+
+		feedID := c.Query("feedID")
+		if feedID == "" {
+			testLogger.Info().Msgf("No feedID provided, returning error")
+			c.JSON(400, gin.H{"error": "no feedID provided"})
+			return
+		}
+
+		reponseBody, responseErr := getPriceResponseFn(feedID)
+		if responseErr != nil {
+			testLogger.Info().Msgf("Failed to get price response for feedID: %s, error: %s", feedID, responseErr)
+			c.JSON(400, gin.H{"error": responseErr.Error()})
+			return
+		}
+
+		c.JSON(200, reponseBody)
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to set up fake data provider")
@@ -61,34 +96,43 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, expecte
 // instead of only checking whether it has some price that's != 0.
 type PriceProvider interface {
 	URL() string
-	NextPrice(price *big.Int, elapsed time.Duration) bool
-	ExpectedPrices() []*big.Int
-	ActualPrices() []*big.Int
+	NextPrice(feedID string, price *big.Int, elapsed time.Duration) bool
+	ExpectedPrices(feedID string) []*big.Int
+	ActualPrices(feedID string) []*big.Int
+	AuthKey() string
 }
 
 // TrueUSDPriceProvider is a PriceProvider implementation that uses a live feed to get the price
 type TrueUSDPriceProvider struct {
 	testLogger   zerolog.Logger
 	url          string
-	actualPrices []*big.Int
+	actualPrices map[string][]*big.Int
 }
 
-func NewTrueUSDPriceProvider(testLogger zerolog.Logger) PriceProvider {
-	return &TrueUSDPriceProvider{
-		testLogger: testLogger,
-		url:        "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD",
+func NewTrueUSDPriceProvider(testLogger zerolog.Logger, feedIDs []string) PriceProvider {
+	pr := &TrueUSDPriceProvider{
+		testLogger:   testLogger,
+		url:          "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD",
+		actualPrices: make(map[string][]*big.Int),
 	}
+
+	for _, feedID := range feedIDs {
+		pr.actualPrices[feedID] = make([]*big.Int, 0)
+	}
+
+	return pr
 }
 
-func (l *TrueUSDPriceProvider) NextPrice(price *big.Int, elapsed time.Duration) bool {
+func (l *TrueUSDPriceProvider) NextPrice(feedID string, price *big.Int, elapsed time.Duration) bool {
+	cleanFeedID := cleanFeedID(feedID)
 	// if price is nil or 0 it means that the feed hasn't been updated yet
 	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
-		l.testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
+		l.testLogger.Info().Msgf("Feed %s not updated yet, waiting for %s", cleanFeedID, elapsed)
 		return true
 	}
 
-	l.testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
-	l.actualPrices = append(l.actualPrices, price)
+	l.testLogger.Info().Msgf("Feed %s updated after %s - price set, price=%s", cleanFeedID, elapsed, price)
+	l.actualPrices[cleanFeedID] = append(l.actualPrices[cleanFeedID], price)
 
 	// no other price to return, we are done
 	return false
@@ -98,40 +142,73 @@ func (l *TrueUSDPriceProvider) URL() string {
 	return l.url
 }
 
-func (l *TrueUSDPriceProvider) ExpectedPrices() []*big.Int {
+func (l *TrueUSDPriceProvider) ExpectedPrices(feedID string) []*big.Int {
 	// we don't have a way to check the price in the live feed, so we always assume it's correct
 	// as long as it's != 0. And we only wait for the first price to be set.
-	return l.actualPrices
+	return l.actualPrices[cleanFeedID(feedID)]
 }
 
-func (l *TrueUSDPriceProvider) ActualPrices() []*big.Int {
+func (l *TrueUSDPriceProvider) ActualPrices(feedID string) []*big.Int {
 	// we don't have a way to check the price in the live feed, so we always assume it's correct
 	// as long as it's != 0. And we only wait for the first price to be set.
-	return l.actualPrices
+	return l.actualPrices[cleanFeedID(feedID)]
+}
+
+func (l *TrueUSDPriceProvider) AuthKey() string {
+	return ""
 }
 
 // FakePriceProvider is a PriceProvider implementation that uses a mocked feed to get the price
 // It returns a configured price sequence and makes sure that the feed has been correctly updated
 type FakePriceProvider struct {
 	testLogger     zerolog.Logger
-	priceIndex     *int
+	priceIndex     map[string]*int
 	url            string
-	expectedPrices []*big.Int
-	actualPrices   []*big.Int
+	expectedPrices map[string][]*big.Int
+	actualPrices   map[string][]*big.Int
+	authKey        string
 }
 
-func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input) (PriceProvider, error) {
-	priceIndex := ptr.Ptr(0)
-	// Add more prices here as needed
-	expectedPricesFloat64 := []float64{182.9}
-	expectedPrices := make([]*big.Int, len(expectedPricesFloat64))
-	for i, p := range expectedPricesFloat64 {
-		// convert float64 to big.Int by multiplying by 100
-		// just like the PoR workflow does
-		expectedPrices[i] = libc.Float64ToBigInt(p)
+func cleanFeedID(feedID string) string {
+	cleanFeedID := strings.TrimPrefix(feedID, "0x")
+	if len(cleanFeedID) > 32 {
+		cleanFeedID = cleanFeedID[:32]
+	}
+	return "0x" + cleanFeedID
+}
+
+func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey string, feedIDs []string) (PriceProvider, error) {
+	cleanFeedIDs := make([]string, 0, len(feedIDs))
+	// workflow is sending feedIDs with 0x prefix and 32 bytes
+	for _, feedID := range feedIDs {
+		cleanFeedIDs = append(cleanFeedIDs, cleanFeedID(feedID))
+	}
+	priceIndexes := make(map[string]*int)
+	for _, feedID := range cleanFeedIDs {
+		priceIndexes[feedID] = ptr.Ptr(0)
 	}
 
-	url, err := setupFakeDataProvider(testLogger, input, expectedPricesFloat64, priceIndex)
+	expectedPrices := make(map[string][]*big.Int)
+	pricesToServe := make(map[string][]float64)
+	for _, feedID := range cleanFeedIDs {
+		// Add more prices here as needed
+		pricesFloat64 := []float64{math.Round((rand.Float64()*199+1)*100) / 100, math.Round((rand.Float64()*199+1)*100) / 100}
+		pricesToServe[feedID] = pricesFloat64
+
+		expectedPrices[feedID] = make([]*big.Int, len(pricesFloat64))
+		for i, p := range pricesFloat64 {
+			// convert float64 to big.Int by multiplying by 100
+			// just like the PoR workflow does
+			expectedPrices[feedID][i] = libc.Float64ToBigInt(p)
+		}
+	}
+
+	actualPrices := make(map[string][]*big.Int)
+	for _, feedID := range cleanFeedIDs {
+		actualPrices[feedID] = make([]*big.Int, 0)
+	}
+
+	url, err := setupFakeDataProvider(testLogger, input, authKey, pricesToServe, priceIndexes)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to set up fake data provider")
 	}
@@ -139,13 +216,15 @@ func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input) (PricePr
 	return &FakePriceProvider{
 		testLogger:     testLogger,
 		expectedPrices: expectedPrices,
-		priceIndex:     priceIndex,
+		actualPrices:   actualPrices,
+		priceIndex:     priceIndexes,
 		url:            url,
+		authKey:        authKey,
 	}, nil
 }
 
-func (f *FakePriceProvider) priceAlreadyFound(price *big.Int) bool {
-	for _, p := range f.actualPrices {
+func (f *FakePriceProvider) priceAlreadyFound(feedID string, price *big.Int) bool {
+	for _, p := range f.actualPrices[feedID] {
 		if p.Cmp(price) == 0 {
 			return true
 		}
@@ -154,27 +233,28 @@ func (f *FakePriceProvider) priceAlreadyFound(price *big.Int) bool {
 	return false
 }
 
-func (f *FakePriceProvider) NextPrice(price *big.Int, elapsed time.Duration) bool {
+func (f *FakePriceProvider) NextPrice(feedID string, price *big.Int, elapsed time.Duration) bool {
+	cleanFeedID := cleanFeedID(feedID)
 	// if price is nil or 0 it means that the feed hasn't been updated yet
 	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
-		f.testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
+		f.testLogger.Info().Msgf("Feed %s not updated yet, waiting for %s", cleanFeedID, elapsed)
 		return true
 	}
 
-	if !f.priceAlreadyFound(price) {
-		f.testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
-		f.actualPrices = append(f.actualPrices, price)
+	if !f.priceAlreadyFound(cleanFeedID, price) {
+		f.testLogger.Info().Msgf("Feed %s updated after %s - price set, price=%s", cleanFeedID, elapsed, price)
+		f.actualPrices[cleanFeedID] = append(f.actualPrices[cleanFeedID], price)
 
-		if len(f.actualPrices) == len(f.expectedPrices) {
+		if len(f.actualPrices[cleanFeedID]) == len(f.expectedPrices[cleanFeedID]) {
 			// all prices found, nothing more to check
 			return false
 		}
 
-		if len(f.actualPrices) > len(f.expectedPrices) {
+		if len(f.actualPrices[cleanFeedID]) > len(f.expectedPrices[cleanFeedID]) {
 			panic("more prices found than expected")
 		}
-		f.testLogger.Info().Msgf("Changing price provider price to %s", f.expectedPrices[len(f.actualPrices)].String())
-		*f.priceIndex = len(f.actualPrices)
+		f.testLogger.Info().Msgf("Changing price provider price for feed %s to %s", cleanFeedID, f.expectedPrices[cleanFeedID][len(f.actualPrices[cleanFeedID])].String())
+		f.priceIndex[cleanFeedID] = ptr.Ptr(len(f.actualPrices[cleanFeedID]))
 
 		// set new price and continue checking
 		return true
@@ -184,14 +264,18 @@ func (f *FakePriceProvider) NextPrice(price *big.Int, elapsed time.Duration) boo
 	return true
 }
 
-func (f *FakePriceProvider) ActualPrices() []*big.Int {
-	return f.actualPrices
+func (f *FakePriceProvider) ActualPrices(feedID string) []*big.Int {
+	return f.actualPrices[cleanFeedID(feedID)]
 }
 
-func (f *FakePriceProvider) ExpectedPrices() []*big.Int {
-	return f.expectedPrices
+func (f *FakePriceProvider) ExpectedPrices(feedID string) []*big.Int {
+	return f.expectedPrices[cleanFeedID(feedID)]
 }
 
 func (f *FakePriceProvider) URL() string {
 	return f.url
+}
+
+func (f *FakePriceProvider) AuthKey() string {
+	return f.authKey
 }

@@ -6,40 +6,40 @@ on:
       repoUrl:
         required: true
         type: string
-        default: 'https://github.com/smartcontractkit/chainlink'
-        description: 'The URL of the repository to compare changes for detecting flaky tests.'
+        default: "https://github.com/smartcontractkit/chainlink"
+        description: "The URL of the repository to compare changes for detecting flaky tests."
       projectPath:
         required: true
         type: string
-        description: 'The path to the project to run the flaky test detection.'
-        default: '.'
+        description: "The path to the project to run the flaky test detection."
+        default: "."
       baseRef:
         required: false
         type: string
-        description: 'The base reference or branch to compare changes for detecting flaky tests. Set only when running diffs between branches. E.g. (develop)'
+        description: "The base reference or branch to compare changes for detecting flaky tests. Set only when running diffs between branches. E.g. (develop)"
       headRef:
         required: false
         type: string
-        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch. E.g. (develop)'
+        description: "The head reference or branch to compare changes for detecting flaky tests. Default is the current branch. E.g. (develop)"
       runAllTests:
         required: false
         type: boolean
-        description: 'Run all tests in the project.'
+        description: "Run all tests in the project."
         default: false
       maxPassRatio:
         required: false
         type: string
-        description: 'The maximum (non-inclusive) pass ratio threshold for a test to be considered a failure. Any tests below this pass rate will be considered flaky.'
-        default: '1.0'
+        description: "The maximum (non-inclusive) pass ratio threshold for a test to be considered a failure. Any tests below this pass rate will be considered flaky."
+        default: "1.0"
       findByTestFilesDiff:
         required: false
         type: boolean
-        description: 'Find new or updated test packages by comparing test files diff.'
+        description: "Find new or updated test packages by comparing test files diff."
         default: true
       findByAffectedPackages:
         required: false
         type: boolean
-        description: 'Find new or updated test packages by comparing affected packages.'
+        description: "Find new or updated test packages by comparing affected packages."
         default: true
       slackNotificationAfterTestsChannelId:
         description: "Slack channel ID to send the notification to for failed tests."
@@ -48,8 +48,8 @@ on:
       extraArgs:
         required: false
         type: string
-        default: '{}'
-        description: 'JSON of extra arguments for the workflow.'
+        default: "{}"
+        description: "JSON of extra arguments for the workflow."
     secrets:
       SLACK_BOT_TOKEN:
         required: false
@@ -307,7 +307,9 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        run: make install-plugins
+        run: |
+          make install-loopinstall
+          make install-plugins-public
 
       - name: Go mod tidy
         shell: bash
@@ -378,7 +380,7 @@ jobs:
           path: flakeguard_raw_output
           retention-days: 7
           compression-level: 9
-    
+
       - name: Upload raw test logs as artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -430,8 +432,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ci_test_results
-          pattern:
-            test-result-${{ needs.get-tests.outputs.workflow_id }}-*
+          pattern: test-result-${{ needs.get-tests.outputs.workflow_id }}-*
 
       - name: Install flakeguard
         shell: bash
@@ -506,7 +507,7 @@ jobs:
           path: ./flakeguard-report/failed-test-report-with-logs.json
           name: failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
-      
+
       - name: Get GitHub Failed Test Report Artifact Link
         id: get-failed-logs-url
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
@@ -517,7 +518,7 @@ jobs:
             --github-repository "${{ github.repository }}" \
             --github-run-id "${{ github.run_id }}" \
             --failed-tests-artifact-name "failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json")
-          
+
           echo "Artifact link is: $ARTIFACT_LINK"
           echo "url=$ARTIFACT_LINK" >> $GITHUB_OUTPUT
         env:
