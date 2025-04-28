@@ -22,7 +22,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
-	github.com/smartcontractkit/chain-selectors v1.0.52
+	github.com/smartcontractkit/chain-selectors v1.0.53
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250424173217-3df386365d0f
 	github.com/smartcontractkit/chainlink-deployments-framework v0.0.5
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250424162751-35c5921b8597
