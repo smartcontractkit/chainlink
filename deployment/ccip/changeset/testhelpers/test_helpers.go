@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
@@ -27,6 +28,7 @@ import (
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -1360,6 +1362,188 @@ func DeployTransferableTokenSolana(
 
 	require.NoError(t, err)
 	return evmToken, evmPool, solTokenAddress, nil
+}
+
+// assuming one out of the src and dst is solana and the other is evm
+func DeployTransferableLinkSolana(
+	// t *testing.T,
+	lggr logger.Logger,
+	e deployment.Environment,
+	evmChainSel, solChainSel uint64,
+	// evmDeployer *bind.TransactOpts,
+	// addresses deployment.AddressBook,
+	evmTokenName string,
+) (*burn_mint_erc677.BurnMintERC677,
+	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error) {
+	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+	if selectorFamily != chainsel.FamilyEVM {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("evmChainSel %d is not an evm chain", evmChainSel)
+	}
+	selectorFamily, err = chainsel.GetSelectorFamily(solChainSel)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+	if selectorFamily != chainsel.FamilySolana {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("solChainSel %d is not a solana chain", solChainSel)
+	}
+
+	state, err := changeset.LoadOnchainState(e)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+	solTokenAddress := state.SolChains[solChainSel].LinkToken
+	// evmLinkTokenAddress := state.Chains[evmChainSel].LinkToken
+
+	// configure evm
+	// evmDeployer := e.Chains[evmChainSel].DeployerKey
+
+	// evmPool, _, _, err := v1_5_1.GetTokenStateFromPoolEVM(context.Background(),
+	// 	changeset.TokenSymbol(evmTokenName), changeset.BurnMintTokenPool, changeset.CurrentTokenPoolVersion, e.Chains[evmChainSel], state.Chains[evmChainSel])
+
+	// tx, err := state.Chains[evmChainSel].LinkToken.GrantMintAndBurnRoles(evmDeployer, evmPool.Address())
+	// if err != nil {
+	// 	return nil, nil, solana.PublicKey{}, err
+	// }
+	// _, err = e.Chains[evmChainSel].Confirm(tx)
+	// if err != nil {
+	// 	return nil, nil, solana.PublicKey{}, err
+	// }
+
+	// configure solana
+	e, err = commoncs.Apply(nil, e, nil,
+		// add solana token pool and token pool lookup table
+		commoncs.Configure(
+			// deploy token pool and set the burn/mint authority to the tokenPool
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenPoolAndLookupTable),
+			ccipChangeSetSolana.TokenPoolConfig{
+				ChainSelector: solChainSel,
+				TokenPubKey:   solTokenAddress.String(),
+				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+			},
+		),
+		// register token admin registry solana
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.RegisterTokenAdminRegistry),
+			ccipChangeSetSolana.RegisterTokenAdminRegistryConfig{
+				ChainSelector:           solChainSel,
+				TokenPubKey:             solTokenAddress.String(),
+				TokenAdminRegistryAdmin: e.SolChains[solChainSel].DeployerKey.PublicKey().String(),
+				RegisterType:            ccipChangeSetSolana.ViaGetCcipAdminInstruction,
+			},
+		),
+		// accept admin role token admin registry solana
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AcceptAdminRoleTokenAdminRegistry),
+			ccipChangeSetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+				ChainSelector: solChainSel,
+				TokenPubKey:   solTokenAddress.String(),
+			},
+		),
+		// set pool solana
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.SetPool),
+			ccipChangeSetSolana.SetPoolConfig{
+				ChainSelector:   solChainSel,
+				TokenPubKey:     solTokenAddress.String(),
+				WritableIndexes: []uint8{3, 4, 7},
+			},
+		),
+		// configure the solana token pool on the evm side
+		commoncs.Configure(deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+			v1_5_1.ConfigureTokenPoolContractsConfig{
+				TokenSymbol: changeset.TokenSymbol(evmTokenName),
+				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+					evmChainSel: {
+						SolChainUpdates: map[uint64]v1_5_1.SolChainUpdate{
+							solChainSel: {
+								RateLimiterConfig: v1_5_1.RateLimiterConfig{
+									Inbound:  token_pool.RateLimiterConfig{},
+									Outbound: token_pool.RateLimiterConfig{},
+								},
+								TokenAddress: solTokenAddress.String(),
+								Type:         changeset.BurnMintTokenPool,
+							},
+						},
+					},
+				},
+			},
+		),
+		// configure the evm token pool on the solana side
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.SetupTokenPoolForRemoteChain),
+			ccipChangeSetSolana.RemoteChainTokenPoolConfig{
+				SolChainSelector: solChainSel,
+				SolTokenPubKey:   solTokenAddress,
+				SolPoolType:      solTestTokenPool.BurnAndMint_PoolType,
+				EVMRemoteConfigs: map[uint64]ccipChangeSetSolana.EVMRemoteConfig{
+					evmChainSel: {
+						TokenSymbol: changeset.TokenSymbol(evmTokenName),
+						PoolType:    changeset.BurnMintTokenPool,
+						PoolVersion: changeset.CurrentTokenPoolVersion,
+						RateLimiterConfig: ccipChangeSetSolana.RateLimiterConfig{
+							Inbound:  solTestTokenPool.RateLimitConfig{},
+							Outbound: solTestTokenPool.RateLimitConfig{},
+						},
+					},
+				},
+			},
+		),
+		// configure the solana token transfer fee for the evm chain (most likely not needed)
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenTransferFeeForRemoteChain),
+			ccipChangeSetSolana.TokenTransferFeeForRemoteChainConfig{
+				ChainSelector:       solChainSel,
+				RemoteChainSelector: evmChainSel,
+				TokenPubKey:         solTokenAddress.String(),
+				Config: solFeeQuoter.TokenTransferFeeConfig{
+					MinFeeUsdcents:    800,
+					MaxFeeUsdcents:    1600,
+					DeciBps:           0,
+					DestGasOverhead:   90000,
+					DestBytesOverhead: 100,
+					IsEnabled:         true,
+				},
+			},
+		),
+		// dummy billing stuff
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddBillingTokenChangeset),
+			ccipChangeSetSolana.BillingTokenConfig{
+				ChainSelector: solChainSel,
+				TokenPubKey:   solTokenAddress.String(),
+				Config: solFeeQuoter.BillingTokenConfig{
+					Enabled: true,
+					Mint:    solTokenAddress,
+					UsdPerToken: solFeeQuoter.TimestampedPackedU224{
+						Value:     [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 249, 29, 137, 48, 78, 71, 37, 75, 184, 0, 0},
+						Timestamp: time.Now().Unix(),
+					},
+					PremiumMultiplierWeiPerEth: 9e17,
+				},
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddBillingTokenChangeset),
+			ccipChangeSetSolana.BillingTokenConfig{
+				ChainSelector: solChainSel,
+				TokenPubKey:   solTokenAddress.String(),
+				Config: solFeeQuoter.BillingTokenConfig{
+					Enabled: true,
+					Mint:    solana.SolMint,
+					UsdPerToken: solFeeQuoter.TimestampedPackedU224{
+						Value:     [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 223, 177, 176, 240, 163, 138, 116, 244, 164, 248, 0, 0},
+						Timestamp: time.Now().Unix(),
+					},
+					PremiumMultiplierWeiPerEth: 1e18,
+				},
+			},
+		),
+	)
+
+	return nil, nil, solana.PublicKey{}, err
 }
 
 func deployTokenPoolsInParallel(
