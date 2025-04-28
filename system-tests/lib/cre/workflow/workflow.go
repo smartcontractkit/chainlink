@@ -1,9 +1,20 @@
 package workflow
 
 import (
+	"encoding/hex"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
+
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
+	libnet "github.com/smartcontractkit/chainlink/system-tests/lib/net"
 
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
@@ -53,4 +64,64 @@ func RegisterWithCRECLI(input cretypes.RegisterWorkflowWithCRECLIInput) error {
 	}
 
 	return nil
+}
+
+func RegisterWithContract(sc *seth.Client, workflowRegistryAddr common.Address, donID uint32, workflowName, binaryURL string, configURL, secretsURL *string) error {
+	workFlowData, err := libnet.DownloadAndDecodeBase64(binaryURL)
+	if err != nil {
+		return errors.Wrap(err, "failed to download and decode workflow binary")
+	}
+
+	var configData []byte
+	configURLToUse := ""
+	if configURL != nil {
+		configData, err = libnet.Download(*configURL)
+		if err != nil {
+			return errors.Wrap(err, "failed to download workflow config")
+		}
+		configURLToUse = *configURL
+	}
+
+	secretsURLToUse := ""
+	if secretsURL != nil {
+		secretsURLToUse = *secretsURL
+	}
+
+	// use non-encoded workflow name
+	workflowID, idErr := generateWorkflowIDFromStrings(sc.MustGetRootKeyAddress().Hex(), workflowName, workFlowData, configData, secretsURLToUse)
+	if idErr != nil {
+		return errors.Wrap(idErr, "failed to generate workflow ID")
+	}
+
+	workflowRegistryInstance, err := workflow_registry_wrapper.NewWorkflowRegistry(workflowRegistryAddr, sc.Client)
+	if err != nil {
+		return errors.Wrap(err, "failed to create workflow registry instance")
+	}
+
+	// use non-encoded workflow name
+	_, decodeErr := sc.Decode(workflowRegistryInstance.RegisterWorkflow(sc.NewTXOpts(), workflowName, [32]byte(common.Hex2Bytes(workflowID)), donID, uint8(0), binaryURL, configURLToUse, secretsURLToUse))
+	if decodeErr != nil {
+		return errors.Wrap(decodeErr, "failed to register workflow")
+	}
+
+	return nil
+}
+
+func generateWorkflowIDFromStrings(owner string, name string, workflow []byte, config []byte, secretsURL string) (string, error) {
+	ownerWithoutPrefix := owner
+	if strings.HasPrefix(owner, "0x") {
+		ownerWithoutPrefix = owner[2:]
+	}
+
+	ownerb, err := hex.DecodeString(ownerWithoutPrefix)
+	if err != nil {
+		return "", err
+	}
+
+	wid, err := pkgworkflows.GenerateWorkflowID(ownerb, name, workflow, config, secretsURL)
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(wid[:]), nil
 }

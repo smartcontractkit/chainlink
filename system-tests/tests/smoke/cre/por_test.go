@@ -40,6 +40,11 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	chainwritercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/chainwriter"
+	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
+	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
+	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
+	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
@@ -327,7 +332,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 			return errors.Wrapf(workflowRegistryErr, "failed to find workflow registry address for chain %d", input.chainSelector)
 		}
 
-		err := libcontracts.RegisterWorkflow(
+		err := creworkflow.RegisterWithContract(
 			input.sethClient,
 			workflowRegistryAddress,
 			input.workflowDonID,
@@ -653,9 +658,12 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 		priceProvider,
 		mustSetCapabilitiesFn,
 		[]keystonetypes.DONCapabilityWithConfigFactoryFn{
-			libcontracts.DefaultCapabilityFactoryFn,
-			libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainID))),
-			libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(targetChainID))),
+			webapicap.WebAPICapabilityFactoryFn,
+			computecap.ComputeCapabilityFactoryFn,
+			consensuscap.OCR3CapabilityFactoryFn,
+			croncap.CronCapabilityFactoryFn,
+			chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainID))),
+			chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(targetChainID))),
 		},
 	)
 
