@@ -13,7 +13,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
@@ -229,7 +229,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			solana.SystemProgramID,
 		}
 
-		extraArgs, err = testhelpers.SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
+		extraArgs, err = ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                 accounts,
 			AllowOutOfOrderExecution: *m.testConfig.OOOExecution,
