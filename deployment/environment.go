@@ -86,7 +86,9 @@ type Environment struct {
 	Name   string
 	Logger logger.Logger
 	// Deprecated: AddressBook is deprecated and will be removed in future versions.
-	// Use DataStore instead
+	// Please use DataStore instead. If you still need to use AddressBook in your code,
+	// be aware that you may encounter CI failures due to linting errors.
+	// To work around this, you can disable the linter for that specific line using the //nolint directive.
 	ExistingAddresses AddressBook
 	DataStore         datastore.DataStore[
 		datastore.DefaultMetadata,
