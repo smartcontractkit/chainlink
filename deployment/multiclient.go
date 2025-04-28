@@ -21,7 +21,7 @@ import (
 
 const (
 	// Default retry configuration for RPC calls
-	RPCDefaultRetryAttempts = 10
+	RPCDefaultRetryAttempts = 5
 	RPCDefaultRetryDelay    = 1000 * time.Millisecond
 
 	// Default retry configuration for dialing RPC endpoints

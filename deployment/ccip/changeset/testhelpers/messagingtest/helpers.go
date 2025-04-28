@@ -85,6 +85,7 @@ type TestSetup struct {
 type TestCase struct {
 	TestSetup
 	Replayed               bool
+	ExpectedRevert         string // the hex string of the revert reason if any
 	Nonce                  uint64
 	Receiver               []byte
 	MsgData                []byte
@@ -168,14 +169,26 @@ func Run(tc TestCase) (out TestCaseOutput) {
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}
-	msgSentEvent := testhelpers.TestSendRequest(
-		tc.T,
-		tc.Env,
-		tc.OnchainState,
-		tc.SourceChain,
-		tc.DestChain,
-		tc.TestRouter,
-		msg)
+
+	baseOpts := []testhelpers.SendReqOpts{
+		testhelpers.WithSourceChain(tc.SourceChain),
+		testhelpers.WithDestChain(tc.DestChain),
+		testhelpers.WithTestRouter(tc.TestRouter),
+		testhelpers.WithMessage(msg),
+		func(c *testhelpers.CCIPSendReqConfig) {
+			c.MaxRetries = 1
+		},
+	}
+
+	msgSentEvent, err := testhelpers.SendRequest(tc.Env, tc.OnchainState, baseOpts...)
+
+	if err != nil {
+		tc.T.Logf("error sending message: %v", err)
+		if tc.ExpectedRevert != "" {
+			require.Contains(tc.T, err.Error(), tc.ExpectedRevert)
+		}
+		return out
+	}
 	sourceDest := testhelpers.SourceDestPair{
 		SourceChainSelector: tc.SourceChain,
 		DestChainSelector:   tc.DestChain,
