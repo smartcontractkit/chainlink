@@ -8,6 +8,9 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -93,41 +96,22 @@ func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysO
 		}
 
 		chainIDsToEVMKeys := keys.EVMKeys[donMetadata.ID]
-		// First, verify that all chain IDs have the same EVM keys for each node
-		// This is a limitation of our current testing SDK implementation, because we only have 1 label for ETH address for each node
-		// If in the future we need to support multiple chain IDs, we will need to change this and prefix the label with the chain ID
-		// For now let's just make sure that all the chain IDs have the same EVM keys for each node to avoid hard to debug issues
-		var firstChainID int
-		var firstEVMKeys *types.EVMKeys
-		for chainID, evmKeys := range chainIDsToEVMKeys {
-			if firstEVMKeys == nil {
-				firstChainID = chainID
-				firstEVMKeys = evmKeys
-				continue
-			}
-			if len(evmKeys.PublicAddresses) != len(firstEVMKeys.PublicAddresses) {
-				return nil, fmt.Errorf("number of EVM keys for DON %d differs between chain IDs %d and %d", donMetadata.ID, firstChainID, chainID)
-			}
-			for i := range evmKeys.PublicAddresses {
-				if evmKeys.PublicAddresses[i] != firstEVMKeys.PublicAddresses[i] {
-					return nil, fmt.Errorf("EVM public address mismatch for DON %d, node %d between chain IDs %d and %d", donMetadata.ID, i, firstChainID, chainID)
-				}
-			}
-		}
 
 		// Now add the EVM addresses to the node metadata
 		for chainID, evmKeys := range chainIDsToEVMKeys {
+			chainSelector, selectorErr := chainselectors.SelectorFromChainId(libc.MustSafeUint64(int64(chainID)))
+			if selectorErr != nil {
+				return nil, errors.Wrapf(selectorErr, "failed to get chain selector for chain ID %d", chainID)
+			}
 			if len(evmKeys.PublicAddresses) != len(donMetadata.NodesMetadata) {
 				return nil, fmt.Errorf("number of EVM keys for DON %d and chain ID %d does not match the number of nodes. Expected %d, got %d", donMetadata.ID, chainID, len(donMetadata.NodesMetadata), len(evmKeys.PublicAddresses))
 			}
 			for idx, nodeMetadata := range donMetadata.NodesMetadata {
 				nodeMetadata.Labels = append(nodeMetadata.Labels, &cretypes.Label{
-					Key:   node.EthAddressKey,
+					Key:   node.AddressKeyFromSelector(chainSelector),
 					Value: evmKeys.PublicAddresses[idx].Hex(),
 				})
 			}
-			// Use first ETH address for the DON metadata, because all of them are the same
-			break
 		}
 	}
 
@@ -299,13 +283,11 @@ func GenereteKeys(input *cretypes.GenerateKeysInput) (*cretypes.GenerateKeysOutp
 		}
 
 		if len(input.GenerateEVMKeysForChainIDs) > 0 {
-			evmKeys, err := crypto.GenerateEVMKeys(input.Password, len(donMetadata.NodesMetadata))
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to generate EVM keys")
-			}
-
-			// use the same EVM keys for all the chain IDs
 			for _, chainID := range input.GenerateEVMKeysForChainIDs {
+				evmKeys, err := crypto.GenerateEVMKeys(input.Password, len(donMetadata.NodesMetadata))
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to generate EVM keys")
+				}
 				if _, ok := output.EVMKeys[donMetadata.ID]; !ok {
 					output.EVMKeys[donMetadata.ID] = make(cretypes.ChainIDToEVMKeys)
 				}

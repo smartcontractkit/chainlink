@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -34,7 +35,7 @@ func chainAndAddresses(e deployment.Environment, chainSel uint64) (chainID strin
 }
 
 // proposeAllOrNothing proposes all jobs in the list and if any of them fail, it will revoke all already made proposals.
-func proposeAllOrNothing(ctx context.Context, oc deployment.OffchainClient, prs []*job.ProposeJobRequest) (proposedJobs []deployment.ProposedJob, err error) {
+func proposeAllOrNothing(ctx context.Context, oc cldf.OffchainClient, prs []*job.ProposeJobRequest) (proposedJobs []deployment.ProposedJob, err error) {
 	var proposals []*job.ProposeJobResponse
 	var p *job.ProposeJobResponse
 	for _, pr := range prs {
