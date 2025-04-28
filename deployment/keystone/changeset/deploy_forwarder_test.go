@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -39,14 +40,18 @@ func TestDeployForwarder(t *testing.T) {
 
 		// deploy forwarder
 		env.ExistingAddresses = ab
-		resp, err := changeset.DeployForwarder(env, changeset.DeployForwarderRequest{})
+		//	resp, err := changeset.DeployForwarder(env, changeset.DeployForwarderRequest{})
+		resp, err := changeset.DeployForwarderV2(env, &changeset.DeployRequestV2{
+			ChainSel:  registrySel,
+			Qualifier: "my-test-forwarder",
+		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		// registry, ocr3, forwarder should be deployed on registry chain
 		addrs, err := resp.AddressBook.AddressesForChain(registrySel)
 		require.NoError(t, err)
 		require.Len(t, addrs, 1)
-
+		require.Len(t, resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("my-test-forwarder")), 1, "expected to find 'my-test-forwarder' qualifier")
 		chainSel := env.AllChainSelectors()[1]
 		// only forwarder on chain 1
 		require.NotEqual(t, registrySel, chainSel)

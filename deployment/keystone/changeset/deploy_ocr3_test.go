@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
@@ -204,10 +205,14 @@ func TestConfigureOCR3(t *testing.T) {
 		require.Len(t, existingContracts, 4)
 
 		// Deploy a new OCR3 contract
-		resp, err := changeset.DeployOCR3(te.Env, registrySel)
+		resp, err := changeset.DeployOCR3V2(te.Env, &changeset.DeployRequestV2{
+			ChainSel:  registrySel,
+			Qualifier: "test-ocr-contract"})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))
+		refs := resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("test-ocr-contract"))
+		require.Len(t, refs, 1)
 
 		// Verify after merge there are original contracts plus one new one
 		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
