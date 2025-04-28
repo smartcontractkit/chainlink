@@ -1724,20 +1724,6 @@ func (o *orm) loadJobSpecErrors(ctx context.Context, jb *Job) error {
 	return errors.Wrapf(o.ds.SelectContext(ctx, &jb.JobSpecErrors, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jb.ID), "failed to load job spec errors for job %d", jb.ID)
 }
 
-func validateDualTransmissionHint(vals []interface{}) error {
-	accepted := []string{"contract_address", "function_selector", "logs", "calldata", "default_logs", "full"}
-	for _, v := range vals {
-		valString, ok := v.(string)
-		if !ok {
-			return errors.Errorf("dual transmission meta value %v is not a string", v)
-		}
-		if !slices.Contains(accepted, valString) {
-			return errors.Errorf("dual transmission meta.hint value %s should be one of the following %s", valString, accepted)
-		}
-	}
-	return nil
-}
-
 func validateDualTransmissionRefund(vals []interface{}) error {
 	totalRefund := 0
 	for _, v := range vals {
@@ -1771,11 +1757,6 @@ func validateDualTransmissionMeta(meta map[string]interface{}) error {
 		metaFieldValues, ok := v.([]interface{})
 		if !ok {
 			return errors.Errorf("dual transmission meta value %s is not a slice", k)
-		}
-		if k == "hint" {
-			if err := validateDualTransmissionHint(metaFieldValues); err != nil {
-				return err
-			}
 		}
 
 		if k == "refund" {
