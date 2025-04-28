@@ -89,8 +89,10 @@ func DeployBundleAggregatorProxy(chain deployment.Chain, aggregator common.Addre
 		return nil, fmt.Errorf("failed to confirm BundleAggregatorProxy: %w", err)
 	}
 
-	// AggregatorProxy contract doesn't implement typeAndVersion interface, so we have to set it manually
-	tvStr := "BundleAggregatorProxy 1.0.0"
+	tvStr, err := proxyContract.TypeAndVersion(&bind.CallOpts{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get type and version: %w", err)
+	}
 	tv, err := deployment.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
