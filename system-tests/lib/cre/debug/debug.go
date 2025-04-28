@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
@@ -52,21 +53,34 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 		}
 
 		allLogFiles = append(allLogFiles, logFiles...)
+		workflowNodeSet, err := node.FindManyWithLabel(debugDon.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.WorkerNode}, node.EqualLabels)
+		if err != nil {
+			// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+			l.Error().Err(err).Msg("Failed to find worker nodes. No debug information will be printed")
+			return
+		}
 
-		// assuming one bootstrap node
-		workflowNodeCount := len(debugDon.ContainerNames) - 1
+		workflowNodeCount := len(workflowNodeSet)
 
 		if flags.HasFlag(debugDon.Flags, types.WorkflowDON) {
-			if !checkIfWorkflowWasExecuting(logFiles, workflowNodeCount) {
-				l.Error().Msg("❌ Workflow was not executing")
+			if detectedCount := checkHowManyNodesLogsHaveText(logFiles, workflowNodeCount, "handled workflow registration event"); detectedCount != workflowNodeCount {
+				l.Error().Msgf("❌ Workflow registration was not detected by all nodes (%d/%d)", detectedCount, workflowNodeCount)
+				return
+			}
+			l.Info().Msg("✅ Workflow registration was detected")
+		}
+
+		if flags.HasFlag(debugDon.Flags, types.WorkflowDON) {
+			if detectedCount := checkHowManyNodesLogsHaveText(logFiles, workflowNodeCount, "step request enqueued"); detectedCount != workflowNodeCount {
+				l.Error().Msgf("❌ Workflow was not executing on all nodes (%d/%d)", detectedCount, workflowNodeCount)
 				return
 			}
 			l.Info().Msg("✅ Workflow was executing")
 		}
 
 		if flags.HasFlag(debugDon.Flags, types.OCR3Capability) {
-			if !checkIfOCRWasExecuting(logFiles, workflowNodeCount) {
-				l.Error().Msg("❌ OCR was not executing")
+			if detectedCount := checkHowManyNodesLogsHaveText(logFiles, workflowNodeCount, "✅ committed outcome"); detectedCount != workflowNodeCount {
+				l.Error().Msgf("❌ OCR was not executing on all nodes (%d/%d)", detectedCount, workflowNodeCount)
 				return
 			}
 			l.Info().Msg("✅ OCR was executing")
@@ -218,30 +232,16 @@ func getLogFileHandles(testName string, l zerolog.Logger, debugDon *types.DebugD
 	return logFiles, nil
 }
 
-func exactCountValidationFn(expected int) func(int) bool {
-	return func(found int) bool {
-		return found == expected
-	}
-}
-
-func checkIfWorkflowWasExecuting(logFiles []*os.File, workflowNodeCount int) bool {
-	return checkIfLogsHaveText(logFiles, workflowNodeCount, "step request enqueued", exactCountValidationFn(workflowNodeCount))
-}
-
-func checkIfOCRWasExecuting(logFiles []*os.File, workflowNodeCount int) bool {
-	return checkIfLogsHaveText(logFiles, workflowNodeCount, "✅ committed outcome", exactCountValidationFn(workflowNodeCount))
-}
-
 func checkIfAtLeastOneReportWasSent(logFiles []*os.File, workflowNodeCount int) bool {
 	// we are looking for "Node sent transaction" log entry, which might appear various times in the logs
 	// but most probably not in the logs of all nodes, since they take turns in sending reports
 	// our buffer must be large enough to capture all the possible log entries in order to avoid channel blocking
 	bufferSize := workflowNodeCount * 4
 
-	return checkIfLogsHaveText(logFiles, bufferSize, "Node sent transaction", func(found int) bool { return found > 0 })
+	return checkHowManyNodesLogsHaveText(logFiles, bufferSize, "Node sent transaction") > 0
 }
 
-func checkIfLogsHaveText(logFiles []*os.File, bufferSize int, expectedText string, validationFn func(int) bool) bool {
+func checkHowManyNodesLogsHaveText(logFiles []*os.File, bufferSize int, expectedText string) int {
 	wg := &sync.WaitGroup{}
 
 	resultsCh := make(chan struct{}, bufferSize)
@@ -264,7 +264,12 @@ func checkIfLogsHaveText(logFiles []*os.File, bufferSize int, expectedText strin
 			for scanner.Scan() {
 				jsonLogLine := scanner.Text()
 
-				if strings.Contains(jsonLogLine, expectedText) {
+				matched, err := regexp.MatchString(expectedText, jsonLogLine)
+				if err != nil {
+					return
+				}
+
+				if matched {
 					resultsCh <- struct{}{}
 					return
 				}
@@ -280,5 +285,5 @@ func checkIfLogsHaveText(logFiles []*os.File, bufferSize int, expectedText strin
 		found++
 	}
 
-	return validationFn(found)
+	return found
 }
