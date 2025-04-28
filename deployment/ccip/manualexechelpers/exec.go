@@ -129,7 +129,6 @@ func getCommitRootAcceptedEvent(
 		return offramp.InternalMerkleRoot{}, 0, fmt.Errorf("failed to get header: %w", err)
 	}
 
-	// TODO: CCIP-5700
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
 	if latestBlockNumber != 0 {
 		lggr.Infow("using latest block number to start search", "latestBlockNumber", latestBlockNumber)
@@ -224,7 +223,6 @@ func getCCIPMessageSentEvents(
 		return nil, nil, fmt.Errorf("failed to get header: %w", err)
 	}
 
-	// TODO: CCIP-5700
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
 	if latestBlockNumber != 0 {
 		start = latestBlockNumber
