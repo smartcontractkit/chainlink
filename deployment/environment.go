@@ -29,10 +29,9 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 // Chain represents an EVM chain.
@@ -86,7 +85,9 @@ type Environment struct {
 	Name   string
 	Logger logger.Logger
 	// Deprecated: AddressBook is deprecated and will be removed in future versions.
-	// Use DataStore instead
+	// Please use DataStore instead. If you still need to use AddressBook in your code,
+	// be aware that you may encounter CI failures due to linting errors.
+	// To work around this, you can disable the linter for that specific line using the //nolint directive.
 	ExistingAddresses AddressBook
 	DataStore         datastore.DataStore[
 		datastore.DefaultMetadata,
@@ -98,7 +99,7 @@ type Environment struct {
 	NodeIDs     []string
 	Offchain    deployment.OffchainClient
 	GetContext  func() context.Context
-	OCRSecrets  OCRSecrets
+	OCRSecrets  deployment.OCRSecrets
 	// OperationsBundle contains dependencies required by the operations API.
 	OperationsBundle operations.Bundle
 }
@@ -117,7 +118,7 @@ func NewEnvironment(
 	nodeIDs []string,
 	offchain deployment.OffchainClient,
 	ctx func() context.Context,
-	secrets OCRSecrets,
+	secrets deployment.OCRSecrets,
 ) *Environment {
 	return &Environment{
 		Name:              name,
