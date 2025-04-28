@@ -74,6 +74,16 @@ type SetFeedDecimalConfig struct {
 	McmsConfig       *MCMSConfig
 }
 
+type SetFeedBundleConfig struct {
+	ChainSelector    uint64
+	CacheAddress     common.Address
+	DataIDs          []string
+	Descriptions     []string
+	DecimalsMatrix   [][]uint8
+	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
+	McmsConfig       *MCMSConfig
+}
+
 type RemoveFeedConfig struct {
 	ChainSelector  uint64
 	CacheAddress   common.Address
