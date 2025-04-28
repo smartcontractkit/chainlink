@@ -381,8 +381,8 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 	// We know we need an engine, let's make sure it's the right one.
 	// We do this by fetching and comparing whether it's running and that the workflow ID matches
-	prevEngine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: payload.WorkflowOwner, Name: payload.WorkflowName})
-	if err == nil && prevEngine.Ready() == nil && prevEngine.WorkflowID.Hex() == wfID {
+	prevEngine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: payload.WorkflowOwner, Name: payload.WorkflowName})
+	if ok && prevEngine.Ready() == nil && prevEngine.WorkflowID.Hex() == wfID {
 		// This is the happy-path, we're done.
 		return nil
 	}
@@ -403,9 +403,9 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 func toSpecStatus(s uint8) job.WorkflowSpecStatus {
 	switch s {
-	case 0:
+	case WorkflowStatusActive:
 		return job.WorkflowSpecStatusActive
-	case 1:
+	case WorkflowStatusPaused:
 		return job.WorkflowSpecStatusPaused
 	default:
 		return job.WorkflowSpecStatusDefault
@@ -614,8 +614,8 @@ func (h *eventHandler) workflowDeletedEvent(
 	// prior steps fail.
 	key := EngineRegistryKey{Owner: payload.WorkflowOwner, Name: payload.WorkflowName}
 
-	e, err := h.engineRegistry.Get(key)
-	if err == nil {
+	e, ok := h.engineRegistry.Get(key)
+	if ok {
 		if innerErr := e.Close(); innerErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w", innerErr)
 		}
@@ -626,7 +626,7 @@ func (h *eventHandler) workflowDeletedEvent(
 		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
 	}
 
-	_, err = h.engineRegistry.Pop(key)
+	_, err := h.engineRegistry.Pop(key)
 	if errors.Is(err, errNotFound) {
 		return nil
 	}
@@ -641,9 +641,9 @@ func (h *eventHandler) tryEngineCleanup(workflowOwner []byte, workflowName strin
 	}
 	if h.engineRegistry.Contains(key) {
 		// This shouldn't error since we just checked that the key existed above.
-		e, err := h.engineRegistry.Get(key)
-		if err != nil {
-			return fmt.Errorf("invariant violation: failed to get workflow engine: %w", err)
+		e, ok := h.engineRegistry.Get(key)
+		if !ok {
+			return errors.New("invariant violation: failed to get workflow engine")
 		}
 
 		// Stop the engine
@@ -652,7 +652,7 @@ func (h *eventHandler) tryEngineCleanup(workflowOwner []byte, workflowName strin
 		}
 
 		// Remove the engine from the registry
-		_, err = h.engineRegistry.Pop(key)
+		_, err := h.engineRegistry.Pop(key)
 		if err != nil {
 			return fmt.Errorf("failed to remove workflow engine: %w", err)
 		}
