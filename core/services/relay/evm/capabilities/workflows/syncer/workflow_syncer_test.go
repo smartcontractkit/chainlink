@@ -617,8 +617,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		_, err = er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
-		if err == nil {
+		_, ok := er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
+		if ok {
 			return false
 		}
 
@@ -721,9 +721,9 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		_, err = er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
-		if err != nil {
-			return err != nil
+		_, ok := er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
+		if !ok {
+			return false
 		}
 
 		owner := strings.ToLower(backendTH.ContractsOwner.From.Hex()[2:])

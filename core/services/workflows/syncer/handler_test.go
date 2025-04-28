@@ -311,8 +311,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
-		require.NoError(t, err)
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
+		require.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 	}
@@ -491,8 +491,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.NoError(t, err)
 				err = h.workflowRegisteredEvent(ctx, event)
 				require.NoError(t, err)
-				engineInRegistry, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
-				require.NoError(t, err)
+				engineInRegistry, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
+				assert.True(t, ok)
 				require.Equal(t, engineInRegistry.WorkflowID.Hex(), wfID)
 			},
 		},
@@ -533,8 +533,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.Equal(t, job.WorkflowSpecStatusPaused, dbSpec.Status)
 
 				// Verify there is no running engine
-				_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-				require.Error(t, err)
+				_, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+				assert.False(t, ok)
 			},
 		},
 		{
@@ -590,8 +590,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				// This reflects the event status, not what was previously stored in the DB
 				require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
-				_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-				require.NoError(t, err)
+				_, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+				assert.True(t, ok)
 			},
 		},
 		{
@@ -883,8 +883,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.NoError(t, err)
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 
@@ -902,8 +902,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Error(t, err)
 
 		// Verify the engine is deleted
-		_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.Error(t, err)
+		_, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.False(t, ok)
 	})
 	t.Run("success deleting non-existing workflow spec", func(t *testing.T) {
 		var (
@@ -1024,8 +1024,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.NoError(t, err)
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 
@@ -1043,8 +1043,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the engine is still running
-		_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.NoError(t, err)
+		_, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 	})
 }
 
@@ -1117,8 +1117,8 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.NoError(t, err)
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 
@@ -1140,8 +1140,8 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusPaused, dbSpec.Status)
 
 		// Verify the engine is removed
-		_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.Error(t, err)
+		_, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.False(t, ok)
 
 		// create an updated event
 		updatedEvent := WorkflowUpdatedV1{
@@ -1168,8 +1168,8 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, string(updateConfig), dbSpec.Config)
 
 		// new engine is started
-		engine, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.NoError(t, err)
+		engine, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 		// old engine is no longer running

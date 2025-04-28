@@ -468,7 +468,7 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 	// Keep track of which of the engines in the engineRegistry have been touched
 	workflowsSeen := map[string]bool{}
 	for _, wfMeta := range workflowMetadata {
-		engine, engineErr := w.engineRegistry.Get(EngineRegistryKey{Owner: wfMeta.Owner, Name: wfMeta.WorkflowName})
+		engine, engineFound := w.engineRegistry.Get(EngineRegistryKey{Owner: wfMeta.Owner, Name: wfMeta.WorkflowName})
 
 		currWfID := wfMeta.WorkflowID.Hex()
 		prevWfID := engine.WorkflowID.Hex()
@@ -479,7 +479,7 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 			switch {
 			// if the workflow is active, but unable to get engine from the engine registry
 			// then handle as registered event
-			case engineErr != nil:
+			case !engineFound:
 				signature := fmt.Sprintf("%s-%s-%s", WorkflowRegisteredEvent, currWfID, toSpecStatus(wfMeta.Status))
 
 				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
@@ -547,11 +547,11 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 			case currWfID == prevWfID:
 				workflowsSeen[id] = true
 			default:
-				return nil, fmt.Errorf("invariant violation: could not handle workflow (currWfID=%s; prevWfID=%s, engineErr=%w) in active status", currWfID, prevWfID, engineErr)
+				return nil, fmt.Errorf("invariant violation: could not handle workflow (currWfID=%s; prevWfID=%s, engineFound=%t) in active status", currWfID, prevWfID, engineFound)
 			}
 		case wfMeta.Status == WorkflowStatusPaused:
 			switch {
-			case engineErr != nil:
+			case !engineFound:
 				// Account for a state change from active to paused, by checking
 				// whether an existing pendingEvent exists.
 				// We do this regardless of whether we have an event to handle or not, since this ensures
