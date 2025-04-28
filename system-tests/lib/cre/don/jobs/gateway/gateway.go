@@ -3,6 +3,8 @@ package gateway
 import (
 	"github.com/pkg/errors"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -10,11 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-var GatewayJobSpecFactoryFn = func(chainID uint64, extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string) types.JobSpecFactoryFn {
+var GatewayJobSpecFactoryFn = func(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string) types.JobSpecFactoryFn {
 	return func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
 		return GenerateJobSpecs(
 			input.DonTopology,
-			chainID,
 			extraAllowedPorts,
 			extraAllowedIPs,
 			extraAllowedIPsCIDR,
@@ -23,7 +24,7 @@ var GatewayJobSpecFactoryFn = func(chainID uint64, extraAllowedPorts []int, extr
 	}
 }
 
-func GenerateJobSpecs(donTopology *types.DonTopology, chainID uint64, extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string, gatewayConnectorOutput *types.GatewayConnectorOutput) (types.DonsToJobSpecs, error) {
+func GenerateJobSpecs(donTopology *types.DonTopology, extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string, gatewayConnectorOutput *types.GatewayConnectorOutput) (types.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
@@ -48,7 +49,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, chainID uint64, extraAllow
 			ethAddresses := make([]string, len(workflowNodeSet))
 			var ethAddressErr error
 			for i, n := range workflowNodeSet {
-				ethAddresses[i], ethAddressErr = node.FindLabelValue(n, node.EthAddressKey)
+				ethAddresses[i], ethAddressErr = node.FindLabelValue(n, node.AddressKeyFromSelector(donTopology.HomeChainSelector))
 				if ethAddressErr != nil {
 					return nil, errors.Wrap(ethAddressErr, "failed to get eth address from labels")
 				}
@@ -77,7 +78,12 @@ func GenerateJobSpecs(donTopology *types.DonTopology, chainID uint64, extraAllow
 				return nil, errors.Wrap(gatewayErr, "failed to get gateway node id from labels")
 			}
 
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, chainID, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, *gatewayConnectorOutput))
+			homeChainID, homeChainErr := chainselectors.ChainIdFromSelector(donTopology.HomeChainSelector)
+			if homeChainErr != nil {
+				return nil, errors.Wrap(homeChainErr, "failed to get home chain id from selector")
+			}
+
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, *gatewayConnectorOutput))
 		}
 	}
 
