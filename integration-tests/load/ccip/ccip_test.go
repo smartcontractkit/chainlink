@@ -209,7 +209,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				block,
 				cs,
 				loadFinished,
-				env.SolChains[cs].Client,
+				client,
 				&wg,
 				mm.InputChan,
 				finalSeqNrCommitChannels,

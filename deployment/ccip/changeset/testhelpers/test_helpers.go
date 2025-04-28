@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -2174,18 +2173,26 @@ func ValidateSolanaState(e deployment.Environment, solChainSelectors []uint64) e
 		// Get RMN remote config
 		var rmnRemoteConfigAccount solRmnRemote.Config
 
-		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
-		require.NoError(t, err, "Failed to deserialize rmn remote config for chain %d", sel)
+		err = e.SolChains[sel].GetAccountDataBorshInto(e.GetContext(), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
+		if err != nil {
+			return err
+		}
 
 		addressLookupTable, err := changeset.FetchOfframpLookupTable(e.GetContext(), e.SolChains[sel], chainState.OffRamp)
-		require.NoError(t, err, "Failed to get offramp lookup table for chain %d", sel)
+		if err != nil {
+			return err
+		}
 
 		addresses, err := solCommonUtil.GetAddressLookupTable(
 			e.GetContext(),
 			e.SolChains[sel].Client,
 			addressLookupTable)
-		require.NoError(t, err, "Failed to get address lookup table for chain %d", sel)
-		require.GreaterOrEqual(t, len(addresses), 22, "Not enough addresses found in lookup table for chain %d", sel)
+		if err != nil {
+			return err
+		}
+		if len(addresses) < 22 {
+			return fmt.Errorf("Not enough addresses found in lookup table for chain %d", sel)
+		}
 	}
 	return nil
 }

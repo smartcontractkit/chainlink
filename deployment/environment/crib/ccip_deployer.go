@@ -153,44 +153,45 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
 	}
 
-	// evmChainSelectors := e.AllChainSelectors()
+	evmChainSelectors := e.AllChainSelectors()
 	solChainSelectors := e.AllChainSelectorsSolana()
 
 	// Set up SOL <--> EVM lanes
 	lggr.Infof("setting up solana lanes for %d chains", len(e.Chains))
-	var laneChangesets []commonchangeset.ConfiguredChangeSet
 
-	deployedEnv := testhelpers.DeployedEnv{
-		Env:          *e,
-		HomeChainSel: homeChainSel,
-		FeedChainSel: feedChainSel,
-	}
-	for _, evmSelector := range []uint64{homeChainSel} {
-		fmt.Println("setting up solana lanes for ", evmSelector)
-		gasPrices := map[uint64]*big.Int{
-			solChainSelectors[0]: testhelpers.DefaultGasPrice,
-		}
-		stateChainFrom := state.Chains[evmSelector]
-		tokenPrices := map[common.Address]*big.Int{
-			stateChainFrom.LinkToken.Address(): testhelpers.DefaultLinkPrice,
-			stateChainFrom.Weth9.Address():     testhelpers.DefaultWethPrice,
-		}
-		fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solChainSelectors[0])
-		evmFamily, _ := chainsel.GetSelectorFamily(evmSelector)
+	for _, evmSelector := range evmChainSelectors {
+		for _, solSelector := range solChainSelectors {
+			var laneChangesets []commonchangeset.ConfiguredChangeSet
+			deployedEnv := testhelpers.DeployedEnv{
+				Env:          *e,
+				HomeChainSel: homeChainSel,
+				FeedChainSel: feedChainSel,
+			}
+			lggr.Infow("setting up evm <> svm lane ", "evm", evmSelector, "sol", solSelector)
+			gasPrices := map[uint64]*big.Int{
+				solSelector: testhelpers.DefaultGasPrice,
+			}
+			stateChainFrom := state.Chains[evmSelector]
+			tokenPrices := map[common.Address]*big.Int{
+				stateChainFrom.LinkToken.Address(): testhelpers.DefaultLinkPrice,
+				stateChainFrom.Weth9.Address():     testhelpers.DefaultWethPrice,
+			}
+			fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solSelector)
 
-		// EVM -> SOL
-		cs := testhelpers.AddEVMSrcChangesets(evmSelector, solChainSelectors[0], false, gasPrices, tokenPrices, fqCfg)
-		laneChangesets = append(laneChangesets, cs...)
-		cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solChainSelectors[0], evmSelector, evmFamily)
-		laneChangesets = append(laneChangesets, cs...)
+			// EVM -> SOL
+			cs := testhelpers.AddEVMSrcChangesets(evmSelector, solSelector, false, gasPrices, tokenPrices, fqCfg)
+			laneChangesets = append(laneChangesets, cs...)
+			cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector, evmSelector, chainsel.FamilyEVM)
+			laneChangesets = append(laneChangesets, cs...)
 
-		// SOL -> EVM
-		cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solChainSelectors[0], false)
-		laneChangesets = append(laneChangesets, cs...)
+			// SOL -> EVM
+			cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solSelector, false)
+			laneChangesets = append(laneChangesets, cs...)
 
-		*e, err = commonchangeset.Apply(nil, *e, nil, laneChangesets[0], laneChangesets[1:]...)
-		if err != nil {
-			return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting solana lanes: %w", err)
+			*e, err = commonchangeset.Apply(nil, *e, nil, laneChangesets[0], laneChangesets[1:]...)
+			if err != nil {
+				return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting solana lanes: %w", err)
+			}
 		}
 	}
 
