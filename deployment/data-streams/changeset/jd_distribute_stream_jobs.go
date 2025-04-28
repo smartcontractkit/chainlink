@@ -77,7 +77,7 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 			)
 
 			// Check if there is already a job spec for this stream on this node:
-			externalJobID, err := fetchExternalJobID(e, []string{n.Id}, []*ptypes.Selector{
+			externalJobID, err := fetchExternalJobID(e, n.Id, []*ptypes.Selector{
 				{
 					Key:   utils.LabelStreamID,
 					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),

@@ -71,7 +71,11 @@ func proposeAllOrNothing(ctx context.Context, oc deployment.OffchainClient, prs 
 
 // fetchExternalJobID looks for an existing job that matches the given labels and returns its ID.
 // If no job is found, it returns a nil UUID.
-func fetchExternalJobID(e deployment.Environment, nodeIDs []string, selectors []*ptypes.Selector) (externalJobID uuid.UUID, err error) {
+func fetchExternalJobID(e deployment.Environment, nodeID string, selectors []*ptypes.Selector) (externalJobID uuid.UUID, err error) {
+	var nodeIDs []string
+	if nodeID != "" {
+		nodeIDs = []string{nodeID}
+	}
 	jobsResp, err := e.Offchain.ListJobs(e.GetContext(), &job.ListJobsRequest{
 		Filter: &job.ListJobsRequest_Filter{
 			NodeIds:   nodeIDs,

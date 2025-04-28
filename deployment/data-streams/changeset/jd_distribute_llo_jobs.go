@@ -104,7 +104,7 @@ func generateBootstrapProposals(ctx context.Context, e deployment.Environment, c
 
 	var proposals []*jobv1.ProposeJobRequest
 	for _, btNode := range bootstrapNodes {
-		externalJobID, err := fetchExternalJobID(e, []string{btNode.Id}, []*ptypes.Selector{
+		externalJobID, err := fetchExternalJobID(e, btNode.Id, []*ptypes.Selector{
 			{
 				Key:   utils.LabelJobType,
 				Value: utils.JobTypeLLO,
@@ -199,7 +199,7 @@ func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg 
 
 	var proposals []*jobv1.ProposeJobRequest
 	for _, n := range oracleNodes {
-		externalJobID, err := fetchExternalJobID(e, []string{n.Id}, []*ptypes.Selector{
+		externalJobID, err := fetchExternalJobID(e, n.Id, []*ptypes.Selector{
 			{
 				Key:   utils.LabelJobType,
 				Value: utils.JobTypeLLO,
