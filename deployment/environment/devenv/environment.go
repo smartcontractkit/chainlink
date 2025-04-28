@@ -7,6 +7,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -54,11 +56,16 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		DevEnv,
 		lggr,
 		deployment.NewMemoryAddressBook(),
+		datastore.NewMemoryDataStore[
+			datastore.DefaultMetadata,
+			datastore.DefaultMetadata,
+		]().Seal(),
 		chains,
 		nil, // sending nil for solana chains right now, we can build this when we need it
+		nil, // sending nil for aptos chains right now, we can build this when we need it
 		nodeIDs,
 		offChain,
 		ctx,
-		deployment.XXXGenerateTestOCRSecrets(),
+		cldf.XXXGenerateTestOCRSecrets(),
 	), jd.don, nil
 }

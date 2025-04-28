@@ -18,12 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	txmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
@@ -345,6 +345,10 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) GetTransactionStatus(ctx context.Contex
 	default:
 		return commontypes.Unknown, nil
 	}
+}
+
+func (o *Orchestrator[BLOCK_HASH, HEAD]) GetTransactionFee(ctx context.Context, transactionID string) (fee *commontypes.TransactionFee, err error) {
+	return nil, errors.New("unimplemented")
 }
 
 func (o *Orchestrator[BLOCK_HASH, HEAD]) SendNativeToken(ctx context.Context, chainID *big.Int, from, to common.Address, value big.Int, gasLimit uint64) (tx txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {

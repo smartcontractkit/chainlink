@@ -15,11 +15,11 @@ func ViewDataFeeds(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, err
 	}
-	chainView, err := state.View(e.AllChainSelectors())
+	chainView, err := state.View(e.AllChainSelectors(), e)
 	if err != nil {
 		return nil, err
 	}
-	nopsView, err := commonview.GenerateNopsView(e.NodeIDs, e.Offchain)
+	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
 	if err != nil {
 		return nil, err
 	}

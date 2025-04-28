@@ -34,10 +34,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -928,15 +928,22 @@ func newCREServices(
 						},
 					))
 
-				eventHandler := syncer.NewEventHandler(
+				engineRegistry := syncer.NewEngineRegistry()
+
+				eventHandler, err := syncer.NewEventHandler(
 					lggr,
 					workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 					opts.CapabilitiesRegistry,
+					engineRegistry,
 					custmsg.NewLabeler(),
 					workflowRateLimiter,
 					workflowLimits,
 					artifactsStore,
 				)
+				if err != nil {
+					return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
+				}
+
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
 				wfRegRid := capCfg.WorkflowRegistry().RelayID()
 				wfRegRelayer, err := relayerChainInterops.Get(wfRegRid)
@@ -949,14 +956,16 @@ func newCREServices(
 						return wfRegRelayer.NewContractReader(ctx, bytes)
 					},
 					capCfg.WorkflowRegistry().Address(),
-					syncer.WorkflowEventPollerConfig{
-						QueryCount: 100,
+					syncer.Config{
+						QueryCount:   100,
+						SyncStrategy: syncer.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
 					},
 					eventHandler,
 					workflowDonNotifier,
+					engineRegistry,
 				)
 				if err != nil {
-					return nil, fmt.Errorf("failed to instantiate workflow syncer: %w", err)
+					return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 				}
 
 				srvcs = append(srvcs, wfSyncer)

@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -96,11 +98,16 @@ func NewNoopEnvironment(t *testing.T) Environment {
 		"noop",
 		logger.TestLogger(t),
 		NewMemoryAddressBook(),
+		datastore.NewMemoryDataStore[
+			datastore.DefaultMetadata,
+			datastore.DefaultMetadata,
+		]().Seal(),
 		map[uint64]Chain{},
 		map[uint64]SolChain{},
+		map[uint64]AptosChain{},
 		[]string{},
 		nil,
 		t.Context,
-		XXXGenerateTestOCRSecrets(),
+		deployment.XXXGenerateTestOCRSecrets(),
 	)
 }

@@ -10,7 +10,7 @@ import (
 	"go.uber.org/ratelimit"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"

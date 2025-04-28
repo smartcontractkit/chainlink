@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
@@ -20,10 +20,9 @@ func TestEthKeyV2_ToKey(t *testing.T) {
 
 	k := KeyFor(internal.NewRaw(privateKeyECDSA.D.Bytes()))
 
-	assert.Equal(t, k.String(), k.GoString())
-	assert.Equal(t, k.privateKey, privateKeyECDSA)
-	assert.Equal(t, k.privateKey.PublicKey.X, privateKeyECDSA.PublicKey.X)
-	assert.Equal(t, k.privateKey.PublicKey.Y, privateKeyECDSA.PublicKey.Y)
+	assert.Equal(t, k.getPK(), privateKeyECDSA)
+	assert.Equal(t, k.getPK().PublicKey.X, privateKeyECDSA.PublicKey.X)
+	assert.Equal(t, k.getPK().PublicKey.Y, privateKeyECDSA.PublicKey.Y)
 	assert.Equal(t, types.EIP55AddressFromAddress(crypto.PubkeyToAddress(privateKeyECDSA.PublicKey)).Hex(), k.ID())
 }
 
@@ -32,6 +31,6 @@ func TestEthKeyV2_NewV2(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotZero(t, keyV2.Address)
-	assert.NotNil(t, keyV2.privateKey)
+	assert.NotNil(t, keyV2.getPK())
 	assert.Equal(t, keyV2.Address.Hex(), keyV2.ID())
 }

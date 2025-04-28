@@ -81,7 +81,7 @@ var plugins = map[string]plugin{
 			return ccipsolana.NewMessageHasherV1(lggr, extraDataCodec)
 		},
 		TokenDataEncoder:           ccipsolana.NewSolanaTokenDataEncoder(),
-		GasEstimateProvider:        ccipsolana.NewGasEstimateProvider(),
+		GasEstimateProvider:        ccipsolana.NewGasEstimateProvider(extraDataCodec),
 		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
 		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
 		ContractTransmitterFactory: &ocrimpls.SVMContractTransmitterFactory{},
@@ -253,6 +253,11 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
 
+	telemetryType, err := pluginTypeToTelemetryType(pluginType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get telemetry type: %w", err)
+	}
+
 	oracleArgs := libocr3.OCR3OracleArgs[[]byte]{
 		BinaryNetworkEndpointFactory: i.peerWrapper.Peer2,
 		Database:                     i.db,
@@ -273,8 +278,8 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		MonitoringEndpoint: i.monitoringEndpointGen.GenMonitoringEndpoint(
 			destChainFamily,
 			destRelayID.ChainID,
-			string(config.Config.OfframpAddress),
-			synchronization.OCR3CCIPCommit,
+			offrampAddrStr,
+			telemetryType,
 		),
 		OffchainConfigDigester: ocrimpls.NewConfigDigester(config.ConfigDigest),
 		OffchainKeyring:        keybundle,
@@ -360,7 +365,10 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				RmnPeerClient:     rmnPeerClient,
 				RmnCrypto:         rmnCrypto})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
-		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewCommitTransmitter(destChainWriter,
+		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewCommitTransmitter(
+			i.lggr.Named("CCIPCommitTransmitter").
+				Named(destRelayID.String()),
+			destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 			consts.MethodCommit,
@@ -385,7 +393,10 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractWriters:  chainWriters,
 			})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
-		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewExecTransmitter(destChainWriter,
+		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewExecTransmitter(
+			i.lggr.Named("CCIPExecTransmitter").
+				Named(destRelayID.String()),
+			destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 		)
@@ -693,5 +704,16 @@ func defaultLocalConfig() ocrtypes.LocalConfig {
 		DatabaseTimeout:                    10 * time.Second,
 		MinOCR2MaxDurationQuery:            1 * time.Second,
 		DevelopmentMode:                    "false",
+	}
+}
+
+func pluginTypeToTelemetryType(pluginType cctypes.PluginType) (synchronization.TelemetryType, error) {
+	switch pluginType {
+	case cctypes.PluginTypeCCIPCommit:
+		return synchronization.OCR3CCIPCommit, nil
+	case cctypes.PluginTypeCCIPExec:
+		return synchronization.OCR3CCIPExec, nil
+	default:
+		return "", fmt.Errorf("unknown plugin type %d", pluginType)
 	}
 }

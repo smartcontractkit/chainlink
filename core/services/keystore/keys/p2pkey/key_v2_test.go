@@ -15,9 +15,8 @@ func TestP2PKeys_KeyV2(t *testing.T) {
 	kv2, err := NewV2()
 	require.NoError(t, err)
 
-	pkv2 := kv2.PrivKey.Public().(ed25519.PublicKey)
+	pkv2 := kv2.Public().(ed25519.PublicKey)
 
-	assert.Equal(t, kv2.String(), kv2.GoString())
 	assert.Equal(t, ragep2ptypes.PeerID(kv2.PeerID()).String(), kv2.ID())
 	assert.Equal(t, hex.EncodeToString(pkv2), kv2.PublicKeyHex())
 }

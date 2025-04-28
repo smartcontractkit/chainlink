@@ -30,11 +30,17 @@ type CurseAction func(e deployment.Environment) []RMNCurseAction
 type RMNCurseConfig struct {
 	MCMS         *proposalutils.TimelockConfig
 	CurseActions []CurseAction
-	Reason       string
+	// Use this if you need to include lanes that are not in sourcechain in the offramp. i.e. not yet migrated lane from 1.5
+	IncludeNotConnectedLanes bool
+	Reason                   string
 }
 
 func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 	state, err := changeset.LoadOnchainState(e)
+	err = state.EnforceMCMSUsageIfProd(e.GetContext(), c.MCMS)
+	if err != nil {
+		return err
+	}
 
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -150,6 +156,38 @@ func CurseChain(chainSelector uint64) CurseAction {
 	}
 }
 
+func FilterOutNotConnectedLanes(e deployment.Environment, curseActions []RMNCurseAction) ([]RMNCurseAction, error) {
+	state, err := changeset.LoadOnchainState(e)
+	if err != nil {
+		e.Logger.Errorf("failed to load onchain state: %v", err)
+		return nil, err
+	}
+	// Filter the curse action to only apply on the connected chains
+	returnActions := make([]RMNCurseAction, 0)
+	for _, action := range curseActions {
+		if action.SubjectToCurse == globals.GlobalCurseSubject() {
+			returnActions = append(returnActions, action)
+			continue
+		}
+
+		sourceChainSelector := globals.SubjectToSelector(action.SubjectToCurse)
+		sourceChain, err := state.Chains[sourceChainSelector].OffRamp.GetSourceChainConfig(nil, action.ChainSelector)
+
+		if err != nil {
+			e.Logger.Errorf("failed to get source chain config: %v", err)
+			return nil, err
+		}
+
+		if !sourceChain.IsEnabled {
+			e.Logger.Warnf("source chain %d is not enabled, skipping", sourceChainSelector)
+			continue
+		}
+
+		returnActions = append(returnActions, action)
+	}
+	return returnActions, nil
+}
+
 func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf bool, onlyKeepGlobal bool) map[uint64][]globals.Subject {
 	grouped := make(map[uint64][]globals.Subject)
 	for _, s := range rmnSubjects {
@@ -216,6 +254,14 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 	for _, curseAction := range cfg.CurseActions {
 		curseActions = append(curseActions, curseAction(e)...)
 	}
+
+	if !cfg.IncludeNotConnectedLanes {
+		curseActions, err = FilterOutNotConnectedLanes(e, curseActions)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to filter out not connected lanes: %w", err)
+		}
+	}
+
 	// Group curse actions by chain selector
 	grouped := groupRMNSubjectBySelector(curseActions, true, true)
 	// For each chain in the environment get the RMNRemote contract and call curse

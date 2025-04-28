@@ -233,7 +233,7 @@ func TestTransferFromTimelockConfig_Apply(t *testing.T) {
 
 	changesetInstance := example.TransferFromTimelock{}
 
-	env, err = changeset.ApplyChangesetsV2(t, env, []changeset.ConfiguredChangeSet{
+	env, _, err = changeset.ApplyChangesetsV2(t, env, []changeset.ConfiguredChangeSet{
 		changeset.Configure(changesetInstance, config),
 	})
 	require.NoError(t, err)

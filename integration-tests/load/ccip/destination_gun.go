@@ -24,12 +24,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
@@ -355,7 +355,6 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 		fqDestChainPDA,
 		feeTokenFqBillingConfigPDA,
 		linkFqBillingConfigPDA,
-		solana.PublicKey{},
 		solana.PublicKey{},
 		solana.PublicKey{},
 		solana.PublicKey{},

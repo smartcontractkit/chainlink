@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.dedis.ch/kyber/v3"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
@@ -19,7 +19,7 @@ import (
 var suite = secp256k1.NewBlakeKeccackSecp256k1()
 
 func KeyFor(raw internal.Raw) KeyV2 {
-	rawKeyInt := new(big.Int).SetBytes(raw.Bytes())
+	rawKeyInt := new(big.Int).SetBytes(internal.Bytes(raw))
 	k := secp256k1.IntToScalar(rawKeyInt)
 	key, err := keyFromScalar(k)
 	if err != nil {

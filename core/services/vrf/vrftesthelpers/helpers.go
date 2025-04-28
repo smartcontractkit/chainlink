@@ -22,9 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_request_id"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_request_id_v08"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
@@ -184,8 +184,10 @@ func NewVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.KeyV2) Co
 func NewVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) CoordinatorUniverse {
 	var oracleTransactors []*bind.TransactOpts
 	for _, key := range keys {
-		oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
-		require.NoError(t, err)
+		oracleTransactor := &bind.TransactOpts{
+			From:   key.Address,
+			Signer: key.SignerFn(testutils.SimulatedChainID),
+		}
 		oracleTransactors = append(oracleTransactors, oracleTransactor)
 	}
 

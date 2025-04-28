@@ -8,8 +8,11 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -73,6 +76,29 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 		} else {
 			addresses = currentEnv.ExistingAddresses
 		}
+
+		// Collect expected DataStore state after changeset is applied
+		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
+		if out.DataStore != nil {
+			ds1 := datastore.NewMemoryDataStore[
+				datastore.DefaultMetadata,
+				datastore.DefaultMetadata,
+			]()
+			// New Addresses
+			err := ds1.Merge(out.DataStore.Seal())
+			if err != nil {
+				return e, fmt.Errorf("failed to merge new addresses into datastore: %w", err)
+			}
+			// Existing Addresses
+			err = ds1.Merge(currentEnv.DataStore)
+			if err != nil {
+				return e, fmt.Errorf("failed to merge current addresses into datastore: %w", err)
+			}
+			ds = ds1.Seal()
+		} else {
+			ds = currentEnv.DataStore
+		}
+
 		if out.Jobs != nil {
 			// do nothing, as these jobs auto-accept.
 		}
@@ -125,6 +151,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			Name:              e.Name,
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
+			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
 			NodeIDs:           e.NodeIDs,
@@ -137,23 +164,48 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 }
 
 // ApplyChangesetsV2 applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplications []ConfiguredChangeSet) (deployment.Environment, error) {
+func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplications []ConfiguredChangeSet) (deployment.Environment, []deployment.ChangesetOutput, error) {
 	currentEnv := e
+	outputs := make([]deployment.ChangesetOutput, 0, len(changesetApplications))
 	for i, csa := range changesetApplications {
 		out, err := csa.Apply(currentEnv)
 		if err != nil {
-			return e, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
+			return e, nil, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
 		}
+		outputs = append(outputs, out)
 		var addresses deployment.AddressBook
 		if out.AddressBook != nil {
 			addresses = out.AddressBook
 			err := addresses.Merge(currentEnv.ExistingAddresses)
 			if err != nil {
-				return e, fmt.Errorf("failed to merge address book: %w", err)
+				return e, nil, fmt.Errorf("failed to merge address book: %w", err)
 			}
 		} else {
 			addresses = currentEnv.ExistingAddresses
 		}
+
+		// Collect expected DataStore state after changeset is applied
+		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
+		if out.DataStore != nil {
+			ds1 := datastore.NewMemoryDataStore[
+				datastore.DefaultMetadata,
+				datastore.DefaultMetadata,
+			]()
+			// New Addresses
+			err := ds1.Merge(out.DataStore.Seal())
+			if err != nil {
+				return e, nil, fmt.Errorf("failed to merge new addresses into datastore: %w", err)
+			}
+			// Existing Addresses
+			err = ds1.Merge(currentEnv.DataStore)
+			if err != nil {
+				return e, nil, fmt.Errorf("failed to merge current addresses into datastore: %w", err)
+			}
+			ds = ds1.Seal()
+		} else {
+			ds = currentEnv.DataStore
+		}
+
 		if out.Jobs != nil { //nolint:revive,staticcheck // we want the empty block as documentation
 			// do nothing, as these jobs auto-accept.
 		}
@@ -164,6 +216,7 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 			Name:              e.Name,
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
+			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
 			NodeIDs:           e.NodeIDs,
@@ -182,11 +235,16 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
-					return deployment.Environment{}, err
+					return deployment.Environment{}, nil, err
+				}
+				if prop.Action != mcmsTypes.TimelockActionSchedule {
+					// We don't need to execute the proposal if it's not a schedule action
+					// because the proposal is already executed in the previous step.
+					return currentEnv, outputs, nil
 				}
 				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, currentEnv, &prop)
 				if err != nil {
-					return deployment.Environment{}, err
+					return deployment.Environment{}, nil, err
 				}
 			}
 		}
@@ -200,12 +258,12 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				p := proposalutils.SignMCMSProposal(t, currentEnv, &prop)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
-					return deployment.Environment{}, err
+					return deployment.Environment{}, nil, err
 				}
 			}
 		}
 	}
-	return currentEnv, nil
+	return currentEnv, outputs, nil
 }
 
 func DeployLinkTokenTest(t *testing.T, solChains int) {

@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -60,6 +60,14 @@ type DeployedLocalDevEnvironment struct {
 	devEnvCfg       *devenv.EnvironmentConfig
 }
 
+func (l *DeployedLocalDevEnvironment) GetCLClusterTestEnv() *test_env.CLClusterTestEnv {
+	return l.testEnv
+}
+
+func (l *DeployedLocalDevEnvironment) GetDevEnvConfig() *devenv.EnvironmentConfig {
+	return l.devEnvCfg
+}
+
 func (l *DeployedLocalDevEnvironment) DeployedEnvironment() testhelpers.DeployedEnv {
 	return l.DeployedEnv
 }
@@ -75,7 +83,7 @@ func (l *DeployedLocalDevEnvironment) TestConfigs() *testhelpers.TestConfigs {
 func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
-	envConfig, testEnv, cfg := CreateDockerEnv(t)
+	envConfig, testEnv, cfg := CreateDockerEnv(t, l.GenericTCConfig)
 	l.devEnvTestCfg = cfg
 	l.testEnv = testEnv
 	l.devEnvCfg = envConfig
@@ -196,7 +204,7 @@ func NewIntegrationEnvironment(t *testing.T, opts ...testhelpers.TestOps) (testh
 			deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
 			l := logging.GetTestLogger(t)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
-			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks))
+			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks), testCfg.RMNConfDepth)
 			require.NotNil(t, dockerEnv.devEnvTestCfg.CCIP)
 			rmnCluster, err := devenv.NewRMNCluster(
 				t, l,
@@ -262,7 +270,7 @@ func MustCCIPNameToRMNName(a string) string {
 	return v
 }
 
-func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
+func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.DeployedEnv, rpcMap map[uint64]string, confDepth int) map[string]devenv.RMNConfig {
 	// Find the bootstrappers.
 	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
 	require.NoError(t, err)
@@ -283,7 +291,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 			Stability: devenv.Stability{
 				Type:              "ConfirmationDepth",
 				SoftConfirmations: 0,
-				HardConfirmations: 0,
+				HardConfirmations: confDepth,
 			},
 		})
 		remoteChains = append(remoteChains, devenv.RemoteChains{
@@ -341,7 +349,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 // CreateDockerEnv creates a new test environment with simulated private ethereum networks and job distributor
 // It returns the EnvironmentConfig which holds the chain config and JD config
 // The test environment is then used to start chainlink nodes
-func CreateDockerEnv(t *testing.T) (
+func CreateDockerEnv(t *testing.T, v1_6TestConfig *testhelpers.TestConfigs) (
 	*devenv.EnvironmentConfig,
 	*test_env.CLClusterTestEnv,
 	tc.TestConfig,
@@ -350,7 +358,13 @@ func CreateDockerEnv(t *testing.T) (
 		require.NoError(t, gotenv.Load(".env"), "Error loading .env file")
 	}
 
-	cfg, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.CCIP)
+	var cfg tc.TestConfig
+	var err error
+	if v1_6TestConfig != nil {
+		cfg, err = tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.CCIP, v1_6TestConfig.ExtraConfigTomls...)
+	} else {
+		cfg, err = tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.CCIP)
+	}
 	require.NoError(t, err, "Error getting config")
 
 	evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
@@ -365,11 +379,12 @@ func CreateDockerEnv(t *testing.T) (
 	}
 
 	// ignore critical CL node logs until they are fixed, as otherwise tests will fail
-	var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
-		"No live RPC nodes available",
-		"CL nodes are started before simulated chains, so this is expected",
-		zapcore.DPanicLevel,
-		testreporters.WarnAboutAllowedMsgs_No),
+	var allowedMessages = []testreporters.AllowedLogMessage{
+		testreporters.NewAllowedLogMessage(
+			"No live RPC nodes available",
+			"CL nodes are started before simulated chains, so this is expected",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_No),
 		testreporters.NewAllowedLogMessage(
 			"Lane processing is stopped because source chain is cursed or CommitStore is down",
 			"Curse test are expected to trigger this logs",
@@ -385,7 +400,18 @@ func CreateDockerEnv(t *testing.T) (
 			"Possible lifecycle bug in chainlink.",
 			zapcore.DPanicLevel,
 			testreporters.WarnAboutAllowedMsgs_No),
-	)
+	}
+	if v1_6TestConfig != nil {
+		for _, logMsg := range v1_6TestConfig.LogMessagesToIgnore {
+			allowedMessages = append(allowedMessages, testreporters.NewAllowedLogMessage(
+				logMsg.Msg,
+				logMsg.Reason,
+				logMsg.Level,
+				testreporters.WarnAboutAllowedMsgs_No,
+			))
+		}
+	}
+	var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(allowedMessages...)
 
 	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
@@ -580,7 +606,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 				return fmt.Errorf("negative chain ID: %d", evmNetwork.ChainID)
 			}
 			for _, node := range nodes {
-				nodeAddr, ok := node.AccountAddr[uint64(evmNetwork.ChainID)]
+				nodeAddr, ok := node.AccountAddr[strconv.FormatInt(evmNetwork.ChainID, 10)]
 				if !ok {
 					return fmt.Errorf("account address not found for chain %d", evmNetwork.ChainID)
 				}
@@ -601,10 +627,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 				if receipt == nil {
 					return fmt.Errorf("receipt is nil")
 				}
-				txHash := "(none)"
-				if receipt != nil {
-					txHash = receipt.TxHash.String()
-				}
+				txHash := receipt.TxHash.String()
 				lggr.Info().
 					Str("From", fromAddress.Hex()).
 					Str("To", toAddr.String()).

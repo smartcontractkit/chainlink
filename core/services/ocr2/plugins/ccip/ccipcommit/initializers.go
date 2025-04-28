@@ -3,13 +3,24 @@ package ccipcommit
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"math/big"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
+	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -47,7 +58,6 @@ func NewCommitServices(
 	ds sqlutil.DataSource,
 	srcProvider commontypes.CCIPCommitProvider,
 	dstProvider commontypes.CCIPCommitProvider,
-	priceGetter ccip.AllTokensPriceGetter,
 	jb job.Job,
 	lggr logger.Logger,
 	pr pipeline.Runner,
@@ -56,6 +66,8 @@ func NewCommitServices(
 	sourceChainID int64,
 	destChainID int64,
 	logError func(string),
+	pluginJobSpecConfig ccipconfig.CommitPluginJobSpecConfig,
+	relayGetter RelayGetter,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
@@ -107,6 +119,25 @@ func NewCommitServices(
 	if err != nil {
 		return nil, err
 	}
+
+	if sourceChainID < 0 || destChainID < 0 {
+		return nil, errors.New("source and dest chain IDs must be positive")
+	}
+	srcChain, ok := chainselectors.ChainByEvmChainID(uint64(sourceChainID))
+	if !ok {
+		return nil, fmt.Errorf("failed to get source chain by evm ID %d", destChainID)
+	}
+	dstChain, ok2 := chainselectors.ChainByEvmChainID(uint64(destChainID))
+	if !ok2 {
+		return nil, fmt.Errorf("failed to get dest chain by evm ID %d", destChainID)
+	}
+
+	priceGetter, err := initCommitPriceGetter(ctx, lggr, pluginJobSpecConfig, jb, sourceNative,
+		pr, relayGetter, srcChain.Selector, dstChain.Selector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create price getter: %w", err)
+	}
+
 	// Prom wrappers
 	onRampReader = observability.NewObservedOnRampReader(onRampReader, sourceChainID, ccip.CommitPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ccip.CommitPluginLabel)
@@ -135,6 +166,22 @@ func NewCommitServices(
 	if err != nil {
 		return nil, err
 	}
+
+	// --------------------------------------------------------------------------------
+	// Backwards compatibility for old job spec price getter dynamic config.
+	// Should be removed after all jobSpecs migrate to the new format.
+	dynamicPriceGetter, is := priceGetter.(*pricegetter.DynamicPriceGetter)
+	if is {
+		sourceNativeEvmAddr, err2 := ccipcalc.GenericAddrToEvm(sourceNative)
+		if err2 != nil {
+			return nil, fmt.Errorf("convert source native token address %s to evm address: %w", sourceNative, err2)
+		}
+		err = dynamicPriceGetter.MoveDeprecatedFields(srcChain.Selector, dstChain.Selector, sourceNativeEvmAddr)
+		if err != nil {
+			return nil, fmt.Errorf("move deprecated fields: %w", err)
+		}
+	}
+	// --------------------------------------------------------------------------------
 
 	priceService := db.NewPriceService(
 		lggr,
@@ -187,6 +234,114 @@ func NewCommitServices(
 	}, nil
 }
 
+func initCommitPriceGetter(
+	ctx context.Context,
+	lggr logger.Logger,
+	pluginJobSpecConfig ccipconfig.CommitPluginJobSpecConfig,
+	jb job.Job,
+	sourceNativeTokenAddr cciptypes.Address,
+	pipelineRunner pipeline.Runner,
+	relayGetter RelayGetter,
+	sourceChainSelector uint64,
+	destChainSelector uint64,
+) (priceGetter ccip.AllTokensPriceGetter, err error) {
+	spec := jb.OCR2OracleSpec
+	withPipeline := strings.Trim(pluginJobSpecConfig.TokenPricesUSDPipeline, "\n\t ") != ""
+	if withPipeline {
+		priceGetter, err = ccip.NewPipelineGetter(
+			pluginJobSpecConfig.TokenPricesUSDPipeline,
+			pipelineRunner,
+			jb.ID,
+			jb.ExternalJobID,
+			jb.Name.ValueOrZero(),
+			lggr,
+			sourceNativeTokenAddr,
+			sourceChainSelector,
+			destChainSelector,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating pipeline price getter: %w", err)
+		}
+	} else {
+		// Use dynamic price getter.
+		if pluginJobSpecConfig.PriceGetterConfig == nil {
+			return nil, errors.New("priceGetterConfig is nil")
+		}
+
+		// Configure contract readers for all chains specified in the aggregator configurations.
+		// Some lanes (e.g. Wemix/Kroma) requires other clients than source and destination, since they use feeds from other chains.
+		aggregatorChainsToContracts := make(map[uint64][]common.Address)
+		for _, aggCfg := range pluginJobSpecConfig.PriceGetterConfig.AggregatorPrices {
+			if _, ok := aggregatorChainsToContracts[aggCfg.ChainID]; !ok {
+				aggregatorChainsToContracts[aggCfg.ChainID] = make([]common.Address, 0)
+			}
+
+			aggregatorChainsToContracts[aggCfg.ChainID] = append(aggregatorChainsToContracts[aggCfg.ChainID], aggCfg.AggregatorContractAddress)
+		}
+
+		for _, priceCfg := range pluginJobSpecConfig.PriceGetterConfig.TokenPrices {
+			if priceCfg.AggregatorConfig == nil {
+				continue
+			}
+			aggCfg := *priceCfg.AggregatorConfig
+			contractAddrs, ok := aggregatorChainsToContracts[aggCfg.ChainID]
+			if !ok {
+				aggregatorChainsToContracts[aggCfg.ChainID] = make([]common.Address, 0)
+			}
+			if !slices.Contains(contractAddrs, aggCfg.AggregatorContractAddress) {
+				aggregatorChainsToContracts[aggCfg.ChainID] = append(aggregatorChainsToContracts[aggCfg.ChainID],
+					aggCfg.AggregatorContractAddress)
+			}
+		}
+
+		contractReaders := map[uint64]commontypes.ContractReader{}
+
+		for chainID, aggregatorContracts := range aggregatorChainsToContracts {
+			relayID := commontypes.RelayID{Network: spec.Relay, ChainID: strconv.FormatUint(chainID, 10)}
+			relay, rerr := relayGetter.Get(relayID)
+			if rerr != nil {
+				return nil, fmt.Errorf("get relay by id=%v: %w", relayID, err)
+			}
+
+			contractsConfig := make(map[string]evmrelaytypes.ChainContractReader, len(aggregatorContracts))
+			for i := range aggregatorContracts {
+				contractsConfig[fmt.Sprintf("%v_%v", ccip.OffchainAggregator, i)] = evmrelaytypes.ChainContractReader{
+					ContractABI: ccip.OffChainAggregatorABI,
+					Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+						"decimals": { // CR consumers choose an alias
+							ChainSpecificName: "decimals",
+						},
+						"latestRoundData": {
+							ChainSpecificName: "latestRoundData",
+						},
+					},
+				}
+			}
+			contractReaderConfig := evmrelaytypes.ChainReaderConfig{
+				Contracts: contractsConfig,
+			}
+
+			contractReaderConfigJSONBytes, jerr := json.Marshal(contractReaderConfig)
+			if jerr != nil {
+				return nil, fmt.Errorf("marshal contract reader config: %w", jerr)
+			}
+
+			contractReader, cerr := relay.NewContractReader(ctx, contractReaderConfigJSONBytes)
+			if cerr != nil {
+				return nil, fmt.Errorf("new ccip commit contract reader %w", cerr)
+			}
+
+			contractReaders[chainID] = contractReader
+		}
+
+		priceGetter, err = ccip.NewDynamicPriceGetter(*pluginJobSpecConfig.PriceGetterConfig, contractReaders)
+		if err != nil {
+			return nil, fmt.Errorf("creating dynamic price getter: %w", err)
+		}
+	}
+	return priceGetter, nil
+}
+
 func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
 	return factory.CommitReportToEthTxMeta(typ, ver)
 }
@@ -213,4 +368,9 @@ func UnregisterCommitPluginLpFilters(srcProvider commontypes.CCIPCommitProvider,
 		}
 	}
 	return multiErr
+}
+
+type RelayGetter interface {
+	Get(id commontypes.RelayID) (loop.Relayer, error)
+	GetIDToRelayerMap() (map[commontypes.RelayID]loop.Relayer, error)
 }

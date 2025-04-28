@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/maps"
 
 	"github.com/gagliardetto/solana-go"
@@ -16,18 +17,19 @@ import (
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestTokenTransfer(t *testing.T) {
+func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
 
@@ -283,7 +285,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	tokenReceiver, _, ferr := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, destToken, state.SolChains[destChain].Receiver)
 	require.NoError(t, ferr)
 
-	extraArgs, err := testhelpers.SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
+	extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
 		TokenReceiver: tokenReceiver,
 		// Accounts: accounts,
 	})
@@ -302,7 +304,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 					Amount: oneE9,
 				},
 			},
-			Receiver: state.SolChains[destChain].Receiver.Bytes(),
+			TokenReceiver: tokenReceiver.Bytes(),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				// due to the differences in decimals, 1e9 on EVM results to 1 on SVM
 				{Token: destToken.Bytes(), Amount: big.NewInt(1)},
@@ -448,10 +450,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, srcToken, ownerSourceChain)
 	require.NoError(t, err)
 
-	externalTokenPoolsSignerPDA, _, err := solstate.FindExternalTokenPoolsSignerPDA(state.SolChains[sourceChain].Router)
-	require.NoError(t, err)
-
-	ixApprove2, err := soltokens.TokenApproveChecked(1000, 9, solana.Token2022ProgramID, userTokenAccount, srcToken, externalTokenPoolsSignerPDA, ownerSourceChain, nil)
+	ixApprove2, err := soltokens.TokenApproveChecked(1000, 9, solana.Token2022ProgramID, userTokenAccount, srcToken, billingSignerPDA, ownerSourceChain, nil)
 	require.NoError(t, err)
 
 	ixs := []solana.Instruction{ixApprove2}
@@ -481,7 +480,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 			Receiver: state.Chains[destChain].Receiver.Address().Bytes(),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				// due to the differences in decimals, 1 on SVM results to 1e9 on EVM
-				{Token: destToken.Address().Bytes(), Amount: new(big.Int).SetUint64(oneE9)},
+				{Token: common.LeftPadBytes(destToken.Address().Bytes(), 32), Amount: new(big.Int).SetUint64(oneE9)},
 			},
 			ExtraArgs:      extraArgs,
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,

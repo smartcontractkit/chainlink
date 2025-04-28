@@ -9,11 +9,11 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -134,6 +134,8 @@ func TestAddTokenE2E(t *testing.T) {
 			addTokenE2EConfig := v1_5_1.AddTokensE2EConfig{
 				MCMS: mcmsConfig,
 			}
+			recipientAddress := utils.RandomAddress()
+			topupAmount := big.NewInt(1000)
 			// form the changeset input config
 			for _, chain := range e.AllChainSelectors() {
 				if addTokenE2EConfig.Tokens == nil {
@@ -164,6 +166,9 @@ func TestAddTokenE2E(t *testing.T) {
 						MaxSupply:     big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 						Type:          changeset.BurnMintToken,
 						PoolType:      changeset.BurnMintTokenPool,
+						MintTokenForRecipients: map[common.Address]*big.Int{
+							recipientAddress: topupAmount,
+						},
 					}
 				} else {
 					token := tokens[chain]
@@ -199,6 +204,14 @@ func TestAddTokenE2E(t *testing.T) {
 						Address:  token.Address(),
 						Contract: token,
 					}
+					// check token balance
+					balance, err := token.BalanceOf(&bind.CallOpts{Context: ctx}, recipientAddress)
+					require.NoError(t, err)
+					require.Equal(t, balance, topupAmount)
+					// check minter role
+					minterCheck, err := token.IsMinter(&bind.CallOpts{Context: ctx}, recipientAddress)
+					require.NoError(t, err)
+					require.True(t, minterCheck)
 				}
 			}
 			registryOnA := state.Chains[selectorA].TokenAdminRegistry
@@ -240,7 +253,17 @@ func TestAddTokenE2E(t *testing.T) {
 					rateLimiterConfig.Inbound.Capacity,
 					e.Chains[chain].DeployerKey.From, // the pools are still owned by the deployer
 				)
+				if test.withNewToken {
+					// check token pool is added as minter
+					minterCheck, err := token.Contract.IsMinter(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
+					require.NoError(t, err)
+					require.True(t, minterCheck)
 
+					// check token pool is added as burner
+					burnerCheck, err := token.Contract.IsBurner(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
+					require.NoError(t, err)
+					require.True(t, burnerCheck)
+				}
 				// check if admin and set pool is set correctly
 				regConfig, err := registry.GetTokenConfig(&bind.CallOpts{Context: ctx}, token.Address)
 				require.NoError(t, err)
