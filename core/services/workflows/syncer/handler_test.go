@@ -295,7 +295,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	var configURL = "http://example.com/config"
 	var config = []byte("")
 	var wfOwner = []byte("0xOwner")
-	var binary = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+	var binary = wasmtest.CreateTestBinary(binaryCmd, true, t)
 	var encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 	var workflowName = "workflow-name"
 
@@ -828,7 +828,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com"
@@ -913,7 +913,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com"
@@ -966,7 +966,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com"
@@ -1057,7 +1057,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			updateConfig  = []byte("updated")

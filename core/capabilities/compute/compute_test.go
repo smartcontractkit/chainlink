@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/metering"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -32,9 +32,8 @@ import (
 )
 
 const (
-	fetchBinaryLocation = "test/fetch/cmd/testmodule.wasm"
-	fetchBinaryCmd      = "core/capabilities/compute/test/fetch/cmd"
-	validRequestUUID    = "d2fe6db9-beb4-47c9-b2d6-d3065ace111e"
+	fetchBinaryCmd   = "core/capabilities/compute/test/fetch/cmd"
+	validRequestUUID = "d2fe6db9-beb4-47c9-b2d6-d3065ace111e"
 )
 
 var defaultConfig = Config{
@@ -102,7 +101,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 	th := setup(t, defaultConfig)
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"binary": binary,
@@ -140,14 +139,12 @@ func TestComputeExecuteMissingBinary(t *testing.T) {
 }
 
 func TestComputeExecute(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-560")
-
 	t.Parallel()
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -224,7 +221,7 @@ func TestComputeFetch(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -276,8 +273,6 @@ func TestComputeFetch(t *testing.T) {
 }
 
 func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-573")
-
 	t.Parallel()
 
 	tests := []struct {
@@ -299,7 +294,7 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 		validRequestUUID,
 	}, "/")
 	gatewayResp := gatewayResponse(t, msgID, []byte("response body"))
-	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -382,7 +377,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),

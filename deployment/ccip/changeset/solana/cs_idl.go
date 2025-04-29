@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml"
@@ -18,6 +17,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
@@ -33,6 +35,10 @@ type IDLConfig struct {
 	RMNRemote            bool
 	BurnMintTokenPool    bool
 	LockReleaseTokenPool bool
+	AccessController     bool
+	MCM                  bool
+	Timelock             bool
+	MCMS                 *proposalutils.TimelockConfig
 }
 
 // parse anchor version from running anchor --version
@@ -202,8 +208,8 @@ func parseIdlBuffer(output string) (string, error) {
 }
 
 // write IDL buffer for a program
-func writeBuffer(e deployment.Environment, programsPath, programID string) (solana.PublicKey, error) {
-	idlFile, err := getIDL(e, programsPath, programID, deployment.RouterProgramName)
+func writeBuffer(e deployment.Environment, programsPath, programID, programName string) (solana.PublicKey, error) {
+	idlFile, err := getIDL(e, programsPath, programID, programName)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("error getting IDL: %w", err)
 	}
@@ -248,24 +254,38 @@ func setBufferIx(e deployment.Environment, programID, buffer, authority solana.P
 }
 
 // generate upgrade IDL ix for a program via timelock
-func upgradeIDLIx(e deployment.Environment, programsPath, programID string, timelockSignerPDA solana.PublicKey) (*mcmsTypes.Transaction, error) {
-	buffer, err := writeBuffer(e, programsPath, programID)
+func upgradeIDLIx(e deployment.Environment, programsPath, programID, programName string, c IDLConfig) (*mcmsTypes.Transaction, error) {
+	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("error loading timelockSignerPDA: %w", err)
+	}
+	buffer, err := writeBuffer(e, programsPath, programID, programName)
 	if err != nil {
 		return nil, fmt.Errorf("error writing buffer: %w", err)
 	}
-	err = setIdlAuthority(e, timelockSignerPDA.String(), programsPath, programID, deployment.RouterProgramName, buffer.String())
-	if err != nil {
-		return nil, fmt.Errorf("error setting buffer authority: %w", err)
+	authority := e.SolChains[c.ChainSelector].DeployerKey.PublicKey()
+	if c.MCMS != nil {
+		authority = timelockSignerPDA
+		err = setIdlAuthority(e, timelockSignerPDA.String(), programsPath, programID, programName, buffer.String())
+		if err != nil {
+			return nil, fmt.Errorf("error setting buffer authority: %w", err)
+		}
 	}
-	instruction, err := setBufferIx(e, solana.MustPublicKeyFromBase58(programID), buffer, timelockSignerPDA)
+	instruction, err := setBufferIx(e, solana.MustPublicKeyFromBase58(programID), buffer, authority)
 	if err != nil {
 		return nil, fmt.Errorf("error generating set buffer ix: %w", err)
 	}
-	upgradeTx, err := BuildMCMSTxn(&instruction, programID, deployment.RMNRemoteProgramName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create upgrade transaction: %w", err)
+	if c.MCMS != nil {
+		upgradeTx, err := BuildMCMSTxn(&instruction, programID, deployment.ContractType(programName))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create upgrade transaction: %w", err)
+		}
+		return upgradeTx, nil
 	}
-	return upgradeTx, nil
+	if err := e.SolChains[c.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
+		return nil, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+	return nil, nil
 }
 
 func (c IDLConfig) Validate(e deployment.Environment) error {
@@ -301,6 +321,23 @@ func (c IDLConfig) Validate(e deployment.Environment) error {
 	}
 	if c.LockReleaseTokenPool && chainState.LockReleaseTokenPool.IsZero() {
 		return fmt.Errorf("lockReleaseTokenPool not deployed for chain %d, cannot upload idl", c.ChainSelector)
+	}
+	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	if err != nil {
+		return fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[c.ChainSelector], addresses)
+	if err != nil {
+		return fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+	if c.MCM && mcmState.McmProgram.IsZero() {
+		return fmt.Errorf("mcm program not deployed for chain %d, cannot upload idl", c.ChainSelector)
+	}
+	if c.Timelock && mcmState.TimelockProgram.IsZero() {
+		return fmt.Errorf("timelock program not deployed for chain %d, cannot upload idl", c.ChainSelector)
+	}
+	if c.AccessController && mcmState.AccessControllerProgram.IsZero() {
+		return fmt.Errorf("access controller program not deployed for chain %d, cannot upload idl", c.ChainSelector)
 	}
 	return nil
 }
@@ -354,6 +391,32 @@ func UploadIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutpu
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
+	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[c.ChainSelector], addresses)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+	if c.MCM {
+		err := idlInit(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName)
+		if err != nil {
+			return deployment.ChangesetOutput{}, nil
+		}
+	}
+	if c.Timelock {
+		err := idlInit(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), deployment.TimelockProgramName)
+		if err != nil {
+			return deployment.ChangesetOutput{}, nil
+		}
+	}
+	if c.AccessController {
+		err := idlInit(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName)
+		if err != nil {
+			return deployment.ChangesetOutput{}, nil
+		}
+	}
 
 	return deployment.ChangesetOutput{}, nil
 }
@@ -363,7 +426,6 @@ func SetAuthorityIDL(e deployment.Environment, c IDLConfig) (deployment.Changese
 	if err := c.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
-	// chain := e.SolChains[c.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 	chain := e.SolChains[c.ChainSelector]
@@ -411,6 +473,34 @@ func SetAuthorityIDL(e deployment.Environment, c IDLConfig) (deployment.Changese
 		}
 	}
 
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+
+	if c.AccessController {
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram.String(), "")
+		if err != nil {
+			return deployment.ChangesetOutput{}, nil
+		}
+	}
+	if c.Timelock {
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.TimelockProgram.String(), types.RBACTimelockProgram.String(), "")
+		if err != nil {
+			return deployment.ChangesetOutput{}, nil
+		}
+	}
+	if c.MCM {
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.McmProgram.String(), types.ManyChainMultisigProgram.String(), "")
+		if err != nil {
+			return deployment.ChangesetOutput{}, nil
+		}
+	}
+
 	return deployment.ChangesetOutput{}, nil
 }
 
@@ -431,62 +521,111 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		return deployment.ChangesetOutput{}, fmt.Errorf("error setting up anchor workspace: %w", err)
 	}
 
-	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error loading timelockSignerPDA: %w", err)
-	}
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
 	if c.Router {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.Router.String(), timelockSignerPDA)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
-		mcmsTxs = append(mcmsTxs, *upgradeTx)
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
 	}
 	if c.FeeQuoter {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.FeeQuoter.String(), timelockSignerPDA)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
-		mcmsTxs = append(mcmsTxs, *upgradeTx)
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
 	}
 	if c.OffRamp {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.OffRamp.String(), timelockSignerPDA)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
-		mcmsTxs = append(mcmsTxs, *upgradeTx)
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
 	}
 	if c.RMNRemote {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.RMNRemote.String(), timelockSignerPDA)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
-		mcmsTxs = append(mcmsTxs, *upgradeTx)
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
 	}
 	if c.BurnMintTokenPool {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.BurnMintTokenPool.String(), timelockSignerPDA)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.BurnMintTokenPool.String(), deployment.BurnMintTokenPoolProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
-		mcmsTxs = append(mcmsTxs, *upgradeTx)
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
 	}
 	if c.LockReleaseTokenPool {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.LockReleaseTokenPool.String(), timelockSignerPDA)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.LockReleaseTokenPool.String(), deployment.LockReleaseTokenPoolProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
-		mcmsTxs = append(mcmsTxs, *upgradeTx)
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
 	}
 
-	proposal, err := BuildProposalsForTxns(
-		e, c.ChainSelector, "proposal to upgrade CCIP contracts", 1*time.Second, mcmsTxs)
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
 
-	// do we need to batch this ?
-	return deployment.ChangesetOutput{
-		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-	}, nil
+	if c.AccessController {
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, c)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+	if c.Timelock {
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), deployment.TimelockProgramName, c)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+	if c.MCM {
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName, c)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+
+	if len(mcmsTxs) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, c.ChainSelector, "proposal to upgrade CCIP contracts", c.MCMS.MinDelay, mcmsTxs)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+
+		// do we need to batch this ?
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	return deployment.ChangesetOutput{}, nil
 }

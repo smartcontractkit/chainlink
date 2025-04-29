@@ -392,14 +392,17 @@ func TestIDL(t *testing.T) {
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
 			ccipChangesetSolana.IDLConfig{
-				ChainSelector: solChain,
-				GitCommitSha:  "",
-				Router:        true,
-				// FeeQuoter:            true,
-				// OffRamp:              true,
-				// RMNRemote:            true,
-				// BurnMintTokenPool:    true,
-				// LockReleaseTokenPool: true,
+				ChainSelector:        solChain,
+				GitCommitSha:         "",
+				Router:               true,
+				FeeQuoter:            true,
+				OffRamp:              true,
+				RMNRemote:            true,
+				BurnMintTokenPool:    true,
+				LockReleaseTokenPool: true,
+				AccessController:     true,
+				Timelock:             true,
+				MCM:                  true,
 			},
 		),
 	})
@@ -408,7 +411,8 @@ func TestIDL(t *testing.T) {
 	// deploy timelock
 	_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
-			Router: true,
+			Router:    true,
+			FeeQuoter: true,
 		})
 
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
@@ -417,11 +421,7 @@ func TestIDL(t *testing.T) {
 			ccipChangesetSolana.IDLConfig{
 				ChainSelector: solChain,
 				Router:        true,
-				// FeeQuoter:            true,
-				// OffRamp:              true,
-				// RMNRemote:            true,
-				// BurnMintTokenPool:    true,
-				// LockReleaseTokenPool: true,
+				FeeQuoter:     true,
 			},
 		),
 		commonchangeset.Configure(
@@ -430,11 +430,28 @@ func TestIDL(t *testing.T) {
 				ChainSelector: solChain,
 				GitCommitSha:  "",
 				Router:        true,
-				// FeeQuoter:            true,
-				// OffRamp:              true,
-				// RMNRemote:            true,
-				// BurnMintTokenPool:    true,
-				// LockReleaseTokenPool: true,
+				FeeQuoter:     true,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector:        solChain,
+				GitCommitSha:         "",
+				OffRamp:              true,
+				RMNRemote:            true,
+				BurnMintTokenPool:    true,
+				LockReleaseTokenPool: true,
+				AccessController:     true,
+				Timelock:             true,
+				MCM:                  true,
 			},
 		),
 	})
