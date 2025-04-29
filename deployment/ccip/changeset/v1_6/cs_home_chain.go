@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -283,8 +284,8 @@ func deployHomeChain(
 		return nil, fmt.Errorf("failed to get capabilities: %w", err)
 	}
 	capabilityToAdd := capabilities_registry.CapabilitiesRegistryCapability{
-		LabelledName:          internal.CapabilityLabelledName,
-		Version:               internal.CapabilityVersion,
+		LabelledName:          ccip.CapabilityLabelledName,
+		Version:               ccip.CapabilityVersion,
 		CapabilityType:        2, // consensus. not used (?)
 		ResponseType:          0, // report. not used (?)
 		ConfigurationContract: ccipHomeAddr,
@@ -441,7 +442,7 @@ func addNodes(
 				Signer:              p2pID, // Not used in tests
 				P2pId:               p2pID,
 				EncryptionPublicKey: p2pID, // Not used in tests
-				HashedCapabilityIds: [][32]byte{internal.CCIPCapabilityID},
+				HashedCapabilityIds: [][32]byte{ccip.CCIPCapabilityID},
 			}
 			if existing, ok := existingNodeParams[p2pID]; ok {
 				if isEqualCapabilitiesRegistryNodeParams(existing, nodeParam) {

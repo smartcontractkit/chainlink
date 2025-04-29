@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/hashicorp/go-multierror"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -264,6 +265,27 @@ func (e Environment) AllDeployerKeys() []common.Address {
 		deployerKeys = append(deployerKeys, e.Chains[sel].DeployerKey.From)
 	}
 	return deployerKeys
+}
+
+// P2PIDsPresentInJD - For a given p2pIDs, check if the nodes are present in JD.
+func (e Environment) P2PIDsPresentInJD(p2pIDs [][32]byte) error {
+	if e.Offchain == nil {
+		return errors.New("offchain client is nil in environment")
+	}
+	nodeInfo, err := NodeInfo(e.NodeIDs, e.Offchain)
+	if err != nil {
+		e.Logger.Errorw("failed to get node info from JD", "err", err)
+		return err
+	}
+	var allErrs error
+	for _, p2pID := range p2pIDs {
+		if !slices.ContainsFunc(nodeInfo, func(n Node) bool {
+			return n.PeerID == p2pID
+		}) {
+			allErrs = multierror.Append(allErrs, fmt.Errorf("node with p2pID %x not found in JD", p2pID[:]))
+		}
+	}
+	return allErrs
 }
 
 func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {

@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -140,7 +143,7 @@ func GenerateCCIPHomeView(cr *capabilities_registry.CapabilitiesRegistry, ch *cc
 	if crAddr != cr.Address() {
 		return CCIPHomeView{}, fmt.Errorf("capability registry address mismatch for CCIPHome %s: %w", ch.Address(), err)
 	}
-	dons, err := cr.GetDONs(nil)
+	dons, err := ccip.GetCCIPDonsFromCapRegistry(context.Background(), cr)
 	if err != nil {
 		return CCIPHomeView{}, fmt.Errorf("failed to get DONs for CCIPHome %s: %w", ch.Address(), err)
 	}

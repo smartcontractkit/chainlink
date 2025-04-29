@@ -20,8 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
@@ -129,6 +132,9 @@ var (
 
 	// Firedrill
 	FiredrillEntrypointType deployment.ContractType = "FiredrillEntrypoint"
+
+	// Treasury
+	FeeAggregator deployment.ContractType = "FeeAggregator"
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
@@ -187,6 +193,314 @@ type CCIPChainState struct {
 	MockRMN        *mock_rmn_contract.MockRMNContract
 	PriceRegistry  *price_registry_1_2_0.PriceRegistry
 	RMN            *rmn_contract.RMNContract
+
+	// Treasury contracts
+	FeeAggregator common.Address
+}
+
+func (c CCIPChainState) validateHomeChain(e deployment.Environment, offRampsByChain map[uint64]offramp.OffRampInterface) error {
+	if c.RMNHome == nil {
+		return errors.New("no RMNHome contract found in the state for home chain")
+	}
+	if c.CCIPHome == nil {
+		return errors.New("no CCIPHome contract found in the state for home chain")
+	}
+	if c.CapabilityRegistry == nil {
+		return errors.New("no CapabilityRegistry contract found in the state for home chain")
+	}
+	// get capReg from CCIPHome
+	capReg, err := c.CCIPHome.GetCapabilityRegistry(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get capability registry from CCIPHome contract: %w", err)
+	}
+	if capReg != c.CapabilityRegistry.Address() {
+		return fmt.Errorf("capability registry mismatch: expected %s, got %s", capReg.Hex(), c.CapabilityRegistry.Address().Hex())
+	}
+	ccipDons, err := ccip.GetCCIPDonsFromCapRegistry(e.GetContext(), c.CapabilityRegistry)
+	if err != nil {
+		return fmt.Errorf("failed to get CCIP Dons from capability registry: %w", err)
+	}
+	if len(ccipDons) == 0 {
+		return errors.New("no CCIP Dons found in capability registry")
+	}
+	// validate for all ccipDons
+	for _, don := range ccipDons {
+		if err := e.P2PIDsPresentInJD(don.NodeP2PIds); err != nil {
+			return fmt.Errorf("failed to find Capability Registry p2pIDs in JD: %w", err)
+		}
+		commitConfig, err := c.CCIPHome.GetAllConfigs(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, don.Id, uint8(cciptypes.PluginTypeCCIPCommit))
+		if err != nil {
+			return fmt.Errorf("failed to get commit config for don %s: %w", don.Id, err)
+		}
+		if err := c.validateCCIPHomeVersionedActiveConfig(e, commitConfig.ActiveConfig, offRampsByChain); err != nil {
+			return fmt.Errorf("failed to validate active commit config for don %s: %w", don.Id, err)
+		}
+		execConfig, err := c.CCIPHome.GetAllConfigs(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, don.Id, uint8(cciptypes.PluginTypeCCIPExec))
+		if err != nil {
+			return fmt.Errorf("failed to get exec config for don %s: %w", don.Id, err)
+		}
+		if err := c.validateCCIPHomeVersionedActiveConfig(e, execConfig.ActiveConfig, offRampsByChain); err != nil {
+			return fmt.Errorf("failed to validate active exec config for don %s: %w", don.Id, err)
+		}
+	}
+	return nil
+}
+
+// validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on corresponding chain selector and that state
+// The validation related to correctness of F and node length is omitted here as it is already validated in the contract
+func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Environment, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
+	if homeCfg.ConfigDigest == [32]byte{} {
+		return errors.New("active config digest is empty")
+	}
+	chainSel := homeCfg.Config.ChainSelector
+	offRamp, ok := offRampsByChain[chainSel]
+	if !ok {
+		return fmt.Errorf("offRamp %d not found in the state", chainSel)
+	}
+	// validate ChainConfig in CCIPHome
+	homeChainConfig, err := c.CCIPHome.GetChainConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	}, chainSel)
+	if err != nil {
+		return fmt.Errorf("failed to get home chain config for chain %d: %w", chainSel, err)
+	}
+	// Node details should match with what we fetch from JD for CCIP Home Readers
+	if err := e.P2PIDsPresentInJD(homeChainConfig.Readers); err != nil {
+		return fmt.Errorf("failed to find homechain readers in JD for chain %d: %w", chainSel, err)
+	}
+
+	// Validate CCIPHome OCR3 Related Config
+	if offRamp.Address() != common.BytesToAddress(homeCfg.Config.OfframpAddress) {
+		return fmt.Errorf("offRamp address mismatch in active config for ccip home for chain %d: expected %s, got %s",
+			chainSel, offRamp.Address().Hex(), homeCfg.Config.OfframpAddress)
+	}
+	if c.RMNHome.Address() != common.BytesToAddress(homeCfg.Config.RmnHomeAddress) {
+		return fmt.Errorf("RMNHome address mismatch in active config for ccip home for chain %d: expected %s, got %s",
+			chainSel, c.RMNHome.Address().Hex(), homeCfg.Config.RmnHomeAddress)
+	}
+	p2pIDs := make([][32]byte, len(homeCfg.Config.Nodes))
+	for _, node := range homeCfg.Config.Nodes {
+		p2pIDs = append(p2pIDs, node.P2pId)
+	}
+	if err := e.P2PIDsPresentInJD(p2pIDs); err != nil {
+		return fmt.Errorf("failed to find p2pIDs from CCIPHome config in JD for chain %d: %w", chainSel, err)
+	}
+	// cross-check with offRamp whether all in sync
+	switch homeCfg.Config.PluginType {
+	case uint8(cciptypes.PluginTypeCCIPCommit):
+		commitConfig, err := offRamp.LatestConfigDetails(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, uint8(cciptypes.PluginTypeCCIPCommit))
+		if err != nil {
+			return fmt.Errorf("failed to get commit config for chain %d offRamp %s: %w", chainSel, err, c.OffRamp.Address().Hex())
+		}
+		// the config digest should match with CCIP Home ActiveConfig
+		if commitConfig.ConfigInfo.ConfigDigest != homeCfg.ConfigDigest {
+			return fmt.Errorf("offRamp %s commit config digest mismatch with CCIPHome for chain %d: expected %x, got %x",
+				offRamp.Address().Hex(), chainSel, homeCfg.ConfigDigest, commitConfig.ConfigInfo.ConfigDigest)
+		}
+		if !commitConfig.ConfigInfo.IsSignatureVerificationEnabled {
+			return fmt.Errorf("offRamp %s commit config signature verification is not enabled", offRamp.Address().Hex())
+		}
+		if err := validateLatestConfigOffRamp(offRamp, commitConfig, homeChainConfig); err != nil {
+			return fmt.Errorf("offRamp %s commit config validation error: %w", offRamp.Address().Hex(), err)
+		}
+	case uint8(cciptypes.PluginTypeCCIPExec):
+		execConfig, err := offRamp.LatestConfigDetails(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, uint8(cciptypes.PluginTypeCCIPExec))
+		if err != nil {
+			return fmt.Errorf("failed to get exec config for chain %d offRamp %s: %w", chainSel, err, offRamp.Address().Hex())
+		}
+		// the config digest should match with CCIP Home ActiveConfig
+		if execConfig.ConfigInfo.ConfigDigest != homeCfg.ConfigDigest {
+			return fmt.Errorf("offRamp %s exec config digest mismatch with CCIPHome for chain %d: expected %x, got %x",
+				offRamp.Address().Hex(), chainSel, homeCfg.ConfigDigest, execConfig.ConfigInfo.ConfigDigest)
+		}
+		if execConfig.ConfigInfo.IsSignatureVerificationEnabled {
+			return fmt.Errorf("offRamp %s exec config signature verification is enabled", offRamp.Address().Hex())
+		}
+		if err := validateLatestConfigOffRamp(offRamp, execConfig, homeChainConfig); err != nil {
+			return fmt.Errorf("offRamp %s exec config validation error: %w", offRamp.Address().Hex(), err)
+		}
+	default:
+		return fmt.Errorf("unsupported plugin type %d for chain %d", homeCfg.Config.PluginType, chainSel)
+	}
+	return nil
+}
+func (c CCIPChainState) validateOnRamp(
+	e deployment.Environment,
+	selector uint64,
+) error {
+	if c.OnRamp == nil {
+		return errors.New("no OnRamp contract found in the state")
+	}
+	staticCfg, err := c.OnRamp.GetStaticConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return err
+	}
+	if staticCfg.ChainSelector != selector {
+		return fmt.Errorf("onRamp %s chainSelector mismatch in static config: expected %d, got %d",
+			c.OnRamp.Address().Hex(), selector, staticCfg.ChainSelector)
+	}
+	if c.RMNRemote.Address() != staticCfg.RmnRemote {
+		return fmt.Errorf("onRamp %s RMNRemote mismatch in static config: expected %s, got %s",
+			c.OnRamp.Address().Hex(), c.RMNRemote.Address().Hex(), staticCfg.RmnRemote)
+	}
+	if c.NonceManager.Address() != staticCfg.NonceManager {
+		return fmt.Errorf("onRamp %s NonceManager mismatch in static config: expected %s, got %s",
+			c.OnRamp.Address().Hex(), c.NonceManager.Address().Hex(), staticCfg.NonceManager)
+	}
+	if c.TokenAdminRegistry.Address() != staticCfg.TokenAdminRegistry {
+		return fmt.Errorf("onRamp %s TokenAdminRegistry mismatch in static config: expected %s, got %s",
+			c.OnRamp.Address().Hex(), c.TokenAdminRegistry.Address().Hex(), staticCfg.TokenAdminRegistry)
+	}
+	dynamicCfg, err := c.OnRamp.GetDynamicConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get dynamic config for chain %d onRamp %s: %w", selector, err, c.OnRamp.Address().Hex())
+	}
+	if dynamicCfg.FeeQuoter != c.FeeQuoter.Address() {
+		return fmt.Errorf("onRamp %s feeQuoter mismatch in dynamic config: expected %s, got %s",
+			c.OnRamp.Address().Hex(), c.FeeQuoter.Address().Hex(), dynamicCfg.FeeQuoter.Hex())
+	}
+	// if the fee aggregator is set, it should match the one in the dynamic config
+	// otherwise the fee aggregator should be the timelock address
+	if c.FeeAggregator != (common.Address{}) {
+		if c.FeeAggregator != dynamicCfg.FeeAggregator {
+			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected %s, got %s",
+				c.OnRamp.Address().Hex(), c.FeeAggregator.Hex(), dynamicCfg.FeeAggregator.Hex())
+		}
+	} else {
+		if c.FeeAggregator != c.Timelock.Address() {
+			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected timelock %s, got %s",
+				c.OnRamp.Address().Hex(), c.Timelock.Address().Hex(), dynamicCfg.FeeAggregator.Hex())
+		}
+	}
+
+	otherChains := e.AllChainSelectorsExcluding([]uint64{selector})
+	for _, otherChainSel := range otherChains {
+		destChainCfg, err := c.OnRamp.GetDestChainConfig(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, otherChainSel)
+		if err != nil {
+			return fmt.Errorf("failed to get dest chain config from source chain %d onRamp %s for dest chain %d: %w",
+				selector, c.OnRamp.Address(), otherChainSel, err)
+		}
+		// if not blank, the dest chain config should be enabled
+		if destChainCfg != (onramp.GetDestChainConfig{}) {
+			if destChainCfg.Router != c.Router.Address() && destChainCfg.Router != c.TestRouter.Address() {
+				return fmt.Errorf("onRamp %s router mismatch in dest chain config: expected router %s or test router %s, got %s",
+					c.OnRamp.Address().Hex(), c.Router.Address().Hex(), c.TestRouter.Address().Hex(), destChainCfg.Router.Hex())
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c CCIPChainState) validateFeeQuoter(e deployment.Environment) error {
+	if c.FeeQuoter == nil {
+		return errors.New("no FeeQuoter contract found in the state")
+	}
+	staticConfig, err := c.FeeQuoter.GetStaticConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get static config for FeeQuoter %s: %w", c.FeeQuoter.Address().Hex(), err)
+	}
+	if staticConfig.LinkToken != c.LinkToken.Address() && staticConfig.LinkToken != c.StaticLinkToken.Address() {
+		return fmt.Errorf("feeQuoter %s LinkToken mismatch: expected either linktoken %s or static link token %s, got %s",
+			c.FeeQuoter.Address().Hex(), c.LinkToken.Address().Hex(), c.StaticLinkToken.Address(), staticConfig.LinkToken.Hex())
+	}
+	return nil
+}
+
+func (c CCIPChainState) validateOffRamp(
+	e deployment.Environment,
+	selector uint64,
+	onRampsBySelector map[uint64]common.Address,
+) error {
+	if c.OffRamp == nil {
+		return errors.New("no OffRamp contract found in the state")
+	}
+	// staticConfig chainSelector matches the selector key for the CCIPChainState
+	staticConfig, err := c.OffRamp.GetStaticConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get static config for chain %d offRammp %s: %w", selector, err, c.OffRamp.Address().Hex())
+	}
+	// staticConfig chainSelector should match the selector key for the CCIPChainState
+	if staticConfig.ChainSelector != selector {
+		return fmt.Errorf("offRamp %s chainSelector mismatch: expected %d, got %d",
+			c.OffRamp.Address().Hex(), selector, staticConfig.ChainSelector)
+	}
+	// RMNRemote address for chain should be the same as the one in the static config
+	if c.RMNRemote.Address() != staticConfig.RmnRemote {
+		return fmt.Errorf("offRamp %s RMNRemote mismatch: expected %s, got %s",
+			c.OffRamp.Address().Hex(), c.RMNRemote.Address().Hex(), staticConfig.RmnRemote)
+	}
+	// NonceManager address for chain should be the same as the one in the static config
+	if c.NonceManager.Address() != staticConfig.NonceManager {
+		return fmt.Errorf("offRamp %s NonceManager mismatch: expected %s, got %s",
+			c.OffRamp.Address().Hex(), c.NonceManager.Address().Hex(), staticConfig.NonceManager)
+	}
+	// TokenAdminRegistry address for chain should be the same as the one in the static config
+	if c.TokenAdminRegistry.Address() != staticConfig.TokenAdminRegistry {
+		return fmt.Errorf("offRamp %s TokenAdminRegistry mismatch: expected %s, got %s",
+			c.OffRamp.Address().Hex(), c.TokenAdminRegistry.Address().Hex(), staticConfig.TokenAdminRegistry)
+	}
+	dynamicConfig, err := c.OffRamp.GetDynamicConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get dynamic config for chain %d offRamp %s: %w", selector, err, c.OffRamp.Address().Hex())
+	}
+	// FeeQuoter address for chain should be the same as the one in the static config
+	if dynamicConfig.FeeQuoter != c.FeeQuoter.Address() {
+		return fmt.Errorf("offRamp %s feeQuoter mismatch: expected %s, got %s",
+			c.OffRamp.Address().Hex(), c.FeeQuoter.Address().Hex(), dynamicConfig.FeeQuoter.Hex())
+	}
+	if dynamicConfig.PermissionLessExecutionThresholdSeconds != uint32(globals.PermissionLessExecutionThreshold.Seconds()) {
+		return fmt.Errorf("offRamp %s permissionless execution threshold mismatch: expected %d, got %d",
+			c.OffRamp.Address().Hex(), globals.PermissionLessExecutionThreshold.Seconds(), dynamicConfig.PermissionLessExecutionThresholdSeconds)
+	}
+	otherChains := e.AllChainSelectorsExcluding([]uint64{selector})
+	for _, otherChainSel := range otherChains {
+		config, err := c.OffRamp.GetSourceChainConfig(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, otherChainSel)
+		if err != nil {
+			return fmt.Errorf("failed to get source chain config for chain %d: %w", otherChainSel, err)
+		}
+		if config.IsEnabled {
+			srcChainOnRamp, ok := onRampsBySelector[otherChainSel]
+			if !ok {
+				return fmt.Errorf("onRamp %d not found in the state", otherChainSel)
+			}
+			// For all configured sources, the address of configured onRamp for chain A must be the Address() of the onramp on chain A
+			if srcChainOnRamp != common.BytesToAddress(config.OnRamp) {
+				return fmt.Errorf("onRamp address mismatch for source chain %d on OffRamp %s : expected %s, got %x",
+					otherChainSel, c.OffRamp.Address().Hex(), srcChainOnRamp.Hex(), config.OnRamp)
+			}
+			// The address of router should be accurate
+			if c.Router.Address() != config.Router && c.TestRouter.Address() != config.Router {
+				return fmt.Errorf("router address mismatch for source chain %d on OffRamp %s : expected either router %s or test router %s, got %s",
+					otherChainSel, c.OffRamp.Address().Hex(), c.Router.Address().Hex(), c.TestRouter.Address().Hex(), config.Router.Hex())
+			}
+		}
+	}
+	return nil
 }
 
 func (c CCIPChainState) TokenAddressBySymbol() (map[TokenSymbol]common.Address, error) {
@@ -659,6 +973,38 @@ type CCIPOnChainState struct {
 	Chains      map[uint64]CCIPChainState
 	SolChains   map[uint64]SolCCIPChainState
 	AptosChains map[uint64]AptosCCIPChainState
+}
+
+func (c CCIPOnChainState) ValidatePostDeploymentState(e deployment.Environment) error {
+	onRampsBySelector := make(map[uint64]common.Address)
+	offRampsBySelector := make(map[uint64]offramp.OffRampInterface)
+	for selector, chainState := range c.Chains {
+		if chainState.OnRamp == nil {
+			return fmt.Errorf("onramp not found in the state for chain %d", selector)
+		}
+		onRampsBySelector[selector] = chainState.OnRamp.Address()
+		offRampsBySelector[selector] = chainState.OffRamp
+	}
+	homeChain, err := c.HomeChainSelector()
+	if err != nil {
+		return fmt.Errorf("failed to get home chain selector: %w", err)
+	}
+	homeChainState := c.Chains[homeChain]
+	if err := homeChainState.validateHomeChain(e, offRampsBySelector); err != nil {
+		return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
+	}
+	for selector, chainState := range c.Chains {
+		if err := chainState.validateOffRamp(e, selector, onRampsBySelector); err != nil {
+			return fmt.Errorf("failed to validate offramp %s for chain %d: %w", chainState.OffRamp.Address().Hex(), selector, err)
+		}
+		if err := chainState.validateOnRamp(e, selector); err != nil {
+			return fmt.Errorf("failed to validate onramp %s for chain %d: %w", chainState.OnRamp.Address().Hex(), selector, err)
+		}
+		if err := chainState.validateFeeQuoter(e); err != nil {
+			return fmt.Errorf("failed to validate fee quoter %s for chain %d: %w", chainState.FeeQuoter.Address().Hex(), selector, err)
+		}
+	}
+	return nil
 }
 
 // HomeChainSelector returns the selector of the home chain based on the presence of RMNHome, CapabilityRegistry and CCIPHome contracts.
@@ -1453,6 +1799,8 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.MockRMN = mockRMN
 			state.ABIByAddress[address] = mock_rmn_contract.MockRMNContractABI
+		case deployment.NewTypeAndVersion(FeeAggregator, deployment.Version1_0_0).String():
+			state.FeeAggregator = common.HexToAddress(address)
 		case deployment.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_5_0).String(),
 			deployment.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_6_0).String():
 			// Ignore firedrill contracts
@@ -1496,6 +1844,44 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateLatestConfigOffRamp(offRamp offramp.OffRampInterface, cfg offramp.MultiOCR3BaseOCRConfig, homeChainConfig ccip_home.CCIPHomeChainConfig) error {
+	// check if number of signers are unique and greater than 3
+	if len(cfg.Signers) < 3 {
+		return fmt.Errorf("offRamp %s config signers count mismatch: expected at least 3, got %d",
+			offRamp.Address().Hex(), len(cfg.Signers))
+	}
+	if !deployment.IsAddressListUnique(cfg.Signers) {
+		return fmt.Errorf("offRamp %s config signers list %v is not unique", offRamp.Address().Hex(), cfg.Signers)
+	}
+	if deployment.AddressListContainsEmptyAddress(cfg.Signers) {
+		return fmt.Errorf("offRamp %s config signers list %v contains empty address", offRamp.Address().Hex(), cfg.Signers)
+	}
+	if len(cfg.Transmitters) < 3 {
+		return fmt.Errorf("offRamp %s config transmitters count mismatch: expected at least 3, got %d",
+			offRamp.Address().Hex(), len(cfg.Transmitters))
+	}
+	if !deployment.IsAddressListUnique(cfg.Transmitters) {
+		return fmt.Errorf("offRamp %s config transmitters list %v is not unique", offRamp.Address().Hex(), cfg.Transmitters)
+	}
+	if deployment.AddressListContainsEmptyAddress(cfg.Transmitters) {
+		return fmt.Errorf("offRamp %s config transmitters list %v contains empty address", offRamp.Address().Hex(), cfg.Transmitters)
+	}
+
+	// FRoleDON >= fChain is a requirement
+	if cfg.ConfigInfo.F < homeChainConfig.FChain {
+		return fmt.Errorf("offRamp %s config fChain mismatch: expected at least %d, got %d",
+			offRamp.Address().Hex(), homeChainConfig.FChain, cfg.ConfigInfo.F)
+	}
+
+	//  transmitters.length should be validated such that it meets the 3 * fChain + 1 requirement
+	minTransmitterReq := 3*int(homeChainConfig.FChain) + 1
+	if len(cfg.Transmitters) < minTransmitterReq {
+		return fmt.Errorf("offRamp %s config transmitters count mismatch: expected at least %d, got %d",
+			offRamp.Address().Hex(), minTransmitterReq, len(cfg.Transmitters))
 	}
 	return nil
 }
