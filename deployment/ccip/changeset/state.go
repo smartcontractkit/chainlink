@@ -1293,14 +1293,14 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
 			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
 			if err != nil {
-				return state, err
+				return state, fmt.Errorf("failed to connect address %s with price feed bindings: %w", address, err)
 			}
 			if state.USDFeeds == nil {
 				state.USDFeeds = make(map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
 			}
 			desc, err := feed.Description(&bind.CallOpts{})
 			if err != nil {
-				return state, err
+				return state, fmt.Errorf("failed to get description of feed at %s: %w", address, err)
 			}
 			key, ok := DescriptionToTokenSymbol[desc]
 			if !ok {
