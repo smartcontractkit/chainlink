@@ -35,6 +35,7 @@ import (
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 )
 
+// use this changeset to deploy the CCIP contracts on solana
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
 func getTypeToProgramDeployName() map[deployment.ContractType]string {
@@ -844,6 +845,7 @@ func generateUpgradeTxns(
 		if err := chain.Confirm(ixns); err != nil {
 			return txns, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
+		return []mcmsTypes.Transaction{}, nil
 	}
 	upgradeTx, err := BuildMCMSTxn(upgradeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
 	if err != nil {

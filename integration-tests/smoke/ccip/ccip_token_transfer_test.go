@@ -254,13 +254,11 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
-		t,
 		lggr,
 		e,
 		sourceChain,
 		destChain,
 		ownerSourceChain,
-		e.ExistingAddresses,
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
@@ -391,13 +389,11 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 
 	// Deploy tokens and pool by CCIP Owner
 	destToken, _, srcToken, err := testhelpers.DeployTransferableTokenSolana(
-		t,
 		lggr,
 		e,
 		destChain,
 		sourceChain,
 		ownerDestChain,
-		e.ExistingAddresses,
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)

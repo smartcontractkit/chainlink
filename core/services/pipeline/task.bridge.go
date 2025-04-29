@@ -230,6 +230,12 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 		promBridgeErrors.WithLabelValues(t.Name).Inc()
 		if cacheTTL == 0 {
+			lggr.Debugw("Bridge task: request failed",
+				"response", string(responseBytes),
+				"url", url.String(),
+				"status_code", statusCode,
+				"error", err,
+			)
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
 
