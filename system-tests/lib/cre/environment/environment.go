@@ -41,7 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	libdevenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/devenv"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
-	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
+	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	cresecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -73,6 +73,7 @@ type SetupInput struct {
 	ExtraAllowedPorts                    []int
 	CapabilitiesAwareNodeSets            []*keystonetypes.CapabilitiesAwareNodeSet
 	CapabilitiesContractFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
+	ConfigFactoryFunctions               []cretypes.ConfigFactoryFn
 	JobSpecFactoryFunctions              []cretypes.JobSpecFactoryFn
 	BlockchainsInput                     []*blockchain.Input
 	JdInput                              jd.Input
@@ -300,16 +301,17 @@ func SetupTestEnvironment(
 
 		// generate configs only if they are not provided
 		if configsFound == 0 {
-			config, configErr := keystoneporconfig.GenerateConfigs(
-				keystonetypes.GeneratePoRConfigsInput{
+			config, configErr := creconfig.Generate(
+				keystonetypes.GenerateConfigsInput{
 					DonMetadata:            donMetadata,
 					BlockchainOutput:       bcOuts,
 					Flags:                  donMetadata.Flags,
 					PeeringData:            peeringData,
 					AddressBook:            allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-					GatewayConnectorOutput: topology.GatewayConnectorOutput,
 					HomeChainSelector:      topology.HomeChainSelector,
+					GatewayConnectorOutput: topology.GatewayConnectorOutput,
 				},
+				input.ConfigFactoryFunctions,
 			)
 			if configErr != nil {
 				return nil, pkgerrors.Wrap(configErr, "failed to generate config")

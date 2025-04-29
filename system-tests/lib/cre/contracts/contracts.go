@@ -28,6 +28,7 @@ import (
 	keystonenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
 
+// deprecated, use ComputeCapabilityFactoryFn, OCR3CapabilityFactoryFn, CronCapabilityFactoryFn instead
 var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 
@@ -68,6 +69,7 @@ var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DO
 	return capabilities
 }
 
+// deprecated, use capabilities.webapi.WebAPICapabilityFactoryFn instead
 var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 
@@ -97,6 +99,7 @@ var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DON
 	return capabilities
 }
 
+// deprecated, use capabilities.chainwriter.ChainWriterCapabilityFactory instead
 var ChainWriterCapabilityFactory = func(chainID uint64) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
@@ -120,6 +123,7 @@ var ChainWriterCapabilityFactory = func(chainID uint64) func(donFlags []string) 
 	}
 }
 
+// deprecated, use capabilities.chainreader.ChainReaderCapabilityFactory instead
 var ChainReaderCapabilityFactory = func(chainID uint64, chainFamily string) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
