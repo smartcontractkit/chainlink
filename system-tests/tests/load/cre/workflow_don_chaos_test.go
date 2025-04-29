@@ -11,7 +11,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -51,31 +50,31 @@ func prepareChaos(t *testing.T) (*havoc.NamespaceScopedChaosRunner, *frameworkGr
 
 func TestChaos(t *testing.T) {
 	in, err := framework.Load[TestConfigLoadTest](t)
-	require.NoError(t, err, "couldn't load test config")
+	assert.NoError(t, err, "couldn't load test config")
 	runChaosSuite(t, in)
 }
 
 // runChaosSuite runs chaos suite for Assets, Workflow and Writer NodeSets
 func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 	cr, gc, err := prepareChaos(t)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	cribCfg := testConfig.Infra.CRIB
 	chaosCfg := testConfig.Chaos
 
 	testDuration, err := time.ParseDuration(testConfig.Duration)
-	require.NoError(t, err, "could not parse test duration")
+	assert.NoError(t, err, "could not parse test duration")
 
 	rpcLatency, err := time.ParseDuration(chaosCfg.Latency)
-	require.NoError(t, err, "could not parse chaos latency")
+	assert.NoError(t, err, "could not parse chaos latency")
 	rpcJitter, err := time.ParseDuration(chaosCfg.Jitter)
-	require.NoError(t, err, "could not parse chaos jitter")
+	assert.NoError(t, err, "could not parse chaos jitter")
 
 	waitDur, err := time.ParseDuration(chaosCfg.WaitBeforeStart)
-	require.NoError(t, err, "could not parse chaos wait time")
+	assert.NoError(t, err, "could not parse chaos wait time")
 	expFullDur, err := time.ParseDuration(chaosCfg.ExperimentFullInterval)
-	require.NoError(t, err, "could not parse chaos experiment full interval")
+	assert.NoError(t, err, "could not parse chaos experiment full interval")
 	expInjectDur, err := time.ParseDuration(chaosCfg.ExperimentInjectionInterval)
-	require.NoError(t, err, "could not parse chaos experiment injection interval")
+	assert.NoError(t, err, "could not parse chaos experiment injection interval")
 
 	reorgFunc := func(rpcs []*blockchain.Node, blocks int) {
 		for _, n := range rpcs {
@@ -133,7 +132,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 							Correlation:       "0",
 							InjectionDuration: testDuration,
 						})
-					require.NoError(t, err)
+					assert.NoError(t, err)
 				},
 			},
 		}
