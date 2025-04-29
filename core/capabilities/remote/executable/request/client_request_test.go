@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -13,7 +14,10 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -25,6 +29,7 @@ import (
 const (
 	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
+	stepRef1             = "stepRef1"
 )
 
 func Test_ClientRequest_MessageValidation(t *testing.T) {
@@ -77,6 +82,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		Metadata: commoncap.RequestMetadata{
 			WorkflowID:          workflowID1,
 			WorkflowExecutionID: workflowExecutionID1,
+			ReferenceID:         stepRef1,
 		},
 		Inputs: executeInputs,
 		Config: transmissionSchedule,
@@ -306,6 +312,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Executes full schedule", func(t *testing.T) {
+		beholderTester := tests.Beholder(t)
 		lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 		numPeers := 3
@@ -337,7 +344,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		// Buffered channel so the goroutines block
 		// when executing the schedule
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody)}
-		request, err := request.NewClientExecuteRequest(
+		executeRequest, err := request.NewClientExecuteRequest(
 			ctxWithCancel,
 			lggr,
 			capabilityRequest,
@@ -347,7 +354,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			10*time.Minute,
 		)
 		require.NoError(t, err)
-		defer request.Cancel(errors.New("test end"))
+		defer executeRequest.Cancel(errors.New("test end"))
 
 		// Despite the context being cancelled,
 		// we still send the full schedule.
@@ -357,14 +364,14 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		assert.Empty(t, dispatcher.msgs)
 
 		msg.Sender = capPeers[0][:]
-		err = request.OnMessage(ctx, msg)
+		err = executeRequest.OnMessage(ctx, msg)
 		require.NoError(t, err)
 
 		msg.Sender = capPeers[1][:]
-		err = request.OnMessage(ctx, msg)
+		err = executeRequest.OnMessage(ctx, msg)
 		require.NoError(t, err)
 
-		response := <-request.ResponseChan()
+		response := <-executeRequest.ResponseChan()
 		capResponse, err := pb.UnmarshalCapabilityResponse(response.Result)
 		require.NoError(t, err)
 
@@ -384,6 +391,55 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			if k.Key == "effectiveTimeout" {
 				assert.Greater(t, k.Integer, int64(10*time.Second))
 			}
+		}
+
+		// Verify the TransmissionsScheduledEvent data
+		assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%v.%v", request.TransmissionEventProtoPkg, request.TransmissionEventEntity)))
+
+		// Get the messages for the transmission event
+		messages := beholderTester.Messages(t, "beholder_entity", fmt.Sprintf("%v.%v", request.TransmissionEventProtoPkg, request.TransmissionEventEntity))
+		assert.Len(t, messages, 1)
+
+		// Unmarshal the message to verify its contents
+		var event request.TransmissionsScheduledEvent
+		err = proto.Unmarshal(messages[0].Body, &event)
+		require.NoError(t, err)
+
+		// Verify the event fields
+		assert.Equal(t, transmission.Schedule_OneAtATime, event.ScheduleType)
+		assert.Equal(t, workflowExecutionID1, event.WorkflowExecutionID)
+		assert.Equal(t, "cap_id@1.0.0", event.CapabilityID)
+		assert.Equal(t, stepRef1, event.StepRef)
+		assert.Equal(t, fmt.Sprintf("Execute:%v:%v", workflowExecutionID1, stepRef1), event.TransmissionID)
+		assert.NotEmpty(t, event.Timestamp)
+
+		// Verify the peer delays
+		assert.Len(t, event.PeerTransmissionDelays, 3)
+
+		// Convert map to slice of delays and sort them
+		var delays []int64
+		for _, delay := range event.PeerTransmissionDelays {
+			delays = append(delays, delay)
+		}
+		sort.Slice(delays, func(i, j int) bool {
+			return delays[i] < delays[j]
+		})
+
+		// Verify delays are sorted and increment by 1000ms
+		for i := 1; i < len(delays); i++ {
+			assert.Equal(t, delays[i-1]+1000, delays[i], "delays should increment by 1000ms")
+		}
+
+		// Verify each peer ID exists in capability peers
+		for peerID := range event.PeerTransmissionDelays {
+			found := false
+			for _, peer := range capPeers {
+				if peer.String() == peerID {
+					found = true
+					break
+				}
+			}
+			assert.True(t, found, "peer ID %s not found in capability peers", peerID)
 		}
 	})
 
