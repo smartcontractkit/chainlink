@@ -145,6 +145,12 @@ func (tq *transmitQueue) IsEmpty() bool {
 	return tq.pq.Len() == 0
 }
 
+func (tq *transmitQueue) Len() int {
+	tq.mu.RLock()
+	defer tq.mu.RUnlock()
+	return tq.pq.Len()
+}
+
 func (tq *transmitQueue) Start(context.Context) error {
 	return tq.StartOnce("TransmitQueue", func() error {
 		t := services.NewTicker(promInterval)
