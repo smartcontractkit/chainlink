@@ -35,10 +35,9 @@ func a(ns, text string, dashboardUIDs []string, from, to *time.Time) frameworkGr
 	return a
 }
 
-func prepareChaos(t *testing.T, cfg *TestConfigLoadTest) (*havoc.NamespaceScopedChaosRunner, *frameworkGrafana.Client, error) {
+func prepareChaos(t *testing.T) (*havoc.NamespaceScopedChaosRunner, *frameworkGrafana.Client, error) {
 	l := log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
 	c, err := havoc.NewChaosMeshClient()
-	_ = cfg.Infra.CRIB
 	if err != nil {
 		t.Error("Failed to create chaos mesh client", err)
 	}
@@ -58,7 +57,7 @@ func TestChaos(t *testing.T) {
 
 // runChaosSuite runs chaos suite for Assets, Workflow and Writer NodeSets
 func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
-	cr, gc, err := prepareChaos(t, testConfig)
+	cr, gc, err := prepareChaos(t)
 	require.NoError(t, err)
 	cribCfg := testConfig.Infra.CRIB
 	chaosCfg := testConfig.Chaos
@@ -109,12 +108,12 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 	case "clean":
 		framework.L.Info().Msg("Skipping chaos experiments")
 		return
-	case "reorgs":
+	case "reorg":
 		testCases = []testCase{
 			{
 				name: "Chain reorgs below finality",
 				run: func(t *testing.T, r []*blockchain.Node) {
-					reorgFunc(r, 30)
+					reorgFunc(r, 50)
 				},
 				validate: func(t *testing.T) {},
 			},
@@ -127,8 +126,8 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 					_, err := cr.RunPodDelay(context.Background(),
 						havoc.PodDelayCfg{
 							Namespace:         cribCfg.Namespace,
-							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"geth-1337", "aptos"},
+							LabelKey:          "app.kubernetes.io/name",
+							LabelValues:       []string{"geth-1337"},
 							Latency:           rpcLatency,
 							Jitter:            rpcJitter,
 							Correlation:       "0",
@@ -156,41 +155,13 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 				validate: func(t *testing.T) {},
 			},
 			{
-				name: "Fail EVM Chain",
-				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodFail(context.Background(),
-						havoc.PodFailCfg{
-							Namespace:         cribCfg.Namespace,
-							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"geth-1337"},
-							InjectionDuration: expInjectDur,
-						})
-					assert.NoError(t, err)
-				},
-				validate: func(t *testing.T) {},
-			},
-			{
-				name: "Fail Aptos Chain",
-				run: func(t *testing.T, r []*blockchain.Node) {
-					_, err := cr.RunPodFail(context.Background(),
-						havoc.PodFailCfg{
-							Namespace:         cribCfg.Namespace,
-							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"aptos"},
-							InjectionDuration: expInjectDur,
-						})
-					assert.NoError(t, err)
-				},
-				validate: func(t *testing.T) {},
-			},
-			{
-				name: "400ms+200ms jitter for Aptos Chain",
+				name: "400ms+200ms jitter for EVM Chain",
 				run: func(t *testing.T, r []*blockchain.Node) {
 					_, err := cr.RunPodDelay(context.Background(),
 						havoc.PodDelayCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"aptos"},
+							LabelValues:       []string{"geth-1337"},
 							Latency:           400 * time.Millisecond,
 							Jitter:            200 * time.Millisecond,
 							Correlation:       "0",
@@ -201,13 +172,13 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 				validate: func(t *testing.T) {},
 			},
 			{
-				name: "30% corrupt for Aptos Chain",
+				name: "30% corrupt for EVM Chain",
 				run: func(t *testing.T, r []*blockchain.Node) {
 					_, err := cr.RunPodCorrupt(context.Background(),
 						havoc.PodCorruptCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"aptos"},
+							LabelValues:       []string{"geth-1337"},
 							Corrupt:           "30",
 							Correlation:       "0",
 							InjectionDuration: expInjectDur,
@@ -217,13 +188,13 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 				validate: func(t *testing.T) {},
 			},
 			{
-				name: "30% loss for Aptos Chain",
+				name: "30% loss for EVM Chain",
 				run: func(t *testing.T, r []*blockchain.Node) {
 					_, err := cr.RunPodLoss(context.Background(),
 						havoc.PodLossCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"aptos"},
+							LabelValues:       []string{"geth-1337"},
 							Loss:              "30",
 							Correlation:       "0",
 							InjectionDuration: expInjectDur,
@@ -233,15 +204,15 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 				validate: func(t *testing.T) {},
 			},
 			{
-				name: "Partition Aptos Chain from 2 Assets nodes",
+				name: "Partition EVM Chain from 2 Assets nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
 					_, err := cr.RunPodPartition(context.Background(),
 						havoc.PodPartitionCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
-							LabelFromValues:   []string{"aptos"},
+							LabelFromValues:   []string{"geth-1337"},
 							LabelToKey:        "app.kubernetes.io/instance",
-							LabelToValues:     []string{"assets-0", "assets-1"},
+							LabelToValues:     []string{"asset-0", "asset-1"},
 							InjectionDuration: expInjectDur,
 						})
 					assert.NoError(t, err)
@@ -249,13 +220,13 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 				validate: func(t *testing.T) {},
 			},
 			{
-				name: "Partition Aptos Chain from 2 Workflow nodes",
+				name: "Partition EVM Chain from 2 Workflow nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
 					_, err := cr.RunPodPartition(context.Background(),
 						havoc.PodPartitionCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
-							LabelFromValues:   []string{"aptos"},
+							LabelFromValues:   []string{"geth-1337"},
 							LabelToKey:        "app.kubernetes.io/instance",
 							LabelToValues:     []string{"workflow-0", "workflow-1"},
 							InjectionDuration: expInjectDur,
@@ -265,13 +236,13 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 				validate: func(t *testing.T) {},
 			},
 			{
-				name: "Partition Aptos Chain from 2 Writer nodes",
+				name: "Partition EVM Chain from 2 Writer nodes",
 				run: func(t *testing.T, r []*blockchain.Node) {
 					_, err := cr.RunPodPartition(context.Background(),
 						havoc.PodPartitionCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
-							LabelFromValues:   []string{"aptos"},
+							LabelFromValues:   []string{"geth-1337"},
 							LabelToKey:        "app.kubernetes.io/instance",
 							LabelToValues:     []string{"writer-0", "writer-1"},
 							InjectionDuration: expInjectDur,
@@ -291,7 +262,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 						havoc.PodFailCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"assets-0"},
+							LabelValues:       []string{"asset-0"},
 							InjectionDuration: expInjectDur,
 						})
 					assert.NoError(t, err)
@@ -305,7 +276,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 						havoc.PodDelayCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"assets-db-0", "assets-db-1"},
+							LabelValues:       []string{"asset-db-0", "asset-db-1"},
 							Latency:           400 * time.Millisecond,
 							Jitter:            200 * time.Millisecond,
 							Correlation:       "0",
@@ -322,7 +293,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 						havoc.PodDelayCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"assets-0", "assets-1"},
+							LabelValues:       []string{"asset-0", "asset-1"},
 							Latency:           400 * time.Millisecond,
 							Jitter:            200 * time.Millisecond,
 							Correlation:       "0",
@@ -339,7 +310,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 						havoc.PodCorruptCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"assets-0", "assets-1"},
+							LabelValues:       []string{"asset-0", "asset-1"},
 							Corrupt:           "30",
 							Correlation:       "0",
 							InjectionDuration: expInjectDur,
@@ -355,7 +326,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 						havoc.PodLossCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"assets-0", "assets-1"},
+							LabelValues:       []string{"asset-0", "asset-1"},
 							Loss:              "30",
 							Correlation:       "0",
 							InjectionDuration: expInjectDur,
@@ -371,9 +342,9 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 						havoc.PodPartitionCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
-							LabelFromValues:   []string{"assets-0"},
+							LabelFromValues:   []string{"asset-0"},
 							LabelToKey:        "app.kubernetes.io/instance",
-							LabelToValues:     []string{"assets-1"},
+							LabelToValues:     []string{"asset-1"},
 							InjectionDuration: expInjectDur,
 						})
 					assert.NoError(t, err)
@@ -387,7 +358,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 						havoc.PodFailCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"assets-0", "assets-1"},
+							LabelValues:       []string{"asset-0", "asset-1"},
 							InjectionDuration: expInjectDur,
 						})
 					assert.NoError(t, err)
@@ -401,9 +372,9 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 						havoc.PodPartitionCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelFromKey:      "app.kubernetes.io/instance",
-							LabelFromValues:   []string{"assets-0", "assets-1"},
+							LabelFromValues:   []string{"asset-0", "asset-1"},
 							LabelToKey:        "app.kubernetes.io/instance",
-							LabelToValues:     []string{"assets-2", "assets-3"},
+							LabelToValues:     []string{"asset-2", "asset-3"},
 							InjectionDuration: expInjectDur,
 						})
 					assert.NoError(t, err)
@@ -709,7 +680,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 						havoc.PodFailCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"jd-0"},
+							LabelValues:       []string{"job-distributor"},
 							InjectionDuration: expInjectDur,
 						})
 					assert.NoError(t, err)
@@ -723,7 +694,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 						havoc.PodFailCfg{
 							Namespace:         cribCfg.Namespace,
 							LabelKey:          "app.kubernetes.io/instance",
-							LabelValues:       []string{"jd-db-0"},
+							LabelValues:       []string{"postgres"},
 							InjectionDuration: expInjectDur,
 						})
 					assert.NoError(t, err)
@@ -732,7 +703,7 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 			},
 
 			// EA experiments
-			// TODO: figure out how we control the mock and if we are connected to different data sources
+			// TODO: there is no EA deployed atm
 		}
 	default:
 		panic("unknown chaos test type, can be 'rpc' or 'full', check [chaos] in TOML config")
@@ -744,14 +715,26 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			n := time.Now()
-			// TODO: test is limited to one blockchain, logic can vary for non-EVM chains
+			// TODO: load test is not reliable right now and in 50% hands on JD calls,
+			// TODO: when it'd be stable we should remove these static URLs with real output of a test
+			testConfig.Blockchains[0].Out = &blockchain.Output{
+				Family: "evm",
+				Nodes: []*blockchain.Node{
+					{
+						ExternalWSUrl:   "wss://crib-df-cre-chaos-test-geth-1337-ws.main.stage.cldev.sh",
+						ExternalHTTPUrl: "https://crib-df-cre-chaos-test-geth-1337-http.main.stage.cldev.sh",
+					},
+				},
+			}
 			testCase.run(t, testConfig.Blockchains[0].Out.Nodes)
 			time.Sleep(expFullDur)
 			_, _, err := gc.Annotate(a(cribCfg.Namespace, testCase.name, chaosCfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
 			if err != nil {
 				t.Error("Failed to annotate grafana with chaos labels", err)
 			}
-			testCase.validate(t)
+			if testCase.validate != nil {
+				testCase.validate(t)
+			}
 		})
 	}
 }

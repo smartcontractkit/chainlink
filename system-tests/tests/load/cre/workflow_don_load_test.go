@@ -63,7 +63,7 @@ import (
 type Chaos struct {
 	Mode                        string   `toml:"mode"`
 	Latency                     string   `toml:"latency"`
-	Jitter                      string   `toml:"latency"`
+	Jitter                      string   `toml:"jitter"`
 	DashboardUIDs               []string `toml:"dashboard_uids"`
 	WaitBeforeStart             string   `toml:"wait_before_start"`
 	ExperimentFullInterval      string   `toml:"experiment_full_interval"`
