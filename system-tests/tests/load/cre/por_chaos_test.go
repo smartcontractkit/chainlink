@@ -744,7 +744,8 @@ func runChaosSuite(t *testing.T, testConfig *TestConfigLoadTest) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			n := time.Now()
-			testCase.run(t, testConfig.BlockchainA.Out.Nodes)
+			// TODO: test is limited to one blockchain, logic can vary for non-EVM chains
+			testCase.run(t, testConfig.Blockchains[0].Out.Nodes)
 			time.Sleep(expFullDur)
 			_, _, err := gc.Annotate(a(cribCfg.Namespace, testCase.name, chaosCfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
 			if err != nil {

@@ -71,7 +71,7 @@ type Chaos struct {
 }
 
 type TestConfigLoadTest struct {
-	Duration                      string                                   `toml:"duration"`
+	Duration                      string                               `toml:"duration"`
 	Blockchains                   []*blockchain.Input                  `toml:"blockchains" validate:"required"`
 	NodeSets                      []*ns.Input                          `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                            `toml:"jd" validate:"required"`
@@ -80,7 +80,7 @@ type TestConfigLoadTest struct {
 	WorkflowDONLoad               *WorkflowLoad                        `toml:"workflow_load"`
 	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
 	BinariesConfig                *BinariesConfig                      `toml:"binaries_config"`
-	Chaos                         *Chaos                                   `toml:"chaos"`
+	Chaos                         *Chaos                               `toml:"chaos"`
 }
 
 type BinariesConfig struct {
