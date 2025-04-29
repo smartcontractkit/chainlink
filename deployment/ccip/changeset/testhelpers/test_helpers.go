@@ -58,6 +58,7 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_ccip_sender"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
@@ -399,12 +400,13 @@ func TestSendRequest(
 }
 
 type CCIPSendReqConfig struct {
-	SourceChain  uint64
-	DestChain    uint64
-	IsTestRouter bool
-	Sender       *bind.TransactOpts
-	Message      any
-	MaxRetries   int // Number of retries for errors (excluding insufficient fee errors)
+	SourceChain       uint64
+	DestChain         uint64
+	IsTestRouter      bool
+	Sender            *bind.TransactOpts
+	Message           any
+	MaxRetries        int // Number of retries for errors (excluding insufficient fee errors)
+	CCIPSenderAddress solana.PublicKey
 }
 
 type SendReqOpts func(*CCIPSendReqConfig)
@@ -450,6 +452,13 @@ func WithSourceChain(sourceChain uint64) SendReqOpts {
 func WithDestChain(destChain uint64) SendReqOpts {
 	return func(c *CCIPSendReqConfig) {
 		c.DestChain = destChain
+	}
+}
+
+// WithCCIPSenderAddress sets the CCIP sender contract address for Solana CCIP send requests.
+func WithCCIPSenderAddress(senderAddress solana.PublicKey) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.CCIPSenderAddress = senderAddress
 	}
 }
 
@@ -600,103 +609,243 @@ func SendRequestSol(
 		return nil, err
 	}
 
-	base := ccip_router.NewCcipSendInstruction(
-		destinationChainSelector,
-		message,
-		[]byte{}, // starting indices for accounts, calculated later
-		s.RouterConfigPDA,
-		destinationChainStatePDA,
-		noncePDA,
-		sender.PublicKey(),
-		solana.SystemProgramID,
-		solana.TokenProgramID,
-		feeTokenMint,
-		feeTokenUserATA,
-		feeTokenReceiverATA,
-		billingSignerPDA,
-		s.FeeQuoter,
-		s.FeeQuoterConfigPDA,
-		fqDestChainPDA,
-		feeTokenFqBillingConfigPDA,
-		linkFqBillingConfigPDA,
-		s.RMNRemote,
-		rmnRemoteCursesPDA,
-		s.RMNRemoteConfigPDA,
-	)
-	if !feeTokenUserATA.IsZero() {
-		// When paying with a non-native token (i.e. any SPL token), the user ATA must be writable so we can
-		// debit the fees. If paying with native SOL, then the ATA passed in is just a zero-address placeholder,
-		// and that can't be marked as writable.
-		base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
-	}
-
+	var ixs []solana.Instruction
 	addressTables := map[solana.PublicKey]solana.PublicKeySlice{}
 
-	requiredAccounts := len(base.AccountMetaSlice)
-	tokenIndexes := []byte{}
-
-	// set config.FeeQuoterProgram and CcipRouterProgram since they point to wrong addresses
-	solconfig.FeeQuoterProgram = s.FeeQuoter
-	solconfig.CcipRouterProgram = s.Router
-
-	// Append token accounts to the account metas
-	for _, tokenAmount := range message.TokenAmounts {
-		token := tokenAmount.Token
-		tokenPool, err := soltokens.NewTokenPool(solana.Token2022ProgramID, s.BurnMintTokenPool, token)
+	if cfg.CCIPSenderAddress != (solana.PublicKey{}) {
+		stateAccount, _, err := solstate.FindOfframpStatePDA(cfg.CCIPSenderAddress)
 		if err != nil {
 			return nil, err
 		}
 
-		// Set the token pool's lookup table address
-		var tokenAdminRegistry solCommon.TokenAdminRegistry
-		err = solcommon.GetAccountDataBorshInto(ctx, client, tokenPool.AdminRegistryPDA, solconfig.DefaultCommitment, &tokenAdminRegistry)
+		destBytes := binary.LittleEndian.AppendUint64([]byte{}, destinationChainSelector)
+		chainConfigAccount, _, err := solana.FindProgramAddress([][]byte{[]byte("remote_chain_config"), destBytes}, cfg.CCIPSenderAddress)
 		if err != nil {
 			return nil, err
 		}
 
-		tokenPool.PoolLookupTable = tokenAdminRegistry.LookupTable
-
-		// invalid config account, maybe this billing stuff isn't right
-
-		chainPDA, _, err := soltokens.TokenPoolChainConfigPDA(cfg.DestChain, token, s.BurnMintTokenPool)
+		// NOTE: to check the account address used here:
+		authorityTokenATA, _, err := solana.FindAssociatedTokenAddress(sender.PublicKey(), feeTokenMint)
 		if err != nil {
 			return nil, err
 		}
 
-		tokenPool.Chain[cfg.DestChain] = chainPDA
+		// WORKAROUND: Pass an empty token list and handle tokens separately in the accounts list
+		base := example_ccip_sender.NewCcipSendInstruction(
+			destinationChainSelector,
+			convertSVMTokenAmounts(message.TokenAmounts),
+			message.Data,
+			message.FeeToken,
+			[]byte{}, // no tokenIndexes
+			// Accounts:
+			stateAccount,
+			chainConfigAccount,
+			cfg.CCIPSenderAddress,
+			authorityTokenATA,
+			sender.PublicKey(),
+			solana.SystemProgramID,
+			s.Router,
+			s.RouterConfigPDA,
+			destinationChainStatePDA,
+			noncePDA,
+			solana.TokenProgramID,
+			feeTokenMint,
+			feeTokenUserATA,
+			feeTokenReceiverATA,
+			billingSignerPDA,
+			s.FeeQuoter,
+			s.FeeQuoterConfigPDA,
+			fqDestChainPDA,
+			feeTokenFqBillingConfigPDA,
+			linkFqBillingConfigPDA,
+			s.RMNRemote,
+			rmnRemoteCursesPDA,
+			s.RMNRemoteConfigPDA,
+		)
 
-		billingPDA, _, err := solstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, token, s.FeeQuoter)
+		base.GetCcipSenderAccount().WRITE()
+		if !base.GetAuthorityFeeTokenAtaAccount().PublicKey.IsZero() {
+			base.GetAuthorityFeeTokenAtaAccount().WRITE()
+		}
+
+		if !base.GetAuthorityAccount().PublicKey.IsZero() {
+			base.GetAuthorityAccount().SIGNER()
+		}
+
+		if !base.GetCcipDestChainStateAccount().PublicKey.IsZero() {
+			base.GetCcipDestChainStateAccount().WRITE()
+		}
+		if !base.GetCcipSenderNonceAccount().PublicKey.IsZero() {
+			base.GetCcipSenderNonceAccount().WRITE()
+		}
+
+		if !base.GetCcipFeeTokenUserAtaAccount().PublicKey.IsZero() {
+			base.GetCcipFeeTokenUserAtaAccount().WRITE()
+		}
+
+		if !base.GetCcipFeeTokenReceiverAccount().PublicKey.IsZero() {
+			base.GetCcipFeeTokenReceiverAccount().WRITE()
+		}
+
+		requiredAccounts := len(base.AccountMetaSlice)
+		tokenIndexes := []byte{}
+
+		// set config.FeeQuoterProgram and CcipRouterProgram since they point to wrong addresses
+		solconfig.FeeQuoterProgram = s.FeeQuoter
+		solconfig.CcipRouterProgram = s.Router
+
+		// Append token accounts to the account metas
+		for _, tokenAmount := range message.TokenAmounts {
+			token := tokenAmount.Token
+			tokenPool, err := soltokens.NewTokenPool(solana.Token2022ProgramID, s.BurnMintTokenPool, token)
+			if err != nil {
+				return nil, err
+			}
+
+			// Set the token pool's lookup table address
+			var tokenAdminRegistry solCommon.TokenAdminRegistry
+			err = solcommon.GetAccountDataBorshInto(ctx, client, tokenPool.AdminRegistryPDA, solconfig.DefaultCommitment, &tokenAdminRegistry)
+			if err != nil {
+				return nil, err
+			}
+
+			tokenPool.PoolLookupTable = tokenAdminRegistry.LookupTable
+
+			// invalid config account, maybe this billing stuff isn't right
+
+			chainPDA, _, err := soltokens.TokenPoolChainConfigPDA(cfg.DestChain, token, s.BurnMintTokenPool)
+			if err != nil {
+				return nil, err
+			}
+
+			tokenPool.Chain[cfg.DestChain] = chainPDA
+
+			billingPDA, _, err := solstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, token, s.FeeQuoter)
+			if err != nil {
+				return nil, err
+			}
+
+			tokenPool.Billing[cfg.DestChain] = billingPDA
+
+			userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, token, sender.PublicKey())
+			if err != nil {
+				return nil, err
+			}
+
+			tokenMetas, tokenAddressTables, err := soltokens.ParseTokenLookupTableWithChain(ctx, client, tokenPool, userTokenAccount, cfg.DestChain)
+			if err != nil {
+				return nil, err
+			}
+
+			tokenIndexes = append(tokenIndexes, byte(len(base.AccountMetaSlice)-requiredAccounts))
+			base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
+			maps.Copy(addressTables, tokenAddressTables)
+		}
+
+		base.SetTokenIndexes(tokenIndexes)
+		ix, err := base.ValidateAndBuild()
+		if err != nil {
+			return nil, err
+		}
+		ixs = []solana.Instruction{ix}
+	} else {
+		base := ccip_router.NewCcipSendInstruction(
+			destinationChainSelector,
+			message,
+			[]byte{}, // starting indices for accounts, calculated later
+			s.RouterConfigPDA,
+			destinationChainStatePDA,
+			noncePDA,
+			sender.PublicKey(),
+			solana.SystemProgramID,
+			solana.TokenProgramID,
+			feeTokenMint,
+			feeTokenUserATA,
+			feeTokenReceiverATA,
+			billingSignerPDA,
+			s.FeeQuoter,
+			s.FeeQuoterConfigPDA,
+			fqDestChainPDA,
+			feeTokenFqBillingConfigPDA,
+			linkFqBillingConfigPDA,
+			s.RMNRemote,
+			rmnRemoteCursesPDA,
+			s.RMNRemoteConfigPDA,
+		)
+		if !feeTokenUserATA.IsZero() {
+			// When paying with a non-native token (i.e. any SPL token), the user ATA must be writable so we can
+			// debit the fees. If paying with native SOL, then the ATA passed in is just a zero-address placeholder,
+			// and that can't be marked as writable.
+			base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
+		}
+
+		addressTables := map[solana.PublicKey]solana.PublicKeySlice{}
+
+		requiredAccounts := len(base.AccountMetaSlice)
+		tokenIndexes := []byte{}
+
+		// set config.FeeQuoterProgram and CcipRouterProgram since they point to wrong addresses
+		solconfig.FeeQuoterProgram = s.FeeQuoter
+		solconfig.CcipRouterProgram = s.Router
+
+		// Append token accounts to the account metas
+		for _, tokenAmount := range message.TokenAmounts {
+			token := tokenAmount.Token
+			tokenPool, err := soltokens.NewTokenPool(solana.Token2022ProgramID, s.BurnMintTokenPool, token)
+			if err != nil {
+				return nil, err
+			}
+
+			// Set the token pool's lookup table address
+			var tokenAdminRegistry solCommon.TokenAdminRegistry
+			err = solcommon.GetAccountDataBorshInto(ctx, client, tokenPool.AdminRegistryPDA, solconfig.DefaultCommitment, &tokenAdminRegistry)
+			if err != nil {
+				return nil, err
+			}
+
+			tokenPool.PoolLookupTable = tokenAdminRegistry.LookupTable
+
+			// invalid config account, maybe this billing stuff isn't right
+
+			chainPDA, _, err := soltokens.TokenPoolChainConfigPDA(cfg.DestChain, token, s.BurnMintTokenPool)
+			if err != nil {
+				return nil, err
+			}
+
+			tokenPool.Chain[cfg.DestChain] = chainPDA
+
+			billingPDA, _, err := solstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, token, s.FeeQuoter)
+			if err != nil {
+				return nil, err
+			}
+
+			tokenPool.Billing[cfg.DestChain] = billingPDA
+
+			userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, token, sender.PublicKey())
+			if err != nil {
+				return nil, err
+			}
+
+			tokenMetas, tokenAddressTables, err := soltokens.ParseTokenLookupTableWithChain(ctx, client, tokenPool, userTokenAccount, cfg.DestChain)
+			if err != nil {
+				return nil, err
+			}
+
+			tokenIndexes = append(tokenIndexes, byte(len(base.AccountMetaSlice)-requiredAccounts))
+			base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
+			maps.Copy(addressTables, tokenAddressTables)
+		}
+
+		base.SetTokenIndexes(tokenIndexes)
+
+		ix, err := base.ValidateAndBuild()
 		if err != nil {
 			return nil, err
 		}
 
-		tokenPool.Billing[cfg.DestChain] = billingPDA
-
-		userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, token, sender.PublicKey())
-		if err != nil {
-			return nil, err
-		}
-
-		tokenMetas, tokenAddressTables, err := soltokens.ParseTokenLookupTableWithChain(ctx, client, tokenPool, userTokenAccount, cfg.DestChain)
-		if err != nil {
-			return nil, err
-		}
-
-		tokenIndexes = append(tokenIndexes, byte(len(base.AccountMetaSlice)-requiredAccounts))
-		base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
-		maps.Copy(addressTables, tokenAddressTables)
+		ixs = []solana.Instruction{ix}
 	}
 
-	base.SetTokenIndexes(tokenIndexes)
-
-	ix, err := base.ValidateAndBuild()
-	if err != nil {
-		return nil, err
-	}
-
-	// for some reason onchain doesn't see extraAccounts
-
-	ixs := []solana.Instruction{ix}
 	result, err := solcommon.SendAndConfirmWithLookupTables(ctx, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(300_000))
 	if err != nil {
 		return nil, err
@@ -770,8 +919,24 @@ func ConvertSolanaCrossChainAmountToBigInt(amount ccip_router.CrossChainAmount) 
 	return big.NewInt(0).SetBytes(bytes)
 }
 
-// MakeEVMExtraArgsV2 creates the extra args for the EVM2Any message that is destined
-// for an EVM chain. The extra args contain the gas limit and allow out of order flag.
+// convertSVMTokenAmounts converts from ccip_router.SVMTokenAmount to example_ccip_sender.SVMTokenAmount
+// This is needed because they're the same structure but from different packages
+func convertSVMTokenAmounts(tokenAmounts []ccip_router.SVMTokenAmount) []example_ccip_sender.SVMTokenAmount {
+	if len(tokenAmounts) == 0 {
+		return []example_ccip_sender.SVMTokenAmount{}
+	}
+
+	result := make([]example_ccip_sender.SVMTokenAmount, len(tokenAmounts))
+	for i, ta := range tokenAmounts {
+		result[i] = example_ccip_sender.SVMTokenAmount{
+			Token:  ta.Token,
+			Amount: ta.Amount,
+		}
+	}
+	return result
+}
+
+// MakeEVMExtraArgsV2 creates extra args for EVM transactions
 func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	// extra args is the tag followed by the gas limit and allowOOO abi-encoded.
 	var extraArgs []byte
