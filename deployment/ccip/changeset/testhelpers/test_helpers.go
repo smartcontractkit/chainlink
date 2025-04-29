@@ -1216,12 +1216,10 @@ func DeployTransferableToken(
 
 // assuming one out of the src and dst is solana and the other is evm
 func DeployTransferableTokenSolana(
-	// t *testing.T,
 	lggr logger.Logger,
 	e deployment.Environment,
 	evmChainSel, solChainSel uint64,
 	evmDeployer *bind.TransactOpts,
-	addresses deployment.AddressBook,
 	evmTokenName string,
 ) (*burn_mint_erc677.BurnMintERC677,
 	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error) {
@@ -1244,6 +1242,7 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, err
 	}
 
+	addresses := e.ExistingAddresses //nolint:staticcheck // addressbook still valid
 	// deploy evm token
 	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.Chains[evmChainSel], evmDeployer, addresses, evmTokenName)
 	if err != nil {

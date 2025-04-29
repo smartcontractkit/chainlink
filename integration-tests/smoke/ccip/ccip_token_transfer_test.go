@@ -259,7 +259,6 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 		sourceChain,
 		destChain,
 		ownerSourceChain,
-		e.ExistingAddresses,
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
@@ -395,7 +394,6 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 		destChain,
 		sourceChain,
 		ownerDestChain,
-		e.ExistingAddresses,
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
