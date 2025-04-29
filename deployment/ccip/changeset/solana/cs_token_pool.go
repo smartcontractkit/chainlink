@@ -127,16 +127,15 @@ func getPoolPDAs(
 type TokenPoolConfig struct {
 	ChainSelector uint64
 	PoolType      solTestTokenPool.PoolType
-	TokenPubKey   string
+	TokenPubKey   solana.PublicKey
 }
 
 func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
+	if err := commonValidation(e, cfg.ChainSelector, cfg.TokenPubKey); err != nil {
 		return err
 	}
 
-	return validatePoolDeployment(&e, cfg.PoolType, cfg.ChainSelector, tokenPubKey, false)
+	return validatePoolDeployment(&e, cfg.PoolType, cfg.ChainSelector, cfg.TokenPubKey, false)
 }
 
 func AddTokenPoolAndLookupTable(e deployment.Environment, cfg TokenPoolConfig) (deployment.ChangesetOutput, error) {
@@ -147,7 +146,7 @@ func AddTokenPoolAndLookupTable(e deployment.Environment, cfg TokenPoolConfig) (
 	chain := e.SolChains[cfg.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 	tokenPool := solana.PublicKey{}
 
 	if cfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
@@ -791,16 +790,15 @@ func getInstructionsForLockRelease(
 // ADD TOKEN POOL LOOKUP TABLE
 type TokenPoolLookupTableConfig struct {
 	ChainSelector uint64
-	TokenPubKey   string
+	TokenPubKey   solana.PublicKey
 	PoolType      solTestTokenPool.PoolType
 }
 
 func (cfg TokenPoolLookupTableConfig) Validate(e deployment.Environment) error {
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
+	if err := commonValidation(e, cfg.ChainSelector, cfg.TokenPubKey); err != nil {
 		return err
 	}
-	return validatePoolDeployment(&e, cfg.PoolType, cfg.ChainSelector, tokenPubKey, false)
+	return validatePoolDeployment(&e, cfg.PoolType, cfg.ChainSelector, cfg.TokenPubKey, false)
 }
 
 func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableConfig) (deployment.ChangesetOutput, error) {
@@ -814,7 +812,7 @@ func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableC
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	authorityPrivKey := chain.DeployerKey // assuming the authority is the deployer key
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 	tokenPool := solana.PublicKey{}
 	if cfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
 		tokenPool = chainState.BurnMintTokenPool
@@ -869,13 +867,13 @@ func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableC
 
 type SetPoolConfig struct {
 	ChainSelector   uint64
-	TokenPubKey     string
+	TokenPubKey     solana.PublicKey
 	WritableIndexes []uint8
 	MCMSSolana      *MCMSConfigSolana
 }
 
 func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
@@ -913,7 +911,7 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)

@@ -285,7 +285,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			deployment.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
 			solanachangesets.TokenPoolConfig{
 				ChainSelector: solChain1,
-				TokenPubKey:   tokenAddressLockRelease.String(),
+				TokenPubKey:   tokenAddressLockRelease,
 				PoolType:      test_token_pool.LockAndRelease_PoolType,
 			},
 		),
@@ -293,7 +293,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			deployment.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
 			solanachangesets.TokenPoolConfig{
 				ChainSelector: solChain1,
-				TokenPubKey:   tokenAddressBurnMint.String(),
+				TokenPubKey:   tokenAddressBurnMint,
 				PoolType:      test_token_pool.BurnAndMint_PoolType,
 			},
 		),

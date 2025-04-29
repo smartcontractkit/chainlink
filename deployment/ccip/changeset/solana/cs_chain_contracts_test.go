@@ -632,7 +632,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 				ChainSelector:           solChain,
-				TokenPubKey:             tokenAddress.String(),
+				TokenPubKey:             tokenAddress,
 				TokenAdminRegistryAdmin: newAdmin.String(),
 				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
 				MCMSSolana:              mcmsConfig,
@@ -661,7 +661,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 				ChainSelector:           solChain,
-				TokenPubKey:             linkTokenAddress.String(),
+				TokenPubKey:             linkTokenAddress,
 				TokenAdminRegistryAdmin: newAdmin.String(),
 				RegisterType:            ccipChangesetSolana.ViaOwnerInstruction,
 				MCMSSolana:              mcmsConfig,
@@ -693,7 +693,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
 				ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 					ChainSelector: solChain,
-					TokenPubKey:   tokenAddress.String(),
+					TokenPubKey:   tokenAddress,
 					MCMSSolana:    mcmsConfig,
 				},
 			),
@@ -772,7 +772,7 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolLookupTable),
 			ccipChangesetSolana.TokenPoolLookupTableConfig{
 				ChainSelector: solChain,
-				TokenPubKey:   tokenAddress.String(),
+				TokenPubKey:   tokenAddress,
 			},
 		),
 	)
@@ -792,7 +792,7 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 				ChainSelector:           solChain,
-				TokenPubKey:             tokenAddress.String(),
+				TokenPubKey:             tokenAddress,
 				TokenAdminRegistryAdmin: newAdmin.String(),
 				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
 				MCMSSolana:              mcmsConfig,
@@ -803,7 +803,7 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
 			ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 				ChainSelector: solChain,
-				TokenPubKey:   tokenAddress.String(),
+				TokenPubKey:   tokenAddress,
 				MCMSSolana:    mcmsConfig,
 			},
 		),
@@ -812,7 +812,7 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
 			ccipChangesetSolana.SetPoolConfig{
 				ChainSelector:   solChain,
-				TokenPubKey:     tokenAddress.String(),
+				TokenPubKey:     tokenAddress,
 				WritableIndexes: []uint8{3, 4, 7},
 				MCMSSolana:      mcmsConfig,
 			},
