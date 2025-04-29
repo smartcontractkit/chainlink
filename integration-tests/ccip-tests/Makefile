@@ -30,7 +30,7 @@ test_load_ccip: set_config
     TEST_SUITE=ccip-load \
     TEST_ARGS="-test.timeout 900h" \
     DETACH_RUNNER=true \
-    RR_MEM=40Gi \
+    RR_MEM=45Gi \
     RR_CPU=6 \
 	go test -timeout 24h -count=1 -v -run ^$(testname)$$ ./load
 
