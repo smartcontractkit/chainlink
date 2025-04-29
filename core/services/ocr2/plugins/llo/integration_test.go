@@ -1034,24 +1034,28 @@ dp -> market_status_parse;
 
 provider_indicated_time_parse [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs"];
 provider_data_received_parse [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
-stonk_price_timestamped [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(provider_indicated_time_parse),\\"providerDataReceivedUnixMs\\":$(provider_data_received_parse)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
+provider_indicated_time [type=median lax=true];
+provider_data_received [type=median lax=true];
+stonk_price_timestamped [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(provider_indicated_time),\\"providerDataReceivedUnixMs\\":$(provider_data_received)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
 
-dp -> provider_indicated_time_parse;
-dp -> provider_data_received_parse;
+dp -> provider_indicated_time_parse -> provider_indicated_time;
+dp -> provider_data_received_parse -> provider_data_received;
 dp -> stonk_price_parse -> stonk_price_timestamped;
 
 # test null providerIndicatedTimeUnixMs
 null_provider_indicated_time_parse [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs_TestNull"];
-stonk_price_timestamped_null_indicated_time [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(null_provider_indicated_time_parse),\\"providerDataReceivedUnixMs\\":$(provider_data_received_parse)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
+null_provider_indicated_time [type=median lax=true];
+stonk_price_timestamped_null_indicated_time [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(null_provider_indicated_time),\\"providerDataReceivedUnixMs\\":$(provider_data_received)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
 
-dp -> null_provider_indicated_time_parse;
+dp -> null_provider_indicated_time_parse -> null_provider_indicated_time;
 dp -> stonk_price_parse -> stonk_price_timestamped_null_indicated_time;
 
 # test missing providerIndicatedTimeUnixMs
 missing_provider_indicated_time_parse [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs_TestMissing"];
-stonk_price_timestamped_missing_indicated_time [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(missing_provider_indicated_time_parse),\\"providerDataReceivedUnixMs\\":$(provider_data_received_parse)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
+missing_provider_indicated_time [type=median lax=true];
+stonk_price_timestamped_missing_indicated_time [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(missing_provider_indicated_time),\\"providerDataReceivedUnixMs\\":$(provider_data_received)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
 
-dp -> missing_provider_indicated_time_parse;
+dp -> missing_provider_indicated_time_parse -> missing_provider_indicated_time;
 dp -> stonk_price_parse -> stonk_price_timestamped_missing_indicated_time;
 `, bridgeName, marketStatusStreamID,
 			datastreamsllo.LLOStreamValue_TimestampedStreamValue, timestampedStonkPriceStreamID,
