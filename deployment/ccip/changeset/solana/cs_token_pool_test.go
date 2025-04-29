@@ -29,12 +29,11 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-// func TestAddTokenPool(t *testing.T) {
-// 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-580")
-
-// 	t.Parallel()
-// 	doTestTokenPool(t, false)
-// }
+func TestAddTokenPool(t *testing.T) {
+	skipInCI(t)
+	t.Parallel()
+	doTestTokenPool(t, false)
+}
 
 func TestAddTokenPoolMcms(t *testing.T) {
 	t.Parallel()
@@ -343,151 +342,4 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 		}
 		// }
 	}
-}
-
-func TestDoTestTokenPoolv2(t *testing.T) {
-	ctx := testcontext.Get(t)
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-	evmChain := tenv.Env.AllChainSelectors()[0]
-
-	// evm deployment
-	addressBook := deployment.NewMemoryAddressBook()
-	evmToken, err := deployment.DeployContract(tenv.Env.Logger, tenv.Env.Chains[evmChain], addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-			tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
-				tenv.Env.Chains[evmChain].DeployerKey,
-				tenv.Env.Chains[evmChain].Client,
-				string(testhelpers.TestTokenSymbol),
-				string(testhelpers.TestTokenSymbol),
-				testhelpers.LocalTokenDecimals,
-				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
-			)
-			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				Address:  tokenAddress,
-				Contract: token,
-				Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
-				Tx:       tx,
-				Err:      err,
-			}
-		},
-	)
-	require.NoError(t, err)
-	e := testhelpers.DeployTestTokenPools(t, tenv.Env, map[uint64]v1_5_1.DeployTokenPoolInput{
-		evmChain: {
-			Type:               changeset.BurnMintTokenPool,
-			TokenAddress:       evmToken.Address,
-			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
-		},
-	}, false)
-
-	solChain := tenv.Env.AllChainSelectorsSolana()[0]
-	deployerKey := tenv.Env.SolChains[solChain].DeployerKey.PublicKey()
-	e, newTokenAddress, err := deployTokenAndMint(t, e, solChain, []string{deployerKey.String()})
-	require.NoError(t, err)
-	state, err := ccipChangeset.LoadOnchainStateSolana(e)
-	require.NoError(t, err)
-
-	rateLimitConfig := solBaseTokenPool.RateLimitConfig{
-		Enabled:  false,
-		Capacity: 0,
-		Rate:     0,
-	}
-
-	tokenMap := map[deployment.ContractType]solana.PublicKey{
-		ccipChangeset.SPL2022Tokens: newTokenAddress,
-		ccipChangeset.SPLTokens:     state.SolChains[solChain].WSOL,
-	}
-
-	// type poolTestType struct {
-	// 	poolType    solTestTokenPool.PoolType
-	// 	poolAddress solana.PublicKey
-	// 	mcms        bool
-	// }
-	// testCases := []poolTestType{
-	// 	{
-	poolType := solTestTokenPool.BurnAndMint_PoolType
-	poolAddress := state.SolChains[solChain].BurnMintTokenPool
-	// 	},
-	// 	{
-	// 		poolType:    solTestTokenPool.LockAndRelease_PoolType,
-	// 		poolAddress: state.SolChains[solChain].LockReleaseTokenPool,
-	// 	},
-	// }
-	// burnAndMintOwnedByTimelock := make(map[solana.PublicKey]bool)
-	// lockAndReleaseOwnedByTimelock := make(map[solana.PublicKey]bool)
-	// for _, testCase := range testCases {
-	for _, tokenAddress := range tokenMap {
-		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolAndLookupTable),
-				ccipChangesetSolana.TokenPoolConfig{
-					ChainSelector: solChain,
-					TokenPubKey:   tokenAddress.String(),
-					PoolType:      poolType,
-				},
-			),
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
-				ccipChangesetSolana.RemoteChainTokenPoolConfig{
-					SolChainSelector: solChain,
-					SolTokenPubKey:   tokenAddress,
-					SolPoolType:      poolType,
-					EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
-						evmChain: {
-							TokenSymbol: testhelpers.TestTokenSymbol,
-							PoolType:    changeset.BurnMintTokenPool,
-							PoolVersion: changeset.CurrentTokenPoolVersion,
-							RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
-								Inbound:  rateLimitConfig,
-								Outbound: rateLimitConfig,
-							},
-						},
-					},
-				},
-			),
-		},
-		)
-		require.NoError(t, err)
-		// test AddTokenPool results
-		configAccount := solTestTokenPool.State{}
-		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, poolAddress)
-		err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, poolConfigPDA, &configAccount)
-		require.NoError(t, err)
-		require.Equal(t, tokenAddress, configAccount.Config.Mint)
-		// test SetupTokenPoolForRemoteChain results
-		remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(evmChain, tokenAddress, poolAddress)
-		var remoteChainConfigAccount solTestTokenPool.ChainConfig
-		err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
-		require.NoError(t, err)
-		require.Equal(t, uint8(testhelpers.LocalTokenDecimals), remoteChainConfigAccount.Base.Remote.Decimals)
-		e.Logger.Infof("Pool addresses: %v", remoteChainConfigAccount.Base.Remote.PoolAddresses)
-		require.Len(t, remoteChainConfigAccount.Base.Remote.PoolAddresses, 1)
-		require.Equal(t, rateLimitConfig.Enabled, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Enabled)
-		require.Equal(t, rateLimitConfig.Enabled, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Enabled)
-
-		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
-				ccipChangesetSolana.RemoteChainTokenPoolConfig{
-					SolChainSelector: solChain,
-					SolTokenPubKey:   tokenAddress,
-					SolPoolType:      poolType,
-					EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
-						evmChain: {
-							TokenSymbol: testhelpers.TestTokenSymbol,
-							PoolType:    changeset.BurnMintTokenPool,
-							PoolVersion: changeset.CurrentTokenPoolVersion,
-							RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
-								Inbound:  rateLimitConfig,
-								Outbound: rateLimitConfig,
-							},
-						},
-					},
-				},
-			),
-		})
-		require.NoError(t, err)
-
-	}
-	// }
 }

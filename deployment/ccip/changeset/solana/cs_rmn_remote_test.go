@@ -17,10 +17,11 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-// func TestRMNRemoteCurseWithoutMCMS(t *testing.T) {
-// 	t.Parallel()
-// 	doTestRMNRemoteCurse(t, false)
-// }
+func TestRMNRemoteCurseWithoutMCMS(t *testing.T) {
+	skipInCI(t)
+	t.Parallel()
+	doTestRMNRemoteCurse(t, false)
+}
 
 func TestRMNRemoteCurseWithMCMS(t *testing.T) {
 	t.Parallel()
