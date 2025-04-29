@@ -84,11 +84,11 @@ require (
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250428152347-5d8049fa8e4e
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250428160515-094b39db9145
-	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250428152214-43987e45a999
+	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250428160515-094b39db9145
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250428160515-094b39db9145
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250428152912-95821ccff20a
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250429184343-ac1064d374b5
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.10
 	github.com/smartcontractkit/libocr v0.0.0-20250408131511-c90716988ee0
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
