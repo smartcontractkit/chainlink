@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
@@ -153,6 +154,10 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 	out.accounts = accounts
 	out.tokenReceiver = tokenReceiver
 	return out, nil
+}
+
+func SerializeExtraArgs(tag []byte, data any) ([]byte, error) {
+	return ccip.SerializeExtraArgs(data, strings.TrimPrefix(hexutil.Encode(tag), "0x"))
 }
 
 // Interface compliance check

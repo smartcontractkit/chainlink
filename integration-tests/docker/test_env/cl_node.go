@@ -19,6 +19,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
+	tcLog "github.com/testcontainers/testcontainers-go/log"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
@@ -127,7 +128,7 @@ func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
 
 func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) (*ClNode, error) {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
-	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
+	pgDefaultCName := "pg-" + nodeDefaultCName
 
 	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
 	if err != nil {
@@ -196,7 +197,6 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 	feedId [32]byte, customAllowedFaults *int, bootstrapUrl string,
 	mercuryServerUrl string, mercuryServerPubKey string,
 	eaUrls []*url.URL) (*nodeclient.Job, error) {
-
 	csaKeys, _, err := n.API.ReadCSAKeys()
 	if err != nil {
 		return nil, err
@@ -305,7 +305,7 @@ func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 		return err
 	}
 
-	l := tc.Logger
+	l := tcLog.Default()
 	if n.t != nil {
 		l = logging.CustomT{
 			T: n.t,

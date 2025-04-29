@@ -13,6 +13,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -38,9 +39,11 @@ type ccipTransmitter struct {
 	offrampAddress string
 	toCalldataFn   ToCalldataFunc
 	extraDataCodec ccipcommon.ExtraDataCodec
+	lggr           logger.Logger
 }
 
 func XXXNewContractTransmitterTestsOnly(
+	lggr logger.Logger,
 	cw commontypes.ContractWriter,
 	fromAccount ocrtypes.Account,
 	contractName string,
@@ -57,6 +60,7 @@ func XXXNewContractTransmitterTestsOnly(
 		return contractName, method, args, err
 	}
 	return &ccipTransmitter{
+		lggr:           lggr,
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
@@ -116,6 +120,7 @@ func (c *ccipTransmitter) Transmit(
 		return fmt.Errorf("failed to generate UUID: %w", err)
 	}
 	zero := big.NewInt(0)
+	c.lggr.Infow("Submitting transaction", "tx", txID)
 	if err := c.cw.SubmitTransaction(ctx, contract, method, args,
 		fmt.Sprintf("%s-%s-%s", contract, c.offrampAddress, txID.String()),
 		c.offrampAddress, &meta, zero); err != nil {

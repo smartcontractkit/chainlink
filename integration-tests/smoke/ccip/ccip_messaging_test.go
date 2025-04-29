@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/manualexechelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
 func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
@@ -179,8 +180,10 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			[]int64{
 				int64(out.MsgSentEvent.Message.Header.SequenceNumber), //nolint:gosec // seqNr fits in int64
 			},
-			24*time.Hour,
-			true, // reExecuteIfFailed
+			24*time.Hour, // lookbackDurationMsgs
+			24*time.Hour, // lookbackDurationCommitReport
+			24*time.Hour, // stepDuration
+			true,         // reExecuteIfFailed
 		)
 		require.NoError(t, err)
 
@@ -255,9 +258,10 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			solana.SystemProgramID,
 		}
 
-		extraArgs, err := testhelpers.SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                accounts,
+			ComputeUnits:            80_000,
 		})
 		require.NoError(t, err)
 

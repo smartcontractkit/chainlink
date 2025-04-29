@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // EVMCommitCallArgs defines the calldata structure for an EVM commit transaction.
@@ -83,12 +84,14 @@ func NewEVMCommitCalldataFunc(commitMethod string) ToCalldataFunc {
 
 // NewCommitTransmitter constructs an EVM commit transmitter.
 func (f *EVMContractTransmitterFactory) NewCommitTransmitter(
+	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 	commitMethod, _ string, // priceOnlyMethod is ignored for EVM
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
+		lggr:           lggr,
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
@@ -99,11 +102,13 @@ func (f *EVMContractTransmitterFactory) NewCommitTransmitter(
 
 // NewExecTransmitter constructs an EVM execute transmitter.
 func (f *EVMContractTransmitterFactory) NewExecTransmitter(
+	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
+		lggr:           lggr,
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,

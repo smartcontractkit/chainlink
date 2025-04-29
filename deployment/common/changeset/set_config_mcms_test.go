@@ -360,7 +360,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 						Bypasser:  newCfgBypasser,
 					},
 				})
-			_, err = commonchangeset.ApplyChangesetsV2(t, env, changesetsToApply)
+			_, _, err = commonchangeset.ApplyChangesetsV2(t, env, changesetsToApply)
 			require.NoError(t, err)
 
 			// assert

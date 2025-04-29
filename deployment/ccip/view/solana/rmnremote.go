@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/mr-tron/base58"
 
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -38,7 +39,7 @@ func GenerateRMNRemoteView(chain deployment.SolChain, program solana.PublicKey, 
 	}
 	view.CurseSubjects = make([]string, len(curseAccount.CursedSubjects))
 	for i, curse := range curseAccount.CursedSubjects {
-		view.CurseSubjects[i] = string(curse.Value[:])
+		view.CurseSubjects[i] = base58.Encode(curse.Value[:])
 	}
 	return view, nil
 }

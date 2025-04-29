@@ -287,7 +287,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 		}
 
 		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, &extraDataCodec)
-		require.Contains(t, err.Error(), "abi: improperly formatted output")
+		require.Contains(t, err.Error(), "failed to decode token amount dest exec data: decode dest gas amount: abi decode uint32: abi: cannot marshal in to go type: length insufficient 4 require 32")
 	})
 	t.Run("Successfully decodes valid EVM -> SOL report", func(t *testing.T) {
 		// hardcode abi encoded extra args for simplicity
@@ -471,7 +471,9 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	require.NoError(t, chainWriter.Start(testutils.Context(t)), "failed to start chain writer")
 	t.Cleanup(func() { require.NoError(t, chainWriter.Close()) })
 
+	lggr := logger.TestLogger(t)
 	transmitterWithSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
+		lggr,
 		chainWriter,
 		ocrtypes.Account(transmitters[0].Hex()),
 		contractName,
@@ -480,6 +482,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		ocrimpls.NewEVMCommitCalldataFunc(consts.MethodCommit),
 	)
 	transmitterWithoutSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
+		lggr,
 		chainWriter,
 		ocrtypes.Account(transmitters[0].Hex()),
 		contractName,

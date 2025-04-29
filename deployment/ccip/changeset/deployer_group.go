@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -13,10 +14,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/gagliardetto/solana-go"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
+	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -29,9 +34,59 @@ type DeployerGroup struct {
 	describeContext   *proposalutils.ArgumentContext
 }
 
-type DescribedTransaction struct {
+type DescribedTransaction interface {
+	Describe() string
+	ToMCMS(selector uint64) (mcmstypes.Transaction, error)
+}
+
+type EvmDescribedTransaction struct {
 	Tx          *types.Transaction
 	Description string
+}
+
+func (d EvmDescribedTransaction) Describe() string {
+	return d.Description
+}
+
+func (d EvmDescribedTransaction) ToMCMS(selector uint64) (mcmstypes.Transaction, error) {
+	return proposalutils.TransactionForChain(selector, d.Tx.To().Hex(), d.Tx.Data(), d.Tx.Value(), "", []string{})
+}
+
+type SolanaDescribedTransaction struct {
+	Tx           solana.Instruction
+	ProgramID    string
+	ContractType deployment.ContractType
+	Description  string
+}
+
+func (d SolanaDescribedTransaction) Describe() string {
+	return d.Description
+}
+
+func (d SolanaDescribedTransaction) ToMCMS(selector uint64) (mcmstypes.Transaction, error) {
+	data, err := d.Tx.Data()
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to extract data: %w", err)
+	}
+
+	// We clear the signer as we will add back timelock PDA signer
+	for _, account := range d.Tx.Accounts() {
+		if account.IsSigner {
+			account.IsSigner = false
+		}
+	}
+	tx, err := mcmsSolana.NewTransaction(
+		d.ProgramID,
+		data,
+		big.NewInt(0),          // e.g. value
+		d.Tx.Accounts(),        // pass along needed accounts
+		string(d.ContractType), // some string identifying the target
+		[]string{},             // any relevant metadata
+	)
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
+	}
+	return tx, nil
 }
 
 type DeploymentContext struct {
@@ -183,12 +238,45 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 				description = decodedCall.Describe(d.describeContext)
 			}
 		}
-		dc.transactions[chain] = append(dc.transactions[chain], DescribedTransaction{Tx: tx, Description: description})
+		dc.transactions[chain] = append(dc.transactions[chain], EvmDescribedTransaction{Tx: tx, Description: description})
 		// Update the nonce to consider the transactions that have been sent
 		sim.Nonce = big.NewInt(0).Add(currentNonce, big.NewInt(1))
 		return tx, nil
 	}
 	return sim, nil
+}
+
+type DeployerForSVM func(solana.PublicKey) (solana.Instruction, string, deployment.ContractType, error)
+
+func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (solana.Instruction, error), error) {
+	var authority solana.PublicKey = d.e.SolChains[chain].DeployerKey.PublicKey()
+
+	if d.mcmConfig != nil {
+		addresses, err := addressForChain(d.e, chain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load addresses for chain %d: %w", chain, err)
+		}
+		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(d.e.SolChains[chain], addresses)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load mcm state: %w", err)
+		}
+		timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		authority = timelockSignerPDA
+	}
+
+	return func(deployer DeployerForSVM) (solana.Instruction, error) {
+		ix, programID, contractType, err := deployer(authority)
+		if err != nil {
+			return nil, fmt.Errorf("failed to deploy instruction: %w", err)
+		}
+		dc := d.deploymentContext
+		dc.transactions[chain] = append(dc.transactions[chain], SolanaDescribedTransaction{
+			Tx:           ix,
+			ProgramID:    programID,
+			ContractType: contractType,
+		})
+		return ix, nil
+	}, nil
 }
 
 func (d *DeployerGroup) getContextChainInOrder() []*DeploymentContext {
@@ -223,6 +311,35 @@ func (d *DeployerGroup) Enact() (deployment.ChangesetOutput, error) {
 	return d.enactDeployer()
 }
 
+func ValidateMCMS(env deployment.Environment, selector uint64, mcmConfig *proposalutils.TimelockConfig) error {
+	family, err := chain_selectors.GetSelectorFamily(selector)
+	if err != nil {
+		return fmt.Errorf("failed to get chain selector family: %w", err)
+	}
+
+	switch family {
+	case chain_selectors.FamilyEVM:
+		state, err := LoadOnchainState(env)
+		if err != nil {
+			return fmt.Errorf("failed to load onchain state: %w", err)
+		}
+		mcmsState, ok := state.EVMMCMSStateByChain()[selector]
+		if !ok {
+			return fmt.Errorf("failed to get mcms state for chain %d", selector)
+		}
+		if err := mcmConfig.Validate(env.Chains[selector], mcmsState); err != nil {
+			return fmt.Errorf("mcm config is invalid for chain %d: %w", selector, err)
+		}
+	case chain_selectors.FamilySolana:
+		if err := mcmConfig.ValidateSolana(env, selector); err != nil {
+			return fmt.Errorf("mcm config is invalid for chain %d: %w", selector, err)
+		}
+	default:
+		return fmt.Errorf("unsupported chain family: %s", family)
+	}
+	return nil
+}
+
 func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 	contexts := d.getContextChainInOrder()
 	proposals := make([]mcmslib.TimelockProposal, 0, len(contexts))
@@ -231,15 +348,19 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		batches := make([]mcmstypes.BatchOperation, 0, len(dc.transactions))
 		describedBatches := make([][]string, 0, len(dc.transactions))
 		for selector, txs := range dc.transactions {
+			err := ValidateMCMS(d.e, selector, d.mcmConfig)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate mcms state: %w", err)
+			}
 			mcmTransactions := make([]mcmstypes.Transaction, len(txs))
 			describedTxs := make([]string, len(txs))
 			for i, tx := range txs {
 				var err error
-				mcmTransactions[i], err = proposalutils.TransactionForChain(selector, tx.Tx.To().Hex(), tx.Tx.Data(), tx.Tx.Value(), "", []string{})
+				mcmTransactions[i], err = tx.ToMCMS(selector)
 				if err != nil {
 					return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcms transaction: %w", err)
 				}
-				describedTxs[i] = tx.Description
+				describedTxs[i] = tx.Describe()
 			}
 
 			batches = append(batches, mcmstypes.BatchOperation{
@@ -255,7 +376,10 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		}
 
 		timelocks := BuildTimelockAddressPerChain(d.e, d.state)
-		proposerMcms := BuildProposerMcmAddressesPerChain(d.e, d.state)
+		mcmContractByAction, err := BuildMcmAddressesPerChainByAction(d.e, d.state, d.mcmConfig)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get proposer mcms for chain: %w", err)
+		}
 		inspectors, err := proposalutils.McmsInspectors(d.e)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain: %w", err)
@@ -264,7 +388,7 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
 			d.e,
 			timelocks,
-			proposerMcms,
+			mcmContractByAction,
 			inspectors,
 			batches,
 			dc.description,
@@ -317,16 +441,25 @@ func (d *DeployerGroup) enactDeployer() (deployment.ChangesetOutput, error) {
 			selector, txs := selector, txs
 			g.Go(func() error {
 				for _, tx := range txs {
-					err := d.e.Chains[selector].Client.SendTransaction(context.Background(), tx.Tx)
-					if err != nil {
-						return fmt.Errorf("failed to send transaction: %w", err)
+					if evmTx, ok := tx.(EvmDescribedTransaction); ok {
+						err := d.e.Chains[selector].Client.SendTransaction(context.Background(), evmTx.Tx)
+						if err != nil {
+							return fmt.Errorf("failed to send transaction: %w", err)
+						}
+						// TODO how to pass abi here to decode error reason
+						_, err = deployment.ConfirmIfNoError(d.e.Chains[selector], evmTx.Tx, err)
+						if err != nil {
+							return fmt.Errorf("waiting for tx to be mined failed: %w", err)
+						}
+						d.e.Logger.Infow("Transaction sent", "chain", selector, "tx", evmTx.Tx.Hash().Hex(), "description", tx.Describe())
+					} else if solanaTx, ok := tx.(SolanaDescribedTransaction); ok {
+						err := d.e.SolChains[selector].Confirm([]solana.Instruction{solanaTx.Tx})
+						if err != nil {
+							return fmt.Errorf("waiting for tx to be mined failed: %w", err)
+						}
+					} else {
+						return errors.New("transaction type not supported")
 					}
-					// TODO how to pass abi here to decode error reason
-					_, err = deployment.ConfirmIfNoError(d.e.Chains[selector], tx.Tx, err)
-					if err != nil {
-						return fmt.Errorf("waiting for tx to be mined failed: %w", err)
-					}
-					d.e.Logger.Infow("Transaction sent", "chain", selector, "tx", tx.Tx.Hash().Hex(), "description", tx.Description)
 				}
 				return nil
 			})
@@ -349,18 +482,49 @@ func BuildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map
 	return timelocksPerChain
 }
 
-func BuildTimelockAddressPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]string {
+func BuildTimelockAddressPerChain(e deployment.Environment, onchainState CCIPOnChainState) map[uint64]string {
 	addressPerChain := make(map[uint64]string)
 	for _, chain := range e.Chains {
-		addressPerChain[chain.Selector] = state.Chains[chain.Selector].Timelock.Address().Hex()
+		addressPerChain[chain.Selector] = onchainState.Chains[chain.Selector].Timelock.Address().Hex()
 	}
+
+	// TODO: This should come from the Solana chain state which should be enhanced to contain timlock and MCMS address
+	for selector, chain := range e.SolChains {
+		addresses, _ := addressForChain(e, selector)
+		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		addressPerChain[selector] = mcmsSolana.ContractAddress(mcmState.TimelockProgram, mcmsSolana.PDASeed(mcmState.TimelockSeed))
+	}
+
 	return addressPerChain
 }
 
-func BuildProposerMcmAddressesPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]string {
+func BuildMcmAddressesPerChainByAction(e deployment.Environment, onchainState CCIPOnChainState, mcmCfg *proposalutils.TimelockConfig) (map[uint64]string, error) {
+	if mcmCfg == nil {
+		return nil, errors.New("mcm config is nil, cannot get mcms address")
+	}
 	addressPerChain := make(map[uint64]string)
 	for _, chain := range e.Chains {
-		addressPerChain[chain.Selector] = state.Chains[chain.Selector].ProposerMcm.Address().Hex()
+		mcmContract, err := mcmCfg.MCMBasedOnAction(onchainState.EVMMCMSStateByChain()[chain.Selector])
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mcms for action %s: %w", mcmCfg.MCMSAction, err)
+		}
+		addressPerChain[chain.Selector] = mcmContract.Address().Hex()
 	}
-	return addressPerChain
+
+	// TODO: This should come from the Solana chain state which should be enhanced to contain timlock and MCMS address
+	for selector, chain := range e.SolChains {
+		addresses, _ := addressForChain(e, selector)
+		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		address, err := mcmCfg.MCMBasedOnActionSolana(*mcmState)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mcms for action %s: %w", mcmCfg.MCMSAction, err)
+		}
+		addressPerChain[selector] = address
+	}
+
+	return addressPerChain, nil
+}
+
+func addressForChain(e deployment.Environment, selector uint64) (map[string]deployment.TypeAndVersion, error) {
+	return e.ExistingAddresses.AddressesForChain(selector) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
 }

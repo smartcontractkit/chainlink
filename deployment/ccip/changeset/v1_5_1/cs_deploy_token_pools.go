@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -11,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
@@ -167,8 +168,17 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 		deployGrp.Go(func() error {
 			chain := env.Chains[chainSelector]
 			chainState := state.Chains[chainSelector]
-			_, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
-			return err
+			contract, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
+			if err != nil {
+				return fmt.Errorf("failed to deploy token pool contract: %w", err)
+			}
+			if poolConfig.Type == changeset.BurnMintTokenPool {
+				err := grantAccessToPool(env.GetContext(), chain, contract.Address, poolConfig.TokenAddress)
+				if err != nil {
+					return fmt.Errorf("failed to grant token pool access to token: %s %w", poolConfig.TokenAddress, err)
+				}
+			}
+			return nil
 		})
 	}
 

@@ -107,7 +107,8 @@ func TestUpdateDon(t *testing.T) {
 								Capability: capB, Config: capBCfg,
 							},
 						},
-						MCMSConfig: tc.input.mcmsConfig,
+						MCMSConfig:  tc.input.mcmsConfig,
+						RegistryRef: te.CapabilityRegistryAddressRef(),
 					}
 
 					csOut, err := changeset.UpdateDon(te.Env, &cfg)
@@ -141,7 +142,7 @@ func TestUpdateDon(t *testing.T) {
 						}
 					}
 
-					assertDonContainsCapabilities(t, te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry, caps, p2pIDs)
+					assertDonContainsCapabilities(t, te.CapabilitiesRegistry(), caps, p2pIDs)
 				})
 			}
 		})

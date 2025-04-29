@@ -3,11 +3,13 @@ package v1_5_1_test
 import (
 	"bytes"
 	"math/big"
+	"slices"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -734,12 +736,12 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		state, err := changeset.LoadOnchainState(e)
 		require.NoError(t, err)
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
-		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPool),
+				deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 				changeset_solana.TokenPoolConfig{
 					ChainSelector: selector,
-					TokenPubKey:   tokenAddress.String(),
+					TokenPubKey:   tokenAddress,
 					PoolType:      solTestTokenPool.BurnAndMint_PoolType,
 				},
 			),
@@ -797,6 +799,79 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			}
 		}
 		e.Chains[selector].DeployerKey.GasLimit = 1_000_000 // Hack: Increase gas limit to avoid out of gas error (could this be a cause for test flakiness?)
+		e, err = commonchangeset.Apply(t, e, nil,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+				v1_5_1.ConfigureTokenPoolContractsConfig{
+					TokenSymbol: testhelpers.TestTokenSymbol,
+					PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+						selector: {
+							Type:            changeset.BurnMintTokenPool,
+							Version:         deployment.Version1_5_1,
+							SolChainUpdates: solChainUpdates,
+						},
+					},
+				},
+			),
+		)
+		require.NoError(t, err)
+
+		for _, remoteSelector := range solanaSelectors {
+			validateSolanaConfig(t, state, solChainUpdates, selector, remoteSelector)
+		}
+	}
+
+	///////////////////////////
+	// REDEPLOY SOLANA TOKEN //
+	///////////////////////////
+	remoteTokenAddresses := make(map[uint64]solana.PublicKey, len(solanaSelectors))
+	for _, selector := range solanaSelectors {
+		tokensBefore := state.SolChains[selector].SPL2022Tokens
+		e, err = commonchangeset.Apply(t, e, nil,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+				changeset_solana.DeploySolanaTokenConfig{
+					ChainSelector:    selector,
+					TokenProgramName: changeset.SPL2022Tokens,
+					TokenDecimals:    testhelpers.LocalTokenDecimals,
+					TokenSymbol:      string(testhelpers.TestTokenSymbol),
+				},
+			),
+		)
+		require.NoError(t, err)
+		onchainState, err := changeset.LoadOnchainState(e)
+		require.NoError(t, err)
+		for _, tokenAddress := range onchainState.SolChains[selector].SPL2022Tokens {
+			if slices.Contains(tokensBefore, tokenAddress) {
+				continue
+			}
+			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
+					changeset_solana.TokenPoolConfig{
+						ChainSelector: selector,
+						TokenPubKey:   tokenAddress,
+						PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+					},
+				),
+			})
+			require.NoError(t, err)
+			remoteTokenAddresses[selector] = tokenAddress
+		}
+	}
+
+	//////////////////////////////////////
+	// REMOVE & ADD SOLANA CHAIN CONFIG //
+	//////////////////////////////////////
+	for _, selector := range evmSelectors {
+		solChainUpdates := make(map[uint64]v1_5_1.SolChainUpdate)
+		for remoteSelector, remoteTokenAddress := range remoteTokenAddresses {
+			solChainUpdates[remoteSelector] = v1_5_1.SolChainUpdate{
+				Type:              changeset.BurnMintTokenPool,
+				TokenAddress:      remoteTokenAddress.String(),
+				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(0, 0),
+			}
+		}
 		e, err = commonchangeset.Apply(t, e, nil,
 			commonchangeset.Configure(
 				deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),

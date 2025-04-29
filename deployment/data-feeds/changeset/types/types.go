@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
+	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -38,9 +39,17 @@ type DeployAggregatorProxyConfig struct {
 }
 
 type DeployBundleAggregatorProxyConfig struct {
-	ChainsToDeploy    []uint64 // Chain Selectors
-	MCMSAddressesPath string   // Path to the MCMS addresses JSON file, per chain
-	InputFS           embed.FS // Filesystem to read MCMS addresses JSON file
+	ChainsToDeploy []uint64 // Chain Selectors
+	Owners         map[uint64]common.Address
+	Labels         []string // Labels for the BundleAggregatorProxy, applies to all chains
+	CacheLabel     string   // Label to find the DataFeedsCache contract address in addressbook
+}
+
+type DeployBundleAggregatorProxyResponse struct {
+	Address  common.Address
+	Tx       common.Hash
+	Tv       deployment.TypeAndVersion
+	Contract *bundleproxy.BundleAggregatorProxy
 }
 
 type DeployProxyResponse struct {
@@ -70,6 +79,16 @@ type SetFeedDecimalConfig struct {
 	CacheAddress     common.Address
 	DataIDs          []string
 	Descriptions     []string
+	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
+	McmsConfig       *MCMSConfig
+}
+
+type SetFeedBundleConfig struct {
+	ChainSelector    uint64
+	CacheAddress     common.Address
+	DataIDs          []string
+	Descriptions     []string
+	DecimalsMatrix   [][]uint8
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 	McmsConfig       *MCMSConfig
 }
@@ -139,11 +158,27 @@ type NodeConfig struct {
 	InputFS       embed.FS
 }
 
-type ProposeWfJobsConfig struct {
-	InputFileName   string // workflow yaml file path
-	InputFS         embed.FS
-	WorkflowJobName string
-	NodeFilter      *offchain.NodesFilter
+type WorkflowSpecConfig struct {
+	TargetContractEncoderType        string // Required. "data-feeds_decimal", "aptos" or "ccip"
+	ConsensusAggregationMethod       string // Required. "llo_streams" or "data_feeds"
+	WorkflowName                     string // Required
+	ConsensusReportID                string // Required
+	WriteTargetTrigger               string // Required
+	ConsensusRef                     string // Default "data-feeds"
+	ConsensusConfigKeyID             string // Default "evm"
+	ConsensusAllowedPartialStaleness string // Default "0.5"
+	DeltaStageSec                    *int   // Default 45
+	TargetsSchedule                  string // Default "oneAtATime"
+	TriggersMaxFrequencyMs           *int   // Default 5000
+	CREStepTimeout                   int64
+}
+
+type ProposeWFJobsConfig struct {
+	ChainSelector      uint64
+	InputFS            embed.FS // filesystem to read the feeds json mapping
+	WorkflowJobName    string   // Required
+	WorkflowSpecConfig WorkflowSpecConfig
+	NodeFilter         *offchain.NodesFilter
 }
 
 type ProposeBtJobsConfig struct {

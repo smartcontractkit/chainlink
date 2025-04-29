@@ -2,6 +2,7 @@ package relay
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -38,9 +39,25 @@ type ServerAdapter struct {
 	types.Relayer
 }
 
+type evmRelayerAdapter struct {
+	*ServerAdapter
+	evmRelayer types.EVMRelayer
+}
+
 // NewServerAdapter returns a new ServerAdapter.
 func NewServerAdapter(r types.Relayer) *ServerAdapter {
 	return &ServerAdapter{Relayer: r}
+}
+
+func (r *ServerAdapter) AsEVMRelayer() (loop.EVMRelayer, error) {
+	if evm, ok := r.Relayer.(types.EVMRelayer); ok {
+		return &evmRelayerAdapter{
+			r,
+			evm,
+		}, nil
+	}
+
+	return nil, errors.New("unimplemented")
 }
 
 func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
@@ -65,4 +82,8 @@ func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
 	}
 	return nil, fmt.Errorf("provider type not recognized: %s", rargs.ProviderType)
+}
+
+func (e *evmRelayerAdapter) GetTransactionFee(ctx context.Context, transactionID string) (*types.TransactionFee, error) {
+	return e.evmRelayer.GetTransactionFee(ctx, transactionID)
 }

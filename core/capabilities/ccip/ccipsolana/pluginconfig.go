@@ -28,7 +28,7 @@ func (p PluginConfig) InitializePluginConfig(lggr logger.Logger) ccipcommon.Plug
 		ExecutePluginCodec:         NewExecutePluginCodecV1(p.extraDataCodec),
 		MessageHasher:              NewMessageHasherV1(lggr.Named(chainsel.FamilySolana).Named("MessageHasherV1"), p.extraDataCodec),
 		TokenDataEncoder:           NewSolanaTokenDataEncoder(),
-		GasEstimateProvider:        NewGasEstimateProvider(),
+		GasEstimateProvider:        NewGasEstimateProvider(p.extraDataCodec),
 		RMNCrypto:                  nil,
 		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(p.extraDataCodec),
 	}

@@ -16,8 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -36,7 +38,7 @@ type SetRMNRemoteOnRMNProxyConfig struct {
 	MCMSConfig     *proposalutils.TimelockConfig
 }
 
-func (c SetRMNRemoteOnRMNProxyConfig) Validate(state changeset.CCIPOnChainState) error {
+func (c SetRMNRemoteOnRMNProxyConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
 	for _, chain := range c.ChainSelectors {
 		err := deployment.IsValidChainSelector(chain)
 		if err != nil {
@@ -52,6 +54,11 @@ func (c SetRMNRemoteOnRMNProxyConfig) Validate(state changeset.CCIPOnChainState)
 		if chainState.RMNProxy == nil {
 			return fmt.Errorf("RMNProxy not found for chain %d", chain)
 		}
+
+		chainEnv := e.Chains[chain]
+		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMSConfig != nil, chainEnv.DeployerKey.From, chainState.Timelock.Address(), chainState.RMNProxy); err != nil {
+			return fmt.Errorf("failed to validate ownership of RMNProxy on %s: %w", chainEnv, err)
+		}
 	}
 	return nil
 }
@@ -61,12 +68,11 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	if err := cfg.Validate(state); err != nil {
+	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
-	proposerMcms := changeset.BuildProposerMcmAddressesPerChain(e, state)
 
 	inspectors := map[uint64]mcmssdk.Inspector{}
 	timelockBatch := []mcmstypes.BatchOperation{}
@@ -98,11 +104,14 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 	if len(timelockBatch) == 0 {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposerMcms,
+		mcmContract,
 		inspectors,
 		timelockBatch,
 		fmt.Sprintf("proposal to set RMNRemote on RMNProxy for chains %v", cfg.ChainSelectors),
@@ -373,7 +382,10 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
-	proposerMcms := changeset.BuildProposerMcmAddressesPerChain(e, state)
+	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	inspectors, err := proposalutils.McmsInspectors(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
@@ -382,7 +394,7 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposerMcms,
+		mcmContract,
 		inspectors,
 		[]mcmstypes.BatchOperation{operation},
 		"proposal to set candidate config",
@@ -450,7 +462,10 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
-	proposerMcms := changeset.BuildProposerMcmAddressesPerChain(e, state)
+	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 
 	inspectors := map[uint64]mcmssdk.Inspector{}
 	inspectors[config.HomeChainSelector], err = proposalutils.McmsInspectorForChain(e, config.HomeChainSelector)
@@ -461,7 +476,7 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposerMcms,
+		mcmContract,
 		inspectors,
 		[]mcmstypes.BatchOperation{operation},
 		"proposal to promote candidate config",
@@ -756,7 +771,10 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
-	proposerMcms := changeset.BuildProposerMcmAddressesPerChain(e, state)
+	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	inspectors, err := proposalutils.McmsInspectors(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
@@ -765,7 +783,7 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposerMcms,
+		mcmContract,
 		inspectors,
 		batches,
 		"proposal to promote candidate config",

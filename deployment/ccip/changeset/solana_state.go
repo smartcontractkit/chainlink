@@ -29,13 +29,12 @@ import (
 )
 
 const (
-	OfframpAddressLookupTable deployment.ContractType = "OfframpAddressLookupTable"
-	TokenPool                 deployment.ContractType = "TokenPool"
-	Receiver                  deployment.ContractType = "Receiver"
-	SPL2022Tokens             deployment.ContractType = "SPL2022Tokens"
-	SPLTokens                 deployment.ContractType = "SPLTokens"
-	WSOL                      deployment.ContractType = "WSOL"
-	CCIPCommon                deployment.ContractType = "CCIPCommon"
+	TokenPool     deployment.ContractType = "TokenPool"
+	Receiver      deployment.ContractType = "Receiver"
+	SPL2022Tokens deployment.ContractType = "SPL2022Tokens"
+	SPLTokens     deployment.ContractType = "SPLTokens"
+	WSOL          deployment.ContractType = "WSOL"
+	CCIPCommon    deployment.ContractType = "CCIPCommon"
 	// for PDAs from AddRemoteChainToSolana
 	RemoteSource deployment.ContractType = "RemoteSource"
 	RemoteDest   deployment.ContractType = "RemoteDest"
@@ -135,6 +134,15 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 			state.RouterConfigPDA = routerConfigPDA
 		case Receiver:
+			receiverVersion, ok := versions[OffRamp]
+			// if we have an receiver version, we need to make sure it's a newer version
+			if ok {
+				// if the version is not newer, skip this address
+				if receiverVersion.GreaterThan(&tvStr.Version) {
+					log.Debug().Str("address", address).Str("type", string(tvStr.Type)).Msg("Skipping receiver address, already loaded newer version")
+					continue
+				}
+			}
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
 		case SPL2022Tokens:
@@ -221,11 +229,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			state.RMNRemoteCursesPDA = rmnRemoteCursesPDA
 		default:
 			continue
-		}
-		existingVersion, ok := versions[tvStr.Type]
-		// This shouldn't happen, so we want to log it
-		if ok {
-			log.Warn().Str("existingVersion", existingVersion.String()).Str("type", string(tvStr.Type)).Msg("Duplicate address type found")
 		}
 		versions[tvStr.Type] = tvStr.Version
 	}

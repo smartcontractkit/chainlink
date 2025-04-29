@@ -84,19 +84,5 @@ func DeployMCMSWithTimelockProgramsSolana(
 		return nil, fmt.Errorf("failed to setup roles and ownership: %w", err)
 	}
 
-	err = transferOwnership(chainState, chain)
-	if err != nil {
-		return nil, fmt.Errorf("failed to transfer ownership: %w", err)
-	}
-
 	return chainState, nil
-}
-
-func transferOwnership(chainState *state.MCMSWithTimelockStateSolana, chain deployment.SolChain) error {
-	err := transferOwnershipTimelock(chain, chainState.TimelockProgram, chainState.TimelockSeed)
-	if err != nil {
-		return fmt.Errorf("failed to transfer ownership of timelock: %w", err)
-	}
-
-	return nil
 }

@@ -20,12 +20,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -151,7 +153,6 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for chainSel, updates := range cfg.UpdatesByChain {
@@ -237,7 +238,6 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 			})
 
 			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm.Address().Hex()
 			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
@@ -247,11 +247,14 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"Update nonce manager for previous ramps and authorized callers",
@@ -342,7 +345,6 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for chainSel, updates := range cfg.UpdatesByChain {
@@ -387,7 +389,6 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm.Address().Hex()
 			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
@@ -397,11 +398,14 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"Update onramp destinations",
@@ -457,7 +461,6 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for chainSel, update := range cfg.UpdatesByChain {
@@ -502,7 +505,6 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
 			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
@@ -512,9 +514,12 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e, timelocks, proposers, inspectors, batches,
+		e, timelocks, mcmsContractByChain, inspectors, batches,
 		"update onramp dynamic config",
 		*cfg.MCMS)
 	if err != nil {
@@ -599,7 +604,6 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for srcSel, updates := range cfg.UpdatesByChain {
@@ -660,7 +664,6 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 			batches = append(batches, batchOperation)
 
 			timelocks[srcSel] = onchain.Chains[srcSel].Timelock.Address().Hex()
-			proposers[srcSel] = onchain.Chains[srcSel].ProposerMcm.Address().Hex()
 			inspectors[srcSel], err = proposalutils.McmsInspectorForChain(e, srcSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", srcSel, err)
@@ -670,11 +673,14 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, onchain, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"update onramp allowlist",
@@ -738,7 +744,6 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for chainSel, feeTokens := range cfg.FeeTokensByChain {
@@ -762,7 +767,6 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
 			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
@@ -772,11 +776,14 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"withdraw onramp fee tokens",
@@ -885,7 +892,6 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for chainSel, initialPrice := range cfg.PricesByChain {
@@ -929,7 +935,6 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm.Address().Hex()
 			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
@@ -939,11 +944,14 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"Update fq prices",
@@ -1016,7 +1024,6 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for chainSel, updates := range cfg.UpdatesByChain {
@@ -1034,14 +1041,14 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 			})
 		}
 		tx, err := fq.ApplyDestChainConfigUpdates(txOpts, args)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[chainSel], tx, fee_quoter.FeeQuoterABI, err); err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
 		} else {
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
 			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, fq.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(changeset.FeeQuoter), []string{})
 			if err != nil {
@@ -1050,7 +1057,6 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm.Address().Hex()
 			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
@@ -1060,11 +1066,14 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"Update fq destinations",
@@ -1147,7 +1156,6 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for chainSel, updates := range cfg.UpdatesByChain {
@@ -1196,7 +1204,6 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
 			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
@@ -1206,11 +1213,14 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"Update offramp sources",
@@ -1241,6 +1251,13 @@ type UpdateRouterRampsConfig struct {
 }
 
 func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+	if !cfg.TestRouter {
+		// If not using the test router, we need to enforce MCMS usage if the state calls for it.
+		err := state.EnforceMCMSUsageIfProd(e.GetContext(), cfg.MCMS)
+		if err != nil {
+			return err
+		}
+	}
 	supportedChains := state.SupportedChains()
 	for chainSel, update := range cfg.UpdatesByChain {
 		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
@@ -1261,12 +1278,26 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 		}
 		if !cfg.SkipOwnershipCheck {
 			if cfg.TestRouter {
+				// If activating on the test router, we don't need the other CCIP contracts to have proper ownership.
 				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
 					return err
 				}
-			} else {
+			} else if cfg.MCMS == nil {
+				// If we are not using MCMS, then we know we aren't in a production environment given the EnforceMCMSUsageIfProd check above.
+				// In this case, we only need to validate that the router contract is owned by the deployer key.
+				// We don't care about uniform ownership in non-production environments.
 				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
 					return err
+				}
+			} else {
+				// If we are activating ramps on the main router in a production environment, we should validate two things:
+				//   1. All expected CCIP contracts exist on the chain.
+				//   2. All contracts have the expected owner.
+				// That way, if cfg.MCMS exists, we ensure that every contract is owned by MCMS.
+				// Calling this function will ensure that both these checks are done.
+				err := state.ValidateOwnershipOfChain(e, chainSel, cfg.MCMS)
+				if err != nil {
+					return fmt.Errorf("failed to validate ownership of contracts on %s: %w", e.Chains[chainSel], err)
 				}
 			}
 		}
@@ -1317,7 +1348,6 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for chainSel, update := range cfg.UpdatesByChain {
@@ -1382,7 +1412,6 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
 			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
@@ -1392,11 +1421,14 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"Update router offramps",
@@ -1477,7 +1509,6 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for _, remote := range cfg.RemoteChainSels {
@@ -1524,7 +1555,6 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			batches = append(batches, batchOperation)
 
 			timelocks[remote] = state.Chains[remote].Timelock.Address().Hex()
-			proposers[remote] = state.Chains[remote].ProposerMcm.Address().Hex()
 			inspectors[remote], err = proposalutils.McmsInspectorForChain(e, remote)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", remote, err)
@@ -1534,11 +1564,14 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"Update OCR3 config",
@@ -1604,7 +1637,6 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for chainSel, params := range cfg.Updates {
@@ -1638,7 +1670,6 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
 			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
@@ -1648,11 +1679,14 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectors,
 		batches,
 		"Update offramp dynamic config",
@@ -1820,7 +1854,6 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 	}
 	var batches []mcmstypes.BatchOperation
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectorPerChain := map[uint64]mcmssdk.Inspector{}
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
@@ -1855,7 +1888,6 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 			}
 			batches = append(batches, op)
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().String()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().String()
 			inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error creating inspector for chain %d: %w", chainSel, err)
@@ -1866,10 +1898,14 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 	if cfg.MCMSConfig == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectorPerChain,
 		batches,
 		"Apply fee tokens updates",
@@ -1954,7 +1990,6 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg Updat
 	}
 	var batches []mcmstypes.BatchOperation
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectorPerChain := map[uint64]mcmssdk.Inspector{}
 	for chainSel, updates := range cfg.Updates {
 		txOpts := e.Chains[chainSel].DeployerKey
@@ -2008,7 +2043,6 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg Updat
 			}
 			batches = append(batches, op)
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().String()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().String()
 			inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error getting inspector for chain %d: %w", chainSel, err)
@@ -2019,10 +2053,14 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg Updat
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectorPerChain,
 		batches,
 		"Update token price feeds",
@@ -2097,7 +2135,6 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Envir
 	}
 	var batches []mcmstypes.BatchOperation
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectorPerChain := map[uint64]mcmssdk.Inspector{}
 	for chainSel, updates := range cfg.Updates {
 		txOpts := e.Chains[chainSel].DeployerKey
@@ -2132,7 +2169,6 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Envir
 			}
 			batches = append(batches, op)
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().String()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().String()
 			inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error getting inspector for chain %d: %w", chainSel, err)
@@ -2143,10 +2179,14 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Envir
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectorPerChain,
 		batches,
 		"Apply premium multiplier updates",
@@ -2263,7 +2303,6 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e deployment.Environme
 	}
 	var batches []mcmstypes.BatchOperation
 	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
 	inspectorPerChain := map[uint64]mcmssdk.Inspector{}
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
@@ -2312,7 +2351,6 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e deployment.Environme
 			}
 			batches = append(batches, op)
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().String()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().String()
 			inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error getting inspector for chain %d: %w", chainSel, err)
@@ -2323,10 +2361,14 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e deployment.Environme
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
+	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		proposers,
+		mcmsContractByChain,
 		inspectorPerChain,
 		batches,
 		"Apply token transfer fee config updates",

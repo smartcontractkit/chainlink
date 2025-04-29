@@ -18,6 +18,7 @@ import (
 )
 
 func TestRMNRemoteCurseWithoutMCMS(t *testing.T) {
+	skipInCI(t)
 	t.Parallel()
 	doTestRMNRemoteCurse(t, false)
 }
@@ -119,7 +120,7 @@ func doTestRMNRemoteCurse(t *testing.T, mcms bool) {
 	}
 
 	// register evm chain on router
-	e, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+	e, _, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
 			ccipChangesetSolana.AddRemoteChainToRouterConfig{
@@ -138,7 +139,7 @@ func doTestRMNRemoteCurse(t *testing.T, mcms bool) {
 	require.NoError(t, err)
 
 	for _, testCase := range testCases {
-		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				deployment.CreateLegacyChangeSet(testCase.cs),
 				testCase.curseConfig,

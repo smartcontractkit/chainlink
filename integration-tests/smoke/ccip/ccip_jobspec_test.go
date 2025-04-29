@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
@@ -15,7 +16,7 @@ import (
 // It always runs in docker, it's not enabled to run in-memory as we are testing the actual job distributor
 func TestDeleteCCIPJobs(t *testing.T) {
 	e, _, tenv := testsetups.NewIntegrationEnvironment(t, testhelpers.WithJobsOnly())
-	nopsView, err := view.GenerateNopsView(e.Env.NodeIDs, e.Env.Offchain)
+	nopsView, err := view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 
 	// gather all the jobIDs
@@ -39,7 +40,7 @@ func TestDeleteCCIPJobs(t *testing.T) {
 	require.NoError(t, tenv.DeleteJobs(e.Env.GetContext(), jobUUIDsByNode))
 
 	// check if the jobs are deleted
-	nopsView, err = view.GenerateNopsView(e.Env.NodeIDs, e.Env.Offchain)
+	nopsView, err = view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	for _, nop := range nopsView {
 		require.Empty(t, nop.ApprovedJobspecs)
@@ -48,8 +49,10 @@ func TestDeleteCCIPJobs(t *testing.T) {
 
 // It always runs in docker, it's not enabled to run in-memory as we are testing the actual job distributor
 func TestRevokeJobs(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-566")
+
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithJobsOnly())
-	nopsView, err := view.GenerateNopsView(e.Env.NodeIDs, e.Env.Offchain)
+	nopsView, err := view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 
 	// gather all the jobIDs

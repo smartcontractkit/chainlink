@@ -43,7 +43,7 @@ func createAptosAccount(t *testing.T, useDefault bool) *aptos.Account {
 
 		t.Logf("Using default Aptos account: %s %+v", addressStr, privateKeyBytes)
 
-		account, err := aptos.NewAccountFromSigner(&crypto.Ed25519PrivateKey{Inner: privateKey}, *defaultAddress.AuthKey())
+		account, err := aptos.NewAccountFromSigner(&crypto.Ed25519PrivateKey{Inner: privateKey})
 		require.NoError(t, err)
 		return account
 	} else {
@@ -128,8 +128,10 @@ func aptosChain(t *testing.T, chainID string, adminAddress aptos.AccountAddress)
 	require.True(t, ready, "Aptos network not ready")
 	time.Sleep(15 * time.Second) // we have slot errors that force retries if the chain is not given enough time to boot
 
+	dc, err := framework.NewDockerClient()
+	require.NoError(t, err)
 	// incase we didn't use the default account above
-	_, err = framework.ExecContainer(containerName, []string{"aptos", "account", "fund-with-faucet", "--account", adminAddress.String(), "--amount", "100000000000"})
+	_, err = dc.ExecContainer(containerName, []string{"aptos", "account", "fund-with-faucet", "--account", adminAddress.String(), "--amount", "100000000000"})
 	require.NoError(t, err)
 
 	return url, client

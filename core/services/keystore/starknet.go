@@ -3,14 +3,10 @@ package keystore
 import (
 	"context"
 	"fmt"
-	"math/big"
 
 	"github.com/pkg/errors"
 
-	"github.com/NethermindEth/starknet.go/curve"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	adapters "github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
@@ -176,17 +172,7 @@ func (lk *StarknetLooppSigner) Sign(ctx context.Context, id string, hash []byte)
 		return nil, nil
 	}
 
-	starkHash := new(big.Int).SetBytes(hash)
-	x, y, err := curve.Curve.Sign(starkHash, k.ToPrivKey())
-	if err != nil {
-		return nil, fmt.Errorf("error signing data with curve: %w", err)
-	}
-
-	sig, err := adapters.SignatureFromBigInts(x, y)
-	if err != nil {
-		return nil, err
-	}
-	return sig.Bytes()
+	return k.Sign(hash)
 }
 
 func (lk *StarknetLooppSigner) Accounts(ctx context.Context) ([]string, error) {

@@ -198,7 +198,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
 	factory, transmitter, err := i.createFactoryAndTransmitter(
-		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainFamily, destChainID, pluginConfig, offrampAddrStr)
+		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainID, pluginConfig, offrampAddrStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
@@ -260,7 +260,6 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	destChainWriter types.ContractWriter,
 	destFromAccounts []string,
 	publicConfig ocr3confighelper.PublicConfig,
-	chainFamily string,
 	destChainID string,
 	pluginConfig ccipcommon.PluginConfig,
 	offrampAddrStr string,
@@ -301,7 +300,9 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				RmnPeerClient:     rmnPeerClient,
 				RmnCrypto:         pluginConfig.RMNCrypto})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, destChainID, "CCIPCommit")
-		transmitter = pluginConfig.ContractTransmitterFactory.NewCommitTransmitter(destChainWriter,
+		transmitter = pluginConfig.ContractTransmitterFactory.NewCommitTransmitter(
+			i.lggr.Named("CCIPCommitTransmitter").Named(destRelayID.String()),
+			destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 			consts.MethodCommit,
@@ -326,7 +327,9 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractWriters:  chainWriters,
 			})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, destChainID, "CCIPExec")
-		transmitter = pluginConfig.ContractTransmitterFactory.NewExecTransmitter(destChainWriter,
+		transmitter = pluginConfig.ContractTransmitterFactory.NewExecTransmitter(
+			i.lggr.Named("CCIPExecTransmitter").Named(destRelayID.String()),
+			destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 		)

@@ -84,7 +84,14 @@ func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Outpu
 	gethChainEnvVars := map[string]string{
 		"CHAIN_ID": input.BlockchainInput.ChainID,
 	}
-	_, err := input.NixShell.RunCommandWithEnvVars("devspace run deploy-custom-geth-chain --no-warn", gethChainEnvVars)
+
+	// crib init is required to create necessary Kubernetes resources (like configmaps) and set up proper permissions
+	_, err := input.NixShell.RunCommand("crib init")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to run crib init")
+	}
+
+	_, err = input.NixShell.RunCommandWithEnvVars("devspace run deploy-custom-geth-chain --no-warn", gethChainEnvVars)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to run devspace run deploy-custom-geth-chain --no-warn")
 	}

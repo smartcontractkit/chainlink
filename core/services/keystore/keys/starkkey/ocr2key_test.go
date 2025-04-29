@@ -3,14 +3,19 @@ package starkkey
 import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
+	"io"
 	"math/big"
+	mathrand "math/rand"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 // msg to hash
@@ -172,15 +177,26 @@ func TestStarknetKeyring_Sign_Verify(t *testing.T) {
 }
 
 func TestStarknetKeyring_Marshal(t *testing.T) {
-	kr1, err := NewOCR2Key(cryptorand.Reader)
+	testStarknetKeyringMarshal(t, cryptorand.Reader)
+}
+
+func testStarknetKeyringMarshal(t *testing.T, r io.Reader) {
+	kr1, err := NewOCR2Key(r)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()
 	require.NoError(t, err)
 	kr2 := OCR2Key{}
 	err = kr2.Unmarshal(m)
 	require.NoError(t, err)
-	assert.Equal(t, kr1.priv.Cmp(kr2.priv), 0)
+	assert.Equal(t, internal.Bytes(kr1.raw), internal.Bytes(kr2.raw))
 
 	// Invalid seed size should error
 	require.Error(t, kr2.Unmarshal([]byte{0x01}))
+}
+
+func FuzzStarknetKeyring_Marshal(f *testing.F) {
+	f.Fuzz(func(t *testing.T, seed int64) {
+		r := mathrand.New(mathrand.NewSource(seed))
+		testStarknetKeyringMarshal(t, r)
+	})
 }

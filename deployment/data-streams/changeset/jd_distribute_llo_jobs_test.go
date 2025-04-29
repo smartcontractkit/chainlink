@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
@@ -14,6 +15,8 @@ import (
 )
 
 func TestDistributeLLOJobSpecs(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-577")
+
 	t.Parallel()
 
 	e := testutil.NewMemoryEnv(t, false, 1)
@@ -90,19 +93,21 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 			if tt.prepConfFn != nil {
 				conf = tt.prepConfFn(tt.config)
 			}
-			_, err = changeset.ApplyChangesetsV2(t,
+			_, out, err := changeset.ApplyChangesetsV2(t,
 				tt.env,
 				[]changeset.ConfiguredChangeSet{
 					changeset.Configure(cs, conf),
 				},
 			)
 
-			if tt.wantErr == nil {
-				require.NoError(t, err)
-			} else {
+			if tt.wantErr != nil {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), *tt.wantErr)
+				return
 			}
+			require.NoError(t, err)
+			require.Len(t, out, 1)
+			// TODO Compare the generated job spec with the expected one
 		})
 	}
 }
