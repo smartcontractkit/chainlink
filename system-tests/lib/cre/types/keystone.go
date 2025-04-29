@@ -201,6 +201,7 @@ type ConfigureKeystoneInput struct {
 	ChainSelector uint64
 	Topology      *Topology
 	CldEnv        *deployment.Environment
+	OCR3Config    keystone_changeset.OracleConfig
 }
 
 func (c *ConfigureKeystoneInput) Validate() error {
@@ -232,41 +233,9 @@ type GatewayConnectorOutput struct {
 	Port int
 }
 
-type GeneratePoRJobSpecsInput struct {
-	DonsWithMetadata       []*DonWithMetadata
-	BlockchainOutput       *blockchain.Output
-	OCR3CapabilityAddress  common.Address
-	ExtraAllowedPorts      []int
-	ExtraAllowedIPs        []string
-	ExtraAllowedIPsCIDR    []string
-	CronCapBinPath         string
-	GatewayConnectorOutput GatewayConnectorOutput
-}
+type ConfigFactoryFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverride, error)
 
-func (g *GeneratePoRJobSpecsInput) Validate() error {
-	if len(g.DonsWithMetadata) == 0 {
-		return errors.New("metadata dons not set")
-	}
-	if g.BlockchainOutput == nil {
-		return errors.New("blockchain output not set")
-	}
-	if g.OCR3CapabilityAddress == (common.Address{}) {
-		return errors.New("ocr3 capability address not set")
-	}
-	if g.CronCapBinPath == "" {
-		return errors.New("cron cap bin path not set")
-	}
-	if g.GatewayConnectorOutput.Path == "" {
-		return errors.New("gateway connector path is not set")
-	}
-	if g.GatewayConnectorOutput.Port == 0 {
-		return errors.New("gateway connector port is not set")
-	}
-
-	return nil
-}
-
-type GeneratePoRConfigsInput struct {
+type GenerateConfigsInput struct {
 	DonMetadata            *DonMetadata
 	BlockchainOutput       map[uint64]*blockchain.Output
 	HomeChainSelector      uint64
@@ -276,7 +245,7 @@ type GeneratePoRConfigsInput struct {
 	GatewayConnectorOutput *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
 
-func (g *GeneratePoRConfigsInput) Validate() error {
+func (g *GenerateConfigsInput) Validate() error {
 	if len(g.DonMetadata.NodesMetadata) == 0 {
 		return errors.New("don nodes not set")
 	}

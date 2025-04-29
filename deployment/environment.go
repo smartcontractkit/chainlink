@@ -29,10 +29,9 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 // Chain represents an EVM chain.
@@ -100,7 +99,7 @@ type Environment struct {
 	NodeIDs     []string
 	Offchain    deployment.OffchainClient
 	GetContext  func() context.Context
-	OCRSecrets  OCRSecrets
+	OCRSecrets  deployment.OCRSecrets
 	// OperationsBundle contains dependencies required by the operations API.
 	OperationsBundle operations.Bundle
 }
@@ -119,7 +118,7 @@ func NewEnvironment(
 	nodeIDs []string,
 	offchain deployment.OffchainClient,
 	ctx func() context.Context,
-	secrets OCRSecrets,
+	secrets deployment.OCRSecrets,
 ) *Environment {
 	return &Environment{
 		Name:              name,

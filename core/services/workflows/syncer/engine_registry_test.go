@@ -22,12 +22,12 @@ func TestEngineRegistry(t *testing.T) {
 	er := NewEngineRegistry()
 	require.False(t, er.Contains(EngineRegistryKey{Owner: owner, Name: name}))
 
-	e, err := er.Get(EngineRegistryKey{Owner: owner, Name: name})
-	require.ErrorIs(t, err, errNotFound)
+	e, ok := er.Get(EngineRegistryKey{Owner: owner, Name: name})
+	require.False(t, ok)
 	require.Nil(t, e.Service)
 	require.Equal(t, ServiceWithMetadata{}, e)
 
-	e, err = er.Pop(EngineRegistryKey{Owner: owner, Name: name})
+	e, err := er.Pop(EngineRegistryKey{Owner: owner, Name: name})
 	require.ErrorIs(t, err, errNotFound)
 	require.Nil(t, e.Service)
 	require.Equal(t, ServiceWithMetadata{}, e)
@@ -43,8 +43,8 @@ func TestEngineRegistry(t *testing.T) {
 	require.True(t, er.Contains(EngineRegistryKey{Owner: owner, Name: name}))
 
 	// get
-	e, err = er.Get(EngineRegistryKey{Owner: owner, Name: name})
-	require.NoError(t, err)
+	e, ok = er.Get(EngineRegistryKey{Owner: owner, Name: name})
+	require.True(t, ok)
 	require.Equal(t, srv, e.Service)
 	require.Equal(t, workflowID, e.WorkflowID)
 	require.Equal(t, owner, e.WorkflowOwner)

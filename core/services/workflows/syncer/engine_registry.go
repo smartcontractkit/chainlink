@@ -60,15 +60,15 @@ func (r *EngineRegistry) Add(key EngineRegistryKey, engine services.Service, wor
 	return nil
 }
 
-// Get retrieves an engine from the registry. If not found it returns an error.
-func (r *EngineRegistry) Get(key EngineRegistryKey) (ServiceWithMetadata, error) {
+// Get retrieves an engine from the registry. The second argument indicates whether an engine was found or not.
+func (r *EngineRegistry) Get(key EngineRegistryKey) (ServiceWithMetadata, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	engine, found := r.engines[key.keyFor()]
 	if !found {
-		return ServiceWithMetadata{}, errNotFound
+		return ServiceWithMetadata{}, false
 	}
-	return engine, nil
+	return engine, true
 }
 
 // GetAll retrieves all engines from the engine registry.
