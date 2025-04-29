@@ -79,6 +79,7 @@ type SetupInput struct {
 	JdInput                              jd.Input
 	InfraInput                           libtypes.InfraInput
 	CustomBinariesPaths                  map[cretypes.CapabilityFlag]string
+	OCR3Config                           *keystone_changeset.OracleConfig
 }
 
 func SetupTestEnvironment(
@@ -523,6 +524,16 @@ func SetupTestEnvironment(
 		ChainSelector: homeChainOutput.ChainSelector,
 		CldEnv:        fullCldOutput.Environment,
 		Topology:      topology,
+	}
+
+	if input.OCR3Config != nil {
+		configureKeystoneInput.OCR3Config = *input.OCR3Config
+	} else {
+		ocr3Config, ocr3ConfigErr := libcontracts.DefaultOCR3Config(topology)
+		if ocr3ConfigErr != nil {
+			return nil, pkgerrors.Wrap(ocr3ConfigErr, "failed to generate default OCR3 config")
+		}
+		configureKeystoneInput.OCR3Config = *ocr3Config
 	}
 
 	keystoneErr := libcontracts.ConfigureKeystone(configureKeystoneInput, input.CapabilitiesContractFactoryFunctions)
