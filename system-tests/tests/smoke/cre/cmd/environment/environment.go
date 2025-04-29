@@ -24,6 +24,7 @@ import (
 	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
 	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
+	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/chainreader"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -405,6 +406,9 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		InfraInput:                           *in.Infra,
 		CustomBinariesPaths:                  capabilitiesBinaryPaths,
 		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
+		ConfigFactoryFunctions: []cretypes.ConfigFactoryFn{
+			gatewayconfig.GenerateConfig,
+		},
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(context.Background(), testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)
