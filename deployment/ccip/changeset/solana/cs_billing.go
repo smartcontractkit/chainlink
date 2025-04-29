@@ -20,6 +20,9 @@ import (
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
+var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
+var _ deployment.ChangeSet[TokenTransferFeeForRemoteChainConfig] = AddTokenTransferFeeForRemoteChain
+
 // ADD BILLING TOKEN
 type BillingTokenConfig struct {
 	ChainSelector uint64

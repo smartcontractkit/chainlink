@@ -27,6 +27,8 @@ const (
 	OcrExecutePlugin
 )
 
+var _ deployment.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
+
 // SET OCR3 CONFIG
 func btoi(b bool) uint8 {
 	if b {

@@ -19,6 +19,8 @@ import (
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
+var _ deployment.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
+
 type DisableRemoteChainConfig struct {
 	ChainSelector uint64
 	RemoteChains  []uint64

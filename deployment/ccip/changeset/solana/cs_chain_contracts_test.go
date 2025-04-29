@@ -65,7 +65,7 @@ func deployTokenAndMint(t *testing.T, tenv deployment.Environment, solChain uint
 
 // remote chain setup
 func TestAddRemoteChainWithMcms(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	doTestAddRemoteChain(t, true)
 }
 
@@ -578,7 +578,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 }
 
 func TestBillingWithMcms(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	doTestBilling(t, true)
 }
 
@@ -726,7 +726,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 }
 
 func TestTokenAdminRegistryWithMcms(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	doTestTokenAdminRegistry(t, true)
 }
 
@@ -829,7 +829,7 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 }
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	doTestPoolLookupTable(t, true)
 }
 
