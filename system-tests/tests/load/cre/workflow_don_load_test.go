@@ -397,7 +397,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
 	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel), "could not hook into mock executable")
 
-	//nolint:go-require
 	go runChaosSuite(t, in)
 
 	labels := map[string]string{
