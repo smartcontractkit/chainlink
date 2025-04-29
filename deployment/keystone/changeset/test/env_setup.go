@@ -137,7 +137,7 @@ func loadOneContract[T changeset.Ownable](t *testing.T, env deployment.Environme
 func (te EnvWrapper) CapabilityRegistryAddressRef() datastore.AddressRefKey {
 	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(registryQualifier))
 	require.Len(te.t, addrs, 1)
-	return datastore.NewAddressRefKey(addrs[0].ChainSelector, addrs[0].Type, addrs[0].Version, addrs[0].Qualifier)
+	return addrs[0].Key()
 }
 
 func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
@@ -145,7 +145,7 @@ func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
 	require.NotEmpty(te.t, addrs)
 	out := make([]datastore.AddressRefKey, len(addrs))
 	for i, addr := range addrs {
-		out[i] = datastore.NewAddressRefKey(addr.ChainSelector, addr.Type, addr.Version, addr.Qualifier)
+		out[i] = addr.Key()
 	}
 	return out
 }
