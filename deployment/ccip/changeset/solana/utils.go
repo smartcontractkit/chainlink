@@ -17,7 +17,6 @@ import (
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func ValidateMCMSConfigSolana(
@@ -39,7 +38,7 @@ func ValidateMCMSConfigSolana(
 			!mcms.LockReleaseTokenPoolOwnedByTimelock[tokenAddress] {
 			return errors.New("at least one of the MCMS components must be owned by the timelock")
 		}
-		if err := ValidateMCMSConfig(e, chain.Selector, mcms.MCMS); err != nil {
+		if err := mcms.MCMS.ValidateSolana(e, chain.Selector); err != nil {
 			return fmt.Errorf("failed to validate MCMS config: %w", err)
 		}
 	}
@@ -64,30 +63,6 @@ func ValidateMCMSConfigSolana(
 		}
 	}
 
-	return nil
-}
-
-func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *proposalutils.TimelockConfig) error {
-	if mcms != nil {
-		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
-		timelockID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
-		if err != nil {
-			return fmt.Errorf("timelock not present on the chain %w", err)
-		}
-		proposerID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
-		if err != nil {
-			return fmt.Errorf("mcms proposer not present on the chain %w", err)
-		}
-		// Make sure addresses are correctly parsed. Format is: "programID.PDASeed"
-		_, _, err = mcmsSolana.ParseContractAddress(timelockID)
-		if err != nil {
-			return fmt.Errorf("failed to parse timelock address: %w", err)
-		}
-		_, _, err = mcmsSolana.ParseContractAddress(proposerID)
-		if err != nil {
-			return fmt.Errorf("failed to parse proposer address: %w", err)
-		}
-	}
 	return nil
 }
 
