@@ -79,15 +79,15 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250429152735-e25c8362c8a2
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250425163923-16aa375957b7
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250429171621-bc11ba5352d9
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250429205337-7ee5f91ed065
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250429171938-dc95a3bd60e7
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250429210946-16bf64f3931d
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250421203809-e0f5602c126c
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250429172328-c28f433fc7ce
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250429214959-baa3b4c6812d
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.10
 	github.com/smartcontractkit/libocr v0.0.0-20250408131511-c90716988ee0
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de

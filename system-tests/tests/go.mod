@@ -27,9 +27,9 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250429171621-bc11ba5352d9
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250429205337-7ee5f91ed065
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250429171938-dc95a3bd60e7
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250429210946-16bf64f3931d
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
@@ -440,7 +440,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250429172328-c28f433fc7ce // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250429214959-baa3b4c6812d // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250422175525-b7575d96bd4d // indirect
