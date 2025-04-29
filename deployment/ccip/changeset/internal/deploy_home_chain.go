@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -295,7 +296,7 @@ func BuildSetOCR3ConfigArgsSolana(
 
 func BuildOCR3ConfigForCCIPHome(
 	ccipHome *ccip_home.CCIPHome,
-	ocrSecrets deployment.OCRSecrets,
+	ocrSecrets cldf.OCRSecrets,
 	offRampAddress []byte,
 	destSelector uint64,
 	nodes deployment.Nodes,

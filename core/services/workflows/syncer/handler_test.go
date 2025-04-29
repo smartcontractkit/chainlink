@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	"github.com/jonboulle/clockwork"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -129,9 +130,9 @@ func Test_Handler(t *testing.T) {
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -160,7 +161,7 @@ func Test_Handler(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
-		giveEvent := WorkflowRegistryEvent{}
+		giveEvent := Event{}
 		fetcher := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte("contents"), nil
 		}
@@ -196,9 +197,9 @@ func Test_Handler(t *testing.T) {
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -222,9 +223,9 @@ func Test_Handler(t *testing.T) {
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -257,9 +258,9 @@ func Test_Handler(t *testing.T) {
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -298,7 +299,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	var encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 	var workflowName = "workflow-name"
 
-	defaultValidationFn := func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+	defaultValidationFn := func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 		err := h.workflowRegisteredEvent(ctx, event)
 		require.NoError(t, err)
 
@@ -310,13 +311,13 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
-		require.NoError(t, err)
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
+		require.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 	}
 
-	defaultValidationFnWithFetch := func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+	defaultValidationFnWithFetch := func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 		defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
 		// Verify that the URLs have been called
@@ -342,8 +343,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -378,8 +379,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -407,8 +408,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -418,7 +419,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler,
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				err := h.workflowRegisteredEvent(ctx, event)
 				require.Error(t, err)
@@ -438,8 +439,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -449,7 +450,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				me := &mockEngine{}
 				var wfIDBytes [32]byte
 				copy(wfIDBytes[:], wfID)
@@ -472,8 +473,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -483,15 +484,15 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				me := &mockEngine{}
 				oldWfIDBytes := [32]byte{0, 1, 2, 3, 5}
 				err := h.engineRegistry.Add(EngineRegistryKey{Owner: wfOwner, Name: workflowName}, me, oldWfIDBytes)
 				require.NoError(t, err)
 				err = h.workflowRegisteredEvent(ctx, event)
 				require.NoError(t, err)
-				engineInRegistry, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
-				require.NoError(t, err)
+				engineInRegistry, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
+				assert.True(t, ok)
 				require.Equal(t, engineInRegistry.WorkflowID.Hex(), wfID)
 			},
 		},
@@ -508,8 +509,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(1),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -519,7 +520,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler,
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				err := h.workflowRegisteredEvent(ctx, event)
 				require.NoError(t, err)
@@ -532,8 +533,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.Equal(t, job.WorkflowSpecStatusPaused, dbSpec.Status)
 
 				// Verify there is no running engine
-				_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-				require.Error(t, err)
+				_, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+				assert.False(t, ok)
 			},
 		},
 		{
@@ -549,8 +550,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -560,7 +561,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler,
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				// Create the record in the database
 				entry := &job.WorkflowSpec{
@@ -589,8 +590,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				// This reflects the event status, not what was previously stored in the DB
 				require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
-				_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-				require.NoError(t, err)
+				_, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+				assert.True(t, ok)
 			},
 		},
 		{
@@ -605,7 +606,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				binaryURL:  {Body: encodedBinary, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
 				// Verify that the URLs have been called
@@ -613,8 +614,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.Equal(t, 0, fetcher.Calls(event.ConfigURL))
 				require.Equal(t, 1, fetcher.Calls(event.SecretsURL))
 			},
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -635,7 +636,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				binaryURL: {Body: encodedBinary, Err: nil},
 				configURL: {Body: config, Err: nil},
 			}),
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
 				// Verify that the URLs have been called
@@ -643,8 +644,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.Equal(t, 1, fetcher.Calls(event.ConfigURL))
 				require.Equal(t, 0, fetcher.Calls(event.SecretsURL))
 			},
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -665,7 +666,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				binaryURL: {Body: encodedBinary, Err: nil},
 				configURL: {Body: config, Err: nil},
 			}),
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				// Create the record in the database
 				entry := &job.WorkflowSpec{
 					Workflow:      hex.EncodeToString(binary),
@@ -688,8 +689,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.Equal(t, 0, fetcher.Calls(event.ConfigURL))
 				require.Equal(t, 0, fetcher.Calls(event.SecretsURL))
 			},
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -715,8 +716,8 @@ type testCase struct {
 	ConfigURL       string
 	WFOwner         []byte
 	fetcher         *mockFetcher
-	Event           func([]byte) WorkflowRegistryWorkflowRegisteredV1
-	validationFn    func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher)
+	Event           func([]byte) WorkflowRegisteredV1
+	validationFn    func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher)
 	engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error)
 }
 
@@ -846,7 +847,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		require.NoError(t, err)
 
-		active := WorkflowRegistryWorkflowRegisteredV1{
+		active := WorkflowRegisteredV1{
 			Status:        uint8(0),
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
@@ -882,12 +883,12 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.NoError(t, err)
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 
-		deleteEvent := WorkflowRegistryWorkflowDeletedV1{
+		deleteEvent := WorkflowDeletedV1{
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -901,8 +902,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Error(t, err)
 
 		// Verify the engine is deleted
-		_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.Error(t, err)
+		_, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.False(t, ok)
 	})
 	t.Run("success deleting non-existing workflow spec", func(t *testing.T) {
 		var (
@@ -944,7 +945,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
 		require.NoError(t, err)
 
-		deleteEvent := WorkflowRegistryWorkflowDeletedV1{
+		deleteEvent := WorkflowDeletedV1{
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -986,7 +987,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		require.NoError(t, err)
 
-		active := WorkflowRegistryWorkflowRegisteredV1{
+		active := WorkflowRegisteredV1{
 			Status:        uint8(0),
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
@@ -1023,12 +1024,12 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.NoError(t, err)
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 
-		deleteEvent := WorkflowRegistryWorkflowDeletedV1{
+		deleteEvent := WorkflowDeletedV1{
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -1042,8 +1043,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the engine is still running
-		_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.NoError(t, err)
+		_, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 	})
 }
 
@@ -1080,7 +1081,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.NoError(t, err)
 		newWFIDs := hex.EncodeToString(updatedWFID[:])
 
-		active := WorkflowRegistryWorkflowRegisteredV1{
+		active := WorkflowRegisteredV1{
 			Status:        uint8(0),
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
@@ -1116,13 +1117,13 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.NoError(t, err)
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 
 		// create a paused event
-		pauseEvent := WorkflowRegistryWorkflowPausedV1{
+		pauseEvent := WorkflowPausedV1{
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -1139,11 +1140,11 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusPaused, dbSpec.Status)
 
 		// Verify the engine is removed
-		_, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.Error(t, err)
+		_, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.False(t, ok)
 
 		// create an updated event
-		updatedEvent := WorkflowRegistryWorkflowUpdatedV1{
+		updatedEvent := WorkflowUpdatedV1{
 			OldWorkflowID: giveWFID,
 			NewWorkflowID: updatedWFID,
 			WorkflowOwner: wfOwner,
@@ -1167,8 +1168,8 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, string(updateConfig), dbSpec.Config)
 
 		// new engine is started
-		engine, err = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
-		require.NoError(t, err)
+		engine, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 		// old engine is no longer running

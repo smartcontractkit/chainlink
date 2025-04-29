@@ -267,171 +267,27 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 	return nil
 }
 
-func DeployKeystone(testLogger zerolog.Logger, input *types.KeystoneContractsInput) (*types.KeystoneContractsOutput, error) {
-	if input == nil {
-		return nil, errors.New("input is nil")
-	}
-
-	if input.Out != nil && input.Out.UseCache {
-		return input.Out, nil
-	}
-
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
-
-	var err error
-	forwarderAddress, err := DeployKeystoneForwarder(testLogger, input.CldEnv, input.ChainSelector)
+func FindAddressesForChain(addressBook deployment.AddressBook, chainSelector uint64, contractName string) (common.Address, error) {
+	addresses, err := addressBook.AddressesForChain(chainSelector)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to deploy Keystone Forwarder contract")
-	}
-	oCR3CapabilityAddress, err := DeployOCR3(testLogger, input.CldEnv, input.ChainSelector)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deploy OCR3 contract")
-	}
-	capabilitiesRegistryAddress, err := DeployCapabilitiesRegistry(testLogger, input.CldEnv, input.ChainSelector)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deploy Capabilities Registry contract")
-	}
-	workflowRegistryAddress, err := DeployWorkflowRegistry(testLogger, input.CldEnv, input.ChainSelector)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deploy Workflow Registry contract")
+		return common.Address{}, errors.Wrap(err, "failed to get addresses for chain")
 	}
 
-	out := &types.KeystoneContractsOutput{
-		ForwarderAddress:            forwarderAddress,
-		OCR3CapabilityAddress:       oCR3CapabilityAddress,
-		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
-		WorkflowRegistryAddress:     workflowRegistryAddress,
-	}
-
-	input.Out = out
-	return out, nil
-}
-
-func DeployOCR3(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) (common.Address, error) {
-	output, err := keystone_changeset.DeployOCR3(*ctfEnv, chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to deploy OCR3 contract")
-	}
-
-	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to merge address book")
-	}
-
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
-	}
-
-	var ocr3capabilityAddr common.Address
 	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "OCR3Capability") {
-			ocr3capabilityAddr = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed OCR3Capability contract at %s", ocr3capabilityAddr.Hex())
-			break
+		if strings.Contains(tv.String(), contractName) {
+			return common.HexToAddress(addrStr), nil
 		}
 	}
-	if ocr3capabilityAddr == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find OCR3Capability address in the address book")
-	}
 
-	return ocr3capabilityAddr, nil
+	return common.Address{}, fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector)
 }
 
-func DeployCapabilitiesRegistry(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) (common.Address, error) {
-	output, err := keystone_changeset.DeployCapabilityRegistry(*ctfEnv, chainSelector)
+func MustFindAddressesForChain(addressBook deployment.AddressBook, chainSelector uint64, contractName string) common.Address {
+	addr, err := FindAddressesForChain(addressBook, chainSelector, contractName)
 	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to deploy Capabilities Registry contract")
+		panic(fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector))
 	}
-
-	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to merge address book")
-	}
-
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
-	}
-
-	var capabilitiesRegistryAddr common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "CapabilitiesRegistry") {
-			capabilitiesRegistryAddr = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed Capabilities Registry contract at %s", capabilitiesRegistryAddr.Hex())
-			break
-		}
-	}
-	if capabilitiesRegistryAddr == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find Capabilities Registry address in the address book")
-	}
-
-	return capabilitiesRegistryAddr, nil
-}
-
-func DeployKeystoneForwarder(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) (common.Address, error) {
-	output, err := keystone_changeset.DeployForwarder(*ctfEnv, keystone_changeset.DeployForwarderRequest{
-		ChainSelectors: []uint64{chainSelector},
-	})
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to deploy forwarder contract")
-	}
-
-	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to merge address book")
-	}
-
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
-	}
-
-	var forwarderAddress common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "KeystoneForwarder") {
-			forwarderAddress = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed KeystoneForwarder contract at %s", forwarderAddress.Hex())
-			break
-		}
-	}
-	if forwarderAddress == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find KeystoneForwarder address in the address book")
-	}
-
-	return forwarderAddress, nil
-}
-
-func DeployWorkflowRegistry(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) (common.Address, error) {
-	output, err := workflow_registry_changeset.Deploy(*ctfEnv, chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to deploy workflow registry contract")
-	}
-
-	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to merge address book")
-	}
-
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
-	}
-
-	var workflowRegistryAddr common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "WorkflowRegistry") {
-			workflowRegistryAddr = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed WorkflowRegistry contract at %s", workflowRegistryAddr.Hex())
-		}
-	}
-	if workflowRegistryAddr == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find WorkflowRegistry address in the address book")
-	}
-
-	return workflowRegistryAddr, nil
+	return addr
 }
 
 func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowRegistryInput) (*types.WorkflowRegistryOutput, error) {
@@ -476,48 +332,6 @@ func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowR
 	}
 
 	input.Out = out
-	return out, nil
-}
-
-func DeployDataFeedsCache(testLogger zerolog.Logger, input *types.DeployDataFeedsCacheInput) (*types.DeployDataFeedsCacheOutput, error) {
-	if input == nil {
-		return nil, errors.New("input is nil")
-	}
-
-	if input.Out != nil && input.Out.UseCache {
-		return input.Out, nil
-	}
-
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
-
-	deployConfig := df_changeset_types.DeployConfig{
-		ChainsToDeploy: []uint64{input.ChainSelector},
-		Labels:         []string{"data-feeds"},
-	}
-
-	dfOutput, dfErr := df_changeset.RunChangeset(df_changeset.DeployCacheChangeset, *input.CldEnv, deployConfig)
-	if dfErr != nil {
-		return nil, errors.Wrap(dfErr, "failed to deploy data feed cache contract")
-	}
-
-	mergeErr := input.CldEnv.ExistingAddresses.Merge(dfOutput.AddressBook)
-	if mergeErr != nil {
-		return nil, errors.Wrap(mergeErr, "failed to merge address book")
-	}
-
-	dataFeedsCacheAddress := df_changeset.GetDataFeedsCacheAddress(input.CldEnv.ExistingAddresses, input.ChainSelector, nil)
-
-	if dataFeedsCacheAddress == "" {
-		return nil, errors.New("failed to find FeedConsumer address in the address book")
-	}
-
-	out := &types.DeployDataFeedsCacheOutput{
-		DataFeedsCacheAddress: common.HexToAddress(dataFeedsCacheAddress),
-	}
-	input.Out = out
-
 	return out, nil
 }
 

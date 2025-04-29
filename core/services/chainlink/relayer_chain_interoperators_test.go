@@ -36,68 +36,67 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 	evmChainID1, evmChainID2 := ubig.New(big.NewInt(1)), ubig.New(big.NewInt(2))
 	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
 
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		cfg := toml.Defaults(evmChainID1)
-		node1_1 := toml.Node{
-			Name:     ptr("Test node chain1:1"),
-			WSURL:    commonconfig.MustParseURL("ws://localhost:8546"),
-			HTTPURL:  commonconfig.MustParseURL("http://localhost:8546"),
-			SendOnly: ptr(false),
-			Order:    ptr(int32(15)),
-		}
-		node1_2 := toml.Node{
-			Name:     ptr("Test node chain1:2"),
-			WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
-			HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
-			SendOnly: ptr(false),
-			Order:    ptr(int32(36)),
-		}
-		node2_1 := toml.Node{
-			Name:     ptr("Test node chain2:1"),
-			WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
-			HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
-			SendOnly: ptr(false),
-			Order:    ptr(int32(11)),
-		}
-		c.EVM[0] = &toml.EVMConfig{
-			ChainID: evmChainID1,
-			Enabled: ptr(true),
-			Chain:   cfg,
-			Nodes:   toml.EVMNodes{&node1_1, &node1_2},
-		}
-		id2 := ubig.New(big.NewInt(2))
-		c.EVM = append(c.EVM, &toml.EVMConfig{
-			ChainID: evmChainID2,
-			Chain:   toml.Defaults(id2),
-			Enabled: ptr(true),
-			Nodes:   toml.EVMNodes{&node2_1},
+	newConfig := func() chainlink.GeneralConfig {
+		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			node1_1 := toml.Node{
+				Name:     ptr("Test node chain1:1"),
+				WSURL:    commonconfig.MustParseURL("ws://localhost:8546"),
+				HTTPURL:  commonconfig.MustParseURL("http://localhost:8546"),
+				SendOnly: ptr(false),
+				Order:    ptr(int32(15)),
+			}
+			node1_2 := toml.Node{
+				Name:     ptr("Test node chain1:2"),
+				WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
+				HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
+				SendOnly: ptr(false),
+				Order:    ptr(int32(36)),
+			}
+			node2_1 := toml.Node{
+				Name:     ptr("Test node chain2:1"),
+				WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
+				HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
+				SendOnly: ptr(false),
+				Order:    ptr(int32(11)),
+			}
+			c.EVM[0] = &toml.EVMConfig{
+				ChainID: evmChainID1,
+				Enabled: ptr(true),
+				Chain:   toml.Defaults(evmChainID1),
+				Nodes:   toml.EVMNodes{&node1_1, &node1_2},
+			}
+			id2 := ubig.New(big.NewInt(2))
+			c.EVM = append(c.EVM, &toml.EVMConfig{
+				ChainID: evmChainID2,
+				Chain:   toml.Defaults(id2),
+				Enabled: ptr(true),
+				Nodes:   toml.EVMNodes{&node2_1},
+			})
+
+			c.Solana = solcfg.TOMLConfigs{
+				&solcfg.TOMLConfig{
+					ChainID: &solanaChainID1,
+					Enabled: ptr(true),
+					Chain:   solcfg.NewDefault().Chain,
+					Nodes: []*solcfg.Node{{
+						Name: ptr("solana chain 1 node 1"),
+						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
+					}},
+				},
+				&solcfg.TOMLConfig{
+					ChainID: &solanaChainID2,
+					Enabled: ptr(true),
+					Chain:   solcfg.NewDefault().Chain,
+					Nodes: []*solcfg.Node{{
+						Name: ptr("solana chain 2 node 1"),
+						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8527").URL())),
+					}},
+				},
+			}
 		})
+	}
 
-		solChainCfg := solcfg.Chain{}
-		solChainCfg.SetDefaults()
-
-		c.Solana = solcfg.TOMLConfigs{
-			&solcfg.TOMLConfig{
-				ChainID: &solanaChainID1,
-				Enabled: ptr(true),
-				Chain:   solChainCfg,
-				Nodes: []*solcfg.Node{{
-					Name: ptr("solana chain 1 node 1"),
-					URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
-				}},
-			},
-			&solcfg.TOMLConfig{
-				ChainID: &solanaChainID2,
-				Enabled: ptr(true),
-				Chain:   solChainCfg,
-				Nodes: []*solcfg.Node{{
-					Name: ptr("solana chain 2 node 1"),
-					URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8527").URL())),
-				}},
-			},
-		}
-	})
-
+	cfg := newConfig()
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 
@@ -163,7 +162,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		{name: "2 solana chain with 2 node",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitSolana(factory, keyStore.Solana(), chainlink.SolanaFactoryConfig{
-					TOMLConfigs: cfg.SolanaConfigs()}),
+					TOMLConfigs: newConfig().SolanaConfigs()}),
 			},
 			expectedSolanaChainCnt: 2,
 			expectedSolanaNodeCnt:  2,
@@ -176,7 +175,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 		{name: "all chains",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(factory, keyStore.Solana(), chainlink.SolanaFactoryConfig{
-				TOMLConfigs: cfg.SolanaConfigs()}),
+				TOMLConfigs: newConfig().SolanaConfigs()}),
 				chainlink.InitEVM(factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
 						ChainConfigs:   cfg.EVMConfigs(),

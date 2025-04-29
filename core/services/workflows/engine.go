@@ -46,11 +46,6 @@ const (
 	maxStepTimeoutOverrideSec    = 10 * 60 // 10 minutes
 )
 
-var (
-	errGlobalWorkflowCountLimitReached   = errors.New("global workflow count limit reached")
-	errPerOwnerWorkflowCountLimitReached = errors.New("per owner workflow count limit reached")
-)
-
 type stepRequest struct {
 	stepRef string
 	state   store.WorkflowExecution
@@ -169,14 +164,14 @@ func (e *Engine) Start(_ context.Context) error {
 		ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
 		if !globalAllow {
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitGlobalCounter(ctx)
-			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errGlobalWorkflowCountLimitReached.Error(), e.logger)
-			return errGlobalWorkflowCountLimitReached
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), types.ErrGlobalWorkflowCountLimitReached.Error(), e.logger)
+			return types.ErrGlobalWorkflowCountLimitReached
 		}
 
 		if !ownerAllow {
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitPerOwnerCounter(ctx)
-			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errPerOwnerWorkflowCountLimitReached.Error(), e.logger)
-			return errPerOwnerWorkflowCountLimitReached
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), types.ErrPerOwnerWorkflowCountLimitReached.Error(), e.logger)
+			return types.ErrPerOwnerWorkflowCountLimitReached
 		}
 
 		e.metrics.incrementWorkflowInitializationCounter(ctx)
@@ -1042,7 +1037,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	defer cancel()
 
 	e.metrics.with(platform.KeyCapabilityID, curStep.ID).incrementCapabilityInvocationCounter(ctx)
-	err = emitCapabilityStartedEvent(ctx, e.cma, curStep.ID, msg.stepRef)
+	err = emitCapabilityStartedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef)
 	if err != nil {
 		e.logger.Errorf("failed to emit capability event: %v", err)
 	}
@@ -1057,7 +1052,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	}
 
 	defer func() {
-		if err := emitCapabilityFinishedEvent(ctx, e.cma, curStep.ID, msg.stepRef, status); err != nil {
+		if err := emitCapabilityFinishedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef, status); err != nil {
 			e.logger.Errorf("failed to emit capability event: %v", err)
 		}
 	}()
@@ -1675,7 +1670,7 @@ func emitExecutionStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, 
 
 	event := &pb.WorkflowExecutionStarted{
 		M:         metadata,
-		Timestamp: time.Now().String(),
+		Timestamp: time.Now().Format(time.RFC3339Nano),
 		TriggerID: triggerID,
 	}
 
@@ -1688,19 +1683,20 @@ func emitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 
 	event := &pb.WorkflowExecutionFinished{
 		M:         metadata,
-		Timestamp: time.Now().String(),
+		Timestamp: time.Now().Format(time.RFC3339Nano),
 		Status:    status,
 	}
 
 	return emitProtoMessage(ctx, event)
 }
 
-func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef string) error {
+func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, workflowExecutionID, capabilityID, stepRef string) error {
+	cma = cma.With(platform.KeyWorkflowExecutionID, workflowExecutionID)
 	metadata := buildWorkflowMetadata(cma.Labels())
 
 	event := &pb.CapabilityExecutionStarted{
 		M:            metadata,
-		Timestamp:    time.Now().String(),
+		Timestamp:    time.Now().Format(time.RFC3339Nano),
 		CapabilityID: capabilityID,
 		StepRef:      stepRef,
 	}
@@ -1708,12 +1704,13 @@ func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 	return emitProtoMessage(ctx, event)
 }
 
-func emitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef, status string) error {
+func emitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, workflowExecutionID, capabilityID, stepRef, status string) error {
+	cma = cma.With(platform.KeyWorkflowExecutionID, workflowExecutionID)
 	metadata := buildWorkflowMetadata(cma.Labels())
 
 	event := &pb.CapabilityExecutionFinished{
 		M:            metadata,
-		Timestamp:    time.Now().String(),
+		Timestamp:    time.Now().Format(time.RFC3339Nano),
 		CapabilityID: capabilityID,
 		StepRef:      stepRef,
 		Status:       status,

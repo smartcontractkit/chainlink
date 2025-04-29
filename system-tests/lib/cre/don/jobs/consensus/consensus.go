@@ -1,9 +1,11 @@
 package consensus
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/deployment"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -14,17 +16,22 @@ var ConsensusJobSpecFactoryFn = func(chainID uint64) types.JobSpecFactoryFn {
 	return func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
 		return GenerateJobSpecs(
 			input.DonTopology,
-			input.KeystoneContractsOutput.OCR3CapabilityAddress,
+			input.AddressBook,
 			chainID,
 		)
 	}
 }
 
-func GenerateJobSpecs(donTopology *types.DonTopology, oCR3CapabilityAddress common.Address, chainID uint64) (types.DonsToJobSpecs, error) {
+func GenerateJobSpecs(donTopology *types.DonTopology, addressBook deployment.AddressBook, chainID uint64) (types.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
 	donToJobSpecs := make(types.DonsToJobSpecs)
+
+	oCR3CapabilityAddress, ocr3err := crecontracts.FindAddressesForChain(addressBook, donTopology.HomeChainSelector, keystone_changeset.OCR3Capability.String())
+	if ocr3err != nil {
+		return nil, errors.Wrap(ocr3err, "failed to get OCR3 capability address")
+	}
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
 		// create job specs for the worker nodes
@@ -71,7 +78,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, oCR3CapabilityAddress comm
 					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 				}
 
-				nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.EthAddressKey)
+				nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.AddressKeyFromSelector(donTopology.HomeChainSelector))
 				if ethErr != nil {
 					return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
 				}
