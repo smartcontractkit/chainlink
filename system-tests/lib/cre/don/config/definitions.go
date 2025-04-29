@@ -98,6 +98,9 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	ForwarderAddress = '%s'
 	GasLimitDefault = 400_000
 
+	[EVM.Transactions]
+	ForwardersEnabled = true
+
 `,
 			chain.ChainID,
 			chain.Name,

@@ -1,4 +1,4 @@
-[blockchain_a]
+[[blockchains]]
 chain_id = "1337"
 type = "anvil"
 docker_cmd_params = ["-b", "5"]
@@ -8,12 +8,13 @@ mock_capability_binary_path = "/Users/ionita/chainlink/plugins/amd64_mock"
 
 [jd]
 image = "job-distributor:0.9.0"
+#image = "localhost:5000/job-distributor:sha-707362c-amd64"
 
 [[mock_capabilities]]
-  name="mock"
-  version= "1.0.0"
-  type="trigger"
-  description="mock for connection"
+name="streams-trigger"
+version= "1.0.0"
+type="trigger"
+description="streams-trigger mock"
 
 
 [infra]
@@ -31,7 +32,7 @@ component="writer-don"
 cost_center="capabilities-df-migration-performance-tests"
 
 [[nodesets]]
-nodes = 4
+nodes = 6
 override_mode = "all"
 http_port_range_start = 10100
 name = "writer"
@@ -43,7 +44,7 @@ volume_name = "writer_volume"
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:pr-17349-450f9a3-plugins-amd64"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:pr-17349-5d72384-plugins-amd64"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]

@@ -57,21 +57,19 @@ import (
 )
 
 type TestConfigLoadTestWriter struct {
-	BlockchainA                   *blockchain.Input                        `toml:"blockchain_a" validate:"required"`
-	NodeSets                      []*ns.Input                              `toml:"nodesets" validate:"required"`
-	JD                            *jd.Input                                `toml:"jd" validate:"required"`
-	KeystoneContracts             *keystonetypes.KeystoneContractsInput    `toml:"keystone_contracts"`
-	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput     `toml:"workflow_registry_configuration"`
-	DataFeedsCache                *keystonetypes.DeployDataFeedsCacheInput `toml:"feed_consumer"`
-	Infra                         *libtypes.InfraInput                     `toml:"infra" validate:"required"`
-	MockCapabilities              []*MockCapabilities                      `toml:"mock_capabilities"`
-	BinariesConfig                *BinariesConfig                          `toml:"binaries_config"`
+	Blockchains                   []*blockchain.Input                  `toml:"blockchains" validate:"required"`
+	NodeSets                      []*ns.Input                          `toml:"nodesets" validate:"required"`
+	JD                            *jd.Input                            `toml:"jd" validate:"required"`
+	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
+	Infra                         *libtypes.InfraInput                 `toml:"infra" validate:"required"`
+	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
+	BinariesConfig                *BinariesConfig                      `toml:"binaries_config"`
 }
 
 func setupLoadTestWriterEnvironment(
 	t *testing.T,
 	testLogger zerolog.Logger,
-	in *TestConfigLoadTest,
+	in *TestConfigLoadTestWriter,
 	mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet,
 	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
 	jobSpecFactoryFns []keystonetypes.JobSpecFactoryFn,
@@ -82,7 +80,7 @@ func setupLoadTestWriterEnvironment(
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:                     *in.BlockchainA,
+		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		CustomBinariesPaths:                  map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath},
@@ -91,17 +89,17 @@ func setupLoadTestWriterEnvironment(
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
-
 	// Set inputs in the test config, so that they can be saved
-	in.KeystoneContracts = &keystonetypes.KeystoneContractsInput{}
-	in.KeystoneContracts.Out = universalSetupOutput.KeystoneContractsOutput
 	in.WorkflowRegistryConfiguration = &keystonetypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
+	forwarderAddress, forwarderErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
+	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+
 	return &loadTestSetupOutput{
-		// feedsConsumerAddress: deployFeedsConsumerOutput.FeedConsumerAddress,
-		forwarderAddress: universalSetupOutput.KeystoneContractsOutput.ForwarderAddress,
-		blockchainOutput: universalSetupOutput.BlockchainOutput.BlockchainOutput,
+		//feedsConsumerAddress: deployFeedsConsumerOutput.FeedConsumerAddress,
+		forwarderAddress: forwarderAddress,
+		blockchainOutput: universalSetupOutput.BlockchainOutput,
 		donTopology:      universalSetupOutput.DonTopology,
 		nodeOutput:       universalSetupOutput.NodeOutput,
 	}
@@ -111,7 +109,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
-	in, err := framework.Load[TestConfigLoadTest](t)
+	in, err := framework.Load[TestConfigLoadTestWriter](t)
 	require.NoError(t, err, "couldn't load test config")
 	require.Len(t, in.NodeSets, 1, "expected 1 node sets in the test config")
 
@@ -159,6 +157,18 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	WriterDONLoadTestCapabilitiesFactoryFn := func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
+		if flags.HasFlag(donFlags, keystonetypes.OCR3Capability) {
+			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   "offchain_reporting",
+					Version:        "1.0.0",
+					CapabilityType: 2, // CONSENSUS
+					ResponseType:   0, // REPORT
+				},
+				Config: &capabilitiespb.CapabilityConfig{},
+			})
+		}
+
 		if flags.HasFlag(donFlags, keystonetypes.MockCapability) {
 			for _, m := range in.MockCapabilities {
 				capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
@@ -175,16 +185,17 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		return capabilities
 	}
 
-	chainIDInt, chainErr := strconv.ParseUint(in.BlockchainA.ChainID, 10, 64)
-	require.NoError(t, chainErr, "failed to convert chain ID to int")
+	homeChain := in.Blockchains[0]
+	homeChainIDUint64, homeChainErr := strconv.ParseUint(homeChain.ChainID, 10, 64)
+	require.NoError(t, homeChainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupLoadTestWriterEnvironment(
 		t,
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
-		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WriterDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))},
-		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(chainIDInt)},
+		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WriterDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainIDUint64)))},
+		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(homeChainIDUint64)},
 	)
 
 	ctx := t.Context()
@@ -222,7 +233,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 
 			debugInput := keystonetypes.DebugInput{
 				DebugDons:        debugDons,
-				BlockchainOutput: setupOutput.blockchainOutput,
+				BlockchainOutput: setupOutput.blockchainOutput[0].BlockchainOutput,
 				InfraInput:       in.Infra,
 			}
 			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
@@ -252,7 +263,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	require.NoError(t, saveForwarderAddress(setupOutput.forwarderAddress.String()), "could not save forwarder address")
+	require.NoError(t, saveForwarderAddress(setupOutput.dataFeedsCacheAddress.String()), "could not save forwarder address")
 
 	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
 	require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
@@ -302,7 +313,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			Schedule: wasp.Combine(
 				wasp.Plain(4, 120*time.Minute),
 			),
-			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel, setupOutput.dataFeedsCacheAddress.String()),
+			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel, setupOutput.dataFeedsCacheAddress.String(), logger.TestLogger(t)),
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
@@ -318,7 +329,7 @@ func TestWriteWithReconnect(t *testing.T) {
 	testLogger := framework.L
 	ctx := t.Context()
 
-	dataFeedsCacheAddress, err := loadDataFeedsCacheFromCache()
+	forwarderAddress, err := loadForwarderAddressFromCache()
 	require.NoError(t, err, "could not load forwarder address from cache")
 
 	kb, err := loadKeyBundlesFromCache()
@@ -341,7 +352,7 @@ func TestWriteWithReconnect(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel, dataFeedsCacheAddress)
+	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel, forwarderAddress, logger.TestLogger(t))
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
@@ -370,29 +381,29 @@ type WriterGun struct {
 	event                 *capabilities.OCRTriggerEvent
 	eventID               string
 	dataFeedsCacheAddress string
+	lggr                  logger.Logger
 }
 
-func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, triggerID string, ch <-chan capabilities.CapabilityRequest, dataFeedsCacheAddress string) *WriterGun {
+func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, triggerID string, ch <-chan capabilities.CapabilityRequest, dataFeedsCacheAddress string, lggr logger.Logger) *WriterGun {
 	sg := &WriterGun{
 		capProxy:              capProxy,
 		keyBundles:            keyBundles,
 		triggerID:             triggerID,
 		receiveChan:           ch,
 		dataFeedsCacheAddress: dataFeedsCacheAddress,
+		lggr:                  lggr,
 	}
 	return sg
 }
 
-func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
-	reportID := [2]byte{0x00, 0x01}
-
+func createReports(kb []ocr2key.KeyBundle) ([]*datastreams.FeedReport, error) {
 	//Create report
 	feeds := make([]FeedWithStreamID, 0)
 	for i := range 10 {
 		buf := [32]byte{}
 		_, err := crand.Read(buf[:])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		feeds = append(feeds, FeedWithStreamID{
 			Feed:     "0x" + hex.EncodeToString(buf[:]),
@@ -403,17 +414,27 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 	reports := []*datastreams.FeedReport{}
 	for _, f := range feeds {
 		price := decimal.NewFromInt(int64(rand.IntN(100)))
-		reports = append(reports, createFeedReportDataStreams(price.BigInt(), time.Now().Unix(), f.Feed, s.keyBundles))
+		reports = append(reports, createFeedReportDataStreams(price.BigInt(), time.Now().Unix(), f.Feed, kb))
 	}
 
+	return reports, nil
+}
+
+func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
+	reports, err := createReports(s.keyBundles)
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	reportID := [2]byte{0x00, 0x01}
 	wrappedReports, err := wrapReports(reports, 12, datastreams.Metadata{})
 	if err != nil {
-		panic(err)
+		return &wasp.Response{Error: err.Error()}
 	}
 
 	executionID, err := workflows.EncodeExecutionID("5dbe5f217ff07d6b1dddb43519fe7bf13ccb10b540578fafdbea86b508abbd71", "")
 	if err != nil {
-		panic(err)
+		return &wasp.Response{Error: err.Error()}
 	}
 	metadata := pb2.Metadata{
 		WorkflowID:               "5dbe5f217ff07d6b1dddb43519fe7bf13ccb10b540578fafdbea86b508abbd71",
@@ -440,12 +461,12 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 
 	rMetaBytes, err := rMetadata.Encode()
 	if err != nil {
-		panic(err)
+		return &wasp.Response{Error: err.Error()}
 	}
 
 	reportBytes, err := mock_capability.MapToBytes(wrappedReports)
 	if err != nil {
-		panic(err)
+		return &wasp.Response{Error: err.Error()}
 	}
 
 	validInputs, err := values.NewMap(map[string]any{
@@ -462,7 +483,7 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 
 	validConfig, err := values.NewMap(map[string]any{
 		"Address":    s.dataFeedsCacheAddress,
-		"abi":        "receive(report bytes)",
+		"abi":        "(bytes32 FeedID, bytes RawReport)[] Reports",
 		"schedule":   "oneAtATime",
 		"params":     []string{"$(report)"},
 		"gasLimit":   400000,
@@ -512,8 +533,8 @@ func saveForwarderAddress(forwarderAddress string) error {
 
 	return nil
 }
-func loadDataFeedsCacheFromCache() (string, error) {
-	forwarderPath := filepath.Join("./cache", "df_cache_address.txt")
+func loadForwarderAddressFromCache() (string, error) {
+	forwarderPath := filepath.Join("./cache", "forwarder_address.txt")
 	data, err := os.ReadFile(forwarderPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read df cache address from cache: %w", err)
@@ -578,6 +599,9 @@ func createFeedReportDataStreams(price *big.Int, observationTimestamp int64,
 			panic(err)
 		}
 		report.Signatures = append(report.Signatures, sig)
+		if len(report.Signatures) == 2 {
+			break
+		}
 	}
 
 	return report
