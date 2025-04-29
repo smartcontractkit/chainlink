@@ -65,7 +65,6 @@ func deployTokenAndMint(t *testing.T, tenv deployment.Environment, solChain uint
 
 // remote chain setup
 func TestAddRemoteChainWithMcms(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
 	doTestAddRemoteChain(t, true)
 }
@@ -308,38 +307,6 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
 	require.NoError(t, err, "failed to get account info")
 	require.True(t, destChainFqAccount.Config.IsEnabled)
-}
-
-// ocr3 test
-func TestSetOcr3(t *testing.T) {
-	t.Parallel()
-	tenv, _ := testhelpers.NewMemoryEnvironment(t,
-		testhelpers.WithNumOfNodes(16),
-		testhelpers.WithNumOfBootstrapNodes(3),
-		testhelpers.WithSolChains(1))
-	var err error
-	evmSelectors := tenv.Env.AllChainSelectors()
-	homeChainSel := evmSelectors[0]
-	solChainSelectors := tenv.Env.AllChainSelectorsSolana()
-	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
-		ccipChangesetSolana.CCIPContractsToTransfer{
-			Router:    true,
-			FeeQuoter: true,
-			OffRamp:   true,
-		})
-
-	tenv.Env, _, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
-			v1_6.SetOCR3OffRampConfig{
-				HomeChainSel:       homeChainSel,
-				RemoteChainSels:    solChainSelectors,
-				CCIPHomeConfigType: globals.ConfigTypeActive,
-				MCMS:               &proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
-			},
-		),
-	})
-	require.NoError(t, err)
 }
 
 // billing test
@@ -757,12 +724,14 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 		require.Equal(t, newAdminNonTimelock.PublicKey(), tokenAdminRegistryAccount.PendingAdministrator)
 	}
 }
+
 func TestTokenAdminRegistryWithMcms(t *testing.T) {
 	t.Parallel()
 	doTestTokenAdminRegistry(t, true)
 }
 
 func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
+	skipInCI(t)
 	t.Parallel()
 	doTestTokenAdminRegistry(t, false)
 }
@@ -858,12 +827,14 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 	require.Equal(t, newAdmin, tokenAdminRegistry.Administrator)
 	require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
 }
+
 func TestPoolLookupTableWithMcms(t *testing.T) {
 	t.Parallel()
 	doTestPoolLookupTable(t, true)
 }
 
 func TestPoolLookupTableWithoutMcms(t *testing.T) {
+	skipInCI(t)
 	t.Parallel()
 	doTestPoolLookupTable(t, false)
 }
@@ -871,4 +842,36 @@ func TestPoolLookupTableWithoutMcms(t *testing.T) {
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
 	testhelpers.DeployCCIPContractsTest(t, 1)
+}
+
+// ocr3 test
+func TestSetOcr3(t *testing.T) {
+	t.Parallel()
+	tenv, _ := testhelpers.NewMemoryEnvironment(t,
+		testhelpers.WithNumOfNodes(16),
+		testhelpers.WithNumOfBootstrapNodes(3),
+		testhelpers.WithSolChains(1))
+	var err error
+	evmSelectors := tenv.Env.AllChainSelectors()
+	homeChainSel := evmSelectors[0]
+	solChainSelectors := tenv.Env.AllChainSelectorsSolana()
+	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
+		ccipChangesetSolana.CCIPContractsToTransfer{
+			Router:    true,
+			FeeQuoter: true,
+			OffRamp:   true,
+		})
+
+	tenv.Env, _, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
+			v1_6.SetOCR3OffRampConfig{
+				HomeChainSel:       homeChainSel,
+				RemoteChainSels:    solChainSelectors,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
+				MCMS:               &proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+			},
+		),
+	})
+	require.NoError(t, err)
 }

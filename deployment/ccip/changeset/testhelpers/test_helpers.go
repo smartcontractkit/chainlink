@@ -1216,7 +1216,7 @@ func DeployTransferableToken(
 
 // assuming one out of the src and dst is solana and the other is evm
 func DeployTransferableTokenSolana(
-	t *testing.T,
+	// t *testing.T,
 	lggr logger.Logger,
 	e deployment.Environment,
 	evmChainSel, solChainSel uint64,
@@ -1240,7 +1240,9 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, fmt.Errorf("solChainSel %d is not a solana chain", solChainSel)
 	}
 	state, err := changeset.LoadOnchainState(e)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
 
 	// deploy evm token
 	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.Chains[evmChainSel], evmDeployer, addresses, evmTokenName)
@@ -1250,11 +1252,10 @@ func DeployTransferableTokenSolana(
 	if err := attachTokenToTheRegistry(e.Chains[evmChainSel], state.Chains[evmChainSel], evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
-	require.NoError(t, err)
 	solDeployerKey := e.SolChains[solChainSel].DeployerKey.PublicKey()
 
 	// deploy solana token
-	e, err = commoncs.Apply(t, e, nil,
+	e, err = commoncs.Apply(nil, e, nil,
 		commoncs.Configure(
 			// this makes the deployer the mint authority by default
 			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.DeploySolanaToken),
@@ -1269,13 +1270,17 @@ func DeployTransferableTokenSolana(
 			},
 		),
 	)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
 
 	state, err = changeset.LoadOnchainState(e)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
 	solTokenAddress := state.SolChains[solChainSel].SPL2022Tokens[0]
 
-	e, err = commoncs.Apply(t, e, nil,
+	e, err = commoncs.Apply(nil, e, nil,
 		commoncs.Configure(
 			// deploy token pool and set the burn/mint authority to the tokenPool
 			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenPoolAndLookupTable),
@@ -1286,19 +1291,27 @@ func DeployTransferableTokenSolana(
 			},
 		),
 	)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
 
 	// configure evm
 	poolConfigPDA, err := soltokens.TokenPoolConfigAddress(solTokenAddress, state.SolChains[solChainSel].BurnMintTokenPool)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
 	err = setTokenPoolCounterPart(e.Chains[evmChainSel], evmPool, evmDeployer, solChainSel, solTokenAddress.Bytes(), poolConfigPDA.Bytes())
-	require.NoError(t, err)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
 
 	err = grantMintBurnPermissions(lggr, e.Chains[evmChainSel], evmToken, evmDeployer, evmPool.Address())
-	require.NoError(t, err)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
 
 	// configure solana
-	e, err = commoncs.Apply(t, e, nil,
+	e, err = commoncs.Apply(nil, e, nil,
 		commoncs.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.SetupTokenPoolForRemoteChain),
 			ccipChangeSetSolana.RemoteChainTokenPoolConfig{
@@ -1360,7 +1373,9 @@ func DeployTransferableTokenSolana(
 		),
 	)
 
-	require.NoError(t, err)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
 	return evmToken, evmPool, solTokenAddress, nil
 }
 
