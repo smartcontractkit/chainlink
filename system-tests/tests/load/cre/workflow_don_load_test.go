@@ -397,15 +397,13 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
 	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel), "could not hook into mock executable")
 
-	go runChaosSuite(t, in)
-
 	labels := map[string]string{
 		"go_test_name": "test1",
 		"branch":       "profile-check",
 		"commit":       "profile-check",
 	}
 
-	_, err = wasp.NewProfile().
+	g, err := wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
 			LoadType:    wasp.RPS,
@@ -417,8 +415,11 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
 		})).
-		Run(true)
+		Run(false)
 	require.NoError(t, err, "wasp load test did not finish successfully")
+
+	runChaosSuite(t, in)
+	g.Wait()
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and
