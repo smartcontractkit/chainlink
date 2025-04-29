@@ -439,7 +439,6 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 
 // checks if the evmChainSelector is supported for the given token and pool type
 func isSupportedChain(chain deployment.SolChain, solTokenPubKey solana.PublicKey, solPoolAddress solana.PublicKey, evmChainSelector uint64) (bool, solTestTokenPool.ChainConfig, error) {
-	fmt.Println("entering isSupportedChain")
 	var remoteChainConfigAccount solTestTokenPool.ChainConfig
 	// check if this remote chain is already configured for this token
 	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(evmChainSelector, solTokenPubKey, solPoolAddress)
@@ -447,7 +446,6 @@ func isSupportedChain(chain deployment.SolChain, solTokenPubKey solana.PublicKey
 		return false, solTestTokenPool.ChainConfig{}, fmt.Errorf("failed to get token pool remote chain config pda (remoteSelector: %d, mint: %s, pool: %s): %w", evmChainSelector, solTokenPubKey.String(), solPoolAddress.String(), err)
 	}
 	err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
-	fmt.Println("remoteChainConfigAccount", remoteChainConfigAccount)
 	if err != nil { // not a supported chain for this combination of token and pool type
 		return false, solTestTokenPool.ChainConfig{}, nil
 	}
