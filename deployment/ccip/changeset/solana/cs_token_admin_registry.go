@@ -18,6 +18,7 @@ import (
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
+// use these changesets to register a token admin registry, transfer the admin role, and accept the admin role
 var _ deployment.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegistry
 var _ deployment.ChangeSet[TransferAdminRoleTokenAdminRegistryConfig] = TransferAdminRoleTokenAdminRegistry
 var _ deployment.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleTokenAdminRegistry

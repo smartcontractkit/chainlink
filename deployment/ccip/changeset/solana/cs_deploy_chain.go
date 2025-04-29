@@ -35,6 +35,7 @@ import (
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 )
 
+// use this changeset to deploy the CCIP contracts on solana
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
 func getTypeToProgramDeployName() map[deployment.ContractType]string {

@@ -27,6 +27,7 @@ const (
 	OcrExecutePlugin
 )
 
+// use this changeset to set the OCR3 config on solana
 var _ deployment.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
 
 // SET OCR3 CONFIG

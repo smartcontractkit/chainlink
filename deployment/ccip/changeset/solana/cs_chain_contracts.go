@@ -24,8 +24,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
+// use this to set the fee aggregator
 var _ deployment.ChangeSet[SetFeeAggregatorConfig] = SetFeeAggregator
+
+// use this to update the offramp reference addresseses
 var _ deployment.ChangeSet[OffRampRefAddressesConfig] = UpdateOffRampRefAddresses
+
+// use this to set the upgrade authority of a contract
 var _ deployment.ChangeSet[SetUpgradeAuthorityConfig] = SetUpgradeAuthorityChangeset
 
 type MCMSConfigSolana struct {

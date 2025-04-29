@@ -22,6 +22,7 @@ import (
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
+// use these three changesets to add a remote chain to solana
 var _ deployment.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
 var _ deployment.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
 var _ deployment.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter

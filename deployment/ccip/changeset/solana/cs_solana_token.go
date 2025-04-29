@@ -16,9 +16,16 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 )
 
+// use this changest to deploy a token, create ATAs and mint the token to those ATAs
 var _ deployment.ChangeSet[DeploySolanaTokenConfig] = DeploySolanaToken
+
+// use this changeset to mint the token to an address
 var _ deployment.ChangeSet[MintSolanaTokenConfig] = MintSolanaToken
+
+// use this changeset to create ATAs for a token
 var _ deployment.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
+
+// use this changeset to set the authority of a token
 var _ deployment.ChangeSet[SetTokenAuthorityConfig] = SetTokenAuthority
 
 func getMintIxs(e deployment.Environment, chain deployment.SolChain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) ([]solana.Instruction, error) {

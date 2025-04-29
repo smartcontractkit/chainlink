@@ -30,7 +30,10 @@ import (
 	ccipChangeset_v1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 )
 
+// use this changeset to add a token pool and lookup table
 var _ deployment.ChangeSet[TokenPoolConfig] = AddTokenPoolAndLookupTable
+
+// use this changeset to setup a token pool for a remote chain
 var _ deployment.ChangeSet[RemoteChainTokenPoolConfig] = SetupTokenPoolForRemoteChain
 
 func validatePoolDeployment(
