@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 
-	solrpc "github.com/gagliardetto/solana-go/rpc"
+	"github.com/gagliardetto/solana-go/rpc"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
@@ -553,12 +553,66 @@ func CreateKeys(t *testing.T,
 	}
 }
 
-func FundSolAccounts(ctx context.Context, accounts []solana.PublicKey, solanaGoClient *solrpc.Client, t *testing.T) {
-	for _, v := range accounts {
-		_, err := solanaGoClient.RequestAirdrop(ctx, v, 1000*solana.LAMPORTS_PER_SOL, solrpc.CommitmentConfirmed)
-		require.NoError(t, err)
+func FundSolAccounts(ctx context.Context, accounts []solana.PublicKey, solanaGoClient *rpc.Client, t *testing.T) {
+	fundAccounts(ctx, accounts, solanaGoClient, t, waitAndRetryOpts{
+		RemainingAttempts: 5,
+		Timeout:           30 * time.Second,
+		Timestep:          500 * time.Millisecond,
+	})
+}
+
+type waitAndRetryOpts struct {
+	RemainingAttempts uint
+	Timeout           time.Duration
+	Timestep          time.Duration
+}
+
+func (o waitAndRetryOpts) WithDecreasedAttempts() waitAndRetryOpts {
+	return waitAndRetryOpts{
+		RemainingAttempts: o.RemainingAttempts - 1,
+		Timeout:           o.Timeout,
+		Timestep:          o.Timestep,
 	}
-	// we don't wait for confirmation so we don't block the tests, it'll take a while before nodes start transmitting
+}
+
+func fundAccounts(ctx context.Context, accounts []solana.PublicKey, solanaGoClient *rpc.Client, t *testing.T, opts waitAndRetryOpts) {
+	sigs := []solana.Signature{}
+	for _, v := range accounts {
+		sig, err := solanaGoClient.RequestAirdrop(ctx, v, 1000*solana.LAMPORTS_PER_SOL, rpc.CommitmentFinalized)
+		require.NoError(t, err)
+		sigs = append(sigs, sig)
+	}
+
+	// wait for confirmation so later transactions don't fail
+	remaining := accounts
+	initTime := time.Now()
+	for elapsed := time.Since(initTime); elapsed < opts.Timeout; elapsed = time.Since(initTime) {
+		time.Sleep(opts.Timestep)
+
+		statusRes, sigErr := solanaGoClient.GetSignatureStatuses(ctx, true, sigs...)
+		require.NoError(t, sigErr)
+		require.NotNil(t, statusRes)
+		require.NotNil(t, statusRes.Value)
+
+		accountsWithNonFinalizedFunding := []solana.PublicKey{}
+		for i, res := range statusRes.Value {
+			if res == nil || res.ConfirmationStatus == rpc.ConfirmationStatusProcessed || res.ConfirmationStatus == rpc.ConfirmationStatusConfirmed {
+				accountsWithNonFinalizedFunding = append(accountsWithNonFinalizedFunding, accounts[i])
+			}
+		}
+		remaining = accountsWithNonFinalizedFunding
+
+		if len(remaining) == 0 {
+			return // all done!
+		}
+	}
+
+	decreasedOpts := opts.WithDecreasedAttempts()
+	if decreasedOpts.RemainingAttempts == 0 {
+		require.NoError(t, fmt.Errorf("[%s]: unable to find transactions after all attempts", t.Name()))
+	} else {
+		fundAccounts(ctx, remaining, solanaGoClient, t, decreasedOpts) // recursive call with only remaining & with fewer attempts
+	}
 }
 
 func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
