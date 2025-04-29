@@ -1056,6 +1056,9 @@ func (c CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, e
 		onRampAddressBytes = c.SolChains[chainSelector].Router.Bytes()
 	case chain_selectors.FamilyAptos:
 		ccipAddress := c.AptosChains[chainSelector].CCIPAddress
+		if ccipAddress == (aptos.AccountAddress{}) {
+			return nil, fmt.Errorf("no ccip address found in the state for Aptos chain %d", chainSelector)
+		}
 		onRampAddressBytes = ccipAddress[:]
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
