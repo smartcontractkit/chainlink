@@ -20,6 +20,12 @@ import (
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
+// use this changeset to add a billing token to solana
+var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
+
+// use this changeset to add a token transfer fee for a remote chain to solana
+var _ deployment.ChangeSet[TokenTransferFeeForRemoteChainConfig] = AddTokenTransferFeeForRemoteChain
+
 // ADD BILLING TOKEN
 type BillingTokenConfig struct {
 	ChainSelector uint64

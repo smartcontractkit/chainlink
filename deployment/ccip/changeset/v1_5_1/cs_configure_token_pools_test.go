@@ -738,10 +738,10 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
 		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPool),
+				deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 				changeset_solana.TokenPoolConfig{
 					ChainSelector: selector,
-					TokenPubKey:   tokenAddress.String(),
+					TokenPubKey:   tokenAddress,
 					PoolType:      solTestTokenPool.BurnAndMint_PoolType,
 				},
 			),
@@ -847,10 +847,10 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			}
 			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPool),
+					deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 					changeset_solana.TokenPoolConfig{
 						ChainSelector: selector,
-						TokenPubKey:   tokenAddress.String(),
+						TokenPubKey:   tokenAddress,
 						PoolType:      solTestTokenPool.BurnAndMint_PoolType,
 					},
 				),
