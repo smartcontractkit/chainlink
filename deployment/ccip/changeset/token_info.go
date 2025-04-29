@@ -28,7 +28,7 @@ const (
 	WAVAXSymbol                TokenSymbol = "WAVAX"
 	WBNBSymbol                 TokenSymbol = "WBNB"
 	WPOLSymbol                 TokenSymbol = "WPOL"
-	WSSymbol TokenSymbol = "WS"
+	WSSymbol                   TokenSymbol = "WS"
 	USDCSymbol                 TokenSymbol = "USDC"
 	FactoryBurnMintERC20Symbol TokenSymbol = "Factory-BnM-ERC20"
 	CCIPBnMSymbol              TokenSymbol = "CCIP-BnM"
@@ -45,7 +45,7 @@ const (
 	EthUSD   = "ETH / USD"
 	MaticUSD = "MATIC / USD"
 	BNBUSD   = "BNB / USD"
-	FTMUSD = "FTM / USD" // S token uses FTM / USD price feed under the hood
+	FTMUSD   = "FTM / USD" // S token uses FTM / USD price feed under the hood
 
 	// MockLinkAggregatorDescription is the description of the MockV3Aggregator.sol contract
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
@@ -67,6 +67,7 @@ var (
 		EthUSD:                        WethSymbol,
 		MaticUSD:                      WPOLSymbol,
 		BNBUSD:                        WBNBSymbol,
+		FTMUSD:                        WSSymbol,
 	}
 	MockSymbolToDescription = map[TokenSymbol]string{
 		LinkSymbol: MockLinkAggregatorDescription,
