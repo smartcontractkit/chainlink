@@ -1329,22 +1329,22 @@ func DeployTransferableTokenSolana(
 				},
 			},
 		),
-		// commoncs.Configure(
-		// 	deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenTransferFeeForRemoteChain),
-		// 	ccipChangeSetSolana.TokenTransferFeeForRemoteChainConfig{
-		// 		ChainSelector:       solChainSel,
-		// 		RemoteChainSelector: evmChainSel,
-		// 		TokenPubKey:         solTokenAddress.String(),
-		// 		Config: solFeeQuoter.TokenTransferFeeConfig{
-		// 			MinFeeUsdcents:    800,
-		// 			MaxFeeUsdcents:    1600,
-		// 			DeciBps:           0,
-		// 			DestGasOverhead:   90000,
-		// 			DestBytesOverhead: 100,
-		// 			IsEnabled:         true,
-		// 		},
-		// 	},
-		// ),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenTransferFeeForRemoteChain),
+			ccipChangeSetSolana.TokenTransferFeeForRemoteChainConfig{
+				ChainSelector:       solChainSel,
+				RemoteChainSelector: evmChainSel,
+				TokenPubKey:         solTokenAddress.String(),
+				Config: solFeeQuoter.TokenTransferFeeConfig{
+					MinFeeUsdcents:    800,
+					MaxFeeUsdcents:    1600,
+					DeciBps:           0,
+					DestGasOverhead:   90000,
+					DestBytesOverhead: 100,
+					IsEnabled:         true,
+				},
+			},
+		),
 		commoncs.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.RegisterTokenAdminRegistry),
 			ccipChangeSetSolana.RegisterTokenAdminRegistryConfig{
