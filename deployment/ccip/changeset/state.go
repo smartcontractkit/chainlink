@@ -15,6 +15,7 @@ import (
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
@@ -336,9 +337,11 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 	}
 	return nil
 }
+
 func (c CCIPChainState) validateOnRamp(
 	e deployment.Environment,
 	selector uint64,
+	connectedChains []uint64,
 ) error {
 	if c.OnRamp == nil {
 		return errors.New("no OnRamp contract found in the state")
@@ -383,14 +386,13 @@ func (c CCIPChainState) validateOnRamp(
 				c.OnRamp.Address().Hex(), c.FeeAggregator.Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
 	} else {
-		if c.FeeAggregator != c.Timelock.Address() {
-			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected timelock %s, got %s",
-				c.OnRamp.Address().Hex(), c.Timelock.Address().Hex(), dynamicCfg.FeeAggregator.Hex())
+		if c.FeeAggregator != e.Chains[selector].DeployerKey.From {
+			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected deployer key %s, got %s",
+				c.OnRamp.Address().Hex(), e.Chains[selector].DeployerKey.From.Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
 	}
 
-	otherChains := e.AllChainSelectorsExcluding([]uint64{selector})
-	for _, otherChainSel := range otherChains {
+	for _, otherChainSel := range connectedChains {
 		destChainCfg, err := c.OnRamp.GetDestChainConfig(&bind.CallOpts{
 			Context: e.GetContext(),
 		}, otherChainSel)
@@ -427,10 +429,112 @@ func (c CCIPChainState) validateFeeQuoter(e deployment.Environment) error {
 	return nil
 }
 
+// validateRouter validates the router contract to check if all wired contracts are synced with state
+// and returns all connected chains with respect to the router
+func (c CCIPChainState) validateRouter(e deployment.Environment, isTestRouter bool, selector uint64) ([]uint64, error) {
+	if c.Router == nil && c.TestRouter == nil {
+		return nil, errors.New("no Router or TestRouter contract found in the state")
+	}
+	routerC := c.Router
+	if isTestRouter {
+		routerC = c.TestRouter
+	}
+	armProxy, err := routerC.GetArmProxy(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get armProxy from router : %w", err)
+	}
+	if armProxy != c.RMNProxy.Address() {
+		return nil, fmt.Errorf("armProxy %s mismatch in router %s: expected %s, got %s",
+			armProxy.Hex(), routerC.Address().Hex(), c.RMNProxy.Address().Hex(), armProxy)
+	}
+	native, err := routerC.GetWrappedNative(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get wrapped native from router %s: %w", routerC.Address().Hex(), err)
+	}
+	if native != c.Weth9.Address() {
+		return nil, fmt.Errorf("wrapped native %s mismatch in router %s: expected %s, got %s",
+			native.Hex(), routerC.Address().Hex(), c.Weth9.Address().Hex(), native)
+	}
+	allConnectedChains := make([]uint64, 0)
+	// get offRamps
+	offRampDetails, err := routerC.GetOffRamps(&bind.CallOpts{
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get offRamps from router %s: %w", routerC.Address().Hex(), err)
+	}
+	for _, d := range offRampDetails {
+		// skip if solana - solana state is maintained in solana
+		if _, exists := e.SolChains[d.SourceChainSelector]; exists {
+			continue
+		}
+		allConnectedChains = append(allConnectedChains, d.SourceChainSelector)
+		// check if offRamp is valid
+		if d.OffRamp != c.OffRamp.Address() {
+			return nil, fmt.Errorf("offRamp %s mismatch for source %d in router %s: expected %s, got %s",
+				d.OffRamp.Hex(), d.SourceChainSelector, routerC.Address().Hex(), c.OffRamp.Address().Hex(), d.OffRamp)
+		}
+	}
+	// all lanes are bi-directional, if we have a lane from A to B, we also have a lane from B to A
+	// source to offRamp should be same as dest to onRamp
+	for _, dest := range allConnectedChains {
+		onRamp, err := routerC.GetOnRamp(&bind.CallOpts{
+			Context: context.Background(),
+		}, dest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get onRamp for dest %d from router %s: %w", dest, routerC.Address().Hex(), err)
+		}
+		if onRamp != c.OnRamp.Address() {
+			return nil, fmt.Errorf("onRamp %s mismatch for dest chain %d in router %s: expected %s, got %s",
+				onRamp.Hex(), dest, routerC.Address().Hex(), c.OnRamp.Address().Hex(), onRamp)
+		}
+	}
+	return allConnectedChains, nil
+}
+
+func (c CCIPChainState) validateRMNRemote(
+	e deployment.Environment,
+	selector uint64,
+	rmnHomeActiveDigest [32]byte,
+) (bool, error) {
+	if c.RMNRemote == nil {
+		return false, errors.New("no RMNRemote contract found in the state")
+	}
+	chainSelector, err := c.RMNRemote.GetLocalChainSelector(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to get local chain selector from RMNRemote %s: %w", c.RMNRemote.Address().Hex(), err)
+	}
+	if chainSelector != selector {
+		return false, fmt.Errorf("RMNRemote %s chainSelector mismatch: expected %d, got %d",
+			c.RMNRemote.Address().Hex(), selector, chainSelector)
+	}
+	versionedCfg, err := c.RMNRemote.GetVersionedConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to get versioned config from RMNRemote %s: %w", c.RMNRemote.Address().Hex(), err)
+	}
+	if versionedCfg.Version == 0 {
+		return false, errors.New("RMNRemote config is not set")
+	}
+	if versionedCfg.Config.RmnHomeContractConfigDigest != rmnHomeActiveDigest {
+		return false, fmt.Errorf("RMNRemote %s config digest mismatch: expected %x, got %x",
+			c.RMNRemote.Address().Hex(), rmnHomeActiveDigest, versionedCfg.Config.RmnHomeContractConfigDigest)
+	}
+	return len(versionedCfg.Config.Signers) > 0, nil
+}
+
 func (c CCIPChainState) validateOffRamp(
 	e deployment.Environment,
 	selector uint64,
 	onRampsBySelector map[uint64]common.Address,
+	isRMNEnabledBySource map[uint64]bool,
 ) error {
 	if c.OffRamp == nil {
 		return errors.New("no OffRamp contract found in the state")
@@ -477,28 +581,30 @@ func (c CCIPChainState) validateOffRamp(
 		return fmt.Errorf("offRamp %s permissionless execution threshold mismatch: expected %d, got %d",
 			c.OffRamp.Address().Hex(), globals.PermissionLessExecutionThreshold.Seconds(), dynamicConfig.PermissionLessExecutionThresholdSeconds)
 	}
-	otherChains := e.AllChainSelectorsExcluding([]uint64{selector})
-	for _, otherChainSel := range otherChains {
+	for chainSel, srcChainOnRamp := range onRampsBySelector {
 		config, err := c.OffRamp.GetSourceChainConfig(&bind.CallOpts{
 			Context: e.GetContext(),
-		}, otherChainSel)
+		}, chainSel)
 		if err != nil {
-			return fmt.Errorf("failed to get source chain config for chain %d: %w", otherChainSel, err)
+			return fmt.Errorf("failed to get source chain config for chain %d: %w", chainSel, err)
 		}
 		if config.IsEnabled {
-			srcChainOnRamp, ok := onRampsBySelector[otherChainSel]
-			if !ok {
-				return fmt.Errorf("onRamp %d not found in the state", otherChainSel)
-			}
 			// For all configured sources, the address of configured onRamp for chain A must be the Address() of the onramp on chain A
 			if srcChainOnRamp != common.BytesToAddress(config.OnRamp) {
 				return fmt.Errorf("onRamp address mismatch for source chain %d on OffRamp %s : expected %s, got %x",
-					otherChainSel, c.OffRamp.Address().Hex(), srcChainOnRamp.Hex(), config.OnRamp)
+					chainSel, c.OffRamp.Address().Hex(), srcChainOnRamp.Hex(), config.OnRamp)
 			}
 			// The address of router should be accurate
 			if c.Router.Address() != config.Router && c.TestRouter.Address() != config.Router {
 				return fmt.Errorf("router address mismatch for source chain %d on OffRamp %s : expected either router %s or test router %s, got %s",
-					otherChainSel, c.OffRamp.Address().Hex(), c.Router.Address().Hex(), c.TestRouter.Address().Hex(), config.Router.Hex())
+					chainSel, c.OffRamp.Address().Hex(), c.Router.Address().Hex(), c.TestRouter.Address().Hex(), config.Router.Hex())
+			}
+			// if RMN is enabled for the source chain, the RMNRemote and RMNHome should be configured to enable RMN
+			// the reverse is not always true, as RMN verification can be disable at offRamp but enabled in RMNRemote and RMNHome
+			if !config.IsRMNVerificationDisabled && !isRMNEnabledBySource[chainSel] {
+				return fmt.Errorf("RMN verification is enabled in offRamp %s for source chain %d, "+
+					"but RMN is not enabled in RMNHome and RMNRemote for the chain",
+					c.OffRamp.Address().Hex(), chainSel)
 			}
 		}
 	}
@@ -1020,11 +1126,50 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e deployment.Environment) 
 	if err := homeChainState.validateHomeChain(e, offRampsBySelector); err != nil {
 		return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
 	}
+	rmnHomeActiveDigest, err := homeChainState.RMNHome.GetActiveDigest(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get active digest for RMNHome %s at home chain %d: %w", homeChainState.RMNHome.Address().Hex(), homeChain, err)
+	}
+	isRMNEnabledInRMNHomeBySourceChain := make(map[uint64]bool)
+	rmnHomeConfig, err := homeChainState.RMNHome.GetConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	}, rmnHomeActiveDigest)
+	if err != nil {
+		return fmt.Errorf("failed to get config for RMNHome %s at home chain %d: %w", homeChainState.RMNHome.Address().Hex(), homeChain, err)
+	}
+	for _, rmnHomeChain := range rmnHomeConfig.VersionedConfig.DynamicConfig.SourceChains {
+		isRMNEnabledInRMNHomeBySourceChain[rmnHomeChain.ChainSelector] = rmnHomeChain.FObserve > 0
+	}
 	for selector, chainState := range c.Chains {
-		if err := chainState.validateOffRamp(e, selector, onRampsBySelector); err != nil {
+		isRMNEnabledInRmnRemote, err := chainState.validateRMNRemote(e, selector, rmnHomeActiveDigest)
+		if err != nil {
+			return fmt.Errorf("failed to validate RMNRemote %s for chain %d: %w", chainState.RMNRemote.Address().Hex(), selector, err)
+		}
+		if isRMNEnabledInRmnRemote != isRMNEnabledInRMNHomeBySourceChain[selector] {
+			return fmt.Errorf("RMNRemote %s rmnEnabled mismatch with RMNHome for chain %d: expected %v, got %v",
+				chainState.RMNRemote.Address().Hex(), selector, isRMNEnabledInRMNHomeBySourceChain[selector], isRMNEnabledInRmnRemote)
+		}
+		otherOnRamps := make(map[uint64]common.Address)
+		isTestRouter := true
+		if chainState.Router != nil {
+			isTestRouter = false
+		}
+		connectedChains, err := chainState.validateRouter(e, isTestRouter, selector)
+		if err != nil {
+			return fmt.Errorf("failed to validate router %s for chain %d: %w", chainState.Router.Address().Hex(), selector, err)
+		}
+		for _, connectedChain := range connectedChains {
+			if connectedChain == selector {
+				continue
+			}
+			otherOnRamps[connectedChain] = c.Chains[connectedChain].OnRamp.Address()
+		}
+		if err := chainState.validateOffRamp(e, selector, otherOnRamps, isRMNEnabledInRMNHomeBySourceChain); err != nil {
 			return fmt.Errorf("failed to validate offramp %s for chain %d: %w", chainState.OffRamp.Address().Hex(), selector, err)
 		}
-		if err := chainState.validateOnRamp(e, selector); err != nil {
+		if err := chainState.validateOnRamp(e, selector, connectedChains); err != nil {
 			return fmt.Errorf("failed to validate onramp %s for chain %d: %w", chainState.OnRamp.Address().Hex(), selector, err)
 		}
 		if err := chainState.validateFeeQuoter(e); err != nil {
@@ -1432,13 +1577,13 @@ func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment
 }
 
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
-	solState, err := LoadOnchainStateSolana(e)
+	solanaState, err := LoadOnchainStateSolana(e)
 	if err != nil {
 		return CCIPOnChainState{}, err
 	}
 	state := CCIPOnChainState{
 		Chains:    make(map[uint64]CCIPChainState),
-		SolChains: solState.SolChains,
+		SolChains: solanaState.SolChains,
 	}
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
