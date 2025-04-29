@@ -40,7 +40,7 @@ func (r *relayer) NewContractReader(ctx context.Context, contractReaderConfig []
 	return nil, nil
 }
 
-func (r *relayer) AsEVMRelayer() (loop.EVMRelayer, error) {
+func (r *relayer) EVM() (types.EVMService, error) {
 	return nil, nil
 }
 
