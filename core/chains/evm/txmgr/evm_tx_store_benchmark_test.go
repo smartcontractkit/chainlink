@@ -24,16 +24,19 @@ func NewTestTxStore(t testing.TB, db *sqlx.DB) txmgr.TestEvmTxStore {
 	return txmgr.NewTxStore(db, logger.Test(t))
 }
 
-var benchmarkSizes = map[string]int{
-	"Factor_1":    1,
-	"Factor_10":   10,
-	"Factor_100":  100,
-	"Factor_1000": 1000,
+var benchmarkSizes = []struct {
+	name string
+	size int
+}{
+	{"Factor_1", 1},
+	{"Factor_10", 10},
+	{"Factor_100", 100},
+	{"Factor_1000", 1000},
 }
 
-func BenchmarkCreateTransactionTxStore(b *testing.B) {
-	for name, size := range benchmarkSizes {
-		b.Run(name, func(b *testing.B) {
+func BenchmarkTxStoreCreateTransaction(b *testing.B) {
+	for _, bs := range benchmarkSizes {
+		b.Run(bs.name, func(b *testing.B) {
 			db := testutils.NewSqlxDB(b)
 			txStore := newTxStore(b, db)
 			kst := cltest.NewKeyStore(b, db)
@@ -46,7 +49,7 @@ func BenchmarkCreateTransactionTxStore(b *testing.B) {
 			strategy := newMockTxStrategy(b)
 			strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 
-			for i := 0; i < size; i++ {
+			for i := 0; i < bs.size; i++ {
 				toAddress := testutils.NewAddress()
 				_, err := txStore.CreateTransaction(tests.Context(b), txmgr.TxRequest{
 					FromAddress:    fromAddress,
@@ -77,9 +80,9 @@ func BenchmarkCreateTransactionTxStore(b *testing.B) {
 	}
 }
 
-func BenchmarkFindAttemptsRequiringReceiptFetch(b *testing.B) {
-	for name, size := range benchmarkSizes {
-		b.Run(name, func(b *testing.B) {
+func BenchmarkTxStoreFindAttemptsRequiringReceiptFetch(b *testing.B) {
+	for _, bs := range benchmarkSizes {
+		b.Run(bs.name, func(b *testing.B) {
 			db := testutils.NewSqlxDB(b)
 			txStore := NewTestTxStore(b, db)
 			ctx := tests.Context(b)
@@ -87,15 +90,18 @@ func BenchmarkFindAttemptsRequiringReceiptFetch(b *testing.B) {
 			kst := cltest.NewKeyStore(b, db)
 			_, fromAddress := cltest.MustInsertRandomKey(b, kst.Eth())
 
-			for i := 0; i < size; i++ {
-				nonce := evmtypes.Nonce(i * 5) // Generate unique nonces each iteration
+			var nonce = evmtypes.Nonce(0)
+			for i := 0; i < bs.size; i++ {
 				// Transactions whose attempts should not be picked up for receipt fetch
 				mustInsertFatalErrorEthTx(b, txStore, fromAddress)
 				mustInsertUnstartedTx(b, txStore, fromAddress)
-				mustInsertUnconfirmedEthTxWithAttemptState(b, txStore, nonce.Int64()+3, fromAddress, txmgrtypes.TxAttemptBroadcast)
-				mustInsertConfirmedEthTxWithReceipt(b, txStore, fromAddress, nonce.Int64()+2, blockNum)
+				mustInsertUnconfirmedEthTxWithAttemptState(b, txStore, nonce.Int64(), fromAddress, txmgrtypes.TxAttemptBroadcast)
+				nonce++
+				mustInsertConfirmedEthTxWithReceipt(b, txStore, fromAddress, nonce.Int64(), blockNum)
+				nonce++
 				// Terminally stuck transaction with receipt should NOT be picked up for receipt fetch
-				stuckTx := mustInsertTerminallyStuckTxWithAttempt(b, txStore, fromAddress, nonce.Int64()+1, blockNum)
+				stuckTx := mustInsertTerminallyStuckTxWithAttempt(b, txStore, fromAddress, nonce.Int64(), blockNum)
+				nonce++
 				mustInsertEthReceipt(b, txStore, blockNum, utils.NewHash(), stuckTx.TxAttempts[0].Hash)
 				// Fatal transactions with nil nonce and stored attempts should NOT be picked up for receipt fetch
 				fatalTx := mustInsertFatalErrorEthTx(b, txStore, fromAddress)
@@ -103,6 +109,7 @@ func BenchmarkFindAttemptsRequiringReceiptFetch(b *testing.B) {
 				require.NoError(b, txStore.InsertTxAttempt(ctx, &attempt))
 				// Confirmed transaction without receipt should be picked up for receipt fetch
 				confirmedTx := mustInsertConfirmedEthTx(b, txStore, nonce.Int64(), fromAddress)
+				nonce++
 				attempt = newBroadcastLegacyEthTxAttempt(b, confirmedTx.ID)
 				require.NoError(b, txStore.InsertTxAttempt(ctx, &attempt))
 			}
@@ -113,15 +120,15 @@ func BenchmarkFindAttemptsRequiringReceiptFetch(b *testing.B) {
 				attempts, err := txStore.FindAttemptsRequiringReceiptFetch(ctx, testutils.FixtureChainID)
 				b.StopTimer()
 				require.NoError(b, err)
-				require.Equal(b, size, len(attempts))
+				require.Equal(b, bs.size, len(attempts))
 			}
 		})
 	}
 }
 
 func BenchmarkFindTxesByIDs(b *testing.B) {
-	for name, size := range benchmarkSizes {
-		b.Run(name, func(b *testing.B) {
+	for _, bs := range benchmarkSizes {
+		b.Run(bs.name, func(b *testing.B) {
 			db := testutils.NewSqlxDB(b)
 			txStore := NewTestTxStore(b, db)
 			ctx := tests.Context(b)
@@ -129,7 +136,7 @@ func BenchmarkFindTxesByIDs(b *testing.B) {
 			_, fromAddress := cltest.MustInsertRandomKeyReturningState(b, ethKeyStore)
 
 			var etxIDs []int64
-			for i := 0; i < size; i++ {
+			for i := 0; i < bs.size; i++ {
 				etx := mustInsertUnconfirmedEthTxWithAttemptState(b, txStore, int64(i), fromAddress, txmgrtypes.TxAttemptBroadcast)
 				etxIDs = append(etxIDs, etx.ID)
 			}
@@ -147,15 +154,15 @@ func BenchmarkFindTxesByIDs(b *testing.B) {
 }
 
 func BenchmarkFindConfirmedTxesReceipts(b *testing.B) {
-	for name, size := range benchmarkSizes {
-		b.Run(name, func(b *testing.B) {
+	for _, bs := range benchmarkSizes {
+		b.Run(bs.name, func(b *testing.B) {
 			db := testutils.NewSqlxDB(b)
 			txStore := NewTestTxStore(b, db)
 			finalizedBlockNum := int64(100)
 			kst := cltest.NewKeyStore(b, db)
 			_, fromAddress := cltest.MustInsertRandomKey(b, kst.Eth())
 
-			for i := 0; i < size; i++ {
+			for i := 0; i < bs.size; i++ {
 				mustInsertConfirmedEthTxWithReceipt(b, txStore, fromAddress, int64(i), finalizedBlockNum)
 			}
 
@@ -165,7 +172,7 @@ func BenchmarkFindConfirmedTxesReceipts(b *testing.B) {
 				receipts, err := txStore.FindConfirmedTxesReceipts(tests.Context(b), finalizedBlockNum, &cltest.FixtureChainID)
 				b.StopTimer()
 				require.NoError(b, err)
-				require.Len(b, receipts, size)
+				require.Len(b, receipts, bs.size)
 			}
 		})
 	}
