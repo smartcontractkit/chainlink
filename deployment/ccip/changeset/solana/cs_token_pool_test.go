@@ -150,7 +150,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolAndLookupTable),
 				ccipChangesetSolana.TokenPoolConfig{
 					ChainSelector: solChain,
-					TokenPubKey:   tokenAddress.String(),
+					TokenPubKey:   tokenAddress,
 					PoolType:      testCase.poolType,
 				},
 			),
