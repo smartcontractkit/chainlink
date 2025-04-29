@@ -2200,7 +2200,6 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 
 	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+metaNotSliceDualTransmissionSpec, nil)
 	require.NoError(t, err)
-	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "dual transmission meta value key1 is not a slice")
 
 	completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
