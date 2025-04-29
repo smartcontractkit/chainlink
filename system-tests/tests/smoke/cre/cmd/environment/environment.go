@@ -16,13 +16,15 @@ import (
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	chainreadercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/chainreader"
+	chainwritercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/chainwriter"
+	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
+	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
+	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
+	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
+	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/chainreader"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -33,6 +35,11 @@ import (
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
 
 var EnvironmentCmd = &cobra.Command{
@@ -73,6 +80,9 @@ var startCmd = &cobra.Command{
 	Short: "Start the environment",
 	Long:  `Start the local CRE environment with all supported capabilities`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// remove all containers before starting the environment, just in case
+		_ = framework.RemoveTestContainers()
+
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
@@ -156,15 +166,18 @@ var startCmd = &cobra.Command{
 			return errors.Wrap(err, "failed to start environment")
 		}
 
+		homeChainOut := output.BlockchainOutput[0]
+
 		sErr := func() error {
 			creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
-				output.BlockchainOutput.SethClient.MustGetRootKeyAddress(),
-				output.KeystoneContractsOutput.CapabilitiesRegistryAddress,
-				output.KeystoneContractsOutput.WorkflowRegistryAddress,
-				nil,
+				homeChainOut.SethClient.MustGetRootKeyAddress(),
+				output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				output.DonTopology.WorkflowDonID,
-				output.BlockchainOutput.ChainSelector,
-				output.BlockchainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl)
+				homeChainOut.ChainSelector,
+				map[uint64]string{
+					homeChainOut.ChainSelector: homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+				},
+			)
 
 			if settingsErr != nil {
 				return settingsErr
@@ -227,7 +240,7 @@ const (
 )
 
 type Config struct {
-	Blockchain        *blockchain.Input       `toml:"blockchain" validate:"required"`
+	Blockchains       []*blockchain.Input     `toml:"blockchains" validate:"required"`
 	NodeSets          []*ns.Input             `toml:"nodesets" validate:"required"`
 	JD                *jd.Input               `toml:"jd" validate:"required"`
 	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
@@ -316,7 +329,7 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 				Input:              in.NodeSets[1],
 				Capabilities:       capabiliitesDONCapabilities,
 				DONTypes:           []string{cretypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: 0,
+				BootstrapNodeIndex: -1,                                 // <----- it's crucial to indicate there's no bootstrap node
 			},
 			{
 				Input:              in.NodeSets[2],
@@ -341,17 +354,12 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		fmt.Println()
 	}
 
-	chainIDInt, chainErr := strconv.Atoi(in.Blockchain.ChainID)
-	if chainErr != nil {
-		return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
-	}
-
 	// add support for more capabilities if needed
 	capabilityFactoryFns := []cretypes.DONCapabilityWithConfigFactoryFn{
-		crecontracts.DefaultCapabilityFactoryFn,
-		crecontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
-		crecontracts.ChainReaderCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"), // for now support only evm
-		crecontracts.WebAPICapabilityFactoryFn,
+		webapicap.WebAPICapabilityFactoryFn,
+		computecap.ComputeCapabilityFactoryFn,
+		consensuscap.OCR3CapabilityFactoryFn,
+		croncap.CronCapabilityFactoryFn,
 	}
 
 	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.InfraType)
@@ -359,33 +367,48 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		return nil, fmt.Errorf("failed to get default container directory: %w", pathErr)
 	}
 
-	chainReaderJobSpecFactoryFn := chainreader.ChainReaderJobSpecFactoryFn(
-		chainIDInt,
-		"evm",
-		// path within the container/pod
-		filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.LogEventTriggerBinaryPath)),
-		filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.ReadContractBinaryPath)),
-	)
+	homeChainIDInt, chainErr := strconv.Atoi(in.Blockchains[0].ChainID)
+	if chainErr != nil {
+		return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
+	}
 
 	jobSpecFactoryFunctions := []cretypes.JobSpecFactoryFn{
 		// add support for more job spec factory functions if needed
-
-		chainReaderJobSpecFactoryFn,
 		webapi.WebAPIJobSpecFactoryFn,
-		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(chainIDInt))),
+		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
 		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.CronCapabilityBinaryPath))),
-		cregateway.GatewayJobSpecFactoryFn(libc.MustSafeUint64(int64(chainIDInt)), []int{}, []string{}, []string{"0.0.0.0/0"}),
+		cregateway.GatewayJobSpecFactoryFn([]int{}, []string{}, []string{"0.0.0.0/0"}),
 		crecompute.ComputeJobSpecFactoryFn,
+	}
+
+	for _, blockchain := range in.Blockchains {
+		chainIDInt, chainErr := strconv.Atoi(blockchain.ChainID)
+		if chainErr != nil {
+			return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
+		}
+		capabilityFactoryFns = append(capabilityFactoryFns, chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
+		capabilityFactoryFns = append(capabilityFactoryFns, chainreadercap.ChainReaderCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+
+		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, chainreader.ChainReaderJobSpecFactoryFn(
+			chainIDInt,
+			"evm",
+			// path within the container/pod
+			filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.LogEventTriggerBinaryPath)),
+			filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.ReadContractBinaryPath)),
+		))
 	}
 
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            capabilitiesAwareNodeSets,
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:                     *in.Blockchain,
+		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		CustomBinariesPaths:                  capabilitiesBinaryPaths,
 		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
+		ConfigFactoryFunctions: []cretypes.ConfigFactoryFn{
+			gatewayconfig.GenerateConfig,
+		},
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(context.Background(), testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)

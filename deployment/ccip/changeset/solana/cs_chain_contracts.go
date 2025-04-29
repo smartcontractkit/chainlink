@@ -20,24 +20,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-var _ deployment.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
-var _ deployment.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
-var _ deployment.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
-var _ deployment.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
-var _ deployment.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
-var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
-var _ deployment.ChangeSet[TokenTransferFeeForRemoteChainConfig] = AddTokenTransferFeeForRemoteChain
-var _ deployment.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegistry
-var _ deployment.ChangeSet[TransferAdminRoleTokenAdminRegistryConfig] = TransferAdminRoleTokenAdminRegistry
-var _ deployment.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleTokenAdminRegistry
+// use this to set the fee aggregator
 var _ deployment.ChangeSet[SetFeeAggregatorConfig] = SetFeeAggregator
-var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
+
+// use this to update the offramp reference addresseses
 var _ deployment.ChangeSet[OffRampRefAddressesConfig] = UpdateOffRampRefAddresses
+
+// use this to set the upgrade authority of a contract
 var _ deployment.ChangeSet[SetUpgradeAuthorityConfig] = SetUpgradeAuthorityChangeset
 
 type MCMSConfigSolana struct {

@@ -12,6 +12,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -51,7 +52,7 @@ type OCRKeyView struct {
 }
 
 // GenerateNopsView generates a view of nodes with their details
-func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc deployment.OffchainClient) (map[string]NopView, error) {
+func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf.OffchainClient) (map[string]NopView, error) {
 	nv := make(map[string]NopView)
 	nodes, err := deployment.NodeInfo(nodeIDs, oc)
 	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
@@ -126,7 +127,7 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc deployment.Offcha
 	return nv, nil
 }
 
-func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc deployment.OffchainClient) (nodeJobsView map[string]map[string]JobView, verr error) {
+func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc cldf.OffchainClient) (nodeJobsView map[string]map[string]JobView, verr error) {
 	nodeJobsView = make(map[string]map[string]JobView)
 
 	jobs, err := oc.ListJobs(ctx, &jobv1.ListJobsRequest{

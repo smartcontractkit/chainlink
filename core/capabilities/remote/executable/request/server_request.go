@@ -32,14 +32,22 @@ type srMetrics struct {
 }
 
 func (s *srMetrics) recordExecutionDuration(ctx context.Context, d time.Duration, success bool) {
+	successStr := "false"
+	if success {
+		successStr = "true"
+	}
 	s.executeDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
-		attribute.Bool("success", success), attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID),
+		attribute.String("success", successStr), attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID),
 	))
 }
 
 func (s *srMetrics) countExecution(ctx context.Context, success bool) {
+	successStr := "false"
+	if success {
+		successStr = "true"
+	}
 	s.executeCount.Add(ctx, 1, metric.WithAttributes(
-		attribute.Bool("success", success), attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID),
+		attribute.String("success", successStr), attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID),
 	))
 }
 

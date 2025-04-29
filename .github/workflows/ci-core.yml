@@ -187,8 +187,8 @@ jobs:
             setup-solana: "true"
 
           - cmd: go_core_fuzz
-            os: ubuntu22.04-8cores-32GB
-            is-self-hosted: "false"
+            os:  ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}
+            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_race_tests
@@ -643,14 +643,17 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
       SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
       GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
+      GH_FUZZ_RUNNER: ubuntu22.04-8cores-32GB
       GH_BASE_RUNNER: ubuntu-latest
     outputs:
       # go_core_tests / go_core_race_tests / go_core_tests_integration
       core-tests-is-self-hosted: ${{ steps.core-tests.outputs.core-tests-is-self-hosted }}
       core-tests-runner: ${{ steps.core-tests.outputs.core-tests-runner }}
       core-tests-integration-runner: ${{ steps.core-tests.outputs.core-tests-integration-runner }}
+      core-fuzz-tests-runner: ${{ steps.core-tests.outputs.core-fuzz-tests-runner }}
       core-race-tests-runner: ${{ steps.core-tests.outputs.core-race-tests-runner }}
       # go_core_ccip_deployment_tests
       deployment-tests-is-self-hosted: ${{ steps.deployment-tests.outputs.deployment-tests-is-self-hosted }}
@@ -731,6 +734,7 @@ jobs:
 
             echo "core-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
             echo "core-tests-integration-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-fuzz-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
             echo "core-race-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
@@ -741,6 +745,7 @@ jobs:
 
             echo "core-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
             echo "core-tests-integration-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-fuzz-tests-runner=${GH_FUZZ_RUNNER}" | tee -a $GITHUB_OUTPUT
             echo "core-race-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
@@ -750,6 +755,7 @@ jobs:
 
           echo "core-tests-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
           echo "core-tests-integration-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "core-fuzz-tests-runner=${SH_FUZZ_RUNNER}" | tee -a $GITHUB_OUTPUT
           echo "core-race-tests-runner=${SH_RACE_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
 
   misc:

@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/maps"
 
 	"github.com/gagliardetto/solana-go"
@@ -253,13 +254,11 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
-		t,
 		lggr,
 		e,
 		sourceChain,
 		destChain,
 		ownerSourceChain,
-		e.ExistingAddresses,
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
@@ -390,13 +389,11 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 
 	// Deploy tokens and pool by CCIP Owner
 	destToken, _, srcToken, err := testhelpers.DeployTransferableTokenSolana(
-		t,
 		lggr,
 		e,
 		destChain,
 		sourceChain,
 		ownerDestChain,
-		e.ExistingAddresses,
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
@@ -449,10 +446,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, srcToken, ownerSourceChain)
 	require.NoError(t, err)
 
-	externalTokenPoolsSignerPDA, _, err := solstate.FindExternalTokenPoolsSignerPDA(state.SolChains[sourceChain].BurnMintTokenPool, state.SolChains[sourceChain].Router)
-	require.NoError(t, err)
-
-	ixApprove2, err := soltokens.TokenApproveChecked(1000, 9, solana.Token2022ProgramID, userTokenAccount, srcToken, externalTokenPoolsSignerPDA, ownerSourceChain, nil)
+	ixApprove2, err := soltokens.TokenApproveChecked(1000, 9, solana.Token2022ProgramID, userTokenAccount, srcToken, billingSignerPDA, ownerSourceChain, nil)
 	require.NoError(t, err)
 
 	ixs := []solana.Instruction{ixApprove2}
@@ -482,7 +476,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 			Receiver: state.Chains[destChain].Receiver.Address().Bytes(),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				// due to the differences in decimals, 1 on SVM results to 1e9 on EVM
-				{Token: destToken.Address().Bytes(), Amount: new(big.Int).SetUint64(oneE9)},
+				{Token: common.LeftPadBytes(destToken.Address().Bytes(), 32), Amount: new(big.Int).SetUint64(oneE9)},
 			},
 			ExtraArgs:      extraArgs,
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
