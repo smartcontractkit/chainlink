@@ -1,10 +1,12 @@
 package solana_test
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
 
+	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
@@ -896,4 +898,64 @@ func TestPoolLookupTable(t *testing.T) {
 			require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
 		})
 	}
+}
+
+func TestSetMaxFeeJuelsPerMsg(t *testing.T) {
+	t.Parallel()
+	tenv, _ := testhelpers.NewMemoryEnvironment(t,
+		testhelpers.WithSolChains(1))
+	var err error
+	solChainSelectors := tenv.Env.AllChainSelectorsSolana()
+	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
+		ccipChangesetSolana.CCIPContractsToTransfer{
+			Router:    true,
+			FeeQuoter: true,
+			OffRamp:   true,
+		})
+	params := v1_6.DefaultFeeQuoterParams()
+	low, high := GetHighLowBits(params.MaxFeeJuelsPerMsg)
+
+	tenv.Env, _, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetMaxFeeJuelsPerMsg),
+			ccipChangesetSolana.SetMaxFeeJuelsPerMsgConfig{
+				ChainSelector:     solChainSelectors[0],
+				MaxFeeJuelsPerMsg: solBinary.Uint128{Lo: low, Hi: high},
+				MCMSSolana: &ccipChangesetSolana.MCMSConfigSolana{
+					MCMS: &proposalutils.TimelockConfig{
+						MinDelay: 1 * time.Second,
+					},
+					RouterOwnedByTimelock:    true,
+					FeeQuoterOwnedByTimelock: true,
+					OffRampOwnedByTimelock:   true,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+	state, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+
+	var fqConfig solFeeQuoter.Config
+	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(state.SolChains[solChainSelectors[0]].FeeQuoter)
+	err = tenv.Env.SolChains[solChainSelectors[0]].GetAccountDataBorshInto(context.Background(), feeQuoterConfigPDA, &fqConfig)
+	require.NoError(t, err)
+	fqLo, fqHi := fqConfig.MaxFeeJuelsPerMsg.Lo, fqConfig.MaxFeeJuelsPerMsg.Hi
+	require.Equal(t, low, fqLo)
+	require.Equal(t, high, fqHi)
+
+	reconstructed := new(big.Int).Lsh(big.NewInt(int64(fqHi)), 64)
+	reconstructed.Add(reconstructed, big.NewInt(0).SetUint64(fqLo))
+	require.Equal(t, 0, reconstructed.Cmp(params.MaxFeeJuelsPerMsg), "reconstructed value does not match original")
+}
+
+func GetHighLowBits(n *big.Int) (low, high uint64) {
+	mask := big.NewInt(0).SetUint64(0xFFFFFFFFFFFFFFFF) // 64-bit mask
+
+	lowBig := big.NewInt(0).And(n, mask)
+	low = lowBig.Uint64()
+
+	highBig := big.NewInt(0).Rsh(n, 64) // Shift right by 64 bits
+	high = highBig.Uint64()
+
+	return low, high
 }
