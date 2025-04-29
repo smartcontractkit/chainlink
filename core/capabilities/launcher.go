@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/Masterminds/semver/v3"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
@@ -409,7 +411,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 		// If the capability already exists, then it's either local
 		// or we've handled this in a previous syncer iteration,
 		// let's skip and move on to other capabilities.
-		if errors.Is(err, ErrCapabilityAlreadyExists) {
+		if errors.Is(err, registry.ErrCapabilityAlreadyExists) {
 			return nil
 		}
 
