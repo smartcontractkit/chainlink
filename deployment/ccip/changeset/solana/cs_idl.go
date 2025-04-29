@@ -208,8 +208,8 @@ func parseIdlBuffer(output string) (string, error) {
 }
 
 // write IDL buffer for a program
-func writeBuffer(e deployment.Environment, programsPath, programID string) (solana.PublicKey, error) {
-	idlFile, err := getIDL(e, programsPath, programID, deployment.RouterProgramName)
+func writeBuffer(e deployment.Environment, programsPath, programID, programName string) (solana.PublicKey, error) {
+	idlFile, err := getIDL(e, programsPath, programID, programName)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("error getting IDL: %w", err)
 	}
@@ -254,19 +254,19 @@ func setBufferIx(e deployment.Environment, programID, buffer, authority solana.P
 }
 
 // generate upgrade IDL ix for a program via timelock
-func upgradeIDLIx(e deployment.Environment, programsPath, programID string, programName deployment.ContractType, c IDLConfig) (*mcmsTypes.Transaction, error) {
+func upgradeIDLIx(e deployment.Environment, programsPath, programID, programName string, c IDLConfig) (*mcmsTypes.Transaction, error) {
 	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
 	if err != nil {
-		return &mcmsTypes.Transaction{}, fmt.Errorf("error loading timelockSignerPDA: %w", err)
+		return nil, fmt.Errorf("error loading timelockSignerPDA: %w", err)
 	}
-	buffer, err := writeBuffer(e, programsPath, programID)
+	buffer, err := writeBuffer(e, programsPath, programID, programName)
 	if err != nil {
 		return nil, fmt.Errorf("error writing buffer: %w", err)
 	}
 	authority := e.SolChains[c.ChainSelector].DeployerKey.PublicKey()
 	if c.MCMS != nil {
 		authority = timelockSignerPDA
-		err = setIdlAuthority(e, timelockSignerPDA.String(), programsPath, programID, programName.String(), buffer.String())
+		err = setIdlAuthority(e, timelockSignerPDA.String(), programsPath, programID, programName, buffer.String())
 		if err != nil {
 			return nil, fmt.Errorf("error setting buffer authority: %w", err)
 		}
@@ -276,16 +276,16 @@ func upgradeIDLIx(e deployment.Environment, programsPath, programID string, prog
 		return nil, fmt.Errorf("error generating set buffer ix: %w", err)
 	}
 	if c.MCMS != nil {
-		upgradeTx, err := BuildMCMSTxn(&instruction, programID, programName)
+		upgradeTx, err := BuildMCMSTxn(&instruction, programID, deployment.ContractType(programName))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create upgrade transaction: %w", err)
 		}
 		return upgradeTx, nil
 	}
 	if err := e.SolChains[c.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
-		return &mcmsTypes.Transaction{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		return nil, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
-	return &mcmsTypes.Transaction{}, nil
+	return nil, nil
 }
 
 func (c IDLConfig) Validate(e deployment.Environment) error {
@@ -523,7 +523,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
 	if c.Router {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.Router.String(), ccipChangeset.Router, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -532,7 +532,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.FeeQuoter {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.FeeQuoter.String(), ccipChangeset.FeeQuoter, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -541,7 +541,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.OffRamp {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.OffRamp.String(), ccipChangeset.OffRamp, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -550,7 +550,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.RMNRemote {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.RMNRemote.String(), ccipChangeset.RMNRemote, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -559,7 +559,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.BurnMintTokenPool {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.BurnMintTokenPool.String(), ccipChangeset.BurnMintTokenPool, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.BurnMintTokenPool.String(), deployment.BurnMintTokenPoolProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -568,7 +568,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.LockReleaseTokenPool {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.LockReleaseTokenPool.String(), ccipChangeset.LockReleaseTokenPool, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.LockReleaseTokenPool.String(), deployment.LockReleaseTokenPoolProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -587,7 +587,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 	}
 
 	if c.AccessController {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -596,7 +596,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.Timelock {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), types.RBACTimelockProgram, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), deployment.TimelockProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -605,7 +605,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.MCM {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.McmProgram.String(), types.ManyChainMultisigProgram, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
