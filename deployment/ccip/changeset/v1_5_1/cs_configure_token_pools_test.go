@@ -741,7 +741,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 				changeset_solana.TokenPoolConfig{
 					ChainSelector: selector,
-					TokenPubKey:   tokenAddress.String(),
+					TokenPubKey:   tokenAddress,
 					PoolType:      solTestTokenPool.BurnAndMint_PoolType,
 				},
 			),
@@ -850,7 +850,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 					deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 					changeset_solana.TokenPoolConfig{
 						ChainSelector: selector,
-						TokenPubKey:   tokenAddress.String(),
+						TokenPubKey:   tokenAddress,
 						PoolType:      solTestTokenPool.BurnAndMint_PoolType,
 					},
 				),
