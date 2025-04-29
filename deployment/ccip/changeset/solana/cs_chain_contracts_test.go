@@ -934,6 +934,7 @@ func TestSetMaxFeeJuelsPerMsg(t *testing.T) {
 	})
 	require.NoError(t, err)
 	state, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+	require.NoError(t, err)
 
 	var fqConfig solFeeQuoter.Config
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(state.SolChains[solChainSelectors[0]].FeeQuoter)
@@ -943,7 +944,7 @@ func TestSetMaxFeeJuelsPerMsg(t *testing.T) {
 	require.Equal(t, low, fqLo)
 	require.Equal(t, high, fqHi)
 
-	reconstructed := new(big.Int).Lsh(big.NewInt(int64(fqHi)), 64)
+	reconstructed := new(big.Int).Lsh(big.NewInt(int64(fqHi)), 64) //nolint:gosec // disable G115
 	reconstructed.Add(reconstructed, big.NewInt(0).SetUint64(fqLo))
 	require.Equal(t, 0, reconstructed.Cmp(params.MaxFeeJuelsPerMsg), "reconstructed value does not match original")
 }
