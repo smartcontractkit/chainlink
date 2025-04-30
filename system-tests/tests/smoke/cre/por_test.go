@@ -16,13 +16,16 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -53,7 +56,10 @@ import (
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
 	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
+	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
@@ -62,7 +68,7 @@ import (
 )
 
 var (
-	SinglePoRDonCapabilitiesFlags = []string{"ocr3", "cron", "custom-compute", "write-evm"}
+	SinglePoRDonCapabilitiesFlags = []string{keystonetypes.CronCapability, keystonetypes.OCR3Capability, keystonetypes.CustomComputeCapability, keystonetypes.WriteEVMCapability}
 )
 
 type CustomAnvilMiner struct {
@@ -580,6 +586,11 @@ func setupPoRTestEnvironment(
 		dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
 		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
 
+		testLogger.Info().Msg("Waiting for RegistrySyncer health checks...")
+		syncerErr := waitForWorkflowRegistrySyncer(universalSetupOutput.NodeOutput, universalSetupOutput.DonTopology)
+		require.NoError(t, syncerErr, "failed to wait for workflow registry syncer")
+		testLogger.Info().Msg("Proceeding to register PoR workflow...")
+
 		registerInput := registerPoRWorkflowInput{
 			WorkflowConfig:     in.WorkflowConfigs[idx],
 			homeChainSelector:  homeChainOutput.ChainSelector,
@@ -860,4 +871,62 @@ func debugTest(t *testing.T, testLogger zerolog.Logger, setupOutput *porSetupOut
 			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
 		}
 	}
+}
+
+func waitForWorkflowRegistrySyncer(nodeSetOutput []*keystonetypes.WrappedNodeOutput, topology *keystonetypes.DonTopology) error {
+	for idx, nodeSetOut := range nodeSetOutput {
+		if !flags.HasFlag(topology.DonsWithMetadata[idx].Flags, keystonetypes.WorkflowDON) {
+			continue
+		}
+
+		workerNodesOutput := []*clnode.Output{}
+		workerNodes, err := crenode.FindManyWithLabel(topology.DonsWithMetadata[idx].NodesMetadata, &types.Label{Key: crenode.NodeTypeKey, Value: types.WorkerNode}, crenode.EqualLabels)
+		if err != nil {
+			return errors.Wrap(err, "failed to find worker nodes")
+		}
+
+		for nodeIdx := range workerNodes {
+			nodeIndexStr, findErr := crenode.FindLabelValue(workerNodes[nodeIdx], crenode.IndexKey)
+			if findErr != nil {
+				return errors.Wrapf(findErr, "failed to find node index for node %d in nodeset %s", nodeIdx, topology.DonsWithMetadata[idx].Name)
+			}
+
+			nodeIndex, convErr := strconv.Atoi(nodeIndexStr)
+			if convErr != nil {
+				return errors.Wrapf(convErr, "failed to convert node index '%s' to int for node %d in nodeset %s", nodeIndexStr, nodeIdx, topology.DonsWithMetadata[idx].Name)
+			}
+
+			workerNodesOutput = append(workerNodesOutput, nodeSetOut.CLNodes[nodeIndex])
+		}
+
+		nsClients, cErr := clclient.New(workerNodesOutput)
+		if cErr != nil {
+			return errors.Wrap(cErr, "failed to create node set clients")
+		}
+		eg1 := &errgroup.Group{}
+		eg2 := &errgroup.Group{}
+		eg3 := &errgroup.Group{}
+		for _, c := range nsClients {
+			eg1.Go(func() error {
+				return c.WaitHealthy(".*WorkflowStore", "passing", 100)
+			})
+			eg2.Go(func() error {
+				return c.WaitHealthy(".*WorkflowRegistrySyncer.FetcherService", "passing", 100)
+			})
+			eg3.Go(func() error {
+				return c.WaitHealthy(".*RegistrySyncer", "passing", 100)
+			})
+		}
+		if err := eg1.Wait(); err != nil {
+			return errors.Wrap(err, "failed to wait for WorkflowStore health checks")
+		}
+		if err := eg2.Wait(); err != nil {
+			return errors.Wrap(err, "failed to wait for FetcherService health checks")
+		}
+		if err := eg3.Wait(); err != nil {
+			return errors.Wrap(err, "failed to wait for RegistrySyncer health checks")
+		}
+	}
+
+	return nil
 }
