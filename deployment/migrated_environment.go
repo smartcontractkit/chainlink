@@ -37,3 +37,16 @@ var (
 	RPCDefaultDialRetryAttempts = deployment.RPCDefaultDialRetryAttempts
 	RPCDefaultDialRetryDelay    = deployment.RPCDefaultDialRetryDelay
 )
+
+// Chain
+
+type (
+	AptosChain = deployment.AptosChain
+	Chain      = deployment.Chain
+	SolChain   = deployment.SolChain
+)
+
+var (
+	ChainInfo             = deployment.ChainInfo
+	GetSolanaProgramBytes = deployment.GetSolanaProgramBytes
+)
