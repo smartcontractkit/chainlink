@@ -550,6 +550,11 @@ func setupPoRTestEnvironment(
 			creCLIAbsPath, pathErr = filepath.Abs(in.DependenciesConfig.CRECLIBinaryPath)
 			require.NoError(t, pathErr, "failed to get absolute path for CRE CLI")
 
+			rpcs := map[uint64]string{}
+			for _, bcOut := range universalSetupOutput.BlockchainOutput {
+				rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
+			}
+
 			// create CRE CLI settings file
 			var settingsErr error
 			creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(
@@ -557,10 +562,7 @@ func setupPoRTestEnvironment(
 				universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				universalSetupOutput.DonTopology.WorkflowDonID,
 				homeChainOutput.ChainSelector,
-				map[uint64]string{
-					homeChainOutput.ChainSelector: homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-					bo.ChainSelector:              bo.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				},
+				rpcs,
 			)
 			require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 		}
