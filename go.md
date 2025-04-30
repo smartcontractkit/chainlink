@@ -233,6 +233,7 @@ flowchart LR
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/lib --> chainlink/deployment
 	click chainlink/system-tests/lib href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests --> chainlink-testing-framework/havoc
 	chainlink/system-tests/tests --> chainlink-testing-framework/wasp
 	chainlink/system-tests/tests --> chainlink/system-tests/lib
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
