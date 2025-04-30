@@ -134,7 +134,6 @@ func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM
 		}),
 		// NOTE: Optimize for fast pickup of new channel definitions. On
 		// Arbitrum, finalization can take tens of minutes
-		// (https://grafana.ops.prod.cldev.sh/d/e0453cc9-4b4a-41e1-9f01-7c21de805b39/blockchain-finality-and-gas?orgId=1&var-env=All&var-network_name=ethereum-testnet-sepolia-arbitrum-1&var-network_name=ethereum-mainnet-arbitrum-1&from=1732460992641&to=1732547392641)
 		query.Confidence(primitives.Unconfirmed),
 	}
 
@@ -170,9 +169,24 @@ func (c *channelDefinitionCache) Start(ctx context.Context) error {
 		if pd, err := c.orm.LoadChannelDefinitions(ctx, c.addr, c.donID); err != nil {
 			return err
 		} else if pd != nil {
+			c.lggr.Debugw("Loaded channel definitions from DB",
+				"addr", c.addr,
+				"version", pd.Version,
+				"blockNum", pd.BlockNum,
+			)
 			c.definitions = pd.Definitions
-			c.initialBlockNum = pd.BlockNum + 1
 			c.definitionsVersion = uint32(pd.Version)
+			c.definitionsBlockNum = pd.BlockNum
+
+			// update the initial block number to the DB block number + 1
+			// if the DB block number is greater than the provided initial block number,
+			if pd.BlockNum+1 > c.initialBlockNum {
+				c.lggr.Debugw("Updating initial block number",
+					"old", c.initialBlockNum,
+					"new", pd.BlockNum+1,
+				)
+				c.initialBlockNum = pd.BlockNum + 1
+			}
 		} else {
 			// ensure non-nil map ready for assignment later
 			c.definitions = make(llotypes.ChannelDefinitions)
@@ -229,8 +243,10 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 	toBlock := latestBlock.BlockNumber
 
 	fromBlock := c.scanFromBlockNum()
+	c.lggr.Debugw("Scanning from block", "fromBlock", fromBlock, "toBlock", toBlock)
 
 	if toBlock <= fromBlock {
+		c.lggr.Debug("No new logs found, skipping")
 		return nil
 	}
 
@@ -272,7 +288,12 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 
 		c.newLogMu.Lock()
 		if c.newLog == nil || unpacked.Version > c.newLog.Version {
-			c.lggr.Infow("Got new channel definitions from chain", "version", unpacked.Version, "blockNumber", log.BlockNumber, "sha", fmt.Sprintf("%x", unpacked.Sha), "url", unpacked.Url)
+			c.lggr.Infow("Got new channel definitions from chain",
+				"version", unpacked.Version,
+				"blockNumber", log.BlockNumber,
+				"sha", fmt.Sprintf("%x", unpacked.Sha),
+				"url", unpacked.Url,
+			)
 			c.newLog = unpacked
 			c.newLogCh <- unpacked
 		}
@@ -285,7 +306,7 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 func (c *channelDefinitionCache) scanFromBlockNum() int64 {
 	c.newLogMu.RLock()
 	defer c.newLogMu.RUnlock()
-	if c.newLog != nil {
+	if c.newLog != nil && int64(c.newLog.Raw.BlockNumber) > c.initialBlockNum {
 		return int64(c.newLog.Raw.BlockNumber) + 1
 	}
 	return c.initialBlockNum
@@ -328,10 +349,22 @@ func (c *channelDefinitionCache) fetchLoop(ctx context.Context, log *channel_con
 
 	err := c.fetchAndSetChannelDefinitions(ctx, log)
 	if err == nil {
-		c.lggr.Debugw("Set new channel definitions", "donID", c.donID, "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha))
+		c.lggr.Debugw("Set new channel definitions",
+			"donID", c.donID,
+			"version", log.Version,
+			"url", log.Url,
+			"sha", fmt.Sprintf("%x", log.Sha),
+		)
 		return
 	}
-	c.lggr.Warnw("Error while fetching channel definitions", "donID", c.donID, "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha), "err", err, "attempt", attemptCnt)
+	c.lggr.Warnw("Error while fetching channel definitions",
+		"donID", c.donID,
+		"version", log.Version,
+		"url", log.Url,
+		"sha", fmt.Sprintf("%x", log.Sha),
+		"err", err,
+		"attempt", attemptCnt,
+	)
 
 	for {
 		select {
@@ -341,10 +374,15 @@ func (c *channelDefinitionCache) fetchLoop(ctx context.Context, log *channel_con
 			attemptCnt++
 			err := c.fetchAndSetChannelDefinitions(ctx, log)
 			if err != nil {
-				c.lggr.Warnw("Error while fetching channel definitions", "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha), "err", err, "attempt", attemptCnt)
+				c.lggr.Warnw("Error while fetching channel definitions",
+					"version", log.Version,
+					"url", log.Url,
+					"sha", fmt.Sprintf("%x", log.Sha),
+					"err", err,
+					"attempt", attemptCnt,
+				)
 				continue
 			}
-			c.lggr.Debugw("Set new channel definitions", "donID", c.donID, "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha))
 			return
 		}
 	}
@@ -358,15 +396,30 @@ func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Conte
 	}
 	c.definitionsMu.RUnlock()
 
+	c.lggr.Debugw("Fetching channel definitions",
+		"donID", c.donID,
+		"version", log.Version,
+		"url", log.Url,
+		"sha", fmt.Sprintf("%x", log.Sha),
+	)
 	cd, err := c.fetchChannelDefinitions(ctx, log.Url, log.Sha)
 	if err != nil {
 		return err
 	}
+
 	c.definitionsMu.Lock()
 	if log.Version <= c.definitionsVersion {
 		c.definitionsMu.Unlock()
 		return nil
 	}
+	c.lggr.Debugw("Set new channel definitions",
+		"donID", c.donID,
+		"version", log.Version,
+		"url", log.Url,
+		"blockNumber", int64(log.Raw.BlockNumber),
+		"sha", fmt.Sprintf("%x", log.Sha),
+	)
+
 	c.definitions = cd
 	c.definitionsBlockNum = int64(log.Raw.BlockNumber)
 	c.definitionsVersion = log.Version
@@ -374,7 +427,11 @@ func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Conte
 
 	if memoryVersion, persistedVersion, err := c.persist(ctx); err != nil {
 		// If this fails, the failedPersistLoop will try again
-		c.lggr.Warnw("Failed to persist channel definitions", "err", err, "memoryVersion", memoryVersion, "persistedVersion", persistedVersion)
+		c.lggr.Warnw("Failed to persist channel definitions",
+			"err", err,
+			"memoryVersion", memoryVersion,
+			"persistedVersion", persistedVersion,
+		)
 	}
 
 	return nil
@@ -455,6 +512,12 @@ func (c *channelDefinitionCache) persist(ctx context.Context) (memoryVersion, pe
 		return
 	}
 
+	c.lggr.Debugw("Persisting channel definition",
+		"donID", c.donID,
+		"version", memoryVersion,
+		"blockNumber", blockNum,
+		"addr", c.addr,
+	)
 	if err = c.orm.StoreChannelDefinitions(ctx, c.addr, c.donID, memoryVersion, dfns, blockNum); err != nil {
 		return
 	}
@@ -485,14 +548,22 @@ func (c *channelDefinitionCache) failedPersistLoop() {
 		select {
 		case <-time.After(dbPersistLoopInterval):
 			if memoryVersion, persistedVersion, err := c.persist(ctx); err != nil {
-				c.lggr.Warnw("Failed to persist channel definitions", "err", err, "memoryVersion", memoryVersion, "persistedVersion", persistedVersion)
+				c.lggr.Warnw("Failed to persist channel definitions",
+					"err", err,
+					"memoryVersion", memoryVersion,
+					"persistedVersion", persistedVersion,
+				)
 			}
 		case <-c.chStop:
 			// Try one final persist with a short-ish timeout, then return
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel()
 			if memoryVersion, persistedVersion, err := c.persist(ctx); err != nil {
-				c.lggr.Errorw("Failed to persist channel definitions on shutdown", "err", err, "memoryVersion", memoryVersion, "persistedVersion", persistedVersion)
+				c.lggr.Errorw("Failed to persist channel definitions on shutdown",
+					"err", err,
+					"memoryVersion", memoryVersion,
+					"persistedVersion", persistedVersion,
+				)
 			}
 			return
 		}
