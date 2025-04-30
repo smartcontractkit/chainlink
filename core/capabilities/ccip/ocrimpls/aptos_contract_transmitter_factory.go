@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // AptosCommitCallArgs defines the calldata structure for an Aptos commit transaction.
@@ -50,6 +51,7 @@ func NewAptosCommitCalldataFunc(commitMethod string) ToEd25519CalldataFunc {
 
 // NewCommitTransmitter constructs an Aptos commit transmitter.
 func (f *AptosContractTransmitterFactory) NewCommitTransmitter(
+	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
@@ -80,6 +82,7 @@ var AptosExecCallDataFunc = func(
 
 // NewExecTransmitter constructs an Aptos execute transmitter.
 func (f *AptosContractTransmitterFactory) NewExecTransmitter(
+	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
