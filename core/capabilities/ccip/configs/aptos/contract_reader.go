@@ -128,6 +128,11 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 					},
 				},
 				Events: map[string]*chainreader.ChainReaderEvent{
+					consts.EventNameCCIPMessageSent: {
+						EventHandleStructName: "OnRampState",
+						EventHandleFieldName:  "ccip_message_sent_events",
+						EventAccountAddress:   "onramp::get_state_address",
+					},
 					consts.EventNameExecutionStateChanged: {
 						EventHandleStructName: "OffRampState",
 						EventHandleFieldName:  "execution_state_changed_events",
