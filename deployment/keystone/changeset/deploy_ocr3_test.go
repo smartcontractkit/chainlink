@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -205,10 +205,14 @@ func TestConfigureOCR3(t *testing.T) {
 		require.Len(t, existingContracts, 4)
 
 		// Deploy a new OCR3 contract
-		resp, err := changeset.DeployOCR3(te.Env, registrySel)
+		resp, err := changeset.DeployOCR3V2(te.Env, &changeset.DeployRequestV2{
+			ChainSel:  registrySel,
+			Qualifier: "test-ocr-contract"})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))
+		refs := resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("test-ocr-contract"))
+		require.Len(t, refs, 1)
 
 		// Verify after merge there are original contracts plus one new one
 		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
@@ -278,24 +282,11 @@ func TestConfigureOCR3(t *testing.T) {
 		assert.NotNil(t, csOut.MCMSTimelockProposals)
 		t.Logf("got: %v", csOut.MCMSTimelockProposals[0])
 
-		contracts := te.ContractSets()[te.RegistrySelector]
-		require.NoError(t, err)
-		var timelockContracts = map[uint64]*proposalutils.TimelockExecutionContracts{
-			te.RegistrySelector: {
-				Timelock:  contracts.Timelock,
-				CallProxy: contracts.CallProxy,
-			},
-		}
-
 		// now apply the changeset such that the proposal is signed and execed
 		w2 := &bytes.Buffer{}
 		cfg.WriteGeneratedConfig = w2
-		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset.ConfigureOCR3Contract),
-				cfg,
-			),
-		)
+
+		err = applyProposal(t, te, commonchangeset.Configure(deployment.CreateLegacyChangeSet(changeset.ConfigureOCR3Contract), cfg))
 		require.NoError(t, err)
 	})
 }

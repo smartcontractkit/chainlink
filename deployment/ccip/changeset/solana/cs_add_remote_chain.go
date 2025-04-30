@@ -22,6 +22,11 @@ import (
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
+// use these three changesets to add a remote chain to solana
+var _ deployment.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
+var _ deployment.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
+var _ deployment.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
+
 type AddRemoteChainToRouterConfig struct {
 	ChainSelector uint64
 	// UpdatesByChain is a mapping of SVM chain selector -> remote chain selector -> remote chain config update
@@ -32,6 +37,10 @@ type AddRemoteChainToRouterConfig struct {
 }
 
 type RouterConfig struct {
+	// if enabling AllowedSender -> it needs to be a complete list
+	// onchain just clones what we pass in
+	// and tooling does not handle upserts
+	// so you have to clone what is in state, edit the list, and then pass into this changeset
 	RouterDestinationConfig solRouter.DestChainConfig
 	// We have different instructions for add vs update, so we need to know which one to use
 	IsUpdate bool
@@ -157,6 +166,8 @@ func doAddRemoteChainToRouter(
 		if update.IsUpdate {
 			routerIx, err = solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
+				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
+				// right now, the user will have to send the final version of the config.
 				update.RouterDestinationConfig,
 				routerRemoteStatePDA,
 				routerConfigPDA,
@@ -366,6 +377,8 @@ func doAddRemoteChainToFeeQuoter(
 		if update.IsUpdate {
 			feeQuoterIx, err = solFeeQuoter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
+				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
+				// right now, the user will have to send the final version of the config.
 				update.FeeQuoterDestinationConfig,
 				s.SolChains[chainSel].FeeQuoterConfigPDA,
 				fqRemoteChainPDA,

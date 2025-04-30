@@ -139,6 +139,13 @@ func TestDeployChainContractsChangesetPreload(t *testing.T) {
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 }
 
+func skipInCI(t *testing.T) {
+	ci := os.Getenv("CI") == "true"
+	if ci {
+		t.Skip("Skipping in CI")
+	}
+}
+
 // Upgrade flows must do the following:
 // 1. Build the original contracts. We cannot preload because the deployed buffers will be too small to handle an upgrade.
 // We must do a deploy with .so and keypairs locally
@@ -146,10 +153,7 @@ func TestDeployChainContractsChangesetPreload(t *testing.T) {
 // so we need to do a local build again. We cannot do a remote fetch because those artifacts will not have the same keys as step 1.
 // Doing this in CI is expensive, so we skip it for now.
 func TestUpgrade(t *testing.T) {
-	ci := os.Getenv("CI") == "true"
-	if ci {
-		return
-	}
+	skipInCI(t)
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
@@ -388,14 +392,17 @@ func TestIDL(t *testing.T) {
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
 			ccipChangesetSolana.IDLConfig{
-				ChainSelector: solChain,
-				GitCommitSha:  "",
-				Router:        true,
-				// FeeQuoter:            true,
-				// OffRamp:              true,
-				// RMNRemote:            true,
-				// BurnMintTokenPool:    true,
-				// LockReleaseTokenPool: true,
+				ChainSelector:        solChain,
+				GitCommitSha:         "",
+				Router:               true,
+				FeeQuoter:            true,
+				OffRamp:              true,
+				RMNRemote:            true,
+				BurnMintTokenPool:    true,
+				LockReleaseTokenPool: true,
+				AccessController:     true,
+				Timelock:             true,
+				MCM:                  true,
 			},
 		),
 	})
@@ -404,7 +411,8 @@ func TestIDL(t *testing.T) {
 	// deploy timelock
 	_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
-			Router: true,
+			Router:    true,
+			FeeQuoter: true,
 		})
 
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
@@ -413,11 +421,7 @@ func TestIDL(t *testing.T) {
 			ccipChangesetSolana.IDLConfig{
 				ChainSelector: solChain,
 				Router:        true,
-				// FeeQuoter:            true,
-				// OffRamp:              true,
-				// RMNRemote:            true,
-				// BurnMintTokenPool:    true,
-				// LockReleaseTokenPool: true,
+				FeeQuoter:     true,
 			},
 		),
 		commonchangeset.Configure(
@@ -426,11 +430,28 @@ func TestIDL(t *testing.T) {
 				ChainSelector: solChain,
 				GitCommitSha:  "",
 				Router:        true,
-				// FeeQuoter:            true,
-				// OffRamp:              true,
-				// RMNRemote:            true,
-				// BurnMintTokenPool:    true,
-				// LockReleaseTokenPool: true,
+				FeeQuoter:     true,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector:        solChain,
+				GitCommitSha:         "",
+				OffRamp:              true,
+				RMNRemote:            true,
+				BurnMintTokenPool:    true,
+				LockReleaseTokenPool: true,
+				AccessController:     true,
+				Timelock:             true,
+				MCM:                  true,
 			},
 		),
 	})

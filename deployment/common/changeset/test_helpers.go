@@ -154,10 +154,12 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
+			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
+			OperationsBundle:  e.OperationsBundle,
 		}
 	}
 	return currentEnv, nil
@@ -219,10 +221,12 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
+			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
+			OperationsBundle:  e.OperationsBundle,
 		}
 
 		if out.MCMSTimelockProposals != nil {
