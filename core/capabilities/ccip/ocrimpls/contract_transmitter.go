@@ -47,6 +47,7 @@ type ccipTransmitter struct {
 	toCalldataFn        ToCalldataFunc
 	toEd25519CalldataFn ToEd25519CalldataFunc
 	extraDataCodec      ccipcommon.ExtraDataCodec
+	lggr                logger.Logger
 }
 
 func XXXNewContractTransmitterTestsOnly(
