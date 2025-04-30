@@ -191,7 +191,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	}
 	out.MsgSentEvent = msgSentEvent
 
-	// hack
+	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
+	// we need to replay missed logs
 	if !tc.Replayed {
 		require.NotNil(tc.T, tc.DeployedEnv)
 		sleepAndReplay(tc.T, tc.DeployedEnv, tc.SourceChain, tc.DestChain)
