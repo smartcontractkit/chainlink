@@ -122,7 +122,7 @@ func getCommitRootAcceptedEvent(
 	msgSeqNr uint64,
 	lookbackDuration,
 	stepDuration time.Duration,
-	latestBlockNumber uint64,
+	cachedBlockNumber uint64,
 ) (offramp.InternalMerkleRoot, uint64, error) {
 	hdr, err := env.Chains[destChainSel].Client.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -130,9 +130,9 @@ func getCommitRootAcceptedEvent(
 	}
 
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
-	if latestBlockNumber != 0 {
-		lggr.Infow("using latest block number to start search", "latestBlockNumber", latestBlockNumber)
-		start = latestBlockNumber
+	if cachedBlockNumber != 0 {
+		lggr.Infow("using cached block number to start search for root", "cachedBlockNumber", cachedBlockNumber)
+		start = cachedBlockNumber
 	}
 	step := durationToBlocks(destChainSel, stepDuration)
 
@@ -216,7 +216,7 @@ func getCCIPMessageSentEvents(
 	merkleRoot offramp.InternalMerkleRoot,
 	lookbackDuration,
 	stepDuration time.Duration,
-	latestBlockNumber uint64,
+	cachedBlockNumber uint64,
 ) ([]onramp.OnRampCCIPMessageSent, []uint64, error) {
 	hdr, err := env.Chains[srcChainSel].Client.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -224,8 +224,9 @@ func getCCIPMessageSentEvents(
 	}
 
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
-	if latestBlockNumber != 0 {
-		start = latestBlockNumber
+	if cachedBlockNumber != 0 {
+		lggr.Infow("using cached block number to start search for messages", "cachedBlockNumber", cachedBlockNumber)
+		start = cachedBlockNumber
 	}
 	step := durationToBlocks(srcChainSel, stepDuration)
 
@@ -324,7 +325,7 @@ func manuallyExecuteSingle(
 
 	if execState == testhelpers.EXECUTION_STATE_SUCCESS ||
 		(execState == testhelpers.EXECUTION_STATE_FAILURE && !reExecuteIfFailed) {
-		lggr.Infow("message already executed", "execState", execState)
+		lggr.Infow("message already executed", "execState", execState, "msgSeqNr", msgSeqNr)
 		return nil
 	}
 
