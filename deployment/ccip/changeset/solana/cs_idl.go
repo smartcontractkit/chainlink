@@ -357,37 +357,37 @@ func UploadIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutpu
 	}
 	// start uploading
 	if c.Router {
-		err := idlInit(e, chain.ProgramsPath, chainState.Router.String(), cldf.RouterProgramName)
+		err := idlInit(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
 	}
 	if c.FeeQuoter {
-		err := idlInit(e, chain.ProgramsPath, chainState.FeeQuoter.String(), cldf.FeeQuoterProgramName)
+		err := idlInit(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName)
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
 	if c.OffRamp {
-		err := idlInit(e, chain.ProgramsPath, chainState.OffRamp.String(), cldf.OffRampProgramName)
+		err := idlInit(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName)
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
 	if c.RMNRemote {
-		err := idlInit(e, chain.ProgramsPath, chainState.RMNRemote.String(), cldf.RMNRemoteProgramName)
+		err := idlInit(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName)
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
 	if c.BurnMintTokenPool {
-		err := idlInit(e, chain.ProgramsPath, chainState.BurnMintTokenPool.String(), cldf.BurnMintTokenPoolProgramName)
+		err := idlInit(e, chain.ProgramsPath, chainState.BurnMintTokenPool.String(), deployment.BurnMintTokenPoolProgramName)
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
 	if c.LockReleaseTokenPool {
-		err := idlInit(e, chain.ProgramsPath, chainState.LockReleaseTokenPool.String(), cldf.LockReleaseTokenPoolProgramName)
+		err := idlInit(e, chain.ProgramsPath, chainState.LockReleaseTokenPool.String(), deployment.LockReleaseTokenPoolProgramName)
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
@@ -401,19 +401,19 @@ func UploadIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutpu
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
 	if c.MCM {
-		err := idlInit(e, chain.ProgramsPath, mcmState.McmProgram.String(), cldf.McmProgramName)
+		err := idlInit(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName)
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
 	if c.Timelock {
-		err := idlInit(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), cldf.TimelockProgramName)
+		err := idlInit(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), deployment.TimelockProgramName)
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
 	if c.AccessController {
-		err := idlInit(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), cldf.AccessControllerProgramName)
+		err := idlInit(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName)
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
@@ -438,37 +438,37 @@ func SetAuthorityIDL(e deployment.Environment, c IDLConfig) (deployment.Changese
 
 	// set idl authority
 	if c.Router {
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.Router.String(), cldf.RouterProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, "")
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
 	if c.FeeQuoter {
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.FeeQuoter.String(), cldf.FeeQuoterProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, "")
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
 	if c.OffRamp {
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.OffRamp.String(), cldf.OffRampProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, "")
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
 	if c.RMNRemote {
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.RMNRemote.String(), cldf.RMNRemoteProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, "")
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
 	if c.BurnMintTokenPool {
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.BurnMintTokenPool.String(), cldf.BurnMintTokenPoolProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.BurnMintTokenPool.String(), deployment.BurnMintTokenPoolProgramName, "")
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
 	}
 	if c.LockReleaseTokenPool {
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.LockReleaseTokenPool.String(), cldf.LockReleaseTokenPoolProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.LockReleaseTokenPool.String(), deployment.LockReleaseTokenPoolProgramName, "")
 		if err != nil {
 			return deployment.ChangesetOutput{}, nil
 		}
@@ -524,7 +524,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
 	if c.Router {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.Router.String(), cldf.RouterProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -533,7 +533,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.FeeQuoter {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.FeeQuoter.String(), cldf.FeeQuoterProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -542,7 +542,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.OffRamp {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.OffRamp.String(), cldf.OffRampProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -551,7 +551,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.RMNRemote {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.RMNRemote.String(), cldf.RMNRemoteProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -560,7 +560,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.BurnMintTokenPool {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.BurnMintTokenPool.String(), cldf.BurnMintTokenPoolProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.BurnMintTokenPool.String(), deployment.BurnMintTokenPoolProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -569,7 +569,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.LockReleaseTokenPool {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.LockReleaseTokenPool.String(), cldf.LockReleaseTokenPoolProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.LockReleaseTokenPool.String(), deployment.LockReleaseTokenPoolProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -588,7 +588,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 	}
 
 	if c.AccessController {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), cldf.AccessControllerProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -597,7 +597,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.Timelock {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), cldf.TimelockProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), deployment.TimelockProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -606,7 +606,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (deployment.ChangesetOutp
 		}
 	}
 	if c.MCM {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.McmProgram.String(), cldf.McmProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName, c)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}

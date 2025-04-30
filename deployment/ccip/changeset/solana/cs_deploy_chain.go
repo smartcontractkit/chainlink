@@ -41,16 +41,16 @@ var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsCha
 
 func getTypeToProgramDeployName() map[deployment.ContractType]string {
 	return map[deployment.ContractType]string{
-		ccipChangeset.Router:               cldf.RouterProgramName,
-		ccipChangeset.OffRamp:              cldf.OffRampProgramName,
-		ccipChangeset.FeeQuoter:            cldf.FeeQuoterProgramName,
-		ccipChangeset.BurnMintTokenPool:    cldf.BurnMintTokenPoolProgramName,
-		ccipChangeset.LockReleaseTokenPool: cldf.LockReleaseTokenPoolProgramName,
-		ccipChangeset.RMNRemote:            cldf.RMNRemoteProgramName,
-		types.AccessControllerProgram:      cldf.AccessControllerProgramName,
-		types.ManyChainMultisigProgram:     cldf.McmProgramName,
-		types.RBACTimelockProgram:          cldf.TimelockProgramName,
-		ccipChangeset.Receiver:             cldf.ReceiverProgramName,
+		ccipChangeset.Router:               deployment.RouterProgramName,
+		ccipChangeset.OffRamp:              deployment.OffRampProgramName,
+		ccipChangeset.FeeQuoter:            deployment.FeeQuoterProgramName,
+		ccipChangeset.BurnMintTokenPool:    deployment.BurnMintTokenPoolProgramName,
+		ccipChangeset.LockReleaseTokenPool: deployment.LockReleaseTokenPoolProgramName,
+		ccipChangeset.RMNRemote:            deployment.RMNRemoteProgramName,
+		types.AccessControllerProgram:      deployment.AccessControllerProgramName,
+		types.ManyChainMultisigProgram:     deployment.McmProgramName,
+		types.RBACTimelockProgram:          deployment.TimelockProgramName,
+		ccipChangeset.Receiver:             deployment.ReceiverProgramName,
 	}
 }
 
@@ -922,7 +922,7 @@ func generateExtendIxn(
 	if extraBytes > math.MaxUint32 {
 		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32)
 	}
-	//https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
+	// https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
 	data := binary.LittleEndian.AppendUint32([]byte{}, 6) // 4-byte Extend instruction identifier
 	//nolint:gosec // G115 we check for overflow above
 	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes+1024)) // add some padding
