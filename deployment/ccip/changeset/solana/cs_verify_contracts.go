@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -70,15 +71,15 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 		programLib string
 		enabled    bool
 	}{
-		{"Fee Quoter", chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, cfg.VerifyFeeQuoter},
-		{"Router", chainState.Router.String(), deployment.RouterProgramName, cfg.VerifyRouter},
-		{"OffRamp", chainState.OffRamp.String(), deployment.OffRampProgramName, cfg.VerifyOffRamp},
-		{"RMN Remote", chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, cfg.VerifyRMNRemote},
-		{"Burn Mint Token Pool", chainState.BurnMintTokenPool.String(), deployment.BurnMintTokenPoolProgramName, cfg.VerifyBurnMintTokenPool},
-		{"Lock Release Token Pool", chainState.LockReleaseTokenPool.String(), deployment.LockReleaseTokenPoolProgramName, cfg.VerifyLockReleaseTokenPool},
-		{"Access Controller", mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, cfg.VerifyAccessController},
-		{"MCM", mcmState.McmProgram.String(), deployment.McmProgramName, cfg.VerifyMCM},
-		{"Timelock", mcmState.TimelockProgram.String(), deployment.TimelockProgramName, cfg.VerifyTimelock},
+		{"Fee Quoter", chainState.FeeQuoter.String(), cldf.FeeQuoterProgramName, cfg.VerifyFeeQuoter},
+		{"Router", chainState.Router.String(), cldf.RouterProgramName, cfg.VerifyRouter},
+		{"OffRamp", chainState.OffRamp.String(), cldf.OffRampProgramName, cfg.VerifyOffRamp},
+		{"RMN Remote", chainState.RMNRemote.String(), cldf.RMNRemoteProgramName, cfg.VerifyRMNRemote},
+		{"Burn Mint Token Pool", chainState.BurnMintTokenPool.String(), cldf.BurnMintTokenPoolProgramName, cfg.VerifyBurnMintTokenPool},
+		{"Lock Release Token Pool", chainState.LockReleaseTokenPool.String(), cldf.LockReleaseTokenPoolProgramName, cfg.VerifyLockReleaseTokenPool},
+		{"Access Controller", mcmState.AccessControllerProgram.String(), cldf.AccessControllerProgramName, cfg.VerifyAccessController},
+		{"MCM", mcmState.McmProgram.String(), cldf.McmProgramName, cfg.VerifyMCM},
+		{"Timelock", mcmState.TimelockProgram.String(), cldf.TimelockProgramName, cfg.VerifyTimelock},
 	}
 
 	for _, v := range verifications {

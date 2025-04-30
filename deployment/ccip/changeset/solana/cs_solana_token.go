@@ -7,6 +7,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
@@ -90,7 +91,7 @@ func NewTokenInstruction(chain deployment.SolChain, cfg DeploySolanaTokenConfig)
 		tokenAdminPubKey,
 		cfg.TokenDecimals,
 		chain.Client,
-		deployment.SolDefaultCommitment,
+		cldf.SolDefaultCommitment,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -171,7 +172,7 @@ func (cfg MintSolanaTokenConfig) Validate(e deployment.Environment) error {
 	}
 
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), tokenAddress, &rpc.GetAccountInfoOpts{
-		Commitment: deployment.SolDefaultCommitment,
+		Commitment: cldf.SolDefaultCommitment,
 	})
 	if err != nil {
 		fmt.Println("error getting account info", err)

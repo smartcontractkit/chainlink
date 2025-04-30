@@ -14,6 +14,7 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -40,16 +41,16 @@ var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsCha
 
 func getTypeToProgramDeployName() map[deployment.ContractType]string {
 	return map[deployment.ContractType]string{
-		ccipChangeset.Router:               deployment.RouterProgramName,
-		ccipChangeset.OffRamp:              deployment.OffRampProgramName,
-		ccipChangeset.FeeQuoter:            deployment.FeeQuoterProgramName,
-		ccipChangeset.BurnMintTokenPool:    deployment.BurnMintTokenPoolProgramName,
-		ccipChangeset.LockReleaseTokenPool: deployment.LockReleaseTokenPoolProgramName,
-		ccipChangeset.RMNRemote:            deployment.RMNRemoteProgramName,
-		types.AccessControllerProgram:      deployment.AccessControllerProgramName,
-		types.ManyChainMultisigProgram:     deployment.McmProgramName,
-		types.RBACTimelockProgram:          deployment.TimelockProgramName,
-		ccipChangeset.Receiver:             deployment.ReceiverProgramName,
+		ccipChangeset.Router:               cldf.RouterProgramName,
+		ccipChangeset.OffRamp:              cldf.OffRampProgramName,
+		ccipChangeset.FeeQuoter:            cldf.FeeQuoterProgramName,
+		ccipChangeset.BurnMintTokenPool:    cldf.BurnMintTokenPoolProgramName,
+		ccipChangeset.LockReleaseTokenPool: cldf.LockReleaseTokenPoolProgramName,
+		ccipChangeset.RMNRemote:            cldf.RMNRemoteProgramName,
+		types.AccessControllerProgram:      cldf.AccessControllerProgramName,
+		types.ManyChainMultisigProgram:     cldf.McmProgramName,
+		types.RBACTimelockProgram:          cldf.TimelockProgramName,
+		ccipChangeset.Receiver:             cldf.ReceiverProgramName,
 	}
 }
 
@@ -967,7 +968,7 @@ func generateCloseBufferIxn(
 // HELPER FUNCTIONS
 func GetSolProgramSize(e *deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (int, error) {
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
-		Commitment: deployment.SolDefaultCommitment,
+		Commitment: cldf.SolDefaultCommitment,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get account info: %w", err)

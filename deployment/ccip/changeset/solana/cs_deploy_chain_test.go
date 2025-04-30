@@ -11,6 +11,7 @@ import (
 
 	solBinary "github.com/gagliardetto/binary"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -41,15 +42,15 @@ func verifyProgramSizes(t *testing.T, e deployment.Environment) {
 	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[e.AllChainSelectorsSolana()[0]], addresses)
 	require.NoError(t, err)
 	programsToState := map[string]solana.PublicKey{
-		deployment.RouterProgramName:               state.SolChains[e.AllChainSelectorsSolana()[0]].Router,
-		deployment.OffRampProgramName:              state.SolChains[e.AllChainSelectorsSolana()[0]].OffRamp,
-		deployment.FeeQuoterProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].FeeQuoter,
-		deployment.BurnMintTokenPoolProgramName:    state.SolChains[e.AllChainSelectorsSolana()[0]].BurnMintTokenPool,
-		deployment.LockReleaseTokenPoolProgramName: state.SolChains[e.AllChainSelectorsSolana()[0]].LockReleaseTokenPool,
-		deployment.AccessControllerProgramName:     chainState.AccessControllerProgram,
-		deployment.TimelockProgramName:             chainState.TimelockProgram,
-		deployment.McmProgramName:                  chainState.McmProgram,
-		deployment.RMNRemoteProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].RMNRemote,
+		cldf.RouterProgramName:               state.SolChains[e.AllChainSelectorsSolana()[0]].Router,
+		cldf.OffRampProgramName:              state.SolChains[e.AllChainSelectorsSolana()[0]].OffRamp,
+		cldf.FeeQuoterProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].FeeQuoter,
+		cldf.BurnMintTokenPoolProgramName:    state.SolChains[e.AllChainSelectorsSolana()[0]].BurnMintTokenPool,
+		cldf.LockReleaseTokenPoolProgramName: state.SolChains[e.AllChainSelectorsSolana()[0]].LockReleaseTokenPool,
+		cldf.AccessControllerProgramName:     chainState.AccessControllerProgram,
+		cldf.TimelockProgramName:             chainState.TimelockProgram,
+		cldf.McmProgramName:                  chainState.McmProgram,
+		cldf.RMNRemoteProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].RMNRemote,
 	}
 	for program, sizeBytes := range deployment.GetSolanaProgramBytes() {
 		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
