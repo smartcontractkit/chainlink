@@ -29,7 +29,7 @@ import (
 
 const (
 	// maxBlocks is the number of available port blocks before exclusions.
-	maxBlocks = 256
+	maxBlocks = 512
 
 	// lowPort is the lowest port number that should be used.
 	lowPort = 10000
@@ -99,7 +99,7 @@ var (
 func initialize() {
 	var err error
 
-	blockSize = 1500
+	blockSize = 128
 	limit, err := systemLimit()
 	if err != nil {
 		panic("freeport: error getting system limit: " + err.Error())
@@ -261,8 +261,8 @@ func adjustMaxBlocks() (int, error) {
 // implemented as a TCP listener which is bound to the firstPort and which will
 // be automatically released when the application terminates.
 func alloc() (int, net.Listener) {
-	for i := 0; i < attempts; i++ {
-		block := int(seededRand.Int31n(int32(effectiveMaxBlocks)))
+	for block := 0; block < effectiveMaxBlocks; block++ {
+		//block := int(seededRand.Int31n(int32(effectiveMaxBlocks)))
 		firstPort := lowPort + block*blockSize
 		ln, err := net.ListenTCP("tcp", tcpAddr("127.0.0.1", firstPort))
 		if err != nil {

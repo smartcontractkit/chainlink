@@ -8,6 +8,8 @@ import (
 	"io"
 	"net"
 	"testing"
+
+	"github.com/hashicorp/serf/testutil/retry"
 )
 
 func TestTakeReturn(t *testing.T) {
@@ -38,17 +40,17 @@ func TestTakeReturn(t *testing.T) {
 		if numTotal != numFree+numPending {
 			t.Fatalf("expected total (%d) and free+pending (%d) ports to match", numTotal, numFree+numPending)
 		}
-		/*
-			retry.Run(t, func(r *retry.R) {
-				numTotal, numPending, numFree = stats()
-				if numPending != 0 {
-					r.Fatalf("pending is still non zero: %d", numPending)
-				}
-				if numTotal != numFree {
-					r.Fatalf("total (%d) does not equal free (%d)", numTotal, numFree)
-				}
-			})
-		*/
+
+		retry.Run(t, func(r *retry.R) {
+			numTotal, numPending, numFree = stats()
+			if numPending != 0 {
+				r.Fatalf("pending is still non zero: %d", numPending)
+			}
+			if numTotal != numFree {
+				r.Fatalf("total (%d) does not equal free (%d)", numTotal, numFree)
+			}
+		})
+
 		return numTotal
 	}
 
