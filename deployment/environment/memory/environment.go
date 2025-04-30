@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment/freeport"
+	"github.com/smartcontractkit/chainlink/v2/freeport"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 

@@ -11,7 +11,7 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/crypto"
 
-	"github.com/smartcontractkit/chainlink/deployment/freeport"
+	"github.com/smartcontractkit/chainlink/v2/freeport"
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
