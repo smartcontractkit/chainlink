@@ -24,10 +24,20 @@ import (
 )
 
 const (
-	NodeLabelKeyType        = "type"
-	NodeLabelP2PIDType      = "p2p_id"
-	NodeLabelValueBootstrap = "bootstrap"
-	NodeLabelValuePlugin    = "plugin"
+	LabelNodeTypeKey            = "type"
+	LabelNodeTypeValueBootstrap = "bootstrap"
+	LabelNodeTypeValuePlugin    = "plugin"
+
+	LabelNodeP2PIDKey = "p2p_id"
+
+	LabelJobTypeKey         = "jobType"
+	LabelJobTypeValueLLO    = "llo"
+	LabelJobTypeValueStream = "stream"
+
+	LabelEnvironmentKey = "environment"
+	LabelStreamIDKey    = "streamID"
+
+	LabelProductKey = "product"
 )
 
 // NodeInfo holds the information required to create a node
@@ -50,7 +60,7 @@ func (don *DON) PluginNodes() []Node {
 	var pluginNodes []Node
 	for _, node := range don.Nodes {
 		for _, label := range node.labels {
-			if label.Key == NodeLabelKeyType && value(label.Value) == NodeLabelValuePlugin {
+			if label.Key == LabelNodeTypeKey && value(label.Value) == LabelNodeTypeValuePlugin {
 				pluginNodes = append(pluginNodes, node)
 			}
 		}
@@ -123,8 +133,8 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			// no need to set admin address for bootstrap nodes, as there will be no payment
 			node.adminAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
-				Key:   NodeLabelKeyType,
-				Value: ptr(NodeLabelValueBootstrap),
+				Key:   LabelNodeTypeKey,
+				Value: ptr(LabelNodeTypeValueBootstrap),
 			})
 		} else {
 			// multi address is not applicable for non-bootstrap nodes
@@ -140,8 +150,8 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			}
 
 			node.labels = append(node.labels, &ptypes.Label{
-				Key:   NodeLabelKeyType,
-				Value: ptr(NodeLabelValuePlugin),
+				Key:   LabelNodeTypeKey,
+				Value: ptr(LabelNodeTypeValuePlugin),
 			})
 		}
 		// Set up Job distributor in node and register node with the job distributor
@@ -267,7 +277,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		// if multi address is set, then it's a bootstrap node
 		isBootstrap := n.multiAddr != ""
 		for _, label := range n.labels {
-			if label.Key == NodeLabelKeyType && value(label.Value) == NodeLabelValueBootstrap {
+			if label.Key == LabelNodeTypeKey && value(label.Value) == LabelNodeTypeValueBootstrap {
 				isBootstrap = true
 				break
 			}
@@ -397,7 +407,7 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistribut
 		return fmt.Errorf("no peer id found for node %s", n.Name)
 	}
 	n.labels = append(n.labels, &ptypes.Label{
-		Key:   NodeLabelP2PIDType,
+		Key:   LabelNodeP2PIDKey,
 		Value: peerID,
 	})
 
@@ -413,7 +423,7 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistribut
 			Filter: &nodev1.ListNodesRequest_Filter{
 				Selectors: []*ptypes.Selector{
 					{
-						Key:   NodeLabelP2PIDType,
+						Key:   LabelNodeP2PIDKey,
 						Op:    ptypes.SelectorOp_EQ,
 						Value: peerID,
 					},
