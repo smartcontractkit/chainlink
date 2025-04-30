@@ -14,6 +14,9 @@ import (
 	"golang.org/x/exp/maps"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
@@ -27,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	soltesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/manualexechelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -200,7 +204,16 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
+	e, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithSolChains(1),
+		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			if params.ExecuteOffChainConfig != nil {
+				params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(8 * time.Hour)
+				params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(8 * time.Hour)
+			}
+			return params
+		}),
+	)
 
 	// TODO: do this as part of setup
 	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
@@ -292,7 +305,82 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		)
 	})
 
-	_ = out
+	t.Run("failing message does not block subsequent messages", func(t *testing.T) {
+		// 1. Send a message that will fail execution due to too many accounts in ExtraArgs
+		receiverProgram := state.SolChains[destChain].Receiver
+		receiver := receiverProgram.Bytes()
+
+		// Create oversized accounts (e.g., 60 accounts)
+		oversizedAccounts := make([][32]byte, 60)
+		for i := range oversizedAccounts {
+			oversizedAccounts[i] = solana.PublicKey{}
+		}
+
+		oversizedExtraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+			// No need for AccountIsWritableBitmap as it will fail validation anyway
+			Accounts:     oversizedAccounts,
+			ComputeUnits: 80_000,
+		})
+		require.NoError(t, err)
+
+		failingOut := mt.Run(
+			mt.TestCase{
+				TestSetup:              setup,
+				Replayed:               out.Replayed,
+				Nonce:                  out.Nonce,
+				Receiver:               receiver,
+				MsgData:                []byte("this message will fail"),
+				ExtraArgs:              oversizedExtraArgs,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE, // Expect failure
+			},
+		)
+
+		// 2. Send a subsequent valid message
+		validReceiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
+		validReceiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
+
+		validAccounts := [][32]byte{
+			validReceiverExternalExecutionConfigPDA,
+			validReceiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		validExtraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                validAccounts,
+			ComputeUnits:            80_000,
+		})
+		require.NoError(t, err)
+
+		// Get the counter value before sending the valid message
+		var counterBefore soltesthelpers.ReceiverCounter
+		err = solcommon.GetAccountDataBorshInto(ctx, e.Env.SolChains[destChain].Client, validReceiverTargetAccountPDA, solconfig.DefaultCommitment, &counterBefore)
+		require.NoError(t, err, "failed to get account info before valid message")
+
+		successOut := mt.Run(
+			mt.TestCase{
+				TestSetup:              setup,
+				Replayed:               failingOut.Replayed, // Use failing message's replayed status
+				Nonce:                  failingOut.Nonce,    // Use failing message's nonce
+				Receiver:               receiver,
+				MsgData:                []byte("this message should succeed"),
+				ExtraArgs:              validExtraArgs,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // Expect success
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						var counterAfter soltesthelpers.ReceiverCounter
+						err = solcommon.GetAccountDataBorshInto(ctx, e.Env.SolChains[destChain].Client, validReceiverTargetAccountPDA, solconfig.DefaultCommitment, &counterAfter)
+						require.NoError(t, err, "failed to get account info after valid message")
+						t.Logf("Counter value - Before: %d, After: %d", counterBefore.Value, counterAfter.Value)
+						require.Equal(t, counterBefore.Value+1, counterAfter.Value, "Counter should have incremented by 1")
+					},
+				},
+			},
+		)
+		_ = successOut // avoid unused var error
+	})
+
+	_ = out // avoid unused error
 }
 
 func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
