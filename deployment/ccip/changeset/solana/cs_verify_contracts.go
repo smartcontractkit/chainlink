@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"

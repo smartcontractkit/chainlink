@@ -11,7 +11,6 @@ import (
 
 	solBinary "github.com/gagliardetto/binary"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
