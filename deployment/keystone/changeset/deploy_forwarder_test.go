@@ -49,19 +49,13 @@ func TestDeployForwarder(t *testing.T) {
 		addrs, err := resp.AddressBook.AddressesForChain(registrySel)
 		require.NoError(t, err)
 		require.Len(t, addrs, 1)
-		require.Len(t, resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("my-test-forwarder")), 1, "expected to find 'my-test-forwarder' qualifier")
-		chainSel := env.AllChainSelectors()[1]
-		// only forwarder on chain 1
-		require.NotEqual(t, registrySel, chainSel)
-		oaddrs, err := resp.AddressBook.AddressesForChain(chainSel)
-		require.NoError(t, err)
-		require.Len(t, oaddrs, 1)
-		for _, tv := range oaddrs {
-			labelsList := tv.Labels.List()
-			require.Len(t, labelsList, 2, "expected exactly 2 labels")
-			require.Contains(t, labelsList[0], internal.DeploymentBlockLabel)
-			require.Contains(t, labelsList[1], internal.DeploymentHashLabel)
-		}
+		fa := resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("my-test-forwarder"))
+		require.Len(t, fa, 1, "expected to find 'my-test-forwarder' qualifier")
+		l := fa[0].Labels.List()
+		require.Len(t, l, 2, "expected exactly 2 labels")
+		require.Contains(t, l[0], internal.DeploymentBlockLabel)
+		require.Contains(t, l[1], internal.DeploymentHashLabel)
+
 	})
 }
 
