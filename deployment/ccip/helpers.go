@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
@@ -34,9 +35,7 @@ func GetCCIPDonsFromCapRegistry(ctx context.Context, capRegistry *capabilities_r
 			}
 		}
 	}
-	if len(ccipDons) == 0 {
-		return nil, fmt.Errorf("no CCIP Dons found in capabilities registry")
-	}
+
 	return ccipDons, nil
 }
 

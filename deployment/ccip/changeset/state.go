@@ -241,7 +241,7 @@ func (c CCIPChainState) validateHomeChain(e deployment.Environment, offRampsByCh
 			return fmt.Errorf("failed to get commit config for don %s: %w", don.Id, err)
 		}
 		if err := c.validateCCIPHomeVersionedActiveConfig(e, commitConfig.ActiveConfig, offRampsByChain); err != nil {
-			return fmt.Errorf("failed to validate active commit config for don %s: %w", don.Id, err)
+			return fmt.Errorf("failed to validate active commit config for don %d: %w", don.Id, err)
 		}
 		execConfig, err := c.CCIPHome.GetAllConfigs(&bind.CallOpts{
 			Context: e.GetContext(),
@@ -250,7 +250,7 @@ func (c CCIPChainState) validateHomeChain(e deployment.Environment, offRampsByCh
 			return fmt.Errorf("failed to get exec config for don %s: %w", don.Id, err)
 		}
 		if err := c.validateCCIPHomeVersionedActiveConfig(e, execConfig.ActiveConfig, offRampsByChain); err != nil {
-			return fmt.Errorf("failed to validate active exec config for don %s: %w", don.Id, err)
+			return fmt.Errorf("failed to validate active exec config for don %d: %w", don.Id, err)
 		}
 	}
 	return nil
@@ -276,7 +276,8 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 	}
 	// Node details should match with what we fetch from JD for CCIP Home Readers
 	if err := e.P2PIDsPresentInJD(homeChainConfig.Readers); err != nil {
-		return fmt.Errorf("failed to find homechain readers in JD for chain %d: %w", chainSel, err)
+		return fmt.Errorf("failed to find homechain readers in JD for chain %d: %w",
+			chainSel, err)
 	}
 
 	// Validate CCIPHome OCR3 Related Config
@@ -288,7 +289,7 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 		return fmt.Errorf("RMNHome address mismatch in active config for ccip home for chain %d: expected %s, got %s",
 			chainSel, c.RMNHome.Address().Hex(), homeCfg.Config.RmnHomeAddress)
 	}
-	p2pIDs := make([][32]byte, len(homeCfg.Config.Nodes))
+	p2pIDs := make([][32]byte, 0)
 	for _, node := range homeCfg.Config.Nodes {
 		p2pIDs = append(p2pIDs, node.P2pId)
 	}
@@ -310,10 +311,12 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 				offRamp.Address().Hex(), chainSel, homeCfg.ConfigDigest, commitConfig.ConfigInfo.ConfigDigest)
 		}
 		if !commitConfig.ConfigInfo.IsSignatureVerificationEnabled {
-			return fmt.Errorf("offRamp %s commit config signature verification is not enabled", offRamp.Address().Hex())
+			return fmt.Errorf("offRamp %s for chain %d commit config signature verification is not enabled",
+				offRamp.Address().Hex(), chainSel)
 		}
 		if err := validateLatestConfigOffRamp(offRamp, commitConfig, homeChainConfig); err != nil {
-			return fmt.Errorf("offRamp %s commit config validation error: %w", offRamp.Address().Hex(), err)
+			return fmt.Errorf("offRamp %s for chain %d commit config validation error: %w",
+				offRamp.Address().Hex(), chainSel, err)
 		}
 	case uint8(cciptypes.PluginTypeCCIPExec):
 		execConfig, err := offRamp.LatestConfigDetails(&bind.CallOpts{
@@ -328,10 +331,12 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 				offRamp.Address().Hex(), chainSel, homeCfg.ConfigDigest, execConfig.ConfigInfo.ConfigDigest)
 		}
 		if execConfig.ConfigInfo.IsSignatureVerificationEnabled {
-			return fmt.Errorf("offRamp %s exec config signature verification is enabled", offRamp.Address().Hex())
+			return fmt.Errorf("offRamp %s for chain %d exec config signature verification is enabled",
+				offRamp.Address().Hex(), chainSel)
 		}
 		if err := validateLatestConfigOffRamp(offRamp, execConfig, homeChainConfig); err != nil {
-			return fmt.Errorf("offRamp %s exec config validation error: %w", offRamp.Address().Hex(), err)
+			return fmt.Errorf("offRamp %s for chain %d exec config validation error: %w",
+				offRamp.Address().Hex(), chainSel, err)
 		}
 	default:
 		return fmt.Errorf("unsupported plugin type %d for chain %d", homeCfg.Config.PluginType, chainSel)
@@ -357,7 +362,8 @@ func (c CCIPChainState) validateOnRamp(
 		return fmt.Errorf("onRamp %s chainSelector mismatch in static config: expected %d, got %d",
 			c.OnRamp.Address().Hex(), selector, staticCfg.ChainSelector)
 	}
-	if c.RMNRemote.Address() != staticCfg.RmnRemote {
+	// it should be RMNProxy pointing to the RMNRemote
+	if c.RMNProxy.Address() != staticCfg.RmnRemote {
 		return fmt.Errorf("onRamp %s RMNRemote mismatch in static config: expected %s, got %s",
 			c.OnRamp.Address().Hex(), c.RMNRemote.Address().Hex(), staticCfg.RmnRemote)
 	}
@@ -387,7 +393,7 @@ func (c CCIPChainState) validateOnRamp(
 				c.OnRamp.Address().Hex(), c.FeeAggregator.Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
 	} else {
-		if c.FeeAggregator != e.Chains[selector].DeployerKey.From {
+		if dynamicCfg.FeeAggregator != e.Chains[selector].DeployerKey.From {
 			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected deployer key %s, got %s",
 				c.OnRamp.Address().Hex(), e.Chains[selector].DeployerKey.From.Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
@@ -432,7 +438,7 @@ func (c CCIPChainState) validateFeeQuoter(e deployment.Environment) error {
 
 // validateRouter validates the router contract to check if all wired contracts are synced with state
 // and returns all connected chains with respect to the router
-func (c CCIPChainState) validateRouter(e deployment.Environment, isTestRouter bool, selector uint64) ([]uint64, error) {
+func (c CCIPChainState) validateRouter(e deployment.Environment, isTestRouter bool) ([]uint64, error) {
 	if c.Router == nil && c.TestRouter == nil {
 		return nil, errors.New("no Router or TestRouter contract found in the state")
 	}
@@ -528,7 +534,7 @@ func (c CCIPChainState) validateRMNRemote(
 		return false, fmt.Errorf("RMNRemote %s config digest mismatch: expected %x, got %x",
 			c.RMNRemote.Address().Hex(), rmnHomeActiveDigest, versionedCfg.Config.RmnHomeContractConfigDigest)
 	}
-	return len(versionedCfg.Config.Signers) > 0, nil
+	return versionedCfg.Config.FSign > 0, nil
 }
 
 func (c CCIPChainState) validateOffRamp(
@@ -552,8 +558,8 @@ func (c CCIPChainState) validateOffRamp(
 		return fmt.Errorf("offRamp %s chainSelector mismatch: expected %d, got %d",
 			c.OffRamp.Address().Hex(), selector, staticConfig.ChainSelector)
 	}
-	// RMNRemote address for chain should be the same as the one in the static config
-	if c.RMNRemote.Address() != staticConfig.RmnRemote {
+	// RMNProxy address for chain should be the same as the one in the static config for RMNRemote
+	if c.RMNProxy.Address() != staticConfig.RmnRemote {
 		return fmt.Errorf("offRamp %s RMNRemote mismatch: expected %s, got %s",
 			c.OffRamp.Address().Hex(), c.RMNRemote.Address().Hex(), staticConfig.RmnRemote)
 	}
@@ -1157,7 +1163,7 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e deployment.Environment) 
 		if chainState.Router != nil {
 			isTestRouter = false
 		}
-		connectedChains, err := chainState.validateRouter(e, isTestRouter, selector)
+		connectedChains, err := chainState.validateRouter(e, isTestRouter)
 		if err != nil {
 			return fmt.Errorf("failed to validate router %s for chain %d: %w", chainState.Router.Address().Hex(), selector, err)
 		}
@@ -2071,15 +2077,22 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 
 func validateLatestConfigOffRamp(offRamp offramp.OffRampInterface, cfg offramp.MultiOCR3BaseOCRConfig, homeChainConfig ccip_home.CCIPHomeChainConfig) error {
 	// check if number of signers are unique and greater than 3
-	if len(cfg.Signers) < 3 {
-		return fmt.Errorf("offRamp %s config signers count mismatch: expected at least 3, got %d",
-			offRamp.Address().Hex(), len(cfg.Signers))
-	}
-	if !deployment.IsAddressListUnique(cfg.Signers) {
-		return fmt.Errorf("offRamp %s config signers list %v is not unique", offRamp.Address().Hex(), cfg.Signers)
-	}
-	if deployment.AddressListContainsEmptyAddress(cfg.Signers) {
-		return fmt.Errorf("offRamp %s config signers list %v contains empty address", offRamp.Address().Hex(), cfg.Signers)
+	if cfg.ConfigInfo.IsSignatureVerificationEnabled {
+		if len(cfg.Signers) < 3 {
+			return fmt.Errorf("offRamp %s config signers count mismatch: expected at least 3, got %d",
+				offRamp.Address().Hex(), len(cfg.Signers))
+		}
+		if !deployment.IsAddressListUnique(cfg.Signers) {
+			return fmt.Errorf("offRamp %s config signers list %v is not unique", offRamp.Address().Hex(), cfg.Signers)
+		}
+		if deployment.AddressListContainsEmptyAddress(cfg.Signers) {
+			return fmt.Errorf("offRamp %s config signers list %v contains empty address", offRamp.Address().Hex(), cfg.Signers)
+		}
+	} else {
+		if len(cfg.Signers) != 0 {
+			return fmt.Errorf("offRamp %s config signers count mismatch: expected 0, got %d",
+				offRamp.Address().Hex(), len(cfg.Signers))
+		}
 	}
 	if len(cfg.Transmitters) < 3 {
 		return fmt.Errorf("offRamp %s config transmitters count mismatch: expected at least 3, got %d",

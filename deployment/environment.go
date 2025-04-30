@@ -33,6 +33,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+
+	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
 // Chain represents an EVM chain.
@@ -273,10 +275,11 @@ func (e Environment) P2PIDsPresentInJD(p2pIDs [][32]byte) error {
 	}
 	var allErrs error
 	for _, p2pID := range p2pIDs {
+		p2pIDString := fmt.Sprintf("p2p_%s", libocrtypes.PeerID(p2pID).String())
 		if !slices.ContainsFunc(nodeInfo, func(n Node) bool {
-			return n.PeerID == p2pID
+			return p2pIDString == n.PeerID.String()
 		}) {
-			allErrs = multierror.Append(allErrs, fmt.Errorf("node with p2pID %x not found in JD", p2pID[:]))
+			allErrs = multierror.Append(allErrs, fmt.Errorf("node with p2pID %s not found in JD", p2pIDString))
 		}
 	}
 	return allErrs

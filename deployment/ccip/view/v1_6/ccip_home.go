@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -94,7 +95,7 @@ type CCIPHomeChainConfigArgView struct {
 }
 
 type CCIPHomeChainConfigView struct {
-	Readers [][]byte
+	Readers []string
 	FChain  uint8
 	Config  chainconfig.ChainConfig
 }
@@ -122,9 +123,9 @@ func GenerateCCIPHomeView(cr *capabilities_registry.CapabilitiesRegistry, ch *cc
 		if err != nil {
 			return CCIPHomeView{}, fmt.Errorf("failed to decode chain config for CCIPHome %s: %w", ch.Address(), err)
 		}
-		var readers [][]byte
+		var readers []string
 		for _, r := range cfg.ChainConfig.Readers {
-			readers = append(readers, r[:])
+			readers = append(readers, libocrtypes.PeerID(r).String())
 		}
 		chains = append(chains, CCIPHomeChainConfigArgView{
 			ChainSelector: cfg.ChainSelector,
