@@ -37,13 +37,16 @@ type RelayConfig struct {
 	FromBlock uint64 `toml:"fromBlock,omitempty"`
 }
 
-func NewBootstrapSpec(contractID string, donID uint64, relay RelayType, relayConfig RelayConfig) *BootstrapSpec {
+func NewBootstrapSpec(contractID string, donID uint64, relay RelayType, relayConfig RelayConfig, externalJobID uuid.UUID) *BootstrapSpec {
+	if externalJobID == uuid.Nil {
+		externalJobID = uuid.New()
+	}
 	return &BootstrapSpec{
 		Base: Base{
 			Name:          "bootstrap",
 			Type:          JobSpecTypeBootstrap,
 			SchemaVersion: 1,
-			ExternalJobID: uuid.New(),
+			ExternalJobID: externalJobID,
 		},
 		ContractID:  contractID,
 		DonID:       donID,

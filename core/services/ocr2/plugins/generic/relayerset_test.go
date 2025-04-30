@@ -158,7 +158,7 @@ func (t *TestRelayer) NewContractReader(_ context.Context, _ []byte) (types.Cont
 	panic("implement me")
 }
 
-func (t *TestRelayer) AsEVMRelayer() (loop.EVMRelayer, error) {
+func (t *TestRelayer) EVM() (types.EVMService, error) {
 	panic("implement me")
 }
 

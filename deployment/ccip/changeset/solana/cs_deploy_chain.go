@@ -14,6 +14,7 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -921,7 +922,7 @@ func generateExtendIxn(
 	if extraBytes > math.MaxUint32 {
 		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32)
 	}
-	//https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
+	// https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
 	data := binary.LittleEndian.AppendUint32([]byte{}, 6) // 4-byte Extend instruction identifier
 	//nolint:gosec // G115 we check for overflow above
 	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes+1024)) // add some padding
@@ -967,7 +968,7 @@ func generateCloseBufferIxn(
 // HELPER FUNCTIONS
 func GetSolProgramSize(e *deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (int, error) {
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
-		Commitment: deployment.SolDefaultCommitment,
+		Commitment: cldf.SolDefaultCommitment,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get account info: %w", err)

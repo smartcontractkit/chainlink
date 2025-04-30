@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -550,11 +551,11 @@ func doTestBilling(t *testing.T, mcms bool) {
 	)
 	require.NoError(t, err)
 	// check that the billing account has the right amount
-	_, billingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, billingSignerATA, deployment.SolDefaultCommitment)
+	_, billingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, billingSignerATA, cldf.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, 1000, billingResult)
 	feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, feeAggregator)
-	_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, feeAggregatorATA, deployment.SolDefaultCommitment)
+	_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, feeAggregatorATA, cldf.SolDefaultCommitment)
 	require.NoError(t, err)
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
@@ -569,10 +570,10 @@ func doTestBilling(t *testing.T, mcms bool) {
 	},
 	)
 	require.NoError(t, err)
-	_, newBillingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, billingSignerATA, deployment.SolDefaultCommitment)
+	_, newBillingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, billingSignerATA, cldf.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, billingResult-1000, newBillingResult)
-	_, newFeeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, feeAggregatorATA, deployment.SolDefaultCommitment)
+	_, newFeeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, feeAggregatorATA, cldf.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, feeAggResult+1000, newFeeAggResult)
 }

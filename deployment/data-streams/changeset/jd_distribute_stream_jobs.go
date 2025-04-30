@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/google/uuid"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
 var _ deployment.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStreamJobSpecs{}
@@ -21,6 +24,9 @@ var _ deployment.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStr
 type CsDistributeStreamJobSpecsConfig struct {
 	Filter  *jd.ListFilter
 	Streams []StreamSpecConfig
+
+	// NodeNames specifies on which nodes to distribute the job specs.
+	NodeNames []string
 }
 
 type StreamSpecConfig struct {
@@ -49,17 +55,42 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 	labels := append([]*ptypes.Label(nil),
 		&ptypes.Label{
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
-		})
+		},
+	)
 
-	oracleNodes, err := jd.FetchDONOraclesFromJD(ctx, e.Offchain, cfg.Filter)
+	oracleNodes, err := jd.FetchDONOraclesFromJD(ctx, e.Offchain, cfg.Filter, cfg.NodeNames)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get workflow don nodes: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get oracle nodes: %w", err)
 	}
 
 	var proposals []*jobv1.ProposeJobRequest
 	for _, s := range cfg.Streams {
 		for _, n := range oracleNodes {
-			spec, err := generateJobSpec(s)
+			localLabels := append(labels, //nolint: gocritic // obvious and readable locally modified copy of labels
+				&ptypes.Label{
+					Key:   devenv.LabelStreamIDKey,
+					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
+				},
+				&ptypes.Label{
+					Key:   devenv.LabelJobTypeKey,
+					Value: pointer.To(devenv.LabelJobTypeValueStream),
+				},
+			)
+
+			// Check if there is already a job spec for this stream on this node:
+			externalJobID, err := fetchExternalJobID(e, n.Id, []*ptypes.Selector{
+				{
+					Key:   devenv.LabelStreamIDKey,
+					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
+					Op:    ptypes.SelectorOp_EQ,
+				},
+			})
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get externalJobID: %w", err)
+			}
+
+			spec, err := generateJobSpec(s, externalJobID)
+
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create stream job spec: %w", err)
 			}
@@ -71,7 +102,7 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 			proposals = append(proposals, &jobv1.ProposeJobRequest{
 				NodeId: n.Id,
 				Spec:   string(renderedSpec),
-				Labels: labels,
+				Labels: localLabels,
 			})
 		}
 	}
@@ -86,13 +117,16 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 	}, nil
 }
 
-func generateJobSpec(cc StreamSpecConfig) (spec *jobs.StreamJobSpec, err error) {
+func generateJobSpec(cc StreamSpecConfig, externalJobID uuid.UUID) (spec *jobs.StreamJobSpec, err error) {
+	if externalJobID == uuid.Nil {
+		externalJobID = uuid.New()
+	}
 	spec = &jobs.StreamJobSpec{
 		Base: jobs.Base{
 			Name:          fmt.Sprintf("%s | %d", cc.Name, cc.StreamID),
 			Type:          jobs.JobSpecTypeStream,
 			SchemaVersion: 1,
-			ExternalJobID: uuid.New(),
+			ExternalJobID: externalJobID,
 		},
 		StreamID: cc.StreamID,
 	}
@@ -149,6 +183,14 @@ func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ deployment.Environment
 		if len(s.APIs) == 0 {
 			return errors.New("at least one API is required for each stream")
 		}
+	}
+	if len(config.NodeNames) == 0 {
+		return errors.New("at least one node name is required")
+	}
+	// The list of node names tells us which nodes to distribute the job specs to.
+	// The size of that list needs to match the filter size, i.e. the number of nodes we expect to get from JD.
+	if config.Filter.NumOracleNodes+config.Filter.NumBootstrapNodes != len(config.NodeNames) {
+		return fmt.Errorf("number of node names (%d) does not match filter size (%d)", len(config.NodeNames), config.Filter.NumOracleNodes+config.Filter.NumBootstrapNodes)
 	}
 
 	return nil
