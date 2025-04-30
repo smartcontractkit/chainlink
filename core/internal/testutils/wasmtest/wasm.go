@@ -2,18 +2,20 @@ package wasmtest
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"testing"
 
 	"github.com/andybalholm/brotli"
+	"github.com/google/uuid"
 
 	"github.com/stretchr/testify/require"
 )
 
 func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
-	filePath := t.TempDir() + "/test_binary.wasm"
+	filePath := fmt.Sprintf("%s/%s.wasm", t.TempDir(), uuid.New())
 	cmd := exec.Command("go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
