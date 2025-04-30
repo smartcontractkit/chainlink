@@ -62,6 +62,16 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 					consts.MethodNameFeeQuoterGetStaticConfig: {
 						Name: "get_static_config",
 					},
+					consts.MethodNameGetFeePriceUpdate: {
+						Name: "get_dest_chain_gas_price",
+						Params: []chainreader.AptosFunctionParam{
+							{
+								Name:     "destChainSelector",
+								Type:     "u64",
+								Required: true,
+							},
+						},
+					},
 				},
 			},
 			consts.ContractNameOffRamp: {
