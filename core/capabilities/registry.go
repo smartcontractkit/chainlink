@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -23,7 +24,7 @@ type metadataRegistry interface {
 type Registry struct {
 	metadataRegistry metadataRegistry
 	lggr             logger.Logger
-	*registry.Basic
+	core.CapabilitiesRegistryBase
 	mu sync.RWMutex
 }
 
@@ -63,8 +64,8 @@ func (r *Registry) SetLocalRegistry(lr metadataRegistry) {
 // NewRegistry returns a new Registry.
 func NewRegistry(lggr logger.Logger) *Registry {
 	return &Registry{
-		Basic: registry.NewBasic(lggr),
-		lggr:  lggr.Named("CapabilitiesRegistry"),
+		CapabilitiesRegistryBase: registry.NewBase(lggr),
+		lggr:                     lggr.Named("CapabilitiesRegistry"),
 	}
 }
 
