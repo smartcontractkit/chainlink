@@ -202,6 +202,9 @@ type CCIPChainState struct {
 	FeeAggregator common.Address
 }
 
+// validateHomeChain validates the home chain contracts and their configurations after complete set up
+// It cross-references the config across CCIPHome and OffRamps to ensure they are in sync
+// This should be called after the complete deployment is done
 func (c CCIPChainState) validateHomeChain(e deployment.Environment, nodes deployment.Nodes, offRampsByChain map[uint64]offramp.OffRampInterface) error {
 	if c.RMNHome == nil {
 		return errors.New("no RMNHome contract found in the state for home chain")
@@ -256,7 +259,7 @@ func (c CCIPChainState) validateHomeChain(e deployment.Environment, nodes deploy
 	return nil
 }
 
-// validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on corresponding chain selector and that state
+// validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on corresponding chain selector and its state
 // The validation related to correctness of F and node length is omitted here as it is already validated in the contract
 func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Environment, nodes deployment.Nodes, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
 	if homeCfg.ConfigDigest == [32]byte{} {
@@ -347,6 +350,7 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 	return nil
 }
 
+// validateOnRamp validates whether the contract addresses configured in static and dynamic config are in sync with state
 func (c CCIPChainState) validateOnRamp(
 	e deployment.Environment,
 	selector uint64,
@@ -422,6 +426,7 @@ func (c CCIPChainState) validateOnRamp(
 	return nil
 }
 
+// validateFeeQuoter validates whether the fee quoter contract address configured in static config is in sync with state
 func (c CCIPChainState) validateFeeQuoter(e deployment.Environment) error {
 	if c.FeeQuoter == nil {
 		return errors.New("no FeeQuoter contract found in the state")
@@ -510,6 +515,9 @@ func (c CCIPChainState) validateRouter(e deployment.Environment, isTestRouter bo
 	return allConnectedChains, nil
 }
 
+// validateRMNRemote validates the RMNRemote contract to check if all wired contracts are synced with state
+// and returns whether RMN is enabled for the chain on the RMNRemote
+// It validates whether RMNRemote is in sync with the RMNHome contract
 func (c CCIPChainState) validateRMNRemote(
 	e deployment.Environment,
 	selector uint64,
@@ -544,6 +552,7 @@ func (c CCIPChainState) validateRMNRemote(
 	return versionedCfg.Config.FSign > 0, nil
 }
 
+// validateOffRamp validates the offRamp contract to check if all wired contracts are synced with state
 func (c CCIPChainState) validateOffRamp(
 	e deployment.Environment,
 	selector uint64,
@@ -1122,6 +1131,9 @@ type CCIPOnChainState struct {
 	AptosChains map[uint64]AptosCCIPChainState
 }
 
+// ValidatePostDeploymentState should be called after the deployment and configuration for all contracts
+// in environment is complete.
+// It validates the state of the contracts and ensures that they are correctly configured and wired with each other.
 func (c CCIPOnChainState) ValidatePostDeploymentState(e deployment.Environment) error {
 	onRampsBySelector := make(map[uint64]common.Address)
 	offRampsBySelector := make(map[uint64]offramp.OffRampInterface)
@@ -1157,6 +1169,7 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e deployment.Environment) 
 	if err != nil {
 		return fmt.Errorf("failed to get config for RMNHome %s at home chain %d: %w", homeChainState.RMNHome.Address().Hex(), homeChain, err)
 	}
+	// if Fobserve is greater than 0, RMN is enabled for the source chain in RMNHome
 	for _, rmnHomeChain := range rmnHomeConfig.VersionedConfig.DynamicConfig.SourceChains {
 		isRMNEnabledInRMNHomeBySourceChain[rmnHomeChain.ChainSelector] = rmnHomeChain.FObserve > 0
 	}
@@ -1165,6 +1178,7 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e deployment.Environment) 
 		if err != nil {
 			return fmt.Errorf("failed to validate RMNRemote %s for chain %d: %w", chainState.RMNRemote.Address().Hex(), selector, err)
 		}
+		// check whether RMNRemote and RMNHome are in sync in terms of RMNEnabled
 		if isRMNEnabledInRmnRemote != isRMNEnabledInRMNHomeBySourceChain[selector] {
 			return fmt.Errorf("RMNRemote %s rmnEnabled mismatch with RMNHome for chain %d: expected %v, got %v",
 				chainState.RMNRemote.Address().Hex(), selector, isRMNEnabledInRMNHomeBySourceChain[selector], isRMNEnabledInRmnRemote)
