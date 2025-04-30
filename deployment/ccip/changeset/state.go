@@ -263,9 +263,12 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 		return errors.New("active config digest is empty")
 	}
 	chainSel := homeCfg.Config.ChainSelector
+	if _, exists := e.SolChains[chainSel]; exists {
+		return nil
+	}
 	offRamp, ok := offRampsByChain[chainSel]
 	if !ok {
-		return fmt.Errorf("offRamp %d not found in the state", chainSel)
+		return fmt.Errorf("offRamp for chain %d not found in the state", chainSel)
 	}
 	// validate ChainConfig in CCIPHome
 	homeChainConfig, err := c.CCIPHome.GetChainConfig(&bind.CallOpts{
@@ -2097,11 +2100,9 @@ func validateLatestConfigOffRamp(offRamp offramp.OffRampInterface, cfg offramp.M
 		if deployment.AddressListContainsEmptyAddress(cfg.Signers) {
 			return fmt.Errorf("offRamp %s config signers list %v contains empty address", offRamp.Address().Hex(), cfg.Signers)
 		}
-	} else {
-		if len(cfg.Signers) != 0 {
-			return fmt.Errorf("offRamp %s config signers count mismatch: expected 0, got %d",
-				offRamp.Address().Hex(), len(cfg.Signers))
-		}
+	} else if len(cfg.Signers) != 0 {
+		return fmt.Errorf("offRamp %s config signers count mismatch: expected 0, got %d",
+			offRamp.Address().Hex(), len(cfg.Signers))
 	}
 	if len(cfg.Transmitters) < 3 {
 		return fmt.Errorf("offRamp %s config transmitters count mismatch: expected at least 3, got %d",
