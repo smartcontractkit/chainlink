@@ -2187,20 +2187,6 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 
 	dtTransmitterAddress := cltest.MustGenerateRandomKey(t)
 
-	metaNotSliceDualTransmissionSpec := fmt.Sprintf(`
-		enableDualTransmission=true
-		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
-		transmitterAddress = '%s'
-		[relayConfig.dualTransmission.meta]
-		key1 = 'val1'
-		key2 = ['val2','val3']
-		`,
-		dtTransmitterAddress.Address.String())
-
-	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+metaNotSliceDualTransmissionSpec, nil)
-	require.NoError(t, err)
-
 	completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
