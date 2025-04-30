@@ -135,7 +135,10 @@ func getLatestNonce(tc TestCase) uint64 {
 }
 
 // Run runs a messaging test case.
-func Run(tc TestCase) (out TestCaseOutput) {
+func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
+	// we need to reference the inner testing.T inside a t.Run
+	tc.T = t
+
 	if tc.ValidateResp {
 		// check latest nonce
 		latestNonce := getLatestNonce(tc)
