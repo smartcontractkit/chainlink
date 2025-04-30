@@ -17,7 +17,6 @@ import (
 )
 
 func TestNode(t *testing.T) {
-	//tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-102")
 	chains, _ := NewMemoryChains(t, 3, 5)
 	ports := freeport.GetN(t, 1)
 	node := NewNode(t, ports[0], chains, nil, nil, zapcore.DebugLevel, false, deployment.CapabilityRegistryConfig{}, nil)
