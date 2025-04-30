@@ -1,8 +1,6 @@
 module github.com/smartcontractkit/chainlink/v2
 
-go 1.24.1
-
-toolchain go1.24.2
+go 1.24.2
 
 require (
 	github.com/Depado/ginprom v1.8.0
@@ -84,7 +82,9 @@ require (
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250421203809-e0f5602c126c
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3
+	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250430185018-c4c5d391ab30
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0
+	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250430185018-c4c5d391ab30
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250429214959-baa3b4c6812d
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.10
 	github.com/smartcontractkit/freeport v0.1.0
