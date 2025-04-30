@@ -84,7 +84,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 
 	"github.com/gagliardetto/solana-go"
+	associatedtokenaccount "github.com/gagliardetto/solana-go/programs/associated-token-account"
+	"github.com/gagliardetto/solana-go/programs/system"
 )
+
+// error related to how sol is decoding the param
+// valid program data
 
 const (
 	HomeChainIndex = 0
@@ -609,7 +614,7 @@ func SendRequestSol(
 		return nil, err
 	}
 
-	var ixs []solana.Instruction
+	var ixs []solana.Instruction // <<< Initialize ixs as an empty slice HERE
 	addressTables := map[solana.PublicKey]solana.PublicKeySlice{}
 
 	if cfg.CCIPSenderAddress != (solana.PublicKey{}) {
@@ -617,6 +622,41 @@ func SendRequestSol(
 		if err != nil {
 			return nil, err
 		}
+
+		// Set the program ID for the example_ccip_sender to the CCIP sender address
+		example_ccip_sender.SetProgramID(cfg.CCIPSenderAddress)
+
+		// Define the seed based on the Rust constant
+		var CCIP_SENDER_SEED = []byte("ccip_sender")
+
+		// Inside SendRequestSol, within the if cfg.CCIPSenderAddress != (...) block:
+
+		// Calculate the PDA for the ccip_sender account role
+		// The seeds are [][]byte{CCIP_SENDER_SEED}
+		// The programID is the address of the example_ccip_sender program itself
+		ccipSenderPDA, _, err := solana.FindProgramAddress(
+			[][]byte{
+				CCIP_SENDER_SEED,
+			},
+			cfg.CCIPSenderAddress, // The program ID of your example_ccip_sender
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find ccip_sender PDA: %w", err)
+		}
+
+		feeTokenUserATA, _, err = soltokens.FindAssociatedTokenAddress(solana.TokenProgramID, message.FeeToken, ccipSenderPDA)
+		if err != nil {
+			return nil, err
+		}
+
+		// <<< START: Add instruction to create the ATA if needed >>>
+		createProgAtaIx := associatedtokenaccount.NewCreateInstruction(
+			sender.PublicKey(), // Payer (the user sending the transaction)
+			ccipSenderPDA,      // Owner of the new ATA (sender program's PDA)
+			feeTokenMint,       // Mint for the new ATA
+		).Build()
+		ixs = append(ixs, createProgAtaIx)
+		// <<< END: Add instruction to create the ATA if needed >>>
 
 		destBytes := binary.LittleEndian.AppendUint64([]byte{}, destinationChainSelector)
 		chainConfigAccount, _, err := solana.FindProgramAddress([][]byte{[]byte("remote_chain_config"), destBytes}, cfg.CCIPSenderAddress)
@@ -630,17 +670,16 @@ func SendRequestSol(
 			return nil, err
 		}
 
-		// WORKAROUND: Pass an empty token list and handle tokens separately in the accounts list
 		base := example_ccip_sender.NewCcipSendInstruction(
 			destinationChainSelector,
-			convertSVMTokenAmounts(message.TokenAmounts),
+			[]example_ccip_sender.SVMTokenAmount{}, // Empty token list - tokens are handled separately below
 			message.Data,
 			message.FeeToken,
 			[]byte{}, // no tokenIndexes
 			// Accounts:
 			stateAccount,
 			chainConfigAccount,
-			cfg.CCIPSenderAddress,
+			ccipSenderPDA,
 			authorityTokenATA,
 			sender.PublicKey(),
 			solana.SystemProgramID,
@@ -743,11 +782,12 @@ func SendRequestSol(
 		}
 
 		base.SetTokenIndexes(tokenIndexes)
-		ix, err := base.ValidateAndBuild()
+		senderIx, err := base.ValidateAndBuild()
 		if err != nil {
 			return nil, err
 		}
-		ixs = []solana.Instruction{ix}
+		// ixs = []solana.Instruction{ix}
+		ixs = append(ixs, senderIx)
 	} else {
 		base := ccip_router.NewCcipSendInstruction(
 			destinationChainSelector,
@@ -846,6 +886,7 @@ func SendRequestSol(
 		ixs = []solana.Instruction{ix}
 	}
 
+	// sendAndFailWithLookupTables ==> provide better error message
 	result, err := solcommon.SendAndConfirmWithLookupTables(ctx, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(300_000))
 	if err != nil {
 		return nil, err
@@ -2484,4 +2525,109 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 		require.NoError(t, err)
 		require.NotEmpty(t, addrs)
 	}
+}
+
+// UpdateSenderChainConfig sends a transaction to the example_ccip_sender program
+// to update the configuration for a specific destination chain.
+// NOTE: This function assumes the standard accounts for UpdateChainConfig context are:
+// 1. authority (signer, mutable)
+// 2. state (mutable)
+// 3. chain_config (mutable)
+// 4. system_program
+// Please verify against your actual `UpdateChainConfig` struct in context.rs.
+func UpdateSenderChainConfig(
+	lggr logger.Logger,
+	e deployment.Environment,
+	sourceChainSelector uint64, // The chain where the sender program is deployed
+	senderProgramID solana.PublicKey, // Address of your deployed example_ccip_sender
+	destinationChainSelector uint64, // The destination chain config to update
+	recipient []byte, // Recipient address on the destination chain
+	extraArgsBytes []byte, // The pre-generated extraArgs bytes (e.g., from MakeSVM2EVMExtraArgsV2(..., true))
+) (solana.Signature, error) {
+
+	solClient, ok := e.SolChains[sourceChainSelector] // Access e.SolChains directly
+	if !ok {
+		return solana.Signature{}, fmt.Errorf("chain %d is not a SolChain", sourceChainSelector)
+	}
+
+	// Assume the authority to update the config is the Deployer of the source chain
+	authority := solClient.DeployerKey
+	lggr.Infow("Updating sender chain config",
+		"senderProgramID", senderProgramID,
+		"destinationChainSelector", destinationChainSelector,
+		"authority", authority.PublicKey(),
+		"recipientLen", len(recipient),
+		"extraArgsLen", len(extraArgsBytes),
+	)
+
+	// --- 1. Find Required PDAs ---
+	// State account for the sender program
+	// Assuming the state PDA is derived similarly to offramp state (verify your seeds if different)
+	stateAccountPDA, _, err := solstate.FindOfframpStatePDA(senderProgramID) // Using chainlink-ccip utils
+	if err != nil {
+		return solana.Signature{}, fmt.Errorf("failed to find sender state PDA: %w", err)
+	}
+
+	// ChainConfig account for the specific destination chain
+	destBytes := binary.LittleEndian.AppendUint64([]byte{}, destinationChainSelector)
+	chainConfigPDA, _, err := solana.FindProgramAddress(
+		[][]byte{
+			[]byte("remote_chain_config"), // Seed defined in Rust
+			destBytes,
+		},
+		senderProgramID,
+	)
+	if err != nil {
+		return solana.Signature{}, fmt.Errorf("failed to find sender chain config PDA: %w", err)
+	}
+	lggr.Infow("Calculated PDAs", "stateAccountPDA", stateAccountPDA, "chainConfigPDA", chainConfigPDA)
+
+	// --- 2. Build the Instruction ---
+	// Set the program ID for the Go bindings
+	example_ccip_sender.SetProgramID(senderProgramID)
+
+	ix, err := example_ccip_sender.NewUpdateChainConfigInstruction(
+		// Instruction Arguments:
+		destinationChainSelector, // Note: Anchor often ignores unused _args like this
+		recipient,
+		extraArgsBytes,
+		// Accounts (MUST match the order in Rust Context struct `UpdateChainConfig`):
+		stateAccountPDA,       // Account 1: state
+		chainConfigPDA,        // Account 2: chain_config
+		authority.PublicKey(), // Account 3: authority (signer)
+		system.ProgramID,      // Account 4: system_program
+	).ValidateAndBuild() // Using ValidateAndBuild to catch potential errors early
+
+	if err != nil {
+		return solana.Signature{}, fmt.Errorf("failed to build update_chain_config instruction: %w", err)
+	}
+
+	// --- 3. Send the Transaction ---
+	// Build the transaction first (this might be implicit in SendAndConfirm, depends on library)
+	// tx, err := solana.NewTransaction(...) // Placeholder - actual building might differ
+	// if err != nil { ... }
+	// txSig := tx.Signatures[0] // Get signature if built manually
+
+	// Assuming SendAndConfirm handles building and signing internally and returns the signature on success.
+	// We need to know the *actual* return signature of SendAndConfirm.
+	// Let's revert to the previous state and assume the user needs to look up the signature from the result.
+	result, err := solcommon.SendAndConfirm( // Using chainlink-ccip utils
+		context.Background(),        // 1. Provide a context
+		solClient.Client,            // 2. RPC Client
+		[]solana.Instruction{ix},    // 3. Slice containing the instruction
+		*authority,                  // 4. The authority private key (dereferenced)
+		solconfig.DefaultCommitment, // 5. Default commitment
+		// 6. No extra modifiers needed for this call
+	)
+
+	if err != nil {
+		// TODO: Add more specific error handling if needed (e.g., check simulation logs)
+		return solana.Signature{}, fmt.Errorf("failed to send/confirm update_chain_config tx: %w", err)
+	}
+
+	// If SendAndConfirm returns the result, the signature might be inside result.Transaction or result.Meta
+	// However, without the definition, we cannot be sure. Returning zero signature for now.
+	// User will need to adjust this based on the actual return value of SendAndConfirm.
+	lggr.Infow("Sender chain config update transaction confirmed", "resultSlot", result.Slot)
+	return solana.Signature{}, nil // Placeholder: return zero signature
 }
