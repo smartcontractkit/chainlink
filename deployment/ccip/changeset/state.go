@@ -238,7 +238,7 @@ func (c CCIPChainState) validateHomeChain(e deployment.Environment, offRampsByCh
 			Context: e.GetContext(),
 		}, don.Id, uint8(cciptypes.PluginTypeCCIPCommit))
 		if err != nil {
-			return fmt.Errorf("failed to get commit config for don %s: %w", don.Id, err)
+			return fmt.Errorf("failed to get commit config for don %d: %w", don.Id, err)
 		}
 		if err := c.validateCCIPHomeVersionedActiveConfig(e, commitConfig.ActiveConfig, offRampsByChain); err != nil {
 			return fmt.Errorf("failed to validate active commit config for don %d: %w", don.Id, err)
@@ -247,7 +247,7 @@ func (c CCIPChainState) validateHomeChain(e deployment.Environment, offRampsByCh
 			Context: e.GetContext(),
 		}, don.Id, uint8(cciptypes.PluginTypeCCIPExec))
 		if err != nil {
-			return fmt.Errorf("failed to get exec config for don %s: %w", don.Id, err)
+			return fmt.Errorf("failed to get exec config for don %d: %w", don.Id, err)
 		}
 		if err := c.validateCCIPHomeVersionedActiveConfig(e, execConfig.ActiveConfig, offRampsByChain); err != nil {
 			return fmt.Errorf("failed to validate active exec config for don %d: %w", don.Id, err)
@@ -303,7 +303,7 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 			Context: e.GetContext(),
 		}, uint8(cciptypes.PluginTypeCCIPCommit))
 		if err != nil {
-			return fmt.Errorf("failed to get commit config for chain %d offRamp %s: %w", chainSel, err, c.OffRamp.Address().Hex())
+			return fmt.Errorf("failed to get commit config for chain %d offRamp %s: %w", chainSel, c.OffRamp.Address().Hex(), err)
 		}
 		// the config digest should match with CCIP Home ActiveConfig
 		if commitConfig.ConfigInfo.ConfigDigest != homeCfg.ConfigDigest {
@@ -323,7 +323,7 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 			Context: e.GetContext(),
 		}, uint8(cciptypes.PluginTypeCCIPExec))
 		if err != nil {
-			return fmt.Errorf("failed to get exec config for chain %d offRamp %s: %w", chainSel, err, offRamp.Address().Hex())
+			return fmt.Errorf("failed to get exec config for chain %d offRamp %s: %w", chainSel, offRamp.Address().Hex(), err)
 		}
 		// the config digest should match with CCIP Home ActiveConfig
 		if execConfig.ConfigInfo.ConfigDigest != homeCfg.ConfigDigest {
@@ -379,7 +379,7 @@ func (c CCIPChainState) validateOnRamp(
 		Context: e.GetContext(),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get dynamic config for chain %d onRamp %s: %w", selector, err, c.OnRamp.Address().Hex())
+		return fmt.Errorf("failed to get dynamic config for chain %d onRamp %s: %w", selector, c.OnRamp.Address().Hex(), err)
 	}
 	if dynamicCfg.FeeQuoter != c.FeeQuoter.Address() {
 		return fmt.Errorf("onRamp %s feeQuoter mismatch in dynamic config: expected %s, got %s",
@@ -429,7 +429,11 @@ func (c CCIPChainState) validateFeeQuoter(e deployment.Environment) error {
 	if err != nil {
 		return fmt.Errorf("failed to get static config for FeeQuoter %s: %w", c.FeeQuoter.Address().Hex(), err)
 	}
-	if staticConfig.LinkToken != c.LinkToken.Address() && staticConfig.LinkToken != c.StaticLinkToken.Address() {
+	linktokenAddr, err := c.LinkTokenAddress()
+	if err != nil {
+		return fmt.Errorf("failed to get link token address for from state: %w", err)
+	}
+	if staticConfig.LinkToken != linktokenAddr {
 		return fmt.Errorf("feeQuoter %s LinkToken mismatch: expected either linktoken %s or static link token %s, got %s",
 			c.FeeQuoter.Address().Hex(), c.LinkToken.Address().Hex(), c.StaticLinkToken.Address(), staticConfig.LinkToken.Hex())
 	}
@@ -551,7 +555,7 @@ func (c CCIPChainState) validateOffRamp(
 		Context: e.GetContext(),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get static config for chain %d offRammp %s: %w", selector, err, c.OffRamp.Address().Hex())
+		return fmt.Errorf("failed to get static config for chain %d offRammp %s: %w", selector, c.OffRamp.Address().Hex(), err)
 	}
 	// staticConfig chainSelector should match the selector key for the CCIPChainState
 	if staticConfig.ChainSelector != selector {
@@ -577,7 +581,7 @@ func (c CCIPChainState) validateOffRamp(
 		Context: e.GetContext(),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get dynamic config for chain %d offRamp %s: %w", selector, err, c.OffRamp.Address().Hex())
+		return fmt.Errorf("failed to get dynamic config for chain %d offRamp %s: %w", selector, c.OffRamp.Address().Hex(), err)
 	}
 	// FeeQuoter address for chain should be the same as the one in the static config
 	if dynamicConfig.FeeQuoter != c.FeeQuoter.Address() {
@@ -585,7 +589,7 @@ func (c CCIPChainState) validateOffRamp(
 			c.OffRamp.Address().Hex(), c.FeeQuoter.Address().Hex(), dynamicConfig.FeeQuoter.Hex())
 	}
 	if dynamicConfig.PermissionLessExecutionThresholdSeconds != uint32(globals.PermissionLessExecutionThreshold.Seconds()) {
-		return fmt.Errorf("offRamp %s permissionless execution threshold mismatch: expected %d, got %d",
+		return fmt.Errorf("offRamp %s permissionless execution threshold mismatch: expected %f, got %d",
 			c.OffRamp.Address().Hex(), globals.PermissionLessExecutionThreshold.Seconds(), dynamicConfig.PermissionLessExecutionThresholdSeconds)
 	}
 	for chainSel, srcChainOnRamp := range onRampsBySelector {
