@@ -23,7 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/utils/ptr"
 
-	"github.com/smartcontractkit/chainlink/v2/freeport"
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

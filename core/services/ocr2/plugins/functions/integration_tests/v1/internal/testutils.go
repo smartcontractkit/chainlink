@@ -22,7 +22,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/freeport"
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"

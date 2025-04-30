@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
-	"github.com/smartcontractkit/chainlink/v2/freeport"
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"

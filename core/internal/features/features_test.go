@@ -31,7 +31,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/freeport"
+	"github.com/smartcontractkit/freeport"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"

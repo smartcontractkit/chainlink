@@ -29,7 +29,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink/v2/freeport"
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"

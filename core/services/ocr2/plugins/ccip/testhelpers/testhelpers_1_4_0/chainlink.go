@@ -22,7 +22,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/freeport"
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
