@@ -15,7 +15,7 @@ import (
 )
 
 func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
-	filePath := fmt.Sprintf("%s/%s.wasm", t.TempDir(), uuid.New())
+	filePath := filepath.Join(t.TempDir(), uuid.New()+".wasm")
 	cmd := exec.Command("go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
