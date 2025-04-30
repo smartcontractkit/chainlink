@@ -202,7 +202,7 @@ type CCIPChainState struct {
 	FeeAggregator common.Address
 }
 
-func (c CCIPChainState) validateHomeChain(e deployment.Environment, offRampsByChain map[uint64]offramp.OffRampInterface) error {
+func (c CCIPChainState) validateHomeChain(e deployment.Environment, nodes deployment.Nodes, offRampsByChain map[uint64]offramp.OffRampInterface) error {
 	if c.RMNHome == nil {
 		return errors.New("no RMNHome contract found in the state for home chain")
 	}
@@ -231,7 +231,7 @@ func (c CCIPChainState) validateHomeChain(e deployment.Environment, offRampsByCh
 	}
 	// validate for all ccipDons
 	for _, don := range ccipDons {
-		if err := e.P2PIDsPresentInJD(don.NodeP2PIds); err != nil {
+		if err := nodes.P2PIDsPresentInJD(don.NodeP2PIds); err != nil {
 			return fmt.Errorf("failed to find Capability Registry p2pIDs in JD: %w", err)
 		}
 		commitConfig, err := c.CCIPHome.GetAllConfigs(&bind.CallOpts{
@@ -240,7 +240,7 @@ func (c CCIPChainState) validateHomeChain(e deployment.Environment, offRampsByCh
 		if err != nil {
 			return fmt.Errorf("failed to get commit config for don %d: %w", don.Id, err)
 		}
-		if err := c.validateCCIPHomeVersionedActiveConfig(e, commitConfig.ActiveConfig, offRampsByChain); err != nil {
+		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, commitConfig.ActiveConfig, offRampsByChain); err != nil {
 			return fmt.Errorf("failed to validate active commit config for don %d: %w", don.Id, err)
 		}
 		execConfig, err := c.CCIPHome.GetAllConfigs(&bind.CallOpts{
@@ -249,7 +249,7 @@ func (c CCIPChainState) validateHomeChain(e deployment.Environment, offRampsByCh
 		if err != nil {
 			return fmt.Errorf("failed to get exec config for don %d: %w", don.Id, err)
 		}
-		if err := c.validateCCIPHomeVersionedActiveConfig(e, execConfig.ActiveConfig, offRampsByChain); err != nil {
+		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, execConfig.ActiveConfig, offRampsByChain); err != nil {
 			return fmt.Errorf("failed to validate active exec config for don %d: %w", don.Id, err)
 		}
 	}
@@ -258,7 +258,7 @@ func (c CCIPChainState) validateHomeChain(e deployment.Environment, offRampsByCh
 
 // validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on corresponding chain selector and that state
 // The validation related to correctness of F and node length is omitted here as it is already validated in the contract
-func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Environment, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
+func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Environment, nodes deployment.Nodes, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
 	if homeCfg.ConfigDigest == [32]byte{} {
 		return errors.New("active config digest is empty")
 	}
@@ -275,7 +275,7 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 		return fmt.Errorf("failed to get home chain config for chain %d: %w", chainSel, err)
 	}
 	// Node details should match with what we fetch from JD for CCIP Home Readers
-	if err := e.P2PIDsPresentInJD(homeChainConfig.Readers); err != nil {
+	if err := nodes.P2PIDsPresentInJD(homeChainConfig.Readers); err != nil {
 		return fmt.Errorf("failed to find homechain readers in JD for chain %d: %w",
 			chainSel, err)
 	}
@@ -293,7 +293,7 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 	for _, node := range homeCfg.Config.Nodes {
 		p2pIDs = append(p2pIDs, node.P2pId)
 	}
-	if err := e.P2PIDsPresentInJD(p2pIDs); err != nil {
+	if err := nodes.P2PIDsPresentInJD(p2pIDs); err != nil {
 		return fmt.Errorf("failed to find p2pIDs from CCIPHome config in JD for chain %d: %w", chainSel, err)
 	}
 	// cross-check with offRamp whether all in sync
@@ -1129,12 +1129,16 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e deployment.Environment) 
 		onRampsBySelector[selector] = chainState.OnRamp.Address()
 		offRampsBySelector[selector] = chainState.OffRamp
 	}
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return fmt.Errorf("failed to get node info from env: %w", err)
+	}
 	homeChain, err := c.HomeChainSelector()
 	if err != nil {
 		return fmt.Errorf("failed to get home chain selector: %w", err)
 	}
 	homeChainState := c.Chains[homeChain]
-	if err := homeChainState.validateHomeChain(e, offRampsBySelector); err != nil {
+	if err := homeChainState.validateHomeChain(e, nodes, offRampsBySelector); err != nil {
 		return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
 	}
 	rmnHomeActiveDigest, err := homeChainState.RMNHome.GetActiveDigest(&bind.CallOpts{
@@ -1268,7 +1272,8 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		if chainState.CCIPAddress == (aptos.AccountAddress{}) {
 			return 0, fmt.Errorf("ccip not found in existing state, deploy the ccip first for Aptos chain %d", selector)
 		}
-		offrampDynamicConfig, err := chain.GetOfframpDynamicConfig(chainState.CCIPAddress)
+		pChain := deployment.PAptosChain{AptosChain: chain}
+		offrampDynamicConfig, err := pChain.GetOfframpDynamicConfig(chainState.CCIPAddress)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get offramp dynamic config for Aptos chain %d: %w", selector, err)
 		}

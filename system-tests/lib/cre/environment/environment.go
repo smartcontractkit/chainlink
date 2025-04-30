@@ -162,7 +162,7 @@ func SetupTestEnvironment(
 	}
 
 	// Deploy all Keystone contracts
-	ocr3Output, ocr3Err := keystone_changeset.DeployOCR3(*allChainsCLDEnvironment, homeChainOutput.ChainSelector)
+	ocr3Output, ocr3Err := keystone_changeset.DeployOCR3(*allChainsCLDEnvironment, homeChainOutput.ChainSelector) // //nolint:staticcheck // will migrate in DX-641
 	if ocr3Err != nil {
 		return nil, pkgerrors.Wrap(ocr3Err, "failed to deploy OCR3 contract")
 	}
