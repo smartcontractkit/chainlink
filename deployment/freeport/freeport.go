@@ -261,8 +261,9 @@ func adjustMaxBlocks() (int, error) {
 // implemented as a TCP listener which is bound to the firstPort and which will
 // be automatically released when the application terminates.
 func alloc() (int, net.Listener) {
-	for block := 0; block < effectiveMaxBlocks; block++ {
-		//block := int(seededRand.Int31n(int32(effectiveMaxBlocks)))
+	start := int(seededRand.Int31n(int32(effectiveMaxBlocks)))
+	for i := 0; i < effectiveMaxBlocks; i++ {
+		block := (start + i) % effectiveMaxBlocks
 		firstPort := lowPort + block*blockSize
 		ln, err := net.ListenTCP("tcp", tcpAddr("127.0.0.1", firstPort))
 		if err != nil {

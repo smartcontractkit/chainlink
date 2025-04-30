@@ -5,10 +5,11 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/deployment/freeport"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
