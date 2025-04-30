@@ -50,3 +50,13 @@ var (
 	ChainInfo             = deployment.ChainInfo
 	GetSolanaProgramBytes = deployment.GetSolanaProgramBytes
 )
+
+// Environment
+
+type (
+	Environment = deployment.Environment
+)
+
+var (
+	NewEnvironment = deployment.NewEnvironment
+)
