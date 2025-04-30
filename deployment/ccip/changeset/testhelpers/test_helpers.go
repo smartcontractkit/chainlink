@@ -542,7 +542,9 @@ func SendRequestSol(
 	sender := c.DeployerKey
 
 	// if fee token is 0, fallback to WSOL
+	feeTokenProgramID := solana.Token2022ProgramID
 	if message.FeeToken.IsZero() {
+		feeTokenProgramID = solana.TokenProgramID
 		message.FeeToken = s.WSOL
 	}
 
@@ -576,12 +578,12 @@ func SendRequestSol(
 		return nil, err
 	}
 
-	feeTokenUserATA, _, err := soltokens.FindAssociatedTokenAddress(solana.TokenProgramID, feeToken, sender.PublicKey())
+	feeTokenUserATA, _, err := soltokens.FindAssociatedTokenAddress(feeTokenProgramID, feeToken, sender.PublicKey())
 	if err != nil {
 		return nil, err
 	}
 
-	feeTokenReceiverATA, _, err := soltokens.FindAssociatedTokenAddress(solana.TokenProgramID, feeToken, billingSignerPDA)
+	feeTokenReceiverATA, _, err := soltokens.FindAssociatedTokenAddress(feeTokenProgramID, feeToken, billingSignerPDA)
 	if err != nil {
 		return nil, err
 	}
@@ -605,7 +607,7 @@ func SendRequestSol(
 		noncePDA,
 		sender.PublicKey(),
 		solana.SystemProgramID,
-		solana.TokenProgramID,
+		feeTokenProgramID,
 		feeToken,
 		feeTokenUserATA,
 		feeTokenReceiverATA,
@@ -1370,7 +1372,6 @@ func DeployTransferableTokenSolana(
 			},
 		),
 	)
-
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
