@@ -153,7 +153,7 @@ func (n Nodes) BootstrapLocators() []string {
 func (n Nodes) P2PIDsPresentInJD(p2pIDs [][32]byte) error {
 	var allErrs error
 	for _, p2pID := range p2pIDs {
-		p2pIDString := "p2p" + libocrtypes.PeerID(p2pID).String()
+		p2pIDString := "p2p_" + libocrtypes.PeerID(p2pID).String()
 		if !slices.ContainsFunc(n, func(n Node) bool {
 			return p2pIDString == n.PeerID.String()
 		}) {
