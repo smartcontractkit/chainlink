@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
+	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"maps"
 	"math"
 	"math/big"
@@ -593,4 +594,42 @@ func reclaimFunds(lggr logger.Logger, e deployment.Environment, addressesByChain
 	}
 
 	return g.Wait()
+}
+
+func prepareAccountToSendLink(
+	lggr logger.Logger,
+	state ccipchangeset.CCIPOnChainState,
+	e deployment.Environment,
+	src uint64,
+	srcAccount *bind.TransactOpts) error {
+	srcDeployer := e.Chains[src].DeployerKey
+	lggr.Infow("Setting up link token", "src", src)
+	srcLink := state.Chains[src].LinkToken
+
+	lggr.Infow("Granting mint and burn roles")
+	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	if err != nil {
+		return err
+	}
+
+	lggr.Infow("Minting transfer amounts")
+	//--------------------------------------------------------------------------------------------
+	tx, err = srcLink.Mint(
+		srcAccount,
+		srcAccount.From,
+		big.NewInt(20_000),
+	)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	if err != nil {
+		return err
+	}
+
+	//--------------------------------------------------------------------------------------------
+	lggr.Infow("Approving routers")
+	// Approve the router to spend the tokens and confirm the tx's
+	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
+	tx, err = srcLink.Approve(srcAccount, state.Chains[src].Router.Address(), big.NewInt(math.MaxInt64))
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	return err
 }

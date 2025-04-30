@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	"math/big"
 	"os"
 	"sync"
@@ -11,8 +14,6 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog"
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -153,47 +154,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
 	}
 
-	evmChainSelectors := e.AllChainSelectors()
-	solChainSelectors := e.AllChainSelectorsSolana()
-
 	// Set up SOL <--> EVM lanes
-	lggr.Infof("setting up solana lanes for %d chains", len(e.Chains))
-
-	for _, evmSelector := range evmChainSelectors {
-		for _, solSelector := range solChainSelectors {
-			var laneChangesets []commonchangeset.ConfiguredChangeSet
-			deployedEnv := testhelpers.DeployedEnv{
-				Env:          *e,
-				HomeChainSel: homeChainSel,
-				FeedChainSel: feedChainSel,
-			}
-			lggr.Infow("setting up evm <> svm lane ", "evm", evmSelector, "sol", solSelector)
-			gasPrices := map[uint64]*big.Int{
-				solSelector: testhelpers.DefaultGasPrice,
-			}
-			stateChainFrom := state.Chains[evmSelector]
-			tokenPrices := map[common.Address]*big.Int{
-				stateChainFrom.LinkToken.Address(): testhelpers.DefaultLinkPrice,
-				stateChainFrom.Weth9.Address():     testhelpers.DefaultWethPrice,
-			}
-			fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solSelector)
-
-			// EVM -> SOL
-			cs := testhelpers.AddEVMSrcChangesets(evmSelector, solSelector, false, gasPrices, tokenPrices, fqCfg)
-			laneChangesets = append(laneChangesets, cs...)
-			cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector, evmSelector, chainsel.FamilyEVM)
-			laneChangesets = append(laneChangesets, cs...)
-
-			// SOL -> EVM
-			cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solSelector, false)
-			laneChangesets = append(laneChangesets, cs...)
-
-			*e, err = commonchangeset.Apply(nil, *e, nil, laneChangesets[0], laneChangesets[1:]...)
-			if err != nil {
-				return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting solana lanes: %w", err)
-			}
-		}
-	}
+	lggr.Infof("setting up solana lanes for %d evm chains", len(e.Chains))
+	*e, err = setupSolEvmLanes(lggr, e, state, homeChainSel, feedChainSel)
 
 	// ----- Part 2 -----
 	lggr.Infow("setting up ocr...")
@@ -221,62 +184,6 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	}, nil
 }
 
-// DeployCCIPChains is a group of changesets used from CRIB to set up new chains
-// It sets up CCIP contracts on all chains. We expect that MCMS has already been deployed and set up
-func DeployCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
-	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
-	}
-	e.ExistingAddresses = ab //nolint:staticcheck // SA1019
-
-	// Setup because we only need to deploy the contracts and distribute job specs
-	lggr.Infow("setting up chains...")
-	*e, err = setupChains(lggr, e, homeChainSel, feedChainSel)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
-	}
-	addresses, err := e.ExistingAddresses.Addresses() //nolint:staticcheck // SA1019
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
-	}
-	return DeployCCIPOutput{
-		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
-		NodeIDs:     e.NodeIDs,
-	}, nil
-}
-
-// ConnectCCIPLanes is a group of changesets used from CRIB to set up new lanes
-// It creates a fully connected mesh where all chains are connected to all chains
-func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
-	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
-	}
-	e.ExistingAddresses = ab //nolint:staticcheck // SA1019
-
-	state, err := changeset.LoadOnchainState(*e)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	lggr.Infow("setting up lanes...")
-	// Add all lanes
-	*e, err = setupLanes(e, state)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
-	}
-
-	addresses, err := e.ExistingAddresses.Addresses() //nolint:staticcheck // SA1019
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
-	}
-	return DeployCCIPOutput{
-		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
-		NodeIDs:     e.NodeIDs,
-	}, nil
-}
-
 // ConfigureCCIPOCR is a group of changesets used from CRIB to redeploy the chainlink don on an existing setup
 func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook, rmnEnabled bool) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
@@ -296,40 +203,6 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 		return DeployCCIPOutput{}, err
 	}
 
-	err = distributeTransmitterFundsSolana(lggr, don.PluginNodes(), *e)
-	if err != nil {
-		return DeployCCIPOutput{}, err
-	}
-
-	addresses, err := e.ExistingAddresses.Addresses() //nolint:staticcheck // SA1019
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
-	}
-	return DeployCCIPOutput{
-		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
-		NodeIDs:     e.NodeIDs,
-	}, nil
-}
-
-// FundCCIPTransmitters is used from CRIB to provide funds to the node transmitters
-// This function sends funds from the deployer key to the chainlink node transmitters
-func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, ab deployment.AddressBook) (DeployCCIPOutput, error) {
-	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
-	}
-	e.ExistingAddresses = ab //nolint:staticcheck // SA1019
-
-	// distribute funds to transmitters
-	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
-	// populated in the environment variable
-	lggr.Infow("distributing EVM transmitter funds...")
-	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
-	if err != nil {
-		return DeployCCIPOutput{}, err
-	}
-
-	lggr.Infow("distributing Solana transmitter funds...")
 	err = distributeTransmitterFundsSolana(lggr, don.PluginNodes(), *e)
 	if err != nil {
 		return DeployCCIPOutput{}, err
@@ -477,6 +350,12 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel, fe
 	}
 
 	lggr.Infow("setup Link pools")
+	if len(env.SolChains) > 0 {
+		env, err = setupSolLinkPools(&env)
+		if err != nil {
+			return *e, fmt.Errorf("failed to setup solana link pools: %w", err)
+		}
+	}
 	return setupLinkPools(&env)
 }
 
@@ -485,10 +364,10 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 	if err != nil {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	chainSelectors := e.AllChainSelectors()
+	evmSels := e.AllChainSelectors()
 	poolInput := make(map[uint64]v1_5_1.DeployTokenPoolInput)
 	pools := make(map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo)
-	for _, chain := range chainSelectors {
+	for _, chain := range evmSels {
 		poolInput[chain] = v1_5_1.DeployTokenPoolInput{
 			Type:               changeset.BurnMintTokenPool,
 			LocalTokenDecimals: 18,
@@ -532,7 +411,7 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 	)
 
 	if err != nil {
-		return *e, fmt.Errorf("failed to apply changesets: %w", err)
+		return *e, fmt.Errorf("failed to apply evm link changesets: %w", err)
 	}
 
 	state, err = changeset.LoadOnchainState(env)
@@ -540,7 +419,7 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	for _, chain := range chainSelectors {
+	for _, chain := range evmSels {
 		linkPool := state.Chains[chain].BurnMintTokenPools[changeset.LinkSymbol][deployment.Version1_5_1]
 		linkToken := state.Chains[chain].LinkToken
 		tx, err := linkToken.GrantMintAndBurnRoles(e.Chains[chain].DeployerKey, linkPool.Address())
@@ -552,11 +431,204 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 	return env, err
 }
 
+func setupSolLinkPools(e *deployment.Environment) (deployment.Environment, error) {
+
+	sels := e.AllChainSelectorsSolana()
+	state, err := changeset.LoadOnchainState(*e)
+	if err != nil {
+		return *e, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	for _, solChainSel := range sels {
+		solTokenAddress := state.SolChains[solChainSel].LinkToken
+		*e, err = commonchangeset.Apply(nil, *e, nil,
+			// add solana token pool and token pool lookup table
+			commonchangeset.Configure(
+				// deploy token pool and set the burn/mint authority to the tokenPool
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolAndLookupTable),
+				ccipChangesetSolana.TokenPoolConfig{
+					ChainSelector: solChainSel,
+					TokenPubKey:   solTokenAddress,
+					PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+				},
+			),
+			// register token admin registry solana
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+				ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
+					ChainSelector:           solChainSel,
+					TokenPubKey:             solTokenAddress,
+					TokenAdminRegistryAdmin: e.SolChains[solChainSel].DeployerKey.PublicKey().String(),
+					RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+				},
+			),
+			// accept admin role token admin registry solana
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
+				ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+					ChainSelector: solChainSel,
+					TokenPubKey:   solTokenAddress,
+				},
+			),
+			// set pool solana
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
+				ccipChangesetSolana.SetPoolConfig{
+					ChainSelector:   solChainSel,
+					TokenPubKey:     solTokenAddress,
+					WritableIndexes: []uint8{3, 4, 7},
+				},
+			),
+		)
+		if err != nil {
+			return *e, fmt.Errorf("failed to apply solana setup link pool changesets: %w", err)
+		}
+	}
+	return *e, nil
+}
+
+func setupSolEvmLanes(lggr logger.Logger, e *deployment.Environment, state changeset.CCIPOnChainState, homeCS, feedCS uint64) (deployment.Environment, error) {
+	evmChainSelectors := e.AllChainSelectors()
+	solChainSelectors := e.AllChainSelectorsSolana()
+	var err error
+
+	for _, evmSelector := range evmChainSelectors {
+		for _, solSelector := range solChainSelectors {
+			var laneChangesets []commonchangeset.ConfiguredChangeSet
+			deployedEnv := testhelpers.DeployedEnv{
+				Env:          *e,
+				HomeChainSel: homeCS,
+				FeedChainSel: feedCS,
+			}
+			lggr.Infow("setting up evm <> svm lane ", "evm", evmSelector, "sol", solSelector)
+			gasPrices := map[uint64]*big.Int{
+				solSelector: testhelpers.DefaultGasPrice,
+			}
+			stateChainFrom := state.Chains[evmSelector]
+			tokenPrices := map[common.Address]*big.Int{
+				stateChainFrom.LinkToken.Address(): testhelpers.DefaultLinkPrice,
+				stateChainFrom.Weth9.Address():     testhelpers.DefaultWethPrice,
+			}
+			fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solSelector)
+
+			// EVM -> SOL
+			cs := testhelpers.AddEVMSrcChangesets(evmSelector, solSelector, false, gasPrices, tokenPrices, fqCfg)
+			laneChangesets = append(laneChangesets, cs...)
+			cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector, evmSelector, chainsel.FamilyEVM)
+			laneChangesets = append(laneChangesets, cs...)
+
+			// SOL -> EVM
+			cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solSelector, false)
+			laneChangesets = append(laneChangesets, cs...)
+
+			// Adding prices for the LINK and WSOL tokens on SOL
+			laneChangesets = append(laneChangesets,
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
+					ccipChangesetSolana.RemoteChainTokenPoolConfig{
+						SolChainSelector: solSelector,
+						SolTokenPubKey:   state.SolChains[solSelector].LinkToken,
+						SolPoolType:      solTestTokenPool.BurnAndMint_PoolType,
+						EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
+							evmSelector: {
+								TokenSymbol: changeset.LinkSymbol,
+								PoolType:    changeset.BurnMintTokenPool,
+								PoolVersion: changeset.CurrentTokenPoolVersion,
+								RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
+									Inbound:  solTestTokenPool.RateLimitConfig{},
+									Outbound: solTestTokenPool.RateLimitConfig{},
+								},
+							},
+						},
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenTransferFeeForRemoteChain),
+					ccipChangesetSolana.TokenTransferFeeForRemoteChainConfig{
+						ChainSelector:       solSelector,
+						RemoteChainSelector: evmSelector,
+						TokenPubKey:         state.SolChains[solSelector].LinkToken.String(),
+						Config: solFeeQuoter.TokenTransferFeeConfig{
+							MinFeeUsdcents:    800,
+							MaxFeeUsdcents:    1600,
+							DeciBps:           0,
+							DestGasOverhead:   90000,
+							DestBytesOverhead: 100,
+							IsEnabled:         true,
+						},
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
+					ccipChangesetSolana.BillingTokenConfig{
+						ChainSelector: solSelector,
+						TokenPubKey:   state.SolChains[solSelector].LinkToken.String(),
+						Config: solFeeQuoter.BillingTokenConfig{
+							Enabled: true,
+							Mint:    state.SolChains[solSelector].LinkToken,
+							UsdPerToken: solFeeQuoter.TimestampedPackedU224{
+								Value:     [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 249, 29, 137, 48, 78, 71, 37, 75, 184, 0, 0},
+								Timestamp: time.Now().Unix(),
+							},
+							PremiumMultiplierWeiPerEth: 9e17,
+						},
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
+					ccipChangesetSolana.BillingTokenConfig{
+						ChainSelector: solSelector,
+						TokenPubKey:   state.SolChains[solSelector].WSOL.String(),
+						Config: solFeeQuoter.BillingTokenConfig{
+							Enabled: true,
+							Mint:    solana.SolMint,
+							UsdPerToken: solFeeQuoter.TimestampedPackedU224{
+								Value:     [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 223, 177, 176, 240, 163, 138, 116, 244, 164, 248, 0, 0},
+								Timestamp: time.Now().Unix(),
+							},
+							PremiumMultiplierWeiPerEth: 1e18,
+						},
+					},
+				),
+			)
+
+			*e, err = commonchangeset.Apply(nil, *e, nil, laneChangesets[0], laneChangesets[1:]...)
+			if err != nil {
+				return *e, fmt.Errorf("failed to apply changesets for connecting solana lanes: %w", err)
+			}
+		}
+	}
+	return *e, nil
+}
+
 func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (deployment.Environment, error) {
 	eg := xerrgroup.Group{}
 	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
 	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
 	mu := sync.Mutex{}
+
+	// create the token pool changes to reference the token pools on evm side
+	solChainPoolUpdates := make(map[uint64]v1_5_1.SolChainUpdate)
+	for _, solChain := range e.AllChainSelectorsSolana() {
+		mu.Lock()
+		solChainPoolUpdates[solChain] = v1_5_1.SolChainUpdate{
+			RateLimiterConfig: v1_5_1.RateLimiterConfig{
+				Inbound: token_pool.RateLimiterConfig{
+					IsEnabled: false,
+					Capacity:  big.NewInt(0),
+					Rate:      big.NewInt(0),
+				},
+				Outbound: token_pool.RateLimiterConfig{
+					IsEnabled: false,
+					Capacity:  big.NewInt(0),
+					Rate:      big.NewInt(0),
+				},
+			},
+			TokenAddress: state.SolChains[solChain].LinkToken.String(),
+			Type:         changeset.BurnMintTokenPool,
+		}
+		mu.Unlock()
+	}
+
 	for src := range e.Chains {
 		src := src
 		eg.Go(func() error {
@@ -614,9 +686,10 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 			}
 			mu.Lock()
 			poolUpdates[src] = v1_5_1.TokenPoolConfig{
-				Type:         changeset.BurnMintTokenPool,
-				Version:      deployment.Version1_5_1,
-				ChainUpdates: rateLimitPerChain,
+				Type:            changeset.BurnMintTokenPool,
+				Version:         deployment.Version1_5_1,
+				ChainUpdates:    rateLimitPerChain,
+				SolChainUpdates: solChainPoolUpdates,
 			}
 			mu.Unlock()
 

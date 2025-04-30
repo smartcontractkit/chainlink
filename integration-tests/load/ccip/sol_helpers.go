@@ -2,6 +2,8 @@ package ccip
 
 import (
 	"context"
+	"fmt"
+	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"math"
 	"slices"
 	"sync"
@@ -24,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 )
 
@@ -438,4 +441,66 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 		}
 	}
 	return nil
+}
+
+func prepareAccountToSendLinkSolana(
+	lggr logger.Logger,
+	state ccipchangeset.CCIPOnChainState,
+	e deployment.Environment,
+	src uint64,
+	srcAccount solana.PrivateKey) error {
+	lggr.Infow("Setting up link token on sol chain", "src", src)
+	chainState := state.SolChains[src]
+	deployerKey := e.SolChains[src].DeployerKey
+	link := state.SolChains[src].LinkToken
+	
+	tokenprogramID, _ := chainState.TokenToTokenProgram(link)
+	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(chainState.Router)
+	if err != nil {
+		return fmt.Errorf("failed to find fee billing signer pda: %w", err)
+	}
+	IXs := make([]solana.Instruction, 0)
+
+	// need to double check
+	e.Logger.Infow("Setting mint authority", "srcAccount", srcAccount.PublicKey().String())
+	ixSetMint, err := solTokenUtil.SetTokenMintAuthority(
+		tokenprogramID,
+		srcAccount.PublicKey(),
+		link,
+		deployerKey.PublicKey(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to generate instructions to set source address as minter: %w", err)
+	}
+	IXs = append(IXs, ixSetMint)
+
+	e.Logger.Infow("Minting to load source transmit key")
+	ixMint, err := solTokenUtil.MintTo(
+		math.MaxUint64,
+		tokenprogramID,
+		link,
+		srcAccount.PublicKey(),
+		srcAccount.PublicKey(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to generate instructions to mint tokens: %w", err)
+	}
+	IXs = append(IXs, ixMint)
+
+	e.Logger.Infow("Approving billingPDA to transfer tokens")
+	ixApprove, err := soltokens.TokenApproveChecked(
+		math.MaxUint64,
+		9,
+		tokenprogramID,
+		srcAccount.PublicKey(),
+		link,
+		billingSignerPDA,
+		deployerKey.PublicKey(),
+		[]solana.PublicKey{})
+	if err != nil {
+		return fmt.Errorf("failed to approve token transfer: %w", err)
+	}
+	IXs = append(IXs, ixApprove)
+
+	return e.SolChains[src].Confirm(IXs)
 }

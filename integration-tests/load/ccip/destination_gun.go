@@ -424,9 +424,14 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 
 func (m *DestinationGun) getSolanaMessage(src uint64, account *solana.PrivateKey) (ccip_router.SVM2AnyMessage, error) {
 	return ccip_router.SVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(m.receiver, 32),
-		TokenAmounts: nil,
-		Data:         []byte("hello world"),
-		ExtraArgs:    []byte{},
+		Receiver: common.LeftPadBytes(m.receiver, 32),
+		TokenAmounts: []ccip_router.SVMTokenAmount{
+			{
+				Token:  m.state.SolChains[src].LinkToken,
+				Amount: 1,
+			},
+		},
+		Data:      []byte("hello world"),
+		ExtraArgs: []byte{},
 	}, nil
 }

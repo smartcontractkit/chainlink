@@ -22,10 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
@@ -225,20 +223,36 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		var mu sync.Mutex
 		var wg2 sync.WaitGroup
 		for _, src := range other {
-			selFamily, err := selectors.GetSelectorFamily(src)
-			require.NoError(t, err)
-			switch selFamily {
-			case selectors.FamilyEVM:
-				wg2.Add(1)
-				go func(src uint64) {
-					defer wg2.Done()
+			wg2.Add(1)
+			go func(src uint64) {
+				defer wg2.Done()
+				selFamily, err := selectors.GetSelectorFamily(src)
+				require.NoError(t, err)
+				switch selFamily {
+				case selectors.FamilyEVM:
 					mu.Lock()
 					evmSourceKeys[src] = evmSenders[src][ind]
 					mu.Unlock()
-				}(src)
-			case selectors.FamilySolana:
-				solSourceKeys[src] = &solanaSenders[src][ind]
-			}
+					require.NoError(t, prepareAccountToSendLink(
+						lggr,
+						state,
+						*env,
+						src,
+						evmSourceKeys[src],
+					))
+				case selectors.FamilySolana:
+					mu.Lock()
+					solSourceKeys[src] = &solanaSenders[src][ind]
+					mu.Unlock()
+					require.NoError(t, prepareAccountToSendLinkSolana(
+						lggr,
+						state,
+						*env,
+						src,
+						*solSourceKeys[src]))
+				}
+
+			}(src)
 		}
 		wg2.Wait()
 
@@ -403,43 +417,4 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	wg.Wait()
 	lggr.Infow("closed event subscribers")
-}
-
-func prepareAccountToSendLink(
-	t *testing.T,
-	state ccipchangeset.CCIPOnChainState,
-	e deployment.Environment,
-	src uint64,
-	srcAccount *bind.TransactOpts) error {
-	lggr := logger.Test(t)
-	srcDeployer := e.Chains[src].DeployerKey
-	lggr.Infow("Setting up link token", "src", src)
-	srcLink := state.Chains[src].LinkToken
-
-	lggr.Infow("Granting mint and burn roles")
-	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
-	if err != nil {
-		return err
-	}
-
-	lggr.Infow("Minting transfer amounts")
-	//--------------------------------------------------------------------------------------------
-	tx, err = srcLink.Mint(
-		srcAccount,
-		srcAccount.From,
-		big.NewInt(20_000),
-	)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
-	if err != nil {
-		return err
-	}
-
-	//--------------------------------------------------------------------------------------------
-	lggr.Infow("Approving routers")
-	// Approve the router to spend the tokens and confirm the tx's
-	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
-	tx, err = srcLink.Approve(srcAccount, state.Chains[src].Router.Address(), math.MaxBig256)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
-	return err
 }
