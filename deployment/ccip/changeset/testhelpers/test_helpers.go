@@ -572,7 +572,7 @@ func SendRequestSol(
 		return nil, err
 	}
 
-	noncePDA, err := solstate.FindNoncePDA(cfg.DestChain, sender.PublicKey(), s.Router)
+	noncePDA, err := solstate.FindNoncePDA(cfg.DestChain, cfg.CCIPSenderAddress, s.Router)
 	if err != nil {
 		return nil, err
 	}
