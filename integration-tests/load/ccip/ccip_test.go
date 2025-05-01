@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"github.com/gagliardetto/solana-go"
 	"math/big"
 	"sync"
 	"testing"
@@ -16,8 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
-
-	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
@@ -133,18 +132,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		blockTimes[cs] = 0
 	}
 
-	// initialize additional accounts on other chains
+	// initialize additional accounts on EVM, we need more accounts to avoid nonce issues
+	// Solana doesn't have a nonce concept so we just use a single account for all chains
 	evmSenders, err := fundAdditionalKeys(lggr, *env, destinationChains)
-	solanaSenders := make(map[uint64][]solana.PrivateKey)
-	for _, solSel := range env.AllChainSelectorsSolana() {
-		solanaSenders[solSel] = make([]solana.PrivateKey, 0, len(destinationChains))
-		for range len(destinationChains) {
-			newPk, err := solana.NewRandomPrivateKey()
-			require.NoError(t, err)
-			solanaSenders[solSel] = append(solanaSenders[solSel], newPk)
-		}
-	}
-
 	require.NoError(t, err)
 
 	// Keep track of the block number for each chain so that event subscription can be done from that block.
@@ -154,7 +144,14 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	for chainSel := range state.SolChains {
 		SetProgramIDsSafe(state.SolChains[chainSel])
-		err := prepSolAccount(ctx, t, lggr, env, solanaSenders[chainSel], chainSel, state.SolChains[chainSel].Router)
+		err := prepSolAccount(
+			ctx,
+			t,
+			lggr,
+			env,
+			[]solana.PrivateKey{*env.SolChains[chainSel].DeployerKey},
+			chainSel,
+			state.SolChains[chainSel].Router)
 		require.NoError(t, err)
 	}
 
@@ -242,14 +239,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 					))
 				case selectors.FamilySolana:
 					mu.Lock()
-					solSourceKeys[src] = &solanaSenders[src][ind]
+					solSourceKeys[src] = env.SolChains[src].DeployerKey
 					mu.Unlock()
-					require.NoError(t, prepareAccountToSendLinkSolana(
-						lggr,
-						state,
-						*env,
-						src,
-						*solSourceKeys[src]))
 				}
 
 			}(src)

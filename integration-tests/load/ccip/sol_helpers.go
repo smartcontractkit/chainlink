@@ -6,6 +6,7 @@ import (
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"math"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -403,7 +404,7 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 		}
 
 		// Approve CCIP to transfer the user's token for billing
-		ixApprove, err := soltokens.TokenApproveChecked(1e2*1e9, 9, tokenProgram, accountWSOL, wSOL, billingSignerPDA, acc.PublicKey(), []solana.PublicKey{})
+		ixApproveWSOL, err := soltokens.TokenApproveChecked(1e2*1e9, 9, tokenProgram, accountWSOL, wSOL, billingSignerPDA, acc.PublicKey(), []solana.PublicKey{})
 		if err != nil {
 			lggr.Errorw("failed to approve token transfer", "error", err)
 			return err
@@ -416,10 +417,13 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 		}
 		lggr.Infow("account info ", "account", acc.PublicKey().String(), "info", info)
 
-		_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixAtaUser, ixApprove}, acc, solconfig.DefaultCommitment)
+		_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixAtaUser, ixApproveWSOL}, acc, solconfig.DefaultCommitment)
 		if err != nil {
-			lggr.Errorw("failed to send and confirm 1", "error", err)
-			return err
+			// on the second run, the account already exists, so we ignore the error
+			if !strings.Contains(err.Error(), "Provided owner is not allowed") {
+				lggr.Errorw("failed to send and confirm 1", "error", err)
+				return err
+			}
 		}
 
 		// fund user WSOL (transfer SOL + syncNative)
@@ -453,13 +457,13 @@ func prepareAccountToSendLinkSolana(
 	chainState := state.SolChains[src]
 	deployerKey := e.SolChains[src].DeployerKey
 	link := state.SolChains[src].LinkToken
-	
+	IXs := make([]solana.Instruction, 0)
+
 	tokenprogramID, _ := chainState.TokenToTokenProgram(link)
 	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(chainState.Router)
 	if err != nil {
 		return fmt.Errorf("failed to find fee billing signer pda: %w", err)
 	}
-	IXs := make([]solana.Instruction, 0)
 
 	// need to double check
 	e.Logger.Infow("Setting mint authority", "srcAccount", srcAccount.PublicKey().String())
@@ -471,6 +475,10 @@ func prepareAccountToSendLinkSolana(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to generate instructions to set source address as minter: %w", err)
+	}
+	err = e.SolChains[src].Confirm([]solana.Instruction{ixSetMint})
+	if err != nil {
+		return fmt.Errorf("failed to confirm set mint authority: %w", err)
 	}
 	IXs = append(IXs, ixSetMint)
 
@@ -484,6 +492,10 @@ func prepareAccountToSendLinkSolana(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to generate instructions to mint tokens: %w", err)
+	}
+	err = e.SolChains[src].Confirm([]solana.Instruction{ixMint})
+	if err != nil {
+		return fmt.Errorf("failed to confirm mint tokens: %w", err)
 	}
 	IXs = append(IXs, ixMint)
 
@@ -500,7 +512,13 @@ func prepareAccountToSendLinkSolana(
 	if err != nil {
 		return fmt.Errorf("failed to approve token transfer: %w", err)
 	}
+	err = e.SolChains[src].Confirm([]solana.Instruction{ixApprove})
+	if err != nil {
+		return fmt.Errorf("failed to confirm approve token transfer: %w", err)
+	}
 	IXs = append(IXs, ixApprove)
 
-	return e.SolChains[src].Confirm(IXs)
+	e.Logger.Infow("Sending confirmations")
+	return nil
+	//return e.SolChains[src].Confirm(IXs)
 }

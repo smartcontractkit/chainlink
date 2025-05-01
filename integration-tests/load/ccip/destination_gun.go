@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"math/big"
 	mathrand "math/rand"
 	"time"
@@ -12,11 +13,9 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
-	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -206,6 +205,8 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("destination chain family for %d is not supported ", m.chainSelector)
 	}
 	rcv, extraArgs := []byte{}, []byte{}
+	svmExtraArgs := message_hasher.ClientSVMExtraArgsV1{}
+	var tokenReceiver solana.PublicKey
 	switch dstSelFamily {
 	case selectors.FamilyEVM:
 		rcv, err = utils.ABIEncode(`[{"type":"address"}]`, common.BytesToAddress(m.receiver))
@@ -229,15 +230,11 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			solana.SystemProgramID,
 		}
 
-		extraArgs, err = ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+		svmExtraArgs = message_hasher.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                 accounts,
 			AllowOutOfOrderExecution: *m.testConfig.OOOExecution,
 			ComputeUnits:             150000,
-		})
-		if err != nil {
-			m.l.Errorw("Error encoding extra args for sol dest")
-			return router.ClientEVM2AnyMessage{}, 0, err
 		}
 	}
 
@@ -295,6 +292,23 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 				Amount: big.NewInt(1),
 			},
 		}
+		if dstSelFamily == selectors.FamilySolana {
+			tokenReceiver, _, err = soltokens.FindAssociatedTokenAddress(
+				solana.Token2022ProgramID,
+				m.state.SolChains[m.chainSelector].LinkToken,
+				m.state.SolChains[m.chainSelector].Receiver)
+			if err != nil {
+				m.l.Errorw("Error getting token receiver address")
+				return router.ClientEVM2AnyMessage{}, 0, err
+			}
+			svmExtraArgs.TokenReceiver = tokenReceiver
+			extraArgs, err = ccipevm.SerializeClientSVMExtraArgsV1(svmExtraArgs)
+			if err != nil {
+				m.l.Errorw("Error encoding extra args for sol dest")
+				return router.ClientEVM2AnyMessage{}, 0, err
+			}
+			message.ExtraArgs = extraArgs
+		}
 	}
 
 	gasLimit := int64(0)
@@ -317,11 +331,10 @@ func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) 
 }
 
 func (m *DestinationGun) sendSolanaMessage(src uint64) error {
-	acc := m.solanaSourceKeys[src]
-	s := m.state.SolChains[src]
 	sourceKey := m.solanaSourceKeys[src]
+	s := m.state.SolChains[src]
 
-	msg, err := m.getSolanaMessage(src, acc)
+	msg, err := m.getSolanaMessage(src, sourceKey)
 	if err != nil {
 		return err
 	}
@@ -424,14 +437,9 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 
 func (m *DestinationGun) getSolanaMessage(src uint64, account *solana.PrivateKey) (ccip_router.SVM2AnyMessage, error) {
 	return ccip_router.SVM2AnyMessage{
-		Receiver: common.LeftPadBytes(m.receiver, 32),
-		TokenAmounts: []ccip_router.SVMTokenAmount{
-			{
-				Token:  m.state.SolChains[src].LinkToken,
-				Amount: 1,
-			},
-		},
-		Data:      []byte("hello world"),
-		ExtraArgs: []byte{},
+		Receiver:     common.LeftPadBytes(m.receiver, 32),
+		TokenAmounts: nil,
+		Data:         []byte("hello world"),
+		ExtraArgs:    []byte{},
 	}, nil
 }
