@@ -45,6 +45,7 @@ func setupFiredrillTestEnv(t *testing.T) deployment.Environment {
 	require.NoError(t, err)
 	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelectorSolana)
+	require.NoError(t, err)
 	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[env.AllChainSelectorsSolana()[0]], addresses)
 	require.NoError(t, err)
 	timelockSigner := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
