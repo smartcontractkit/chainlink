@@ -1,5 +1,6 @@
 package config
 
+// UpdateAptosChainConfig holds configuration for updating Aptos chain changeset
 type UpdateAptosChainConfig struct {
 	ChainSelector uint64
 	UpdateCCIP    bool

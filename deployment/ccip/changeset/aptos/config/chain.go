@@ -9,7 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 )
 
-type IChainDefinition interface {
+// ChainDefinition is an interface that defines a chain config for lane deployment
+// It is used to convert between Aptos and EVM fee quoter configs.
+type ChainDefinition interface {
 	GetChainFamily() string
 }
 

@@ -4,6 +4,8 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
@@ -34,9 +36,11 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 	if err != nil {
 		return DeployMCMSSeqOutput{}, err
 	}
+	typeAndVersion := deployment.NewTypeAndVersion(changeset.AptosMCMSType, deployment.Version1_0_0)
+	deps.AB.Save(deps.AptosChain.Selector, deployMCMSReport.Output.String(), typeAndVersion)
 	// Configure MCMS
 	configureMCMSBypassers := operation.ConfigureMCMSInput{
-		AddressMCMS: deployMCMSReport.Output.AddressMCMS,
+		AddressMCMS: deployMCMSReport.Output,
 		MCMSConfigs: configMCMS.Bypasser,
 		MCMSRole:    aptosmcms.TimelockRoleBypasser,
 	}
@@ -45,7 +49,7 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 		return DeployMCMSSeqOutput{}, err
 	}
 	configureMCMSCancellers := operation.ConfigureMCMSInput{
-		AddressMCMS: deployMCMSReport.Output.AddressMCMS,
+		AddressMCMS: deployMCMSReport.Output,
 		MCMSConfigs: configMCMS.Canceller,
 		MCMSRole:    aptosmcms.TimelockRoleCanceller,
 	}
@@ -54,32 +58,28 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 		return DeployMCMSSeqOutput{}, err
 	}
 	configureMCMSProposers := operation.ConfigureMCMSInput{
-		AddressMCMS: deployMCMSReport.Output.AddressMCMS,
+		AddressMCMS: deployMCMSReport.Output,
 		MCMSConfigs: configMCMS.Proposer,
 		MCMSRole:    aptosmcms.TimelockRoleProposer,
 	}
+	// TODO: Should set MinDelay to timelock
 	_, err = operations.ExecuteOperation(b, operation.ConfigureMCMSOp, deps, configureMCMSProposers)
 	if err != nil {
 		return DeployMCMSSeqOutput{}, err
 	}
-	// TODO: Should set MinDelay to timelock
 	// Transfer ownership to self
-	_, err = operations.ExecuteOperation(b, operation.TransferOwnershipToSelfOp, deps, deployMCMSReport.Output.ContractMCMS)
+	_, err = operations.ExecuteOperation(b, operation.TransferOwnershipToSelfOp, deps, deployMCMSReport.Output)
 	if err != nil {
 		return DeployMCMSSeqOutput{}, err
 	}
 	// Generate proposal to accept ownership
-	generateAcceptOwnershipProposalInput := operation.GenerateAcceptOwnershipProposalInput{
-		AddressMCMS:  deployMCMSReport.Output.AddressMCMS,
-		ContractMCMS: deployMCMSReport.Output.ContractMCMS,
-	}
-	gaopReport, err := operations.ExecuteOperation(b, operation.GenerateAcceptOwnershipProposalOp, deps, generateAcceptOwnershipProposalInput)
+	gaopReport, err := operations.ExecuteOperation(b, operation.GenerateAcceptOwnershipProposalOp, deps, deployMCMSReport.Output)
 	if err != nil {
 		return DeployMCMSSeqOutput{}, err
 	}
 
 	return DeployMCMSSeqOutput{
-		MCMSAddress:   deployMCMSReport.Output.AddressMCMS,
+		MCMSAddress:   deployMCMSReport.Output,
 		MCMSOperation: gaopReport.Output,
 	}, nil
 }

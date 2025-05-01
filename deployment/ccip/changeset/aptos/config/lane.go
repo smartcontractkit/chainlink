@@ -10,8 +10,8 @@ import (
 )
 
 type LaneConfig struct {
-	Source     IChainDefinition
-	Dest       IChainDefinition
+	Source     ChainDefinition
+	Dest       ChainDefinition
 	IsDisabled bool
 }
 
