@@ -283,6 +283,33 @@ func Test_SetCandidate(t *testing.T) {
 						},
 					},
 				),
+				// Set Candidate again to ensure that with non-empty candidate config, it can be set again
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+					v1_6.SetCandidateChangesetConfig{
+						SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
+							HomeChainSelector: tenv.HomeChainSel,
+							FeedChainSelector: tenv.FeedChainSel,
+							MCMS:              mcmsConfig,
+						},
+						PluginInfo: []v1_6.SetCandidatePluginInfo{
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
+									dest: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
+										state.Chains[dest].LinkToken.Address(),
+										state.Chains[dest].Weth9.Address()), nil),
+								},
+								PluginType: types.PluginTypeCCIPCommit,
+							},
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
+									dest: v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
+								},
+								PluginType: types.PluginTypeCCIPExec,
+							},
+						},
+					},
+				),
 			)
 			require.NoError(t, err)
 			// after setting a new candidate on both plugins, the candidate config digest

@@ -801,9 +801,11 @@ func SetCandidateChangeset(
 			}
 
 			setCandidateMCMSOps, err := setCandidateOnExistingDon(
+				e,
 				txOpts,
 				e.Chains[cfg.HomeChainSelector],
 				state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
+				state.Chains[cfg.HomeChainSelector].CCIPHome,
 				nodes.NonBootstraps(),
 				chainToDonIDs[chainSelector],
 				config,
@@ -846,9 +848,11 @@ func SetCandidateChangeset(
 // setCandidateOnExistingDon calls setCandidate on CCIPHome contract through the UpdateDON call on CapReg contract
 // This proposes to set up OCR3 config for the provided plugin for the DON
 func setCandidateOnExistingDon(
+	e deployment.Environment,
 	txOpts *bind.TransactOpts,
 	homeChain deployment.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
+	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
 	donID uint32,
 	pluginConfig ccip_home.CCIPHomeOCR3Config,
@@ -857,13 +861,22 @@ func setCandidateOnExistingDon(
 	if donID == 0 {
 		return nil, errors.New("donID is zero")
 	}
-
+	// get the current candidate config
+	existingDigest, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+		Context: e.GetContext(),
+	}, donID, pluginConfig.PluginType)
+	if err != nil {
+		return nil, fmt.Errorf("get candidate digest from ccipHome: %w", err)
+	}
+	if existingDigest != [32]byte{} {
+		e.Logger.Warnw("Overwriting existing candidate config", "digest", existingDigest, "donID", donID, "pluginType", pluginConfig.PluginType)
+	}
 	encodedSetCandidateCall, err := internal.CCIPHomeABI.Pack(
 		"setCandidate",
 		donID,
 		pluginConfig.PluginType,
 		pluginConfig,
-		[32]byte{},
+		existingDigest,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("pack set candidate call: %w", err)
