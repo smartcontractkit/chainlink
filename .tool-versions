@@ -7,4 +7,3 @@ helm 3.10.3
 golangci-lint 1.64.7
 protoc 29.3
 python 3.10.5
-act 0.2.30

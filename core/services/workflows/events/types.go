@@ -1,7 +1,7 @@
 package events
 
 const (
-	ProtoPkg = "workflows.v1.events"
+	ProtoPkg = "workflows.v1"
 	// WorkflowExecutionStarted represents a workflow execution started event
 	WorkflowExecutionStarted string = "WorkflowExecutionStarted"
 	// WorkflowExecutionFinished represents a workflow execution finished event
@@ -20,7 +20,7 @@ const (
 	// SchemaCapabilityFinished represents the schema for capability finished events
 	SchemaCapabilityFinished string = "/cre-events-capability-finished/v1"
 
-	MeteringReportSchema string = "github.com/smartcontractkit/chainlink-protos/workflows/v1/go/events/metering.proto"
+	MeteringReportSchema string = "github.com/smartcontractkit/chainlink-protos/workflows/workflows/v1/metering.proto"
 	MeteringReportDomain string = "platform"
 	MeteringReportEntity string = "MeteringReport"
 )
