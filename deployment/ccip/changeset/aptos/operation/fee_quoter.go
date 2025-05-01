@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/operations"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/types"
 )

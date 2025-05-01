@@ -719,7 +719,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	if len(aptosChains) != 0 {
 		// TODO: currently only one aptos chain supported in test environment
 		aptosCs := DeployChainContractsToAptosCS(t, e, aptosChains[0])
-		e.Env, err = commonchangeset.ApplyChangesetsV2(t, e.Env, []commonchangeset.ConfiguredChangeSet{aptosCs})
+		e.Env, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env, []commonchangeset.ConfiguredChangeSet{aptosCs})
 		require.NoError(t, err)
 	}
 

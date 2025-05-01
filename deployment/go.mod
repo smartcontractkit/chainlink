@@ -5,7 +5,10 @@ go 1.24.1
 toolchain go1.24.2
 
 // Make sure we're working with the latest chainlink libs
-replace github.com/smartcontractkit/chainlink/v2 => ../
+replace (
+	github.com/smartcontractkit/chainlink-aptos/relayer => github.com/smartcontractkit/chainlink-aptos v0.0.0-20250429091131-bb7e84a7ec92
+	github.com/smartcontractkit/chainlink/v2 => ../
+)
 
 // Using a separate inline `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
@@ -33,7 +36,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.52
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250414155853-651b4e583ee9
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250429091131-bb7e84a7ec92
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250430132510-be8d09930aaa
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250425163923-16aa375957b7
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250429205337-7ee5f91ed065
@@ -49,6 +52,7 @@ require (
 	github.com/smartcontractkit/mcms v0.18.0
 	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
+	github.com/test-go/testify v1.1.4
 	github.com/testcontainers/testcontainers-go v0.36.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
@@ -368,7 +372,6 @@ require (
 	github.com/shirou/gopsutil/v4 v4.25.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/smartcontractkit/chainlink-aptos/relayer v0.0.0-20250320162700-de7f1c0fd741 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect

@@ -45,7 +45,7 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 	cfg := getMockUpdateConfig(t, emvSelector, emvSelector2, aptosSelector)
 
 	// Apply the changeset
-	env, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{
+	env, _, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(aptoscs.AddAptosLanes{}, cfg),
 	})
 	require.NoError(t, err)
@@ -82,7 +82,7 @@ func getMockUpdateConfig(
 	aptosSelector uint64,
 ) config.UpdateAptosLanesConfig {
 	return config.UpdateAptosLanesConfig{
-		MCMSConfig: nil,
+		EVMMCMSConfig: nil,
 		// Aptos1 <> EVM1 | Aptos1 -> EVM2
 		Lanes: []config.LaneConfig{
 			{

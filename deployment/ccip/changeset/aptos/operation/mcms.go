@@ -15,7 +15,7 @@ import (
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink/deployment/operations"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
 const AcceptOwnershipProposalDescription = "Accept ownership of the contract to self"

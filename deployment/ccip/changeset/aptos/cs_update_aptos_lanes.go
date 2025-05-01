@@ -3,6 +3,7 @@ package aptos
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	config "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -10,7 +11,6 @@ import (
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/operations"
 	"github.com/smartcontractkit/mcms"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/types"
@@ -43,7 +43,7 @@ func (cs AddAptosLanes) Apply(env deployment.Environment, cfg config.UpdateAptos
 	// Add lane on EVM chains
 	// TODO: applying a changeset within another changeset is an anti-pattern. Using it here until EVM is refactored into Operations
 	evmUpdatesInput := config.ToEVMUpdateLanesConfig(cfg)
-	out, err := v1_6.UpdateLanesLogic(env, cfg.MCMSConfig, evmUpdatesInput)
+	out, err := v1_6.UpdateLanesLogic(env, cfg.EVMMCMSConfig, evmUpdatesInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

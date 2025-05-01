@@ -25,9 +25,9 @@ func TestSetOCR3Offramp_Apply(t *testing.T) {
 	cfg := v1_6.SetOCR3OffRampConfig{
 		HomeChainSel:       env.AllChainSelectors()[0],
 		RemoteChainSels:    env.AllChainSelectorsAptos(),
-		CCIPHomeConfigType: globals.ConfigTypeActive,
+		CCIPHomeConfigType: globals.ConfigTypeActive, // TODO: investigate why this is not being used, might be a bug
 	}
-	env, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{
+	env, _, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(aptoscs.SetOCR3Offramp{}, cfg),
 	})
 	require.NoError(t, err)

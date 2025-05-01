@@ -19,7 +19,7 @@ type LaneConfig struct {
 // Lanes accept different chain families
 type UpdateAptosLanesConfig struct {
 	// MCMSConfig defines the MCMS configuration for the changeset.
-	MCMSConfig *proposalutils.TimelockConfig
+	EVMMCMSConfig *proposalutils.TimelockConfig
 	// Lanes describes the lanes that we want to create.
 	Lanes []LaneConfig
 	// TestRouter indicates if we want to enable these lanes on the test router.
@@ -56,26 +56,26 @@ func ToEVMUpdateLanesConfig(aptosAddCfg UpdateAptosLanesConfig) v1_6.UpdateBidir
 		}
 	}
 
-	routerMCMSConfig := aptosAddCfg.MCMSConfig
+	routerMCMSConfig := aptosAddCfg.EVMMCMSConfig
 	if aptosAddCfg.TestRouter {
 		routerMCMSConfig = nil // Test router is never owned by MCMS
 	}
 
 	return v1_6.UpdateBidirectionalLanesChangesetConfigs{
 		UpdateFeeQuoterDestsConfig: v1_6.UpdateFeeQuoterDestsConfig{
-			MCMS:           aptosAddCfg.MCMSConfig,
+			MCMS:           aptosAddCfg.EVMMCMSConfig,
 			UpdatesByChain: feeQuoterDestUpdatesByChain,
 		},
 		UpdateFeeQuoterPricesConfig: v1_6.UpdateFeeQuoterPricesConfig{
-			MCMS:          aptosAddCfg.MCMSConfig,
+			MCMS:          aptosAddCfg.EVMMCMSConfig,
 			PricesByChain: feeQuoterPriceUpdatesByChain,
 		},
 		UpdateOnRampDestsConfig: v1_6.UpdateOnRampDestsConfig{
-			MCMS:           aptosAddCfg.MCMSConfig,
+			MCMS:           aptosAddCfg.EVMMCMSConfig,
 			UpdatesByChain: onRampUpdatesByChain,
 		},
 		UpdateOffRampSourcesConfig: v1_6.UpdateOffRampSourcesConfig{
-			MCMS:           aptosAddCfg.MCMSConfig,
+			MCMS:           aptosAddCfg.EVMMCMSConfig,
 			UpdatesByChain: offRampUpdatesByChain,
 		},
 		UpdateRouterRampsConfig: v1_6.UpdateRouterRampsConfig{

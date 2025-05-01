@@ -23,7 +23,7 @@ func TestToEVMUpdateLanesConfig(t *testing.T) {
 		{
 			name: "EVM <> Aptos Biderectional Lane",
 			input: UpdateAptosLanesConfig{
-				MCMSConfig: &proposalutils.TimelockConfig{},
+				EVMMCMSConfig: &proposalutils.TimelockConfig{},
 				Lanes: []LaneConfig{
 					{
 						Source:     getEVMDef(),
