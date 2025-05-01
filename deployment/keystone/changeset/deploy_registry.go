@@ -56,9 +56,14 @@ func deploy(env deployment.Environment, req *DeployRequestV2) (deployment.Change
 		Type:          datastore.ContractType(resp.Tv.Type),
 		Version:       &resp.Tv.Version,
 		Qualifier:     req.Qualifier,
+		Labels:        datastore.NewLabelSet(),
 	}
 	if req.Labels != nil {
 		r.Labels = *req.Labels
+	}
+	// add labels from the response
+	for _, l := range resp.Tv.Labels.List() {
+		r.Labels.Add(l)
 	}
 
 	if err = ds.Addresses().Add(r); err != nil {
