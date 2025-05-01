@@ -74,6 +74,7 @@ func cleanupStagingArea(b operations.Bundle, deps AptosDeps, in CleanupStagingAr
 // GenerateDeployCCIPProposal Operation generates deployment MCMS operations for the CCIP package
 type DeployCCIPInput struct {
 	MCMSAddress aptos.AccountAddress
+	IsUpdate    bool
 }
 
 type DeployCCIPOutput struct {
@@ -90,16 +91,26 @@ var GenerateDeployCCIPProposalOp = operations.NewOperation(
 
 func generateDeployCCIPProposal(b operations.Bundle, deps AptosDeps, in DeployCCIPInput) (DeployCCIPOutput, error) {
 	// Validate there's no package deployed
-	if deps.OnChainState.CCIPAddress != (aptos.AccountAddress{}) {
-		b.Logger.Infow("CCIP Package already deployed", "addr", deps.OnChainState.CCIPAddress.String())
-		return DeployCCIPOutput{CCIPAddress: deps.OnChainState.CCIPAddress}, nil
+	if (deps.OnChainState.CCIPAddress == (aptos.AccountAddress{})) == (in.IsUpdate) {
+		if in.IsUpdate {
+			b.Logger.Infow("Trying to update a non-deployed package", "addr", deps.OnChainState.CCIPAddress.String())
+			return DeployCCIPOutput{}, fmt.Errorf("CCIP package not deployed on Aptos chain %d", deps.AptosChain.Selector)
+		} else {
+			b.Logger.Infow("CCIP Package already deployed", "addr", deps.OnChainState.CCIPAddress.String())
+			return DeployCCIPOutput{CCIPAddress: deps.OnChainState.CCIPAddress}, nil
+		}
 	}
 
 	// Compile, chunk and get CCIP deploy operations
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
-	ccipObjectAddress, operations, err := getCCIPDeployMCMSOps(mcmsContract, deps.AptosChain.Selector)
+	ccipObjectAddress, operations, err := getCCIPDeployMCMSOps(mcmsContract, deps.AptosChain.Selector, deps.OnChainState.CCIPAddress)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to compile and create deploy operations: %w", err)
+	}
+	if in.IsUpdate {
+		return DeployCCIPOutput{
+			MCMSOperations: operations,
+		}, nil
 	}
 
 	// Save the address of the CCIP object
@@ -113,21 +124,32 @@ func generateDeployCCIPProposal(b operations.Bundle, deps AptosDeps, in DeployCC
 	}, nil
 }
 
-func getCCIPDeployMCMSOps(mcmsContract mcmsbind.MCMS, chainSel uint64) (aptos.AccountAddress, []types.Operation, error) {
+func getCCIPDeployMCMSOps(mcmsContract mcmsbind.MCMS, chainSel uint64, ccipAddress aptos.AccountAddress) (aptos.AccountAddress, []types.Operation, error) {
 	// Calculate addresses of the owner and the object
-	ccipObjectAddress, err := mcmsContract.MCMSRegistry().GetNewCodeObjectAddress(nil, []byte(ccip.DefaultSeed))
-	if err != nil {
-		return ccipObjectAddress, []types.Operation{}, fmt.Errorf("failed to calculate object address: %w", err)
+	var ccipObjectAddress aptos.AccountAddress
+	var err error
+	if ccipAddress != (aptos.AccountAddress{}) {
+		ccipObjectAddress = ccipAddress
+	} else {
+		ccipObjectAddress, err = mcmsContract.MCMSRegistry().GetNewCodeObjectAddress(nil, []byte(ccip.DefaultSeed))
+		if err != nil {
+			return ccipObjectAddress, []types.Operation{}, fmt.Errorf("failed to calculate object address: %w", err)
+		}
 	}
 
 	// Compile Package
-	payload, err := ccip.Compile(ccipObjectAddress, mcmsContract.Address(), true)
+	payload, err := ccip.Compile(ccipObjectAddress, mcmsContract.Address(), ccipAddress == aptos.AccountAddress{})
 	if err != nil {
 		return ccipObjectAddress, []types.Operation{}, fmt.Errorf("failed to compile: %w", err)
 	}
 
 	// Create chunks and stage operations
-	operations, err := utils.CreateChunksAndStage(payload, mcmsContract, chainSel, ccip.DefaultSeed, nil)
+	var operations []types.Operation
+	if ccipAddress == (aptos.AccountAddress{}) {
+		operations, err = utils.CreateChunksAndStage(payload, mcmsContract, chainSel, ccip.DefaultSeed, nil)
+	} else {
+		operations, err = utils.CreateChunksAndStage(payload, mcmsContract, chainSel, "", &ccipObjectAddress)
+	}
 	if err != nil {
 		return ccipObjectAddress, operations, fmt.Errorf("failed to create chunks and stage for %d: %w", chainSel, err)
 	}

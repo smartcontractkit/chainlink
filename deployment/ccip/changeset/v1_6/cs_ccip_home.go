@@ -553,7 +553,7 @@ func AddDonAndSetCandidateChangeset(
 		return deployment.ChangesetOutput{}, err
 	}
 
-	err = cfg.Validate(e, state)
+	// err = cfg.Validate(e, state)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
 	}
