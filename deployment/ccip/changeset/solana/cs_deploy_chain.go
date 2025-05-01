@@ -14,6 +14,7 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -35,6 +36,7 @@ import (
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 )
 
+// use this changeset to deploy the CCIP contracts on solana
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
 func getTypeToProgramDeployName() map[deployment.ContractType]string {
@@ -103,7 +105,7 @@ func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64
 	if cfg.UpgradeAuthority.IsZero() {
 		return errors.New("upgrade authority must be set for fee quoter and router upgrades")
 	}
-	return ValidateMCMSConfig(e, chainSelector, cfg.MCMS)
+	return cfg.MCMS.ValidateSolana(e, chainSelector)
 }
 
 func (c DeployChainContractsConfig) Validate(e deployment.Environment) error {
@@ -324,9 +326,6 @@ func deployChainContractsSolana(
 
 	// OFFRAMP DEPLOY
 	var offRampAddress solana.PublicKey
-	// gather lookup table keys from other deploys
-	lookupTableKeys := make([]solana.PublicKey, 0)
-	createLookupTable := false
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
@@ -455,18 +454,6 @@ func deployChainContractsSolana(
 		if err2 := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, rmnRemoteAddress, offRampAddress, table, params.OffRampParams); err2 != nil {
 			return txns, err2
 		}
-		// Initializing a new offramp means we need a new lookup table and need to fully populate it
-		createLookupTable = true
-		offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
-		offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
-		offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
-		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
-			// offramp
-			offRampAddress,
-			offRampConfigPDA,
-			offRampReferenceAddressesPDA,
-			offRampBillingSignerPDA,
-		}...)
 	} else {
 		e.Logger.Infow("Offramp already initialized, skipping initialization", "chain", chain.String())
 	}
@@ -572,48 +559,43 @@ func deployChainContractsSolana(
 	}
 
 	// LOOKUP TABLE
-	if createLookupTable {
-		// fee quoter entries
-		linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)
-		wsolFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.WSOL, feeQuoterAddress)
-		feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
-		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
-			// fee quoter
-			feeQuoterConfigPDA,
-			feeQuoterAddress,
-			linkFqBillingConfigPDA,
-			wsolFqBillingConfigPDA,
-		}...)
-
-		// router entries
-		routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
-		feeBillingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(ccipRouterProgram)
-		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
-			ccipRouterProgram,
-			routerConfigPDA,
-			feeBillingSignerPDA,
-		}...)
-
-		// token pools entries
-		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
-			burnMintTokenPool,
-			lockReleaseTokenPool,
-		}...)
-
-		// rmn remote entries
-		rmnRemoteCursePDA, _, _ := solState.FindRMNRemoteCursesPDA(rmnRemoteAddress)
-		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
-			rmnRemoteAddress,
-			rmnRemoteConfigPDA,
-			rmnRemoteCursePDA,
-		}...)
+	// off ramp
+	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
+	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+	// fee quoter
+	linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)
+	wsolFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.WSOL, feeQuoterAddress)
+	// router
+	feeBillingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(ccipRouterProgram)
+	// rmn remote
+	rmnRemoteCursePDA, _, _ := solState.FindRMNRemoteCursesPDA(rmnRemoteAddress)
+	lookupTableKeys := []solana.PublicKey{
+		// offramp
+		offRampAddress,
+		offRampConfigPDA,
+		offRampReferenceAddressesPDA,
+		offRampBillingSignerPDA,
+		// fee quoter
+		feeQuoterConfigPDA,
+		feeQuoterAddress,
+		linkFqBillingConfigPDA,
+		wsolFqBillingConfigPDA,
+		// router
+		ccipRouterProgram,
+		routerConfigPDA,
+		feeBillingSignerPDA,
+		// token pools
+		burnMintTokenPool,
+		lockReleaseTokenPool,
+		// rmn remote
+		rmnRemoteAddress,
+		rmnRemoteConfigPDA,
+		rmnRemoteCursePDA,
 	}
 
-	if len(lookupTableKeys) > 0 {
-		e.Logger.Debugw("Populating lookup table", "keys", lookupTableKeys)
-		if err := extendLookupTable(e, chain, offRampAddress, lookupTableKeys); err != nil {
-			return txns, fmt.Errorf("failed to extend lookup table: %w", err)
-		}
+	e.Logger.Debugw("Populating lookup table", "keys", lookupTableKeys)
+	if err := extendLookupTable(e, chain, offRampAddress, lookupTableKeys); err != nil {
+		return txns, fmt.Errorf("failed to extend lookup table: %w", err)
 	}
 
 	return txns, nil
@@ -864,6 +846,7 @@ func generateUpgradeTxns(
 		if err := chain.Confirm(ixns); err != nil {
 			return txns, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
+		return []mcmsTypes.Transaction{}, nil
 	}
 	upgradeTx, err := BuildMCMSTxn(upgradeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
 	if err != nil {
@@ -939,7 +922,7 @@ func generateExtendIxn(
 	if extraBytes > math.MaxUint32 {
 		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32)
 	}
-	//https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
+	// https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
 	data := binary.LittleEndian.AppendUint32([]byte{}, 6) // 4-byte Extend instruction identifier
 	//nolint:gosec // G115 we check for overflow above
 	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes+1024)) // add some padding
@@ -985,7 +968,7 @@ func generateCloseBufferIxn(
 // HELPER FUNCTIONS
 func GetSolProgramSize(e *deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (int, error) {
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
-		Commitment: deployment.SolDefaultCommitment,
+		Commitment: cldf.SolDefaultCommitment,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get account info: %w", err)

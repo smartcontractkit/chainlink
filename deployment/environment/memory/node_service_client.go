@@ -47,6 +47,7 @@ func (j *JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeReq
 	return &nodev1.RegisterNodeResponse{
 		Node: &nodev1.Node{
 			Id:          in.GetPublicKey(),
+			Name:        foundNode.Name,
 			PublicKey:   in.GetPublicKey(),
 			IsEnabled:   true,
 			IsConnected: true,
@@ -56,16 +57,25 @@ func (j *JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeReq
 }
 
 // UpdateNode only updates the labels of the node.
-// TODO: Implement the rest of the update.
+// TODO: Updating the PublicKey is not supported in this implementation.
 func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
 	node, err := j.nodeStore.get(in.Id)
 	if err != nil {
 		return nil, fmt.Errorf("node with ID %s not found", in.Id)
 	}
+
+	node.ID = in.Id
+	node.Name = in.Name
 	node.Labels = in.Labels
+	err = j.nodeStore.put(in.Id, node)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update node: %w", err)
+	}
+
 	return &nodev1.UpdateNodeResponse{
 		Node: &nodev1.Node{
 			Id:          in.Id,
+			Name:        in.Name,
 			PublicKey:   node.Keys.CSA.ID(),
 			IsEnabled:   true,
 			IsConnected: true,
@@ -82,6 +92,7 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 	return &nodev1.GetNodeResponse{
 		Node: &nodev1.Node{
 			Id:          in.Id,
+			Name:        n.Name,
 			PublicKey:   n.Keys.CSA.PublicKeyString(),
 			IsEnabled:   true,
 			IsConnected: true,
@@ -99,6 +110,7 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 		}
 		node := &nodev1.Node{
 			Id:          id,
+			Name:        n.Name,
 			PublicKey:   n.Keys.CSA.ID(),
 			IsEnabled:   true,
 			IsConnected: true,
@@ -128,6 +140,7 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 	if err != nil {
 		return nil, err
 	}
+
 	return &nodev1.ListNodeChainConfigsResponse{
 		ChainConfigs: chainConfigs,
 	}, nil

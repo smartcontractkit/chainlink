@@ -14,19 +14,19 @@ plugins:
       installPath: "github.com/smartcontractkit/chainlink-internal-integrations/aptos/relayer/cmd/chainlink-aptos"
   cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "cf8a3317f89784ff2bf51c04e65b4afcb6eb4363"
+      gitRef: "a5c33ddc76128b14117579a075ec9d239d3b2209"
       installPath: "github.com/smartcontractkit/capabilities/cron"
   kvstore:
     - enabled: false
       moduleURI: "github.com/smartcontractkit/capabilities/kvstore"
-      gitRef: "cf8a3317f89784ff2bf51c04e65b4afcb6eb4363"
+      gitRef: "a5c33ddc76128b14117579a075ec9d239d3b2209"
       installPath: "github.com/smartcontractkit/capabilities/kvstore"
   readcontract:
     - moduleURI: "github.com/smartcontractkit/capabilities/readcontract"
-      gitRef: "cf8a3317f89784ff2bf51c04e65b4afcb6eb4363"
+      gitRef: "a5c33ddc76128b14117579a075ec9d239d3b2209"
       installPath: "github.com/smartcontractkit/capabilities/readcontract"
   workflowevent:
     - enabled: false
       moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
-      gitRef: "cf8a3317f89784ff2bf51c04e65b4afcb6eb4363"
+      gitRef: "a5c33ddc76128b14117579a075ec9d239d3b2209"
       installPath: "github.com/smartcontractkit/capabilities/workflowevent"

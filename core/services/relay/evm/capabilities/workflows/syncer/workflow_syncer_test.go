@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -18,11 +19,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -35,7 +36,6 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
@@ -62,6 +62,7 @@ var wlConfig = syncerlimiter.Config{
 type testEvtHandler struct {
 	events []syncer.Event
 	mux    sync.Mutex
+	errFn  func() error
 }
 
 func (m *testEvtHandler) Close() error { return nil }
@@ -70,6 +71,9 @@ func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	m.events = append(m.events, event)
+	if m.errFn != nil {
+		return m.errFn()
+	}
 	return nil
 }
 
@@ -89,8 +93,9 @@ func (m *testEvtHandler) GetEvents() []syncer.Event {
 	return eventsCopy
 }
 
-func newTestEvtHandler() *testEvtHandler {
+func newTestEvtHandler(errFn func() error) *testEvtHandler {
 	return &testEvtHandler{
+		errFn:  errFn,
 		events: make([]syncer.Event, 0),
 	}
 }
@@ -149,7 +154,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 		registerWorkflow(t, backendTH, wfRegistryC, workflow)
 	}
 
-	testEventHandler := newTestEvtHandler()
+	testEventHandler := newTestEvtHandler(nil)
 
 	// Create the registry
 	registry, err := syncer.NewWorkflowRegistry(
@@ -182,7 +187,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
-		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
 	}
 
 	testEventHandler.ClearEvents()
@@ -230,15 +235,15 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			for idx, event := range events {
 				switch idx % 5 {
 				case 0:
-					assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
 				case 1:
-					assert.Equal(t, syncer.WorkflowActivatedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowActivatedEvent, event.EventType)
 				case 2:
-					assert.Equal(t, syncer.WorkflowPausedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowPausedEvent, event.EventType)
 				case 3:
-					assert.Equal(t, syncer.WorkflowUpdatedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowUpdatedEvent, event.EventType)
 				case 4:
-					assert.Equal(t, syncer.WorkflowDeletedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowDeletedEvent, event.EventType)
 				}
 			}
 			return true
@@ -276,7 +281,7 @@ func Test_InitialStateSync(t *testing.T) {
 		workflow.ID = workflowID
 		registerWorkflow(t, backendTH, wfRegistryC, workflow)
 	}
-	testEventHandler := newTestEvtHandler()
+	testEventHandler := newTestEvtHandler(nil)
 
 	// Create the worker
 	worker, err := syncer.NewWorkflowRegistry(
@@ -308,7 +313,7 @@ func Test_InitialStateSync(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
-		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
 	}
 }
 
@@ -490,7 +495,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 	require.NoError(t, err)
 	skippedWorkflow.ID = id
 
-	handler := newTestEvtHandler()
+	handler := newTestEvtHandler(nil)
 
 	worker, err := syncer.NewWorkflowRegistry(
 		lggr,
@@ -612,8 +617,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		_, err = er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
-		if err == nil {
+		_, ok := er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
+		if ok {
 			return false
 		}
 
@@ -634,12 +639,6 @@ func (m *mockService) HealthReport() map[string]error { return map[string]error{
 func (m *mockService) Ready() error { return nil }
 
 func (m *mockService) Name() string { return "svc" }
-
-type mockEngineFactory struct{}
-
-func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
-	return &mockService{}, nil
-}
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	var (
@@ -677,7 +676,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
-	mf := &mockEngineFactory{}
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
@@ -687,7 +685,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
 	handler, err := syncer.NewEventHandler(lggr, nil, nil, er,
-		emitter, rl, wl, store, syncer.WithEngineFactoryFn(mf.new))
+		emitter, rl, wl, store, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -723,9 +721,9 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		_, err = er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
-		if err != nil {
-			return err != nil
+		_, ok := er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
+		if !ok {
+			return false
 		}
 
 		owner := strings.ToLower(backendTH.ContractsOwner.From.Hex()[2:])
@@ -767,7 +765,7 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 			registerWorkflow(t, backendTH, wfRegistryC, workflow)
 		}
 
-		testEventHandler := newTestEvtHandler()
+		testEventHandler := newTestEvtHandler(nil)
 
 		// Create the worker
 		worker, err := syncer.NewWorkflowRegistry(
@@ -788,22 +786,92 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 				err: nil,
 			},
 			syncer.NewEngineRegistry(),
+			syncer.WithRetryInterval(1*time.Second),
 		)
 		require.NoError(t, err)
 
 		servicetest.Run(t, worker)
 
-		// It takes 1 tick of time before the reconciliation starts
-		// Then allow 1 tick of time to process all events
-		defaultTicker := 12 * time.Second
 		require.Eventually(t, func() bool {
 			return len(testEventHandler.GetEvents()) == numberWorkflows
-		}, defaultTicker*2, 1*time.Second)
+		}, 30*time.Second, 1*time.Second)
 
 		for _, event := range testEventHandler.GetEvents() {
-			assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+			assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
 		}
 	})
+}
+
+func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	backendTH := testutils.NewEVMBackendTH(t)
+	donID := uint32(1)
+
+	// Deploy a test workflow_registry
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	backendTH.Backend.Commit()
+	require.NoError(t, err)
+
+	// setup contract state to allow the secrets to be updated
+	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
+	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
+
+	var workflowID [32]byte
+	_, err = rand.Read((workflowID)[:])
+	require.NoError(t, err)
+	workflow := RegisterWorkflowCMD{
+		Name:       "test-wf",
+		DonID:      donID,
+		Status:     uint8(0),
+		SecretsURL: "someurl",
+		BinaryURL:  "someurl",
+	}
+	workflow.ID = workflowID
+	registerWorkflow(t, backendTH, wfRegistryC, workflow)
+
+	var retryCount int
+	testEventHandler := newTestEvtHandler(func() error {
+		if retryCount <= 1 {
+			retryCount++
+			return errors.New("error handling event")
+		}
+		return nil
+
+	})
+
+	// Create the worker
+	worker, err := syncer.NewWorkflowRegistry(
+		lggr,
+		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+			return backendTH.NewContractReader(ctx, t, bytes)
+		},
+		wfRegistryAddr.Hex(),
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyReconciliation,
+		},
+		testEventHandler,
+		&testDonNotifier{
+			don: capabilities.DON{
+				ID: donID,
+			},
+			err: nil,
+		},
+		syncer.NewEngineRegistry(),
+		syncer.WithRetryInterval(1*time.Second),
+	)
+	require.NoError(t, err)
+
+	servicetest.Run(t, worker)
+
+	require.Eventually(t, func() bool {
+		return len(testEventHandler.GetEvents()) == 1
+	}, 30*time.Second, 1*time.Second)
+
+	event := testEventHandler.GetEvents()[0]
+	assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
+
+	assert.Equal(t, 1, retryCount)
 }
 
 func updateAuthorizedAddress(
@@ -954,13 +1022,13 @@ func (m *testSecretsWorkEventHandler) Close() error { return m.wrappedHandler.Cl
 
 func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event syncer.Event) error {
 	switch {
-	case event.GetEventType() == syncer.ForceUpdateSecretsEvent:
+	case event.EventType == syncer.ForceUpdateSecretsEvent:
 		return m.wrappedHandler.Handle(ctx, event)
-	case event.GetEventType() == syncer.WorkflowRegisteredEvent:
+	case event.EventType == syncer.WorkflowRegisteredEvent:
 		m.registeredCh <- event
 		return nil
 	default:
-		panic(fmt.Sprintf("unexpected event type: %v", event.GetEventType()))
+		panic(fmt.Sprintf("unexpected event type: %v", event.EventType))
 	}
 }
 

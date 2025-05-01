@@ -7,21 +7,24 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
-	simpleBinaryLocation = "test/simple/cmd/testmodule.wasm"
-	simpleBinaryCmd      = "core/capabilities/compute/test/simple/cmd"
+	simpleBinaryCmd = "core/capabilities/compute/test/simple/cmd"
 )
 
 // Verify that cache evicts an expired module.
 func TestCache(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-558")
+
 	t.Parallel()
 	clock := clockwork.NewFakeClock()
 	tick := 1 * time.Second
@@ -34,7 +37,7 @@ func TestCache(t *testing.T) {
 	cache.start()
 	defer cache.close()
 
-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, false, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
 	hmod, err := host.NewModule(&host.ModuleConfig{
 		Logger:         logger.TestLogger(t),
 		IsUncompressed: true,
@@ -73,7 +76,7 @@ func TestCache_EvictAfterSize(t *testing.T) {
 	cache.start()
 	defer cache.close()
 
-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, false, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
 	hmod, err := host.NewModule(&host.ModuleConfig{
 		Logger:         logger.TestLogger(t),
 		IsUncompressed: true,
@@ -104,6 +107,8 @@ func TestCache_EvictAfterSize(t *testing.T) {
 }
 
 func TestCache_AddDuplicatedModule(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-574")
+
 	t.Parallel()
 	clock := clockwork.NewFakeClock()
 	tick := 1 * time.Second
@@ -116,7 +121,7 @@ func TestCache_AddDuplicatedModule(t *testing.T) {
 	cache.start()
 	defer cache.close()
 
-	simpleBinary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, false, t)
+	simpleBinary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
 	shmod, err := host.NewModule(&host.ModuleConfig{
 		Logger:         logger.TestLogger(t),
 		IsUncompressed: true,
@@ -136,7 +141,7 @@ func TestCache_AddDuplicatedModule(t *testing.T) {
 	assert.Equal(t, got, smod)
 
 	// Adding a different module but with the same id should not overwrite the existing module
-	fetchBinary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, false, t)
+	fetchBinary := wasmtest.CreateTestBinary(fetchBinaryCmd, false, t)
 	fhmod, err := host.NewModule(&host.ModuleConfig{
 		Logger:         logger.TestLogger(t),
 		IsUncompressed: true,

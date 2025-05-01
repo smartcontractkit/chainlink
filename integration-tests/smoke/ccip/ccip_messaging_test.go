@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/manualexechelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
 func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
@@ -98,6 +99,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 
 	t.Run("data message to eoa", func(t *testing.T) {
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               replayed,
@@ -117,6 +119,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 
 	t.Run("message to contract not implementing CCIPReceiver", func(t *testing.T) {
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
@@ -133,6 +136,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
@@ -158,6 +162,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 
 	t.Run("message to contract implementing CCIPReceiver with low exec gas", func(t *testing.T) {
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
@@ -257,9 +262,10 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			solana.SystemProgramID,
 		}
 
-		extraArgs, err := testhelpers.SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                accounts,
+			ComputeUnits:            80_000,
 		})
 		require.NoError(t, err)
 
@@ -270,6 +276,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		require.Equal(t, uint8(0), receiverCounterAccount.Value)
 
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               replayed,
@@ -367,6 +374,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               replayed,

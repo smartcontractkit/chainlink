@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
@@ -14,12 +15,16 @@ type LLOJobSpec struct {
 	ForwardingAllowed                 *bool           `toml:"forwardingAllowed,omitempty"`
 	P2PV2Bootstrappers                []string        `toml:"p2pv2Bootstrappers,omitempty"`
 	OCRKeyBundleID                    *string         `toml:"ocrKeyBundleID,omitempty"`
-	MaxTaskDuration                   time.Duration   `toml:"maxTaskDuration,omitempty"`
-	ContractConfigTrackerPollInterval time.Duration   `toml:"contractConfigTrackerPollInterval,omitempty"`
+	MaxTaskDuration                   TOMLDuration    `toml:"maxTaskDuration,omitempty"`
+	ContractConfigTrackerPollInterval TOMLDuration    `toml:"contractConfigTrackerPollInterval,omitempty"`
 	Relay                             RelayType       `toml:"relay,omitempty"`
 	PluginType                        PluginType      `toml:"pluginType,omitempty"`
 	RelayConfig                       RelayConfigLLO  `toml:"relayConfig"`
 	PluginConfig                      PluginConfigLLO `toml:"pluginConfig"`
+}
+
+func (s *LLOJobSpec) MarshalTOML() ([]byte, error) {
+	return toml.Marshal(s)
 }
 
 // RelayConfig is the configuration for the relay. This could change depending on the relay type.
@@ -37,6 +42,18 @@ type PluginConfigLLO struct {
 	Servers                             map[string]string `toml:"servers,inline"`
 }
 
-func (s *LLOJobSpec) MarshalTOML() ([]byte, error) {
-	return toml.Marshal(s)
+type TOMLDuration time.Duration
+
+func (d *TOMLDuration) UnmarshalText(text []byte) error {
+	var err error
+	duration, err := time.ParseDuration(string(text))
+	if err != nil {
+		return err
+	}
+	*d = TOMLDuration(duration)
+	return nil
+}
+
+func (d *TOMLDuration) MarshalText() (text []byte, err error) {
+	return []byte(fmt.Sprintf("%ds", time.Duration(*d)/time.Second)), nil
 }

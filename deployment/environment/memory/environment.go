@@ -18,8 +18,9 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/datastore"
 
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
@@ -225,7 +226,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
-		deployment.XXXGenerateTestOCRSecrets(),
+		cldf.XXXGenerateTestOCRSecrets(),
 	)
 }
 
@@ -236,7 +237,11 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
 	nodes := NewNodes(t, logLevel, chains, solChains, aptosChains, config.Nodes, config.Bootstraps, config.RegistryConfig, config.CustomDBSetup)
 	var nodeIDs []string
-	for id := range nodes {
+	for id, node := range nodes {
+		require.NoError(t, node.App.Start(t.Context()))
+		t.Cleanup(func() {
+			require.NoError(t, node.App.Stop())
+		})
 		nodeIDs = append(nodeIDs, id)
 	}
 	return *deployment.NewEnvironment(
@@ -253,6 +258,6 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		t.Context,
-		deployment.XXXGenerateTestOCRSecrets(),
+		cldf.XXXGenerateTestOCRSecrets(),
 	)
 }

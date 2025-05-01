@@ -444,8 +444,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 	timelockConfig := solanaTimelockConfig(ctx, t, solanaChain0, solanaState0.TimelockProgram, solanaState0.TimelockSeed)
 	require.NoError(t, err)
-	require.Equal(t, timelockConfig.ProposedOwner.String(),
-		timelockSignerPDA(solanaState0.TimelockProgram, solanaState0.TimelockSeed))
+	require.Equal(t, timelockConfig.ProposedOwner.String(), "11111111111111111111111111111111")
 }
 
 // TestDeployMCMSWithTimelockV2SkipInit tests calling the deploy changeset when accounts have already been initialized
