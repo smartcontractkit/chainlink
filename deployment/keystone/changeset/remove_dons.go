@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -22,6 +24,8 @@ type RemoveDONsRequest struct {
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *MCMSConfig
+
+	RegistryRef datastore.AddressRefKey
 }
 
 func (r *RemoveDONsRequest) Validate(e deployment.Environment) error {
@@ -38,7 +42,9 @@ func (r *RemoveDONsRequest) Validate(e deployment.Environment) error {
 	if !exists {
 		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", r.RegistryChainSel)
 	}
-
+	if err := shouldUseDatastore(e, r.RegistryRef); err != nil {
+		return fmt.Errorf("invalid registry reference: %w", err)
+	}
 	return nil
 }
 
@@ -56,21 +62,14 @@ func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (deployment.
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	cresp, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	})
+	capReg, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract sets: %w", err)
-	}
-	contracts, exists := cresp.ContractSets[req.RegistryChainSel]
-	if !exists {
-		return deployment.ChangesetOutput{}, fmt.Errorf("contract set not found for chain %d", req.RegistryChainSel)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 
 	resp, err := internal.RemoveDONs(env.Logger, &internal.RemoveDONsRequest{
 		Chain:                registryChain,
-		CapabilitiesRegistry: contracts.CapabilitiesRegistry.Contract,
+		CapabilitiesRegistry: capReg.Contract,
 		DONs:                 req.DONs,
 		UseMCMS:              req.UseMCMS(),
 	})
@@ -85,10 +84,10 @@ func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (deployment.
 		}
 
 		timelocksPerChain := map[uint64]string{
-			req.RegistryChainSel: contracts.CapabilitiesRegistry.McmsContracts.Timelock.Address().Hex(),
+			req.RegistryChainSel: capReg.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			req.RegistryChainSel: contracts.CapabilitiesRegistry.McmsContracts.ProposerMcm.Address().Hex(),
+			req.RegistryChainSel: capReg.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {

@@ -230,6 +230,9 @@ func NewTxCallDecoder(extraAnalyzers []Analyzer) *TxCallDecoder {
 }
 
 func (p *TxCallDecoder) Analyze(address string, abi *abi.ABI, data []byte) (*DecodedCall, error) {
+	if len(data) < 4 {
+		return nil, fmt.Errorf("data with value %s is too short", hexutil.Encode(data))
+	}
 	methodID, methodData := data[:4], data[4:]
 	method, err := abi.MethodById(methodID)
 	if err != nil {

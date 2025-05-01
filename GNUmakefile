@@ -63,8 +63,7 @@ chainlink-test: ## Build a test build of chainlink binary.
 
 .PHONY: install-loopinstall
 install-loopinstall:
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-common) && \
-	go install $(GOFLAGS) ./pkg/loop/cmd/loopinstall
+	go install github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 
 .PHONY: install-plugins-public
 install-plugins-public: ## Build & install public remote LOOPP binaries (plugins).

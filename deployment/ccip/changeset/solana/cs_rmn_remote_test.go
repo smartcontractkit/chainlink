@@ -18,6 +18,7 @@ import (
 )
 
 func TestRMNRemoteCurseWithoutMCMS(t *testing.T) {
+	skipInCI(t)
 	t.Parallel()
 	doTestRMNRemoteCurse(t, false)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 func TestEngineRegistry(t *testing.T) {
@@ -17,16 +18,16 @@ func TestEngineRegistry(t *testing.T) {
 	const id1 = "foo"
 	owner := []byte{1, 2, 3, 4, 5}
 	name := "my-workflow"
-	workflowID := WorkflowID([32]byte{0, 1, 2, 3, 4})
+	workflowID := types.WorkflowID([32]byte{0, 1, 2, 3, 4})
 	er := NewEngineRegistry()
 	require.False(t, er.Contains(EngineRegistryKey{Owner: owner, Name: name}))
 
-	e, err := er.Get(EngineRegistryKey{Owner: owner, Name: name})
-	require.ErrorIs(t, err, errNotFound)
+	e, ok := er.Get(EngineRegistryKey{Owner: owner, Name: name})
+	require.False(t, ok)
 	require.Nil(t, e.Service)
 	require.Equal(t, ServiceWithMetadata{}, e)
 
-	e, err = er.Pop(EngineRegistryKey{Owner: owner, Name: name})
+	e, err := er.Pop(EngineRegistryKey{Owner: owner, Name: name})
 	require.ErrorIs(t, err, errNotFound)
 	require.Nil(t, e.Service)
 	require.Equal(t, ServiceWithMetadata{}, e)
@@ -42,8 +43,8 @@ func TestEngineRegistry(t *testing.T) {
 	require.True(t, er.Contains(EngineRegistryKey{Owner: owner, Name: name}))
 
 	// get
-	e, err = er.Get(EngineRegistryKey{Owner: owner, Name: name})
-	require.NoError(t, err)
+	e, ok = er.Get(EngineRegistryKey{Owner: owner, Name: name})
+	require.True(t, ok)
 	require.Equal(t, srv, e.Service)
 	require.Equal(t, workflowID, e.WorkflowID)
 	require.Equal(t, owner, e.WorkflowOwner)

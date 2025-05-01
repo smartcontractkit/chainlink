@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -17,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const (
@@ -36,6 +40,16 @@ func NewStandaloneEngine(ctx context.Context, lggr logger.Logger, registry *capa
 		MaxCompressedBinarySize: defaultMaxUncompressedBinarySize,
 		IsUncompressed:          true,
 	}
+
+	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
+	if err != nil {
+		return nil, fmt.Errorf("unable to create module from config: %w", err)
+	}
+
+	if !module.IsLegacyDAG() {
+		return nil, errors.New("no DAG not yet supported")
+	}
+
 	sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 	if err != nil {
 		return nil, err
@@ -59,12 +73,16 @@ func NewStandaloneEngine(ctx context.Context, lggr logger.Logger, registry *capa
 		return nil, err
 	}
 
+	name, err := types.NewWorkflowName(defaultName)
+	if err != nil {
+		return nil, err
+	}
 	cfg := workflows.Config{
 		Lggr:                 lggr,
 		Workflow:             *sdkSpec,
 		WorkflowID:           defaultWorkflowID,
 		WorkflowOwner:        defaultOwner,
-		WorkflowName:         workflows.NewNamer(defaultName),
+		WorkflowName:         name,
 		Registry:             registry,
 		Store:                store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 		Config:               config,

@@ -2,20 +2,20 @@ package src
 
 import (
 	"bytes"
-	"strconv"
-	"text/template"
-
 	"context"
 	"flag"
 	"fmt"
+	"strconv"
+	"text/template"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )

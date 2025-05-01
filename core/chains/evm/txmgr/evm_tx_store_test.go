@@ -684,6 +684,63 @@ func Test_FindTxWithIdempotencyKey(t *testing.T) {
 	})
 }
 
+func Test_FindReceiptWithIdempotencyKey(t *testing.T) {
+	t.Parallel()
+
+	db := testutils.NewSqlxDB(t)
+	txStore := cltest.NewTestTxStore(t, db)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	ctx := t.Context()
+
+	idempotencyKey := "654"
+	t.Run("returns nil error if no results", func(t *testing.T) {
+		r, err := txStore.FindReceiptWithIdempotencyKey(tests.Context(t), idempotencyKey, big.NewInt(0))
+		require.NoError(t, err)
+		assert.Nil(t, r)
+	})
+
+	t.Run("returns receipt if it exists", func(t *testing.T) {
+		var etx txmgr.Tx
+		// insert tx
+		etx = cltest.NewEthTx(fromAddress)
+		etx.IdempotencyKey = &idempotencyKey
+		require.NoError(t, txStore.InsertTx(ctx, &etx))
+		assert.Greater(t, int(etx.ID), 0)
+		cltest.AssertCount(t, db, "evm.txes", 1)
+
+		// insert attempt
+		var attemptL txmgr.TxAttempt
+		var attemptD txmgr.TxAttempt
+		attemptD = cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
+		require.NoError(t, txStore.InsertTxAttempt(ctx, &attemptD))
+		assert.Greater(t, int(attemptD.ID), 0)
+		cltest.AssertCount(t, db, "evm.tx_attempts", 1)
+
+		attemptL = cltest.NewLegacyEthTxAttempt(t, etx.ID)
+		attemptL.State = txmgrtypes.TxAttemptBroadcast
+		attemptL.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(42)}
+		require.NoError(t, txStore.InsertTxAttempt(ctx, &attemptL))
+		assert.Greater(t, int(attemptL.ID), 0)
+		cltest.AssertCount(t, db, "evm.tx_attempts", 2)
+
+		// insert receipt
+		var r txmgr.Receipt
+		r = newEthReceipt(42, utils.NewHash(), attemptD.Hash, 0x1)
+		id, err := txStore.InsertReceipt(ctx, &r.Receipt)
+		r.ID = id
+		require.NoError(t, err)
+		assert.Greater(t, int(r.ID), 0)
+		cltest.AssertCount(t, db, "evm.receipts", 1)
+
+		res, err := txStore.FindReceiptWithIdempotencyKey(ctx, idempotencyKey, etx.ChainID)
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.Equal(t, r.Receipt.GasUsed, res.GetFeeUsed())
+		require.Equal(t, r.Receipt.EffectiveGasPrice, res.GetEffectiveGasPrice())
+	})
+}
+
 func TestORM_FindTxWithSequence(t *testing.T) {
 	t.Parallel()
 

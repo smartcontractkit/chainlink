@@ -77,7 +77,7 @@ func ValidateTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraIn
 	return nil
 }
 
-func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput types.InfraInput) (*cretypes.Topology, error) {
+func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput types.InfraInput, homeChainSelector uint64) (*cretypes.Topology, error) {
 	topology := &cretypes.Topology{}
 	donsWithMetadata := make([]*cretypes.DonMetadata, len(nodeSetInput))
 
@@ -153,6 +153,7 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput
 
 	topology.DonsMetadata = donsWithMetadata
 	topology.WorkflowDONID = maybeID.ID
+	topology.HomeChainSelector = homeChainSelector
 
 	return topology, nil
 }

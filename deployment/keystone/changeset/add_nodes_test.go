@@ -246,6 +246,7 @@ func TestAddNodes(t *testing.T) {
 						RegistryChainSel:   tc.input.te.RegistrySelector,
 						CreateNodeRequests: tc.input.CreateNodeRequests,
 						MCMSConfig:         tc.input.MCMSConfig,
+						RegistryRef:        tc.input.te.CapabilityRegistryAddressRef(),
 					}
 					r, err := changeset.AddNodes(tc.input.te.Env, req)
 					if err != nil && tc.checkErr == nil {
@@ -313,11 +314,11 @@ func assertNodesExist(t *testing.T, registry *kcr.CapabilitiesRegistry, nodes ..
 
 func applyProposal(t *testing.T, te test.EnvWrapper, applicable ...commonchangeset.ConfiguredChangeSet) error {
 	// now apply the changeset such that the proposal is signed and execed
-	contracts := te.ContractSets()[te.RegistrySelector]
+	capReg := te.OwnedCapabilityRegistry()
 	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
 		te.RegistrySelector: {
-			Timelock:  contracts.Timelock,
-			CallProxy: contracts.CallProxy,
+			Timelock:  capReg.McmsContracts.Timelock,
+			CallProxy: capReg.McmsContracts.CallProxy,
 		},
 	}
 	_, err := commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, applicable)

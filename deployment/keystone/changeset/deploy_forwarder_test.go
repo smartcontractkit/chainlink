@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -22,7 +22,6 @@ import (
 )
 
 func TestDeployForwarder(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-111")
 	t.Parallel()
 
 	lggr := logger.Test(t)
@@ -39,26 +38,24 @@ func TestDeployForwarder(t *testing.T) {
 
 		// deploy forwarder
 		env.ExistingAddresses = ab
-		resp, err := changeset.DeployForwarder(env, changeset.DeployForwarderRequest{})
+		//	resp, err := changeset.DeployForwarder(env, changeset.DeployForwarderRequest{})
+		resp, err := changeset.DeployForwarderV2(env, &changeset.DeployRequestV2{
+			ChainSel:  registrySel,
+			Qualifier: "my-test-forwarder",
+		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		// registry, ocr3, forwarder should be deployed on registry chain
 		addrs, err := resp.AddressBook.AddressesForChain(registrySel)
 		require.NoError(t, err)
 		require.Len(t, addrs, 1)
+		fa := resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("my-test-forwarder"))
+		require.Len(t, fa, 1, "expected to find 'my-test-forwarder' qualifier")
+		l := fa[0].Labels.List()
+		require.Len(t, l, 2, "expected exactly 2 labels")
+		require.Contains(t, l[0], internal.DeploymentBlockLabel)
+		require.Contains(t, l[1], internal.DeploymentHashLabel)
 
-		chainSel := env.AllChainSelectors()[1]
-		// only forwarder on chain 1
-		require.NotEqual(t, registrySel, chainSel)
-		oaddrs, err := resp.AddressBook.AddressesForChain(chainSel)
-		require.NoError(t, err)
-		require.Len(t, oaddrs, 1)
-		for _, tv := range oaddrs {
-			labelsList := tv.Labels.List()
-			require.Len(t, labelsList, 2, "expected exactly 2 labels")
-			require.Contains(t, labelsList[0], internal.DeploymentBlockLabel)
-			require.Contains(t, labelsList[1], internal.DeploymentHashLabel)
-		}
 	})
 }
 
@@ -154,12 +151,14 @@ func TestConfigureForwarders(t *testing.T) {
 				require.Empty(t, csOut.Proposals)
 				// check that forwarder
 				// TODO set up a listener to check that the forwarder is configured
-				contractSet := te.ContractSets()
+				forwardersByChain := te.OwnedForwarders()
 				for selector := range te.Env.Chains {
-					cs, ok := contractSet[selector]
+					forwarders, ok := forwardersByChain[selector]
 					require.True(t, ok)
-					require.NotNil(t, cs.Forwarder)
-					requireConfigUpdate(t, cs.Forwarder, chainToExclude == selector)
+					require.NotNil(t, forwarders)
+					require.Len(t, forwarders, 1)
+					f := forwarders[0]
+					requireConfigUpdate(t, f.Contract, chainToExclude == selector)
 				}
 			})
 		}
@@ -200,17 +199,19 @@ func TestConfigureForwarders(t *testing.T) {
 					expectedProposals--
 				}
 
-				//nolint:staticcheck // migration will be done in a separate PR
 				require.Len(t, csOut.MCMSTimelockProposals, expectedProposals)
 				require.Nil(t, csOut.AddressBook)
 
 				timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-				for selector, contractSet := range te.ContractSets() {
-					require.NotNil(t, contractSet.Timelock)
-					require.NotNil(t, contractSet.CallProxy)
+				x := te.OwnedForwarders()
+				for selector, forwardersByChain := range x {
+					require.Len(t, forwardersByChain, 1)
+					f := forwardersByChain[0]
+					require.NotNil(t, f.McmsContracts.Timelock)
+					require.NotNil(t, f.McmsContracts.CallProxy)
 					timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-						Timelock:  contractSet.Timelock,
-						CallProxy: contractSet.CallProxy,
+						Timelock:  f.McmsContracts.Timelock,
+						CallProxy: f.McmsContracts.CallProxy,
 					}
 				}
 				_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
@@ -221,8 +222,10 @@ func TestConfigureForwarders(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				for selector, cs := range te.ContractSets() {
-					requireConfigUpdate(t, cs.Forwarder, chainToExclude == selector)
+				for selector, forwardersByChain := range te.OwnedForwarders() {
+					require.Len(t, forwardersByChain, 1)
+					f := forwardersByChain[0]
+					requireConfigUpdate(t, f.Contract, chainToExclude == selector)
 				}
 			})
 		}

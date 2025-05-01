@@ -36,6 +36,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
@@ -524,6 +525,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 		return nil, err
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
+
 	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
 	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
@@ -539,7 +541,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 		r.chain.LogPoller(),
 		r.chain.GasEstimator(),
 		*r.chain.Config().EVM().GasEstimator().PriceMax().ToInt(),
-		*contractTransmitter,
+		contractTransmitter,
 		configWatcher,
 		feeEstimatorConfig,
 	), nil
@@ -608,6 +610,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 		return nil, err
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
+
 	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
 	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0), WithExcludeSignatures())
@@ -812,13 +815,13 @@ type configTransmitterOpts struct {
 }
 
 // newOnChainContractTransmitter creates a new contract transmitter.
-func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (*contractTransmitter, error) {
+func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
 	transmitter, err := generateTransmitterFrom(ctx, rargs, ethKeystore, configWatcher, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewOCRContractTransmitter(
+	evmTransmitter, err := NewOCRContractTransmitter(
 		ctx,
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
@@ -829,6 +832,23 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		ethKeystore,
 		ocrTransmitterOpts...,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// This code path should only be called when running CCIP 1.5 jobs on Tron.
+	// All other products should use the standard Tron relayer implementation.
+	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
+		return NewTronContractTransmitter(ctx, TronContractTransmitterOpts{
+			Logger:             lggr,
+			TransmissionsCache: NewTronTransmissionsCache(evmTransmitter),
+			Keystore:           ethKeystore,
+			ConfigWatcher:      configWatcher,
+			OCRTransmitterOpts: ocrTransmitterOpts,
+		})
+	}
+
+	return evmTransmitter, err
 }
 
 // newOnChainDualContractTransmitter creates a new dual contract transmitter.
@@ -863,6 +883,7 @@ type Keystore interface {
 	keys.AddressChecker
 	keys.RoundRobin
 	keys.Locker
+	keys.RawUnhashedSigner
 }
 
 func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, ethKeystore Keystore, configWatcher *configWatcher, opts configTransmitterOpts) (Transmitter, error) {
@@ -975,6 +996,14 @@ func (r *Relayer) NewContractReader(ctx context.Context, chainReaderConfig []byt
 	}
 
 	return NewChainReaderService(ctx, r.lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *cfg)
+}
+
+func (r *Relayer) EVM() (commontypes.EVMService, error) {
+	return r, nil
+}
+
+func (r *Relayer) GetTransactionFee(ctx context.Context, transactionID string) (*commontypes.TransactionFee, error) {
+	return r.chain.TxManager().GetTransactionFee(ctx, transactionID)
 }
 
 func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
