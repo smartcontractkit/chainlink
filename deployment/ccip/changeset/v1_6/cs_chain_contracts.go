@@ -1041,8 +1041,6 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 				DestChainConfig:   dc,
 			})
 		}
-		tnv, _ := fq.TypeAndVersion(nil)
-		fmt.Println(tnv)
 		tx, err := fq.ApplyDestChainConfigUpdates(txOpts, args)
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[chainSel], tx, fee_quoter.FeeQuoterABI, err); err != nil {

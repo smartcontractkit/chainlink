@@ -26,7 +26,7 @@ var DeployMCMSOp = operations.NewOperation(
 
 func deployMCMS(b operations.Bundle, deps AptosDeps, _ operations.EmptyInput) (aptos.AccountAddress, error) {
 	mcmsSeed := mcmsbind.DefaultSeed + time.Now().String()
-	addressMCMS, mcmsDeployTx, _, err := mcmsbind.DeployToResourceAccount(deps.AptosChain.DeployerSigner, deps.AptosChain.Client, mcmsSeed)
+	mcmsAddress, mcmsDeployTx, _, err := mcmsbind.DeployToResourceAccount(deps.AptosChain.DeployerSigner, deps.AptosChain.Client, mcmsSeed)
 	if err != nil {
 		return aptos.AccountAddress{}, fmt.Errorf("failed to deploy MCMS contract: %v", err)
 	}
@@ -34,11 +34,11 @@ func deployMCMS(b operations.Bundle, deps AptosDeps, _ operations.EmptyInput) (a
 		return aptos.AccountAddress{}, fmt.Errorf("failed to confirm MCMS deployment transaction: %v", err)
 	}
 
-	return addressMCMS, nil
+	return mcmsAddress, nil
 }
 
 type ConfigureMCMSInput struct {
-	AddressMCMS aptos.AccountAddress
+	MCMSAddress aptos.AccountAddress
 	MCMSConfigs mcmstypes.Config
 	MCMSRole    aptosmcms.TimelockRole
 }
@@ -52,7 +52,7 @@ var ConfigureMCMSOp = operations.NewOperation(
 
 func configureMCMS(b operations.Bundle, deps AptosDeps, in ConfigureMCMSInput) (any, error) {
 	configurer := aptosmcms.NewConfigurer(deps.AptosChain.Client, deps.AptosChain.DeployerSigner, in.MCMSRole)
-	setCfgTx, err := configurer.SetConfig(context.Background(), in.AddressMCMS.StringLong(), &in.MCMSConfigs, false)
+	setCfgTx, err := configurer.SetConfig(context.Background(), in.MCMSAddress.StringLong(), &in.MCMSConfigs, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setConfig in MCMS contract: %w", err)
 	}

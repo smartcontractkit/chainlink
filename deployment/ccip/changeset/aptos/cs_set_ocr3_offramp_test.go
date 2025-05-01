@@ -2,6 +2,7 @@ package aptos_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -10,7 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +26,13 @@ func TestSetOCR3Offramp_Apply(t *testing.T) {
 	env := deployedEnvironment.Env
 
 	cfg := v1_6.SetOCR3OffRampConfig{
-		HomeChainSel:       env.AllChainSelectors()[0],
-		RemoteChainSels:    env.AllChainSelectorsAptos(),
+		HomeChainSel:    env.AllChainSelectors()[0],
+		RemoteChainSels: env.AllChainSelectorsAptos(),
+		MCMS: &proposalutils.TimelockConfig{
+			MinDelay:     time.Duration(1) * time.Second,
+			MCMSAction:   mcmstypes.TimelockActionSchedule,
+			OverrideRoot: false,
+		},
 		CCIPHomeConfigType: globals.ConfigTypeActive, // TODO: investigate why this is not being used, might be a bug
 	}
 	env, _, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{

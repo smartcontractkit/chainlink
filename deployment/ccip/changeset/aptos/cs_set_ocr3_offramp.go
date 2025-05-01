@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/mcms"
-	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/types"
 )
 
@@ -63,7 +62,7 @@ func (cs SetOCR3Offramp) Apply(env deployment.Environment, config v1_6.SetOCR3Of
 			deps.AptosChain.Selector,
 			[]types.BatchOperation{setOCR3SeqReport.Output},
 			"Set OCR3 Configs",
-			aptosmcms.TimelockRoleProposer,
+			*config.MCMS,
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", remoteSelector, err)

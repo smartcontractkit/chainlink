@@ -5,13 +5,15 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // DeployAptosChainConfig is a configuration for deploying CCIP Package for Aptos chains
 type DeployAptosChainConfig struct {
-	MCMSConfigPerChain     map[uint64]types.MCMSWithTimelockConfigV2
-	ContractParamsPerChain map[uint64]ChainContractParams
+	MCMSDeployConfigPerChain   map[uint64]types.MCMSWithTimelockConfigV2
+	MCMSTimelockConfigPerChain map[uint64]proposalutils.TimelockConfig
+	ContractParamsPerChain     map[uint64]ChainContractParams
 }
 
 func (c DeployAptosChainConfig) Validate() error {

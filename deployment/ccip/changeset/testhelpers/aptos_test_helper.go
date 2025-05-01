@@ -18,7 +18,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
 			chainSelector: mockCCIPParams,
 		},
-		MCMSConfigPerChain: map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		MCMSDeployConfigPerChain: map[uint64]commontypes.MCMSWithTimelockConfigV2{
 			chainSelector: {
 				Canceller:        proposalutils.SingleGroupMCMSV2(t),
 				Proposer:         proposalutils.SingleGroupMCMSV2(t),

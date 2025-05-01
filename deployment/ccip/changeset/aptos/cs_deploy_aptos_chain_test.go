@@ -3,7 +3,9 @@ package aptos
 import (
 	"math/big"
 	"testing"
+	"time"
 
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -12,11 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 )
 
 func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
@@ -43,7 +44,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 					4457093679053095497: GetMockChainContractParams(t, 4457093679053095497),
 					743186221051783445:  GetMockChainContractParams(t, 743186221051783445),
 				},
-				MCMSConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
+				MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
 					4457093679053095497: getMockMCMSConfig(t),
 					743186221051783445:  getMockMCMSConfig(t),
 				},
@@ -140,7 +141,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
 					4457093679053095497: GetMockChainContractParams(t, 4457093679053095497),
 				},
-				// MCMSConfigPerChain is missing needed configs
+				// MCMSDeployConfigPerChain is missing needed configs
 			},
 			wantErrRe: `invalid mcms configs for chain 4457093679053095497`,
 			wantErr:   true,
@@ -210,12 +211,19 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
 			chainSelector: mockCCIPParams,
 		},
-		MCMSConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
+		MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
 			chainSelector: {
 				Canceller:        proposalutils.SingleGroupMCMSV2(t),
 				Proposer:         proposalutils.SingleGroupMCMSV2(t),
 				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
 				TimelockMinDelay: big.NewInt(0),
+			},
+		},
+		MCMSTimelockConfigPerChain: map[uint64]proposalutils.TimelockConfig{
+			chainSelector: {
+				MinDelay:     time.Duration(1) * time.Second,
+				MCMSAction:   mcmstypes.TimelockActionSchedule,
+				OverrideRoot: false,
 			},
 		},
 	}

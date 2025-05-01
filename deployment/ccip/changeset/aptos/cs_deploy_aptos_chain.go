@@ -14,7 +14,6 @@ import (
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/mcms"
-	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
@@ -44,7 +43,7 @@ func (cs DeployAptosChain) VerifyPreconditions(env deployment.Environment, confi
 			continue
 		}
 		if chainState.MCMSAddress == (aptos.AccountAddress{}) {
-			mcmsConfig := config.MCMSConfigPerChain[chainSel]
+			mcmsConfig := config.MCMSDeployConfigPerChain[chainSel]
 			for _, cfg := range []mcmstypes.Config{mcmsConfig.Bypasser, mcmsConfig.Canceller, mcmsConfig.Proposer} {
 				if err := cfg.Validate(); err != nil {
 					errs = append(errs, fmt.Errorf("invalid mcms configs for Aptos chain %d: %w", chainSel, err))
@@ -79,7 +78,7 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 		}
 
 		// MCMS Deploy operations
-		mcmsSeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployMCMSSequence, deps, config.MCMSConfigPerChain[chainSel])
+		mcmsSeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployMCMSSequence, deps, config.MCMSDeployConfigPerChain[chainSel])
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
@@ -105,7 +104,7 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 			chainSel,
 			mcmsOperations,
 			"Deploy Aptos MCMS and CCIP",
-			aptosmcms.TimelockRoleProposer,
+			config.MCMSTimelockConfigPerChain[chainSel],
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", chainSel, err)

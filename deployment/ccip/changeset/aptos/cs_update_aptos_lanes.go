@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/mcms"
-	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/types"
 )
 
@@ -78,7 +77,7 @@ func (cs AddAptosLanes) Apply(env deployment.Environment, cfg config.UpdateAptos
 			deps.AptosChain.Selector,
 			mcmsOperations,
 			"Update lanes on Aptos chain",
-			aptosmcms.TimelockRoleProposer,
+			*cfg.AptosMCMSConfig,
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", aptosChainSel, err)

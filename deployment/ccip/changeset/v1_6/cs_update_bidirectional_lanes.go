@@ -202,7 +202,7 @@ func updateBidirectionalLanesLogic(e deployment.Environment, c UpdateBidirection
 
 // UpdateLanesLogic is the main logic for updating lanes. Configs provided can be unidirectional
 // TODO: this should be refactored as a sequence once EVM changesets move to Operations API
-// TODO: UpdateBidirectionalLanesChangesetConfigs name is misleading, it accepts any kind of lane updates
+// TODO: UpdateBidirectionalLanesChangesetConfigs name is misleading, it also accepts unidirectional lane updates
 func UpdateLanesLogic(e deployment.Environment, mcmsConfig *proposalutils.TimelockConfig, configs UpdateBidirectionalLanesChangesetConfigs) (deployment.ChangesetOutput, error) {
 	proposals := make([]mcms.TimelockProposal, 0)
 

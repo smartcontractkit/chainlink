@@ -4,19 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/mcms"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/types"
 )
 
 const (
-	ValidUntilHours     = 72
 	MCMSProposalVersion = "v1"
 )
 
@@ -26,8 +27,18 @@ func GenerateProposal(
 	chainSel uint64,
 	operations []types.BatchOperation,
 	description string,
-	role aptosmcms.TimelockRole,
+	mcmsCfg proposalutils.TimelockConfig,
 ) (*mcms.TimelockProposal, error) {
+	// Get role from action
+	role, err := roleFromAction(mcmsCfg.MCMSAction)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get role from action: %w", err)
+	}
+	jsonRole, _ := json.Marshal(aptosmcms.AdditionalFieldsMetadata{Role: role})
+	var action = mcmsCfg.MCMSAction
+	if action == "" {
+		action = types.TimelockActionSchedule
+	}
 	// Create MCMS inspector
 	inspector := aptosmcms.NewInspector(client, role)
 	startingOpCount, err := inspector.GetOpCount(context.Background(), mcmsAddress.StringLong())
@@ -36,20 +47,14 @@ func GenerateProposal(
 	}
 	opCount := startingOpCount
 
-	action := types.TimelockActionSchedule
-	if role == aptosmcms.TimelockRoleBypasser {
-		action = types.TimelockActionBypass
-	}
-	jsonRole, _ := json.Marshal(aptosmcms.AdditionalFieldsMetadata{Role: role})
-
 	// Create proposal builder
-	validUntil := time.Now().Add(time.Hour * ValidUntilHours).Unix()
+	validUntil := time.Now().Unix() + int64(proposalutils.DefaultValidUntil.Seconds())
 	proposalBuilder := mcms.NewTimelockProposalBuilder().
 		SetVersion(MCMSProposalVersion).
 		SetValidUntil(uint32(validUntil)).
 		SetDescription(description).
 		AddTimelockAddress(types.ChainSelector(chainSel), mcmsAddress.StringLong()).
-		SetOverridePreviousRoot(true).
+		SetOverridePreviousRoot(mcmsCfg.OverrideRoot).
 		AddChainMetadata(
 			types.ChainSelector(chainSel),
 			types.ChainMetadata{
@@ -59,7 +64,7 @@ func GenerateProposal(
 			},
 		).
 		SetAction(action).
-		SetDelay(types.NewDuration(time.Second)) // TODO: set propper delay
+		SetDelay(types.NewDuration(mcmsCfg.MinDelay))
 
 	// Add operations and build
 	for _, op := range operations {
@@ -71,6 +76,21 @@ func GenerateProposal(
 	}
 
 	return proposal, nil
+}
+
+func roleFromAction(action types.TimelockAction) (aptosmcms.TimelockRole, error) {
+	switch action {
+	case types.TimelockActionSchedule:
+		return aptosmcms.TimelockRoleProposer, nil
+	case types.TimelockActionBypass:
+		return aptosmcms.TimelockRoleBypasser, nil
+	case types.TimelockActionCancel:
+		return aptosmcms.TimelockRoleCanceller, nil
+	case "":
+		return aptosmcms.TimelockRoleProposer, nil
+	default:
+		return aptosmcms.TimelockRoleProposer, fmt.Errorf("invalid action: %s", action)
+	}
 }
 
 func ToBatchOperations(ops []types.Operation) []types.BatchOperation {
@@ -178,4 +198,17 @@ func GenerateMCMSTx(toAddress aptos.AccountAddress, moduleInfo bind.ModuleInform
 		Data:             aptosmcms.ArgsToData(args),
 		AdditionalFields: afBytes,
 	}, nil
+}
+
+func IsMCMSStagingAreaClean(client aptos.AptosRpcClient, aptosMCMSObjAddr aptos.AccountAddress) (bool, error) {
+	resources, err := client.AccountResources(aptosMCMSObjAddr)
+	if err != nil {
+		return false, err
+	}
+	for _, resource := range resources {
+		if strings.Contains(resource.Type, "StagingArea") {
+			return false, nil
+		}
+	}
+	return true, nil
 }

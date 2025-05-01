@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +13,7 @@ import (
 	aptosfeequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -20,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
@@ -83,6 +86,11 @@ func getMockUpdateConfig(
 ) config.UpdateAptosLanesConfig {
 	return config.UpdateAptosLanesConfig{
 		EVMMCMSConfig: nil,
+		AptosMCMSConfig: &proposalutils.TimelockConfig{
+			MinDelay:     time.Duration(1) * time.Second,
+			MCMSAction:   mcmstypes.TimelockActionSchedule,
+			OverrideRoot: false,
+		},
 		// Aptos1 <> EVM1 | Aptos1 -> EVM2
 		Lanes: []config.LaneConfig{
 			{

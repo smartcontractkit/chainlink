@@ -11,7 +11,6 @@ import (
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/mcms"
-	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/types"
 )
 
@@ -56,7 +55,7 @@ func (cs UpdateAptosChain) Apply(env deployment.Environment, cfg config.UpdateAp
 		deps.AptosChain.Selector,
 		mcmsOperations,
 		"Update chain contracts on Aptos chain",
-		aptosmcms.TimelockRoleProposer,
+		cfg.MCMSTimelockConfig,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", cfg.ChainSelector, err)

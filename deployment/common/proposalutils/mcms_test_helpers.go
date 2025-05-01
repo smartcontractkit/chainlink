@@ -178,6 +178,7 @@ func SignMCMSProposal(t *testing.T, env deployment.Environment, proposal *mcmsli
 		converters[chainSel] = &mcmssolanasdk.TimelockConverter{}
 		inspectorsMap[chainSel] = mcmssolanasdk.NewInspector(chain.Client)
 	}
+
 	proposal.UseSimulatedBackend(true)
 
 	signable, err := mcmslib.NewSignable(proposal, inspectorsMap)

@@ -40,7 +40,7 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 	deps.AB.Save(deps.AptosChain.Selector, deployMCMSReport.Output.String(), typeAndVersion)
 	// Configure MCMS
 	configureMCMSBypassers := operation.ConfigureMCMSInput{
-		AddressMCMS: deployMCMSReport.Output,
+		MCMSAddress: deployMCMSReport.Output,
 		MCMSConfigs: configMCMS.Bypasser,
 		MCMSRole:    aptosmcms.TimelockRoleBypasser,
 	}
@@ -49,7 +49,7 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 		return DeployMCMSSeqOutput{}, err
 	}
 	configureMCMSCancellers := operation.ConfigureMCMSInput{
-		AddressMCMS: deployMCMSReport.Output,
+		MCMSAddress: deployMCMSReport.Output,
 		MCMSConfigs: configMCMS.Canceller,
 		MCMSRole:    aptosmcms.TimelockRoleCanceller,
 	}
@@ -58,7 +58,7 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 		return DeployMCMSSeqOutput{}, err
 	}
 	configureMCMSProposers := operation.ConfigureMCMSInput{
-		AddressMCMS: deployMCMSReport.Output,
+		MCMSAddress: deployMCMSReport.Output,
 		MCMSConfigs: configMCMS.Proposer,
 		MCMSRole:    aptosmcms.TimelockRoleProposer,
 	}
