@@ -267,22 +267,6 @@ func SetupContractTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	return setupTestEnv(t, c)
 }
 
-// setupDevTestEnv sets up a keystone test environment for system testing, including workflows and jobs
-// The resulting environment will have the following:
-//
-// - all the initial contracts deployed (capability registry, ocr3, forwarder, workflow registry) on the registry chain
-//
-// - the forwarder deployed on all chains
-//
-// - the capability registry configured with the initial dons (WFDon => ocr capability, AssetDon => stream trigger capability, WriterDon => writer capability for all the chains)
-//
-// - an in-memory Offchain Client implementation that supports all the operations of the Offchain client, using in-memory nodes
-// TODO: deploy the jobs to the nodes; until then we keep this private, because consumers can't use it effectively
-func setupDevTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
-	c.useInMemoryNodes = true
-	return setupTestEnv(t, c)
-}
-
 // SetupContractTestEnv sets up a keystone test environment with the given configuration
 // TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
 func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
