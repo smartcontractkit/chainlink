@@ -10,7 +10,8 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/crypto"
-	"github.com/hashicorp/consul/sdk/freeport"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -43,7 +44,7 @@ func createAptosAccount(t *testing.T, useDefault bool) *aptos.Account {
 
 		t.Logf("Using default Aptos account: %s %+v", addressStr, privateKeyBytes)
 
-		account, err := aptos.NewAccountFromSigner(&crypto.Ed25519PrivateKey{Inner: privateKey}, *defaultAddress.AuthKey())
+		account, err := aptos.NewAccountFromSigner(&crypto.Ed25519PrivateKey{Inner: privateKey}, defaultAddress)
 		require.NoError(t, err)
 		return account
 	} else {
@@ -71,6 +72,16 @@ func GenerateChainsAptos(t *testing.T, numChains int) map[uint64]deployment.Apto
 			Client:         nodeClient,
 			DeployerSigner: account,
 			URL:            url,
+			Confirm: func(txHash string, opts ...any) error {
+				userTx, err := nodeClient.WaitForTransaction(txHash, opts...)
+				if err != nil {
+					return err
+				}
+				if !userTx.Success {
+					return fmt.Errorf("transaction failed: %s", userTx.VmStatus)
+				}
+				return nil
+			},
 		}
 	}
 	t.Logf("Created %d Aptos chains: %+v", len(chains), chains)

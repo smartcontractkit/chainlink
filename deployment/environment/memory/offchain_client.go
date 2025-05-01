@@ -68,6 +68,14 @@ func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) 
 			return false
 		}
 	}
+	if len(filter.PublicKeys) > 0 {
+		idx := slices.IndexFunc(filter.PublicKeys, func(pk string) bool {
+			return node.PublicKey == pk
+		})
+		if idx < 0 {
+			return false
+		}
+	}
 	for _, selector := range filter.Selectors {
 		idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
 			return label.Key == selector.Key

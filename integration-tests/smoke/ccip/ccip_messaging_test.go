@@ -99,6 +99,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 
 	t.Run("data message to eoa", func(t *testing.T) {
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               replayed,
@@ -118,6 +119,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 
 	t.Run("message to contract not implementing CCIPReceiver", func(t *testing.T) {
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
@@ -134,6 +136,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
@@ -159,6 +162,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 
 	t.Run("message to contract implementing CCIPReceiver with low exec gas", func(t *testing.T) {
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
@@ -272,6 +276,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		require.Equal(t, uint8(0), receiverCounterAccount.Value)
 
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               replayed,
@@ -369,6 +374,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               replayed,

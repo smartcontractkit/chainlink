@@ -67,6 +67,7 @@ func (t UpdateTimelockDelaySolana) Apply(
 		}
 		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
 		configPDA := state.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		timelockBindings.SetProgramID(mcmState.TimelockProgram)
 		updateDelayIx := timelockBindings.NewUpdateDelayInstruction(mcmState.TimelockSeed, uint64(delay.Seconds()), configPDA, solChain.DeployerKey.PublicKey())
 		ix, err := updateDelayIx.ValidateAndBuild()
 		if err != nil {

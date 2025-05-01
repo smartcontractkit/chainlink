@@ -69,7 +69,7 @@ type relayerWrapper struct {
 	New           bool // Whether this is a first time job add.
 }
 
-func (r relayerWrapper) NewPluginProvider(ctx context.Context, rargs core.RelayArgs, pargs core.PluginArgs) (types.PluginProvider, error) {
+func (r relayerWrapper) NewPluginProvider(ctx context.Context, rargs core.RelayArgs, pargs core.PluginArgs) (core.PluginProvider, error) {
 	relayArgs := types.RelayArgs{
 		ExternalJobID:      r.ExternalJobID,
 		JobID:              r.JobID,

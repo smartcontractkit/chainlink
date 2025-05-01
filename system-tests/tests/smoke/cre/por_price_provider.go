@@ -199,7 +199,7 @@ func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey 
 		for i, p := range pricesFloat64 {
 			// convert float64 to big.Int by multiplying by 100
 			// just like the PoR workflow does
-			expectedPrices[feedID][i] = libc.Float64ToBigInt(p)
+			expectedPrices[feedID][i] = libc.Float64ToBigInt(p * 100)
 		}
 	}
 

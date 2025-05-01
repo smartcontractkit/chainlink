@@ -1,3 +1,5 @@
+duration = "2h"
+
 [[blockchains]]
   chain_id = "1337"
   type = "anvil"
@@ -24,6 +26,26 @@
 [workflow_load]
   streams = 1000
   jobs = 2
+
+[chaos]
+  # chaos mode can be "rpc", "full" or "clean"
+  # no experiments will be run in "clean" mode
+  mode = "clean"
+  # latency that we add to Aptos or EVM node to simulate realistic production scenario
+  # latency works only with mode = "rpc"
+  latency = "200ms"
+  # latency jitter that we add to Aptos or EVM node to simulate realistic production scenario
+  # jitter works only with mode = "rpc"
+  jitter = "200ms"
+  # dashboard to which add annotation when experiments start and end
+  dashboard_uids = [""]
+  # wait before starting chaos tests
+  wait_before_start = "30s"
+  # full chaos experiment interval, time from chaos start to end + recovery
+  experiment_full_interval = "1m"
+  # chaos experiment injection interval - time from chaos start to end
+  experiment_injection_interval = "30s"
+
 
 [infra]
   type = "crib"

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 )
 
@@ -25,9 +26,24 @@ func TestSetupEnv(t *testing.T) {
 			})
 			t.Run(fmt.Sprintf("set up test env using MCMS: %t", useMCMS), func(t *testing.T) {
 				require.NotNil(t, te.Env.ExistingAddresses)
+				require.NotNil(t, te.Env.DataStore)
+				addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(te.RegistrySelector))
+				wantAddrCnt := 4 // default setup include capabilities registry, workflow registry, forwarder and ocr3
+				if useMCMS {
+					wantAddrCnt += 5 // time lock, call proxy, canceller, bypass, proposer
+				}
+				require.Len(t, addrs, wantAddrCnt)
 				require.Len(t, te.Env.Chains, 3)
 				require.NotEmpty(t, te.RegistrySelector)
 				require.NotNil(t, te.Env.Offchain)
+				// one forwarder on each chain
+				forwardersByChain := te.OwnedForwarders()
+				require.Len(t, forwardersByChain, 3)
+				for _, forwarders := range forwardersByChain {
+					require.Len(t, forwarders, 1)
+					require.NotNil(t, forwarders[0])
+					require.NotNil(t, forwarders[0].Contract)
+				}
 				r, err := te.Env.Offchain.ListNodes(ctx, &node.ListNodesRequest{})
 				require.NoError(t, err)
 				require.Len(t, r.Nodes, 12)

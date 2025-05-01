@@ -88,3 +88,24 @@ CHAINLINK_CLUSTER_VERSION="2.6.0-preview-1896-f6cd441" # contains the ingress mo
 LOAD_TEST="true" # increases the resources of the capabilities and workflow nodes
 
 
+## Chaos tests
+
+! These tests require CRIB environment with 3 DONS: Asset, Workflow and Writer, and at least one EVM chain !
+
+Chaos tests are added to the load test by default but can be run only on `main.stage`.
+
+There are 3 modes:
+- "clean" - no chaos tests
+- "reorg" - EVM specific chaos suite - block reorganizations
+- "rpc" - simulating realistic RPC latency
+- "full" - running all the experiments
+
+Turn your VPN on, add `[chaos.dashboard_uids]` on which the test will automatically add annotations, export 1Password `CRE chaos test vars` under `Eng Shared Vault` and run the test.
+
+## Chaos tests without workload
+
+If you want to apply the chaos test without workload or debug it you can use
+```
+go test -v -timeout 2h -run TestChaos
+```
+

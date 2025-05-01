@@ -95,11 +95,11 @@ func Test_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {
 	require.Len(t, out.MCMSTimelockProposals, 1)
 	require.Nil(t, out.AddressBook)
 
-	contracts := te.ContractSets()[te.RegistrySelector]
+	capReg := te.OwnedCapabilityRegistry()
 	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
 		te.RegistrySelector: {
-			Timelock:  contracts.Timelock,
-			CallProxy: contracts.CallProxy,
+			Timelock:  capReg.McmsContracts.Timelock,
+			CallProxy: capReg.McmsContracts.CallProxy,
 		},
 	}
 
