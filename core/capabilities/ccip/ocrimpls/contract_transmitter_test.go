@@ -36,6 +36,7 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
@@ -192,6 +193,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 		ccipcommon.NewExtraDataCodecParams(
 			ccipevm.ExtraDataDecoder{},
 			ccipsolana.ExtraDataDecoder{},
+			ccipaptos.ExtraDataDecoder{},
 		),
 	)
 	t.Run("fails when multiple reports are included", func(t *testing.T) {
