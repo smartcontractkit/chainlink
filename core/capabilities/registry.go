@@ -64,7 +64,7 @@ func (r *Registry) SetLocalRegistry(lr metadataRegistry) {
 // NewRegistry returns a new Registry.
 func NewRegistry(lggr logger.Logger) *Registry {
 	return &Registry{
-		CapabilitiesRegistryBase: registry.NewBase(lggr),
+		CapabilitiesRegistryBase: registry.NewBaseRegistry(lggr),
 		lggr:                     lggr.Named("CapabilitiesRegistry"),
 	}
 }

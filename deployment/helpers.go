@@ -181,22 +181,6 @@ func IsValidChainSelector(cs uint64) error {
 	return nil
 }
 
-func ChainInfo(cs uint64) (chain_selectors.ChainDetails, error) {
-	id, err := chain_selectors.GetChainIDFromSelector(cs)
-	if err != nil {
-		return chain_selectors.ChainDetails{}, err
-	}
-	family, err := chain_selectors.GetSelectorFamily(cs)
-	if err != nil {
-		return chain_selectors.ChainDetails{}, err
-	}
-	info, err := chain_selectors.GetChainDetailsByChainIDAndFamily(id, family)
-	if err != nil {
-		return chain_selectors.ChainDetails{}, err
-	}
-	return info, nil
-}
-
 func ValidateSelectorsInEnvironment(e Environment, chains []uint64) error {
 	for _, chain := range chains {
 		_, evmOk := e.Chains[chain]

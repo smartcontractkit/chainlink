@@ -66,13 +66,13 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (dep
 			}
 			if node.IsBootstrap {
 				labels = append(labels, &ptypes.Label{
-					Key:   devenv.NodeLabelKeyType,
-					Value: pointer.To(devenv.NodeLabelValueBootstrap),
+					Key:   devenv.LabelNodeTypeKey,
+					Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
 				})
 			} else {
 				labels = append(labels, &ptypes.Label{
-					Key:   devenv.NodeLabelKeyType,
-					Value: pointer.To(devenv.NodeLabelValuePlugin),
+					Key:   devenv.LabelNodeTypeKey,
+					Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 				})
 			}
 			// extra labels

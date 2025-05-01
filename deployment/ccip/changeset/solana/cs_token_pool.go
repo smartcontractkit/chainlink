@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeset_v1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -1301,7 +1302,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 				e.GetContext(),
 				chain.Client,
 				cfg.LiquidityCfg.RemoteTokenAccount,
-				deployment.SolDefaultCommitment)
+				cldf.SolDefaultCommitment)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get token balance: %w", err)
 			}
