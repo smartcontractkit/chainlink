@@ -1,6 +1,3 @@
-[ChainlinkImage]
-version="4dd0b4cbf57211d0eeda27ac2b90e91e8dd2763c"
-
 [Network]
 selected_networks = ["ARBITRUM_SEPOLIA"]
 
