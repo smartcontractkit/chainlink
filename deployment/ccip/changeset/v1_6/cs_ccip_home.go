@@ -1431,11 +1431,7 @@ func ValidateCCIPHomeConfigSetUp(
 	return nil
 }
 
-type DeployDonIDClaimerConfig struct {
-	HomeChainSelector uint64 `json:"homeChainSelector"`
-}
-
-func deployDonIDClaimerChangesetLogic(e deployment.Environment, cfg DeployDonIDClaimerConfig) (deployment.ChangesetOutput, error) {
+func deployDonIDClaimerChangesetLogic(e deployment.Environment) (deployment.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -1443,7 +1439,12 @@ func deployDonIDClaimerChangesetLogic(e deployment.Environment, cfg DeployDonIDC
 	}
 
 	ab := deployment.NewMemoryAddressBook()
-	chain := e.Chains[cfg.HomeChainSelector]
+	homeChainSel, err := state.HomeChainSelector()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get HomeChainSelector: %w", err)
+	}
+
+	chain := e.Chains[homeChainSel]
 	err = deployDonIDClaimerContract(e, ab, state, chain)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy donIDClaimer contract", "err", err, "addressBook", ab)
@@ -1486,12 +1487,18 @@ func deployDonIDClaimerContract(e deployment.Environment, ab deployment.AddressB
 	return nil
 }
 
-func deployDonIDClaimerPrecondition(e deployment.Environment, c DeployDonIDClaimerConfig) error {
+func deployDonIDClaimerPrecondition(e deployment.Environment) error {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	return donIDClaimerValidationHelper(state, c.HomeChainSelector)
+
+	homeChainSel, err := state.HomeChainSelector()
+	if err != nil {
+		return fmt.Errorf("failed to get homeChainSelector state: %w", err)
+	}
+
+	return donIDClaimerValidationHelper(state, homeChainSel)
 }
 
 type DonIDClaimerOffSetConfig struct {

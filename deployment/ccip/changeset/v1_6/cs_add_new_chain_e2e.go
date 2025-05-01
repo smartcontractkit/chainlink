@@ -371,6 +371,18 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 
 	// Claim donID using donIDClaimer at the end of the changeset run
 	txOpts := e.Chains[c.HomeChainSelector].DeployerKey
+	// ensure deployer key is authorized
+	isAuthorizedDeployer, err := state.Chains[c.HomeChainSelector].DonIDClaimer.IsAuthorizedDeployer(&bind.CallOpts{
+		Context: e.GetContext(),
+	}, txOpts.From)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run IsAuthorizedDeployed on home chain for donIDClaimer: %w", err)
+	}
+
+	if !isAuthorizedDeployer {
+		return deployment.ChangesetOutput{}, fmt.Errorf("deployerKey %v is not authorized deployer on donIDClaimer. ", txOpts.From.String())
+	}
+
 	tx, err := state.Chains[c.HomeChainSelector].DonIDClaimer.ClaimNextDONId(txOpts)
 	if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[c.HomeChainSelector], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
 		return deployment.ChangesetOutput{}, err
