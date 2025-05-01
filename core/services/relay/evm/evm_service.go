@@ -31,7 +31,7 @@ func (r *Relayer) CallContract(ctx context.Context, msg *evmtypes.CallMsg, confi
 }
 
 func (r *Relayer) GetLogs(ctx context.Context, filterQuery evmtypes.FilterQuery) ([]*evmtypes.Log, error) {
-	logs, err := r.Chain().Client().FilterLogs(ctx, convertEthFilter(filterQuery))
+	logs, err := r.chain.Client().FilterLogs(ctx, convertEthFilter(filterQuery))
 	if err != nil {
 		return nil, err
 	}
@@ -100,11 +100,6 @@ func (r *Relayer) QueryLogsFromCache(ctx context.Context, filterQuery []query.Ex
 	}
 
 	return convertLPLogs(logs), nil
-}
-
-func (r *Relayer) SubscribeLogTrigger(ctx context.Context, filterQuery []query.Expression) (chan<- *evmtypes.Log, error) {
-	// TODO BCFR-1332
-	return nil, errors.New("unimplemented")
 }
 
 func (r *Relayer) RegisterLogTracking(ctx context.Context, filter evmtypes.LPFilterQuery) error {

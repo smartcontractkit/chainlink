@@ -6,17 +6,98 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
+
+func TestEVMService(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	chain := evmmocks.NewChain(t)
+	txManager := txmmocks.NewMockEvmTxManager(t)
+	evmClient := clienttest.NewClient(t)
+	poller := pollermocks.NewLogPoller(t)
+	ht := headstest.NewTracker[*types.Head](t)
+
+	chain.On("TxManager").Return(txManager).Maybe()
+	chain.On("LogPoller").Return(poller).Maybe()
+	chain.On("HeadTracker").Return(ht).Maybe()
+	chain.On("Client").Return(evmClient).Maybe()
+
+	relayer := &Relayer{
+		chain: chain,
+	}
+
+	t.Run("RegisterLogTracking", func(t *testing.T) {
+		filter := evmtypes.LPFilterQuery{
+			Name:         "filter-1",
+			Retention:    time.Second,
+			Addresses:    []string{common.HexToAddress("0x123").Hex()},
+			EventSigs:    []string{common.HexToHash("0x321").Hex()},
+			Topic2:       []string{common.HexToHash("0x222").Hex()},
+			Topic3:       []string{common.HexToHash("0x543").Hex()},
+			Topic4:       []string{common.HexToHash("0x432").Hex()},
+			MaxLogsKept:  100,
+			LogsPerBlock: 10,
+		}
+
+		poller.On("HasFilter", mock.MatchedBy(func(fname string) bool {
+			return fname == filter.Name
+		})).Return(false)
+		poller.On("RegisterFilter", ctx, mock.MatchedBy(func(f logpoller.Filter) bool {
+			return f.LogsPerBlock == filter.LogsPerBlock &&
+				f.Retention == filter.Retention &&
+				f.Topic2[0].Hex() == filter.Topic2[0] &&
+				f.Topic3[0].Hex() == filter.Topic3[0] &&
+				f.Topic4[0].Hex() == filter.Topic4[0] &&
+				f.EventSigs[0].Hex() == filter.EventSigs[0] &&
+				f.MaxLogsKept == filter.MaxLogsKept &&
+				f.Addresses[0].Hex() == filter.Addresses[0] &&
+				f.Name == filter.Name
+		})).Return(nil)
+
+		err := relayer.RegisterLogTracking(ctx, filter)
+		require.NoError(t, err)
+	})
+
+	t.Run("TransactionByHash", func(t *testing.T) {
+		hash := common.HexToHash("0x123")
+		nonce := uint64(1)
+		to := common.HexToAddress("0x555")
+		amount := big.NewInt(1)
+		gasLimit := uint64(2)
+		gasPrice := big.NewInt(2)
+		data := []byte("kitties")
+
+		transaction := gethtypes.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
+		evmClient.On("TransactionByHash", ctx, hash).Return(transaction, nil)
+		tx, err := relayer.TransactionByHash(ctx, hash.Hex())
+		require.NoError(t, err)
+		require.Equal(t, transaction.Hash().Hex(), tx.Hash)
+		require.Equal(t, transaction.Nonce(), tx.Nonce)
+		require.Equal(t, transaction.GasPrice(), tx.GasPrice)
+		require.Equal(t, transaction.Data(), tx.Data)
+		require.Equal(t, transaction.Gas(), tx.Gas)
+		require.Equal(t, transaction.To().Hex(), tx.To)
+	})
+}
 
 func TestConverters(t *testing.T) {
 	t.Parallel()
 
 	t.Run("convert head", func(t *testing.T) {
-		head := evmtypes.Head{
+		head := types.Head{
 			Timestamp: time.Unix(100000, 100),
 			Number:    100,
 			Hash:      common.HexToHash("0x123"),
