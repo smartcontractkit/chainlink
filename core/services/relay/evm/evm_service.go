@@ -30,7 +30,7 @@ func (r *Relayer) CallContract(ctx context.Context, msg *evmtypes.CallMsg, confi
 	return r.chain.Client().CallContract(ctx, toEthMsg(msg), blockNumber)
 }
 
-func (r *Relayer) GetLogs(ctx context.Context, filterQuery evmtypes.EVMFilterQuery) ([]*evmtypes.Log, error) {
+func (r *Relayer) GetLogs(ctx context.Context, filterQuery evmtypes.FilterQuery) ([]*evmtypes.Log, error) {
 	logs, err := r.Chain().Client().FilterLogs(ctx, convertEthFilter(filterQuery))
 	if err != nil {
 		return nil, err
@@ -107,7 +107,7 @@ func (r *Relayer) SubscribeLogTrigger(ctx context.Context, filterQuery []query.E
 	return nil, errors.New("unimplemented")
 }
 
-func (r *Relayer) RegisterLogTracking(ctx context.Context, filter evmtypes.FilterQuery) error {
+func (r *Relayer) RegisterLogTracking(ctx context.Context, filter evmtypes.LPFilterQuery) error {
 	lpfilter, err := convertLPFilter(filter)
 	if err != nil {
 		return err
@@ -156,7 +156,6 @@ func convertHead[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable](h H) com
 
 func convertReceipt(r *gethtypes.Receipt) *evmtypes.Receipt {
 	return &evmtypes.Receipt{
-		PostState:         r.PostState,
 		Status:            r.Status,
 		Logs:              convertLogs(r.Logs),
 		TxHash:            r.TxHash.Hex(),
@@ -169,7 +168,7 @@ func convertReceipt(r *gethtypes.Receipt) *evmtypes.Receipt {
 	}
 }
 
-func convertEthFilter(q evmtypes.EVMFilterQuery) ethereum.FilterQuery {
+func convertEthFilter(q evmtypes.FilterQuery) ethereum.FilterQuery {
 	addresses := stringsToAddresses(q.Addresses)
 	topics := stringsToHashMatrix(q.Topics)
 
@@ -183,7 +182,7 @@ func convertEthFilter(q evmtypes.EVMFilterQuery) ethereum.FilterQuery {
 
 var errEmptyFilterName = errors.New("filter name can't be empty")
 
-func convertLPFilter(q evmtypes.FilterQuery) (logpoller.Filter, error) {
+func convertLPFilter(q evmtypes.LPFilterQuery) (logpoller.Filter, error) {
 	if q.Name == "" {
 		return logpoller.Filter{}, errEmptyFilterName
 	}
@@ -282,9 +281,9 @@ func convertLog(log *gethtypes.Log) *evmtypes.Log {
 		topics[i] = topic.Hex()
 	}
 
-	var eventSig []byte
+	var eventSig string
 	if len(log.Topics) > 0 {
-		eventSig = log.Topics[0].Bytes()
+		eventSig = log.Topics[0].Hex()
 	}
 
 	return &evmtypes.Log{
