@@ -17,6 +17,7 @@ import (
 
 type FireDrillConfig struct {
 	TimelockCfg proposalutils.TimelockConfig
+	Selectors   []uint64
 }
 
 // buildNoOPEVM builds a dummy tx that transfers 0 to the RBACTimelock
@@ -71,7 +72,10 @@ func buildNoOPSolana() (mcmstypes.Transaction, error) {
 // It is used to make sure team member can effectively sign proposal and that the execution pipelines are healthy.
 // The changeset will create a NO-OP transaction for each chain selector in the environment and create a proposal for it.
 func MCMSSignFireDrillChangeset(e deployment.Environment, cfg FireDrillConfig) (deployment.ChangesetOutput, error) {
-	allSelectors := e.AllChainSelectors()
+	allSelectors := cfg.Selectors
+	if len(allSelectors) == 0 {
+		allSelectors = e.AllChainSelectors()
+	}
 	operations := make([]mcmstypes.BatchOperation, 0, len(allSelectors))
 	timelocks := map[uint64]string{}
 	mcmAddresses := map[uint64]string{}

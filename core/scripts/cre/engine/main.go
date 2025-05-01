@@ -44,7 +44,8 @@ func main() {
 		}
 	}
 
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 
 	// Set log level based on debug flag
 	logLevel := zapcore.InfoLevel
@@ -55,6 +56,11 @@ func main() {
 	logCfg := logger.Config{LogLevel: logLevel}
 	lggr, _ := logCfg.New()
 
+	run(ctx, lggr, binary, config)
+}
+
+// run instantiates the engine, starts it and blocks until the context is canceled.
+func run(ctx context.Context, lggr logger.Logger, binary, config []byte) {
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 
@@ -81,9 +87,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
+	<-ctx.Done()
 
 	fmt.Println("Shutting down the Engine")
 	_ = engine.Close()

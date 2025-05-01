@@ -114,7 +114,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 		lggr.Debugw("decoded dest gas amount",
 			"destGasAmount", destGasAmount)
 
-		destTokenAddress, err := abiDecodeAddress(common.LeftPadBytes(rta.DestTokenAddress, 32))
+		destTokenAddress, err := abiDecodeAddress(rta.DestTokenAddress)
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("decode dest token address: %w", err)
 		}

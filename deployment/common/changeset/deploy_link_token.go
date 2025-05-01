@@ -15,6 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -144,7 +146,7 @@ func deployLinkTokenContractSolana(
 		tokenAdminPubKey,
 		TokenDecimalsSolana,
 		chain.Client,
-		deployment.SolDefaultCommitment,
+		cldf.SolDefaultCommitment,
 	)
 	if err != nil {
 		lggr.Errorw("Failed to generate instructions for link token deployment", "chain", chain.String(), "err", err)

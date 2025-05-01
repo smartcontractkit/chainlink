@@ -18,6 +18,11 @@ import (
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
+// use these changesets to register a token admin registry, transfer the admin role, and accept the admin role
+var _ deployment.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegistry
+var _ deployment.ChangeSet[TransferAdminRoleTokenAdminRegistryConfig] = TransferAdminRoleTokenAdminRegistry
+var _ deployment.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleTokenAdminRegistry
+
 type RegisterTokenAdminRegistryType int
 
 const (
@@ -27,7 +32,7 @@ const (
 
 type RegisterTokenAdminRegistryConfig struct {
 	ChainSelector           uint64
-	TokenPubKey             string
+	TokenPubKey             solana.PublicKey
 	TokenAdminRegistryAdmin string
 	RegisterType            RegisterTokenAdminRegistryType
 	Override                bool
@@ -43,7 +48,7 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) e
 		return errors.New("token admin registry admin is required")
 	}
 
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
@@ -75,7 +80,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 	chain := e.SolChains[cfg.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
 
@@ -286,12 +291,12 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 // ACCEPT TOKEN ADMIN REGISTRY
 type AcceptAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector uint64
-	TokenPubKey   string
+	TokenPubKey   solana.PublicKey
 	MCMSSolana    *MCMSConfigSolana
 }
 
 func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
@@ -342,7 +347,7 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 	chain := e.SolChains[cfg.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 
 	// verified
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()

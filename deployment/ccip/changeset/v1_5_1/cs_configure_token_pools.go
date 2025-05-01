@@ -307,7 +307,7 @@ func configureTokenPool(
 		tokenSymbol = poolUpdate.OverrideTokenSymbol
 	}
 	chain := chains[chainSelector]
-	tokenPool, _, tokenConfig, err := getTokenStateFromPool(ctx, tokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
+	tokenPool, _, tokenConfig, err := GetTokenStateFromPoolEVM(ctx, tokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
 	if err != nil {
 		return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
 	}
@@ -373,7 +373,7 @@ func configureTokenPool(
 		if remotePoolUpdate.OverrideTokenSymbol != "" {
 			tokenSymbol = remotePoolUpdate.OverrideTokenSymbol
 		}
-		remoteTokenPool, remoteTokenAddress, remoteTokenConfig, err := getTokenStateFromPool(ctx, tokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
+		remoteTokenPool, remoteTokenAddress, remoteTokenConfig, err := GetTokenStateFromPoolEVM(ctx, tokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
 		if err != nil {
 			return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
 		}
@@ -447,7 +447,7 @@ func configureTokenPool(
 }
 
 // getTokenStateFromPool fetches the token config from the registry given the pool address
-func getTokenStateFromPool(
+func GetTokenStateFromPoolEVM(
 	ctx context.Context,
 	symbol changeset.TokenSymbol,
 	poolType deployment.ContractType,

@@ -24,7 +24,7 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnersh
 	chain := e.Chains[chainSelector]
 	addrBook := e.ExistingAddresses
 
-	r, err := GetContractSetsV2(e.Logger, GetContractSetsRequestV2{
+	r, err := getContractSetsV2(e.Logger, getContractSetsRequestV2{
 		Chains: map[uint64]deployment.Chain{
 			req.ChainSelector: chain,
 		},
@@ -38,7 +38,7 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnersh
 	// Construct the configuration
 	cfg := changeset.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: map[uint64][]common.Address{
-			chainSelector: contracts.TransferableContracts(),
+			chainSelector: contracts.transferableContracts(),
 		},
 		MCMSConfig: proposalutils.TimelockConfig{MinDelay: minDelay},
 	}
