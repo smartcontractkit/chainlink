@@ -147,7 +147,7 @@ func (c DeployChainContractsConfig) Validate(e deployment.Environment) error {
 }
 
 func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
-	e.SolChains[c.ChainSelector].CloseBuffers(e.Logger)
+	e.SolChains[c.ChainSelector].CloseBuffers(e.Logger, 1000)
 	if true {
 		return deployment.ChangesetOutput{}, errors.New("deploying chain contracts is not supported in this environment")
 	}
