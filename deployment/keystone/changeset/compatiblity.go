@@ -19,15 +19,6 @@ type TopLevelConfigSource = internal.TopLevelConfigSource
 // GenerateOCR3Config generates an OCR3 config
 var GenerateOCR3Config = internal.GenerateOCR3Config
 
-// RegisterNodesRequest is a request to register nodes with the capabilities registry
-type RegisterNodesRequest = internal.RegisterNodesRequest
-
-// RegisterNodesResponse is a response to register nodes with the capabilities registry
-type RegisterNodesResponse = internal.RegisterNodesResponse
-
-// RegisterNodes registers nodes with the capabilities registry
-var RegisterNodes = internal.RegisterNodes
-
 // RegisteredCapability is a wrapper of a capability and its ID
 type RegisteredCapability = internal.RegisteredCapability
 
