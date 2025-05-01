@@ -333,7 +333,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				Receiver:               receiver,
 				MsgData:                []byte("this message will fail"),
 				ExtraArgs:              oversizedExtraArgs,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE, // Expect failure
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_UNTOUCHED, // Expect untouchable because of oversized ExtraArgs
 			},
 		)
 
