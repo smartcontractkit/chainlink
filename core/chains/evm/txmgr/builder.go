@@ -16,13 +16,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txm/clientwrappers"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txm/storage"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/clientwrappers"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/storage"
 )
 
 type latestAndFinalizedBlockHeadTracker interface {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -42,6 +41,7 @@ func TestUpdateNodes(t *testing.T) {
 		cfg := changeset.UpdateNodesRequest{
 			RegistryChainSel: te.RegistrySelector,
 			P2pToUpdates:     updates,
+			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		}
 
 		csOut, err := changeset.UpdateNodes(te.Env, &cfg)
@@ -78,6 +78,7 @@ func TestUpdateNodes(t *testing.T) {
 			RegistryChainSel: te.RegistrySelector,
 			P2pToUpdates:     updates,
 			MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		}
 
 		csOut, err := changeset.UpdateNodes(te.Env, &cfg)
@@ -85,24 +86,15 @@ func TestUpdateNodes(t *testing.T) {
 		require.Len(t, csOut.MCMSTimelockProposals, 1)
 		require.Nil(t, csOut.AddressBook)
 
-		// now apply the changeset such that the proposal is signed and execed
-		contracts := te.ContractSets()[te.RegistrySelector]
-		timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
-			te.RegistrySelector: {
-				Timelock:  contracts.Timelock,
-				CallProxy: contracts.CallProxy,
+		err = applyProposal(t, te, commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateNodes),
+			&changeset.UpdateNodesRequest{
+				RegistryChainSel: te.RegistrySelector,
+				P2pToUpdates:     updates,
+				MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+				RegistryRef:      te.CapabilityRegistryAddressRef(),
 			},
-		}
-		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset.UpdateNodes),
-				&changeset.UpdateNodesRequest{
-					RegistryChainSel: te.RegistrySelector,
-					P2pToUpdates:     updates,
-					MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
-				},
-			),
-		)
+		))
 		require.NoError(t, err)
 
 		validateUpdate(t, te, updates)
@@ -111,7 +103,7 @@ func TestUpdateNodes(t *testing.T) {
 
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates
 func validateUpdate(t *testing.T, te test.EnvWrapper, expected map[p2pkey.PeerID]changeset.NodeUpdate) {
-	registry := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry
+	registry := te.CapabilitiesRegistry()
 	wfP2PIDs := te.GetP2PIDs("wfDon").Bytes32()
 	nodes, err := registry.GetNodesByP2PIds(nil, wfP2PIDs)
 	require.NoError(t, err)

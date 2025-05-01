@@ -47,6 +47,7 @@ type McmsConfig struct {
 type Contracts struct {
 	ContractRegistry []ContractRegistry `yaml:"registries"`
 	DataFeeds        []ContractRegistry `yaml:"data-feeds"`
+	Keystone         []ContractRegistry `yaml:"keystone"`
 }
 
 type ContractRegistry struct {
@@ -136,6 +137,16 @@ func PrepareCRECLISettingsFile(workflowOwner common.Address, addressBook deploym
 			})
 		}
 		// it is okay if there's no data feeds cache address for a chain
+
+		forwaderAddr, forwaderErr := contracts.FindAddressesForChain(addressBook, chainSelector, string(keystone_changeset.KeystoneForwarder))
+		if forwaderErr == nil {
+			settings.Contracts.Keystone = append(settings.Contracts.Keystone, ContractRegistry{
+				Name:          keystone_changeset.KeystoneForwarder.String(),
+				Address:       forwaderAddr.Hex(),
+				ChainSelector: chainSelector,
+			})
+		}
+		// it is okay if there's no keystone forwarder address for a chain
 	}
 
 	settingsMarshalled, err := yaml.Marshal(settings)

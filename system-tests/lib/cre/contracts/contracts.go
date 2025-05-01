@@ -21,6 +21,7 @@ import (
 
 	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 
@@ -202,10 +203,20 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 			Nodes: donPeerIDs,
 		}
 
+		forwarderF := (len(workerNodes) - 1) / 3
+
+		if forwarderF == 0 {
+			if flags.HasFlag(donMetadata.Flags, types.OCR3Capability) {
+				return fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) = 0", len(workerNodes))
+			}
+			// for other capabilities, we can use 1 as F
+			forwarderF = 1
+		}
+
 		donName := donMetadata.Name + "-don"
 		donCapabilities = append(donCapabilities, keystone_changeset.DonCapabilities{
 			Name:         donName,
-			F:            1,
+			F:            libc.MustSafeUint8(forwarderF),
 			Nops:         []keystone_changeset.NOP{nop},
 			Capabilities: capabilities,
 		})
@@ -269,6 +280,56 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 	}
 
 	return nil
+}
+
+// values supplied by Alexandr Yepishev as the expected values for OCR3 config
+func DefaultOCR3Config(topology *types.Topology) (*keystone_changeset.OracleConfig, error) {
+	var transmissionSchedule []int
+
+	for _, metaDon := range topology.DonsMetadata {
+		if flags.HasFlag(metaDon.Flags, types.OCR3Capability) {
+			workerNodes, workerNodesErr := node.FindManyWithLabel(metaDon.NodesMetadata, &types.Label{
+				Key:   node.NodeTypeKey,
+				Value: types.WorkerNode,
+			}, node.EqualLabels)
+
+			if workerNodesErr != nil {
+				return nil, errors.Wrap(workerNodesErr, "failed to find worker nodes")
+			}
+
+			// this schedule makes sure that all worker nodes are transmitting OCR3 reports
+			transmissionSchedule = []int{len(workerNodes)}
+			break
+		}
+	}
+
+	if len(transmissionSchedule) == 0 {
+		return nil, errors.New("no OCR3-capable DON found in the topology")
+	}
+
+	oracleConfig := &keystone_changeset.OracleConfig{
+		DeltaProgressMillis:               5000,
+		DeltaResendMillis:                 5000,
+		DeltaInitialMillis:                5000,
+		DeltaRoundMillis:                  2000,
+		DeltaGraceMillis:                  500,
+		DeltaCertifiedCommitRequestMillis: 1000,
+		DeltaStageMillis:                  30000,
+		MaxRoundsPerEpoch:                 10,
+		TransmissionSchedule:              transmissionSchedule,
+		MaxDurationQueryMillis:            1000,
+		MaxDurationObservationMillis:      1000,
+		MaxDurationShouldAcceptMillis:     1000,
+		MaxDurationShouldTransmitMillis:   1000,
+		MaxFaultyOracles:                  1,
+		MaxQueryLengthBytes:               1000000,
+		MaxObservationLengthBytes:         1000000,
+		MaxReportLengthBytes:              1000000,
+		MaxBatchSize:                      1000,
+		UniqueReports:                     true,
+	}
+
+	return oracleConfig, nil
 }
 
 func FindAddressesForChain(addressBook deployment.AddressBook, chainSelector uint64, contractName string) (common.Address, error) {

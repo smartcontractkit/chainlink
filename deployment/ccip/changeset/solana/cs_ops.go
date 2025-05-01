@@ -18,6 +18,21 @@ import (
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
+// use these changesets to set the default code version
+var _ deployment.ChangeSet[SetDefaultCodeVersionConfig] = SetDefaultCodeVersion
+
+// use these changesets to update the SVM chain selector
+var _ deployment.ChangeSet[UpdateSvmChainSelectorConfig] = UpdateSvmChainSelector
+
+// use these changesets to update the enable manual execution after
+var _ deployment.ChangeSet[UpdateEnableManualExecutionAfterConfig] = UpdateEnableManualExecutionAfter
+
+// use these changesets to configure the CCIP version
+var _ deployment.ChangeSet[ConfigureCCIPVersionConfig] = ConfigureCCIPVersion
+
+// use these changesets to remove the offramp
+var _ deployment.ChangeSet[RemoveOffRampConfig] = RemoveOffRamp
+
 type SetDefaultCodeVersionConfig struct {
 	ChainSelector uint64
 	VersionEnum   uint8

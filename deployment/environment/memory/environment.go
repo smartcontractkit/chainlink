@@ -12,9 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/freeport"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -237,7 +238,11 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
 	nodes := NewNodes(t, logLevel, chains, solChains, aptosChains, config.Nodes, config.Bootstraps, config.RegistryConfig, config.CustomDBSetup)
 	var nodeIDs []string
-	for id := range nodes {
+	for id, node := range nodes {
+		require.NoError(t, node.App.Start(t.Context()))
+		t.Cleanup(func() {
+			require.NoError(t, node.App.Stop())
+		})
 		nodeIDs = append(nodeIDs, id)
 	}
 	return *deployment.NewEnvironment(

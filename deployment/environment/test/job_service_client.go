@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -148,7 +149,7 @@ func (j *JobServiceClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobR
 	if err != nil {
 		return nil, fmt.Errorf("failed to list proposals: %w", err)
 	}
-	proposalVersion := int32(len(proposals) + 1) //nolint:gosec // G115
+	proposalVersion := getProposalVersion(proposals)
 	pargs := &feeds.ProposeJobArgs{
 		FeedsManagerID: 1,
 		Spec:           in.Spec,
@@ -212,6 +213,16 @@ func (j *JobServiceClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobR
 		}
 	}
 	return p, nil
+}
+
+// getProposalVersion returns the next proposal version, based on all proposals made for this job and all of their
+// respective revisions.
+func getProposalVersion(proposals []*jobv1.Proposal) int32 {
+	totalRevisions := int64(0)
+	for _, p := range proposals {
+		totalRevisions += p.Revision
+	}
+	return int32(totalRevisions + 1) //nolint:gosec // G115
 }
 
 func (j *JobServiceClient) RevokeJob(ctx context.Context, in *jobv1.RevokeJobRequest, opts ...grpc.CallOption) (*jobv1.RevokeJobResponse, error) {

@@ -13,34 +13,30 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	internal "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 var _ deployment.ChangeSet[uint64] = DeployOCR3
 
+// Deprecated: use DeployOCR3V2 instead
 func DeployOCR3(env deployment.Environment, registryChainSel uint64) (deployment.ChangesetOutput, error) {
-	lggr := env.Logger
-	ab := deployment.NewMemoryAddressBook()
-	// ocr3 only deployed on registry chain
-	c, ok := env.Chains[registryChainSel]
-	if !ok {
-		return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
-	}
-	ocr3Resp, err := kslib.DeployOCR3(c, ab)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy OCR3Capability: %w", err)
-	}
-	lggr.Infof("Deployed %s chain selector %d addr %s", ocr3Resp.Tv.String(), c.Selector, ocr3Resp.Address.String())
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return DeployOCR3V2(env, &DeployRequestV2{
+		ChainSel: registryChainSel,
+	})
 }
 
 var _ deployment.ChangeSet[ConfigureOCR3Config] = ConfigureOCR3Contract
+
+func DeployOCR3V2(env deployment.Environment, req *DeployRequestV2) (deployment.ChangesetOutput, error) {
+	req.deployFn = internal.DeployOCR3
+	return deploy(env, req)
+}
 
 type ConfigureOCR3Config struct {
 	ChainSel             uint64
 	NodeIDs              []string
 	Address              *common.Address // address of the OCR3 contract to configure
-	OCR3Config           *kslib.OracleConfig
+	OCR3Config           *internal.OracleConfig
 	DryRun               bool
 	WriteGeneratedConfig io.Writer // if not nil, write the generated config to this writer as JSON [OCR2OracleConfig]
 
@@ -53,7 +49,7 @@ func (cfg ConfigureOCR3Config) UseMCMS() bool {
 }
 
 func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) (deployment.ChangesetOutput, error) {
-	resp, err := kslib.ConfigureOCR3ContractFromJD(&env, kslib.ConfigureOCR3Config{
+	resp, err := internal.ConfigureOCR3ContractFromJD(&env, internal.ConfigureOCR3Config{
 		ChainSel:   cfg.ChainSel,
 		NodeIDs:    cfg.NodeIDs,
 		OCR3Config: cfg.OCR3Config,
@@ -84,7 +80,7 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
-		r, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
+		r, err := getContractSetsV2(env.Logger, getContractSetsRequestV2{
 			Chains:      env.Chains,
 			AddressBook: env.ExistingAddresses,
 		})

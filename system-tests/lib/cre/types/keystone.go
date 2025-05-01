@@ -201,6 +201,7 @@ type ConfigureKeystoneInput struct {
 	ChainSelector uint64
 	Topology      *Topology
 	CldEnv        *deployment.Environment
+	OCR3Config    keystone_changeset.OracleConfig
 }
 
 func (c *ConfigureKeystoneInput) Validate() error {
