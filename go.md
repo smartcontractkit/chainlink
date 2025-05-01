@@ -43,6 +43,7 @@ flowchart LR
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
 	chainlink-evm --> chainlink-framework/metrics
+	chainlink-evm --> chainlink-protos/svr
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
@@ -71,7 +72,6 @@ flowchart LR
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
-	chainlink/v2 --> chainlink-protos/svr
 	chainlink/v2 --> chainlink-solana
 	chainlink/v2 --> chainlink-tron/relayer
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
@@ -178,6 +178,7 @@ flowchart LR
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
 	chainlink-evm --> chainlink-framework/metrics
+	chainlink-evm --> chainlink-protos/svr
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
@@ -245,7 +246,6 @@ flowchart LR
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
-	chainlink/v2 --> chainlink-protos/svr
 	chainlink/v2 --> chainlink-solana
 	chainlink/v2 --> chainlink-tron/relayer
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
