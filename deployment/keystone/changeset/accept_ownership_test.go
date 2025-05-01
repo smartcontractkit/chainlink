@@ -7,7 +7,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -18,7 +17,6 @@ import (
 )
 
 func TestAcceptAllOwnership(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-578")
 
 	t.Parallel()
 	lggr := logger.Test(t)

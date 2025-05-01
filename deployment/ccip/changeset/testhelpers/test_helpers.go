@@ -84,7 +84,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 
+	solbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
 )
 
@@ -545,9 +547,20 @@ func SendRequestSol(
 	if message.FeeToken.IsZero() {
 		message.FeeToken = s.WSOL
 	}
+	feeToken := message.FeeToken
 
 	e.Logger.Infof("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
 		cfg.SourceChain, cfg.DestChain, sender.PublicKey().String())
+
+	feeTokenInfo, err := client.GetAccountInfo(ctx, feeToken)
+	if err != nil {
+		return nil, err
+	}
+	var mint token.Mint
+	if err := solbinary.NewBinDecoder(feeTokenInfo.Bytes()).Decode(&mint); err != nil {
+		return nil, fmt.Errorf("the provided fee token is not a valid token: (err = %w)", err)
+	}
+	feeTokenProgramID := feeTokenInfo.Value.Owner
 
 	destinationChainStatePDA, err := solstate.FindDestChainStatePDA(destinationChainSelector, s.Router)
 	if err != nil {
@@ -558,8 +571,6 @@ func SendRequestSol(
 	if err != nil {
 		return nil, err
 	}
-
-	feeToken := message.FeeToken
 
 	linkFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(s.LinkToken, s.FeeQuoter)
 	if err != nil {
@@ -576,12 +587,12 @@ func SendRequestSol(
 		return nil, err
 	}
 
-	feeTokenUserATA, _, err := soltokens.FindAssociatedTokenAddress(solana.TokenProgramID, feeToken, sender.PublicKey())
+	feeTokenUserATA, _, err := soltokens.FindAssociatedTokenAddress(feeTokenProgramID, feeToken, sender.PublicKey())
 	if err != nil {
 		return nil, err
 	}
 
-	feeTokenReceiverATA, _, err := soltokens.FindAssociatedTokenAddress(solana.TokenProgramID, feeToken, billingSignerPDA)
+	feeTokenReceiverATA, _, err := soltokens.FindAssociatedTokenAddress(feeTokenProgramID, feeToken, billingSignerPDA)
 	if err != nil {
 		return nil, err
 	}
@@ -605,7 +616,7 @@ func SendRequestSol(
 		noncePDA,
 		sender.PublicKey(),
 		solana.SystemProgramID,
-		solana.TokenProgramID,
+		feeTokenProgramID,
 		feeToken,
 		feeTokenUserATA,
 		feeTokenReceiverATA,

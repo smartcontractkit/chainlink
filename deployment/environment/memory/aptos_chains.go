@@ -10,7 +10,8 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/crypto"
-	"github.com/hashicorp/consul/sdk/freeport"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
