@@ -26,7 +26,7 @@ func EmitWorkflowStatusChangedEvent(
 		Status: status,
 	}
 
-	return EmitProtoMessage(ctx, event)
+	return emitProtoMessage(ctx, event)
 }
 
 func EmitExecutionStartedEvent(
@@ -44,7 +44,7 @@ func EmitExecutionStartedEvent(
 		TriggerID: triggerID,
 	}
 
-	return EmitProtoMessage(ctx, event)
+	return emitProtoMessage(ctx, event)
 }
 
 func EmitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, status string, executionID string) error {
@@ -57,7 +57,7 @@ func EmitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 		Status:    status,
 	}
 
-	return EmitProtoMessage(ctx, event)
+	return emitProtoMessage(ctx, event)
 }
 
 func EmitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, executionID, capabilityID, stepRef string) error {
@@ -71,7 +71,7 @@ func EmitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 		StepRef:      stepRef,
 	}
 
-	return EmitProtoMessage(ctx, event)
+	return emitProtoMessage(ctx, event)
 }
 
 func EmitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, executionID, capabilityID, stepRef, status string) error {
@@ -86,17 +86,17 @@ func EmitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter
 		Status:       status,
 	}
 
-	return EmitProtoMessage(ctx, event)
+	return emitProtoMessage(ctx, event)
 }
 
 func EmitMeteringReport(ctx context.Context, cma custmsg.MessageEmitter, rpt *events.MeteringReport) error {
 	rpt.Metadata = buildWorkflowMetadata(cma.Labels())
 
-	return EmitProtoMessage(ctx, rpt)
+	return emitProtoMessage(ctx, rpt)
 }
 
 // EmitProtoMessage marshals a proto.Message and emits it via beholder.
-func EmitProtoMessage(ctx context.Context, msg proto.Message) error {
+func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	b, err := proto.Marshal(msg)
 	if err != nil {
 		return err
