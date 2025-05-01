@@ -1381,6 +1381,7 @@ func DeployTransferableTokenSolana(
 			},
 		),
 	)
+
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
