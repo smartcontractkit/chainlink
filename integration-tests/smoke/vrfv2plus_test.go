@@ -18,6 +18,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
@@ -35,9 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
-
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 )
 
 // vrfv2PlusCleanUpFn is a cleanup function that captures pointers from context, in which it's called and uses them to clean up the test environment
@@ -1898,7 +1898,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 }
 
 func TestVRFv2PlusNodeReorg(t *testing.T) {
-	t.Skip("Flakey", "https://smartcontract-it.atlassian.net/browse/DEVSVCS-829")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DEVSVCS-829")
 	t.Parallel()
 	var (
 		env                          *test_env.CLClusterTestEnv

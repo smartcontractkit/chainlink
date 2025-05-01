@@ -5,15 +5,17 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/andybalholm/brotli"
+	"github.com/google/uuid"
 
 	"github.com/stretchr/testify/require"
 )
 
 func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
-	filePath := t.TempDir() + "/test_binary.wasm"
+	filePath := filepath.Join(t.TempDir(), uuid.New().String()+".wasm")
 	cmd := exec.Command("go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
