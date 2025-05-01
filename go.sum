@@ -1076,8 +1076,8 @@ github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/smartcontractkit/chain-selectors v1.0.52 h1:TMy6hR0s8iZBbYpRFAXJo3HNF21egQ8xeKELQaQos8I=
 github.com/smartcontractkit/chain-selectors v1.0.52/go.mod h1:xsKM0aN3YGcQKTPRPDDtPx2l4mlTN1Djmg0VVXV40b8=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20250501112120-5ab3d000ab81 h1:eQAwO5jZAAS3WKXOb61giMPCO1nn8u0Zwqok259gK9I=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20250501112120-5ab3d000ab81/go.mod h1:ijGuVe7wWOrBpRc2GfVVoPb0utS+Ayfq/P5iX9FnEds=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20250501150122-023cbbe11507 h1:JvcS2i7myzPzJQ85LpD2ufXYyYRB5jhPBSkqcp+HKD0=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20250501150122-023cbbe11507/go.mod h1:yj4d1XS6lBOXM1sDMP1ULCbRJgOuBYf2V7VtQ6Qgev8=
 github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgBc2xpDKBco/Q4h4ydl6+UUU=
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20250430132510-be8d09930aaa h1:DVD+mR+QNmPCUz4ORd8yV59BnOApWoKowPKglZ0e2wk=
