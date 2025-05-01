@@ -14,7 +14,11 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/jonboulle/clockwork"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -144,6 +148,8 @@ type workflowRegistry struct {
 
 	workflowDonNotifier donNotifier
 
+	metrics *metrics
+
 	engineRegistry *EngineRegistry
 
 	retryInterval    time.Duration
@@ -192,6 +198,11 @@ func NewWorkflowRegistry(
 		return nil, errors.New("engine registry must be provided")
 	}
 
+	m, err := newMetrics()
+	if err != nil {
+		return nil, err
+	}
+
 	wr := &workflowRegistry{
 		lggr:                    lggr,
 		newContractReaderFn:     newContractReaderFn,
@@ -201,6 +212,7 @@ func NewWorkflowRegistry(
 		stopCh:                  make(services.StopChan),
 		handler:                 handler,
 		workflowDonNotifier:     workflowDonNotifier,
+		metrics:                 m,
 		engineRegistry:          engineRegistry,
 		retryInterval:           defaultRetryInterval,
 		maxRetryInterval:        defaultMaxRetryInterval,
@@ -379,7 +391,7 @@ func (w *workflowRegistry) readRegistryEventsLoop(ctx context.Context, eventType
 					w.lggr.Debug("readRegistryEventsLoop stopped during processing")
 					return
 				default:
-					err := w.handler.Handle(ctx, event.Event)
+					err := w.handleWithMetrics(ctx, event.Event)
 					if err != nil {
 						w.lggr.Errorw("failed to handle event", "err", err, "type", event.EventType)
 					}
@@ -387,6 +399,14 @@ func (w *workflowRegistry) readRegistryEventsLoop(ctx context.Context, eventType
 			}
 		}
 	}
+}
+
+func (w *workflowRegistry) handleWithMetrics(ctx context.Context, event Event) error {
+	start := time.Now()
+	err := w.handler.Handle(ctx, event)
+	totalDuration := time.Since(start)
+	w.metrics.recordHandleDuration(ctx, totalDuration, string(event.EventType), err == nil)
+	return err
 }
 
 // syncUsingEventStrategy syncs workflow registry contract state by watching for events on the contract.
@@ -408,7 +428,7 @@ func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capab
 			return
 
 		default:
-			err := w.handler.Handle(ctx, Event{
+			err := w.handleWithMetrics(ctx, Event{
 				Data: WorkflowRegisteredV1{
 					WorkflowID:    workflow.WorkflowID,
 					WorkflowOwner: workflow.Owner,
@@ -676,7 +696,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 					reconcileReport.NumEventsByType[string(event.EventType)]++
 
 					if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
-						err := w.handler.Handle(ctx, event.Event)
+						err := w.handleWithMetrics(ctx, event.Event)
 						if err != nil {
 							event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
 
@@ -698,7 +718,6 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 			w.lggr.Debugw("generated events to reconcile", "num", len(events), "report", reconcileReport)
 		}
 	}
-
 }
 
 // getTicker returns the ticker that the workflowRegistry will use to poll for events.  If the ticker
@@ -901,4 +920,29 @@ func toWorkflowRegistryEventResponse(
 	}
 
 	return resp, nil
+}
+
+type metrics struct {
+	handleDuration metric.Int64Histogram
+}
+
+func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, event string, success bool) {
+	// Beholder doesn't support non-string attributes
+	successStr := "false"
+	if success {
+		successStr = "true"
+	}
+	m.handleDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
+		attribute.String("success", successStr),
+		attribute.String("eventType", event),
+	))
+}
+
+func newMetrics() (*metrics, error) {
+	h, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_handler_duration_ms")
+	if err != nil {
+		return nil, err
+	}
+
+	return &metrics{handleDuration: h}, nil
 }

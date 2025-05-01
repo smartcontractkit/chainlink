@@ -3,6 +3,7 @@ package ccip
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/maps"
@@ -28,6 +29,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+// duplicated from messagingtest
+func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, chainSelectors ...uint64) {
+	time.Sleep(30 * time.Second)
+	replayBlocks := make(map[uint64]uint64)
+	for _, selector := range chainSelectors {
+		replayBlocks[selector] = 1
+	}
+	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
+}
 
 func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -254,13 +265,11 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
-		t,
 		lggr,
 		e,
 		sourceChain,
 		destChain,
 		ownerSourceChain,
-		e.ExistingAddresses,
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
@@ -391,13 +400,11 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 
 	// Deploy tokens and pool by CCIP Owner
 	destToken, _, srcToken, err := testhelpers.DeployTransferableTokenSolana(
-		t,
 		lggr,
 		e,
 		destChain,
 		sourceChain,
 		ownerDestChain,
-		e.ExistingAddresses,
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
@@ -515,6 +522,9 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
 		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
+
+	// HACK: we need to replay blocks only after the CCIP plugin has already properly booted
+	sleepAndReplay(t, tenv, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,

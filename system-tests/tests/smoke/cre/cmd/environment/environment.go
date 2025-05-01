@@ -18,7 +18,13 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	chainreadercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/chainreader"
+	chainwritercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/chainwriter"
+	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
+	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
+	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
+	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
+	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/chainreader"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -74,6 +80,9 @@ var startCmd = &cobra.Command{
 	Short: "Start the environment",
 	Long:  `Start the local CRE environment with all supported capabilities`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// remove all containers before starting the environment, just in case
+		_ = framework.RemoveTestContainers()
+
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
@@ -160,14 +169,16 @@ var startCmd = &cobra.Command{
 		homeChainOut := output.BlockchainOutput[0]
 
 		sErr := func() error {
+			rpcs := map[uint64]string{}
+			for _, bcOut := range output.BlockchainOutput {
+				rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
+			}
 			creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
 				homeChainOut.SethClient.MustGetRootKeyAddress(),
 				output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				output.DonTopology.WorkflowDonID,
 				homeChainOut.ChainSelector,
-				map[uint64]string{
-					homeChainOut.ChainSelector: homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				},
+				rpcs,
 			)
 
 			if settingsErr != nil {
@@ -347,8 +358,10 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 
 	// add support for more capabilities if needed
 	capabilityFactoryFns := []cretypes.DONCapabilityWithConfigFactoryFn{
-		crecontracts.DefaultCapabilityFactoryFn,
-		crecontracts.WebAPICapabilityFactoryFn,
+		webapicap.WebAPICapabilityFactoryFn,
+		computecap.ComputeCapabilityFactoryFn,
+		consensuscap.OCR3CapabilityFactoryFn,
+		croncap.CronCapabilityFactoryFn,
 	}
 
 	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.InfraType)
@@ -375,8 +388,8 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		if chainErr != nil {
 			return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 		}
-		capabilityFactoryFns = append(capabilityFactoryFns, crecontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
-		capabilityFactoryFns = append(capabilityFactoryFns, crecontracts.ChainReaderCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+		capabilityFactoryFns = append(capabilityFactoryFns, chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
+		capabilityFactoryFns = append(capabilityFactoryFns, chainreadercap.ChainReaderCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
 
 		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, chainreader.ChainReaderJobSpecFactoryFn(
 			chainIDInt,
@@ -395,6 +408,9 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		InfraInput:                           *in.Infra,
 		CustomBinariesPaths:                  capabilitiesBinaryPaths,
 		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
+		ConfigFactoryFunctions: []cretypes.ConfigFactoryFn{
+			gatewayconfig.GenerateConfig,
+		},
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(context.Background(), testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)

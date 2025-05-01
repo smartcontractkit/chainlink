@@ -11,10 +11,11 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	billing "github.com/smartcontractkit/chainlink-common/pkg/billing/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -488,11 +489,10 @@ func (m *mc) UnregisterFromWorkflow(ctx context.Context, request capabilities.Un
 
 func TestEngine_WriteStepHasZeroStepTimeout(t *testing.T) {
 	cmd := "core/services/workflows/test/zerotimeout/cmd"
-	binary := "test/zerotimeout/cmd/testmodule.wasm"
 
 	ctx := t.Context()
 	log := logger.TestLogger(t)
-	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
+	binaryB := wasmtest.CreateTestBinary(cmd, true, t)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,
@@ -1827,7 +1827,6 @@ func basicTestTrigger(t *testing.T) *mockTriggerCapability {
 
 func TestEngine_WithCustomComputeStep(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/cmd"
-	binary := "test/wasm/cmd/testmodule.wasm"
 
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
@@ -1867,7 +1866,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	trigger := basicTestTrigger(t)
 	require.NoError(t, reg.Add(ctx, trigger))
 
-	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
+	binaryB := wasmtest.CreateTestBinary(cmd, true, t)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,
@@ -1903,7 +1902,6 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 
 func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	cmd := "core/services/workflows/test/break/cmd"
-	binary := "test/wasm/break/testmodule.wasm"
 
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
@@ -1942,7 +1940,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	trigger := basicTestTrigger(t)
 	require.NoError(t, reg.Add(ctx, trigger))
 
-	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
+	binaryB := wasmtest.CreateTestBinary(cmd, true, t)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,

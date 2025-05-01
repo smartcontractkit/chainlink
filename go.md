@@ -150,6 +150,8 @@ flowchart LR
 	click ccip-owner-contracts href "https://github.com/smartcontractkit/ccip-owner-contracts"
 	chain-selectors
 	click chain-selectors href "https://github.com/smartcontractkit/chain-selectors"
+	chainlink-aptos --> chainlink-common
+	click chainlink-aptos href "https://github.com/smartcontractkit/chainlink-aptos"
 	chainlink-automation --> chainlink-common
 	click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
 	chainlink-ccip --> chain-selectors
@@ -165,6 +167,7 @@ flowchart LR
 	click chainlink-common/pkg/monitoring href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
+	chainlink-deployments-framework --> ccip-owner-contracts
 	chainlink-deployments-framework --> chainlink-protos/job-distributor
 	chainlink-deployments-framework --> mcms
 	click chainlink-deployments-framework href "https://github.com/smartcontractkit/chainlink-deployments-framework"
@@ -217,7 +220,6 @@ flowchart LR
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
 	chainlink/core/scripts --> chainlink/deployment
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
-	chainlink/deployment --> ccip-owner-contracts
 	chainlink/deployment --> chainlink-deployments-framework
 	chainlink/deployment --> chainlink-testing-framework/lib
 	chainlink/deployment --> chainlink/v2
@@ -231,6 +233,7 @@ flowchart LR
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/lib --> chainlink/deployment
 	click chainlink/system-tests/lib href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests --> chainlink-testing-framework/havoc
 	chainlink/system-tests/tests --> chainlink-testing-framework/wasp
 	chainlink/system-tests/tests --> chainlink/system-tests/lib
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
@@ -247,6 +250,7 @@ flowchart LR
 	click grpc-proxy href "https://github.com/smartcontractkit/grpc-proxy"
 	libocr
 	click libocr href "https://github.com/smartcontractkit/libocr"
+	mcms --> chainlink-aptos
 	mcms --> chainlink-ccip/chains/solana
 	mcms --> chainlink-testing-framework/framework
 	click mcms href "https://github.com/smartcontractkit/mcms"

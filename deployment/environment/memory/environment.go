@@ -237,7 +237,11 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
 	nodes := NewNodes(t, logLevel, chains, solChains, aptosChains, config.Nodes, config.Bootstraps, config.RegistryConfig, config.CustomDBSetup)
 	var nodeIDs []string
-	for id := range nodes {
+	for id, node := range nodes {
+		require.NoError(t, node.App.Start(t.Context()))
+		t.Cleanup(func() {
+			require.NoError(t, node.App.Stop())
+		})
 		nodeIDs = append(nodeIDs, id)
 	}
 	return *deployment.NewEnvironment(
