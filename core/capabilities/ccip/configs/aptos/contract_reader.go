@@ -26,7 +26,6 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 					},
 				},
 			},
-
 			consts.ContractNameRMNProxy: {
 				Name: "rmn_remote",
 				Functions: map[string]*chainreader.ChainReaderFunction{
@@ -35,7 +34,6 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 					},
 				},
 			},
-
 			consts.ContractNameFeeQuoter: {
 				Name: "fee_quoter",
 				Functions: map[string]*chainreader.ChainReaderFunction{
@@ -138,11 +136,6 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 					},
 				},
 				Events: map[string]*chainreader.ChainReaderEvent{
-					consts.EventNameCCIPMessageSent: {
-						EventHandleStructName: "OnRampState",
-						EventHandleFieldName:  "ccip_message_sent_events",
-						EventAccountAddress:   "onramp::get_state_address",
-					},
 					consts.EventNameExecutionStateChanged: {
 						EventHandleStructName: "OffRampState",
 						EventHandleFieldName:  "execution_state_changed_events",
@@ -238,6 +231,45 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 								},
 							},
 						},
+					},
+				},
+			},
+			consts.ContractNameOnRamp: {
+				Name: "onramp",
+				Functions: map[string]*chainreader.ChainReaderFunction{
+					consts.MethodNameOnRampGetDynamicConfig: {
+						Name: "get_dynamic_config",
+					},
+					consts.MethodNameOnRampGetStaticConfig: {
+						Name: "get_static_config",
+					},
+					consts.MethodNameOnRampGetDestChainConfig: {
+						Name: "get_dest_chain_config",
+						Params: []chainreader.AptosFunctionParam{
+							{
+								Name:     "destChainSelector",
+								Type:     "u64",
+								Required: true,
+							},
+						},
+						ResultTupleToStruct: []string{"sequenceNumber", "allowListEnabled", "router"},
+					},
+					consts.MethodNameGetExpectedNextSequenceNumber: {
+						Name: "get_expected_next_sequence_number",
+						Params: []chainreader.AptosFunctionParam{
+							{
+								Name:     "destChainSelector",
+								Type:     "u64",
+								Required: true,
+							},
+						},
+					},
+				},
+				Events: map[string]*chainreader.ChainReaderEvent{
+					consts.EventNameCCIPMessageSent: {
+						EventHandleStructName: "OnRampState",
+						EventHandleFieldName:  "ccip_message_sent_events",
+						EventAccountAddress:   "onramp::get_state_address",
 					},
 				},
 			},
