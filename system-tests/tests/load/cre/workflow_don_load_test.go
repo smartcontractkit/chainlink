@@ -60,7 +60,18 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 )
 
+type Chaos struct {
+	Mode                        string   `toml:"mode"`
+	Latency                     string   `toml:"latency"`
+	Jitter                      string   `toml:"jitter"`
+	DashboardUIDs               []string `toml:"dashboard_uids"`
+	WaitBeforeStart             string   `toml:"wait_before_start"`
+	ExperimentFullInterval      string   `toml:"experiment_full_interval"`
+	ExperimentInjectionInterval string   `toml:"experiment_injection_interval"`
+}
+
 type TestConfigLoadTest struct {
+	Duration                      string                               `toml:"duration"`
 	Blockchains                   []*blockchain.Input                  `toml:"blockchains" validate:"required"`
 	NodeSets                      []*ns.Input                          `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                            `toml:"jd" validate:"required"`
@@ -69,6 +80,7 @@ type TestConfigLoadTest struct {
 	WorkflowDONLoad               *WorkflowLoad                        `toml:"workflow_load"`
 	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
 	BinariesConfig                *BinariesConfig                      `toml:"binaries_config"`
+	Chaos                         *Chaos                               `toml:"chaos"`
 }
 
 type BinariesConfig struct {
@@ -391,7 +403,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	_, err = wasp.NewProfile().
+	g, err := wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
 			LoadType:    wasp.RPS,
@@ -403,8 +415,11 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
 		})).
-		Run(true)
+		Run(false)
 	require.NoError(t, err, "wasp load test did not finish successfully")
+
+	runChaosSuite(t, in)
+	g.Wait()
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and

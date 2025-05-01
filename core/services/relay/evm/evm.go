@@ -998,7 +998,7 @@ func (r *Relayer) NewContractReader(ctx context.Context, chainReaderConfig []byt
 	return NewChainReaderService(ctx, r.lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *cfg)
 }
 
-func (r *Relayer) AsEVMRelayer() (commontypes.EVMRelayer, error) {
+func (r *Relayer) EVM() (commontypes.EVMService, error) {
 	return r, nil
 }
 

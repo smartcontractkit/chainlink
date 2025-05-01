@@ -41,7 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	libdevenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/devenv"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
-	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
+	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	cresecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -73,11 +73,13 @@ type SetupInput struct {
 	ExtraAllowedPorts                    []int
 	CapabilitiesAwareNodeSets            []*keystonetypes.CapabilitiesAwareNodeSet
 	CapabilitiesContractFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
+	ConfigFactoryFunctions               []cretypes.ConfigFactoryFn
 	JobSpecFactoryFunctions              []cretypes.JobSpecFactoryFn
 	BlockchainsInput                     []*blockchain.Input
 	JdInput                              jd.Input
 	InfraInput                           libtypes.InfraInput
 	CustomBinariesPaths                  map[cretypes.CapabilityFlag]string
+	OCR3Config                           *keystone_changeset.OracleConfig
 }
 
 func SetupTestEnvironment(
@@ -160,7 +162,7 @@ func SetupTestEnvironment(
 	}
 
 	// Deploy all Keystone contracts
-	ocr3Output, ocr3Err := keystone_changeset.DeployOCR3(*allChainsCLDEnvironment, homeChainOutput.ChainSelector)
+	ocr3Output, ocr3Err := keystone_changeset.DeployOCR3(*allChainsCLDEnvironment, homeChainOutput.ChainSelector) // //nolint:staticcheck // will migrate in DX-641
 	if ocr3Err != nil {
 		return nil, pkgerrors.Wrap(ocr3Err, "failed to deploy OCR3 contract")
 	}
@@ -300,16 +302,17 @@ func SetupTestEnvironment(
 
 		// generate configs only if they are not provided
 		if configsFound == 0 {
-			config, configErr := keystoneporconfig.GenerateConfigs(
-				keystonetypes.GeneratePoRConfigsInput{
+			config, configErr := creconfig.Generate(
+				keystonetypes.GenerateConfigsInput{
 					DonMetadata:            donMetadata,
 					BlockchainOutput:       bcOuts,
 					Flags:                  donMetadata.Flags,
 					PeeringData:            peeringData,
 					AddressBook:            allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-					GatewayConnectorOutput: topology.GatewayConnectorOutput,
 					HomeChainSelector:      topology.HomeChainSelector,
+					GatewayConnectorOutput: topology.GatewayConnectorOutput,
 				},
+				input.ConfigFactoryFunctions,
 			)
 			if configErr != nil {
 				return nil, pkgerrors.Wrap(configErr, "failed to generate config")
@@ -521,6 +524,16 @@ func SetupTestEnvironment(
 		ChainSelector: homeChainOutput.ChainSelector,
 		CldEnv:        fullCldOutput.Environment,
 		Topology:      topology,
+	}
+
+	if input.OCR3Config != nil {
+		configureKeystoneInput.OCR3Config = *input.OCR3Config
+	} else {
+		ocr3Config, ocr3ConfigErr := libcontracts.DefaultOCR3Config(topology)
+		if ocr3ConfigErr != nil {
+			return nil, pkgerrors.Wrap(ocr3ConfigErr, "failed to generate default OCR3 config")
+		}
+		configureKeystoneInput.OCR3Config = *ocr3Config
 	}
 
 	keystoneErr := libcontracts.ConfigureKeystone(configureKeystoneInput, input.CapabilitiesContractFactoryFunctions)

@@ -47,6 +47,8 @@ func setupFiredrillTestEnv(t *testing.T) deployment.Environment {
 func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	t.Parallel()
 	env := setupFiredrillTestEnv(t)
+	chainSelector := env.AllChainSelectors()[0]
+	chainSelector2 := env.AllChainSelectors()[1]
 	// Add the timelock as a signer to check state changes
 	for _, tc := range []struct {
 		name       string
@@ -59,6 +61,7 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 					commonchangeset.Configure(
 						deployment.CreateLegacyChangeSet(commonchangeset.MCMSSignFireDrillChangeset),
 						commonchangeset.FireDrillConfig{
+							Selectors: []uint64{chainSelector, chainSelector2},
 							TimelockCfg: proposalutils.TimelockConfig{
 								MCMSAction: mcmsTypes.TimelockActionBypass,
 							},

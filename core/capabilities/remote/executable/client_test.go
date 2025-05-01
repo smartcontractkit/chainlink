@@ -33,7 +33,7 @@ const (
 )
 
 func Test_Client_DonTopologies(t *testing.T) {
-	t.Skip("Flaking again: https://smartcontract-it.atlassian.net/browse/CAPPL-322")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-322")
 
 	ctx := testutils.Context(t)
 

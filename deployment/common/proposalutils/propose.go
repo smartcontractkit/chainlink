@@ -14,11 +14,13 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	ccipTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 const (
@@ -77,7 +79,7 @@ func (tc *TimelockConfig) MCMBasedOnAction(s state.MCMSWithTimelockState) (*geth
 	}
 }
 
-func (tc *TimelockConfig) Validate(chain deployment.Chain, s state.MCMSWithTimelockState) error {
+func (tc *TimelockConfig) validateCommon() error {
 	// if MCMSAction is not set, default to timelock.Schedule
 	if tc.MCMSAction == "" {
 		tc.MCMSAction = types.TimelockActionSchedule
@@ -86,6 +88,14 @@ func (tc *TimelockConfig) Validate(chain deployment.Chain, s state.MCMSWithTimel
 		tc.MCMSAction != types.TimelockActionCancel &&
 		tc.MCMSAction != types.TimelockActionBypass {
 		return fmt.Errorf("invalid MCMS type %s", tc.MCMSAction)
+	}
+	return nil
+}
+
+func (tc *TimelockConfig) Validate(chain deployment.Chain, s state.MCMSWithTimelockState) error {
+	err := tc.validateCommon()
+	if err != nil {
+		return err
 	}
 	if s.Timelock == nil {
 		return fmt.Errorf("missing timelock on %s", chain)
@@ -105,6 +115,53 @@ func (tc *TimelockConfig) Validate(chain deployment.Chain, s state.MCMSWithTimel
 	if s.CallProxy == nil {
 		return fmt.Errorf("missing callProxy on %s", chain)
 	}
+	return nil
+}
+
+func (tc *TimelockConfig) ValidateSolana(e deployment.Environment, chainSelector uint64) error {
+	err := tc.validateCommon()
+	if err != nil {
+		return err
+	}
+
+	validateContract := func(contractType deployment.ContractType) error {
+		timelockID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, contractType) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
+		if err != nil {
+			return fmt.Errorf("%s not present on the chain %w", contractType, err)
+		}
+		// Make sure addresses are correctly parsed. Format is: "programID.PDASeed"
+		_, _, err = mcmsSolana.ParseContractAddress(timelockID)
+		if err != nil {
+			return fmt.Errorf("failed to parse timelock address: %w", err)
+		}
+		return nil
+	}
+
+	err = validateContract(ccipTypes.RBACTimelock)
+	if err != nil {
+		return err
+	}
+
+	switch tc.MCMSAction {
+	case types.TimelockActionSchedule:
+		err = validateContract(ccipTypes.ProposerManyChainMultisig)
+		if err != nil {
+			return err
+		}
+	case types.TimelockActionCancel:
+		err = validateContract(ccipTypes.CancellerManyChainMultisig)
+		if err != nil {
+			return err
+		}
+	case types.TimelockActionBypass:
+		err = validateContract(ccipTypes.BypasserManyChainMultisig)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("invalid MCMS action %s", tc.MCMSAction)
+	}
+
 	return nil
 }
 
@@ -206,7 +263,7 @@ func BuildProposalFromBatchesV2(
 	for chainID, tl := range timelockAddressPerChain {
 		tlsPerChainID[types.ChainSelector(chainID)] = tl
 	}
-	mcmsMd, err := buildProposalMetadataV2(e, chains.ToSlice(), inspectorPerChain, mcmsAddressPerChain)
+	mcmsMd, err := buildProposalMetadataV2(e, chains.ToSlice(), inspectorPerChain, mcmsAddressPerChain, mcmsCfg.MCMSAction)
 	if err != nil {
 		return nil, err
 	}
@@ -238,6 +295,7 @@ func buildProposalMetadataV2(
 	chainSelectors []uint64,
 	inspectorPerChain map[uint64]mcmssdk.Inspector,
 	mcmsPerChain map[uint64]string, // can be proposer, canceller or bypasser
+	mcmsAction types.TimelockAction,
 ) (map[types.ChainSelector]types.ChainMetadata, error) {
 	metaDataPerChain := make(map[types.ChainSelector]types.ChainMetadata)
 	for _, selector := range chainSelectors {
@@ -269,10 +327,23 @@ func buildProposalMetadataV2(
 			if err != nil {
 				return nil, fmt.Errorf("failed to load solana state: %w", err)
 			}
+
+			var instanceSeed mcmssolanasdk.PDASeed
+			switch mcmsAction {
+			case types.TimelockActionSchedule:
+				instanceSeed = mcmssolanasdk.PDASeed(solanaState.ProposerMcmSeed)
+			case types.TimelockActionCancel:
+				instanceSeed = mcmssolanasdk.PDASeed(solanaState.CancellerMcmSeed)
+			case types.TimelockActionBypass:
+				instanceSeed = mcmssolanasdk.PDASeed(solanaState.BypasserMcmSeed)
+			default:
+				return nil, fmt.Errorf("invalid MCMS action %s", mcmsAction)
+			}
+
 			metaDataPerChain[chainID], err = mcmssolanasdk.NewChainMetadata(
 				opCount,
 				solanaState.McmProgram,
-				mcmssolanasdk.PDASeed(solanaState.ProposerMcmSeed),
+				instanceSeed,
 				solanaState.ProposerAccessControllerAccount,
 				solanaState.CancellerAccessControllerAccount,
 				solanaState.BypasserAccessControllerAccount)

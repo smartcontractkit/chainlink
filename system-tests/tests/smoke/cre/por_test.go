@@ -16,13 +16,16 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -40,14 +43,23 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	chainwritercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/chainwriter"
+	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
+	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
+	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
+	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
+	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
 	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
+	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
@@ -56,7 +68,7 @@ import (
 )
 
 var (
-	SinglePoRDonCapabilitiesFlags = []string{"ocr3", "cron", "custom-compute", "write-evm"}
+	SinglePoRDonCapabilitiesFlags = []string{keystonetypes.CronCapability, keystonetypes.OCR3Capability, keystonetypes.CustomComputeCapability, keystonetypes.WriteEVMCapability}
 )
 
 type CustomAnvilMiner struct {
@@ -326,7 +338,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 			return errors.Wrapf(workflowRegistryErr, "failed to find workflow registry address for chain %d", input.chainSelector)
 		}
 
-		err := libcontracts.RegisterWorkflow(
+		err := creworkflow.RegisterWithContract(
 			input.sethClient,
 			workflowRegistryAddress,
 			input.workflowDonID,
@@ -443,7 +455,7 @@ type porSetupOutput struct {
 	chainSelectorToBlockchainOutput map[uint64]*blockchain.Output
 	donTopology                     *keystonetypes.DonTopology
 	nodeOutput                      []*keystonetypes.WrappedNodeOutput
-	chainSelectorToFeedID           map[uint64]string
+	chainSelectorToWorkflowConfig   map[uint64]WorkflowConfig
 }
 
 func setupPoRTestEnvironment(
@@ -493,6 +505,9 @@ func setupPoRTestEnvironment(
 			cregateway.GatewayJobSpecFactoryFn(extraAllowedPorts, []string{}, []string{"0.0.0.0/0"}),
 			crecompute.ComputeJobSpecFactoryFn,
 		},
+		ConfigFactoryFunctions: []keystonetypes.ConfigFactoryFn{
+			gatewayconfig.GenerateConfig,
+		},
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
@@ -513,12 +528,12 @@ func setupPoRTestEnvironment(
 		}
 	}
 
-	chainSelectorToFeedID := make(map[uint64]string)
+	chainSelectorToWorkflowConfig := make(map[uint64]WorkflowConfig)
 	chainSelectorToSethClient := make(map[uint64]*seth.Client)
 	chainSelectorToBlockchainOutput := make(map[uint64]*blockchain.Output)
 
 	for idx, bo := range universalSetupOutput.BlockchainOutput {
-		chainSelectorToFeedID[bo.ChainSelector] = in.WorkflowConfigs[idx].FeedID
+		chainSelectorToWorkflowConfig[bo.ChainSelector] = in.WorkflowConfigs[idx]
 		chainSelectorToSethClient[bo.ChainSelector] = bo.SethClient
 		chainSelectorToBlockchainOutput[bo.ChainSelector] = bo.BlockchainOutput
 
@@ -541,6 +556,11 @@ func setupPoRTestEnvironment(
 			creCLIAbsPath, pathErr = filepath.Abs(in.DependenciesConfig.CRECLIBinaryPath)
 			require.NoError(t, pathErr, "failed to get absolute path for CRE CLI")
 
+			rpcs := map[uint64]string{}
+			for _, bcOut := range universalSetupOutput.BlockchainOutput {
+				rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
+			}
+
 			// create CRE CLI settings file
 			var settingsErr error
 			creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(
@@ -548,10 +568,7 @@ func setupPoRTestEnvironment(
 				universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				universalSetupOutput.DonTopology.WorkflowDonID,
 				homeChainOutput.ChainSelector,
-				map[uint64]string{
-					homeChainOutput.ChainSelector: homeChainOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-					bo.ChainSelector:              bo.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				},
+				rpcs,
 			)
 			require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 		}
@@ -570,6 +587,11 @@ func setupPoRTestEnvironment(
 		}
 		dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
 		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
+
+		testLogger.Info().Msg("Waiting for RegistrySyncer health checks...")
+		syncerErr := waitForWorkflowRegistrySyncer(universalSetupOutput.NodeOutput, universalSetupOutput.DonTopology)
+		require.NoError(t, syncerErr, "failed to wait for workflow registry syncer")
+		testLogger.Info().Msg("Proceeding to register PoR workflow...")
 
 		registerInput := registerPoRWorkflowInput{
 			WorkflowConfig:     in.WorkflowConfigs[idx],
@@ -600,7 +622,7 @@ func setupPoRTestEnvironment(
 		donTopology:                     universalSetupOutput.DonTopology,
 		nodeOutput:                      universalSetupOutput.NodeOutput,
 		addressBook:                     universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		chainSelectorToFeedID:           chainSelectorToFeedID,
+		chainSelectorToWorkflowConfig:   chainSelectorToWorkflowConfig,
 	}
 }
 
@@ -649,9 +671,12 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 		priceProvider,
 		mustSetCapabilitiesFn,
 		[]keystonetypes.DONCapabilityWithConfigFactoryFn{
-			libcontracts.DefaultCapabilityFactoryFn,
-			libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainID))),
-			libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(targetChainID))),
+			webapicap.WebAPICapabilityFactoryFn,
+			computecap.ComputeCapabilityFactoryFn,
+			consensuscap.OCR3CapabilityFactoryFn,
+			croncap.CronCapabilityFactoryFn,
+			chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainID))),
+			chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(targetChainID))),
 		},
 	)
 
@@ -660,7 +685,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 		debugTest(t, testLogger, setupOutput, in)
 	})
 
-	waitForFeedUpdate(t, testLogger, priceProvider, setupOutput, in.WorkflowConfigs[0].FeedID, 5*time.Minute)
+	waitForFeedUpdate(t, testLogger, priceProvider, setupOutput, 5*time.Minute)
 }
 
 // config file to use: environment-gateway-don.toml
@@ -699,14 +724,20 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	chainIDInt, chainErr := strconv.Atoi(firstBlockchain.ChainID)
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
-	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
+	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{
+		webapicap.WebAPICapabilityFactoryFn,
+		computecap.ComputeCapabilityFactoryFn,
+		consensuscap.OCR3CapabilityFactoryFn,
+		croncap.CronCapabilityFactoryFn,
+		chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
+	})
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		debugTest(t, testLogger, setupOutput, in)
 	})
 
-	waitForFeedUpdate(t, testLogger, priceProvider, setupOutput, in.WorkflowConfigs[0].FeedID, 5*time.Minute)
+	waitForFeedUpdate(t, testLogger, priceProvider, setupOutput, 5*time.Minute)
 }
 
 // config file to use: environment-capabilities-don.toml
@@ -748,19 +779,25 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger, []string{in.WorkflowConfigs[0].FeedID})
-	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
+	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{
+		webapicap.WebAPICapabilityFactoryFn,
+		computecap.ComputeCapabilityFactoryFn,
+		consensuscap.OCR3CapabilityFactoryFn,
+		croncap.CronCapabilityFactoryFn,
+		chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
+	})
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		debugTest(t, testLogger, setupOutput, in)
 	})
 
-	waitForFeedUpdate(t, testLogger, priceProvider, setupOutput, in.WorkflowConfigs[0].FeedID, 5*time.Minute)
+	waitForFeedUpdate(t, testLogger, priceProvider, setupOutput, 5*time.Minute)
 }
 
-func waitForFeedUpdate(t *testing.T, testLogger zerolog.Logger, priceProvider PriceProvider, setupOutput *porSetupOutput, feedID string, timeout time.Duration) {
-	for chainSelector, feedID := range setupOutput.chainSelectorToFeedID {
-		testLogger.Info().Msgf("Waiting for feed %s to update...", feedID)
+func waitForFeedUpdate(t *testing.T, testLogger zerolog.Logger, priceProvider PriceProvider, setupOutput *porSetupOutput, timeout time.Duration) {
+	for chainSelector, workflowConfig := range setupOutput.chainSelectorToWorkflowConfig {
+		testLogger.Info().Msgf("Waiting for feed %s to update...", workflowConfig.FeedID)
 		timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
 
 		dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, df_changeset.DataFeedsCache.String())
@@ -772,29 +809,29 @@ func waitForFeedUpdate(t *testing.T, testLogger zerolog.Logger, priceProvider Pr
 		startTime := time.Now()
 		assert.Eventually(t, func() bool {
 			elapsed := time.Since(startTime).Round(time.Second)
-			price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.chainSelectorToSethClient[chainSelector].NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
+			price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.chainSelectorToSethClient[chainSelector].NewCallOpts(), [16]byte(common.Hex2Bytes(workflowConfig.FeedID)))
 			require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
 
 			// if there are no more prices to be found, we can stop waiting
-			return !setupOutput.priceProvider.NextPrice(feedID, price, elapsed)
-		}, timeout, 10*time.Second, "feed %s did not update, timeout after: %s", feedID, timeout)
+			return !setupOutput.priceProvider.NextPrice(workflowConfig.FeedID, price, elapsed)
+		}, timeout, 10*time.Second, "feed %s did not update, timeout after: %s", workflowConfig.FeedID, timeout)
 
-		require.EqualValues(t, priceProvider.ExpectedPrices(feedID), priceProvider.ActualPrices(feedID), "prices do not match")
-		testLogger.Info().Msgf("All %d prices were found in the feed %s", len(priceProvider.ExpectedPrices(feedID)), feedID)
+		require.EqualValues(t, priceProvider.ExpectedPrices(workflowConfig.FeedID), priceProvider.ActualPrices(workflowConfig.FeedID), "prices do not match")
+		testLogger.Info().Msgf("All %d prices were found in the feed %s", len(priceProvider.ExpectedPrices(workflowConfig.FeedID)), workflowConfig.FeedID)
 	}
 }
 
 func debugTest(t *testing.T, testLogger zerolog.Logger, setupOutput *porSetupOutput, in *TestConfig) {
 	if t.Failed() {
 		counter := 0
-		for chainSelector, feedID := range setupOutput.chainSelectorToFeedID {
+		for chainSelector, workflowConfig := range setupOutput.chainSelectorToWorkflowConfig {
 			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, df_changeset.DataFeedsCache.String())
 			require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
 
 			forwarderAddresses, forwarderErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, keystone_changeset.KeystoneForwarder.String())
 			require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", chainSelector)
 
-			logTestInfo(testLogger, feedID, in.WorkflowConfigs[counter].WorkflowName, dataFeedsCacheAddresses.Hex(), forwarderAddresses.Hex())
+			logTestInfo(testLogger, workflowConfig.FeedID, workflowConfig.WorkflowName, dataFeedsCacheAddresses.Hex(), forwarderAddresses.Hex())
 			counter++
 			// log scanning is not supported for CRIB
 			if in.Infra.InfraType == libtypes.CRIB {
@@ -836,4 +873,62 @@ func debugTest(t *testing.T, testLogger zerolog.Logger, setupOutput *porSetupOut
 			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
 		}
 	}
+}
+
+func waitForWorkflowRegistrySyncer(nodeSetOutput []*keystonetypes.WrappedNodeOutput, topology *keystonetypes.DonTopology) error {
+	for idx, nodeSetOut := range nodeSetOutput {
+		if !flags.HasFlag(topology.DonsWithMetadata[idx].Flags, keystonetypes.WorkflowDON) {
+			continue
+		}
+
+		workerNodesOutput := []*clnode.Output{}
+		workerNodes, err := crenode.FindManyWithLabel(topology.DonsWithMetadata[idx].NodesMetadata, &types.Label{Key: crenode.NodeTypeKey, Value: types.WorkerNode}, crenode.EqualLabels)
+		if err != nil {
+			return errors.Wrap(err, "failed to find worker nodes")
+		}
+
+		for nodeIdx := range workerNodes {
+			nodeIndexStr, findErr := crenode.FindLabelValue(workerNodes[nodeIdx], crenode.IndexKey)
+			if findErr != nil {
+				return errors.Wrapf(findErr, "failed to find node index for node %d in nodeset %s", nodeIdx, topology.DonsWithMetadata[idx].Name)
+			}
+
+			nodeIndex, convErr := strconv.Atoi(nodeIndexStr)
+			if convErr != nil {
+				return errors.Wrapf(convErr, "failed to convert node index '%s' to int for node %d in nodeset %s", nodeIndexStr, nodeIdx, topology.DonsWithMetadata[idx].Name)
+			}
+
+			workerNodesOutput = append(workerNodesOutput, nodeSetOut.CLNodes[nodeIndex])
+		}
+
+		nsClients, cErr := clclient.New(workerNodesOutput)
+		if cErr != nil {
+			return errors.Wrap(cErr, "failed to create node set clients")
+		}
+		eg1 := &errgroup.Group{}
+		eg2 := &errgroup.Group{}
+		eg3 := &errgroup.Group{}
+		for _, c := range nsClients {
+			eg1.Go(func() error {
+				return c.WaitHealthy(".*WorkflowStore", "passing", 100)
+			})
+			eg2.Go(func() error {
+				return c.WaitHealthy(".*WorkflowRegistrySyncer.FetcherService", "passing", 100)
+			})
+			eg3.Go(func() error {
+				return c.WaitHealthy(".*RegistrySyncer", "passing", 100)
+			})
+		}
+		if err := eg1.Wait(); err != nil {
+			return errors.Wrap(err, "failed to wait for WorkflowStore health checks")
+		}
+		if err := eg2.Wait(); err != nil {
+			return errors.Wrap(err, "failed to wait for FetcherService health checks")
+		}
+		if err := eg3.Wait(); err != nil {
+			return errors.Wrap(err, "failed to wait for RegistrySyncer health checks")
+		}
+	}
+
+	return nil
 }
