@@ -388,6 +388,8 @@ type PromoteNewChainForTestingConfig struct {
 	NewChain NewChainDefinition `json:"newChain"`
 	// RemoteChains defines the remote chains to be connected to the new chain.
 	RemoteChains []ChainDefinition `json:"remoteChains"`
+	// TestRouter is true if we want to connect via test routers.
+	TestRouter *bool `json:"testRouter,omitempty"`
 	// MCMSConfig defines the MCMS configuration for the changeset.
 	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
@@ -444,7 +446,7 @@ func (c PromoteNewChainForTestingConfig) updateFeeQuoterPricesConfig(remoteChain
 	}
 }
 
-func (c PromoteNewChainForTestingConfig) connectNewChainConfig() ConnectNewChainConfig {
+func (c PromoteNewChainForTestingConfig) connectNewChainConfig(testRouter bool) ConnectNewChainConfig {
 	connections := make(map[uint64]ConnectionConfig, len(c.RemoteChains))
 	for _, remoteChain := range c.RemoteChains {
 		connections[remoteChain.Selector] = remoteChain.ConnectionConfig
@@ -453,7 +455,7 @@ func (c PromoteNewChainForTestingConfig) connectNewChainConfig() ConnectNewChain
 		RemoteChains:             connections,
 		NewChainSelector:         c.NewChain.Selector,
 		NewChainConnectionConfig: c.NewChain.ConnectionConfig,
-		TestRouter:               c.connectNewChainConfig().TestRouter,
+		TestRouter:               &testRouter,
 		MCMSConfig:               c.MCMSConfig,
 	}
 }
@@ -481,7 +483,7 @@ func promoteNewChainForTestingPrecondition(e deployment.Environment, c PromoteNe
 		}
 	}
 
-	err = ConnectNewChainChangeset.VerifyPreconditions(e, c.connectNewChainConfig())
+	err = ConnectNewChainChangeset.VerifyPreconditions(e, c.connectNewChainConfig(*c.TestRouter))
 	if err != nil {
 		return fmt.Errorf("failed to validate ConnectNewChainChangeset: %w", err)
 	}
@@ -525,7 +527,7 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 	}
 
 	// Connect the new chain to the existing chains (use the test router)
-	out, err = ConnectNewChainChangeset.Apply(e, c.connectNewChainConfig())
+	out, err = ConnectNewChainChangeset.Apply(e, c.connectNewChainConfig(*c.TestRouter))
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run ConnectNewChainChangeset: %w", err)
 	}
