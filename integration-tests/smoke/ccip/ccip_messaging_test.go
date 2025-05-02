@@ -14,6 +14,9 @@ import (
 	"golang.org/x/exp/maps"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
@@ -27,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	soltesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/manualexechelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -204,7 +208,18 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
+	e, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithSolChains(1),
+		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			t.Log("params ExecuteOffChainConfig before", params.ExecuteOffChainConfig)
+			if params.ExecuteOffChainConfig != nil {
+				params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(8 * time.Hour)
+				params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(8 * time.Hour)
+			}
+			t.Log("params ExecuteOffChainConfig", params.ExecuteOffChainConfig)
+			return params
+		}),
+	)
 
 	// TODO: do this as part of setup
 	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
