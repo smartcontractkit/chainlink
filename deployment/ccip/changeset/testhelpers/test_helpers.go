@@ -538,7 +538,7 @@ func SendRequestSol(
 
 	destinationChainSelector := cfg.DestChain
 	message := cfg.Message.(ccip_router.SVM2AnyMessage)
-	feeTok := message.FeeToken
+	feeToken := message.FeeToken
 	client := c.Client
 
 	// TODO: sender from cfg is EVM specific - need to revisit for Solana
@@ -549,12 +549,12 @@ func SendRequestSol(
 
 	feeTokenProgramID := solana.TokenProgramID
 	feeTokenUserATA := solana.PublicKey{}
-	if feeTok.IsZero() {
+	if feeToken.IsZero() {
 		// If the fee token is native SOL (i.e. message.FeeToken is the zero address), then we will
 		// leave message.FeeToken as it is, but specify the WSOL mint account in the accounts list
-		feeTok = solana.SolMint
+		feeToken = solana.SolMint
 	} else {
-		feeTokenInfo, err := client.GetAccountInfo(ctx, feeTok)
+		feeTokenInfo, err := client.GetAccountInfo(ctx, feeToken)
 		if err != nil {
 			return nil, err
 		}
@@ -565,7 +565,7 @@ func SendRequestSol(
 			return nil, fmt.Errorf("the provided fee token is not a valid token: (err = %w)", err)
 		}
 
-		ata, _, err := soltokens.FindAssociatedTokenAddress(feeTokenProgramID, feeTok, sender.PublicKey())
+		ata, _, err := soltokens.FindAssociatedTokenAddress(feeTokenProgramID, feeToken, sender.PublicKey())
 		if err != nil {
 			return nil, err
 		}
@@ -587,7 +587,7 @@ func SendRequestSol(
 		return nil, err
 	}
 
-	feeTokenFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(feeTok, s.FeeQuoter)
+	feeTokenFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(feeToken, s.FeeQuoter)
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +597,7 @@ func SendRequestSol(
 		return nil, err
 	}
 
-	feeTokenReceiverATA, _, err := soltokens.FindAssociatedTokenAddress(feeTokenProgramID, feeTok, billingSignerPDA)
+	feeTokenReceiverATA, _, err := soltokens.FindAssociatedTokenAddress(feeTokenProgramID, feeToken, billingSignerPDA)
 	if err != nil {
 		return nil, err
 	}
@@ -622,7 +622,7 @@ func SendRequestSol(
 		sender.PublicKey(),
 		solana.SystemProgramID,
 		feeTokenProgramID,
-		feeTok,
+		feeToken,
 		feeTokenUserATA,
 		feeTokenReceiverATA,
 		billingSignerPDA,
