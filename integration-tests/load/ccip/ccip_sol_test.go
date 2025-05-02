@@ -93,7 +93,7 @@ func TestCCIPSol2EvmCRIB(t *testing.T) {
 		)
 	)
 
-	if false {
+	if true {
 		// TODO: handle in setup
 		deployer := e.Env.SolChains[sourceChain].DeployerKey
 		rpcClient := e.Env.SolChains[sourceChain].Client
@@ -132,10 +132,11 @@ func TestCCIPSol2EvmCRIB(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               true,
-				Nonce:                  1,
+				Nonce:                  0,
 				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              extraArgs, // default extraArgs
@@ -242,6 +243,7 @@ func TestCCIPEvm2SolCRIB(t *testing.T) {
 		// require.Equal(t, uint8(0), receiverCounterAccount.Value)
 
 		out = mt.Run(
+			t,
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               true,
@@ -306,13 +308,11 @@ func TestTokenTransfer_EVM2SolanaCRIB(t *testing.T) {
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
-		t,
 		lggr,
 		e.Env,
 		sourceChain,
 		destChain,
 		ownerSourceChain,
-		e.Env.ExistingAddresses, //nolint:staticcheck // SA1019
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
@@ -455,13 +455,11 @@ func TestTokenTransfer_Solana2EVMCRIB(t *testing.T) {
 
 	// Deploy tokens and pool by CCIP Owner
 	destToken, _, srcToken, err := testhelpers.DeployTransferableTokenSolana(
-		t,
 		lggr,
 		e.Env,
 		destChain,
 		sourceChain,
 		ownerDestChain,
-		e.Env.ExistingAddresses, //nolint:staticcheck // SA1019
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)

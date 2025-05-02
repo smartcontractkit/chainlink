@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"slices"
 	"sync"
@@ -14,6 +15,11 @@ import (
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
 
 	"github.com/gagliardetto/solana-go"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
@@ -23,7 +29,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 )
 
@@ -438,4 +444,37 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 		}
 	}
 	return nil
+}
+
+func runSafely(ops ...func()) {
+	for _, op := range ops {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Recovered from panic: %v\n", r)
+				}
+			}()
+			op()
+		}()
+	}
+}
+
+func SetProgramIDsSafe(state changeset.SolCCIPChainState) {
+	runSafely(
+		func() {
+			ccip_router.SetProgramID(state.Router)
+		},
+		func() {
+			fee_quoter.SetProgramID(state.FeeQuoter)
+		},
+		func() {
+			ccip_offramp.SetProgramID(state.OffRamp)
+		},
+		func() {
+			lockrelease_token_pool.SetProgramID(state.LockReleaseTokenPool)
+		},
+		func() {
+			burnmint_token_pool.SetProgramID(state.BurnMintTokenPool)
+		},
+	)
 }

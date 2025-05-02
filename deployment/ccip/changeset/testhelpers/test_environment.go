@@ -726,9 +726,13 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 	}...)
 	if len(solChains) != 0 {
-		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0], true, nil)
-		require.NoError(t, err)
-		apps = append(apps, solCs...)
+		idx := 0
+		for _, _ = range solChains {
+			solCs, err := DeployChainContractsToSolChainCS(e, solChains[idx], true, nil)
+			require.NoError(t, err)
+			apps = append(apps, solCs...)
+		}
+		idx++
 	}
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
 	require.NoError(t, err)

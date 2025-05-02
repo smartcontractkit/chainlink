@@ -296,11 +296,6 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 		return DeployCCIPOutput{}, err
 	}
 
-	err = distributeTransmitterFundsSolana(lggr, don.PluginNodes(), *e)
-	if err != nil {
-		return DeployCCIPOutput{}, err
-	}
-
 	addresses, err := e.ExistingAddresses.Addresses() //nolint:staticcheck // SA1019
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
@@ -325,12 +320,6 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	// populated in the environment variable
 	lggr.Infow("distributing EVM transmitter funds...")
 	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
-	if err != nil {
-		return DeployCCIPOutput{}, err
-	}
-
-	lggr.Infow("distributing Solana transmitter funds...")
-	err = distributeTransmitterFundsSolana(lggr, don.PluginNodes(), *e)
 	if err != nil {
 		return DeployCCIPOutput{}, err
 	}
@@ -435,45 +424,52 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel, fe
 		return *e, fmt.Errorf("failed to apply EVM changesets: %w", err)
 	}
 
+	idx := 0
 	if len(env.SolChains) > 0 {
-		deployedEnv := testhelpers.DeployedEnv{
-			Env:          env,
-			HomeChainSel: homeChainSel,
-			FeedChainSel: feedChainSel,
+		for i, selector := range env.SolChains {
+			deployedEnv := testhelpers.DeployedEnv{
+				Env:          env,
+				HomeChainSel: homeChainSel,
+				FeedChainSel: feedChainSel,
+			}
+
+			buildConfig := ccipChangesetSolana.BuildSolanaConfig{
+				GitCommitSha:   "16aa375",
+				DestinationDir: deployedEnv.Env.SolChains[selector.Selector].ProgramsPath,
+				LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+					BuildLocally: true,
+				},
+			}
+
+			fmt.Printf("Selector is %d", i)
+			solTestRouter := commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployReceiverForTest),
+				ccipChangesetSolana.DeployForTestConfig{
+					ChainSelector: solChainSelectors[idx],
+				},
+			)
+
+			var solChangesets []commonchangeset.ConfiguredChangeSet
+
+			solChangesets, err = testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[idx], false, &buildConfig)
+			if err != nil {
+				return *e, err
+			}
+
+			solChangesets = append(solChangesets, solTestRouter)
+			deployedEnv.Env, err = commonchangeset.Apply(nil, deployedEnv.Env, nil, solChangesets[0], solChangesets[1:]...)
+			if err != nil {
+				return *e, err
+			}
+
+			err = testhelpers.ValidateSolanaState(deployedEnv.Env, solChainSelectors)
+			if err != nil {
+				return *e, err
+			}
+			env = deployedEnv.Env
+			idx++
 		}
 
-		buildConfig := ccipChangesetSolana.BuildSolanaConfig{
-			GitCommitSha:   "16aa375",
-			DestinationDir: deployedEnv.Env.SolChains[solChainSelectors[0]].ProgramsPath,
-			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
-				BuildLocally: true,
-			},
-		}
-
-		solTestRouter := commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployReceiverForTest),
-			ccipChangesetSolana.DeployForTestConfig{
-				ChainSelector: solChainSelectors[0],
-			},
-		)
-
-		solCs, err := testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[0], false, &buildConfig)
-		if err != nil {
-			return *e, err
-		}
-
-		solCs = append(solCs, solTestRouter)
-
-		deployedEnv.Env, err = commonchangeset.Apply(nil, deployedEnv.Env, nil, solCs[0], solCs[1:]...)
-		if err != nil {
-			return *e, err
-		}
-
-		err = testhelpers.ValidateSolanaState(deployedEnv.Env, solChainSelectors)
-		if err != nil {
-			return *e, err
-		}
-		env = deployedEnv.Env
 	}
 
 	lggr.Infow("setup Link pools")
@@ -732,7 +728,6 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 
 				return params
 			})
-		commitOCRConfigPerSelector[selector].CommitOffChainConfig.RMNEnabled = false
 	}
 
 	var commitChangeset commonchangeset.ConfiguredChangeSet

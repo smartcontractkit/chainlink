@@ -2,7 +2,6 @@ package ccip
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"sync"
 	"testing"
@@ -11,22 +10,16 @@ import (
 	solrpc "github.com/gagliardetto/solana-go/rpc"
 	selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
-
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -50,39 +43,6 @@ const (
 	simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 	solTestKey      = "57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC"
 )
-
-func runSafely(ops ...func()) {
-	for _, op := range ops {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					fmt.Printf("Recovered from panic: %v\n", r)
-				}
-			}()
-			op()
-		}()
-	}
-}
-
-func SetProgramIDsSafe(state changeset.SolCCIPChainState) {
-	runSafely(
-		func() {
-			ccip_router.SetProgramID(state.Router)
-		},
-		func() {
-			fee_quoter.SetProgramID(state.FeeQuoter)
-		},
-		func() {
-			ccip_offramp.SetProgramID(state.OffRamp)
-		},
-		func() {
-			lockrelease_token_pool.SetProgramID(state.LockReleaseTokenPool)
-		},
-		func() {
-			burnmint_token_pool.SetProgramID(state.BurnMintTokenPool)
-		},
-	)
-}
 
 // step 1: setup
 // Parse the test config
@@ -235,6 +195,13 @@ func TestCCIPLoad_RPS(t *testing.T) {
 					mu.Lock()
 					evmSourceKeys[src] = evmSenders[src][ind]
 					mu.Unlock()
+					assert.NoError(t, prepareAccountToSendLink(
+						t,
+						state,
+						*env,
+						src,
+						evmSourceKeys[src],
+					))
 				}(src)
 			case selectors.FamilySolana:
 				solSourceKeys[src] = &solanaSenders[src][ind]
