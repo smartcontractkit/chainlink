@@ -105,7 +105,7 @@ func setProfile(profile string, settings Settings) (Profiles, error) {
 }
 
 // rpcs: chainSelector -> url
-func PrepareCRECLISettingsFile(profile string,workflowOwner common.Address, addressBook deployment.AddressBook, donID uint32, homeChainSelector uint64, rpcs map[uint64]string) (*os.File, error) {
+func PrepareCRECLISettingsFile(profile string, workflowOwner common.Address, addressBook deployment.AddressBook, donID uint32, homeChainSelector uint64, rpcs map[uint64]string) (*os.File, error) {
 	settingsFile, err := os.CreateTemp("", CRECLISettingsFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create CRE CLI settings file")
@@ -178,7 +178,7 @@ func PrepareCRECLISettingsFile(profile string,workflowOwner common.Address, addr
 
 		forwaderAddr, forwaderErr := contracts.FindAddressesForChain(addressBook, chainSelector, string(keystone_changeset.KeystoneForwarder))
 		if forwaderErr == nil {
-			profileSettings.Contracts.Keystone = append(settings.Contracts.Keystone, ContractRegistry{
+			profileSettings.Contracts.Keystone = append(profileSettings.Contracts.Keystone, ContractRegistry{
 				Name:          keystone_changeset.KeystoneForwarder.String(),
 				Address:       forwaderAddr.Hex(),
 				ChainSelector: chainSelector,
