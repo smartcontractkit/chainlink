@@ -58,6 +58,7 @@ func (f *AptosContractTransmitterFactory) NewCommitTransmitter(
 	commitMethod, _ string, // priceOnlyMethod is ignored for Aptos
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
+		lggr:                lggr,
 		cw:                  cw,
 		fromAccount:         fromAccount,
 		offrampAddress:      offrampAddress,
@@ -88,6 +89,7 @@ func (f *AptosContractTransmitterFactory) NewExecTransmitter(
 	offrampAddress string,
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
+		lggr:                lggr,
 		cw:                  cw,
 		fromAccount:         fromAccount,
 		offrampAddress:      offrampAddress,
