@@ -284,6 +284,23 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 								SubFieldRenames: map[string]chainreader.RenamedField{
 									"header": {
 										NewName:         "Header",
+										SubFieldRenames: map[string]chainreader.RenamedField{
+											"source_chain_selector": {
+												NewName: "SourceChainSelector",
+											},
+											"dest_chain_selector": {
+												NewName: "DestChainSelector",
+											},
+											"sequence_number": {
+												NewName: "SequenceNumber",
+											},
+											"message_id": {
+												NewName: "MessageID",
+											},
+											"nonce": {
+												NewName: "Nonce",
+											},
+										},
 									},
 									"sender": {
 										NewName:         "Sender",
