@@ -23,7 +23,7 @@ import (
 
 /*
 Future improvements:
-- Enable connecting directly to the prod router through PromoteNewChainForTestingChangeset
+- Enable connecting directly to the prod router through PromoteNewChainForConfigChangeset
 - Align configuration structs with whatever is simplest for BIX team to use
 - Add more validation coverage to the precondition functions
 - Use within add_chain integration test
@@ -34,14 +34,14 @@ var (
 	// This changeset is not idempotent because the underlying AddDonAndSetCandidateChangeset is not idempotent.
 	// Provide an MCMS config if the contracts on the existing chains are owned by MCMS (omit this config otherwise).
 	AddCandidatesForNewChainChangeset = deployment.CreateChangeSet(addCandidatesForNewChainLogic, addCandidatesForNewChainPrecondition)
-	// PromoteNewChainForTestingChangeset promotes exec and commit plugin candidates for the new chain on the home chain.
+	// PromoteNewChainForConfigChangeset promotes exec and commit plugin candidates for the new chain on the home chain.
 	// It also connects the new chain to various destination chains through the test router.
 	// This changeset should be run after AddCandidatesForNewChainChangeset.
 	// This changeset is not idempotent because the underlying PromoteCandidateChangeset is not idepotent.
 	// Provide an MCMS config if the contracts on the existing chains are owned by MCMS (omit this config otherwise).
-	PromoteNewChainForTestingChangeset = deployment.CreateChangeSet(promoteNewChainForTestingLogic, promoteNewChainForTestingPrecondition)
+	PromoteNewChainForConfigChangeset = deployment.CreateChangeSet(promoteNewChainForConfigLogic, promoteNewChainForConfigPrecondition)
 	// ConnectNewChainChangeset activates connects a new chain with other chains by updating onRamp, offRamp, and router contracts.
-	// If connecting to production routers, you should have already run PromoteNewChainForTestingChangeset.
+	// If connecting to production routers, you should have already run PromoteNewChainForConfigChangeset.
 	// Rerunning this changeset with a given input will produce the same results each time (outside of ownership transfers, which only happen once).
 	// Provide an MCMS config if the contracts on the existing chains are owned by MCMS (omit this config otherwise).
 	ConnectNewChainChangeset = deployment.CreateChangeSet(connectNewChainLogic, connectNewChainPrecondition)
@@ -377,11 +377,11 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 ///////////////////////////////////
 
 ///////////////////////////////////
-// START PromoteNewChainForTestingChangeset
+// START PromoteNewChainForConfigChangeset
 ///////////////////////////////////
 
-// PromoteNewChainForTestingConfig is a configuration struct for PromoteNewChainForTestingChangeset.
-type PromoteNewChainForTestingConfig struct {
+// PromoteNewChainForConfig is a configuration struct for PromoteNewChainForConfigChangeset.
+type PromoteNewChainForConfig struct {
 	// HomeChainSelector is the selector of the home chain.
 	HomeChainSelector uint64 `json:"homeChainSelector"`
 	// NewChain defines the new chain to be deployed.
@@ -394,7 +394,7 @@ type PromoteNewChainForTestingConfig struct {
 	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
-func (c PromoteNewChainForTestingConfig) promoteCandidateConfig() PromoteCandidateChangesetConfig {
+func (c PromoteNewChainForConfig) promoteCandidateConfig() PromoteCandidateChangesetConfig {
 	return PromoteCandidateChangesetConfig{
 		HomeChainSelector: c.HomeChainSelector,
 		MCMS:              c.MCMSConfig,
@@ -411,7 +411,7 @@ func (c PromoteNewChainForTestingConfig) promoteCandidateConfig() PromoteCandida
 	}
 }
 
-func (c PromoteNewChainForTestingConfig) setOCR3OffRampConfig() SetOCR3OffRampConfig {
+func (c PromoteNewChainForConfig) setOCR3OffRampConfig() SetOCR3OffRampConfig {
 	candidate := globals.ConfigTypeActive
 	if c.MCMSConfig != nil {
 		candidate = globals.ConfigTypeCandidate // If going through MCMS, the config will be candidate during changeset validation
@@ -423,7 +423,7 @@ func (c PromoteNewChainForTestingConfig) setOCR3OffRampConfig() SetOCR3OffRampCo
 	}
 }
 
-func (c PromoteNewChainForTestingConfig) updateFeeQuoterDestsConfig(remoteChain ChainDefinition) UpdateFeeQuoterDestsConfig {
+func (c PromoteNewChainForConfig) updateFeeQuoterDestsConfig(remoteChain ChainDefinition) UpdateFeeQuoterDestsConfig {
 	return UpdateFeeQuoterDestsConfig{
 		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 			remoteChain.Selector: map[uint64]fee_quoter.FeeQuoterDestChainConfig{
@@ -434,7 +434,7 @@ func (c PromoteNewChainForTestingConfig) updateFeeQuoterDestsConfig(remoteChain 
 	}
 }
 
-func (c PromoteNewChainForTestingConfig) updateFeeQuoterPricesConfig(remoteChain ChainDefinition) UpdateFeeQuoterPricesConfig {
+func (c PromoteNewChainForConfig) updateFeeQuoterPricesConfig(remoteChain ChainDefinition) UpdateFeeQuoterPricesConfig {
 	return UpdateFeeQuoterPricesConfig{
 		PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
 			remoteChain.Selector: FeeQuoterPriceUpdatePerSource{
@@ -446,7 +446,7 @@ func (c PromoteNewChainForTestingConfig) updateFeeQuoterPricesConfig(remoteChain
 	}
 }
 
-func (c PromoteNewChainForTestingConfig) connectNewChainConfig(testRouter bool) ConnectNewChainConfig {
+func (c PromoteNewChainForConfig) connectNewChainConfig(testRouter bool) ConnectNewChainConfig {
 	connections := make(map[uint64]ConnectionConfig, len(c.RemoteChains))
 	for _, remoteChain := range c.RemoteChains {
 		connections[remoteChain.Selector] = remoteChain.ConnectionConfig
@@ -460,7 +460,7 @@ func (c PromoteNewChainForTestingConfig) connectNewChainConfig(testRouter bool) 
 	}
 }
 
-func promoteNewChainForTestingPrecondition(e deployment.Environment, c PromoteNewChainForTestingConfig) error {
+func promoteNewChainForConfigPrecondition(e deployment.Environment, c PromoteNewChainForConfig) error {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -491,7 +491,7 @@ func promoteNewChainForTestingPrecondition(e deployment.Environment, c PromoteNe
 	return nil
 }
 
-func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainForTestingConfig) (deployment.ChangesetOutput, error) {
+func promoteNewChainForConfigLogic(e deployment.Environment, c PromoteNewChainForConfig) (deployment.ChangesetOutput, error) {
 	var allProposals []mcmslib.TimelockProposal
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
@@ -552,7 +552,7 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 }
 
 ///////////////////////////////////
-// END PromoteNewChainForTestingChangeset
+// END PromoteNewChainForConfigChangeset
 ///////////////////////////////////
 
 ///////////////////////////////////

@@ -472,11 +472,11 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				require.Equal(t, remoteChain.GasPrice.String(), gasPrice.Value.String(), "gas price must equal expected")
 			}
 
-			// Apply PromoteNewChainForTestingChangeset
+			// Apply PromoteNewChainForConfigChangeset
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
-					v1_6.PromoteNewChainForTestingChangeset,
-					v1_6.PromoteNewChainForTestingConfig{
+					v1_6.PromoteNewChainForConfigChangeset,
+					v1_6.PromoteNewChainForConfig{
 						HomeChainSelector: deployedEnvironment.HomeChainSel,
 						NewChain:          newChain,
 						RemoteChains:      remoteChains,
@@ -485,7 +485,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 					},
 				),
 			)
-			require.NoError(t, err, "must apply PromoteNewChainForTestingChangeset")
+			require.NoError(t, err, "must apply PromoteNewChainForConfigChangeset")
 
 			digests, err = ccipHome.GetConfigDigests(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
 			require.NoError(t, err, "must get config digests")
