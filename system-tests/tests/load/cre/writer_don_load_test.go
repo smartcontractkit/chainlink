@@ -2,39 +2,48 @@ package cre
 
 import (
 	"context"
-	crand "crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"math/rand/v2"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	types2 "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
+	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
@@ -53,9 +62,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 
+type WriterTest struct {
+	NrOfFeeds     int    `toml:"nr_of_feeds"`
+	WorkflowName  string `toml:"workflow_name"`
+	WorkflowOwner string `toml:"workflow_owner"`
+	WorkflowID    string `toml:"workflow_id"`
+}
 type TestConfigLoadTestWriter struct {
 	Blockchains                   []*blockchain.Input                  `toml:"blockchains" validate:"required"`
 	NodeSets                      []*ns.Input                          `toml:"nodesets" validate:"required"`
@@ -64,6 +78,7 @@ type TestConfigLoadTestWriter struct {
 	Infra                         *libtypes.InfraInput                 `toml:"infra" validate:"required"`
 	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
 	BinariesConfig                *BinariesConfig                      `toml:"binaries_config"`
+	WriterTest                    *WriterTest                          `toml:"writer_test"`
 }
 
 func setupLoadTestWriterEnvironment(
@@ -73,6 +88,8 @@ func setupLoadTestWriterEnvironment(
 	mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet,
 	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
 	jobSpecFactoryFns []keystonetypes.JobSpecFactoryFn,
+	feedIDs []string,
+	workflowNames []string,
 ) *loadTestSetupOutput {
 	absMockCapabilityBinaryPath, err := filepath.Abs(in.BinariesConfig.MockCapabilityBinaryPath)
 	require.NoError(t, err, "failed to get absolute path for mock capability binary")
@@ -96,12 +113,73 @@ func setupLoadTestWriterEnvironment(
 	forwarderAddress, forwarderErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
 	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
 
+	//DF cache start
+
+	//Deploy
+	deployConfig := df_changeset_types.DeployConfig{
+		ChainsToDeploy: []uint64{universalSetupOutput.BlockchainOutput[0].ChainSelector},
+		Labels:         []string{"data-feeds"}, // label required by the changeset
+	}
+
+	dfOutput, dfErr := changeset.RunChangeset(changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
+	require.NoError(t, dfErr, "failed to deploy data feed cache contract")
+
+	mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
+	require.NoError(t, mergeErr, "failed to merge address book")
+
+	dfCacheAddress, dfCacheErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, changeset.DataFeedsCache.String()) //nolint:staticcheck // won't migrate now
+	require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+	//Config
+
+	//Search for the config set on df
+	go func() {
+		ethClinet, _ := universalSetupOutput.BlockchainOutput[0].SethClient.Client.(*ethclient.Client)
+		df, _ := data_feeds_cache.NewDataFeedsCache(dfCacheAddress, ethClinet)
+		logCh := make(chan types2.Log)
+		topic := common.HexToHash("0x2dec0e9ffbb18c6499fc8bee8b9c35f765e76d9dbd436f25dd00a80de267ac0d")
+		_, err = universalSetupOutput.BlockchainOutput[0].SethClient.Client.SubscribeFilterLogs(context.TODO(), ethereum.FilterQuery{
+			Topics:    [][]common.Hash{{topic}},
+			FromBlock: big.NewInt(0),
+		}, logCh)
+		if err != nil {
+			panic(err)
+		}
+		count := 0
+		for {
+			configLog := <-logCh
+
+			configSet, err := df.ParseDecimalFeedConfigSet(configLog)
+			if err != nil {
+				testLogger.Info().Msgf("Topic: %x", configLog.Topics)
+				continue
+			}
+			testLogger.Info().Msgf("ConfigSet dataID %x sender %s workflowOwner %s workflowName  %x", configSet.DataId, configSet.WorkflowMetadata[0].AllowedSender, configSet.WorkflowMetadata[0].AllowedWorkflowOwner, configSet.WorkflowMetadata[0].AllowedWorkflowName)
+			count++
+			if count == 10 {
+				break
+			}
+		}
+	}()
+	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, &keystonetypes.ConfigureDataFeedsCacheInput{
+		CldEnv:                universalSetupOutput.CldEnvironment,
+		ChainSelector:         universalSetupOutput.BlockchainOutput[0].ChainSelector,
+		FeedIDs:               feedIDs,
+		Descriptions:          feedIDs,
+		DataFeedsCacheAddress: dfCacheAddress,
+		AdminAddress:          universalSetupOutput.BlockchainOutput[0].SethClient.MustGetRootKeyAddress(),
+		AllowedSenders:        []common.Address{forwarderAddress},
+		AllowedWorkflowOwners: []common.Address{common.HexToAddress("0x0100000000000000000000000000000000000001")},
+		AllowedWorkflowNames:  workflowNames,
+		Out:                   nil,
+	})
+	require.NoError(t, configErr, "failed to configure data feeds cache")
+
 	return &loadTestSetupOutput{
-		//feedsConsumerAddress: deployFeedsConsumerOutput.FeedConsumerAddress,
-		forwarderAddress: forwarderAddress,
-		blockchainOutput: universalSetupOutput.BlockchainOutput,
-		donTopology:      universalSetupOutput.DonTopology,
-		nodeOutput:       universalSetupOutput.NodeOutput,
+		dataFeedsCacheAddress: dfCacheAddress,
+		forwarderAddress:      forwarderAddress,
+		blockchainOutput:      universalSetupOutput.BlockchainOutput,
+		donTopology:           universalSetupOutput.DonTopology,
+		nodeOutput:            universalSetupOutput.NodeOutput,
 	}
 }
 
@@ -157,18 +235,6 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	WriterDONLoadTestCapabilitiesFactoryFn := func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-		if flags.HasFlag(donFlags, keystonetypes.OCR3Capability) {
-			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   "offchain_reporting",
-					Version:        "1.0.0",
-					CapabilityType: 2, // CONSENSUS
-					ResponseType:   0, // REPORT
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-		}
-
 		if flags.HasFlag(donFlags, keystonetypes.MockCapability) {
 			for _, m := range in.MockCapabilities {
 				capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
@@ -182,12 +248,30 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			}
 		}
 
+		if flags.HasFlag(donFlags, keystonetypes.OCR3Capability) {
+			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   "offchain_reporting",
+					Version:        "1.0.0",
+					CapabilityType: 2, // CONSENSUS
+					ResponseType:   0, // REPORT
+				},
+				Config: &capabilitiespb.CapabilityConfig{},
+			})
+		}
+
 		return capabilities
 	}
 
 	homeChain := in.Blockchains[0]
 	homeChainIDUint64, homeChainErr := strconv.ParseUint(homeChain.ChainID, 10, 64)
 	require.NoError(t, homeChainErr, "failed to convert chain ID to int")
+
+	feedIDs := make([]string, 0)
+	for range in.WriterTest.NrOfFeeds {
+		_, id := NewFeedID(t)
+		feedIDs = append(feedIDs, strings.TrimPrefix(id, "0x"))
+	}
 
 	setupOutput := setupLoadTestWriterEnvironment(
 		t,
@@ -196,6 +280,8 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		mustSetCapabilitiesFn,
 		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WriterDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainIDUint64)))},
 		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(homeChainIDUint64)},
+		feedIDs,
+		[]string{in.WriterTest.WorkflowName},
 	)
 
 	ctx := t.Context()
@@ -248,7 +334,6 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 				if i == 0 {
 					continue // Skip bootstrap nodes
 				}
-
 				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
@@ -263,7 +348,19 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	require.NoError(t, saveForwarderAddress(setupOutput.dataFeedsCacheAddress.String()), "could not save forwarder address")
+	//forwarderF := (len(workerNodes) - 1) / 3
+
+	tParams := testParams{
+		workflowName:          in.WriterTest.WorkflowName,
+		workflowOwner:         in.WriterTest.WorkflowOwner,
+		workflowID:            in.WriterTest.WorkflowID,
+		feeds:                 feedIDs,
+		nrOfReports:           in.WriterTest.NrOfFeeds,
+		dataFeedsCacheAddress: setupOutput.dataFeedsCacheAddress,
+		forwarderAddress:      setupOutput.forwarderAddress,
+	}
+
+	require.NoError(t, exportTestParams(tParams), "could not save test params")
 
 	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
 	require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
@@ -275,7 +372,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	if in.Infra.InfraType == "docker" {
 		// TODO: For CTFv2 we should get the ports from the .toml
 		// Need to add addresses manually
-		mockClientsAddress = []string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}
+		mockClientsAddress = []string{"127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404", "127.0.0.1:13405", "127.0.0.1:13406"}
 	} else {
 		for i := range setupOutput.nodeOutput[0].CLNodes {
 			// TODO: This is brittle, switch to checking the node label
@@ -313,7 +410,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			Schedule: wasp.Combine(
 				wasp.Plain(4, 120*time.Minute),
 			),
-			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel, setupOutput.dataFeedsCacheAddress.String(), logger.TestLogger(t)),
+			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", logger.TestLogger(t), setupOutput.blockchainOutput[0].SethClient, tParams),
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
@@ -328,9 +425,6 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 func TestWriteWithReconnect(t *testing.T) {
 	testLogger := framework.L
 	ctx := t.Context()
-
-	forwarderAddress, err := loadForwarderAddressFromCache()
-	require.NoError(t, err, "could not load forwarder address from cache")
 
 	kb, err := loadKeyBundlesFromCache()
 	require.NoError(t, err, "could not load OCR2 keys")
@@ -352,7 +446,7 @@ func TestWriteWithReconnect(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", receiveChannel, forwarderAddress, logger.TestLogger(t))
+	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", logger.TestLogger(t), nil, testParams{})
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
@@ -371,134 +465,287 @@ func TestWriteWithReconnect(t *testing.T) {
 
 var _ wasp.Gun = (*WriterGun)(nil)
 
-type WriterGun struct {
-	capProxy              *mock_capability.Controller
-	keyBundles            []ocr2key.KeyBundle
-	triggerID             string
-	waitChans             map[int64]chan interface{}
-	receiveChan           <-chan capabilities.CapabilityRequest
-	mu                    sync.Mutex
-	event                 *capabilities.OCRTriggerEvent
-	eventID               string
-	dataFeedsCacheAddress string
-	lggr                  logger.Logger
+type testParams struct {
+	workflowName          string
+	workflowOwner         string
+	workflowID            string
+	feeds                 []string
+	nrOfReports           int
+	dataFeedsCacheAddress common.Address
+	forwarderAddress      common.Address
 }
 
-func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, triggerID string, ch <-chan capabilities.CapabilityRequest, dataFeedsCacheAddress string, lggr logger.Logger) *WriterGun {
-	sg := &WriterGun{
-		capProxy:              capProxy,
-		keyBundles:            keyBundles,
-		triggerID:             triggerID,
-		receiveChan:           ch,
-		dataFeedsCacheAddress: dataFeedsCacheAddress,
-		lggr:                  lggr,
+func exportTestParams(params testParams) error {
+	// Create cache directory if it doesn't exist
+	cacheDir := filepath.Join(os.TempDir(), "cache")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
+
+	// Marshal data to JSON
+	data := map[string]interface{}{
+		"workflowName":          params.workflowName,
+		"workflowOwner":         params.workflowOwner,
+		"workflowID":            params.workflowID,
+		"feeds":                 params.feeds,
+		"nrOfReports":           params.nrOfReports,
+		"dataFeedsCacheAddress": params.dataFeedsCacheAddress.String(),
+		"forwarderAddress":      params.forwarderAddress.String(),
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal test params: %w", err)
+	}
+
+	// Write to file in cache directory
+	cacheFile := filepath.Join(cacheDir, "test_params.json")
+	if err := os.WriteFile(cacheFile, jsonData, 0644); err != nil {
+		return fmt.Errorf("failed to write test params file: %w", err)
+	}
+
+	return nil
+}
+
+func importTestParams() (testParams, error) {
+	var params testParams
+
+	data, err := os.ReadFile("cache/test_params.json")
+	if err != nil {
+		return params, fmt.Errorf("failed to read test params file: %w", err)
+	}
+
+	var rawData map[string]interface{}
+	if err := json.Unmarshal(data, &rawData); err != nil {
+		return params, fmt.Errorf("failed to unmarshal test params: %w", err)
+	}
+
+	params.workflowName = rawData["workflowName"].(string)
+	params.workflowOwner = rawData["workflowOwner"].(string)
+	params.workflowID = rawData["workflowID"].(string)
+
+	// Convert interface{} array to []string
+	feedsRaw := rawData["feeds"].([]interface{})
+	params.feeds = make([]string, len(feedsRaw))
+	for i, v := range feedsRaw {
+		params.feeds[i] = v.(string)
+	}
+
+	params.nrOfReports = int(rawData["nrOfReports"].(float64))
+	params.dataFeedsCacheAddress = common.HexToAddress(rawData["dataFeedsCacheAddress"].(string))
+	params.forwarderAddress = common.HexToAddress(rawData["forwarderAddress"].(string))
+
+	return params, nil
+}
+
+type WriterGun struct {
+	capProxy    *mock_capability.Controller
+	keyBundles  []ocr2key.KeyBundle
+	triggerID   string
+	waitChans   map[int64]chan interface{}
+	receiveChan <-chan capabilities.CapabilityRequest
+	mu          sync.Mutex
+	lggr        logger.Logger
+	reportID    uint8
+	seqNr       uint32
+	testParams  testParams
+	f           int
+
+	seth *seth.Client
+}
+
+func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, triggerID string, lggr logger.Logger, seth *seth.Client, params testParams) *WriterGun {
+	sg := &WriterGun{
+		capProxy:   capProxy,
+		keyBundles: keyBundles,
+		triggerID:  triggerID,
+		lggr:       lggr,
+		reportID:   1,
+		seqNr:      1,
+		seth:       seth,
+		testParams: params,
+	}
+
+	go func() {
+		ethClinet, _ := seth.Client.(*ethclient.Client)
+		fwd, _ := forwarder.NewKeystoneForwarder(params.forwarderAddress, ethClinet)
+		df, _ := data_feeds_cache.NewDataFeedsCache(params.dataFeedsCacheAddress, ethClinet)
+		ch := make(chan *types2.Header)
+		seth.Client.SubscribeNewHead(context.TODO(), ch)
+
+		for {
+			head := <-ch
+			block, err := seth.Client.BlockByNumber(context.TODO(), head.Number)
+			if err != nil {
+				panic(err)
+			}
+
+			lggr.Infof("Block %d tx count: %d", block.NumberU64(), block.Transactions().Len())
+			for _, t := range block.Transactions() {
+				lggr.Infof("		Tx %s to %s", t.Hash().String(), t.To().String())
+				receipt, err := seth.Client.TransactionReceipt(context.TODO(), t.Hash())
+				if err != nil {
+					panic(err)
+				}
+				for i, l := range receipt.Logs {
+					lggr.Infof("Log %d data: %x", i, l.Data)
+					for _, topic := range l.Topics {
+						lggr.Infof("---Topic: %s", topic.String())
+					}
+				}
+
+				for _, l := range receipt.Logs {
+					log, err := fwd.ParseReportProcessed(*l)
+					if err != nil {
+						lggr.Warnf("Log is not ReportProcessed! Topic %s Data %x", l.Topics[0].String(), l.Data)
+						l2, err := df.ParseInvalidUpdatePermission(*l)
+						if err != nil {
+							lggr.Warn("Log is not InvalidUpdatePermission!")
+							continue
+						}
+						lggr.Infof("			InvalidUpdatePermission: dataID %x sender %s workflowOwner %s workflowName  %x", l2.DataId, l2.Sender.String(), l2.WorkflowOwner.String(), l2.WorkflowName)
+
+						continue
+					}
+					lggr.Infof("			Log ReportID %04x result %t", log.ReportId, log.Result)
+				}
+			}
+		}
+
+	}()
+
 	return sg
 }
 
-func createReports(kb []ocr2key.KeyBundle) ([]*datastreams.FeedReport, error) {
-	//Create report
-	feeds := make([]FeedWithStreamID, 0)
-	for i := range 10 {
-		buf := [32]byte{}
-		_, err := crand.Read(buf[:])
-		if err != nil {
-			return nil, err
-		}
-		feeds = append(feeds, FeedWithStreamID{
-			Feed:     "0x" + hex.EncodeToString(buf[:]),
-			StreamID: int32(i),
-		})
-	}
+func (s *WriterGun) Call2(l *wasp.Generator) *wasp.Response {
+	timestamp := time.Now()
 
-	reports := []*datastreams.FeedReport{}
-	for _, f := range feeds {
-		price := decimal.NewFromInt(int64(rand.IntN(100)))
-		reports = append(reports, createFeedReportDataStreams(price.BigInt(), time.Now().Unix(), f.Feed, kb))
-	}
-
-	return reports, nil
-}
-
-func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
-	reports, err := createReports(s.keyBundles)
+	executionID, err := workflows.EncodeExecutionID("5dbe5f217ff07d6b1dddb43519fe7bf13ccb10b540578fafdbea86b508abbd71", uuid.New().String())
 	if err != nil {
-		return &wasp.Response{Error: err.Error()}
-	}
-
-	reportID := [2]byte{0x00, 0x01}
-	wrappedReports, err := wrapReports(reports, 12, datastreams.Metadata{})
-	if err != nil {
-		return &wasp.Response{Error: err.Error()}
-	}
-
-	executionID, err := workflows.EncodeExecutionID("5dbe5f217ff07d6b1dddb43519fe7bf13ccb10b540578fafdbea86b508abbd71", "")
-	if err != nil {
+		s.lggr.Error(err)
 		return &wasp.Response{Error: err.Error()}
 	}
 	metadata := pb2.Metadata{
 		WorkflowID:               "5dbe5f217ff07d6b1dddb43519fe7bf13ccb10b540578fafdbea86b508abbd71",
-		WorkflowOwner:            "0100000000000000000000000000000000000001",
+		WorkflowOwner:            strings.TrimPrefix(s.testParams.workflowOwner, "0x"),
 		WorkflowExecutionID:      executionID,
-		WorkflowName:             "61626364656630313233",
+		WorkflowName:             convertToHashedWorkflowName(s.testParams.workflowName),
 		WorkflowDonID:            1,
 		WorkflowDonConfigVersion: 1,
 		ReferenceID:              "write_geth-testnet@1.0.0",
-		DecodedWorkflowName:      "abcdef0123",
+		DecodedWorkflowName:      s.testParams.workflowName,
 	}
 
-	rMetadata := evm.ReportV1Metadata{
-		Version:             1,
-		WorkflowExecutionID: stringTo32Byte(metadata.WorkflowExecutionID),
-		Timestamp:           0,
-		DonID:               metadata.WorkflowDonID,
-		DonConfigVersion:    metadata.WorkflowDonConfigVersion,
-		WorkflowCID:         stringTo32Byte(metadata.WorkflowID),
-		WorkflowName:        stringTo10Byte(metadata.WorkflowName),
-		WorkflowOwner:       stringTo20Byte(metadata.WorkflowOwner),
-		ReportID:            [2]byte{0, 1},
-	}
+	seqToEpoch := make([]byte, 32)
+	binary.BigEndian.PutUint32(seqToEpoch[32-5:32-1], s.seqNr)
+	zeros := make([]byte, 32)
+	configDigest := [32]byte{1}
+	repContext := append(append(configDigest[:], seqToEpoch[:]...), zeros...)
 
-	rMetaBytes, err := rMetadata.Encode()
+	evmEncoderConfig := map[string]any{
+		"abi": "(bytes32 FeedID, uint32 Timestamp, uint224 Price)[] Reports",
+	}
+	wrappedEVMEncoderConfig, err := values.NewMap(evmEncoderConfig)
 	if err != nil {
+		s.lggr.Error(err)
+		return &wasp.Response{Error: err.Error()}
+	}
+	evmEncoder, err := evm.NewEVMEncoder(wrappedEVMEncoderConfig)
+	if err != nil {
+		s.lggr.Error(err)
 		return &wasp.Response{Error: err.Error()}
 	}
 
-	reportBytes, err := mock_capability.MapToBytes(wrappedReports)
+	type ReportStruct struct {
+		FeedID    [32]byte
+		Price     string
+		Timestamp uint32
+	}
+
+	reports := make([]any, 0)
+	for i := range s.testParams.nrOfReports {
+		feedIDBytes, err := stringTo32Byte(s.testParams.feeds[i])
+		if err != nil {
+			s.lggr.Error(err)
+			return &wasp.Response{Error: err.Error()}
+		}
+		reports = append(reports, ReportStruct{
+			FeedID:    feedIDBytes,
+			Price:     big.NewInt(int64(rand.Intn(1000000))).String(),
+			Timestamp: uint32(timestamp.Unix()),
+		})
+	}
+
+	fakeReport := map[string]any{
+		"Reports": reports,
+		consensustypes.MetadataFieldName: consensustypes.Metadata{
+			Version:          1,                               //  1 byte
+			ExecutionID:      executionID,                     // 32 hex bytes (string len  = 64)
+			Timestamp:        uint32(timestamp.Unix()),        //  4 bytes
+			DONID:            1,                               //  4 bytes
+			DONConfigVersion: 1,                               //  4 bytes
+			WorkflowID:       metadata.WorkflowID,             // 32 hex bytes (string len = 64)
+			WorkflowName:     metadata.WorkflowName,           // 10 hex bytes (string len = 20)
+			WorkflowOwner:    metadata.WorkflowOwner,          // 20 hex bytes (string len = 40)
+			ReportID:         fmt.Sprintf("%04x", s.reportID), //  2 hex bytes (string len = 4)
+		},
+	}
+	wrappedFakeReport, err := values.NewMap(fakeReport)
 	if err != nil {
+		s.lggr.Error(err)
 		return &wasp.Response{Error: err.Error()}
+	}
+
+	encodedReport, err := evmEncoder.Encode(context.TODO(), *wrappedFakeReport)
+	if err != nil {
+		s.lggr.Error(err)
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	fmt.Printf("%x", encodedReport)
+
+	sigs := make([][]byte, 2) //TODO: change to f+1
+
+	for i := range 2 {
+		sigData := append(crypto.Keccak256(encodedReport), repContext...)
+		fullHash := crypto.Keccak256(sigData)
+		ss, err := s.keyBundles[i].SignBlob(fullHash)
+		if err != nil {
+			return &wasp.Response{Error: err.Error()}
+		}
+		sigs[i] = ss
 	}
 
 	validInputs, err := values.NewMap(map[string]any{
 		"signed_report": map[string]any{
-			"report":     append(rMetaBytes, reportBytes...),
-			"signatures": reports[0].Signatures,
-			"context":    []byte{4, 5},
-			"id":         reportID[:],
+			"report":     encodedReport,
+			"signatures": sigs,
+			"context":    repContext,
+			"id":         [2]byte{s.reportID >> 8, s.reportID},
 		},
 	})
 	if err != nil {
+		s.lggr.Error(err)
 		return &wasp.Response{Error: err.Error()}
 	}
 
 	validConfig, err := values.NewMap(map[string]any{
-		"Address":    s.dataFeedsCacheAddress,
-		"abi":        "(bytes32 FeedID, bytes RawReport)[] Reports",
-		"schedule":   "oneAtATime",
-		"params":     []string{"$(report)"},
-		"gasLimit":   400000,
-		"deltaStage": "2s",
+		"Address":  s.testParams.dataFeedsCacheAddress.String(),
+		"gasLimit": 4000000,
 	})
 	if err != nil {
+		s.lggr.Error(err)
 		return &wasp.Response{Error: err.Error()}
 	}
 
 	configBytes, err := mock_capability.MapToBytes(validConfig)
 	if err != nil {
+		s.lggr.Error(err)
 		return &wasp.Response{Error: err.Error()}
 	}
 	inputBytes, err := mock_capability.MapToBytes(validInputs)
 	if err != nil {
+		s.lggr.Error(err)
 		return &wasp.Response{Error: err.Error()}
 	}
 
@@ -512,135 +759,246 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 
 	err = s.capProxy.Execute(context.TODO(), req)
 	if err != nil {
+		s.lggr.Error(err)
 		return &wasp.Response{Error: err.Error()}
 	}
-
-	if err != nil {
-		return &wasp.Response{Error: err.Error()}
-	}
+	s.reportID++
+	s.seqNr++
 	return &wasp.Response{}
 }
-func saveForwarderAddress(forwarderAddress string) error {
-	cacheDir := "./cache"
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		return fmt.Errorf("failed to create cache directory: %w", err)
-	}
 
-	forwarderPath := filepath.Join(cacheDir, "forwarder_address.txt")
-	if err := os.WriteFile(forwarderPath, []byte(forwarderAddress), 0644); err != nil {
-		return fmt.Errorf("failed to save forwarder address: %w", err)
-	}
-
-	return nil
-}
-func loadForwarderAddressFromCache() (string, error) {
-	forwarderPath := filepath.Join("./cache", "forwarder_address.txt")
-	data, err := os.ReadFile(forwarderPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read df cache address from cache: %w", err)
-	}
-	return string(data), nil
-}
-func stringTo32Byte(input string) [32]byte {
+func stringTo32Byte(input string) ([32]byte, error) {
 	var result [32]byte
+
+	// Remove "0x" prefix if present
+	if strings.HasPrefix(input, "0x") {
+		input = input[2:]
+	}
+
+	// Decode hex string to bytes
 	decoded, err := hex.DecodeString(input)
 	if err != nil {
-		panic(fmt.Sprintf("invalid string for conversion to [32]byte: %v", err))
+		return result, fmt.Errorf("failed to decode hex string: %w", err)
 	}
-	copy(result[:], decoded)
-	return result
+
+	// Check length
+	if len(decoded) > 32 {
+		return result, fmt.Errorf("input string too long: got %d bytes, want <= 32", len(decoded))
+	}
+
+	// Copy bytes to result, right-aligned
+	copy(result[32-len(decoded):], decoded)
+	return result, nil
 }
 
-func stringTo10Byte(input string) [10]byte {
-	var result [10]byte
-	decoded, err := hex.DecodeString(input)
-	if err != nil {
-		panic(fmt.Sprintf("invalid string for conversion to [32]byte: %v", err))
-	}
-	copy(result[:], decoded)
-	return result
+func convertToHashedWorkflowName(input string) string {
+	// Create SHA256 hash
+	hash := sha256.New()
+	hash.Write([]byte(input))
+
+	// Get the hex string of the hash
+	hashHex := hex.EncodeToString(hash.Sum(nil))
+
+	return hex.EncodeToString([]byte(hashHex[:10]))
 }
 
-func stringTo20Byte(input string) [20]byte {
-	var result [20]byte
-	decoded, err := hex.DecodeString(input)
+func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
+	// Generate workflow execution metadata
+	metadata, err := s.createWorkflowMetadata()
 	if err != nil {
-		panic(fmt.Sprintf("invalid string for conversion to [32]byte: %v", err))
+		s.lggr.Error(err)
+		return &wasp.Response{Error: err.Error()}
 	}
-	copy(result[:], decoded)
-	return result
+
+	// Create report context from sequence number and config digest
+	repContext, err := s.createReportContext()
+	if err != nil {
+		s.lggr.Error(err)
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	// Create and encode report data
+	encodedReport, err := s.createEncodedReport(metadata)
+	if err != nil {
+		s.lggr.Error(err)
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	// Generate signatures for the report
+	sigs, err := s.generateSignatures(encodedReport, repContext)
+	if err != nil {
+		s.lggr.Error(err)
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	// Create executable request and execute
+	err = s.executeRequest(metadata, encodedReport, sigs, repContext)
+	if err != nil {
+		s.lggr.Error(err)
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	s.reportID++
+	s.seqNr++
+	return &wasp.Response{}
 }
 
-func createFeedReportDataStreams(price *big.Int, observationTimestamp int64,
-	feedIDString string,
-	keyBundles []ocr2key.KeyBundle) *datastreams.FeedReport {
-	reportCtx := ocrTypes.ReportContext{}
-	rawCtx := RawReportContext(reportCtx)
-
-	bytes, err := hex.DecodeString(feedIDString[2:])
+func (s *WriterGun) createWorkflowMetadata() (*pb2.Metadata, error) {
+	executionID, err := workflows.EncodeExecutionID(s.testParams.workflowID, uuid.New().String())
 	if err != nil {
-		panic(err)
-	}
-	var feedIDBytes [32]byte
-	copy(feedIDBytes[:], bytes)
-
-	report := &datastreams.FeedReport{
-		FeedID:               feedIDString,
-		FullReport:           newReport(feedIDBytes, price, observationTimestamp),
-		BenchmarkPrice:       price.Bytes(),
-		ObservationTimestamp: observationTimestamp,
-		Signatures:           [][]byte{},
-		ReportContext:        rawCtx,
+		return nil, fmt.Errorf("failed to encode execution ID: %w", err)
 	}
 
-	for _, key := range keyBundles {
-		sig, err := key.Sign(reportCtx, report.FullReport)
+	return &pb2.Metadata{
+		WorkflowID:               s.testParams.workflowID,
+		WorkflowOwner:            strings.TrimPrefix(s.testParams.workflowOwner, "0x"),
+		WorkflowExecutionID:      executionID,
+		WorkflowName:             convertToHashedWorkflowName(s.testParams.workflowName),
+		WorkflowDonID:            1,
+		WorkflowDonConfigVersion: 1,
+		ReferenceID:              "write_geth-testnet@1.0.0",
+		DecodedWorkflowName:      s.testParams.workflowName,
+	}, nil
+}
+
+func (s *WriterGun) createReportContext() ([]byte, error) {
+	seqToEpoch := make([]byte, 32)
+	binary.BigEndian.PutUint32(seqToEpoch[32-5:32-1], s.seqNr)
+	zeros := make([]byte, 32)
+	configDigest := [32]byte{1}
+	return append(append(configDigest[:], seqToEpoch[:]...), zeros...), nil
+}
+
+func (s *WriterGun) createEncodedReport(metadata *pb2.Metadata) ([]byte, error) {
+	timestamp := time.Now()
+
+	evmEncoder, err := s.createEVMEncoder()
+	if err != nil {
+		return nil, err
+	}
+
+	reports := s.generateReports(timestamp)
+	fakeReport := s.createFakeReport(reports, metadata, timestamp)
+
+	wrappedFakeReport, err := values.NewMap(fakeReport)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wrap fake report: %w", err)
+	}
+
+	return evmEncoder.Encode(context.TODO(), *wrappedFakeReport)
+}
+
+func (s *WriterGun) generateSignatures(encodedReport []byte, repContext []byte) ([][]byte, error) {
+	sigs := make([][]byte, 2)
+	sigData := append(crypto.Keccak256(encodedReport), repContext...)
+	fullHash := crypto.Keccak256(sigData)
+
+	for i := range 2 {
+		sig, err := s.keyBundles[i].SignBlob(fullHash)
 		if err != nil {
-			panic(err)
+			return nil, fmt.Errorf("failed to sign blob: %w", err)
 		}
-		report.Signatures = append(report.Signatures, sig)
-		if len(report.Signatures) == 2 {
-			break
-		}
+		sigs[i] = sig
 	}
 
-	return report
+	return sigs, nil
 }
-func newReport(feedID [32]byte, price *big.Int, timestamp int64) []byte {
-	v3Codec := reportcodec.NewReportCodec(feedID, logger.NullLogger)
-	raw, err := v3Codec.BuildReport(context.TODO(), v3.ReportFields{
-		BenchmarkPrice: price,
 
-		Timestamp: uint32(timestamp), //nolint:gosec // G115
-		Bid:       big.NewInt(0),
-		Ask:       big.NewInt(0),
-		LinkFee:   big.NewInt(0),
-		NativeFee: big.NewInt(0),
+func (s *WriterGun) executeRequest(metadata *pb2.Metadata, encodedReport []byte, sigs [][]byte, repContext []byte) error {
+	validInputs, validConfig, err := s.createRequestInputs(encodedReport, sigs, repContext)
+	if err != nil {
+		return err
+	}
+
+	req := &pb2.ExecutableRequest{
+		ID:              s.triggerID,
+		CapabilityType:  4,
+		RequestMetadata: metadata,
+		Config:          validConfig,
+		Inputs:          validInputs,
+	}
+
+	return s.capProxy.Execute(context.TODO(), req)
+}
+func (s *WriterGun) createEVMEncoder() (consensustypes.Encoder, error) {
+	evmEncoderConfig := map[string]any{
+		"abi": "(bytes32 FeedID, uint32 Timestamp, uint224 Price)[] Reports",
+	}
+	wrappedEVMEncoderConfig, err := values.NewMap(evmEncoderConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create encoder config: %w", err)
+	}
+	return evm.NewEVMEncoder(wrappedEVMEncoderConfig)
+}
+
+func (s *WriterGun) generateReports(timestamp time.Time) []any {
+	reports := make([]any, 0, s.testParams.nrOfReports)
+	for i := range s.testParams.nrOfReports {
+		feedIDBytes, err := stringTo32Byte(s.testParams.feeds[i])
+		if err != nil {
+			s.lggr.Errorf("failed to convert feed ID to bytes: %v", err)
+			continue
+		}
+		reports = append(reports, struct {
+			FeedID    [32]byte
+			Price     string
+			Timestamp uint32
+		}{
+			FeedID:    feedIDBytes,
+			Price:     big.NewInt(int64(rand.Intn(1000000))).String(),
+			Timestamp: uint32(timestamp.Unix()),
+		})
+	}
+	return reports
+}
+
+func (s *WriterGun) createFakeReport(reports []any, metadata *pb2.Metadata, timestamp time.Time) map[string]any {
+	return map[string]any{
+		"Reports": reports,
+		consensustypes.MetadataFieldName: consensustypes.Metadata{
+			Version:          1,
+			ExecutionID:      metadata.WorkflowExecutionID,
+			Timestamp:        uint32(timestamp.Unix()),
+			DONID:            1,
+			DONConfigVersion: 1,
+			WorkflowID:       metadata.WorkflowID,
+			WorkflowName:     metadata.WorkflowName,
+			WorkflowOwner:    metadata.WorkflowOwner,
+			ReportID:         fmt.Sprintf("%04x", s.reportID),
+		},
+	}
+}
+
+func (s *WriterGun) createRequestInputs(encodedReport []byte, sigs [][]byte, repContext []byte) ([]byte, []byte, error) {
+	validInputs, err := values.NewMap(map[string]any{
+		"signed_report": map[string]any{
+			"report":     encodedReport,
+			"signatures": sigs,
+			"context":    repContext,
+			"id":         [2]byte{s.reportID >> 8, s.reportID},
+		},
 	})
 	if err != nil {
-		panic(err)
-	}
-	return raw
-}
-func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
-	rc := evmutil.RawReportContext(reportCtx)
-	flat := []byte{}
-	for _, r := range rc {
-		flat = append(flat, r[:]...)
-	}
-	return flat
-}
-
-func wrapReports(reportList []*datastreams.FeedReport,
-	timestamp int64, meta datastreams.Metadata) (*values.Map, error) {
-	rl := make([]datastreams.FeedReport, 0, len(reportList))
-	for _, r := range reportList {
-		rl = append(rl, *r)
+		return nil, nil, fmt.Errorf("failed to create inputs: %w", err)
 	}
 
-	return values.WrapMap(datastreams.StreamsTriggerEvent{
-		Payload:   rl,
-		Metadata:  meta,
-		Timestamp: timestamp,
+	validConfig, err := values.NewMap(map[string]any{
+		"Address":  s.testParams.dataFeedsCacheAddress.String(),
+		"gasLimit": 4000000,
 	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create config: %w", err)
+	}
+
+	configBytes, err := mock_capability.MapToBytes(validConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to convert config to bytes: %w", err)
+	}
+
+	inputBytes, err := mock_capability.MapToBytes(validInputs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to convert inputs to bytes: %w", err)
+	}
+
+	return inputBytes, configBytes, nil
 }

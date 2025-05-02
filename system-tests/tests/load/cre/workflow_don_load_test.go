@@ -689,6 +689,7 @@ func saveKeyBundles(keyBundles []ocr2key.KeyBundle) error {
 	}
 
 	for i, kb := range keyBundles {
+		framework.L.Info().Msgf("Saving OCR2 Key ID: %s, OnChainPublicKey: %s", kb.ID(), kb.OnChainPublicKey())
 		bytes, err := kb.Marshal()
 		if err != nil {
 			return fmt.Errorf("failed to marshal key bundle %d: %w", i, err)
@@ -738,6 +739,15 @@ func NewFeedID(t *testing.T) ([32]byte, string) {
 	buf := [32]byte{}
 	_, err := crand.Read(buf[:])
 	require.NoError(t, err, "cannot create feedID")
+	buf[0] = 0x01 // format byte
+	buf[7] = 0x00 // data type byte
+	buf[5] = 0x00 //attribute
+	buf[6] = 0x03 //attribute
+
+	for i := 8; i < 16; i++ {
+		buf[i] = 0x00
+	}
+
 	return buf, "0x" + hex.EncodeToString(buf[:])
 }
 
