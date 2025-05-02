@@ -445,7 +445,6 @@ func (c PromoteNewChainForTestingConfig) updateFeeQuoterPricesConfig(remoteChain
 }
 
 func (c PromoteNewChainForTestingConfig) connectNewChainConfig() ConnectNewChainConfig {
-	testRouter := true
 	connections := make(map[uint64]ConnectionConfig, len(c.RemoteChains))
 	for _, remoteChain := range c.RemoteChains {
 		connections[remoteChain.Selector] = remoteChain.ConnectionConfig
@@ -454,7 +453,7 @@ func (c PromoteNewChainForTestingConfig) connectNewChainConfig() ConnectNewChain
 		RemoteChains:             connections,
 		NewChainSelector:         c.NewChain.Selector,
 		NewChainConnectionConfig: c.NewChain.ConnectionConfig,
-		TestRouter:               &testRouter,
+		TestRouter:               c.connectNewChainConfig().TestRouter,
 		MCMSConfig:               c.MCMSConfig,
 	}
 }
