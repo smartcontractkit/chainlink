@@ -904,5 +904,5 @@ func TestSetOcr3Candidate(t *testing.T) {
 		),
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid OCR3 config state,  expected candidate confi")
+	require.Contains(t, err.Error(), "invalid OCR3 config state, expected candidate config")
 }
