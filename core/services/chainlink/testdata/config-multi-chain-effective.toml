@@ -287,6 +287,7 @@ ChainID = '1'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
+SyncStrategy = 'event'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
@@ -308,6 +309,7 @@ InsecureConnection = false
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+ChipIngressEndpoint = ''
 
 [Workflows]
 [Workflows.Limits]
@@ -698,6 +700,7 @@ FinalizedBlockOffset = 0
 Name = 'primary'
 URL = 'http://mainnet.solana.com'
 SendOnly = false
+Order = 1
 
 [[Solana]]
 ChainID = 'testnet'
@@ -749,3 +752,4 @@ FinalizedBlockOffset = 0
 Name = 'secondary'
 URL = 'http://testnet.solana.com'
 SendOnly = false
+Order = 2

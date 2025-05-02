@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
@@ -74,9 +76,9 @@ func GetCurrentOutboundRateLimiterState(t TokenPoolContract, remoteChainSelector
 
 type RemoteChainConfig struct {
 	// RemoteTokenAddress is the raw representation of the token address on the remote chain.
-	RemoteTokenAddress []byte
+	RemoteTokenAddress string
 	// RemotePoolAddresses are raw addresses of valid token pools on the remote chain.
-	RemotePoolAddresses [][]byte
+	RemotePoolAddresses []string
 	// InboundRateLimiterConfig is the rate limiter config for inbound transfers from the remote chain.
 	InboundRateLimterConfig token_pool.RateLimiterConfig
 	// OutboundRateLimiterConfig is the rate limiter config for outbound transfers to the remote chain.
@@ -155,8 +157,8 @@ func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (To
 			return TokenPoolView{}, err
 		}
 		remoteChainConfigs[remoteChain] = RemoteChainConfig{
-			RemoteTokenAddress:  remoteToken,
-			RemotePoolAddresses: remotePools,
+			RemoteTokenAddress:  shared.GetAddressFromBytes(remoteChain, remoteToken),
+			RemotePoolAddresses: make([]string, len(remotePools)),
 			InboundRateLimterConfig: token_pool.RateLimiterConfig{
 				IsEnabled: inboundState.IsEnabled,
 				Capacity:  inboundState.Capacity,
@@ -167,6 +169,9 @@ func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (To
 				Capacity:  outboundState.Capacity,
 				Rate:      outboundState.Rate,
 			},
+		}
+		for i, remotePool := range remotePools {
+			remoteChainConfigs[remoteChain].RemotePoolAddresses[i] = shared.GetAddressFromBytes(remoteChain, remotePool)
 		}
 	}
 

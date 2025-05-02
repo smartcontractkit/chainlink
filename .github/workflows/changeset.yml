@@ -51,7 +51,6 @@ jobs:
               - '!core/**/*_test.go'
               - '!core/**/*.md'
               - '!core/**/*.json'
-              - '!core/chainlink.goreleaser.Dockerfile'
               - '!core/chainlink.Dockerfile'
               - '!core/gethwrappers/**'
             core-changeset:

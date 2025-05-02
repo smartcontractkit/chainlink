@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
@@ -35,6 +34,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 			req: &changeset.RemoveDONsRequest{
 				RegistryChainSel: 1,
 				DONs:             []uint32{},
+				RegistryRef:      env.CapabilityRegistryAddressRef(),
 			},
 			env:     env,
 			wantErr: errors.New("dons is required"),
@@ -44,6 +44,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 			req: &changeset.RemoveDONsRequest{
 				RegistryChainSel: 100,
 				DONs:             []uint32{1, 2, 3},
+				RegistryRef:      env.CapabilityRegistryAddressRef(),
 			},
 			env:     env,
 			wantErr: errors.New("invalid registry chain selector 100: selector does not exist"),
@@ -53,6 +54,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 			req: &changeset.RemoveDONsRequest{
 				RegistryChainSel: env.RegistrySelector,
 				DONs:             []uint32{1, 2, 3},
+				RegistryRef:      env.CapabilityRegistryAddressRef(),
 			},
 			env:     env,
 			wantErr: nil,
@@ -114,7 +116,7 @@ func TestRemoveDONs(t *testing.T) {
 			// 2) If the test says “remove these DONs,” gather their actual IDs from the environment
 			var donIDs []uint32
 
-			donInfos, err := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry.GetDONs(nil)
+			donInfos, err := te.CapabilitiesRegistry().GetDONs(nil)
 			require.NoError(t, err)
 			for _, donInfo := range donInfos {
 				donIDs = append(donIDs, donInfo.Id)
@@ -124,6 +126,7 @@ func TestRemoveDONs(t *testing.T) {
 			req := &changeset.RemoveDONsRequest{
 				RegistryChainSel: te.RegistrySelector,
 				DONs:             donIDs,
+				RegistryRef:      te.CapabilityRegistryAddressRef(),
 			}
 			if tt.useMCMS {
 				req.MCMSConfig = &changeset.MCMSConfig{MinDuration: 0}
@@ -144,7 +147,7 @@ func TestRemoveDONs(t *testing.T) {
 
 				// Also confirm on-chain that the DON is removed
 				for _, donID := range donIDs {
-					don, err := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry.GetDON(nil, donID)
+					don, err := te.CapabilitiesRegistry().GetDON(nil, donID)
 					require.NoError(t, err)
 					require.NotEqual(t, don.Id, donID, "Expect donID to not be found")
 					require.Equal(t, uint32(0), don.Id, "Expected returned donID to be 0")
@@ -155,26 +158,12 @@ func TestRemoveDONs(t *testing.T) {
 
 				// If finalizeOnChain is true, we actually apply the proposals on-chain
 				if tt.finalizeOnChain {
-					contracts := te.ContractSets()[te.RegistrySelector]
-					timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
-						te.RegistrySelector: {
-							Timelock:  contracts.Timelock,
-							CallProxy: contracts.CallProxy,
-						},
-					}
-
-					// Apply the proposals so they become final
-					_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
-						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(changeset.RemoveDONs),
-							req, // same request we used above
-						),
-					)
+					err = applyProposal(t, te, commonchangeset.Configure(deployment.CreateLegacyChangeSet(changeset.RemoveDONs), req))
 					require.NoError(t, err, "failed to finalize MCMS proposal on-chain")
 
 					// Check on-chain that the DON is removed
 					for _, donID := range donIDs {
-						don, err := contracts.CapabilitiesRegistry.GetDON(nil, donID)
+						don, err := te.CapabilitiesRegistry().GetDON(nil, donID)
 						require.NoError(t, err)
 						require.NotEqual(t, don.Id, donID, "Expect donID to not be found")
 						require.Equal(t, uint32(0), don.Id, "Expected returned donID to be 0")
@@ -182,7 +171,7 @@ func TestRemoveDONs(t *testing.T) {
 				} else {
 					// If we do NOT finalize, the DON still exists on-chain because the proposal wasn't applied
 					for _, donID := range donIDs {
-						_, err := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry.GetDON(nil, donID)
+						_, err := te.CapabilitiesRegistry().GetDON(nil, donID)
 						require.NoError(t, err, "DON is not removed because MCMS proposal was not finalized")
 					}
 				}

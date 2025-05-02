@@ -43,15 +43,15 @@ func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
 
 	if f.IsBootstrap {
 		selectors = append(selectors, &jdtypesv1.Selector{
-			Key:   devenv.NodeLabelKeyType,
+			Key:   devenv.LabelNodeTypeKey,
 			Op:    jdtypesv1.SelectorOp_EQ,
-			Value: pointer.To(devenv.NodeLabelValueBootstrap),
+			Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
 		})
 	} else {
 		selectors = append(selectors, &jdtypesv1.Selector{
-			Key:   devenv.NodeLabelKeyType,
+			Key:   devenv.LabelNodeTypeKey,
 			Op:    jdtypesv1.SelectorOp_EQ,
-			Value: pointer.To(devenv.NodeLabelValuePlugin),
+			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 		})
 	}
 

@@ -5,7 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -107,6 +108,6 @@ func NewNoopEnvironment(t *testing.T) Environment {
 		[]string{},
 		nil,
 		t.Context,
-		XXXGenerateTestOCRSecrets(),
+		deployment.XXXGenerateTestOCRSecrets(),
 	)
 }

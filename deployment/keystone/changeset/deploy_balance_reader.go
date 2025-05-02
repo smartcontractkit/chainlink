@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -17,25 +18,38 @@ type DeployBalanceReaderRequest struct {
 
 // DeployBalanceReader deploys the BalanceReader contract to all chains in the environment
 // callers must merge the output addressbook with the existing one
+// Deprecated: use DeployBalanceReaderV2 instead
 func DeployBalanceReader(env deployment.Environment, cfg DeployBalanceReaderRequest) (deployment.ChangesetOutput, error) {
-	lggr := env.Logger
-	ab := deployment.NewMemoryAddressBook()
+	out := deployment.ChangesetOutput{
+		AddressBook: deployment.NewMemoryAddressBook(),
+		DataStore:   datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata](),
+	}
+
 	selectors := cfg.ChainSelectors
 	if len(selectors) == 0 {
 		selectors = slices.Collect(maps.Keys(env.Chains))
 	}
 	for _, sel := range selectors {
-		chain, ok := env.Chains[sel]
-		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", sel)
+		req := &DeployRequestV2{
+			ChainSel: sel,
+			deployFn: internal.DeployBalanceReader,
 		}
-		lggr.Infow("deploying balancereader", "chainSelector", chain.Selector)
-		balanceReaderResp, err := internal.DeployBalanceReader(chain, ab)
+		csOut, err := DeployBalanceReaderV2(env, req)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy BalanceReader to chain selector %d: %w", chain.Selector, err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy BalanceReader to chain selector %d: %w", sel, err)
 		}
-		lggr.Infof("Deployed %s chain selector %d addr %s", balanceReaderResp.Tv.String(), chain.Selector, balanceReaderResp.Address.String())
+		if err := out.AddressBook.Merge(csOut.AddressBook); err != nil { //nolint:staticcheck // TODO CRE-400
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge address book for chain selector %d: %w", sel, err)
+		}
+		if err := out.DataStore.Merge(csOut.DataStore.Seal()); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge datastore for chain selector %d: %w", sel, err)
+		}
 	}
 
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return out, nil
+}
+
+func DeployBalanceReaderV2(env deployment.Environment, req *DeployRequestV2) (deployment.ChangesetOutput, error) {
+	req.deployFn = internal.DeployBalanceReader
+	return deploy(env, req)
 }

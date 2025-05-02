@@ -3,8 +3,6 @@ package v1_6
 import (
 	"time"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
@@ -86,17 +84,6 @@ const (
 	// migrate to using Default or Ethereum
 	SimulationTest
 )
-
-func DeriveOCRConfigTypeFromSelector(chainsel uint64) OCRConfigChainType {
-	switch chainsel {
-	case chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
-		chain_selectors.ETHEREUM_TESTNET_HOLESKY.Selector,
-		chain_selectors.ETHEREUM_MAINNET.Selector:
-		return Ethereum
-	default:
-		return Default
-	}
-}
 
 func (c OCRConfigChainType) CommitOCRParams() CCIPOCRParams {
 	switch c {

@@ -534,6 +534,20 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 			}
 
 			hashes = append(hashes, hash)
+		} else if IsRoninChain(env.ChainID) {
+			var h RoninHeader
+			// Get child block since it's the one that has the parent hash in its header.
+			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
+			err2 := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to get header: %w", err2)
+			}
+			rlpHeader, err2 = rlp.EncodeToBytes(h)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %w", err2)
+			}
+
+			hashes = append(hashes, h.Hash().String())
 		} else {
 			// Get child block since it's the one that has the parent hash in its header.
 			h, err2 := env.Ec.HeaderByNumber(
@@ -607,7 +621,13 @@ func IsAvaxSubnet(chainID int64) bool {
 		chainID == 595581 || // Nexon Test
 		chainID == 807424 || // Nexon QA
 		chainID == 847799 || // Nexon Stage
-		chainID == 60118 // Nexon Mainnet
+		chainID == 60118 || // Nexon Mainnet (Actually a testnet)
+		chainID == 68414 // Nexon Henesys Mainnet
+}
+
+func IsRoninChain(chainID int64) bool {
+	return chainID == 2020 || // Ronin Mainnet
+		chainID == 2021 // Ronin Saigon testnet
 }
 
 func UpkeepLink(chainID int64, upkeepID *big.Int) string {

@@ -187,7 +187,7 @@ type TransferMCMSToTimelockSolanaConfig struct {
 // book to the list of contracts to transfer.
 type TransferMCMSToTimelockSolana struct{}
 
-func (t *TransferMCMSToTimelockSolana) VerifyPreconditions(
+func (t TransferMCMSToTimelockSolana) VerifyPreconditions(
 	env deployment.Environment, config TransferMCMSToTimelockSolanaConfig,
 ) error {
 	for _, chainSelector := range config.Chains {
@@ -204,7 +204,7 @@ func (t *TransferMCMSToTimelockSolana) VerifyPreconditions(
 	return nil
 }
 
-func (t *TransferMCMSToTimelockSolana) Apply(
+func (t TransferMCMSToTimelockSolana) Apply(
 	env deployment.Environment, cfg TransferMCMSToTimelockSolanaConfig,
 ) (deployment.ChangesetOutput, error) {
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, cfg.Chains)

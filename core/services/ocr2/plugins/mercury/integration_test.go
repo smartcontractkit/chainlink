@@ -22,12 +22,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -173,7 +174,7 @@ func integration_MercuryV1(t *testing.T) {
 	reqs := make(chan request)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
-	srv := NewMercuryServer(t, serverKey.Signer(), reqs, func() []byte {
+	srv := NewMercuryServer(t, serverKey, reqs, func() []byte {
 		report, err := (&reportcodecv1.ReportCodec{}).BuildReport(ctx, v1.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), CurrentBlockHash: make([]byte, 32)})
 		if err != nil {
 			panic(err)
@@ -533,7 +534,7 @@ func integration_MercuryV2(t *testing.T) {
 	reqs := make(chan request)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
-	srv := NewMercuryServer(t, serverKey.Signer(), reqs, func() []byte {
+	srv := NewMercuryServer(t, serverKey, reqs, func() []byte {
 		report, err := (&reportcodecv2.ReportCodec{}).BuildReport(ctx, v2.ReportFields{BenchmarkPrice: big.NewInt(234567), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
 		if err != nil {
 			panic(err)
@@ -828,7 +829,7 @@ func integration_MercuryV3(t *testing.T) {
 	for i := 0; i < nSrvs; i++ {
 		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-(i + 1))))
 		reqs := make(chan request, 100)
-		srv := NewMercuryServer(t, k.Signer(), reqs, func() []byte {
+		srv := NewMercuryServer(t, k, reqs, func() []byte {
 			report, err := (&reportcodecv3.ReportCodec{}).BuildReport(ctx, v3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
 			if err != nil {
 				panic(err)
@@ -1124,7 +1125,7 @@ func integration_MercuryV4(t *testing.T) {
 	for i := 0; i < nSrvs; i++ {
 		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-(i + 1))))
 		reqs := make(chan request, 100)
-		srv := NewMercuryServer(t, k.Signer(), reqs, func() []byte {
+		srv := NewMercuryServer(t, k, reqs, func() []byte {
 			report, err := (&reportcodecv4.ReportCodec{}).BuildReport(ctx, v4.ReportFields{BenchmarkPrice: big.NewInt(234567), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1), MarketStatus: 1})
 			if err != nil {
 				panic(err)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -38,6 +39,10 @@ func (m MockRelayer) NewContractWriter(_ context.Context, _ []byte) (commontypes
 }
 
 func (m MockRelayer) NewContractReader(_ context.Context, _ []byte) (commontypes.ContractReader, error) {
+	panic("not implemented")
+}
+
+func (m MockRelayer) EVM() (types.EVMService, error) {
 	panic("not implemented")
 }
 

@@ -84,6 +84,11 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
+	evm, err := relayer.EVM()
+	if err != nil {
+		return nil, fmt.Errorf("failed to upgrade to evm relayer: %w", err)
+	}
+
 	pollPeriod, err := commonconfig.NewDuration(2 * time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create poll period: %w", err)
@@ -117,6 +122,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		ChainService:     chain,
 		ContractReader:   cr,
 		ChainWriter:      cw,
+		EVMService:       evm,
 		ConfigValidateFn: evaluate,
 		NodeAddress:      config.FromAddress().String(),
 		ForwarderAddress: config.ForwarderAddress().String(),

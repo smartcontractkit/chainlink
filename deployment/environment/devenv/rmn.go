@@ -18,12 +18,14 @@ import (
 	"github.com/rs/zerolog"
 	tc "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/exec"
+	tcLog "github.com/testcontainers/testcontainers-go/log"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
+
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 const (
@@ -217,7 +219,7 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger, networks []stri
 		return nil, err
 	}
 
-	l := tc.Logger
+	l := tcLog.Default()
 	if t != nil {
 		l = logging.CustomT{
 			T: t,
@@ -349,7 +351,7 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool, netwo
 		return nil, err
 	}
 
-	l := tc.Logger
+	l := tcLog.Default()
 	if t != nil {
 		l = logging.CustomT{
 			T: t,

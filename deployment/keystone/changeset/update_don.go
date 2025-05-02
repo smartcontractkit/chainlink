@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -23,14 +24,19 @@ type UpdateDonRequest struct {
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *MCMSConfig
+
+	RegistryRef datastore.AddressRefKey
 }
 
-func (r *UpdateDonRequest) Validate() error {
+func (r *UpdateDonRequest) Validate(env deployment.Environment) error {
 	if len(r.P2PIDs) == 0 {
 		return errors.New("p2pIDs is required")
 	}
 	if len(r.CapabilityConfigs) == 0 {
 		return errors.New("capabilityConfigs is required")
+	}
+	if err := shouldUseDatastore(env, r.RegistryRef); err != nil {
+		return fmt.Errorf("invalid registry reference: %w", err)
 	}
 	return nil
 }
@@ -47,6 +53,9 @@ type UpdateDonResponse struct {
 // This a complex action in practice that involves registering missing capabilities, adding the nodes, and updating
 // the capabilities of the DON
 func UpdateDon(env deployment.Environment, req *UpdateDonRequest) (deployment.ChangesetOutput, error) {
+	if err := req.Validate(env); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
+	}
 	appendResult, err := AppendNodeCapabilities(env, appendRequest(req))
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to append node capabilities: %w", err)
@@ -85,6 +94,7 @@ func appendRequest(r *UpdateDonRequest) *AppendNodeCapabilitiesRequest {
 		RegistryChainSel:  r.RegistryChainSel,
 		P2pToCapabilities: make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability),
 		MCMSConfig:        r.MCMSConfig,
+		RegistryRef:       r.RegistryRef,
 	}
 	for _, p2pid := range r.P2PIDs {
 		if _, exists := out.P2pToCapabilities[p2pid]; !exists {
@@ -98,18 +108,14 @@ func appendRequest(r *UpdateDonRequest) *AppendNodeCapabilitiesRequest {
 }
 
 func updateDonRequest(env deployment.Environment, r *UpdateDonRequest) (*internal.UpdateDonRequest, error) {
-	resp, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	})
+	capReg, err := loadCapabilityRegistry(env.Chains[r.RegistryChainSel], env, r.RegistryRef)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get contract sets: %w", err)
+		return nil, fmt.Errorf("failed to load capability registry: %w", err)
 	}
-	contractSet := resp.ContractSets[r.RegistryChainSel]
 
 	return &internal.UpdateDonRequest{
 		Chain:                env.Chains[r.RegistryChainSel],
-		CapabilitiesRegistry: contractSet.CapabilitiesRegistry.Contract,
+		CapabilitiesRegistry: capReg.Contract,
 		P2PIDs:               r.P2PIDs,
 		CapabilityConfigs:    r.CapabilityConfigs,
 		UseMCMS:              r.UseMCMS(),
