@@ -270,6 +270,49 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 						EventHandleStructName: "OnRampState",
 						EventHandleFieldName:  "ccip_message_sent_events",
 						EventAccountAddress:   "onramp::get_state_address",
+						EventFieldRenames: map[string]chainreader.RenamedField{
+							"dest_chain_selector": {
+								NewName:         "DestChainSelector",
+								SubFieldRenames: nil,
+							},
+							"sequence_number": {
+								NewName:         "SequenceNumber",
+								SubFieldRenames: nil,
+							},
+							"message": {
+								NewName:         "Message",
+								SubFieldRenames: map[string]chainreader.RenamedField{
+									"header": {
+										NewName:         "Header",
+									},
+									"sender": {
+										NewName:         "Sender",
+									},
+									"data": {
+										NewName:         "Data",
+									},
+									"receiver": {
+										NewName:         "Receiver",
+									},
+									"extra_args": {
+										NewName:         "ExtraArgs",
+									},
+									"fee_token": {
+										NewName:         "FeeToken",
+									},
+									"fee_token_amount": {
+										NewName:         "FeeTokenAmount",
+									},
+									"fee_value_juels": {
+										NewName:         "FeeValueJuels",
+									},
+									"token_amounts": {
+										NewName:         "TokenAmounts",
+										SubFieldRenames: nil, // TODO
+									},
+								},
+							},
+						},
 					},
 				},
 			},
