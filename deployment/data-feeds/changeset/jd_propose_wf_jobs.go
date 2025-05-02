@@ -42,7 +42,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 	workflowState := feedState.Workflows[workflowSpecConfig.WorkflowName]
 
 	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, pointer.To("data-feeds"))
+	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, &c.CacheLabel)
 
 	// default values
 	consensusEncoderAbi, _ := getWorkflowConsensusEncoderAbi(workflowSpecConfig.TargetContractEncoderType)

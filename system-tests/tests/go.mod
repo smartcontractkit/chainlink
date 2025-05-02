@@ -27,7 +27,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250501134304-27c43a698294
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250502144500-77c113986529
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250430150959-bec63d0dc988
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0

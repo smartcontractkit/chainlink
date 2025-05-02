@@ -19,27 +19,20 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
-const (
-	CapabilityLabelledName = "ccip"
-	CapabilityVersion      = "v1.0.0"
-)
-
 var (
-	CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
-	CCIPHomeABI      *abi.ABI
+	CCIPHomeABI *abi.ABI
 )
 
 func init() {
@@ -48,14 +41,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func MustABIEncode(abiString string, args ...interface{}) []byte {
-	encoded, err := utils.ABIEncode(abiString, args...)
-	if err != nil {
-		panic(err)
-	}
-	return encoded
 }
 
 // LatestCCIPDON returns the latest CCIP DON from the capabilities registry
@@ -68,7 +53,7 @@ func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capab
 	var ccipDON capabilities_registry.CapabilitiesRegistryDONInfo
 	for _, don := range dons {
 		if len(don.CapabilityConfigurations) == 1 &&
-			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityID &&
+			don.CapabilityConfigurations[0].CapabilityId == ccip.CCIPCapabilityID &&
 			don.Id > ccipDON.Id {
 			ccipDON = don
 		}
@@ -86,7 +71,7 @@ func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHom
 	var donIDs []uint32
 	for _, don := range dons {
 		if len(don.CapabilityConfigurations) == 1 &&
-			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityID {
+			don.CapabilityConfigurations[0].CapabilityId == ccip.CCIPCapabilityID {
 			configs, err := ccipHome.GetAllConfigs(nil, don.Id, uint8(types.PluginTypeCCIPCommit))
 			if err != nil {
 				return 0, fmt.Errorf("get all commit configs from cciphome: %w", err)
@@ -105,7 +90,7 @@ func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHom
 
 	// more than one DON is an error
 	if len(donIDs) > 1 {
-		return 0, fmt.Errorf("more than one DON found for (chain selector %d, ccip capability id %x) pair", chainSelector, CCIPCapabilityID[:])
+		return 0, fmt.Errorf("more than one DON found for (chain selector %d, ccip capability id %x) pair", chainSelector, ccip.CCIPCapabilityID[:])
 	}
 
 	// no DON found - don ID of 0 indicates that (this is the case in the CR as well).
