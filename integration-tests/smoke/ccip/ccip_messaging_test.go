@@ -415,14 +415,13 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidateResp:           false,
-				TestSetup:              setup,
-				Replayed:               replayed, // Should be false initially
-				Nonce:                  nonce,    // Should be 0 initially
-				Receiver:               receiver,
-				MsgData:                []byte("hello with too many accounts"),
-				ExtraArgs:              extraArgsFailure,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_UNTOUCHED,
+				ValidateResp: false,
+				TestSetup:    setup,
+				Replayed:     replayed, // Should be false initially
+				Nonce:        nonce,    // Should be 0 initially
+				Receiver:     receiver,
+				MsgData:      []byte("hello with too many accounts"),
+				ExtraArgs:    extraArgsFailure,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
 						// Check that the counter did NOT increment (should still be 1)
