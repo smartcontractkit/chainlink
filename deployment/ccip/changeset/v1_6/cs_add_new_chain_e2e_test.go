@@ -250,6 +250,8 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 		MCMSAction: mcmstypes.TimelockActionSchedule,
 	}
 
+	testRouter := true
+
 	tests := []test{
 		{
 			Msg:  "Remote chains owned by MCMS",
@@ -478,6 +480,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 						HomeChainSelector: deployedEnvironment.HomeChainSel,
 						NewChain:          newChain,
 						RemoteChains:      remoteChains,
+						TestRouter:        &testRouter,
 						MCMSConfig:        test.MCMS,
 					},
 				),
