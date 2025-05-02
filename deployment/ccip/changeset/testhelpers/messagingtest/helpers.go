@@ -30,8 +30,7 @@ func NewTestSetupWithDeployedEnv(
 	sourceChain,
 	destChain uint64,
 	sender []byte,
-	testRouter,
-	validateResp bool,
+	testRouter bool,
 ) TestSetup {
 	return TestSetup{
 		T:            t,
@@ -42,7 +41,6 @@ func NewTestSetupWithDeployedEnv(
 		SourceChain:  sourceChain,
 		DestChain:    destChain,
 		TestRouter:   testRouter,
-		ValidateResp: validateResp,
 	}
 }
 
@@ -54,8 +52,7 @@ func NewTestSetup(
 	sourceChain,
 	destChain uint64,
 	sender []byte,
-	testRouter,
-	validateResp bool,
+	testRouter bool,
 ) TestSetup {
 	return TestSetup{
 		T:      t,
@@ -66,7 +63,6 @@ func NewTestSetup(
 		SourceChain:  sourceChain,
 		DestChain:    destChain,
 		TestRouter:   testRouter,
-		ValidateResp: validateResp,
 	}
 }
 
@@ -79,11 +75,11 @@ type TestSetup struct {
 	SourceChain  uint64
 	DestChain    uint64
 	TestRouter   bool
-	ValidateResp bool
 }
 
 type TestCase struct {
 	TestSetup
+	ValidateResp           bool
 	Replayed               bool
 	Nonce                  uint64
 	Receiver               []byte

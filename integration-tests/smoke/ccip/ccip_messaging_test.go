@@ -90,7 +90,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			destChain,
 			sender,
 			false, // testRouter
-			true,  // validateResp
 		)
 	)
 
@@ -107,6 +106,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
+				ValidateResp:           true,
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  nonce,
@@ -127,6 +127,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
+				ValidateResp:           true,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
@@ -144,6 +145,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
+				ValidateResp:           true,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
@@ -170,6 +172,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
+				ValidateResp:           true,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
@@ -257,7 +260,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			destChain,
 			sender,
 			false, // testRouter
-			true,  // validateResp
 		)
 	)
 
@@ -296,6 +298,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
+				ValidateResp:           true,
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  nonce,
@@ -367,7 +370,6 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 			destChain,
 			sender,
 			false, // testRouter
-			true,  // validateResp
 		)
 	)
 
@@ -413,6 +415,7 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
+				ValidateResp:           false,
 				TestSetup:              setup,
 				Replayed:               replayed, // Should be false initially
 				Nonce:                  nonce,    // Should be 0 initially
@@ -459,6 +462,7 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
+				ValidateResp:           true,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
@@ -519,7 +523,6 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 			destChain,
 			sender,
 			false, // testRouter
-			true,  // validateResp
 		)
 	)
 
@@ -560,6 +563,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
+				ValidateResp:           true,
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  nonce,
