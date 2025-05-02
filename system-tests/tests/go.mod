@@ -1,8 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests
 
-go 1.24.1
-
-toolchain go1.24.2
+go 1.24.2
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
@@ -434,7 +432,6 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250425163923-16aa375957b7 // indirect
 	github.com/smartcontractkit/chainlink-deployments-framework v0.0.8 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
-	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250408161305-721208f43882 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250421203809-e0f5602c126c // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250421203809-e0f5602c126c // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3 // indirect

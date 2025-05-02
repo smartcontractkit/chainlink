@@ -1,8 +1,6 @@
 module github.com/smartcontractkit/chainlink/v2
 
-go 1.24.1
-
-toolchain go1.24.2
+go 1.24.2
 
 require (
 	github.com/Depado/ginprom v1.8.0
@@ -313,7 +311,6 @@ require (
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
-	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250408161305-721208f43882 // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250421203809-e0f5602c126c // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect

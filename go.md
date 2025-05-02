@@ -47,7 +47,7 @@ flowchart LR
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
-	chainlink-framework/capabilities --> chainlink-common
+	chainlink-framework/capabilities
 	click chainlink-framework/capabilities href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/chains --> chainlink-framework/multinode
 	click chainlink-framework/chains href "https://github.com/smartcontractkit/chainlink-framework"
@@ -182,7 +182,7 @@ flowchart LR
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
-	chainlink-framework/capabilities --> chainlink-common
+	chainlink-framework/capabilities
 	click chainlink-framework/capabilities href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/chains --> chainlink-framework/multinode
 	click chainlink-framework/chains href "https://github.com/smartcontractkit/chainlink-framework"
