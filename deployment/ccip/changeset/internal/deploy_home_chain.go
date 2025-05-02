@@ -253,6 +253,9 @@ func BuildSetOCR3ConfigArgsSolana(
 			return nil, err2
 		}
 
+		fmt.Printf("pluginType: %s, destSelector: %d, donID: %d, activeConfig digest: %x, candidateConfig digest: %x\n",
+			pluginType.String(), destSelector, donID, ocrConfig.ActiveConfig.ConfigDigest, ocrConfig.CandidateConfig.ConfigDigest)
+
 		configForOCR3 := ocrConfig.ActiveConfig
 		// we expect only an active config
 		if configType == globals.ConfigTypeActive {
