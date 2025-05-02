@@ -119,7 +119,7 @@ func TestWriteTarget(t *testing.T) {
 			InvalidReceiver: false,
 			State:           0,
 			Success:         false,
-			TransmissionId:  [32]byte{},
+			TransmissionID:  [32]byte{},
 			Transmitter:     common.HexToAddress("0x0"),
 		}
 	})
@@ -314,7 +314,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 					InvalidReceiver: false,
 					State:           targets.TransmissionStateNotAttempted,
 					Success:         false,
-					TransmissionId:  [32]byte{},
+					TransmissionID:  [32]byte{},
 					Transmitter:     common.HexToAddress("0x0"),
 				}
 			} else {
@@ -323,7 +323,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 					InvalidReceiver: false,
 					State:           targets.TransmissionStateSucceeded,
 					Success:         true,
-					TransmissionId:  [32]byte{},
+					TransmissionID:  [32]byte{},
 					Transmitter:     common.HexToAddress("0x0"),
 				}
 			}
@@ -355,7 +355,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 					InvalidReceiver: false,
 					State:           targets.TransmissionStateNotAttempted,
 					Success:         false,
-					TransmissionId:  [32]byte{},
+					TransmissionID:  [32]byte{},
 					Transmitter:     common.HexToAddress("0x0"),
 				}
 			} else {
@@ -364,7 +364,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 					InvalidReceiver: false,
 					State:           targets.TransmissionStateFailed,
 					Success:         false,
-					TransmissionId:  [32]byte{},
+					TransmissionID:  [32]byte{},
 					Transmitter:     common.HexToAddress("0x0"),
 				}
 			}
@@ -395,7 +395,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 					InvalidReceiver: false,
 					State:           targets.TransmissionStateNotAttempted,
 					Success:         false,
-					TransmissionId:  [32]byte{},
+					TransmissionID:  [32]byte{},
 					Transmitter:     common.HexToAddress("0x0"),
 				}
 			} else {
@@ -404,7 +404,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 					InvalidReceiver: true,
 					State:           targets.TransmissionStateInvalidReceiver,
 					Success:         false,
-					TransmissionId:  [32]byte{},
+					TransmissionID:  [32]byte{},
 					Transmitter:     common.HexToAddress("0x0"),
 				}
 			}
@@ -432,7 +432,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 				InvalidReceiver: true,
 				State:           targets.TransmissionStateInvalidReceiver,
 				Success:         false,
-				TransmissionId:  [32]byte{},
+				TransmissionID:  [32]byte{},
 				Transmitter:     common.HexToAddress("0x0"),
 			}
 		})
@@ -457,7 +457,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 				InvalidReceiver: false,
 				State:           targets.TransmissionStateFailed,
 				Success:         false,
-				TransmissionId:  [32]byte{},
+				TransmissionID:  [32]byte{},
 				Transmitter:     common.HexToAddress("0x0"),
 			}
 		})
@@ -485,7 +485,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 					InvalidReceiver: false,
 					State:           targets.TransmissionStateFailed,
 					Success:         false,
-					TransmissionId:  [32]byte{},
+					TransmissionID:  [32]byte{},
 					Transmitter:     common.HexToAddress("0x0"),
 				}
 			} else {
@@ -494,7 +494,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 					InvalidReceiver: false,
 					State:           targets.TransmissionStateSucceeded,
 					Success:         true,
-					TransmissionId:  [32]byte{},
+					TransmissionID:  [32]byte{},
 					Transmitter:     common.HexToAddress("0x0"),
 				}
 			}
