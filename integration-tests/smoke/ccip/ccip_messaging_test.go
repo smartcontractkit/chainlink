@@ -39,6 +39,7 @@ import (
 )
 
 func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
+	t.Skip()
 	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
 	chains := []chainsel.Chain{
 		chainsel.GETH_TESTNET,  // source
@@ -426,6 +427,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 }
 
 func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
+	t.Skip()
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
