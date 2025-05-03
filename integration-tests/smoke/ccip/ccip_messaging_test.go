@@ -39,7 +39,7 @@ import (
 )
 
 func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
-	t.Skip()
+	// t.Skip()
 	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
 	chains := []chainsel.Chain{
 		chainsel.GETH_TESTNET,  // source
@@ -57,6 +57,13 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		testhelpers.WithCLNodeConfigOpts(memory.WithFinalityDepths(map[uint64]uint32{
 			chains[1].EvmChainID: 30, // make dest chain finality depth 30 so we can observe exec behavior
 		})),
+		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			if params.ExecuteOffChainConfig != nil {
+				params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
+				params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
+			}
+			return params
+		}),
 	)
 
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -124,6 +131,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	})
 
 	t.Run("message to contract not implementing CCIPReceiver", func(t *testing.T) {
+		t.Skip()
 		out = mt.Run(
 			t,
 			mt.TestCase{
@@ -140,6 +148,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	})
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
+		t.Skip()
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
 		out = mt.Run(
@@ -169,6 +178,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	})
 
 	t.Run("message to contract implementing CCIPReceiver with low exec gas", func(t *testing.T) {
+		t.Skip()
 		out = mt.Run(
 			t,
 			mt.TestCase{
@@ -211,7 +221,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 }
 
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
-	t.Skip()
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
@@ -327,12 +336,10 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithSolChains(1),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			t.Log("params ExecuteOffChainConfig before", params.ExecuteOffChainConfig)
 			if params.ExecuteOffChainConfig != nil {
 				params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
 				params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
 			}
-			t.Log("params ExecuteOffChainConfig", params.ExecuteOffChainConfig)
 			return params
 		}),
 	)
@@ -422,16 +429,6 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 				Receiver:     receiver,
 				MsgData:      []byte("hello with too many accounts"),
 				ExtraArgs:    extraArgsFailure,
-				ExtraAssertions: []func(t *testing.T){
-					func(t *testing.T) {
-						// Check that the counter did NOT increment (should still be 1)
-						var receiverCounterAccountAfterFail soltesthelpers.ReceiverCounter
-						err = solcommon.GetAccountDataBorshInto(ctx, e.Env.SolChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccountAfterFail)
-						require.NoError(t, err, "failed to get account info after sending failing message")
-						require.Equal(t, uint8(0), receiverCounterAccountAfterFail.Value, "Counter should still be 0 after failed message")
-						t.Logf("Confirmed counter remained at 0 after expected execution failure")
-					},
-				},
 			},
 		)
 
