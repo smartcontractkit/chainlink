@@ -107,7 +107,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
-
 					},
 				},
 			},
@@ -350,6 +349,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 				Nonce:                  nonce,
 				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
+				FeeToken:               "",        // use native SOL - internally this will be converted to wSOL via Sync Native
 				ExtraArgs:              extraArgs, // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
