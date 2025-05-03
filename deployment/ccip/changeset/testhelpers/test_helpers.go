@@ -1750,6 +1750,7 @@ func Transfer(
 	receiver []byte,
 	useTestRouter bool,
 	data, extraArgs []byte,
+	feeToken string,
 ) (*onramp.OnRampCCIPMessageSent, map[uint64]*uint64) {
 	startBlocks := make(map[uint64]*uint64)
 
@@ -1762,18 +1763,29 @@ func Transfer(
 	var msg any
 	switch family {
 	case chainsel.FamilyEVM:
+		feeTokenAddr := common.HexToAddress("0x0")
+		if len(feeToken) > 0 {
+			feeTokenAddr = common.HexToAddress(feeToken)
+		}
+
 		msg = router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(receiver, 32),
 			Data:         data,
 			TokenAmounts: tokens.([]router.ClientEVMTokenAmount),
-			FeeToken:     common.HexToAddress("0x0"),
+			FeeToken:     feeTokenAddr,
 			ExtraArgs:    extraArgs,
 		}
 	case chainsel.FamilySolana:
+		feeTokenAddr := solana.PublicKey{}
+		if len(feeToken) > 0 {
+			feeTokenAddr = solana.MustPublicKeyFromBase58(feeToken)
+		}
+
 		msg = ccip_router.SVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(receiver, 32),
 			Data:         data,
 			TokenAmounts: tokens.([]ccip_router.SVMTokenAmount),
+			FeeToken:     feeTokenAddr,
 			ExtraArgs:    extraArgs,
 		}
 
@@ -1799,6 +1811,7 @@ type TestTransferRequest struct {
 	ExpectedTokenBalances []ExpectedBalance
 	RouterAddress         common.Address // Expected for long-living environments
 	UseTestRouter         bool
+	FeeToken              string
 }
 
 // TransferMultiple sends multiple CCIPMessages (represented as TestTransferRequest) sequentially.
@@ -1866,7 +1879,7 @@ func TransferMultiple(
 			}
 
 			msg, blocks := Transfer(
-				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs)
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs, tt.FeeToken)
 			if _, ok := expectedExecutionStates[pairId]; !ok {
 				expectedExecutionStates[pairId] = make(map[uint64]int)
 			}
