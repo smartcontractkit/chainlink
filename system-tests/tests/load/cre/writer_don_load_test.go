@@ -168,7 +168,7 @@ func setupLoadTestWriterEnvironment(
 		DataFeedsCacheAddress: dfCacheAddress,
 		AdminAddress:          universalSetupOutput.BlockchainOutput[0].SethClient.MustGetRootKeyAddress(),
 		AllowedSenders:        []common.Address{forwarderAddress},
-		AllowedWorkflowOwners: []common.Address{common.HexToAddress("0x0100000000000000000000000000000000000001")},
+		AllowedWorkflowOwners: []common.Address{common.HexToAddress(in.WriterTest.WorkflowOwner)},
 		AllowedWorkflowNames:  workflowNames,
 		Out:                   nil,
 	})
@@ -348,8 +348,21 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	//forwarderF := (len(workerNodes) - 1) / 3
+	forwarderF := 0
+	// Nr of signatures needs to be equal with f+1, compute f based on the nr of ocr3 worker nodes
+	for _, donMetadata := range setupOutput.donTopology.DonsWithMetadata {
+		if flags.HasFlag(donMetadata.Flags, keystonetypes.OCR3Capability) {
+			workerNodes, workerNodesErr := node.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
+				Key:   node.NodeTypeKey,
+				Value: keystonetypes.WorkerNode,
+			}, node.EqualLabels)
+			require.NoError(t, workerNodesErr, "could not find any worker nodes for ocr3")
 
+			forwarderF = (len(workerNodes) - 1) / 3
+
+		}
+	}
+	require.NotEqual(t, 0, forwarderF, "f cannot be 0")
 	tParams := testParams{
 		workflowName:          in.WriterTest.WorkflowName,
 		workflowOwner:         in.WriterTest.WorkflowOwner,
@@ -358,12 +371,15 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		nrOfReports:           in.WriterTest.NrOfFeeds,
 		dataFeedsCacheAddress: setupOutput.dataFeedsCacheAddress,
 		forwarderAddress:      setupOutput.forwarderAddress,
+		f:                     forwarderF,
 	}
 
 	require.NoError(t, exportTestParams(tParams), "could not save test params")
 
 	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
 	require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
+
+	require.NoError(t, saveClientURL(setupOutput.blockchainOutput[0].SethClient.URL), "could not save seth client url")
 
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 
@@ -405,10 +421,10 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
-			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
+			CallTimeout: time.Minute * 5, // Give enough time for the write to execute
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
-				wasp.Plain(4, 120*time.Minute),
+				wasp.Plain(1, 10*time.Minute),
 			),
 			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", logger.TestLogger(t), setupOutput.blockchainOutput[0].SethClient, tParams),
 			Labels:                labels,
@@ -429,6 +445,24 @@ func TestWriteWithReconnect(t *testing.T) {
 	kb, err := loadKeyBundlesFromCache()
 	require.NoError(t, err, "could not load OCR2 keys")
 
+	testParams, err := importTestParams()
+	require.NoError(t, err, "could not import test params")
+
+	pkey := os.Getenv("PRIVATE_KEY")
+	require.NotEmpty(t, pkey, "PRIVATE_KEY env var must be set")
+
+	clientURL, err := loadClientURL()
+	require.NoError(t, err, "could load the client url")
+
+	sethClient, err := seth.NewClientBuilder().
+		WithRpcUrl(clientURL).
+		WithPrivateKeys([]string{pkey}).
+		// do not check if there's a pending nonce nor check node's health
+		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+		Build()
+
+	require.NoError(t, err, "failed to create seth client")
+
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 	var mocksClient *mock_capability.Controller
 
@@ -446,7 +480,7 @@ func TestWriteWithReconnect(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", logger.TestLogger(t), nil, testParams{})
+	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", logger.TestLogger(t), sethClient, testParams)
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
@@ -473,6 +507,7 @@ type testParams struct {
 	nrOfReports           int
 	dataFeedsCacheAddress common.Address
 	forwarderAddress      common.Address
+	f                     int
 }
 
 func exportTestParams(params testParams) error {
@@ -491,6 +526,7 @@ func exportTestParams(params testParams) error {
 		"nrOfReports":           params.nrOfReports,
 		"dataFeedsCacheAddress": params.dataFeedsCacheAddress.String(),
 		"forwarderAddress":      params.forwarderAddress.String(),
+		"f":                     params.f,
 	}
 
 	jsonData, err := json.Marshal(data)
@@ -532,6 +568,7 @@ func importTestParams() (testParams, error) {
 	}
 
 	params.nrOfReports = int(rawData["nrOfReports"].(float64))
+	params.f = int(rawData["f"].(float64))
 	params.dataFeedsCacheAddress = common.HexToAddress(rawData["dataFeedsCacheAddress"].(string))
 	params.forwarderAddress = common.HexToAddress(rawData["forwarderAddress"].(string))
 
@@ -539,17 +576,15 @@ func importTestParams() (testParams, error) {
 }
 
 type WriterGun struct {
-	capProxy    *mock_capability.Controller
-	keyBundles  []ocr2key.KeyBundle
-	triggerID   string
-	waitChans   map[int64]chan interface{}
-	receiveChan <-chan capabilities.CapabilityRequest
-	mu          sync.Mutex
-	lggr        logger.Logger
-	reportID    uint8
-	seqNr       uint32
-	testParams  testParams
-	f           int
+	capProxy   *mock_capability.Controller
+	keyBundles []ocr2key.KeyBundle
+	triggerID  string
+	waitChans  map[uint8]chan interface{}
+	mu         sync.Mutex
+	lggr       logger.Logger
+	reportID   uint8
+	seqNr      uint32
+	testParams testParams
 
 	seth *seth.Client
 }
@@ -564,12 +599,12 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 		seqNr:      1,
 		seth:       seth,
 		testParams: params,
+		waitChans:  make(map[uint8]chan interface{}),
 	}
 
 	go func() {
 		ethClinet, _ := seth.Client.(*ethclient.Client)
 		fwd, _ := forwarder.NewKeystoneForwarder(params.forwarderAddress, ethClinet)
-		df, _ := data_feeds_cache.NewDataFeedsCache(params.dataFeedsCacheAddress, ethClinet)
 		ch := make(chan *types2.Header)
 		seth.Client.SubscribeNewHead(context.TODO(), ch)
 
@@ -582,32 +617,25 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 
 			lggr.Infof("Block %d tx count: %d", block.NumberU64(), block.Transactions().Len())
 			for _, t := range block.Transactions() {
-				lggr.Infof("		Tx %s to %s", t.Hash().String(), t.To().String())
 				receipt, err := seth.Client.TransactionReceipt(context.TODO(), t.Hash())
 				if err != nil {
-					panic(err)
-				}
-				for i, l := range receipt.Logs {
-					lggr.Infof("Log %d data: %x", i, l.Data)
-					for _, topic := range l.Topics {
-						lggr.Infof("---Topic: %s", topic.String())
-					}
+					lggr.Errorw("could not fetch tx receipt", "err", err)
+					continue
 				}
 
 				for _, l := range receipt.Logs {
 					log, err := fwd.ParseReportProcessed(*l)
 					if err != nil {
-						lggr.Warnf("Log is not ReportProcessed! Topic %s Data %x", l.Topics[0].String(), l.Data)
-						l2, err := df.ParseInvalidUpdatePermission(*l)
-						if err != nil {
-							lggr.Warn("Log is not InvalidUpdatePermission!")
-							continue
-						}
-						lggr.Infof("			InvalidUpdatePermission: dataID %x sender %s workflowOwner %s workflowName  %x", l2.DataId, l2.Sender.String(), l2.WorkflowOwner.String(), l2.WorkflowName)
-
 						continue
 					}
-					lggr.Infof("			Log ReportID %04x result %t", log.ReportId, log.Result)
+					lggr.Infof("Log ReportID %04x result %t", log.ReportId, log.Result)
+					reportID := uint8(log.ReportId[1])
+					sg.mu.Lock()
+					if ch, exists := sg.waitChans[reportID]; exists {
+						close(ch) // Signal completion
+						delete(sg.waitChans, reportID)
+					}
+					sg.mu.Unlock()
 				}
 			}
 		}
@@ -615,191 +643,6 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 	}()
 
 	return sg
-}
-
-func (s *WriterGun) Call2(l *wasp.Generator) *wasp.Response {
-	timestamp := time.Now()
-
-	executionID, err := workflows.EncodeExecutionID("5dbe5f217ff07d6b1dddb43519fe7bf13ccb10b540578fafdbea86b508abbd71", uuid.New().String())
-	if err != nil {
-		s.lggr.Error(err)
-		return &wasp.Response{Error: err.Error()}
-	}
-	metadata := pb2.Metadata{
-		WorkflowID:               "5dbe5f217ff07d6b1dddb43519fe7bf13ccb10b540578fafdbea86b508abbd71",
-		WorkflowOwner:            strings.TrimPrefix(s.testParams.workflowOwner, "0x"),
-		WorkflowExecutionID:      executionID,
-		WorkflowName:             convertToHashedWorkflowName(s.testParams.workflowName),
-		WorkflowDonID:            1,
-		WorkflowDonConfigVersion: 1,
-		ReferenceID:              "write_geth-testnet@1.0.0",
-		DecodedWorkflowName:      s.testParams.workflowName,
-	}
-
-	seqToEpoch := make([]byte, 32)
-	binary.BigEndian.PutUint32(seqToEpoch[32-5:32-1], s.seqNr)
-	zeros := make([]byte, 32)
-	configDigest := [32]byte{1}
-	repContext := append(append(configDigest[:], seqToEpoch[:]...), zeros...)
-
-	evmEncoderConfig := map[string]any{
-		"abi": "(bytes32 FeedID, uint32 Timestamp, uint224 Price)[] Reports",
-	}
-	wrappedEVMEncoderConfig, err := values.NewMap(evmEncoderConfig)
-	if err != nil {
-		s.lggr.Error(err)
-		return &wasp.Response{Error: err.Error()}
-	}
-	evmEncoder, err := evm.NewEVMEncoder(wrappedEVMEncoderConfig)
-	if err != nil {
-		s.lggr.Error(err)
-		return &wasp.Response{Error: err.Error()}
-	}
-
-	type ReportStruct struct {
-		FeedID    [32]byte
-		Price     string
-		Timestamp uint32
-	}
-
-	reports := make([]any, 0)
-	for i := range s.testParams.nrOfReports {
-		feedIDBytes, err := stringTo32Byte(s.testParams.feeds[i])
-		if err != nil {
-			s.lggr.Error(err)
-			return &wasp.Response{Error: err.Error()}
-		}
-		reports = append(reports, ReportStruct{
-			FeedID:    feedIDBytes,
-			Price:     big.NewInt(int64(rand.Intn(1000000))).String(),
-			Timestamp: uint32(timestamp.Unix()),
-		})
-	}
-
-	fakeReport := map[string]any{
-		"Reports": reports,
-		consensustypes.MetadataFieldName: consensustypes.Metadata{
-			Version:          1,                               //  1 byte
-			ExecutionID:      executionID,                     // 32 hex bytes (string len  = 64)
-			Timestamp:        uint32(timestamp.Unix()),        //  4 bytes
-			DONID:            1,                               //  4 bytes
-			DONConfigVersion: 1,                               //  4 bytes
-			WorkflowID:       metadata.WorkflowID,             // 32 hex bytes (string len = 64)
-			WorkflowName:     metadata.WorkflowName,           // 10 hex bytes (string len = 20)
-			WorkflowOwner:    metadata.WorkflowOwner,          // 20 hex bytes (string len = 40)
-			ReportID:         fmt.Sprintf("%04x", s.reportID), //  2 hex bytes (string len = 4)
-		},
-	}
-	wrappedFakeReport, err := values.NewMap(fakeReport)
-	if err != nil {
-		s.lggr.Error(err)
-		return &wasp.Response{Error: err.Error()}
-	}
-
-	encodedReport, err := evmEncoder.Encode(context.TODO(), *wrappedFakeReport)
-	if err != nil {
-		s.lggr.Error(err)
-		return &wasp.Response{Error: err.Error()}
-	}
-
-	fmt.Printf("%x", encodedReport)
-
-	sigs := make([][]byte, 2) //TODO: change to f+1
-
-	for i := range 2 {
-		sigData := append(crypto.Keccak256(encodedReport), repContext...)
-		fullHash := crypto.Keccak256(sigData)
-		ss, err := s.keyBundles[i].SignBlob(fullHash)
-		if err != nil {
-			return &wasp.Response{Error: err.Error()}
-		}
-		sigs[i] = ss
-	}
-
-	validInputs, err := values.NewMap(map[string]any{
-		"signed_report": map[string]any{
-			"report":     encodedReport,
-			"signatures": sigs,
-			"context":    repContext,
-			"id":         [2]byte{s.reportID >> 8, s.reportID},
-		},
-	})
-	if err != nil {
-		s.lggr.Error(err)
-		return &wasp.Response{Error: err.Error()}
-	}
-
-	validConfig, err := values.NewMap(map[string]any{
-		"Address":  s.testParams.dataFeedsCacheAddress.String(),
-		"gasLimit": 4000000,
-	})
-	if err != nil {
-		s.lggr.Error(err)
-		return &wasp.Response{Error: err.Error()}
-	}
-
-	configBytes, err := mock_capability.MapToBytes(validConfig)
-	if err != nil {
-		s.lggr.Error(err)
-		return &wasp.Response{Error: err.Error()}
-	}
-	inputBytes, err := mock_capability.MapToBytes(validInputs)
-	if err != nil {
-		s.lggr.Error(err)
-		return &wasp.Response{Error: err.Error()}
-	}
-
-	req := &pb2.ExecutableRequest{
-		ID:              s.triggerID,
-		CapabilityType:  4, //Target
-		RequestMetadata: &metadata,
-		Config:          configBytes,
-		Inputs:          inputBytes,
-	}
-
-	err = s.capProxy.Execute(context.TODO(), req)
-	if err != nil {
-		s.lggr.Error(err)
-		return &wasp.Response{Error: err.Error()}
-	}
-	s.reportID++
-	s.seqNr++
-	return &wasp.Response{}
-}
-
-func stringTo32Byte(input string) ([32]byte, error) {
-	var result [32]byte
-
-	// Remove "0x" prefix if present
-	if strings.HasPrefix(input, "0x") {
-		input = input[2:]
-	}
-
-	// Decode hex string to bytes
-	decoded, err := hex.DecodeString(input)
-	if err != nil {
-		return result, fmt.Errorf("failed to decode hex string: %w", err)
-	}
-
-	// Check length
-	if len(decoded) > 32 {
-		return result, fmt.Errorf("input string too long: got %d bytes, want <= 32", len(decoded))
-	}
-
-	// Copy bytes to result, right-aligned
-	copy(result[32-len(decoded):], decoded)
-	return result, nil
-}
-
-func convertToHashedWorkflowName(input string) string {
-	// Create SHA256 hash
-	hash := sha256.New()
-	hash.Write([]byte(input))
-
-	// Get the hex string of the hash
-	hashHex := hex.EncodeToString(hash.Sum(nil))
-
-	return hex.EncodeToString([]byte(hashHex[:10]))
 }
 
 func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
@@ -831,6 +674,10 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error()}
 	}
 
+	s.mu.Lock()
+	ch := make(chan interface{})
+	s.waitChans[s.reportID] = ch
+	s.mu.Unlock()
 	// Create executable request and execute
 	err = s.executeRequest(metadata, encodedReport, sigs, repContext)
 	if err != nil {
@@ -840,6 +687,8 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 
 	s.reportID++
 	s.seqNr++
+
+	<-ch // Wait for confirmation
 	return &wasp.Response{}
 }
 
@@ -889,11 +738,11 @@ func (s *WriterGun) createEncodedReport(metadata *pb2.Metadata) ([]byte, error) 
 }
 
 func (s *WriterGun) generateSignatures(encodedReport []byte, repContext []byte) ([][]byte, error) {
-	sigs := make([][]byte, 2)
+	sigs := make([][]byte, s.testParams.f+1)
 	sigData := append(crypto.Keccak256(encodedReport), repContext...)
 	fullHash := crypto.Keccak256(sigData)
 
-	for i := range 2 {
+	for i := range s.testParams.f + 1 {
 		sig, err := s.keyBundles[i].SignBlob(fullHash)
 		if err != nil {
 			return nil, fmt.Errorf("failed to sign blob: %w", err)
@@ -1001,4 +850,64 @@ func (s *WriterGun) createRequestInputs(encodedReport []byte, sigs [][]byte, rep
 	}
 
 	return inputBytes, configBytes, nil
+}
+func stringTo32Byte(input string) ([32]byte, error) {
+	var result [32]byte
+
+	// Remove "0x" prefix if present
+	if strings.HasPrefix(input, "0x") {
+		input = input[2:]
+	}
+
+	// Decode hex string to bytes
+	decoded, err := hex.DecodeString(input)
+	if err != nil {
+		return result, fmt.Errorf("failed to decode hex string: %w", err)
+	}
+
+	// Check length
+	if len(decoded) > 32 {
+		return result, fmt.Errorf("input string too long: got %d bytes, want <= 32", len(decoded))
+	}
+
+	// Copy bytes to result, right-aligned
+	copy(result[32-len(decoded):], decoded)
+	return result, nil
+}
+
+func convertToHashedWorkflowName(input string) string {
+	// Create SHA256 hash
+	hash := sha256.New()
+	hash.Write([]byte(input))
+
+	// Get the hex string of the hash
+	hashHex := hex.EncodeToString(hash.Sum(nil))
+
+	return hex.EncodeToString([]byte(hashHex[:10]))
+}
+
+func saveClientURL(url string) error {
+	// Create cache directory if it doesn't exist
+	cacheDir := filepath.Join(os.TempDir(), "cache")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	// Save URL to file
+	cacheFile := filepath.Join(cacheDir, "client_url.txt")
+	if err := os.WriteFile(cacheFile, []byte(url), 0644); err != nil {
+		return fmt.Errorf("failed to write client URL file: %w", err)
+	}
+
+	return nil
+}
+
+func loadClientURL() (string, error) {
+	cacheFile := filepath.Join(os.TempDir(), "cache", "client_url.txt")
+	data, err := os.ReadFile(cacheFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read client URL file: %w", err)
+	}
+
+	return string(data), nil
 }
