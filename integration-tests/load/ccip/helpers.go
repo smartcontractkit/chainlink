@@ -84,9 +84,7 @@ func subscribeTransmitEvents(
 			End:   atomic.NewUint64(0),
 		}
 	}
-
-	fmt.Printf("Initial transmit watcher for chain %d has seqnums %+v\n", srcChainSel, seqNums)
-
+	
 	sink := make(chan *onramp.OnRampCCIPMessageSent)
 	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
 		return onRamp.WatchCCIPMessageSent(&bind.WatchOpts{

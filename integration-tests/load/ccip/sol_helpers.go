@@ -6,7 +6,6 @@ import (
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"math"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -385,82 +384,22 @@ func subscribeSolExecutionEvents(
 func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *deployment.Environment, state ccipchangeset.CCIPOnChainState, sourceChain uint64) error {
 	sourceAccount := *e.SolChains[sourceChain].DeployerKey
 	rpcClient := e.SolChains[sourceChain].Client
-	router := state.SolChains[sourceChain].Router
 	tokenProgram := solana.TokenProgramID
 	wSOL := solana.SolMint
-	
+
 	soltestutils.FundAccounts(ctx, []solana.PrivateKey{sourceAccount}, rpcClient, t)
-	// create ATA for user
-
-	ixAtaUser, accountWSOL, err := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, sourceAccount.PublicKey(), sourceAccount.PublicKey())
+	accountWSOL, _, err := soltokens.FindAssociatedTokenAddress(tokenProgram, wSOL, sourceAccount.PublicKey())
 	if err != nil {
-		lggr.Errorw("failed to create associated token account", "error", err)
-		return err
+		return fmt.Errorf("failed to find deployer's wSOL ATA: %w", err)
 	}
 
-	// Approve CCIP to transfer the user's token for billing
-	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(router)
-	if err != nil {
-		lggr.Errorw("failed to find fee billing signer pda", "error", err)
-		return err
-	}
-
-	ixApproveWSOL, err := soltokens.TokenApproveChecked(math.MaxUint64, 9, tokenProgram, accountWSOL, wSOL, billingSignerPDA, sourceAccount.PublicKey(), []solana.PublicKey{})
-	if err != nil {
-		lggr.Errorw("failed to approve token transfer", "error", err)
-		return err
-	}
-
-	_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixAtaUser, ixApproveWSOL}, sourceAccount, solconfig.DefaultCommitment)
-	if err != nil {
-		lggr.Errorw("failed to approve router to bill sourceAccount", "error", err)
-
-		// on the second run, the account already exists, so we ignore the error
-		if !strings.Contains(err.Error(), "Provided owner is not allowed") {
-			return err
-		}
-	}
-
-	// fund user WSOL (transfer SOL + syncNative)
-	transferAmount := 1e2 * solana.LAMPORTS_PER_SOL
-	ixTransfer, err := soltokens.NativeTransfer(tokenProgram, transferAmount, sourceAccount.PublicKey(), accountWSOL)
-	if err != nil {
-		lggr.Errorw("failed to create transfer instruction", "error", err)
-		return err
-	}
 	ixSync, err := soltokens.SyncNative(tokenProgram, accountWSOL)
 	if err != nil {
 		lggr.Errorw("failed to create sync instruction", "error", err)
 		return err
 	}
-	_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixTransfer, ixSync}, sourceAccount, solconfig.DefaultCommitment)
-	if err != nil {
-		lggr.Errorw("failed to fund sourceAccount with wsol", "error", err)
-		return err
-	}
-
-	e.Logger.Infow("Approving billingPDA to transfer link")
-	link := state.SolChains[sourceChain].LinkToken
-	tokenProgramID, _ := state.SolChains[sourceChain].TokenToTokenProgram(link)
-	deployerATA, _, err := soltokens.FindAssociatedTokenAddress(tokenProgramID, link, sourceAccount.PublicKey())
-	if err != nil {
-		lggr.Errorw("failed to find associated token address", "error", err)
-		return err
-	}
-	ixApprove, err := soltokens.TokenApproveChecked(
-		1e2*1e9,
-		9,
-		tokenProgramID,
-		deployerATA,
-		link,
-		billingSignerPDA,
-		sourceAccount.PublicKey(),
-		[]solana.PublicKey{})
-	if err != nil {
-		return fmt.Errorf("failed to approve token transfer: %w", err)
-	}
-	err = e.SolChains[sourceChain].Confirm([]solana.Instruction{ixApprove})
-	return nil
+	_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixSync}, sourceAccount, solconfig.DefaultCommitment)
+	return err
 }
 
 func prepareAccountToSendLinkSolana(

@@ -150,7 +150,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			lggr,
 			env,
 			state,
-			[]solana.PrivateKey{*env.SolChains[chainSel].DeployerKey},
 			chainSel)
 		require.NoError(t, err)
 	}

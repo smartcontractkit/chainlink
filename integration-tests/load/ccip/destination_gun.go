@@ -96,9 +96,9 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 	switch selectorFamily {
 	case selectors.FamilyEVM:
-		err = m.sendEVMMessage(src)
+		err = m.sendEVMSourceMessage(src)
 	case selectors.FamilySolana:
-		err = m.sendSolanaMessage(src)
+		err = m.sendSOLSourceMessage(src)
 	}
 	if err != nil {
 		m.l.Errorw("Failed to transmit message",
@@ -128,9 +128,6 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // mustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) mustSourceChain() (uint64, error) {
-	if m.chainSelector == 12463857294658392847 || m.chainSelector == 3379446385462418246 {
-		return 12922642891491394802, nil
-	}
 	otherCS := m.env.AllChainSelectorsAllFamiliesExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
@@ -138,7 +135,8 @@ func (m *DestinationGun) mustSourceChain() (uint64, error) {
 	index := (int(m.roundNum.Load()) + m.chainOffset) % len(otherCS)
 	return otherCS[index], nil
 }
-func (m *DestinationGun) sendEVMMessage(src uint64) error {
+
+func (m *DestinationGun) sendEVMSourceMessage(src uint64) error {
 	acc := m.evmSourceKeys[src]
 	r := m.state.Chains[src].Router
 
@@ -198,7 +196,6 @@ func (m *DestinationGun) sendEVMMessage(src uint64) error {
 func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage, int64, error) {
 	dstSelFamily, err := selectors.GetSelectorFamily(m.chainSelector)
 	if err != nil {
-		m.l.Error("Error getting destination chain family")
 		return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("destination chain family for %d is not supported ", m.chainSelector)
 	}
 	rcv, extraArgs := []byte{}, []byte{}
@@ -330,7 +327,7 @@ func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) 
 	return append(EVMV2Tag, encodedArgs...), nil
 }
 
-func (m *DestinationGun) sendSolanaMessage(src uint64) error {
+func (m *DestinationGun) sendSOLSourceMessage(src uint64) error {
 	sourceKey := m.solanaSourceKeys[src]
 
 	msg, err := m.getSolanaMessage(src, sourceKey)

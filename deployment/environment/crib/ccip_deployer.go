@@ -5,8 +5,12 @@ import (
 	"errors"
 	"fmt"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"golang.org/x/sync/errgroup"
 	"math"
 	"math/big"
@@ -505,6 +509,51 @@ func setupSolLinkPools(e *deployment.Environment) (deployment.Environment, error
 		if err != nil {
 			return *e, fmt.Errorf("failed to apply solana setup link pool changesets: %w", err)
 		}
+
+		sourceAccount := *e.SolChains[solChainSel].DeployerKey
+		rpcClient := e.SolChains[solChainSel].Client
+		router := state.SolChains[solChainSel].Router
+		tokenProgram := solana.TokenProgramID
+		wSOL := solana.SolMint
+		// token transfer enablement changesets
+		ixAtaUser, accountWSOLAta, err := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, sourceAccount.PublicKey(), sourceAccount.PublicKey())
+		if err != nil {
+			return *e, fmt.Errorf("failed to create deployer's wSOL ata: %w", err)
+		}
+
+		// Approve CCIP to transfer the user's token for billing
+		billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(router)
+		if err != nil {
+			return *e, fmt.Errorf("failed to find billing signer PDA: %w", err)
+		}
+
+		ixApproveWSOL, err := soltokens.TokenApproveChecked(math.MaxUint64, 9, tokenProgram, accountWSOLAta, wSOL, billingSignerPDA, sourceAccount.PublicKey(), []solana.PublicKey{})
+		if err != nil {
+			return *e, fmt.Errorf("failed to create approve instruction: %w", err)
+		}
+
+		_, err = solcommon.SendAndConfirm(e.GetContext(), rpcClient, []solana.Instruction{ixAtaUser, ixApproveWSOL}, sourceAccount, solconfig.DefaultCommitment)
+		if err != nil {
+			return *e, fmt.Errorf("failed to confirm instructions for approving router to spend deployer's wSOL: %w", err)
+		}
+
+		// Approve CCIP to transfer the user's Link token for token transfers
+		link := state.SolChains[solChainSel].LinkToken
+		tokenProgramID, _ := state.SolChains[solChainSel].TokenToTokenProgram(link)
+		deployerATA, _, err := soltokens.FindAssociatedTokenAddress(tokenProgramID, link, sourceAccount.PublicKey())
+		ixApproveLink, err := soltokens.TokenApproveChecked(
+			1e2*1e9,
+			9,
+			tokenProgramID,
+			deployerATA,
+			link,
+			billingSignerPDA,
+			sourceAccount.PublicKey(),
+			[]solana.PublicKey{})
+		_, err = solcommon.SendAndConfirm(e.GetContext(), rpcClient, []solana.Instruction{ixApproveLink}, sourceAccount, solconfig.DefaultCommitment)
+		if err != nil {
+			return *e, fmt.Errorf("failed to confirm instructions for approving router to spend deployer's wSOL: %w", err)
+		}
 	}
 	return *e, nil
 }
@@ -543,16 +592,6 @@ func setupSolEvmLanes(lggr logger.Logger, e *deployment.Environment, state chang
 				}
 				fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solSelector)
 
-				// EVM -> SOL
-				cs := testhelpers.AddEVMSrcChangesets(evmSelector, solSelector, false, gasPrices, tokenPrices, fqCfg)
-				laneChangesets = append(laneChangesets, cs...)
-				cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector, evmSelector, chainsel.FamilyEVM)
-				laneChangesets = append(laneChangesets, cs...)
-
-				// SOL -> EVM
-				cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solSelector, false)
-				laneChangesets = append(laneChangesets, cs...)
-
 				mu.Lock()
 				poolUpdates[evmSelector] = ccipChangesetSolana.EVMRemoteConfig{
 					TokenSymbol: changeset.LinkSymbol,
@@ -564,6 +603,17 @@ func setupSolEvmLanes(lggr logger.Logger, e *deployment.Environment, state chang
 					},
 				}
 				mu.Unlock()
+
+				// EVM -> SOL
+				cs := testhelpers.AddEVMSrcChangesets(evmSelector, solSelector, false, gasPrices, tokenPrices, fqCfg)
+				laneChangesets = append(laneChangesets, cs...)
+				cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector, evmSelector, chainsel.FamilyEVM)
+				laneChangesets = append(laneChangesets, cs...)
+
+				// SOL -> EVM
+				cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solSelector, false)
+				laneChangesets = append(laneChangesets, cs...)
+
 				// Adding prices for the LINK and WSOL tokens on SOL
 				laneChangesets = append(laneChangesets,
 					commonchangeset.Configure(
@@ -589,7 +639,6 @@ func setupSolEvmLanes(lggr logger.Logger, e *deployment.Environment, state chang
 			})
 		}
 		err = g.Wait()
-
 		if err != nil {
 			return *e, fmt.Errorf("failed to apply sol evm lane changesets: %w", err)
 		}
