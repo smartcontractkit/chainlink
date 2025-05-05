@@ -499,7 +499,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	}
 
 	// V2 aka "NoDAG"
-	cfg := v2.EngineConfig{
+	cfg := &v2.EngineConfig{
 		Lggr:            h.lggr,
 		Module:          module,
 		CapRegistry:     h.capRegistry,

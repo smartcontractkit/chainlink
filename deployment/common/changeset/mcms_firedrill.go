@@ -74,7 +74,10 @@ func buildNoOPSolana() (mcmstypes.Transaction, error) {
 func MCMSSignFireDrillChangeset(e deployment.Environment, cfg FireDrillConfig) (deployment.ChangesetOutput, error) {
 	allSelectors := cfg.Selectors
 	if len(allSelectors) == 0 {
-		allSelectors = e.AllChainSelectors()
+		solSelectors := e.AllChainSelectorsSolana()
+		evmSelectors := e.AllChainSelectors()
+		allSelectors = append(allSelectors, solSelectors...)
+		allSelectors = append(allSelectors, evmSelectors...)
 	}
 	operations := make([]mcmstypes.BatchOperation, 0, len(allSelectors))
 	timelocks := map[uint64]string{}

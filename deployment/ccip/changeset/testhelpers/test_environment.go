@@ -592,6 +592,12 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 		),
 	)
 	require.NoError(t, err)
+
+	// load the state again to get the latest addresses
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	err = state.ValidatePostDeploymentState(e.Env)
+	require.NoError(t, err)
 	return e
 }
 

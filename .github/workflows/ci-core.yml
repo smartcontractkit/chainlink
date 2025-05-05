@@ -82,14 +82,10 @@ jobs:
               - '!deployment/**'
               - '!integration-tests/**'
               - '!tools/secrets/**'
-              - '!tools/goreleaser-config/**'
               - '!tools/docker/**'
               - '!tools/benchmark/**'
               - '!**/README.md'
               - '!**/CHANGELOG.md'
-              - '!.goreleaser.develop.yaml'
-              - '!.goreleaser.devspace.yaml'
-              - '!.goreleaser.production.yaml'
               - '!*.nix'
               - '!sonar-project.properties'
               - '!nix.conf'
@@ -187,7 +183,7 @@ jobs:
             setup-solana: "true"
 
           - cmd: go_core_fuzz
-            os:  ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}
+            os: ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}
             is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
