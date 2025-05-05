@@ -9,6 +9,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -25,11 +26,11 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	chain1 := e.AllChainSelectors()[0]
 	e, err := Apply(t, e, nil,
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployLinkToken),
+			cldf.CreateLegacyChangeSet(DeployLinkToken),
 			[]uint64{chain1},
 		),
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
 				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -47,7 +48,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 			chain1: {Timelock: state.Timelock, CallProxy: state.CallProxy},
 		},
 		Configure(
-			deployment.CreateLegacyChangeSet(TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(TransferToMCMSWithTimelock),
 			TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					chain1: {link.LinkToken.Address()},
@@ -67,7 +68,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	// Try a rollback to the deployer.
 	e, err = Apply(t, e, nil,
 		Configure(
-			deployment.CreateLegacyChangeSet(TransferToDeployer),
+			cldf.CreateLegacyChangeSet(TransferToDeployer),
 			TransferToDeployerConfig{
 				ContractAddress: link.LinkToken.Address(),
 				ChainSel:        chain1,
@@ -90,11 +91,11 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 	chain1 := e.AllChainSelectors()[0]
 	e, err := Apply(t, e, nil,
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployLinkToken),
+			cldf.CreateLegacyChangeSet(DeployLinkToken),
 			[]uint64{chain1},
 		),
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
 				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -112,7 +113,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 			chain1: {Timelock: state.Timelock, CallProxy: state.CallProxy},
 		},
 		Configure(
-			deployment.CreateLegacyChangeSet(TransferToMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(TransferToMCMSWithTimelockV2),
 			TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					chain1: {link.LinkToken.Address()},
@@ -134,7 +135,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 	// Try a rollback to the deployer.
 	e, err = Apply(t, e, nil,
 		Configure(
-			deployment.CreateLegacyChangeSet(TransferToDeployer),
+			cldf.CreateLegacyChangeSet(TransferToDeployer),
 			TransferToDeployerConfig{
 				ContractAddress: link.LinkToken.Address(),
 				ChainSel:        chain1,
@@ -158,7 +159,7 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 	chain1 := e.AllChainSelectors()[0]
 	e, err := Apply(t, e, nil,
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
 				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -232,7 +233,7 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	chain1 := e.AllChainSelectors()[0]
 	e, err := Apply(t, e, nil,
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
 				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -258,7 +259,7 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	// Revoke Deployer
 	e, err = Apply(t, e, nil,
 		Configure(
-			deployment.CreateLegacyChangeSet(RenounceTimelockDeployer),
+			cldf.CreateLegacyChangeSet(RenounceTimelockDeployer),
 			RenounceTimelockDeployerConfig{
 				ChainSel: chain1,
 			},

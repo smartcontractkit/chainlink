@@ -19,27 +19,20 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
-const (
-	CapabilityLabelledName = "ccip"
-	CapabilityVersion      = "v1.0.0"
-)
-
 var (
-	CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
-	CCIPHomeABI      *abi.ABI
+	CCIPHomeABI *abi.ABI
 )
 
 func init() {
@@ -48,14 +41,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func MustABIEncode(abiString string, args ...interface{}) []byte {
-	encoded, err := utils.ABIEncode(abiString, args...)
-	if err != nil {
-		panic(err)
-	}
-	return encoded
 }
 
 // LatestCCIPDON returns the latest CCIP DON from the capabilities registry
@@ -68,7 +53,7 @@ func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capab
 	var ccipDON capabilities_registry.CapabilitiesRegistryDONInfo
 	for _, don := range dons {
 		if len(don.CapabilityConfigurations) == 1 &&
-			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityID &&
+			don.CapabilityConfigurations[0].CapabilityId == ccip.CCIPCapabilityID &&
 			don.Id > ccipDON.Id {
 			ccipDON = don
 		}
@@ -86,7 +71,7 @@ func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHom
 	var donIDs []uint32
 	for _, don := range dons {
 		if len(don.CapabilityConfigurations) == 1 &&
-			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityID {
+			don.CapabilityConfigurations[0].CapabilityId == ccip.CCIPCapabilityID {
 			configs, err := ccipHome.GetAllConfigs(nil, don.Id, uint8(types.PluginTypeCCIPCommit))
 			if err != nil {
 				return 0, fmt.Errorf("get all commit configs from cciphome: %w", err)
@@ -105,7 +90,7 @@ func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHom
 
 	// more than one DON is an error
 	if len(donIDs) > 1 {
-		return 0, fmt.Errorf("more than one DON found for (chain selector %d, ccip capability id %x) pair", chainSelector, CCIPCapabilityID[:])
+		return 0, fmt.Errorf("more than one DON found for (chain selector %d, ccip capability id %x) pair", chainSelector, ccip.CCIPCapabilityID[:])
 	}
 
 	// no DON found - don ID of 0 indicates that (this is the case in the CR as well).
@@ -253,7 +238,12 @@ func BuildSetOCR3ConfigArgsSolana(
 	donID uint32,
 	ccipHome *ccip_home.CCIPHome,
 	destSelector uint64,
+	configType globals.ConfigType,
 ) ([]MultiOCR3BaseOCRConfigArgsSolana, error) {
+	chainCfg, err := ccipHome.GetChainConfig(nil, destSelector)
+	if err != nil {
+		return nil, fmt.Errorf("error getting chain config for chain selector %d it must be set before OCR3Config set up: %w", destSelector, err)
+	}
 	ocr3Configs := make([]MultiOCR3BaseOCRConfigArgsSolana, 0)
 	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
 		ocrConfig, err2 := ccipHome.GetAllConfigs(&bind.CallOpts{
@@ -263,15 +253,30 @@ func BuildSetOCR3ConfigArgsSolana(
 			return nil, err2
 		}
 
-		// we expect only an active config and no candidate config.
-		if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} || ocrConfig.CandidateConfig.ConfigDigest != [32]byte{} {
-			return nil, fmt.Errorf("invalid OCR3 config state, expected active config and no candidate config, donID: %d", donID)
+		fmt.Printf("pluginType: %s, destSelector: %d, donID: %d, activeConfig digest: %x, candidateConfig digest: %x\n",
+			pluginType.String(), destSelector, donID, ocrConfig.ActiveConfig.ConfigDigest, ocrConfig.CandidateConfig.ConfigDigest)
+
+		configForOCR3 := ocrConfig.ActiveConfig
+		// we expect only an active config
+		if configType == globals.ConfigTypeActive {
+			if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} {
+				return nil, fmt.Errorf("invalid OCR3 config state, expected active config, donID: %d, activeConfig: %v, candidateConfig: %v",
+					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
+			}
+		} else if configType == globals.ConfigTypeCandidate {
+			if ocrConfig.CandidateConfig.ConfigDigest == [32]byte{} {
+				return nil, fmt.Errorf("invalid OCR3 config state, expected candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
+					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
+			}
+			configForOCR3 = ocrConfig.CandidateConfig
+		}
+		if err := validateOCR3Config(destSelector, configForOCR3.Config, &chainCfg); err != nil {
+			return nil, err
 		}
 
-		activeConfig := ocrConfig.ActiveConfig
 		var signerAddresses [][20]byte
 		var transmitterAddresses []solana.PublicKey
-		for _, node := range activeConfig.Config.Nodes {
+		for _, node := range configForOCR3.Config.Nodes {
 			var signer [20]uint8
 			if len(node.SignerKey) != 20 {
 				return nil, fmt.Errorf("node signer key not 20 bytes long, got: %d", len(node.SignerKey))
@@ -283,9 +288,9 @@ func BuildSetOCR3ConfigArgsSolana(
 		}
 
 		ocr3Configs = append(ocr3Configs, MultiOCR3BaseOCRConfigArgsSolana{
-			ConfigDigest:                   activeConfig.ConfigDigest,
+			ConfigDigest:                   configForOCR3.ConfigDigest,
 			OCRPluginType:                  uint8(pluginType),
-			F:                              activeConfig.Config.FRoleDON,
+			F:                              configForOCR3.Config.FRoleDON,
 			IsSignatureVerificationEnabled: pluginType == types.PluginTypeCCIPCommit,
 			Signers:                        signerAddresses,
 			Transmitters:                   transmitterAddresses,

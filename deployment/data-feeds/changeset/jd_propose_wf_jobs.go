@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
@@ -21,7 +22,7 @@ const (
 )
 
 // ProposeWFJobsToJDChangeset is a changeset that reads a feed state file, creates a workflow job spec from it and proposes it to JD.
-var ProposeWFJobsToJDChangeset = deployment.CreateChangeSet(proposeWFJobsToJDLogic, proposeWFJobsToJDPrecondition)
+var ProposeWFJobsToJDChangeset = cldf.CreateChangeSet(proposeWFJobsToJDLogic, proposeWFJobsToJDPrecondition)
 
 func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsConfig) (deployment.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(env.GetContext(), timeout)
@@ -42,7 +43,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 	workflowState := feedState.Workflows[workflowSpecConfig.WorkflowName]
 
 	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, pointer.To("data-feeds"))
+	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, &c.CacheLabel)
 
 	// default values
 	consensusEncoderAbi, _ := getWorkflowConsensusEncoderAbi(workflowSpecConfig.TargetContractEncoderType)

@@ -5,12 +5,14 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
 
-var DeployConfiguratorChangeset = deployment.CreateChangeSet(deployConfiguratorLogic, deployConfiguratorPrecondition)
+var DeployConfiguratorChangeset = cldf.CreateChangeSet(deployConfiguratorLogic, deployConfiguratorPrecondition)
 
 type DeployConfiguratorConfig struct {
 	ChainsToDeploy []uint64

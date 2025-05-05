@@ -4,13 +4,14 @@ import (
 	"errors"
 	"fmt"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // DeployCacheChangeset deploys the DataFeedsCache contract to the specified chains
 // Returns a new addressbook with deployed DataFeedsCache contracts
-var DeployCacheChangeset = deployment.CreateChangeSet(deployCacheLogic, deployCachePrecondition)
+var DeployCacheChangeset = cldf.CreateChangeSet(deployCacheLogic, deployCachePrecondition)
 
 func deployCacheLogic(env deployment.Environment, c types.DeployConfig) (deployment.ChangesetOutput, error) {
 	lggr := env.Logger

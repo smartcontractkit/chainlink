@@ -272,6 +272,16 @@ packages:
     interfaces:
       LDAPClient:
       LDAPConn:
+  github.com/smartcontractkit/chainlink-common/pkg/capabilities:
+    config:
+      dir: core/capabilities/mocks
+    interfaces:
+      BaseCapability:
+      TriggerCapability:
+      ExecutableCapability:
+      ExecutableAndTriggerCapability:
+      Executable:
+      TriggerExecutable:
   github.com/smartcontractkit/chainlink-common/pkg/types:
     config:
       dir: core/capabilities/targets/mocks

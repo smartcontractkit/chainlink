@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
@@ -16,7 +17,7 @@ const (
 )
 
 // ProposeBtJobsToJDChangeset is a changeset that reads a boostrap spec from a file and proposes jobs to JD
-var ProposeBtJobsToJDChangeset = deployment.CreateChangeSet(proposeBtJobsToJDLogic, proposeBtJobsToJDPrecondition)
+var ProposeBtJobsToJDChangeset = cldf.CreateChangeSet(proposeBtJobsToJDLogic, proposeBtJobsToJDPrecondition)
 
 func proposeBtJobsToJDLogic(env deployment.Environment, c types.ProposeBtJobsConfig) (deployment.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(env.GetContext(), btTimeout)

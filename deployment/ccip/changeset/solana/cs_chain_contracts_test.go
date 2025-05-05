@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -40,7 +41,7 @@ func deployTokenAndMint(t *testing.T, tenv deployment.Environment, solChain uint
 	}
 	e, err := commonchangeset.Apply(t, tenv, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeploySolanaToken),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeploySolanaToken),
 			ccipChangesetSolana.DeploySolanaTokenConfig{
 				ChainSelector:       solChain,
 				TokenProgramName:    ccipChangeset.SPL2022Tokens,
@@ -139,13 +140,13 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	}
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
 			v1_6.UpdateOnRampDestsConfig{
 				UpdatesByChain: onRampUpdates,
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
 			ccipChangesetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: routerUpdates,
@@ -153,7 +154,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
 			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: feeQuoterUpdates,
@@ -161,7 +162,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
 			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: offRampUpdates,
@@ -203,7 +204,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DisableRemoteChain),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DisableRemoteChain),
 			ccipChangesetSolana.DisableRemoteChainConfig{
 				ChainSelector: solChain,
 				RemoteChains:  evmChains,
@@ -266,7 +267,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
 			ccipChangesetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: routerUpdates,
@@ -274,7 +275,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
 			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: feeQuoterUpdates,
@@ -282,7 +283,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
 			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: offRampUpdates,
@@ -348,7 +349,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	}
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
 			ccipChangesetSolana.BillingTokenConfig{
 				ChainSelector: solChain,
 				TokenPubKey:   tokenAddress.String(),
@@ -365,7 +366,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenTransferFeeForRemoteChain),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenTransferFeeForRemoteChain),
 			ccipChangesetSolana.TokenTransferFeeForRemoteChainConfig{
 				ChainSelector:       solChain,
 				RemoteChainSelector: evmChain,
@@ -403,7 +404,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	// test update
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
 			ccipChangesetSolana.BillingTokenConfig{
 				ChainSelector: solChain,
 				TokenPubKey:   tokenAddress.String(),
@@ -430,7 +431,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
 			ccipChangesetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector: solChain,
 				UpdatesByChain: map[uint64]ccipChangesetSolana.RouterConfig{
@@ -444,7 +445,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
 			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
 				ChainSelector: solChain,
 				UpdatesByChain: map[uint64]ccipChangesetSolana.FeeQuoterConfig{
@@ -464,7 +465,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
 			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
 				ChainSelector: solChain,
 				UpdatesByChain: map[uint64]ccipChangesetSolana.OffRampConfig{
@@ -476,7 +477,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.ModifyPriceUpdater),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.ModifyPriceUpdater),
 			ccipChangesetSolana.ModifyPriceUpdaterConfig{
 				ChainSelector:      solChain,
 				PriceUpdater:       testPriceUpdater,
@@ -485,7 +486,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpdatePrices),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpdatePrices),
 			ccipChangesetSolana.UpdatePricesConfig{
 				ChainSelector: solChain,
 				TokenPriceUpdates: []solFeeQuoter.TokenPriceUpdate{
@@ -505,7 +506,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.ModifyPriceUpdater),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.ModifyPriceUpdater),
 			ccipChangesetSolana.ModifyPriceUpdaterConfig{
 				ChainSelector:      solChain,
 				PriceUpdater:       testPriceUpdater,
@@ -514,7 +515,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetFeeAggregator),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetFeeAggregator),
 			ccipChangesetSolana.SetFeeAggregatorConfig{
 				ChainSelector: solChain,
 				FeeAggregator: feeAggregator.String(),
@@ -522,7 +523,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.CreateSolanaTokenATA),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CreateSolanaTokenATA),
 			ccipChangesetSolana.CreateSolanaTokenATAConfig{
 				ChainSelector: solChain,
 				TokenPubkey:   tokenAddress,
@@ -538,7 +539,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	billingSignerATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, billingSignerPDA)
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.MintSolanaToken),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.MintSolanaToken),
 			ccipChangesetSolana.MintSolanaTokenConfig{
 				ChainSelector: solChain,
 				TokenPubkey:   tokenAddress.String(),
@@ -559,7 +560,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	require.NoError(t, err)
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.WithdrawBilledFunds),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.WithdrawBilledFunds),
 			ccipChangesetSolana.WithdrawBilledFundsConfig{
 				ChainSelector: solChain,
 				TransferAll:   true,
@@ -630,7 +631,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			// register token admin registry for tokenAddress via admin instruction
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 				ChainSelector:           solChain,
 				TokenPubKey:             tokenAddress,
@@ -640,7 +641,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
 			ccipChangesetSolana.SetTokenAuthorityConfig{
 				ChainSelector: solChain,
 				AuthorityType: solToken.AuthorityMintTokens,
@@ -649,7 +650,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
 			ccipChangesetSolana.SetTokenAuthorityConfig{
 				ChainSelector: solChain,
 				AuthorityType: solToken.AuthorityFreezeAccount,
@@ -659,7 +660,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 		),
 		commonchangeset.Configure(
 			// register token admin registry for linkToken via owner instruction
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 				ChainSelector:           solChain,
 				TokenPubKey:             linkTokenAddress,
@@ -691,7 +692,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 		e, err = commonchangeset.Apply(t, e, nil,
 			commonchangeset.Configure(
 				// accept admin role for tokenAddress
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
 				ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 					ChainSelector: solChain,
 					TokenPubKey:   tokenAddress,
@@ -709,7 +710,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				// transfer admin role for tokenAddress
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.TransferAdminRoleTokenAdminRegistry),
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferAdminRoleTokenAdminRegistry),
 				ccipChangesetSolana.TransferAdminRoleTokenAdminRegistryConfig{
 					ChainSelector:             solChain,
 					TokenPubKey:               tokenAddress.String(),
@@ -770,7 +771,7 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			// add token pool lookup table
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolLookupTable),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolLookupTable),
 			ccipChangesetSolana.TokenPoolLookupTableConfig{
 				ChainSelector: solChain,
 				TokenPubKey:   tokenAddress,
@@ -790,7 +791,7 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			// register token admin registry for linkToken via owner instruction
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 				ChainSelector:           solChain,
 				TokenPubKey:             tokenAddress,
@@ -801,7 +802,7 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 		),
 		commonchangeset.Configure(
 			// accept admin role for tokenAddress
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
 			ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 				ChainSelector: solChain,
 				TokenPubKey:   tokenAddress,
@@ -810,7 +811,7 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 		),
 		commonchangeset.Configure(
 			// set pool -> this updates tokenAdminRegistryPDA, hence above changeset is required
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
 			ccipChangesetSolana.SetPoolConfig{
 				ChainSelector:   solChain,
 				TokenPubKey:     tokenAddress,
@@ -846,7 +847,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 }
 
 // ocr3 test
-func TestSetOcr3(t *testing.T) {
+func TestSetOcr3Active(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfNodes(16),
@@ -865,7 +866,7 @@ func TestSetOcr3(t *testing.T) {
 
 	tenv.Env, _, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
 			v1_6.SetOCR3OffRampConfig{
 				HomeChainSel:       homeChainSel,
 				RemoteChainSels:    solChainSelectors,
@@ -875,4 +876,34 @@ func TestSetOcr3(t *testing.T) {
 		),
 	})
 	require.NoError(t, err)
+}
+
+func TestSetOcr3Candidate(t *testing.T) {
+	t.Parallel()
+	tenv, _ := testhelpers.NewMemoryEnvironment(t,
+		testhelpers.WithSolChains(1))
+	var err error
+	evmSelectors := tenv.Env.AllChainSelectors()
+	homeChainSel := evmSelectors[0]
+	solChainSelectors := tenv.Env.AllChainSelectorsSolana()
+	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
+		ccipChangesetSolana.CCIPContractsToTransfer{
+			Router:    true,
+			FeeQuoter: true,
+			OffRamp:   true,
+		})
+
+	tenv.Env, _, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
+			v1_6.SetOCR3OffRampConfig{
+				HomeChainSel:       homeChainSel,
+				RemoteChainSels:    solChainSelectors,
+				CCIPHomeConfigType: globals.ConfigTypeCandidate,
+				MCMS:               &proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+			},
+		),
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid OCR3 config state, expected candidate config")
 }

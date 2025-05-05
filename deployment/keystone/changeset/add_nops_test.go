@@ -8,7 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -78,7 +79,7 @@ func TestAddNops(t *testing.T) {
 		require.Len(t, csOut.MCMSTimelockProposals, 1)
 		require.Nil(t, csOut.AddressBook)
 
-		err = applyProposal(t, te, commonchangeset.Configure(deployment.CreateLegacyChangeSet(changeset.AddNops), req))
+		err = applyProposal(t, te, commonchangeset.Configure(cldf.CreateLegacyChangeSet(changeset.AddNops), req))
 		require.NoError(t, err)
 
 		assertNopsExist(t, te.CapabilitiesRegistry(), nops...)
