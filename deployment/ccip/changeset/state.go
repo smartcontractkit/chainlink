@@ -706,7 +706,6 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.ChainView, error) {
 	chainView := view.NewChain()
 	grp := errgroup.Group{}
-	// find out which router is enabled for the chain
 
 	if c.Router != nil {
 		grp.Go(func() error {
