@@ -116,6 +116,7 @@ jobs:
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_APTOS_CMD=chainlink-aptos
+        CL_SOLANA_CMD=chainlink-solana
       docker-build-cache-disabled: "true"
       docker-image-type: tag
       docker-manifest-sign: true
