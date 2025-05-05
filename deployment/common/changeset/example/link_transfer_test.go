@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -37,11 +38,11 @@ func setupLinkTransferTestEnv(t *testing.T) deployment.Environment {
 	// Deploy MCMS and Timelock
 	env, err := changeset.Apply(t, env, nil,
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployLinkToken),
+			cldf.CreateLegacyChangeSet(changeset.DeployLinkToken),
 			[]uint64{chainSelector},
 		),
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
 				chainSelector: {
 					Canceller:        config,
@@ -98,7 +99,7 @@ func TestLinkTransferMCMS(t *testing.T) {
 		// the changeset produces proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(example.LinkTransfer),
+			cldf.CreateLegacyChangeSet(example.LinkTransfer),
 			&example.LinkTransferConfig{
 				From: timelockAddress,
 				Transfers: map[uint64][]example.TransferConfig{
@@ -173,7 +174,7 @@ func TestLinkTransfer(t *testing.T) {
 		// the changeset produces proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(example.LinkTransfer),
+			cldf.CreateLegacyChangeSet(example.LinkTransfer),
 			&example.LinkTransferConfig{
 				From: chain.DeployerKey.From,
 				Transfers: map[uint64][]example.TransferConfig{
@@ -411,7 +412,7 @@ func TestLinkTransferMCMSV2(t *testing.T) {
 		// the changeset produces proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(example.LinkTransferV2),
+			cldf.CreateLegacyChangeSet(example.LinkTransferV2),
 			&example.LinkTransferConfig{
 				From: timelockAddress,
 				Transfers: map[uint64][]example.TransferConfig{

@@ -42,17 +42,6 @@ packages:
       dir: core/chains/evm/logpoller/mocks
     interfaces:
       LogPoller:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm:
-    config:
-      dir: core/chains/evm/txm
-      outpkg: txm
-      mockname: "mock{{ .InterfaceName }}"
-      filename: "mock_{{ .InterfaceName | snakecase }}_test.go"
-    interfaces:
-      Client:
-      TxStore:
-      AttemptBuilder:
-      Keystore:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr:
     interfaces:
       ChainConfig:
@@ -283,6 +272,16 @@ packages:
     interfaces:
       LDAPClient:
       LDAPConn:
+  github.com/smartcontractkit/chainlink-common/pkg/capabilities:
+    config:
+      dir: core/capabilities/mocks
+    interfaces:
+      BaseCapability:
+      TriggerCapability:
+      ExecutableCapability:
+      ExecutableAndTriggerCapability:
+      Executable:
+      TriggerExecutable:
   github.com/smartcontractkit/chainlink-common/pkg/types:
     config:
       dir: core/capabilities/targets/mocks

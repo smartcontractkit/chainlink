@@ -6,12 +6,14 @@ import (
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // UpdatesNodesJDChangeset is a changeset that reads node info from a JSON file and updates node name and labels in Job Distributor
-var UpdatesNodesJDChangeset = deployment.CreateChangeSet(updatesNodesJDLogic, updatesNodesJDLogicPrecondition)
+var UpdatesNodesJDChangeset = cldf.CreateChangeSet(updatesNodesJDLogic, updatesNodesJDLogicPrecondition)
 
 type NodeConfigSchema struct {
 	ID           string          `json:"id"`            // node id

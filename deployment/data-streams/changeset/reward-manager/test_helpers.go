@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +29,7 @@ func DeployRewardManagerAndLink(
 	// 1) Deploy Link
 	env, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
+			cldf.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
 			[]uint64{testutil.TestChain.Selector},
 		),
 	)

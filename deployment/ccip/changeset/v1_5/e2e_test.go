@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
@@ -59,7 +59,7 @@ func TestE2ELegacy(t *testing.T) {
 	// permabless the commit stores
 	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_5changeset.PermaBlessCommitStoreChangeset),
+			cldf.CreateLegacyChangeSet(v1_5changeset.PermaBlessCommitStoreChangeset),
 			v1_5changeset.PermaBlessCommitStoreConfig{
 				Configs: map[uint64]v1_5changeset.PermaBlessCommitStoreConfigPerDest{
 					dest: {

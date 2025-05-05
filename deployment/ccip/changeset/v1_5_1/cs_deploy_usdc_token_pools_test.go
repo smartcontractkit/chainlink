@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -251,7 +253,7 @@ func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 
 			e, err := commoncs.Apply(t, e, nil,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+					cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
 					changeset.DeployPrerequisiteConfig{
 						Configs: prereqCfg,
 					},
@@ -272,7 +274,7 @@ func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 			for i := range numRuns {
 				e, err = commoncs.Apply(t, e, nil,
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(v1_5_1.DeployUSDCTokenPoolContractsChangeset),
+						cldf.CreateLegacyChangeSet(v1_5_1.DeployUSDCTokenPoolContractsChangeset),
 						v1_5_1.DeployUSDCTokenPoolContractsConfig{
 							USDCPools: newUSDCTokenPools,
 						},

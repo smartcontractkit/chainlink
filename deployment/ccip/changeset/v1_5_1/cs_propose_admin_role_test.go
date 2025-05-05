@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -37,7 +38,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 	// We want an administrator to exist to force failure in the last test
 	e, err := commonchangeset.Apply(t, e, timelockContracts,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
+			cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 			changeset.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
 				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -51,7 +52,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
+			cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
 			changeset.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
 				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -150,7 +151,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 		t.Run(test.Msg, func(t *testing.T) {
 			_, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
+					cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 					test.Config,
 				),
 			)
@@ -191,7 +192,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
+					cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 					changeset.TokenAdminRegistryChangesetConfig{
 						MCMS: mcmsConfig,
 						Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -265,7 +266,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
+					cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 					changeset.TokenAdminRegistryChangesetConfig{
 						MCMS: mcmsConfig,
 						Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{

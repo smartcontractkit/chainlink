@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -37,6 +40,16 @@ func NewStandaloneEngine(ctx context.Context, lggr logger.Logger, registry *capa
 		MaxCompressedBinarySize: defaultMaxUncompressedBinarySize,
 		IsUncompressed:          true,
 	}
+
+	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
+	if err != nil {
+		return nil, fmt.Errorf("unable to create module from config: %w", err)
+	}
+
+	if !module.IsLegacyDAG() {
+		return nil, errors.New("no DAG not yet supported")
+	}
+
 	sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 	if err != nil {
 		return nil, err

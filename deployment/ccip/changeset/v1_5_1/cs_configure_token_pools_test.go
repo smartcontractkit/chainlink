@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -477,7 +479,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 					// Configure & set the active pools on the registry
 					e, err = commonchangeset.Apply(t, e, timelockContracts,
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+							cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 							v1_5_1.ConfigureTokenPoolContractsConfig{
 								TokenSymbol: testhelpers.TestTokenSymbol,
 								MCMS:        mcmsConfig,
@@ -500,7 +502,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 							},
 						),
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
+							cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -520,7 +522,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 							},
 						),
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
+							cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
 							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -540,7 +542,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 							},
 						),
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
+							cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
 							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -600,7 +602,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 					}
 					e, err = commonchangeset.Apply(t, e, timelockContracts,
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+							cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 							v1_5_1.ConfigureTokenPoolContractsConfig{
 								TokenSymbol: testhelpers.TestTokenSymbol,
 								MCMS:        mcmsConfig,
@@ -723,7 +725,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	for _, selector := range solanaSelectors {
 		e, err = commonchangeset.Apply(t, e, nil,
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+				cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 				changeset_solana.DeploySolanaTokenConfig{
 					ChainSelector:    selector,
 					TokenProgramName: changeset.SPL2022Tokens,
@@ -738,7 +740,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
 		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
+				cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 				changeset_solana.TokenPoolConfig{
 					ChainSelector: selector,
 					TokenPubKey:   tokenAddress,
@@ -766,7 +768,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		}
 		e, err = commonchangeset.Apply(t, e, nil,
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+				cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 				v1_5_1.ConfigureTokenPoolContractsConfig{
 					TokenSymbol: testhelpers.TestTokenSymbol,
 					PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
@@ -801,7 +803,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		e.Chains[selector].DeployerKey.GasLimit = 1_000_000 // Hack: Increase gas limit to avoid out of gas error (could this be a cause for test flakiness?)
 		e, err = commonchangeset.Apply(t, e, nil,
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+				cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 				v1_5_1.ConfigureTokenPoolContractsConfig{
 					TokenSymbol: testhelpers.TestTokenSymbol,
 					PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
@@ -829,7 +831,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		tokensBefore := state.SolChains[selector].SPL2022Tokens
 		e, err = commonchangeset.Apply(t, e, nil,
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+				cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 				changeset_solana.DeploySolanaTokenConfig{
 					ChainSelector:    selector,
 					TokenProgramName: changeset.SPL2022Tokens,
@@ -847,7 +849,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			}
 			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
+					cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 					changeset_solana.TokenPoolConfig{
 						ChainSelector: selector,
 						TokenPubKey:   tokenAddress,
@@ -874,7 +876,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		}
 		e, err = commonchangeset.Apply(t, e, nil,
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+				cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 				v1_5_1.ConfigureTokenPoolContractsConfig{
 					TokenSymbol: testhelpers.TestTokenSymbol,
 					PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{

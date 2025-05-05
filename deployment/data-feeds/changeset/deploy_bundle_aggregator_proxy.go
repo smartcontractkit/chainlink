@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -13,7 +14,7 @@ import (
 // DeployBundleAggregatorProxyChangeset deploys a BundleAggregatorProxy contract on the given chains. It uses the address of DataFeedsCache contract
 // from addressbook to set it in the BundleAggregatorProxy constructor. It uses the provided owner address to set it in the BundleAggregatorProxy constructor.
 // Returns a new addressbook with deploy BundleAggregatorProxy contract addresses.
-var DeployBundleAggregatorProxyChangeset = deployment.CreateChangeSet(deployBundleAggregatorProxyLogic, deployBundleAggregatorProxyPrecondition)
+var DeployBundleAggregatorProxyChangeset = cldf.CreateChangeSet(deployBundleAggregatorProxyLogic, deployBundleAggregatorProxyPrecondition)
 
 func deployBundleAggregatorProxyLogic(env deployment.Environment, c types.DeployBundleAggregatorProxyConfig) (deployment.ChangesetOutput, error) {
 	lggr := env.Logger

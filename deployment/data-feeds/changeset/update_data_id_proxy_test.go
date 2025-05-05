@@ -7,12 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
@@ -21,8 +21,6 @@ import (
 )
 
 func TestUpdateDataIDProxyMap(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-576")
-
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
@@ -42,7 +40,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 			},
 		),
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
 				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -95,7 +93,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 		),
 		// Transfer cache ownership to MCMS
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
 			commonChangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					chainSelector: {common.HexToAddress(cacheAddress)},

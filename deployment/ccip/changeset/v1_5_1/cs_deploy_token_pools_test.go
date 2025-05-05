@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -284,7 +285,7 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 
 			e, err := commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
+					cldf.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
 					v1_5_1.DeployTokenPoolContractsConfig{
 						TokenSymbol: testhelpers.TestTokenSymbol,
 						NewPools: map[uint64]v1_5_1.DeployTokenPoolInput{
