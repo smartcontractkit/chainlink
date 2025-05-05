@@ -7,7 +7,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
-	"maps"
+	"golang.org/x/sync/errgroup"
 	"math"
 	"math/big"
 	"os"
@@ -159,6 +159,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// Set up SOL <--> EVM lanes
 	lggr.Infof("setting up solana lanes for %d evm chains", len(e.Chains))
 	*e, err = setupSolEvmLanes(lggr, e, state, homeChainSel, feedChainSel)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting solana lanes: %w", err)
+	}
 
 	// ----- Part 2 -----
 	lggr.Infow("setting up ocr...")
@@ -507,118 +510,135 @@ func setupSolLinkPools(e *deployment.Environment) (deployment.Environment, error
 }
 
 func setupSolEvmLanes(lggr logger.Logger, e *deployment.Environment, state changeset.CCIPOnChainState, homeCS, feedCS uint64) (deployment.Environment, error) {
-	laneChangesets := make([]commonchangeset.ConfiguredChangeSet, 0)
+	var err error
+	evmSelectors := e.AllChainSelectors()
+	solSelectors := e.AllChainSelectorsSolana()
+	g := new(errgroup.Group)
+	mu := sync.Mutex{}
 
-	lggr.Infow("Setting up sol evm lanes for chains", "evmChains", maps.Keys(state.Chains), "solChains", maps.Keys(state.SolChains))
-	for evmSelector, evmChainState := range state.Chains {
-		lggr.Infow("running against evm chain", "evm", evmSelector)
-		for solSelector, solChainState := range state.SolChains {
-			lggr.Infow("Connecting evm and svm lane", "evm", evmSelector, "sol", solSelector)
-			deployedEnv := testhelpers.DeployedEnv{
-				Env:          *e,
-				HomeChainSel: homeCS,
-				FeedChainSel: feedCS,
-			}
-			lggr.Infow("setting up evm <> svm lane ", "evm", evmSelector, "sol", solSelector)
-			gasPrices := map[uint64]*big.Int{
-				solSelector: testhelpers.DefaultGasPrice,
-			}
-			stateChainFrom := evmChainState
-			tokenPrices := map[common.Address]*big.Int{
-				stateChainFrom.LinkToken.Address(): testhelpers.DefaultLinkPrice,
-				stateChainFrom.Weth9.Address():     testhelpers.DefaultWethPrice,
-			}
-			fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solSelector)
+	for _, solSelector := range solSelectors {
+		solSelector := solSelector // capture range variable
+		solChainState := state.SolChains[solSelector]
+		poolUpdates := make(map[uint64]ccipChangesetSolana.EVMRemoteConfig)
+		for _, evmSelector := range evmSelectors {
+			lggr.Infow("running against evm chain", "evm", evmSelector)
+			evmSelector := evmSelector // capture range variables
+			g.Go(func() error {
+				lggr.Infow("Setting up sol evm lanes for chains", "evmSelector", evmSelector, "solSelector", solSelector)
+				laneChangesets := make([]commonchangeset.ConfiguredChangeSet, 0)
+				evmChainState := state.Chains[evmSelector]
 
-			// EVM -> SOL
-			cs := testhelpers.AddEVMSrcChangesets(evmSelector, solSelector, false, gasPrices, tokenPrices, fqCfg)
-			laneChangesets = append(laneChangesets, cs...)
-			cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector, evmSelector, chainsel.FamilyEVM)
-			laneChangesets = append(laneChangesets, cs...)
+				deployedEnv := testhelpers.DeployedEnv{
+					Env:          *e,
+					HomeChainSel: homeCS,
+					FeedChainSel: feedCS,
+				}
+				gasPrices := map[uint64]*big.Int{
+					solSelector: testhelpers.DefaultGasPrice,
+				}
+				stateChainFrom := evmChainState
+				tokenPrices := map[common.Address]*big.Int{
+					stateChainFrom.LinkToken.Address(): testhelpers.DefaultLinkPrice,
+					stateChainFrom.Weth9.Address():     testhelpers.DefaultWethPrice,
+				}
+				fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solSelector)
 
-			// SOL -> EVM
-			cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solSelector, false)
-			laneChangesets = append(laneChangesets, cs...)
+				// EVM -> SOL
+				cs := testhelpers.AddEVMSrcChangesets(evmSelector, solSelector, false, gasPrices, tokenPrices, fqCfg)
+				laneChangesets = append(laneChangesets, cs...)
+				cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector, evmSelector, chainsel.FamilyEVM)
+				laneChangesets = append(laneChangesets, cs...)
 
-			// Adding prices for the LINK and WSOL tokens on SOL
-			laneChangesets = append(laneChangesets,
-				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
-					ccipChangesetSolana.RemoteChainTokenPoolConfig{
-						SolChainSelector: solSelector,
-						SolTokenPubKey:   solChainState.LinkToken,
-						SolPoolType:      solTestTokenPool.BurnAndMint_PoolType,
-						EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
-							evmSelector: {
-								TokenSymbol: changeset.LinkSymbol,
-								PoolType:    changeset.BurnMintTokenPool,
-								PoolVersion: changeset.CurrentTokenPoolVersion,
-								RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
-									Inbound: solTestTokenPool.RateLimitConfig{
-										Enabled: true,
-									},
-									Outbound: solTestTokenPool.RateLimitConfig{
-										Enabled: true,
-									},
-								},
+				// SOL -> EVM
+				cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solSelector, false)
+				laneChangesets = append(laneChangesets, cs...)
+
+				mu.Lock()
+				poolUpdates[evmSelector] = ccipChangesetSolana.EVMRemoteConfig{
+					TokenSymbol: changeset.LinkSymbol,
+					PoolType:    changeset.BurnMintTokenPool,
+					PoolVersion: changeset.CurrentTokenPoolVersion,
+					RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
+						Inbound:  solTestTokenPool.RateLimitConfig{},
+						Outbound: solTestTokenPool.RateLimitConfig{},
+					},
+				}
+				mu.Unlock()
+				// Adding prices for the LINK and WSOL tokens on SOL
+				laneChangesets = append(laneChangesets,
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenTransferFeeForRemoteChain),
+						ccipChangesetSolana.TokenTransferFeeForRemoteChainConfig{
+							ChainSelector:       solSelector,
+							RemoteChainSelector: evmSelector,
+							TokenPubKey:         solChainState.LinkToken.String(),
+							Config: solFeeQuoter.TokenTransferFeeConfig{
+								MinFeeUsdcents:    800,
+								MaxFeeUsdcents:    1600,
+								DeciBps:           0,
+								DestGasOverhead:   90000,
+								DestBytesOverhead: 100,
+								IsEnabled:         true,
 							},
 						},
-					},
-				),
-				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenTransferFeeForRemoteChain),
-					ccipChangesetSolana.TokenTransferFeeForRemoteChainConfig{
-						ChainSelector:       solSelector,
-						RemoteChainSelector: evmSelector,
-						TokenPubKey:         solChainState.LinkToken.String(),
-						Config: solFeeQuoter.TokenTransferFeeConfig{
-							MinFeeUsdcents:    800,
-							MaxFeeUsdcents:    1600,
-							DeciBps:           0,
-							DestGasOverhead:   90000,
-							DestBytesOverhead: 100,
-							IsEnabled:         true,
-						},
-					},
-				),
-				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
-					ccipChangesetSolana.BillingTokenConfig{
-						ChainSelector: solSelector,
-						TokenPubKey:   solChainState.LinkToken.String(),
-						Config: solFeeQuoter.BillingTokenConfig{
-							Enabled: true,
-							Mint:    solChainState.LinkToken,
-							UsdPerToken: solFeeQuoter.TimestampedPackedU224{
-								Value:     [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 249, 29, 137, 48, 78, 71, 37, 75, 184, 0, 0},
-								Timestamp: time.Now().Unix(),
-							},
-							PremiumMultiplierWeiPerEth: 9e17,
-						},
-					},
-				),
-				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
-					ccipChangesetSolana.BillingTokenConfig{
-						ChainSelector: solSelector,
-						TokenPubKey:   solChainState.WSOL.String(),
-						Config: solFeeQuoter.BillingTokenConfig{
-							Enabled: true,
-							Mint:    solana.SolMint,
-							UsdPerToken: solFeeQuoter.TimestampedPackedU224{
-								Value:     [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 223, 177, 176, 240, 163, 138, 116, 244, 164, 248, 0, 0},
-								Timestamp: time.Now().Unix(),
-							},
-							PremiumMultiplierWeiPerEth: 1e18,
-						},
-					},
-				),
-			)
-			lggr.Infow("Num changesets for lane", "evmSelector", evmSelector, "num", len(laneChangesets))
+					),
+				)
+				lggr.Infow("Applying evm <> svm lane changesets", "len", len(laneChangesets), "evmSel", evmSelector, "svmSel", solSelector)
+				_, err = commonchangeset.Apply(nil, *e, nil, laneChangesets[0], laneChangesets[1:]...)
+				return err
+			})
 		}
+		err = g.Wait()
+
+		if err != nil {
+			return *e, fmt.Errorf("failed to apply sol evm lane changesets: %w", err)
+		}
+
+		_, err = commonchangeset.Apply(nil, *e, nil,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
+				ccipChangesetSolana.RemoteChainTokenPoolConfig{
+					SolChainSelector: solSelector,
+					SolTokenPubKey:   solChainState.LinkToken,
+					SolPoolType:      solTestTokenPool.BurnAndMint_PoolType,
+					EVMRemoteConfigs: poolUpdates,
+				},
+			),
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
+				ccipChangesetSolana.BillingTokenConfig{
+					ChainSelector: solSelector,
+					TokenPubKey:   solChainState.LinkToken.String(),
+					Config: solFeeQuoter.BillingTokenConfig{
+						Enabled: true,
+						Mint:    solChainState.LinkToken,
+						UsdPerToken: solFeeQuoter.TimestampedPackedU224{
+							Value:     [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 249, 29, 137, 48, 78, 71, 37, 75, 184, 0, 0},
+							Timestamp: time.Now().Unix(),
+						},
+						PremiumMultiplierWeiPerEth: 9e17,
+					},
+				},
+			),
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
+				ccipChangesetSolana.BillingTokenConfig{
+					ChainSelector: solSelector,
+					TokenPubKey:   solChainState.WSOL.String(),
+					Config: solFeeQuoter.BillingTokenConfig{
+						Enabled: true,
+						Mint:    solana.SolMint,
+						UsdPerToken: solFeeQuoter.TimestampedPackedU224{
+							Value:     [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 223, 177, 176, 240, 163, 138, 116, 244, 164, 248, 0, 0},
+							Timestamp: time.Now().Unix(),
+						},
+						PremiumMultiplierWeiPerEth: 1e18,
+					},
+				},
+			),
+		)
 	}
-	lggr.Infow("Applying changesets", "len", len(laneChangesets))
-	return commonchangeset.Apply(nil, *e, nil, laneChangesets[0], laneChangesets[1:]...)
+	return *e, nil
 }
 
 func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (deployment.Environment, error) {

@@ -471,7 +471,11 @@ func SendRequest(
 	case chainsel.FamilyEVM:
 		return SendRequestEVM(e, state, cfg)
 	case chainsel.FamilySolana:
-		return SendRequestSol(e, state, cfg)
+		req, err := SendRequestSol(e, state, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("send sol request: %w", err)
+		}
+		return GetSolEventFromTxn(e.Logger, req, cfg)
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}
@@ -525,7 +529,7 @@ func SendRequestSol(
 	e deployment.Environment,
 	state changeset.CCIPOnChainState,
 	cfg *CCIPSendReqConfig,
-) (*onramp.OnRampCCIPMessageSent, error) { // TODO: chain independent return vailue
+) (*rpc.GetTransactionResult, error) { // TODO: chain independent return vailue
 	s := state.SolChains[cfg.SourceChain]
 
 	message := cfg.Message.(ccip_router.SVM2AnyMessage)
@@ -636,11 +640,13 @@ func SendRequestSol(
 			return nil, err
 		}
 
+		e.Logger.Infow("looking for adminregistry", "token", token.String(), "s.BurnMintTokenPool", s.BurnMintTokenPool.String(), "tokenPool.AdminRegistryPDA", tokenPool.AdminRegistryPDA)
+
 		// Set the token pool's lookup table address
 		var tokenAdminRegistry solCommon.TokenAdminRegistry
 		err = solcommon.GetAccountDataBorshInto(ctx, client, tokenPool.AdminRegistryPDA, solconfig.DefaultCommitment, &tokenAdminRegistry)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get token admin registry: %w", err)
 		}
 
 		tokenPool.PoolLookupTable = tokenAdminRegistry.LookupTable
@@ -649,26 +655,26 @@ func SendRequestSol(
 
 		chainPDA, _, err := soltokens.TokenPoolChainConfigPDA(cfg.DestChain, token, s.BurnMintTokenPool)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get token pool chain config PDA: %w", err)
 		}
 
 		tokenPool.Chain[cfg.DestChain] = chainPDA
 
 		billingPDA, _, err := solstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, token, s.FeeQuoter)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get fee quoter PDA: %w", err)
 		}
 
 		tokenPool.Billing[cfg.DestChain] = billingPDA
 
 		userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, token, sender.PublicKey())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get user token account: %w", err)
 		}
 
 		tokenMetas, tokenAddressTables, err := soltokens.ParseTokenLookupTableWithChain(ctx, client, tokenPool, userTokenAccount, cfg.DestChain)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse token lookup table: %w", err)
 		}
 
 		tokenIndexes = append(tokenIndexes, byte(len(base.AccountMetaSlice)-requiredAccounts))
@@ -680,26 +686,25 @@ func SendRequestSol(
 
 	ix, err := base.ValidateAndBuild()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to validate and build ccip send instruction")
 	}
 
 	// for some reason onchain doesn't see extraAccounts
 
 	ixs := []solana.Instruction{ix}
-	result, err := solcommon.SendAndConfirmWithLookupTables(ctx, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(400_000))
-	if err != nil {
-		return nil, err
-	}
+	return solcommon.SendAndConfirmWithLookupTables(ctx, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(400_000))
+}
 
+func GetSolEventFromTxn(lggr logger.Logger, result *rpc.GetTransactionResult, cfg *CCIPSendReqConfig) (*onramp.OnRampCCIPMessageSent, error) {
 	// check CCIP event
 	ccipMessageSentEvent := solccip.EventCCIPMessageSent{}
 	printEvents := true
-	err = solcommon.ParseEvent(result.Meta.LogMessages, "CCIPMessageSent", &ccipMessageSentEvent, printEvents)
+	err := solcommon.ParseEvent(result.Meta.LogMessages, "CCIPMessageSent", &ccipMessageSentEvent, printEvents)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(message.TokenAmounts) != len(ccipMessageSentEvent.Message.TokenAmounts) {
+	if len(cfg.Message.(ccip_router.SVM2AnyMessage).TokenAmounts) != len(ccipMessageSentEvent.Message.TokenAmounts) {
 		return nil, errors.New("token amounts mismatch")
 	}
 
@@ -707,14 +712,14 @@ func SendRequestSol(
 
 	transactionID := "N/A"
 	if tx, err := result.Transaction.GetTransaction(); err != nil {
-		e.Logger.Warnf("could not obtain transaction details (err = %s)", err.Error())
+		lggr.Warnf("could not obtain transaction details (err = %s)", err.Error())
 	} else if len(tx.Signatures) == 0 {
-		e.Logger.Warnf("transaction has no signatures: %v", tx)
+		lggr.Warnf("transaction has no signatures: %v", tx)
 	} else {
 		transactionID = tx.Signatures[0].String()
 	}
 
-	e.Logger.Infof("CCIP message (id %s) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t",
+	lggr.Infof("CCIP message (id %s) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t",
 		common.Bytes2Hex(ccipMessageSentEvent.Message.Header.MessageId[:]),
 		cfg.SourceChain,
 		cfg.DestChain,

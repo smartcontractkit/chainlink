@@ -382,9 +382,10 @@ func subscribeSolExecutionEvents(
 	}
 }
 
-func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *deployment.Environment, solAccounts []solana.PrivateKey, sourceChain uint64, router solana.PublicKey) error {
+func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *deployment.Environment, state ccipchangeset.CCIPOnChainState, solAccounts []solana.PrivateKey, sourceChain uint64) error {
 	deployer := *e.SolChains[sourceChain].DeployerKey
 	rpcClient := e.SolChains[sourceChain].Client
+	router := state.SolChains[sourceChain].Router
 	lggr.Infow("deployer account", "account", deployer.PublicKey().String(), "pk", deployer.String())
 	soltestutils.FundAccounts(ctx, solAccounts, rpcClient, t)
 	for _, acc := range solAccounts {
@@ -397,31 +398,25 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 			return err
 		}
 
+		// Approve CCIP to transfer the user's token for billing
 		billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(router)
 		if err != nil {
 			lggr.Errorw("failed to find fee billing signer pda", "error", err)
 			return err
 		}
 
-		// Approve CCIP to transfer the user's token for billing
 		ixApproveWSOL, err := soltokens.TokenApproveChecked(1e2*1e9, 9, tokenProgram, accountWSOL, wSOL, billingSignerPDA, acc.PublicKey(), []solana.PublicKey{})
 		if err != nil {
 			lggr.Errorw("failed to approve token transfer", "error", err)
 			return err
 		}
 
-		info, err := rpcClient.GetAccountInfo(ctx, acc.PublicKey())
-		if err != nil {
-			lggr.Errorw("failed to get account info", "error", err)
-			return err
-		}
-		lggr.Infow("account info ", "account", acc.PublicKey().String(), "info", info)
-
 		_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixAtaUser, ixApproveWSOL}, acc, solconfig.DefaultCommitment)
 		if err != nil {
+			lggr.Errorw("failed to approve router to bill deployer", "error", err)
+
 			// on the second run, the account already exists, so we ignore the error
 			if !strings.Contains(err.Error(), "Provided owner is not allowed") {
-				lggr.Errorw("failed to send and confirm 1", "error", err)
 				return err
 			}
 		}
@@ -440,9 +435,26 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 		}
 		_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixTransfer, ixSync}, acc, solconfig.DefaultCommitment)
 		if err != nil {
-			lggr.Errorw("failed to send and confirm 2", "error", err)
+			lggr.Errorw("failed to fund deployer with wsol", "error", err)
 			return err
 		}
+
+		e.Logger.Infow("Approving billingPDA to transfer link")
+		link := state.SolChains[sourceChain].LinkToken
+		tokenProgramID, _ := state.SolChains[sourceChain].TokenToTokenProgram(link)
+		ixApprove, err := soltokens.TokenApproveChecked(
+			1e2*1e9,
+			9,
+			tokenProgramID,
+			deployer.PublicKey(),
+			link,
+			billingSignerPDA,
+			acc.PublicKey(),
+			[]solana.PublicKey{})
+		if err != nil {
+			return fmt.Errorf("failed to approve token transfer: %w", err)
+		}
+		err = e.SolChains[sourceChain].Confirm([]solana.Instruction{ixApprove})
 	}
 	return nil
 }

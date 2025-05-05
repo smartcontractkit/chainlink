@@ -108,7 +108,7 @@ func TestCCIPSol2EvmCRIB(t *testing.T) {
 		require.NoError(t, err)
 
 		// Approve CCIP to transfer the user's token for billing
-		ixApprove, err := soltokens.TokenApproveChecked(1e9, 9, tokenProgram, deployerWSOL, wSOL, billingSignerPDA, deployer.PublicKey(), []solana.PublicKey{})
+		ixApprove, err := soltokens.TokenApproveChecked(1e3*solana.LAMPORTS_PER_SOL, 9, tokenProgram, deployerWSOL, wSOL, billingSignerPDA, deployer.PublicKey(), []solana.PublicKey{})
 		require.NoError(t, err)
 
 		soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixAtaUser, ixApprove}, *deployer, solconfig.DefaultCommitment)

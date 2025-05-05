@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	solFundingLamports = 10000000
+	solFundingLamports = 100000
 	evmFundingEth      = 100
 )
 

@@ -5,19 +5,16 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"math/big"
 	mathrand "math/rand"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"go.uber.org/atomic"
@@ -86,7 +83,7 @@ func NewDestinationGun(
 
 func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.roundNum.Add(1)
-	src, err := m.MustSourceChain()
+	src, err := m.mustSourceChain()
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Group: "", Failed: true}
 	}
@@ -129,10 +126,10 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	return &wasp.Response{Failed: false, Group: waspGroup}
 }
 
-// MustSourceChain will return a chain selector to send a message from
-func (m *DestinationGun) MustSourceChain() (uint64, error) {
-	if m.chainSelector == 12463857294658392847 {
-		return 3379446385462418246, nil
+// mustSourceChain will return a chain selector to send a message from
+func (m *DestinationGun) mustSourceChain() (uint64, error) {
+	if m.chainSelector == 12463857294658392847 || m.chainSelector == 3379446385462418246 {
+		return 12922642891491394802, nil
 	}
 	otherCS := m.env.AllChainSelectorsAllFamiliesExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
@@ -332,114 +329,39 @@ func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) 
 
 func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 	sourceKey := m.solanaSourceKeys[src]
-	s := m.state.SolChains[src]
 
 	msg, err := m.getSolanaMessage(src, sourceKey)
 	if err != nil {
 		return err
 	}
 
-	// if fee token is 0, fallback to WSOL
-	if msg.FeeToken.IsZero() {
-		msg.FeeToken = m.state.SolChains[src].WSOL
+	sendRequestCfg := testhelpers.CCIPSendReqConfig{
+		SourceChain:  src,
+		DestChain:    m.chainSelector,
+		IsTestRouter: false,
+		Message:      msg,
+		MaxRetries:   1,
 	}
-
-	destinationChainStatePDA, err := solstate.FindDestChainStatePDA(m.chainSelector, s.Router)
+	_, err = testhelpers.SendRequestSol(m.env, *m.state, &sendRequestCfg)
 	if err != nil {
-		return err
-	}
-
-	noncePDA, err := solstate.FindNoncePDA(m.chainSelector, sourceKey.PublicKey(), s.Router)
-	if err != nil {
-		return err
-	}
-	feeToken := msg.FeeToken
-
-	linkFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(s.LinkToken, s.FeeQuoter)
-	if err != nil {
-		return err
-	}
-	feeTokenFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(feeToken, s.FeeQuoter)
-	if err != nil {
-		return err
-	}
-
-	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(s.Router)
-	if err != nil {
-		return err
-	}
-
-	feeTokenUserATA, _, err := soltokens.FindAssociatedTokenAddress(solana.TokenProgramID, feeToken, sourceKey.PublicKey())
-	if err != nil {
-		return err
-	}
-	feeTokenReceiverATA, _, err := soltokens.FindAssociatedTokenAddress(solana.TokenProgramID, feeToken, billingSignerPDA)
-	if err != nil {
-		return err
-	}
-	fqDestChainPDA, _, err := solstate.FindFqDestChainPDA(m.chainSelector, s.FeeQuoter)
-	if err != nil {
-		return err
-	}
-	rmnRemoteCursesPDA, _, err := solstate.FindRMNRemoteCursesPDA(s.RMNRemote)
-	if err != nil {
-		return err
-	}
-
-	base := ccip_router.NewCcipSendInstruction(
-		m.chainSelector,
-		msg,
-		[]byte{}, // starting indices for accounts, calculated later
-		s.RouterConfigPDA,
-		destinationChainStatePDA,
-		noncePDA,
-		sourceKey.PublicKey(),
-		solana.SystemProgramID,
-		solana.TokenProgramID,
-		feeToken,
-		feeTokenUserATA,
-		feeTokenReceiverATA,
-		billingSignerPDA,
-		s.FeeQuoter,
-		s.FeeQuoterConfigPDA,
-		fqDestChainPDA,
-		feeTokenFqBillingConfigPDA,
-		linkFqBillingConfigPDA,
-		s.RMNRemote,
-		rmnRemoteCursesPDA,
-		s.RMNRemoteConfigPDA,
-	)
-	base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
-	instruction, err := base.ValidateAndBuild()
-	if err != nil {
-		m.l.Errorw("failed to build instruction",
-			"src", src,
-			"dest", m.chainSelector,
+		m.l.Errorw("execution reverted from ",
+			"sourceChain", src,
+			"destchain", m.chainSelector,
 			"err", deployment.MaybeDataErr(err))
-		return err
 	}
-
-	result, err := solcommon.SendAndConfirm(
-		m.env.GetContext(),
-		m.env.SolChains[src].Client,
-		[]solana.Instruction{instruction},
-		*sourceKey,
-		rpc.CommitmentConfirmed)
-	if err != nil || result == nil {
-		m.l.Errorw("could not confirm solana tx on source",
-			"src", src,
-			"dest", m.chainSelector)
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (m *DestinationGun) getSolanaMessage(src uint64, account *solana.PrivateKey) (ccip_router.SVM2AnyMessage, error) {
 	return ccip_router.SVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(m.receiver, 32),
-		TokenAmounts: nil,
-		Data:         []byte("hello world"),
-		ExtraArgs:    []byte{},
+		Receiver: common.LeftPadBytes(m.receiver, 32),
+		TokenAmounts: []ccip_router.SVMTokenAmount{
+			{
+				Token:  m.state.SolChains[src].LinkToken,
+				Amount: 1,
+			},
+		},
+		Data:      []byte("hello world"),
+		ExtraArgs: []byte{},
 	}, nil
 }
