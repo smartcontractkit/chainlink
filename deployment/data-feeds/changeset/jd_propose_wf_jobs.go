@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
 
 const (
@@ -185,7 +184,7 @@ func proposeWFJobsToJDPrecondition(env deployment.Environment, c types.ProposeWF
 	}
 
 	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, pointer.To("data-feeds"))
+	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, &c.CacheLabel)
 	if cacheAddress == "" {
 		return errors.New("failed to get data feeds cache address")
 	}
