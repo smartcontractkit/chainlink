@@ -69,9 +69,11 @@ COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 
 # Install (but don't enable) feeds LOOP Plugin
 COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
-# Install and enable Solana LOOP Plugin
+# Install Solana LOOP Plugin
 COPY --from=buildplugins /go/bin/chainlink-solana /usr/local/bin/
-ENV CL_SOLANA_CMD=chainlink-solana
+# Optionally enable the Solana LOOP Plugin
+ARG CL_SOLANA_CMD
+ENV CL_SOLANA_CMD=${CL_SOLANA_CMD}
 
 # CCIP specific
 COPY ./cci[p]/confi[g] /ccip-config
