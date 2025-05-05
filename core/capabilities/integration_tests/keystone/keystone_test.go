@@ -45,7 +45,7 @@ func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) 
 	require.NoError(t, err)
 
 	// mercury-style reports
-	triggerSink := framework.NewTriggerSink(t, "streams-trigger", "1.0.0")
+	triggerSink := framework.NewTriggerSink("streams-trigger", "1.0.0")
 	workflowDon, consumer := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
 		targetDonConfiguration, triggerSink)
 
