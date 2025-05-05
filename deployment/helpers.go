@@ -191,3 +191,23 @@ func ValidateSelectorsInEnvironment(e Environment, chains []uint64) error {
 	}
 	return nil
 }
+
+func IsAddressListUnique(addresses []common.Address) bool {
+	addressSet := make(map[common.Address]struct{})
+	for _, address := range addresses {
+		if _, exists := addressSet[address]; exists {
+			return false
+		}
+		addressSet[address] = struct{}{}
+	}
+	return true
+}
+
+func AddressListContainsEmptyAddress(addresses []common.Address) bool {
+	for _, address := range addresses {
+		if address == (common.Address{}) {
+			return true
+		}
+	}
+	return false
+}

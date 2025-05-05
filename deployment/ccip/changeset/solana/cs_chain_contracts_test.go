@@ -846,7 +846,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 }
 
 // ocr3 test
-func TestSetOcr3(t *testing.T) {
+func TestSetOcr3Active(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfNodes(16),
@@ -875,4 +875,34 @@ func TestSetOcr3(t *testing.T) {
 		),
 	})
 	require.NoError(t, err)
+}
+
+func TestSetOcr3Candidate(t *testing.T) {
+	t.Parallel()
+	tenv, _ := testhelpers.NewMemoryEnvironment(t,
+		testhelpers.WithSolChains(1))
+	var err error
+	evmSelectors := tenv.Env.AllChainSelectors()
+	homeChainSel := evmSelectors[0]
+	solChainSelectors := tenv.Env.AllChainSelectorsSolana()
+	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
+		ccipChangesetSolana.CCIPContractsToTransfer{
+			Router:    true,
+			FeeQuoter: true,
+			OffRamp:   true,
+		})
+
+	tenv.Env, _, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
+			v1_6.SetOCR3OffRampConfig{
+				HomeChainSel:       homeChainSel,
+				RemoteChainSels:    solChainSelectors,
+				CCIPHomeConfigType: globals.ConfigTypeCandidate,
+				MCMS:               &proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+			},
+		),
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid OCR3 config state, expected candidate config")
 }

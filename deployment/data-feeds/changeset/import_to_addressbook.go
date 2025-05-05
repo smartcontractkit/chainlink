@@ -39,8 +39,11 @@ func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddres
 }
 
 func importToAddressbookPrecondition(env deployment.Environment, c types.ImportToAddressbookConfig) error {
-	_, ok := env.Chains[c.ChainSelector]
-	if !ok {
+	_, evmOK := env.Chains[c.ChainSelector]
+	_, aptosOK := env.AptosChains[c.ChainSelector]
+	_, solOK := env.SolChains[c.ChainSelector]
+
+	if !evmOK && !aptosOK && !solOK {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
 

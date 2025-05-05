@@ -88,12 +88,15 @@ func (c EnvWrapperConfig) Validate() error {
 	if err := c.WFDonConfig.Validate(); err != nil {
 		return err
 	}
+
 	if err := c.AssetDonConfig.Validate(); err != nil {
 		return err
 	}
+
 	if err := c.WriterDonConfig.Validate(); err != nil {
 		return err
 	}
+
 	if c.NumChains < 1 {
 		return errors.New("NumChains must be at least 1")
 	}
@@ -249,13 +252,18 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 	return registryChainSel, env
 }
 
+// SetupContractTestEnv sets up a keystone test environment for contract testing with the given configuration
+// The resulting environment will have the following:
+//
+// - all the initial contracts deployed (capability registry, ocr3, forwarder, workflow registry) on the registry chain
+//
+// - the forwarder deployed on all chains
+//
+// - the capability registry configured with the initial dons (WFDon => ocr capability, AssetDon => stream trigger capability, WriterDon => writer capability for all the chains)
+//
+// - a view-only Offchain client that supports all the read api operations of the Offchain client
 func SetupContractTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	c.useInMemoryNodes = false
-	return setupTestEnv(t, c)
-}
-
-func SetupDevTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
-	c.useInMemoryNodes = true
 	return setupTestEnv(t, c)
 }
 
@@ -407,40 +415,30 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 
 func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]deployment.Chain, c EnvWrapperConfig) (testDons, deployment.Environment) {
 	// now that we have the initial contracts deployed, we can configure the nodes with the addresses
-	wfConfig := make([]envtest.NodeConfig, 0, len(c.WFDonConfig.ChainSelectors))
-	for i := 0; i < c.WFDonConfig.N; i++ {
-		wfConfig = append(wfConfig, envtest.NodeConfig{
-			ChainSelectors: []uint64{registryChainSel},
-			Name:           fmt.Sprintf("%s-%d", c.WFDonConfig.Name, i),
-		})
-	}
-	wfNodes := envtest.NewNodes(t, wfConfig)
-	require.Len(t, wfNodes, c.WFDonConfig.N)
-
-	assetConfig := make([]envtest.NodeConfig, 0, len(c.AssetDonConfig.ChainSelectors))
-	for i := 0; i < c.AssetDonConfig.N; i++ {
-		assetConfig = append(assetConfig, envtest.NodeConfig{
-			ChainSelectors: maps.Keys(chains),
-			Name:           fmt.Sprintf("%s-%d", c.AssetDonConfig.Name, i),
-		})
-	}
-	assetNodes := envtest.NewNodes(t, assetConfig)
-	require.Len(t, assetNodes, c.AssetDonConfig.N)
-
-	writerConfig := make([]envtest.NodeConfig, 0, len(c.WriterDonConfig.ChainSelectors))
-	for i := 0; i < c.WriterDonConfig.N; i++ {
-		writerConfig = append(writerConfig, envtest.NodeConfig{
-			ChainSelectors: maps.Keys(chains),
-			Name:           fmt.Sprintf("%s-%d", c.WriterDonConfig.Name, i),
-		})
-	}
-	writerNodes := envtest.NewNodes(t, writerConfig)
-	require.Len(t, writerNodes, c.WriterDonConfig.N)
-
 	dons := newViewOnlyDons()
-	dons.Put(newViewOnlyDon(c.WFDonConfig.Name, wfNodes))
-	dons.Put(newViewOnlyDon(c.AssetDonConfig.Name, assetNodes))
-	dons.Put(newViewOnlyDon(c.WriterDonConfig.Name, writerNodes))
+	for _, donCfg := range []DonConfig{c.WFDonConfig, c.AssetDonConfig, c.WriterDonConfig} {
+		require.NoError(t, donCfg.Validate())
+
+		ncfg := make([]envtest.NodeConfig, 0, len(donCfg.ChainSelectors))
+		for i := 0; i < donCfg.N; i++ {
+			labels := map[string]string{
+				"don": donCfg.Name,
+			}
+			if donCfg.Labels != nil {
+				for k, v := range donCfg.Labels {
+					labels[k] = v
+				}
+			}
+			ncfg = append(ncfg, envtest.NodeConfig{
+				ChainSelectors: []uint64{registryChainSel},
+				Name:           fmt.Sprintf("%s-%d", donCfg.Name, i),
+				Labels:         labels,
+			})
+		}
+		n := envtest.NewNodes(t, ncfg)
+		require.Len(t, n, donCfg.N)
+		dons.Put(newViewOnlyDon(donCfg.Name, n))
+	}
 
 	env := deployment.NewEnvironment(
 		"view only nodes",

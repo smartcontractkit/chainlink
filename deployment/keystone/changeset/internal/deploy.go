@@ -602,7 +602,7 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 			params, ok := nodeIDToParams[n.NodeID]
 
 			if !ok {
-				signer, enc, err := extractSignerEncryptionKeys(n, registryChain.Selector)
+				signer, enc, err := ExtractSignerEncryptionKeys(n, registryChain.Selector)
 				if err != nil {
 					return nil, fmt.Errorf("failed to extract signer and encryption keys for node %s: %w", n.NodeID, err)
 				}
@@ -653,7 +653,7 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 // chainSel must be an evm chain; it ought to be the registry chain
 // the signer is the onchain public key
 // the enc is the encryption public key
-func extractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer [32]byte, enc [32]byte, err error) {
+func ExtractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer [32]byte, enc [32]byte, err error) {
 	wfKey, err := hex.DecodeString(n.WorkflowKey)
 	if err != nil {
 		return signer, enc, fmt.Errorf("error decoding workflow key: %w", err)
