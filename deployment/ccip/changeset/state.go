@@ -1350,6 +1350,9 @@ func (c CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	for chain := range c.AptosChains {
 		chains[chain] = struct{}{}
 	}
+	for chain := range c.AptosChains {
+		chains[chain] = struct{}{}
+	}
 	return chains
 }
 

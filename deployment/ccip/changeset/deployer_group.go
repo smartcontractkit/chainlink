@@ -485,6 +485,10 @@ func BuildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map
 func BuildTimelockAddressPerChain(e deployment.Environment, onchainState CCIPOnChainState) map[uint64]string {
 	addressPerChain := make(map[uint64]string)
 	for _, chain := range e.Chains {
+		if onchainState.Chains[chain.Selector].Timelock == nil {
+			e.Logger.Warn("timelock is nil, skipping chain: %s", chain.Selector)
+			continue
+		}
 		addressPerChain[chain.Selector] = onchainState.Chains[chain.Selector].Timelock.Address().Hex()
 	}
 
