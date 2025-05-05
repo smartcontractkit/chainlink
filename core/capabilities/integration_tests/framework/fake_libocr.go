@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,7 +24,6 @@ import (
 )
 
 type oracleContext struct {
-	t                     *testing.T
 	lggr                  logger.Logger
 	key                   ocr2key.KeyBundle
 	N                     int
@@ -42,7 +40,7 @@ func (m *oracleContext) addPlugin(ctx context.Context, info ocr3types.ReportingP
 
 	libOcr := m.pluginNameToFakeOcr[info.Name]
 	if libOcr == nil {
-		libOcr = NewFakeLibOCR(m.t, m.lggr, m.F, m.protocolRoundInterval)
+		libOcr = NewFakeLibOCR(m.lggr, m.F, m.protocolRoundInterval)
 		m.pluginNameToFakeOcr[info.Name] = libOcr
 	}
 
@@ -73,10 +71,9 @@ type oracleFactoryFactory struct {
 	oracleContext *oracleContext
 }
 
-func newFakeOracleFactoryFactory(t *testing.T, lggr logger.Logger, key ocr2key.KeyBundle, n int, f uint8, protocolRoundInterval time.Duration) *oracleFactoryFactory {
+func newFakeOracleFactoryFactory(lggr logger.Logger, key ocr2key.KeyBundle, n int, f uint8, protocolRoundInterval time.Duration) *oracleFactoryFactory {
 	return &oracleFactoryFactory{
 		oracleContext: &oracleContext{
-			t:                     t,
 			lggr:                  lggr,
 			key:                   key,
 			N:                     n,
@@ -136,7 +133,6 @@ type libocrNode struct {
 // to setup the libocr network
 type FakeLibOCR struct {
 	services.StateMachine
-	t    *testing.T
 	lggr logger.Logger
 
 	nodes                 []*libocrNode
@@ -151,9 +147,8 @@ type FakeLibOCR struct {
 	wg     sync.WaitGroup
 }
 
-func NewFakeLibOCR(t *testing.T, lggr logger.Logger, f uint8, protocolRoundInterval time.Duration) *FakeLibOCR {
+func NewFakeLibOCR(lggr logger.Logger, f uint8, protocolRoundInterval time.Duration) *FakeLibOCR {
 	return &FakeLibOCR{
-		t:    t,
 		lggr: lggr,
 		f:    f, outcomeCtx: ocr3types.OutcomeContext{
 			SeqNr:           1,

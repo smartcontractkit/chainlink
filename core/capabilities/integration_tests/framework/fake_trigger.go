@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
@@ -24,14 +23,14 @@ type TriggerSink struct {
 	wg     sync.WaitGroup
 }
 
-func NewTriggerSink(t *testing.T, triggerName string, version string) *TriggerSink {
+func NewTriggerSink(triggerName string, version string) *TriggerSink {
 	triggersFactory := &TriggerSink{
 		triggerID:   triggerName + "@" + version,
 		triggerName: triggerName,
 		version:     version,
 		stopCh:      make(services.StopChan),
 	}
-	servicetest.Run(t, triggersFactory)
+
 	return triggersFactory
 }
 
@@ -78,8 +77,8 @@ func (r *TriggerSink) SendOutput(outputs *values.Map, eventID string) {
 	}
 }
 
-func (r *TriggerSink) CreateNewTrigger(t *testing.T) capabilities.TriggerCapability {
-	trigger := newFakeTrigger(t, r.triggerID, &r.wg, r.stopCh)
+func (r *TriggerSink) CreateNewTrigger() capabilities.TriggerCapability {
+	trigger := newFakeTrigger(r.triggerID, &r.wg, r.stopCh)
 	r.triggers = append(r.triggers, trigger)
 	return &trigger
 }
@@ -94,9 +93,8 @@ type fakeTrigger struct {
 	stopCh services.StopChan
 }
 
-func newFakeTrigger(t *testing.T, triggerID string, wg *sync.WaitGroup, stopCh services.StopChan) fakeTrigger {
+func newFakeTrigger(triggerID string, wg *sync.WaitGroup, stopCh services.StopChan) fakeTrigger {
 	return fakeTrigger{
-		t:         t,
 		triggerID: triggerID,
 		toSend:    make(chan capabilities.TriggerResponse, 1000),
 		wg:        wg,

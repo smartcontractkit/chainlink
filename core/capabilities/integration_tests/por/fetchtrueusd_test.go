@@ -67,7 +67,7 @@ func Test_FetchTrueUSDWorkflow(t *testing.T) {
 	mainFile := filepath.Join(fetchTrueUSDPath, "main.go")
 	framework.CreateWasmBinary(t, mainFile, wasmFile)
 
-	triggerSink := framework.NewTriggerSink(t, "cron-trigger", "1.0.0")
+	triggerSink := framework.NewTriggerSink("cron-trigger", "1.0.0")
 	dataFeedsCacheContract := setupDons(ctx, t, lggr, wasmFile, "*/5 * * * * *", triggerSink)
 
 	bundleReceived := make(chan *data_feeds_cache.DataFeedsCacheBundleReportUpdated, 1000)

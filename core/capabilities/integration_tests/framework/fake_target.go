@@ -2,7 +2,6 @@ package framework
 
 import (
 	"context"
-	"testing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -55,9 +54,8 @@ func (ts *TargetSink) Close() error {
 	})
 }
 
-func (ts *TargetSink) CreateNewTarget(t *testing.T) capabilities.TargetCapability {
+func (ts *TargetSink) CreateNewTarget() capabilities.TargetCapability {
 	target := fakeTarget{
-		t:        t,
 		targetID: ts.targetID,
 		ch:       ts.Sink,
 	}
@@ -66,7 +64,6 @@ func (ts *TargetSink) CreateNewTarget(t *testing.T) capabilities.TargetCapabilit
 }
 
 type fakeTarget struct {
-	t        *testing.T
 	targetID string
 	ch       chan capabilities.CapabilityRequest
 }

@@ -102,12 +102,11 @@ type capabilityNode struct {
 	key       ethkey.KeyV2
 	KeyBundle ocr2key.KeyBundle
 	peerID    peer
-	start     func()
+	start     func() error
 }
 
 type DON struct {
 	services.StateMachine
-	t                      *testing.T
 	id                     *uint32
 	config                 DonConfiguration
 	lggr                   logger.Logger
@@ -127,18 +126,19 @@ type DON struct {
 
 	triggerFactories []TriggerFactory
 	targetFactories  []TargetFactory
+
+	services []servicetest.Runnable
 }
 
 func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig DonConfiguration,
 	dependentDONs []commoncap.DON, donContext DonContext, supportsOCR bool, protocolRoundInterval time.Duration) *DON {
-	don := &DON{t: t, lggr: lggr.Named(donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry,
+	don := &DON{lggr: lggr.Named(donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry,
 		workflowRegistry: donContext.workflowRegistry}
 
 	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
 	if supportsOCR {
 		// This is required to support the non standard OCR3 capability - will be removed when required OCR3 behaviour is implemented as standard capabilities
-		don.fakeLibOcr = NewFakeLibOCR(t, lggr, donConfig.F, protocolRoundInterval)
-		servicetest.Run(t, don.fakeLibOcr)
+		don.fakeLibOcr = NewFakeLibOCR(lggr, donConfig.F, protocolRoundInterval)
 	}
 
 	for i, member := range donConfig.Members {
@@ -160,12 +160,12 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 		don.nodes = append(don.nodes, cn)
 
 		if supportsOCR {
-			factory := newFakeOracleFactoryFactory(t, lggr, donConfig.KeyBundles[i], len(donConfig.Members), donConfig.F,
+			factory := newFakeOracleFactoryFactory(lggr, donConfig.KeyBundles[i], len(donConfig.Members), donConfig.F,
 				protocolRoundInterval)
 			newOracleFactoryFn = factory.NewOracleFactory
 		}
 
-		cn.start = func() {
+		cn.start = func() error {
 			node := startNewNode(ctx, t, lggr.Named(donConfig.name+"-"+strconv.Itoa(i)), nodeInfo, donContext.EthBlockchain,
 				donContext.capabilityRegistry.getAddress(), dispatcher,
 				peerWrapper{peer: p2pPeer{member}}, capabilityRegistry, newOracleFactoryFn,
@@ -175,8 +175,13 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 					}
 				}, donContext.syncerFetcherFunc, donContext.computeFetcherFactory)
 
-			require.NoError(t, node.Start(testutils.Context(t)))
+			err := node.Start(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to start node: %w", err)
+			}
 			cn.TestApplication = node
+
+			return nil
 		}
 	}
 
@@ -246,18 +251,23 @@ func (d *DON) GetPeerIDs() []peer {
 }
 
 func (d *DON) Start(ctx context.Context) error {
+	if d.fakeLibOcr != nil {
+		d.fakeLibOcr.Start(ctx)
+	}
+
 	for _, triggerFactory := range d.triggerFactories {
 		for _, node := range d.nodes {
-			trigger := triggerFactory.CreateNewTrigger(d.t)
+			trigger := triggerFactory.CreateNewTrigger()
 			if err := node.registry.Add(ctx, trigger); err != nil {
 				return fmt.Errorf("failed to add trigger: %w", err)
 			}
 		}
+		triggerFactory.Start(ctx)
 	}
 
 	for _, targetFactory := range d.targetFactories {
 		for _, node := range d.nodes {
-			target := targetFactory.CreateNewTarget(d.t)
+			target := targetFactory.CreateNewTarget()
 			if err := node.registry.Add(ctx, target); err != nil {
 				return fmt.Errorf("failed to add target: %w", err)
 			}
@@ -274,7 +284,7 @@ func (d *DON) Start(ctx context.Context) error {
 		}
 
 		for _, node := range d.nodes {
-			addOCR3Capability(ctx, d.t, d.lggr, node.registry, d.fakeLibOcr, d.config.F, node.KeyBundle)
+			d.addOCR3Capability(ctx, node.registry, node.KeyBundle)
 		}
 	}
 
@@ -288,10 +298,24 @@ func (d *DON) Start(ctx context.Context) error {
 }
 
 func (d *DON) Close() error {
+	for _, svc := range d.services {
+		if err := svc.Close(); err != nil {
+			return fmt.Errorf("failed to close service: %w", err)
+		}
+	}
+
+	if d.fakeLibOcr != nil {
+		d.fakeLibOcr.Close()
+	}
+
 	for _, node := range d.nodes {
 		if err := node.Stop(); err != nil {
 			return fmt.Errorf("failed to stop node: %w", err)
 		}
+	}
+
+	for _, triggerFactory := range d.triggerFactories {
+		triggerFactory.Close()
 	}
 
 	return nil
@@ -308,17 +332,22 @@ config=%s
 func (d *DON) AddStandardCapability(name string, command string, config string) {
 	spec := fmt.Sprintf(StandardCapabilityTemplateJobSpec, name, command, config)
 	capabilitiesSpecJob, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(spec)
-	require.NoError(d.t, err)
+	if err != nil {
+		d.lggr.Errorf("failed to validate standard capabilities spec: %w", err)
+		return
+	}
 
 	d.standardCapabilityJobs = append(d.standardCapabilityJobs, &capabilitiesSpecJob)
 }
 
 func (d *DON) AddPublishedStandardCapability(name string, command string, config string,
 	defaultCapabilityRequestConfig *pb.CapabilityConfig,
-	registryConfig kcr.CapabilitiesRegistryCapability) {
+	registryConfig kcr.CapabilitiesRegistryCapability) error {
 	spec := fmt.Sprintf(StandardCapabilityTemplateJobSpec, name, command, config)
 	capabilitiesSpecJob, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(spec)
-	require.NoError(d.t, err)
+	if err != nil {
+		return fmt.Errorf("failed to validate standard capabilities spec: %w", err)
+	}
 
 	d.standardCapabilityJobs = append(d.standardCapabilityJobs, &capabilitiesSpecJob)
 
@@ -326,6 +355,8 @@ func (d *DON) AddPublishedStandardCapability(name string, command string, config
 		donCapabilityConfig: defaultCapabilityRequestConfig,
 		registryConfig:      registryConfig,
 	})
+
+	return nil
 }
 
 // TODO - add configuration for remote support - do this for each capability as an option
@@ -390,14 +421,15 @@ func (d *DON) AddWorkflow(workflow Workflow) error {
 }
 
 type TriggerFactory interface {
-	CreateNewTrigger(t *testing.T) commoncap.TriggerCapability
+	servicetest.Runnable
+	CreateNewTrigger() commoncap.TriggerCapability
 	GetTriggerID() string
 	GetTriggerName() string
 	GetTriggerVersion() string
 }
 
 type TargetFactory interface {
-	CreateNewTarget(t *testing.T) commoncap.TargetCapability
+	CreateNewTarget() commoncap.TargetCapability
 	GetTargetID() string
 	GetTargetName() string
 	GetTargetVersion() string
@@ -530,31 +562,37 @@ func (d *DON) addEthereumWriteTarget(forwarderAddr common.Address, published boo
 	return capabilityID, "", nil
 }
 
-func addOCR3Capability(ctx context.Context, t *testing.T, lggr logger.Logger, capabilityRegistry *capabilities.Registry,
-	libocr *FakeLibOCR, donF uint8, ocr2KeyBundle ocr2key.KeyBundle) {
+func (d *DON) addOCR3Capability(ctx context.Context, capabilityRegistry *capabilities.Registry, ocr2KeyBundle ocr2key.KeyBundle) error {
 	requestTimeout := 10 * time.Minute
 	cfg := ocr3.Config{
-		Logger:            lggr,
+		Logger:            d.lggr,
 		EncoderFactory:    capabilities.NewEncoder,
 		AggregatorFactory: capabilities.NewAggregator,
 		RequestTimeout:    &requestTimeout,
 	}
 
 	ocr3Capability := ocr3.NewOCR3(cfg)
-	servicetest.Run(t, ocr3Capability)
+	ocr3Capability.Start(ctx)
+	d.services = append(d.services, ocr3Capability)
 
 	pluginCfg := coretypes.ReportingPluginServiceConfig{}
 	pluginFactory, err := ocr3Capability.NewReportingPluginFactory(ctx, pluginCfg, nil,
 		nil, nil, nil, capabilityRegistry, nil, nil)
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("failed to create reporting plugin factory: %w", err)
+	}
 
 	repConfig := ocr3types.ReportingPluginConfig{
-		F: int(donF),
+		F: int(d.config.F),
 	}
 	plugin, _, err := pluginFactory.NewReportingPlugin(ctx, repConfig)
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("failed to create reporting plugin: %w", err)
+	}
 
-	transmitter := ocr3.NewContractTransmitter(lggr, capabilityRegistry, "")
+	transmitter := ocr3.NewContractTransmitter(d.lggr, capabilityRegistry, "")
 
-	libocr.AddNode(plugin, transmitter, ocr2KeyBundle)
+	d.fakeLibOcr.AddNode(plugin, transmitter, ocr2KeyBundle)
+
+	return nil
 }
