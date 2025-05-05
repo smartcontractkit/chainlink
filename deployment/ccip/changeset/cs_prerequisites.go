@@ -313,6 +313,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			e.Logger.Errorw("Failed to deploy custom registry module", "chain", chain.String(), "err", err)
 			return err
 		}
+		regAddresses = append(regAddresses, customRegistryModule.Address)
 		e.Logger.Infow("deployed custom registry module", "chain", chain.String(), "addr", customRegistryModule.Address)
 	} else {
 		e.Logger.Infow("custom registry module already deployed", "chain", chain.String(), "addr", regAddresses)
