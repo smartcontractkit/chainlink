@@ -278,7 +278,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
-		// nolint:gosec // disable G115
+		//nolint:gosec // disable G115
 		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WriterDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainIDUint64)))},
 		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(homeChainIDUint64)},
 		feedIDs,
@@ -445,7 +445,7 @@ func TestWriteWithReconnect(t *testing.T) {
 	kb, err := loadKeyBundlesFromCache()
 	require.NoError(t, err, "could not load OCR2 keys")
 
-	testParams, err := importTestParams()
+	tParams, err := importTestParams()
 	require.NoError(t, err, "could not import test params")
 
 	pkey := os.Getenv("PRIVATE_KEY")
@@ -480,7 +480,7 @@ func TestWriteWithReconnect(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", logger.TestLogger(t), sethClient, testParams)
+	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", logger.TestLogger(t), sethClient, tParams)
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
@@ -632,7 +632,7 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 						continue
 					}
 					lggr.Infof("Log ReportID %04x result %t", log.ReportId, log.Result)
-					reportID := uint8(log.ReportId[1])
+					reportID := log.ReportId[1]
 					sg.mu.Lock()
 					if ch, exists := sg.waitChans[reportID]; exists {
 						close(ch) // Signal completion
@@ -642,7 +642,6 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 				}
 			}
 		}
-
 	}()
 
 	return sg
@@ -797,7 +796,7 @@ func (s *WriterGun) generateReports(timestamp time.Time) []any {
 			Timestamp uint32
 		}{
 			FeedID:    feedIDBytes,
-			Price:     big.NewInt(int64(rand.Intn(1000000))).String(),
+			Price:     big.NewInt(int64(rand.Intn(1000000))).String(), //nolint:gosec // disable G115
 			Timestamp: uint32(timestamp.Unix()),
 		})
 	}
@@ -810,7 +809,7 @@ func (s *WriterGun) createFakeReport(reports []any, metadata *pb2.Metadata, time
 		consensustypes.MetadataFieldName: consensustypes.Metadata{
 			Version:          1,
 			ExecutionID:      metadata.WorkflowExecutionID,
-			Timestamp:        uint32(timestamp.Unix()),
+			Timestamp:        uint32(timestamp.Unix()), //nolint:gosec // disable G115
 			DONID:            1,
 			DONConfigVersion: 1,
 			WorkflowID:       metadata.WorkflowID,
@@ -827,7 +826,7 @@ func (s *WriterGun) createRequestInputs(encodedReport []byte, sigs [][]byte, rep
 			"report":     encodedReport,
 			"signatures": sigs,
 			"context":    repContext,
-			"id":         [2]byte{s.reportID >> 8, s.reportID},
+			"id":         [2]byte{0, s.reportID},
 		},
 	})
 	if err != nil {
@@ -858,9 +857,7 @@ func stringTo32Byte(input string) ([32]byte, error) {
 	var result [32]byte
 
 	// Remove "0x" prefix if present
-	if strings.HasPrefix(input, "0x") {
-		input = input[2:]
-	}
+	strings.TrimPrefix(input, "0x")
 
 	// Decode hex string to bytes
 	decoded, err := hex.DecodeString(input)
@@ -892,13 +889,13 @@ func convertToHashedWorkflowName(input string) string {
 func saveClientURL(url string) error {
 	// Create cache directory if it doesn't exist
 	cacheDir := filepath.Join(os.TempDir(), "cache")
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0600); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
 	// Save URL to file
 	cacheFile := filepath.Join(cacheDir, "client_url.txt")
-	if err := os.WriteFile(cacheFile, []byte(url), 0644); err != nil {
+	if err := os.WriteFile(cacheFile, []byte(url), 0600); err != nil {
 		return fmt.Errorf("failed to write client URL file: %w", err)
 	}
 
