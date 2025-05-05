@@ -197,15 +197,22 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		out.Replayed = true
 	}
 
-	// Perform Commit validation if requested
-	if tc.ValidationType == ValidationTypeCommit {
+	// Perform validation based on ValidationType
+	switch tc.ValidationType {
+	case ValidationTypeCommit:
 		commitStart := time.Now()
 		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
-	}
+		// Explicitly log that only commit was validated if only Commit was requested
+		tc.T.Logf("only commit validation was performed")
 
-	// Perform Execution validation if requested
-	if tc.ValidationType == ValidationTypeExec {
+	case ValidationTypeExec: // will validate both commit and exec
+		// First, validate commit
+		commitStart := time.Now()
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
+		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
+
+		// Then, validate execution
 		execStart := time.Now()
 		execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.T, tc.Env, tc.OnchainState, expectedSeqNumExec, startBlocks)
 		tc.T.Logf("confirmed exec of seq nums %+v in %s", expectedSeqNumExec, time.Since(execStart).String())
@@ -243,11 +250,9 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		for _, assertion := range tc.ExtraAssertions {
 			assertion(tc.T)
 		}
-	} else if tc.ValidationType == ValidationTypeNone {
+
+	case ValidationTypeNone:
 		tc.T.Logf("skipping validation of sent message")
-	} else if tc.ValidationType == ValidationTypeCommit {
-		// Explicitly log that only commit was validated if only Commit was requested
-		tc.T.Logf("only commit validation was performed")
 	}
 
 	return
