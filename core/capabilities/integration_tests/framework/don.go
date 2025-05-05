@@ -342,7 +342,7 @@ func (d *DON) AddStandardCapability(name string, command string, config string) 
 	spec := fmt.Sprintf(StandardCapabilityTemplateJobSpec, name, command, config)
 	capabilitiesSpecJob, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(spec)
 	if err != nil {
-		d.lggr.Errorf("failed to validate standard capabilities spec: %w", err)
+		d.lggr.Errorf("failed to validate standard capabilities spec: %v", err)
 		return
 	}
 
