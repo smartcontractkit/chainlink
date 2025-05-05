@@ -8,6 +8,7 @@ import (
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -122,7 +123,7 @@ func doTestRMNRemoteCurse(t *testing.T, mcms bool) {
 	// register evm chain on router
 	e, _, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
 			ccipChangesetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector: solChain,
 				UpdatesByChain: map[uint64]ccipChangesetSolana.RouterConfig{
@@ -141,7 +142,7 @@ func doTestRMNRemoteCurse(t *testing.T, mcms bool) {
 	for _, testCase := range testCases {
 		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(testCase.cs),
+				cldf.CreateLegacyChangeSet(testCase.cs),
 				testCase.curseConfig,
 			),
 		})

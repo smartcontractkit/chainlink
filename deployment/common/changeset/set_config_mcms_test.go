@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonchangesetsolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
@@ -46,11 +47,11 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 	// Deploy MCMS and Timelock
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
 			[]uint64{chainSelector, chainSelectorSolana},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			map[uint64]commontypes.MCMSWithTimelockConfigV2{
 				chainSelector:       config,
 				chainSelectorSolana: config,
@@ -74,7 +75,7 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ConfiguredChangeSet {
 				return []commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMS),
+						cldf.CreateLegacyChangeSet(commonchangeset.SetConfigMCMS),
 						commonchangeset.MCMSConfig{
 							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 								chainSel: {
@@ -93,7 +94,7 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ConfiguredChangeSet {
 				return []commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 						commonchangeset.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								chainSel: {mcmsState.ProposerMcm.Address(), mcmsState.BypasserMcm.Address(), mcmsState.CancellerMcm.Address()},
@@ -101,7 +102,7 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 						},
 					),
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMS),
+						cldf.CreateLegacyChangeSet(commonchangeset.SetConfigMCMS),
 						commonchangeset.MCMSConfig{
 							ProposalConfig: &proposalutils.TimelockConfig{
 								MinDelay: 0,
@@ -184,7 +185,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass mcmstypes.Config) []commonchangeset.ConfiguredChangeSet {
 				return []commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
+						cldf.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
 						commonchangeset.MCMSConfigV2{
 							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
 								chainSel: {
@@ -203,7 +204,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass mcmstypes.Config) []commonchangeset.ConfiguredChangeSet {
 				return []commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+						cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 						commonchangeset.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								chainSel: {mcmsState.ProposerMcm.Address(), mcmsState.BypasserMcm.Address(), mcmsState.CancellerMcm.Address()},
@@ -211,7 +212,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 						},
 					),
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
+						cldf.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
 						commonchangeset.MCMSConfigV2{
 							ProposalConfig: &proposalutils.TimelockConfig{
 								MinDelay: 0,
@@ -293,7 +294,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 			changeSets: func(chainSel uint64, cfgs map[uint64]commonchangeset.ConfigPerRoleV2) []commonchangeset.ConfiguredChangeSet {
 				return []commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
+						cldf.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
 						commonchangeset.MCMSConfigV2{
 							ConfigsPerChain: cfgs,
 						},
@@ -310,7 +311,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 						MCMSCfg: proposalutils.TimelockConfig{MinDelay: time.Second * 1},
 					}),
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
+						cldf.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
 						commonchangeset.MCMSConfigV2{
 							ProposalConfig: &proposalutils.TimelockConfig{
 								MinDelay: time.Second * 1,

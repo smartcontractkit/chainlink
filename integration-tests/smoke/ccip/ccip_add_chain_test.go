@@ -10,13 +10,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -434,14 +435,14 @@ func setupInboundWiring(
 	var err error
 	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
 			v1_6.UpdateOffRampSourcesConfig{
 				UpdatesByChain: offRampSourceUpdates(t, newChains, sources, testRouterEnabled),
 				MCMS:           mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
 			v1_6.UpdateRouterRampsConfig{
 				TestRouter:     testRouterEnabled,
 				UpdatesByChain: routerOffRampUpdates(t, newChains, sources),
@@ -475,28 +476,28 @@ func setupOutboundWiring(
 	var err error
 	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
 			v1_6.UpdateOnRampDestsConfig{
 				UpdatesByChain: onRampDestUpdates(t, newChains, sources, testRouterEnabled),
 				MCMS:           mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
 			v1_6.UpdateFeeQuoterPricesConfig{
 				PricesByChain: feeQuoterPricesByChain(t, newChains, sources),
 				MCMS:          mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
 			v1_6.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: feeQuoterDestUpdates(t, newChains, sources),
 				MCMS:           mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
 			v1_6.UpdateRouterRampsConfig{
 				TestRouter:     testRouterEnabled,
 				UpdatesByChain: routerOnRampUpdates(t, newChains, sources),
@@ -519,7 +520,7 @@ func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEn
 	var err error
 	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: chains,
 			},
@@ -776,12 +777,12 @@ func transferToMCMSAndRenounceTimelockDeployer(
 		cfg.ContractsByChain[e.HomeChainSel] = chainContracts
 	}
 	apps = append(apps, commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+		cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 		cfg,
 	))
 	for _, chain := range chains {
 		apps = append(apps, commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.RenounceTimelockDeployer),
+			cldf.CreateLegacyChangeSet(commonchangeset.RenounceTimelockDeployer),
 			commonchangeset.RenounceTimelockDeployerConfig{
 				ChainSel: chain,
 			},

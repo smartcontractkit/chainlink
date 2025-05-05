@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -159,7 +160,7 @@ func TestRemoveDons(t *testing.T) {
 	require.NoError(t, err)
 	e.Env, err = commoncs.Apply(t, e.Env, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.RemoveDONs),
+			cldf.CreateLegacyChangeSet(v1_6.RemoveDONs),
 			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
@@ -182,7 +183,7 @@ func TestRemoveDons(t *testing.T) {
 			},
 		},
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
 			commoncs.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
@@ -193,7 +194,7 @@ func TestRemoveDons(t *testing.T) {
 			},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.RemoveDONs),
+			cldf.CreateLegacyChangeSet(v1_6.RemoveDONs),
 			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
@@ -219,7 +220,7 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 	require.NoError(t, err)
 	e.Env, err = commoncs.Apply(t, e.Env, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.RemoveDONs),
+			cldf.CreateLegacyChangeSet(v1_6.RemoveDONs),
 			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[len(donsBefore)-1].Id},
@@ -261,7 +262,7 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 	// try to add the another don
 	e.Env, err = commoncs.Apply(t, e.Env, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
 			v1_6.AddDonAndSetCandidateChangesetConfig{
 				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
@@ -299,7 +300,7 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 			// apply the DeployHomeChain changeset, and timelock
 			e.Env, err = commoncs.ApplyChangesets(t, e.Env, nil, []commoncs.ConfiguredChangeSet{
 				commoncs.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 					v1_6.DeployHomeChainConfig{
 						HomeChainSel:     e.HomeChainSel,
 						RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -335,7 +336,7 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 						},
 					},
 					commoncs.Configure(
-						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
@@ -456,7 +457,7 @@ func TestRemoveNodes(t *testing.T) {
 			// apply the DeployHomeChain changeset, and timelock
 			e.Env, err = commoncs.ApplyChangesets(t, e.Env, nil, []commoncs.ConfiguredChangeSet{
 				commoncs.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 					v1_6.DeployHomeChainConfig{
 						HomeChainSel:     e.HomeChainSel,
 						RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -493,7 +494,7 @@ func TestRemoveNodes(t *testing.T) {
 						},
 					},
 					commoncs.Configure(
-						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},

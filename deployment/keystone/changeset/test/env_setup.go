@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -206,7 +207,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 	i := 0
 	for _, c := range chains {
 		forwarderChangesets[i] = commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployForwarderV2),
+			cldf.CreateLegacyChangeSet(changeset.DeployForwarderV2),
 			&changeset.DeployRequestV2{
 				ChainSel:  c.Selector,
 				Qualifier: forwarderQualifier,
@@ -217,7 +218,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 
 	changes := []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2),
+			cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2),
 			&changeset.DeployRequestV2{
 				ChainSel:  registryChainSel,
 				Qualifier: registryQualifier,
@@ -225,7 +226,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployOCR3V2),
+			cldf.CreateLegacyChangeSet(changeset.DeployOCR3V2),
 			&changeset.DeployRequestV2{
 				ChainSel:  registryChainSel,
 				Qualifier: ocr3Qualifier,
@@ -233,7 +234,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(workflowregistry.DeployV2),
+			cldf.CreateLegacyChangeSet(workflowregistry.DeployV2),
 			&changeset.DeployRequestV2{
 				ChainSel:  registryChainSel,
 				Qualifier: workflowRegistryQualifier,
@@ -372,7 +373,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 		}
 		env, err = commonchangeset.Apply(t, env, nil,
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 				timelockCfgs,
 			),
 		)
@@ -395,7 +396,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 					sel: {Timelock: mcms.Timelock, CallProxy: mcms.CallProxy},
 				},
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.AcceptAllOwnershipsProposal),
+					cldf.CreateLegacyChangeSet(changeset.AcceptAllOwnershipsProposal),
 					&changeset.AcceptAllOwnershipRequest{
 						ChainSelector: sel,
 						MinDelay:      0,

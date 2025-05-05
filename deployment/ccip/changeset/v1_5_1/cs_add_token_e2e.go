@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -51,7 +53,7 @@ import (
 // If the token admin is not an external address -
 // 5. Accepts admin rights for the token on the token admin registry
 // 6. Sets the pool for the token on the token admin registry
-var AddTokensE2E = deployment.CreateChangeSet(addTokenE2ELogic, addTokenE2EPreconditionValidation)
+var AddTokensE2E = cldf.CreateChangeSet(addTokenE2ELogic, addTokenE2EPreconditionValidation)
 
 type E2ETokenAndPoolConfig struct {
 	TokenDeploymentConfig *DeployTokenConfig    // TokenDeploymentConfig is optional. If provided, it will be used to deploy the token and populate the pool deployment configuration.

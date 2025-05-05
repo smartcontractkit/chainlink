@@ -7,6 +7,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verification"
@@ -15,7 +16,7 @@ import (
 
 // DeployDataStreamsChainContractsChangeset deploys the entire data streams destination chain contracts. It should be kept up to date
 // with the latest contract versions and deployment logic.
-var DeployDataStreamsChainContractsChangeset = deployment.CreateChangeSet(deployDataStreamsLogic, deployDataStreamsPrecondition)
+var DeployDataStreamsChainContractsChangeset = cldf.CreateChangeSet(deployDataStreamsLogic, deployDataStreamsPrecondition)
 
 type DeployDataStreamsConfig struct {
 	ChainsToDeploy map[uint64]DeployDataStreams

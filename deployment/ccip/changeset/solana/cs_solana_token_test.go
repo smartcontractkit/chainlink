@@ -11,6 +11,7 @@ import (
 
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -30,7 +31,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	e, err := commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			// deployer creates token
-			deployment.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: ccipChangeset.SPL2022Tokens,
@@ -60,7 +61,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			// deployer creates ATA for itself and testUser
-			deployment.CreateLegacyChangeSet(changeset_solana.CreateSolanaTokenATA),
+			cldf.CreateLegacyChangeSet(changeset_solana.CreateSolanaTokenATA),
 			changeset_solana.CreateSolanaTokenATAConfig{
 				ChainSelector: solChain1,
 				TokenPubkey:   tokenAddress,
@@ -69,7 +70,7 @@ func TestSolanaTokenOps(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			// deployer mints token to itself and testUser
-			deployment.CreateLegacyChangeSet(changeset_solana.MintSolanaToken),
+			cldf.CreateLegacyChangeSet(changeset_solana.MintSolanaToken),
 			changeset_solana.MintSolanaTokenConfig{
 				ChainSelector: solChain1,
 				TokenPubkey:   tokenAddress.String(),
@@ -106,7 +107,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			// deployer creates token
-			deployment.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: ccipChangeset.SPL2022Tokens,

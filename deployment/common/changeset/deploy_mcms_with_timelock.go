@@ -16,6 +16,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
@@ -32,7 +33,7 @@ var (
 	// It creates a proposal if deployer key is not admin of the timelock contract.
 	// otherwise it executes the transactions directly.
 	// If neither timelock, nor the deployer key is the admin of the timelock contract, it returns an error.
-	GrantRoleInTimeLock = deployment.CreateChangeSet(grantRoleLogic, grantRolePreconditions)
+	GrantRoleInTimeLock = cldf.CreateChangeSet(grantRoleLogic, grantRolePreconditions)
 )
 
 // DeployMCMSWithTimelockV2 deploys and initializes the MCM and Timelock contracts

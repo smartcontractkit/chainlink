@@ -14,6 +14,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -39,7 +40,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 	// no proposals to be made, timelock can be passed as nil here
 	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 			v1_6.DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -51,7 +52,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
 			v1_6.DeployChainContractsConfig{
 				HomeChainSelector: e.HomeChainSel,
 				ContractParamsPerChain: map[uint64]v1_6.ChainContractParams{
@@ -159,7 +160,7 @@ func Test_PromoteCandidate(t *testing.T) {
 					},
 				},
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
 					v1_6.PromoteCandidateChangesetConfig{
 						HomeChainSelector: tenv.HomeChainSel,
 						PluginInfo: []v1_6.PromoteCandidatePluginInfo{
@@ -258,7 +259,7 @@ func Test_SetCandidate(t *testing.T) {
 					},
 				},
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 					v1_6.SetCandidateChangesetConfig{
 						SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
@@ -285,7 +286,7 @@ func Test_SetCandidate(t *testing.T) {
 				),
 				// Set Candidate again to ensure that with non-empty candidate config, it can be set again
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 					v1_6.SetCandidateChangesetConfig{
 						SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
@@ -396,7 +397,7 @@ func Test_RevokeCandidate(t *testing.T) {
 					},
 				},
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 					v1_6.SetCandidateChangesetConfig{
 						SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
@@ -449,7 +450,7 @@ func Test_RevokeCandidate(t *testing.T) {
 					},
 				},
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.RevokeCandidateChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.RevokeCandidateChangeset),
 					v1_6.RevokeCandidateChangesetConfig{
 						HomeChainSelector:   tenv.HomeChainSel,
 						RemoteChainSelector: dest,
@@ -458,7 +459,7 @@ func Test_RevokeCandidate(t *testing.T) {
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.RevokeCandidateChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.RevokeCandidateChangeset),
 					v1_6.RevokeCandidateChangesetConfig{
 						HomeChainSelector:   tenv.HomeChainSel,
 						RemoteChainSelector: dest,
@@ -507,7 +508,7 @@ func transferToTimelock(
 	_, err := commonchangeset.Apply(t, tenv.Env,
 		timelockContracts,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			testhelpers.GenTestTransferOwnershipConfig(tenv, chains, state),
 		),
 	)
@@ -563,7 +564,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 					},
 				},
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
 					v1_6.UpdateChainConfigConfig{
 						HomeChainSelector:  tenv.HomeChainSel,
 						RemoteChainRemoves: []uint64{otherChain},
@@ -588,7 +589,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 					},
 				},
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
 					v1_6.UpdateChainConfigConfig{
 						HomeChainSelector:  tenv.HomeChainSel,
 						RemoteChainRemoves: []uint64{},
