@@ -108,7 +108,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               replayed,
-				Nonce:                  nonce,
+				Nonce:                  &nonce,
 				Receiver:               common.HexToAddress("0xdead").Bytes(),
 				MsgData:                []byte("hello eoa"),
 				ExtraArgs:              nil,                                 // default extraArgs
@@ -129,7 +129,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
-				Nonce:                  out.Nonce,
+				Nonce:                  &out.Nonce,
 				Receiver:               state.Chains[destChain].FeeQuoter.Address().Bytes(),
 				MsgData:                []byte("hello FeeQuoter"),
 				ExtraArgs:              nil,                                 // default extraArgs
@@ -147,7 +147,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
-				Nonce:                  out.Nonce,
+				Nonce:                  &out.Nonce,
 				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              nil, // default extraArgs
@@ -174,7 +174,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
-				Nonce:                  out.Nonce,
+				Nonce:                  &out.Nonce,
 				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver with low exec gas"),
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
@@ -236,10 +236,10 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 
 	var (
 		replayed bool
-		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
-		out      mt.TestCaseOutput
-		setup    = mt.NewTestSetupWithDeployedEnv(
+		// nonce    uint64 // Nonce not used as Solana check is skipped
+		sender = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		out    mt.TestCaseOutput
+		setup  = mt.NewTestSetupWithDeployedEnv(
 			t,
 			e,
 			state,
@@ -288,7 +288,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               replayed,
-				Nonce:                  nonce,
+				Nonce:                  nil, // Solana nonce check is skipped
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              extraArgs,
@@ -343,7 +343,6 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 
 	var (
 		replayed bool
-		nonce    uint64
 		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
 		out      mt.TestCaseOutput
 		setup    = mt.NewTestSetupWithDeployedEnv(
@@ -402,7 +401,7 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 				ValidationType: mt.ValidationTypeCommit,
 				TestSetup:      setup,
 				Replayed:       replayed, // Should be false initially
-				Nonce:          nonce,    // Should be 0 initially
+				Nonce:          nil,      // Nonce check skipped for Commit validation and Solana
 				Receiver:       receiver,
 				MsgData:        []byte("hello with too many accounts"),
 				ExtraArgs:      extraArgsFailure,
@@ -438,7 +437,7 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
-				Nonce:                  out.Nonce,
+				Nonce:                  nil, // Solana nonce check is skipped
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver that should succeed"),
 				ExtraArgs:              extraArgsSuccess,
@@ -538,7 +537,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               replayed,
-				Nonce:                  nonce,
+				Nonce:                  &nonce,
 				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              extraArgs, // default extraArgs

@@ -81,7 +81,7 @@ type TestCase struct {
 	TestSetup
 	ValidationType         ValidationType
 	Replayed               bool
-	Nonce                  uint64
+	Nonce                  *uint64
 	Receiver               []byte
 	MsgData                []byte
 	ExtraArgs              []byte
@@ -235,15 +235,13 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)
-			// Check if Nonce is non-zero before comparing. Nonce check only makes sense if it was initialized.
-			// TODO: Should the Nonce field be optional / pointer? Or should we rely on ValidationType?
-			// Assuming for now that if Nonce is 0, we don't check the bump.
-			if tc.Nonce != 0 {
-				require.Equal(tc.T, tc.Nonce+1, latestNonce)
+			// Check if Nonce is non-nil before comparing. Nonce check only makes sense if it was explicitly provided.
+			if tc.Nonce != nil {
+				require.Equal(tc.T, *tc.Nonce+1, latestNonce)
 				out.Nonce = latestNonce
-				tc.T.Logf("confirmed nonce bump for sender %x, latestNonce %d", tc.Sender, latestNonce)
+				tc.T.Logf("confirmed nonce bump for sender %x, expected %d, got latestNonce %d", tc.Sender, *tc.Nonce+1, latestNonce)
 			} else {
-				tc.T.Logf("skipping nonce bump check for sender %x as initial nonce was 0, latestNonce %d", tc.Sender, latestNonce)
+				tc.T.Logf("skipping nonce bump check for sender %x as initial nonce was nil, latestNonce %d", tc.Sender, latestNonce)
 			}
 		}
 
