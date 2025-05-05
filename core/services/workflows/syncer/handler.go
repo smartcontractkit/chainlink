@@ -12,11 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -240,6 +242,10 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
+		}
+
 		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner), "type", WorkflowRegisteredEvent)
 		return nil
 	case WorkflowUpdatedEvent:
@@ -259,6 +265,10 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		if err := h.workflowUpdatedEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow updated event: %v", err), h.lggr)
 			return err
+		}
+
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
 		h.lggr.Debugw("handled event", "newWorkflowID", newWorkflowID, "oldWorkflowID", oldWorkflowID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner), "type", WorkflowUpdatedEvent)
@@ -281,6 +291,11 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
 			return err
 		}
+
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
+		}
+
 		h.lggr.Debugw("handled event", "workflowID", wfID, "type", WorkflowPausedEvent)
 		return nil
 	case WorkflowActivatedEvent:
@@ -299,6 +314,10 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		if err := h.workflowActivatedEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)
 			return err
+		}
+
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
 		h.lggr.Debugw("handled event", "workflowID", wfID, "type", WorkflowActivatedEvent, "workflowName", payload.WorkflowName, "workflowOwner", wfOwner)
@@ -321,6 +340,10 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		if err := h.workflowDeletedEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", err), h.lggr)
 			return err
+		}
+
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
 		h.lggr.Debugw("handled event", "workflowID", wfID, "type", WorkflowDeletedEvent, "workflowName", payload.WorkflowName, "workflowOwner", wfOwner)
@@ -381,8 +404,8 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 	// We know we need an engine, let's make sure it's the right one.
 	// We do this by fetching and comparing whether it's running and that the workflow ID matches
-	prevEngine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: payload.WorkflowOwner, Name: payload.WorkflowName})
-	if err == nil && prevEngine.Ready() == nil && prevEngine.WorkflowID.Hex() == wfID {
+	prevEngine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: payload.WorkflowOwner, Name: payload.WorkflowName})
+	if ok && prevEngine.Ready() == nil && prevEngine.WorkflowID.Hex() == wfID {
 		// This is the happy-path, we're done.
 		return nil
 	}
@@ -403,9 +426,9 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 func toSpecStatus(s uint8) job.WorkflowSpecStatus {
 	switch s {
-	case 0:
+	case WorkflowStatusActive:
 		return job.WorkflowSpecStatusActive
-	case 1:
+	case WorkflowStatusPaused:
 		return job.WorkflowSpecStatusPaused
 	default:
 		return job.WorkflowSpecStatusDefault
@@ -499,7 +522,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	}
 
 	// V2 aka "NoDAG"
-	cfg := v2.EngineConfig{
+	cfg := &v2.EngineConfig{
 		Lggr:            h.lggr,
 		Module:          module,
 		CapRegistry:     h.capRegistry,
@@ -614,8 +637,8 @@ func (h *eventHandler) workflowDeletedEvent(
 	// prior steps fail.
 	key := EngineRegistryKey{Owner: payload.WorkflowOwner, Name: payload.WorkflowName}
 
-	e, err := h.engineRegistry.Get(key)
-	if err == nil {
+	e, ok := h.engineRegistry.Get(key)
+	if ok {
 		if innerErr := e.Close(); innerErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w", innerErr)
 		}
@@ -626,7 +649,7 @@ func (h *eventHandler) workflowDeletedEvent(
 		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
 	}
 
-	_, err = h.engineRegistry.Pop(key)
+	_, err := h.engineRegistry.Pop(key)
 	if errors.Is(err, errNotFound) {
 		return nil
 	}
@@ -641,9 +664,9 @@ func (h *eventHandler) tryEngineCleanup(workflowOwner []byte, workflowName strin
 	}
 	if h.engineRegistry.Contains(key) {
 		// This shouldn't error since we just checked that the key existed above.
-		e, err := h.engineRegistry.Get(key)
-		if err != nil {
-			return fmt.Errorf("invariant violation: failed to get workflow engine: %w", err)
+		e, ok := h.engineRegistry.Get(key)
+		if !ok {
+			return errors.New("invariant violation: failed to get workflow engine")
 		}
 
 		// Stop the engine
@@ -652,7 +675,7 @@ func (h *eventHandler) tryEngineCleanup(workflowOwner []byte, workflowName strin
 		}
 
 		// Remove the engine from the registry
-		_, err = h.engineRegistry.Pop(key)
+		_, err := h.engineRegistry.Pop(key)
 		if err != nil {
 			return fmt.Errorf("failed to remove workflow engine: %w", err)
 		}

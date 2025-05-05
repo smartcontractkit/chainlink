@@ -36,23 +36,38 @@ type EngineConfig struct {
 const (
 	defaultMaxCapRegistryAccessRetries      = 0 // infinity
 	defaultCapRegistryAccessRetryIntervalMs = 5000
-	defaultMaxTotalTriggerSubscriptions     = 10
-	defaultMaxConcurrentCapabilityCalls     = 10
+
+	defaultModuleExecuteMaxResponseSizeBytes   = 100000
+	defaultTriggerSubscriptionRequestTimeoutMs = 500
+	defaultMaxTriggerSubscriptions             = 10
+	defaultTriggerEventQueueSize               = 1000
+
+	defaultMaxConcurrentWorkflowExecutions = 100
+	defaultMaxConcurrentCapabilityCalls    = 10
+
+	defaultShutdownTimeoutMs = 5000
 )
 
 type EngineLimits struct {
-	MaxCapRegistryAccessRetries      int
-	CapRegistryAccessRetryIntervalMs int
+	MaxCapRegistryAccessRetries      uint16
+	CapRegistryAccessRetryIntervalMs uint32
 
-	MaxTotalTriggerSubscriptions int
+	ModuleExecuteMaxResponseSizeBytes   uint32
+	TriggerSubscriptionRequestTimeoutMs uint32
+	MaxTriggerSubscriptions             uint16
+	TriggerEventQueueSize               uint16
 
-	MaxConcurrentCapabilityCalls int
+	MaxConcurrentWorkflowExecutions uint16
+	MaxConcurrentCapabilityCalls    uint16
+
+	ShutdownTimeoutMs uint32
 }
 
 type LifecycleHooks struct {
-	OnInitialized       func(err error)
-	OnExecutionFinished func(executionID string)
-	OnRateLimited       func(executionID string)
+	OnInitialized          func(err error)
+	OnSubscribedToTriggers func(triggerIDs []string)
+	OnExecutionFinished    func(executionID string)
+	OnRateLimited          func(executionID string)
 }
 
 func (c *EngineConfig) Validate() error {
@@ -103,11 +118,26 @@ func (l *EngineLimits) setDefaultLimits() {
 	if l.CapRegistryAccessRetryIntervalMs == 0 {
 		l.CapRegistryAccessRetryIntervalMs = defaultCapRegistryAccessRetryIntervalMs
 	}
-	if l.MaxTotalTriggerSubscriptions == 0 {
-		l.MaxTotalTriggerSubscriptions = defaultMaxTotalTriggerSubscriptions
+	if l.ModuleExecuteMaxResponseSizeBytes == 0 {
+		l.ModuleExecuteMaxResponseSizeBytes = defaultModuleExecuteMaxResponseSizeBytes
+	}
+	if l.TriggerSubscriptionRequestTimeoutMs == 0 {
+		l.TriggerSubscriptionRequestTimeoutMs = defaultTriggerSubscriptionRequestTimeoutMs
+	}
+	if l.MaxTriggerSubscriptions == 0 {
+		l.MaxTriggerSubscriptions = defaultMaxTriggerSubscriptions
+	}
+	if l.TriggerEventQueueSize == 0 {
+		l.TriggerEventQueueSize = defaultTriggerEventQueueSize
+	}
+	if l.MaxConcurrentWorkflowExecutions == 0 {
+		l.MaxConcurrentWorkflowExecutions = defaultMaxConcurrentWorkflowExecutions
 	}
 	if l.MaxConcurrentCapabilityCalls == 0 {
 		l.MaxConcurrentCapabilityCalls = defaultMaxConcurrentCapabilityCalls
+	}
+	if l.ShutdownTimeoutMs == 0 {
+		l.ShutdownTimeoutMs = defaultShutdownTimeoutMs
 	}
 }
 
@@ -115,6 +145,9 @@ func (l *EngineLimits) setDefaultLimits() {
 func (h *LifecycleHooks) setDefaultHooks() {
 	if h.OnInitialized == nil {
 		h.OnInitialized = func(err error) {}
+	}
+	if h.OnSubscribedToTriggers == nil {
+		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
 	}
 	if h.OnExecutionFinished == nil {
 		h.OnExecutionFinished = func(executionID string) {}

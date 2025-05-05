@@ -7,8 +7,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -18,7 +18,6 @@ import (
 )
 
 func TestAcceptAllOwnership(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-578")
 
 	t.Parallel()
 	lggr := logger.Test(t)
@@ -31,23 +30,23 @@ func TestAcceptAllOwnership(t *testing.T) {
 	registrySel := env.AllChainSelectors()[0]
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
+			cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
 			registrySel,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployOCR3),
+			cldf.CreateLegacyChangeSet(changeset.DeployOCR3),
 			registrySel,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployForwarder),
+			cldf.CreateLegacyChangeSet(changeset.DeployForwarder),
 			changeset.DeployForwarderRequest{},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployFeedsConsumer),
+			cldf.CreateLegacyChangeSet(changeset.DeployFeedsConsumer),
 			&changeset.DeployFeedsConsumerRequest{ChainSelector: registrySel},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
 				registrySel: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -64,7 +63,7 @@ func TestAcceptAllOwnership(t *testing.T) {
 			registrySel: {Timelock: timelock.Timelock, CallProxy: timelock.CallProxy},
 		},
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.AcceptAllOwnershipsProposal),
+			cldf.CreateLegacyChangeSet(changeset.AcceptAllOwnershipsProposal),
 			&changeset.AcceptAllOwnershipRequest{
 				ChainSelector: registrySel,
 				MinDelay:      0,

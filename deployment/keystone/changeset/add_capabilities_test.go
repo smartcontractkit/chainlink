@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
@@ -40,6 +40,7 @@ func TestAddCapabilities(t *testing.T) {
 		csOut, err := changeset.AddCapabilities(te.Env, &changeset.AddCapabilitiesRequest{
 			RegistryChainSel: te.RegistrySelector,
 			Capabilities:     capabilitiesToAdd,
+			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		})
 		require.NoError(t, err)
 		require.Empty(t, csOut.Proposals)
@@ -60,6 +61,7 @@ func TestAddCapabilities(t *testing.T) {
 			RegistryChainSel: te.RegistrySelector,
 			Capabilities:     capabilitiesToAdd,
 			MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		}
 		csOut, err := changeset.AddCapabilities(te.Env, req)
 		require.NoError(t, err)
@@ -67,16 +69,7 @@ func TestAddCapabilities(t *testing.T) {
 		require.Nil(t, csOut.AddressBook)
 
 		// now apply the changeset such that the proposal is signed and execed
-		contracts := te.ContractSets()[te.RegistrySelector]
-		timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
-			te.RegistrySelector: {
-				Timelock:  contracts.Timelock,
-				CallProxy: contracts.CallProxy,
-			},
-		}
-		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
-			commonchangeset.Configure(deployment.CreateLegacyChangeSet(changeset.AddCapabilities), req),
-		)
+		err = applyProposal(t, te, commonchangeset.Configure(cldf.CreateLegacyChangeSet(changeset.AddCapabilities), req))
 		require.NoError(t, err)
 
 		assertCapabilitiesExist(t, te.CapabilitiesRegistry(), capabilitiesToAdd...)

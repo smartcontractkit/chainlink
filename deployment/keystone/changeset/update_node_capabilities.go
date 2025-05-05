@@ -10,6 +10,8 @@ import (
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -58,6 +60,9 @@ type MutateNodeCapabilitiesRequest struct {
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *MCMSConfig
+
+	// RegistryRef is the reference to the registry contract in the datastore.
+	RegistryRef datastore.AddressRefKey
 }
 
 func (req *MutateNodeCapabilitiesRequest) Validate(e deployment.Environment) error {
@@ -73,6 +78,9 @@ func (req *MutateNodeCapabilitiesRequest) Validate(e deployment.Environment) err
 	if !exists {
 		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", req.RegistryChainSel)
 	}
+	if err := shouldUseDatastore(e, req.RegistryRef); err != nil {
+		return fmt.Errorf("invalid registry reference: %w", err)
+	}
 	return nil
 }
 
@@ -80,34 +88,27 @@ func (req *MutateNodeCapabilitiesRequest) UseMCMS() bool {
 	return req.MCMSConfig != nil
 }
 
-func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *ContractSetV2, error) {
+func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *OwnedContract[*kcr.CapabilitiesRegistry], error) {
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
 	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
-	resp, err := GetContractSetsV2(e.Logger, GetContractSetsRequestV2{
-		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
-		AddressBook: e.ExistingAddresses,
-	})
+	capReg, err := loadCapabilityRegistry(registryChain, e, req.RegistryRef)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get contract sets: %w", err)
-	}
-	contractSet, exists := resp.ContractSets[req.RegistryChainSel]
-	if !exists {
-		return nil, nil, fmt.Errorf("contract set not found for chain %d", req.RegistryChainSel)
+		return nil, nil, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 
 	return &internal.UpdateNodeCapabilitiesImplRequest{
 		Chain:                registryChain,
-		CapabilitiesRegistry: contractSet.CapabilitiesRegistry.Contract,
+		CapabilitiesRegistry: capReg.Contract,
 		P2pToCapabilities:    req.P2pToCapabilities,
 		UseMCMS:              req.UseMCMS(),
-	}, &contractSet, nil
+	}, capReg, nil
 }
 
 // UpdateNodeCapabilities updates the capabilities of nodes in the registry
 func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
-	c, contractSet, err := req.updateNodeCapabilitiesImplRequest(env)
+	c, capReg, err := req.updateNodeCapabilitiesImplRequest(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert request: %w", err)
 	}
@@ -123,10 +124,10 @@ func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilit
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]string{
-			c.Chain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.Timelock.Address().Hex(),
+			c.Chain.Selector: capReg.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			c.Chain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.ProposerMcm.Address().Hex(),
+			c.Chain.Selector: capReg.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {

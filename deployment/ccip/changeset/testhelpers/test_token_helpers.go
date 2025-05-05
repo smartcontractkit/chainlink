@@ -14,6 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -98,11 +100,11 @@ func SetupTwoChainEnvironmentWithTokens(
 	// Deploy MCMS setup & prerequisite contracts
 	e, err := commoncs.Apply(t, e, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
 			changeset.DeployPrerequisiteConfig{Configs: prereqCfg},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
 			mcmsCfg,
 		),
 	)
@@ -130,7 +132,7 @@ func SetupTwoChainEnvironmentWithTokens(
 		// Transfer ownership of token admin registry to the Timelock
 		e, err = commoncs.Apply(t, e, timelockContracts,
 			commoncs.Configure(
-				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
 					MCMSConfig: proposalutils.TimelockConfig{
@@ -169,7 +171,7 @@ func DeployTestTokenPools(
 
 	e, err := commonchangeset.Apply(t, e, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
+			cldf.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
 			v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: TestTokenSymbol,
 				NewPools:    newPools,
@@ -210,7 +212,7 @@ func DeployTestTokenPools(
 		// Transfer ownership of token admin registry to the Timelock
 		e, err = commoncs.Apply(t, e, timelockContracts,
 			commoncs.Configure(
-				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
 					MCMSConfig: proposalutils.TimelockConfig{

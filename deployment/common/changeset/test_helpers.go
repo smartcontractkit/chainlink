@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -154,10 +155,12 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
+			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
+			OperationsBundle:  e.OperationsBundle,
 		}
 	}
 	return currentEnv, nil
@@ -219,10 +222,12 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
+			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
+			OperationsBundle:  e.OperationsBundle,
 		}
 
 		if out.MCMSTimelockProposals != nil {
@@ -282,7 +287,7 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 
 	e, err := ApplyChangesets(t, e, nil, []ConfiguredChangeSet{
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployLinkToken),
+			cldf.CreateLegacyChangeSet(DeployLinkToken),
 			config,
 		),
 	})

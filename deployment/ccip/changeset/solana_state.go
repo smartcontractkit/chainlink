@@ -230,11 +230,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		default:
 			continue
 		}
-		existingVersion, ok := versions[tvStr.Type]
-		// This shouldn't happen, so we want to log it
-		if ok {
-			log.Warn().Str("existingVersion", existingVersion.String()).Str("type", string(tvStr.Type)).Msg("Duplicate address type found")
-		}
 		versions[tvStr.Type] = tvStr.Version
 	}
 	return state, nil

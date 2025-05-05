@@ -14,6 +14,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -26,7 +27,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 )
 
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
@@ -170,17 +170,17 @@ func ValidateHomeChainState(e deployment.Environment, homeChainSel uint64, exist
 		return errors.New("capability registry not found")
 	}
 	cr, err := capReg.GetHashedCapabilityId(
-		&bind.CallOpts{}, internal.CapabilityLabelledName, internal.CapabilityVersion)
+		&bind.CallOpts{}, ccip.CapabilityLabelledName, ccip.CapabilityVersion)
 	if err != nil {
 		e.Logger.Errorw("Failed to get hashed capability id", "err", err)
 		return err
 	}
-	if cr != internal.CCIPCapabilityID {
+	if cr != ccip.CCIPCapabilityID {
 		return fmt.Errorf("unexpected mismatch between calculated ccip capability id (%s) and expected ccip capability id constant (%s)",
 			hexutil.Encode(cr[:]),
-			hexutil.Encode(internal.CCIPCapabilityID[:]))
+			hexutil.Encode(ccip.CCIPCapabilityID[:]))
 	}
-	capability, err := capReg.GetCapability(nil, internal.CCIPCapabilityID)
+	capability, err := capReg.GetCapability(nil, ccip.CCIPCapabilityID)
 	if err != nil {
 		e.Logger.Errorw("Failed to get capability", "err", err)
 		return err

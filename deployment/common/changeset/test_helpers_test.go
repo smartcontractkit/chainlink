@@ -12,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -23,7 +25,7 @@ func TestChangeSetLegacyFunction_PassingCase(t *testing.T) {
 	executedCs := false
 	executedValidator := false
 
-	csv2 := deployment.CreateChangeSet(
+	csv2 := cldf.CreateChangeSet(
 		func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
 			executedCs = true
 			return deployment.ChangesetOutput{AddressBook: deployment.NewMemoryAddressBook()}, nil
@@ -48,7 +50,7 @@ func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 	executedCs := false
 	executedValidator := false
 
-	csv2 := deployment.CreateChangeSet(
+	csv2 := cldf.CreateChangeSet(
 		func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
 			executedCs = true
 			return deployment.ChangesetOutput{AddressBook: deployment.NewMemoryAddressBook()}, nil
@@ -81,7 +83,7 @@ func NewNoopEnvironment(t *testing.T) deployment.Environment {
 		[]string{},
 		nil,
 		func() context.Context { return tests.Context(t) },
-		deployment.XXXGenerateTestOCRSecrets(),
+		cldf.XXXGenerateTestOCRSecrets(),
 	)
 }
 
@@ -89,7 +91,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 	t.Parallel()
 
 	changesets := []ConfiguredChangeSet{
-		Configure(deployment.CreateChangeSet(
+		Configure(cldf.CreateChangeSet(
 			func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
 				ds := datastore.NewMemoryDataStore[
 					datastore.DefaultMetadata,

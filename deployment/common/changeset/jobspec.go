@@ -7,19 +7,20 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 var (
 	// RevokeJobsChangeset revokes job proposals with the given jobIDs through JD. It can only be used on
 	// the proposals that are in the pending and cancelled state.
-	RevokeJobsChangeset = deployment.CreateChangeSet(revokeJobsLogic, revokeJobsPrecondition)
+	RevokeJobsChangeset = cldf.CreateChangeSet(revokeJobsLogic, revokeJobsPrecondition)
 
 	// DeleteJobChangeset sends a delete request to the node where the job is running and marks it as deleted in Job Distributor.
 	// If the node is not connected or the delete request fails, the deletion process is halted.
 	// Nodes are expected to cancel the job once the request is sent by JD.
 	// Refer to integration-tests/smoke/ccip/ccip_jobspec_test.go for node operations example after DeleteJobChangeset.
-	DeleteJobChangeset = deployment.CreateChangeSet(deleteJobsLogic, deleteJobsPrecondition)
+	DeleteJobChangeset = cldf.CreateChangeSet(deleteJobsLogic, deleteJobsPrecondition)
 )
 
 func revokeJobsPrecondition(env deployment.Environment, jobIDs []string) error {
