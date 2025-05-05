@@ -2,8 +2,6 @@ package workflows
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -494,21 +492,6 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 	}
 }
 
-func generateExecutionID(workflowID, eventID string) (string, error) {
-	s := sha256.New()
-	_, err := s.Write([]byte(workflowID))
-	if err != nil {
-		return "", err
-	}
-
-	_, err = s.Write([]byte(eventID))
-	if err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(s.Sum(nil)), nil
-}
-
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
 	e.meterReports.Add(executionID, NewMeteringReport())
@@ -741,7 +724,7 @@ func (e *Engine) worker(ctx context.Context) {
 				continue
 			}
 
-			executionID, err := generateExecutionID(e.workflow.id, te.ID)
+			executionID, err := types.GenerateExecutionID(e.workflow.id, te.ID)
 			if err != nil {
 				e.logger.With(platform.KeyTriggerID, te.ID).Errorf("could not generate execution ID: %v", err)
 				continue
