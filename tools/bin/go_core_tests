@@ -4,7 +4,7 @@ set +e
 
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
-EXTRA_FLAGS="-timeout 20m"
+EXTRA_FLAGS="-timeout 16m"
 
 
 if [[ -n "$USE_FLAKEGUARD" ]]; then
@@ -23,7 +23,7 @@ if [[ -n "$USE_FLAKEGUARD" ]]; then
     --run-count=1 \
     --rerun-failed-count=3 \
     --min-pass-ratio=1 \
-    --go-test-timeout=20m \
+    --go-test-timeout=16m \
     --omit-test-outputs-on-success=true \
     --main-results-path="go_core_tests_flakeguard_results/main/test_results.json" \
     --rerun-results-path="go_core_tests_flakeguard_results/rerun/test_results.json"

@@ -307,6 +307,7 @@ jobs:
 
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}
+        timeout-minutes: ${{ github.event_name == 'schedule' && 38 || 18 }} # leave 2 minute for remaining steps
         id: run-tests
         shell: bash
         env:
