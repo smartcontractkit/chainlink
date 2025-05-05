@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -384,7 +385,7 @@ func FilterRelayersByType(network string) func(id types.RelayID) bool {
 }
 
 // List returns all the [RelayerChainInteroperators] that match the [FilterFn].
-// A typical usage pattern to use [List] with [FilterByType] to obtain a set of [RelayerChainInteroperators]
+// A typical usage pattern to use [List] with [FilterRelayersByType] to obtain a set of [RelayerChainInteroperators]
 // for a given chain
 func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInteroperators {
 	matches := make(map[types.RelayID]loop.Relayer)
