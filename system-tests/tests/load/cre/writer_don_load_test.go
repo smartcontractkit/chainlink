@@ -113,9 +113,9 @@ func setupLoadTestWriterEnvironment(
 	forwarderAddress, forwarderErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
 	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
 
-	//DF cache start
+	// DF cache start
 
-	//Deploy
+	// Deploy
 	deployConfig := df_changeset_types.DeployConfig{
 		ChainsToDeploy: []uint64{universalSetupOutput.BlockchainOutput[0].ChainSelector},
 		Labels:         []string{"data-feeds"}, // label required by the changeset
@@ -129,9 +129,9 @@ func setupLoadTestWriterEnvironment(
 
 	dfCacheAddress, dfCacheErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, changeset.DataFeedsCache.String()) //nolint:staticcheck // won't migrate now
 	require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
-	//Config
+	// Config
 
-	//Search for the config set on df
+	// Search for the config set on df
 	go func() {
 		ethClinet, _ := universalSetupOutput.BlockchainOutput[0].SethClient.Client.(*ethclient.Client)
 		df, _ := data_feeds_cache.NewDataFeedsCache(dfCacheAddress, ethClinet)
@@ -278,6 +278,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
+		// nolint:gosec // disable G115
 		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WriterDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainIDUint64)))},
 		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(homeChainIDUint64)},
 		feedIDs,
@@ -512,7 +513,7 @@ type testParams struct {
 func exportTestParams(params testParams) error {
 	// Create cache directory if it doesn't exist
 	cacheDir := filepath.Join(os.TempDir(), "cache")
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0600); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -535,7 +536,7 @@ func exportTestParams(params testParams) error {
 
 	// Write to file in cache directory
 	cacheFile := filepath.Join(cacheDir, "test_params.json")
-	if err := os.WriteFile(cacheFile, jsonData, 0644); err != nil {
+	if err := os.WriteFile(cacheFile, jsonData, 0600); err != nil {
 		return fmt.Errorf("failed to write test params file: %w", err)
 	}
 
@@ -605,7 +606,10 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 		ethClinet, _ := seth.Client.(*ethclient.Client)
 		fwd, _ := forwarder.NewKeystoneForwarder(params.forwarderAddress, ethClinet)
 		ch := make(chan *types2.Header)
-		seth.Client.SubscribeNewHead(context.TODO(), ch)
+		_, err := seth.Client.SubscribeNewHead(context.TODO(), ch)
+		if err != nil {
+			panic(err)
+		}
 
 		for {
 			head := <-ch
@@ -714,7 +718,7 @@ func (s *WriterGun) createReportContext() ([]byte, error) {
 	binary.BigEndian.PutUint32(seqToEpoch[32-5:32-1], s.seqNr)
 	zeros := make([]byte, 32)
 	configDigest := [32]byte{1}
-	return append(append(configDigest[:], seqToEpoch[:]...), zeros...), nil
+	return append(append(configDigest[:], seqToEpoch...), zeros...), nil
 }
 
 func (s *WriterGun) createEncodedReport(metadata *pb2.Metadata) ([]byte, error) {
