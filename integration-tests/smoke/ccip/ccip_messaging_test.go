@@ -212,7 +212,16 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
+	e, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithSolChains(1),
+		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			if params.ExecuteOffChainConfig != nil {
+				params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
+				params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
+			}
+			return params
+		}),
+	)
 
 	// TODO: do this as part of setup
 	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
@@ -250,6 +259,11 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		)
 	)
 
+	receiverProgram := state.SolChains[destChain].Receiver
+	receiver := receiverProgram.Bytes()
+	receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
+	receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
+
 	// message := ccip_router.SVM2AnyMessage{
 	// 	Receiver:     validReceiverAddress[:],
 	// 	FeeToken:     wsol.mint,
@@ -258,11 +272,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	// }
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		receiverProgram := state.SolChains[destChain].Receiver
-		receiver := receiverProgram.Bytes()
-		receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
-		receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
-
 		accounts := [][32]byte{
 			receiverExternalExecutionConfigPDA,
 			receiverTargetAccountPDA,
@@ -299,6 +308,86 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 						err = solcommon.GetAccountDataBorshInto(ctx, e.Env.SolChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
 						require.NoError(t, err, "failed to get account info")
 						require.Equal(t, uint8(1), receiverCounterAccount.Value)
+					},
+				},
+			},
+		)
+	})
+
+	t.Run("message sequence: failure (too many accounts) -> success", func(t *testing.T) {
+		// --- 1. First Message (Failure - Too Many Accounts) ---
+		t.Log("Sending first message (expecting failure due to too many accounts)...")
+
+		// Generate 60 dummy accounts
+		numAccounts := 60
+		accountsFailure := make([][32]byte, numAccounts)
+		writableIndexes := []int{0, 1, 2} // Mark first 3 as writable
+		for i := 0; i < numAccounts; i++ {
+			accountsFailure[i] = common.HexToHash(fmt.Sprintf("0x%064d", i+1))
+		}
+		// Set required accounts
+		accountsFailure[0] = receiverExternalExecutionConfigPDA
+		accountsFailure[1] = receiverTargetAccountPDA
+		accountsFailure[2] = solana.SystemProgramID
+
+		extraArgsFailure, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes(writableIndexes),
+			Accounts:                accountsFailure,
+			ComputeUnits:            80_000,
+		})
+		require.NoError(t, err, "failed to serialize extra args for failing message")
+
+		// Run the test case expecting failure
+		// Use initial replayed=false and nonce=0
+		out = mt.Run(
+			t,
+			mt.TestCase{
+				ValidationType: mt.ValidationTypeCommit,
+				TestSetup:      setup,
+				Replayed:       out.Replayed,
+				Nonce:          nil, // Nonce check skipped for Commit validation and Solana
+				Receiver:       receiver,
+				MsgData:        []byte("hello with too many accounts"),
+				ExtraArgs:      extraArgsFailure,
+			},
+		)
+
+		// --- 2. Second Message (Success) ---
+		t.Log("Sending second message (expecting success)...")
+		accountsSuccess := [][32]byte{ // Use valid accounts
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		extraArgsSuccess, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}), // Mark relevant accounts as writable
+			Accounts:                accountsSuccess,
+			ComputeUnits:            80_000,
+		})
+		require.NoError(t, err, "failed to serialize extra args for successful message")
+
+		// Run the test case expecting success
+		// Use Replayed and Nonce from the previous (failed) run's output stored in 'out'
+		out = mt.Run(
+			t,
+			mt.TestCase{
+				ValidationType:         mt.ValidationTypeExec,
+				TestSetup:              setup,
+				Replayed:               out.Replayed,
+				Nonce:                  nil, // Solana nonce check is skipped
+				Receiver:               receiver,
+				MsgData:                []byte("hello CCIPReceiver that should succeed"),
+				ExtraArgs:              extraArgsSuccess,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						// Check counter is now 1
+						var receiverCounterAccountAfterSuccess soltesthelpers.ReceiverCounter
+						err = solcommon.GetAccountDataBorshInto(ctx, e.Env.SolChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccountAfterSuccess)
+						require.NoError(t, err, "failed to get account info after second message")
+						require.Equal(t, uint8(2), receiverCounterAccountAfterSuccess.Value, "Counter should have incremented to 2")
+						t.Logf("Confirmed counter incremented to 2 after second (successful) message")
 					},
 				},
 			},
