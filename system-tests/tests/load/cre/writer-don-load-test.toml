@@ -10,20 +10,28 @@ mock_capability_binary_path = "/Users/ionita/chainlink/plugins/amd64_mock"
 image = "job-distributor:0.9.0"
 #image = "localhost:5000/job-distributor:sha-707362c-amd64"
 
-[[mock_capabilities]]
-name="streams-trigger"
+[[mock_capabilities]] #we need a mock present so we can connect to the write target
+name="mock"
 version= "1.0.0"
 type="trigger"
-description="streams-trigger mock"
+description="mock"
+
+[writer_test]
+nr_of_feeds = 30
+workflow_name = "abcdef0123" #Must be 10 chars
+workflow_owner = "0x0100000000000000000000000000000000000001"
+workflow_id = "5dbe5f217ff07d6b1dddb43519fe7bf13ccb10b540578fafdbea86b508abbd71"
 
 
 [infra]
 type = "crib"
+#type = "docker"
 
 [infra.crib]
 namespace = "crib-writer-don-load-test-george"
 folder_location = "/Users/ionita/crib/deployments/cre"
 provider = "aws"
+#provider = "kind"
 
 [infra.crib.team_input]
 team="cre"
@@ -33,7 +41,7 @@ cost_center="capabilities-df-migration-performance-tests"
 
 [[nodesets]]
 nodes = 6
-override_mode = "all"
+override_mode = "each"
 http_port_range_start = 10100
 name = "writer"
 
@@ -44,8 +52,104 @@ volume_name = "writer_volume"
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:pr-17349-5d72384-plugins-amd64"
+image = "public.ecr.aws/chainlink/chainlink:2.23.0-ubuntu20"
 #image = "localhost:5001/chainlink:develop"
+custom_ports = ["13401:7777"]
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+        [LOG]
+        Level='debug'
+      """
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "public.ecr.aws/chainlink/chainlink:2.23.0-ubuntu20"
+#image = "localhost:5001/chainlink:develop"
+custom_ports = ["13402:7777"]
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+        [LOG]
+        Level='debug'
+      """
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "public.ecr.aws/chainlink/chainlink:2.23.0-ubuntu20"
+#image = "localhost:5001/chainlink:develop"
+custom_ports = ["13403:7777"]
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+        [LOG]
+        Level='debug'
+      """
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "public.ecr.aws/chainlink/chainlink:2.23.0-ubuntu20"
+#image = "localhost:5001/chainlink:develop"
+custom_ports = ["13404:7777"]
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+        [LOG]
+        Level='debug'
+      """
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "public.ecr.aws/chainlink/chainlink:2.23.0-ubuntu20"
+#image = "localhost:5001/chainlink:develop"
+custom_ports = ["13405:7777"]
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+        [LOG]
+        Level='debug'
+      """
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "public.ecr.aws/chainlink/chainlink:2.23.0-ubuntu20"
+#image = "localhost:5001/chainlink:develop"
+custom_ports = ["13406:7777"]
 user_config_overrides = """
         [Feature]
         LogPoller = true

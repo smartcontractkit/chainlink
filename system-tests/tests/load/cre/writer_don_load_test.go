@@ -348,7 +348,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	forwarderF := 0
+	f := 0
 	// Nr of signatures needs to be equal with f+1, compute f based on the nr of ocr3 worker nodes
 	for _, donMetadata := range setupOutput.donTopology.DonsWithMetadata {
 		if flags.HasFlag(donMetadata.Flags, keystonetypes.OCR3Capability) {
@@ -358,11 +358,10 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			}, node.EqualLabels)
 			require.NoError(t, workerNodesErr, "could not find any worker nodes for ocr3")
 
-			forwarderF = (len(workerNodes) - 1) / 3
-
+			f = (len(workerNodes) - 1) / 3
 		}
 	}
-	require.NotEqual(t, 0, forwarderF, "f cannot be 0")
+	require.NotEqual(t, 0, f, "f cannot be 0")
 	tParams := testParams{
 		workflowName:          in.WriterTest.WorkflowName,
 		workflowOwner:         in.WriterTest.WorkflowOwner,
@@ -371,7 +370,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		nrOfReports:           in.WriterTest.NrOfFeeds,
 		dataFeedsCacheAddress: setupOutput.dataFeedsCacheAddress,
 		forwarderAddress:      setupOutput.forwarderAddress,
-		f:                     forwarderF,
+		f:                     f,
 	}
 
 	require.NoError(t, exportTestParams(tParams), "could not save test params")
@@ -421,7 +420,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
-			CallTimeout: time.Minute * 5, // Give enough time for the write to execute
+			CallTimeout: time.Minute * 5, // Give enough time for write to execute
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
 				wasp.Plain(1, 10*time.Minute),
@@ -546,7 +545,7 @@ func exportTestParams(params testParams) error {
 func importTestParams() (testParams, error) {
 	var params testParams
 
-	data, err := os.ReadFile("cache/test_params.json")
+	data, err := os.ReadFile(filepath.Join(os.TempDir(), "cache") + "/test_params.json")
 	if err != nil {
 		return params, fmt.Errorf("failed to read test params file: %w", err)
 	}
