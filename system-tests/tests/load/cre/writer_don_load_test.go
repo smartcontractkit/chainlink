@@ -796,8 +796,8 @@ func (s *WriterGun) generateReports(timestamp time.Time) []any {
 			Timestamp uint32
 		}{
 			FeedID:    feedIDBytes,
-			Price:     big.NewInt(int64(rand.Intn(1000000))).String(), //nolint:gosec // disable G115
-			Timestamp: uint32(timestamp.Unix()),
+			Price:     big.NewInt(int64(rand.Intn(1000000))).String(),
+			Timestamp: uint32(timestamp.Unix()), //nolint:gosec // disable G115
 		})
 	}
 	return reports
@@ -857,7 +857,7 @@ func stringTo32Byte(input string) ([32]byte, error) {
 	var result [32]byte
 
 	// Remove "0x" prefix if present
-	strings.TrimPrefix(input, "0x")
+	input = strings.TrimPrefix(input, "0x")
 
 	// Decode hex string to bytes
 	decoded, err := hex.DecodeString(input)
