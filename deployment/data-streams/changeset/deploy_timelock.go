@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -13,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 )
 
-var DeployAndTransferMCMSChangeset = deployment.CreateChangeSet(deployAndTransferMcmsLogic, deployAndTransferMcmsPrecondition)
+var DeployAndTransferMCMSChangeset = cldf.CreateChangeSet(deployAndTransferMcmsLogic, deployAndTransferMcmsPrecondition)
 
 type DeployMCMSConfig struct {
 	ChainsToDeploy []uint64

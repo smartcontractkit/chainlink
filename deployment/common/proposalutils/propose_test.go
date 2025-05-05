@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -37,7 +37,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 	changeset.SetPreloadedSolanaAddresses(t, env, chainSelectorSolana)
 	env, err := changeset.Apply(t, env, nil,
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
 			map[uint64]commontypes.MCMSWithTimelockConfigV2{
 				chainSelector: {
 					Canceller:        config,

@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -19,7 +20,7 @@ import (
 // 3. Creates a proposal to set a feed configs on DataFeedsCache contract
 // 4. Creates a proposal to set a feed proxy mappings on DataFeedsCache contract
 // Returns a new addressbook with the new AggregatorProxy contracts address and MCMS proposal
-var NewFeedWithProxyChangeset = deployment.CreateChangeSet(newFeedWithProxyLogic, newFeedWithProxyPrecondition)
+var NewFeedWithProxyChangeset = cldf.CreateChangeSet(newFeedWithProxyLogic, newFeedWithProxyPrecondition)
 
 func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyConfig) (deployment.ChangesetOutput, error) {
 	chain := env.Chains[c.ChainSelector]

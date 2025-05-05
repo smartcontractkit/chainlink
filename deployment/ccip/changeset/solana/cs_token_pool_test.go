@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -147,7 +148,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 		// for _, tokenAddress := range tokenMap {
 		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolAndLookupTable),
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolAndLookupTable),
 				ccipChangesetSolana.TokenPoolConfig{
 					ChainSelector: solChain,
 					TokenPubKey:   tokenAddress,
@@ -155,7 +156,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				},
 			),
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
 				ccipChangesetSolana.RemoteChainTokenPoolConfig{
 					SolChainSelector: solChain,
 					SolTokenPubKey:   tokenAddress,
@@ -232,7 +233,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 
 		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.ConfigureTokenPoolAllowList),
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.ConfigureTokenPoolAllowList),
 				ccipChangesetSolana.ConfigureTokenPoolAllowListConfig{
 					SolChainSelector: solChain,
 					SolTokenPubKey:   tokenAddress.String(),
@@ -243,7 +244,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				},
 			),
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.RemoveFromTokenPoolAllowList),
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.RemoveFromTokenPoolAllowList),
 				ccipChangesetSolana.RemoveFromAllowListConfig{
 					SolChainSelector: solChain,
 					SolTokenPubKey:   tokenAddress.String(),
@@ -254,7 +255,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 			),
 			// test update
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
 				ccipChangesetSolana.RemoteChainTokenPoolConfig{
 					SolChainSelector: solChain,
 					SolTokenPubKey:   tokenAddress,
@@ -284,7 +285,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 		if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType && tokenAddress == newTokenAddress {
 			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
+					cldf.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
 					ccipChangesetSolana.LockReleaseLiquidityOpsConfig{
 						SolChainSelector: solChain,
 						SolTokenPubKey:   tokenAddress.String(),
@@ -295,7 +296,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
+					cldf.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
 					ccipChangesetSolana.LockReleaseLiquidityOpsConfig{
 						SolChainSelector: solChain,
 						SolTokenPubKey:   tokenAddress.String(),
@@ -308,7 +309,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
+					cldf.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
 					ccipChangesetSolana.LockReleaseLiquidityOpsConfig{
 						SolChainSelector: solChain,
 						SolTokenPubKey:   tokenAddress.String(),

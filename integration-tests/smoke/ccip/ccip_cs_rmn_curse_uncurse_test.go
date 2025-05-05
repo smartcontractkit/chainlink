@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -479,7 +479,7 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state c
 	// This is required because RMN Contracts is initially owned by the deployer
 	_, err := commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{
@@ -549,7 +549,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase, action types.Timelock
 	_, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env,
 		[]commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
+				cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
 				config,
 			)},
 	)
@@ -560,7 +560,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase, action types.Timelock
 	_, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env,
 		[]commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset),
+				cldf.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset),
 				config,
 			)},
 	)
@@ -687,7 +687,7 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase, action types.TimelockAc
 	_, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env,
 		[]commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
+				cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
 				config,
 			)},
 	)

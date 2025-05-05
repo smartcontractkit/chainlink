@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -157,7 +157,7 @@ func TestAddDONs(t *testing.T) {
 						require.NotNil(t, csOut.MCMSTimelockProposals)
 						require.Len(t, csOut.MCMSTimelockProposals, 1)
 						applyErr := applyProposal(t, te, commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(changeset.AddDons),
+							cldf.CreateLegacyChangeSet(changeset.AddDons),
 							&cfg,
 						))
 						if tc.checkErr != nil {
@@ -209,7 +209,7 @@ func setupVirtualDONs(t *testing.T, te test.EnvWrapper, mcmsConfig *changeset.MC
 		require.NotNil(t, csOut.MCMSTimelockProposals)
 		require.Len(t, csOut.MCMSTimelockProposals, 1)
 		applyErr := applyProposal(t, te, commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.AppendNodeCapabilities),
+			cldf.CreateLegacyChangeSet(changeset.AppendNodeCapabilities),
 			appendReq,
 		))
 		require.NoError(t, applyErr)

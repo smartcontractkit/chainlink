@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -45,7 +46,7 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 	// Deploy MCMS and Timelock
 	env, err = changeset.Apply(t, env, nil,
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
 				chainSelector: config,
 			},

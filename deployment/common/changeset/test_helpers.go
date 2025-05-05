@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -286,7 +287,7 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 
 	e, err := ApplyChangesets(t, e, nil, []ConfiguredChangeSet{
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployLinkToken),
+			cldf.CreateLegacyChangeSet(DeployLinkToken),
 			config,
 		),
 	})

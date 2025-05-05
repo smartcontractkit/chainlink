@@ -12,11 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -240,6 +242,10 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
+		}
+
 		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner), "type", WorkflowRegisteredEvent)
 		return nil
 	case WorkflowUpdatedEvent:
@@ -259,6 +265,10 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		if err := h.workflowUpdatedEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow updated event: %v", err), h.lggr)
 			return err
+		}
+
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
 		h.lggr.Debugw("handled event", "newWorkflowID", newWorkflowID, "oldWorkflowID", oldWorkflowID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner), "type", WorkflowUpdatedEvent)
@@ -281,6 +291,11 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
 			return err
 		}
+
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
+		}
+
 		h.lggr.Debugw("handled event", "workflowID", wfID, "type", WorkflowPausedEvent)
 		return nil
 	case WorkflowActivatedEvent:
@@ -299,6 +314,10 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		if err := h.workflowActivatedEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)
 			return err
+		}
+
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
 		h.lggr.Debugw("handled event", "workflowID", wfID, "type", WorkflowActivatedEvent, "workflowName", payload.WorkflowName, "workflowOwner", wfOwner)
@@ -321,6 +340,10 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		if err := h.workflowDeletedEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", err), h.lggr)
 			return err
+		}
+
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
 		h.lggr.Debugw("handled event", "workflowID", wfID, "type", WorkflowDeletedEvent, "workflowName", payload.WorkflowName, "workflowOwner", wfOwner)

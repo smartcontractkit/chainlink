@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -18,6 +19,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -33,18 +35,18 @@ var (
 	// AddCandidatesForNewChainChangeset deploys a new chain and adds its exec and commit plugins as candidates on the home chain.
 	// This changeset is not idempotent because the underlying AddDonAndSetCandidateChangeset is not idempotent.
 	// Provide an MCMS config if the contracts on the existing chains are owned by MCMS (omit this config otherwise).
-	AddCandidatesForNewChainChangeset = deployment.CreateChangeSet(addCandidatesForNewChainLogic, addCandidatesForNewChainPrecondition)
+	AddCandidatesForNewChainChangeset = cldf.CreateChangeSet(addCandidatesForNewChainLogic, addCandidatesForNewChainPrecondition)
 	// PromoteNewChainForConfigChangeset promotes exec and commit plugin candidates for the new chain on the home chain.
 	// It also connects the new chain to various destination chains through the test router.
 	// This changeset should be run after AddCandidatesForNewChainChangeset.
 	// This changeset is not idempotent because the underlying PromoteCandidateChangeset is not idepotent.
 	// Provide an MCMS config if the contracts on the existing chains are owned by MCMS (omit this config otherwise).
-	PromoteNewChainForConfigChangeset = deployment.CreateChangeSet(promoteNewChainForConfigLogic, promoteNewChainForConfigPrecondition)
+	PromoteNewChainForConfigChangeset = cldf.CreateChangeSet(promoteNewChainForConfigLogic, promoteNewChainForConfigPrecondition)
 	// ConnectNewChainChangeset activates connects a new chain with other chains by updating onRamp, offRamp, and router contracts.
 	// If connecting to production routers, you should have already run PromoteNewChainForConfigChangeset.
 	// Rerunning this changeset with a given input will produce the same results each time (outside of ownership transfers, which only happen once).
 	// Provide an MCMS config if the contracts on the existing chains are owned by MCMS (omit this config otherwise).
-	ConnectNewChainChangeset = deployment.CreateChangeSet(connectNewChainLogic, connectNewChainPrecondition)
+	ConnectNewChainChangeset = cldf.CreateChangeSet(connectNewChainLogic, connectNewChainPrecondition)
 )
 
 // /////////////////////////////////

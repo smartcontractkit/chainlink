@@ -12,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -216,7 +218,7 @@ func TestConfigureForwarders(t *testing.T) {
 				}
 				_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(changeset.ConfigureForwardContracts),
+						cldf.CreateLegacyChangeSet(changeset.ConfigureForwardContracts),
 						cfg,
 					),
 				)
