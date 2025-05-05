@@ -123,11 +123,10 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	})
 
 	t.Run("message to contract not implementing CCIPReceiver", func(t *testing.T) {
-		t.Skip()
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidationType:         mt.ValidationType_Exec,
+				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
@@ -140,7 +139,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	})
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		t.Skip()
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
 		out = mt.Run(
@@ -170,7 +168,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	})
 
 	t.Run("message to contract implementing CCIPReceiver with low exec gas", func(t *testing.T) {
-		t.Skip()
 		out = mt.Run(
 			t,
 			mt.TestCase{
@@ -539,7 +536,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidationType:         mt.ValidationType_Exec,
+				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  nonce,
