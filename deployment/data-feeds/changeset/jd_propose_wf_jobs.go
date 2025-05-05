@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 )
 
 // ProposeWFJobsToJDChangeset is a changeset that reads a feed state file, creates a workflow job spec from it and proposes it to JD.
-var ProposeWFJobsToJDChangeset = deployment.CreateChangeSet(proposeWFJobsToJDLogic, proposeWFJobsToJDPrecondition)
+var ProposeWFJobsToJDChangeset = cldf.CreateChangeSet(proposeWFJobsToJDLogic, proposeWFJobsToJDPrecondition)
 
 func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsConfig) (deployment.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(env.GetContext(), timeout)
@@ -184,7 +184,7 @@ func proposeWFJobsToJDPrecondition(env deployment.Environment, c types.ProposeWF
 	}
 
 	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, pointer.To("data-feeds"))
+	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, &c.CacheLabel)
 	if cacheAddress == "" {
 		return errors.New("failed to get data feeds cache address")
 	}

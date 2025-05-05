@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -34,7 +35,7 @@ func setupFiredrillTestEnv(t *testing.T) deployment.Environment {
 	// Deploy MCMS and Timelock
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			map[uint64]commontypes.MCMSWithTimelockConfigV2{
 				chainSelector:       config,
 				chainSelector2:      config,
@@ -73,7 +74,7 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 			changeSets: func() []commonchangeset.ConfiguredChangeSet {
 				return []commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commonchangeset.MCMSSignFireDrillChangeset),
+						cldf.CreateLegacyChangeSet(commonchangeset.MCMSSignFireDrillChangeset),
 						commonchangeset.FireDrillConfig{
 							Selectors: []uint64{chainSelector, chainSelector2, chainSelectorSolana},
 							TimelockCfg: proposalutils.TimelockConfig{

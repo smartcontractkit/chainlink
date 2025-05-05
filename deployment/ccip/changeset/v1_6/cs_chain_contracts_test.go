@@ -18,6 +18,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -29,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -72,7 +75,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 			}
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
 					v1_6.UpdateOnRampDestsConfig{
 						UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 							source: {
@@ -148,7 +151,7 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 			}
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampDynamicConfigChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampDynamicConfigChangeset),
 					v1_6.UpdateOnRampDynamicConfig{
 						UpdatesByChain: map[uint64]v1_6.OnRampDynamicConfigUpdate{
 							source: {
@@ -216,7 +219,7 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 			}
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampAllowListChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampAllowListChangeset),
 					v1_6.UpdateOnRampAllowListConfig{
 						UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampAllowListUpdate{
 							source: {
@@ -346,7 +349,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.WithdrawOnRampFeeTokensChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.WithdrawOnRampFeeTokensChangeset),
 					v1_6.WithdrawOnRampFeeTokensConfig{
 						FeeTokensByChain: map[uint64][]common.Address{
 							source: {linkToken.Address(), weth9.Address()},
@@ -406,7 +409,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 			}
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
 					v1_6.UpdateOffRampSourcesConfig{
 						UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
 							source: {
@@ -486,7 +489,7 @@ func TestUpdateFQDests(t *testing.T) {
 			fqCfg2.DestGasOverhead = 1000
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
 					v1_6.UpdateFeeQuoterDestsConfig{
 						UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 							source: {
@@ -576,7 +579,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
 					v1_6.UpdateRouterRampsConfig{
 						UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 							source: {
@@ -655,7 +658,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 			msgInterceptor := utils.RandomAddress()
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateDynamicConfigOffRampChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateDynamicConfigOffRampChangeset),
 					v1_6.UpdateDynamicConfigOffRampConfig{
 						Updates: map[uint64]v1_6.OffRampParams{
 							source: {
@@ -715,7 +718,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
 					v1_6.UpdateNonceManagerConfig{
 						UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
 							source: {
@@ -773,7 +776,7 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 	// it should fail
 	_, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
 			v1_6.UpdateNonceManagerConfig{
 				UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
 					srcChain.Selector: {
@@ -794,7 +797,7 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 	// it should fail again as there is no offramp for the source chain
 	_, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
 			v1_6.UpdateNonceManagerConfig{
 				UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
 					srcChain.Selector: {
@@ -813,7 +816,7 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 	// Now apply the update with AllowEmptyOffRamp and it should pass
 	_, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
 			v1_6.UpdateNonceManagerConfig{
 				UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
 					srcChain.Selector: {
@@ -849,7 +852,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 	// now deploy contracts
 	apps = append(apps, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 			v1_6.DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -861,7 +864,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
 			v1_6.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: evmContractParams,
@@ -874,7 +877,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 	_, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
 			// Enable the OCR config on the remote chains.
-			deployment.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
 			v1_6.SetOCR3OffRampConfig{
 				HomeChainSel:       e.HomeChainSel,
 				RemoteChainSels:    allChains,
@@ -908,7 +911,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			// Add the chain configs for the new chains.
-			deployment.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
 			v1_6.UpdateChainConfigConfig{
 				HomeChainSelector: e.HomeChainSel,
 				RemoteChainAdds:   wrongChainConfigs,
@@ -916,7 +919,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			// Add the DONs and candidate commit OCR instances for the chain.
-			deployment.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
 			v1_6.AddDonAndSetCandidateChangesetConfig{
 				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
@@ -994,7 +997,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.ApplyFeeTokensUpdatesFeeQuoterChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.ApplyFeeTokensUpdatesFeeQuoterChangeset),
 					v1_6.ApplyFeeTokensUpdatesConfig{
 						UpdatesByChain: map[uint64]v1_6.ApplyFeeTokensUpdatesConfigPerChain{
 							source: {
@@ -1054,7 +1057,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			// try to update PremiumMultiplierWeiPerEth for a token that does not exist
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset),
 					v1_6.PremiumMultiplierWeiPerEthUpdatesConfig{
 						Updates: map[uint64][]v1_6.PremiumMultiplierWeiPerEthUpdatesConfigPerChain{
 							source: {
@@ -1099,7 +1102,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			// now try to apply the changeset for TEST token
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset),
 					v1_6.PremiumMultiplierWeiPerEthUpdatesConfig{
 						Updates: map[uint64][]v1_6.PremiumMultiplierWeiPerEthUpdatesConfigPerChain{
 							source: {
@@ -1190,7 +1193,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 			// try to update price feed for this it will fail as there is no price feed deployed for this token
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateTokenPriceFeedsFeeQuoterChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateTokenPriceFeedsFeeQuoterChangeset),
 					v1_6.UpdateTokenPriceFeedsConfig{
 						Updates: map[uint64][]v1_6.UpdateTokenPriceFeedsConfigPerChain{
 							source: {
@@ -1209,7 +1212,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 			// now try to apply the changeset for link token, there is already a price feed deployed for link token
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.UpdateTokenPriceFeedsFeeQuoterChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.UpdateTokenPriceFeedsFeeQuoterChangeset),
 					v1_6.UpdateTokenPriceFeedsConfig{
 						Updates: map[uint64][]v1_6.UpdateTokenPriceFeedsConfigPerChain{
 							source: {
@@ -1282,7 +1285,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
 					v1_6.ApplyTokenTransferFeeConfigUpdatesConfig{
 						UpdatesByChain: map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
 							source: {
@@ -1318,7 +1321,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 			require.Contains(t, err.Error(), "min fee must be less than max fee for token")
 			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
 					v1_6.ApplyTokenTransferFeeConfigUpdatesConfig{
 						UpdatesByChain: map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
 							source: {
