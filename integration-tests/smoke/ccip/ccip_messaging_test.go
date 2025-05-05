@@ -322,7 +322,6 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 		}),
 	)
 
-	// TODO: do this as part of setup
 	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
 
 	state, err := changeset.LoadOnchainState(e.Env)
