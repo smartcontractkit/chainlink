@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -521,6 +522,11 @@ func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, err
 }
 
 func (c SolanaCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilySolana)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
 	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
@@ -555,6 +561,11 @@ func (c SolanaCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subje
 }
 
 func (c SolanaCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilySolana)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
 	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
@@ -640,6 +651,11 @@ func (c EvmCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error)
 }
 
 func (c EvmCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilyEVM)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
 	deployer, err := deployerGroup.GetDeployer(c.selector)
 	if err != nil {
 		return fmt.Errorf("failed to get deployer for chain %d: %w", c.selector, err)
@@ -653,6 +669,11 @@ func (c EvmCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subjects
 }
 
 func (c EvmCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilyEVM)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
 	deployer, err := deployerGroup.GetDeployer(c.selector)
 	if err != nil {
 		return fmt.Errorf("failed to get deployer for chain %d: %w", c.selector, err)
@@ -695,4 +716,25 @@ func GetAllCursableChainsSelector(env deployment.Environment) []uint64 {
 	selectors = append(selectors, env.AllChainSelectors()...)
 	selectors = append(selectors, env.AllChainSelectorsSolana()...)
 	return selectors
+}
+
+func assertEndianness(subjects []globals.Subject, family string) error {
+	for _, subject := range subjects {
+		if subject == globals.GlobalCurseSubject() {
+			continue
+		}
+		switch family {
+		case chain_selectors.FamilySolana:
+			// Solana uses little endian to encode the subject so we expect the last 8 bytes to be 0
+			if !bytes.Equal(subject[8:], []byte{0, 0, 0, 0, 0, 0, 0, 0}) {
+				return fmt.Errorf("endianness incorrect for Solana curse subject: %s", subject)
+			}
+		default:
+			// EVM uses big endian to encode the subject so we expect the first 8 bytes to be 0
+			if !bytes.Equal(subject[:8], []byte{0, 0, 0, 0, 0, 0, 0, 0}) {
+				return fmt.Errorf("endianness incorrect for curse subject: %s", subject)
+			}
+		}
+	}
+	return nil
 }

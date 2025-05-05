@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
