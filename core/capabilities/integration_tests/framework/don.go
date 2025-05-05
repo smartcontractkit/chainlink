@@ -252,7 +252,10 @@ func (d *DON) GetPeerIDs() []peer {
 
 func (d *DON) Start(ctx context.Context) error {
 	if d.fakeLibOcr != nil {
-		d.fakeLibOcr.Start(ctx)
+		err := d.fakeLibOcr.Start(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start fake libocr: %w", err)
+		}
 	}
 
 	for _, triggerFactory := range d.triggerFactories {
@@ -262,7 +265,10 @@ func (d *DON) Start(ctx context.Context) error {
 				return fmt.Errorf("failed to add trigger: %w", err)
 			}
 		}
-		triggerFactory.Start(ctx)
+		err := triggerFactory.Start(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start trigger factory: %w", err)
+		}
 	}
 
 	for _, targetFactory := range d.targetFactories {
@@ -284,7 +290,10 @@ func (d *DON) Start(ctx context.Context) error {
 		}
 
 		for _, node := range d.nodes {
-			d.addOCR3Capability(ctx, node.registry, node.KeyBundle)
+			err := d.addOCR3Capability(ctx, node.registry, node.KeyBundle)
+			if err != nil {
+				return fmt.Errorf("failed to add OCR3 capability: %w", err)
+			}
 		}
 	}
 
@@ -429,7 +438,7 @@ type TriggerFactory interface {
 }
 
 type TargetFactory interface {
-	CreateNewTarget() commoncap.TargetCapability
+	CreateNewTarget() commoncap.ExecutableCapability
 	GetTargetID() string
 	GetTargetName() string
 	GetTargetVersion() string
@@ -572,7 +581,10 @@ func (d *DON) addOCR3Capability(ctx context.Context, capabilityRegistry *capabil
 	}
 
 	ocr3Capability := ocr3.NewOCR3(cfg)
-	ocr3Capability.Start(ctx)
+	err := ocr3Capability.Start(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to start OCR3 capability: %w", err)
+	}
 	d.services = append(d.services, ocr3Capability)
 
 	pluginCfg := coretypes.ReportingPluginServiceConfig{}

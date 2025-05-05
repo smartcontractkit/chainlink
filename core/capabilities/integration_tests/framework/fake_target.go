@@ -54,7 +54,7 @@ func (ts *TargetSink) Close() error {
 	})
 }
 
-func (ts *TargetSink) CreateNewTarget() capabilities.TargetCapability {
+func (ts *TargetSink) CreateNewTarget() capabilities.ExecutableCapability {
 	target := fakeTarget{
 		targetID: ts.targetID,
 		ch:       ts.Sink,
