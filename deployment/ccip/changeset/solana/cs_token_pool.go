@@ -387,22 +387,25 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 	solChainState := envState.SolChains[cfg.SolChainSelector]
 	tokenPubKey := cfg.SolTokenPubKey
 
-	var instructions []solana.Instruction
 	var txns []mcmsTypes.Transaction
 	switch cfg.SolPoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
+		mcmsFlag := cfg.MCMSSolana != nil && cfg.MCMSSolana.BurnMintTokenPoolOwnedByTimelock[tokenPubKey]
 		for evmChainSelector, evmRemoteConfig := range cfg.EVMRemoteConfigs {
 			e.Logger.Infow("Setting up token pool for remote chain", "remote_chain_selector", evmChainSelector, "token_pubkey", tokenPubKey.String(), "pool_type", cfg.SolPoolType)
 			chainIxs, err := getInstructionsForBurnMint(e, chain, envState, solChainState, cfg, evmChainSelector, evmRemoteConfig)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 			}
-			instructions = append(instructions, chainIxs...)
-		}
-		if cfg.MCMSSolana != nil && cfg.MCMSSolana.BurnMintTokenPoolOwnedByTimelock[tokenPubKey] {
-			err := appendTxs(instructions, solChainState.BurnMintTokenPool, ccipChangeset.BurnMintTokenPool, &txns)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
+			if mcmsFlag {
+				err := appendTxs(chainIxs, solChainState.BurnMintTokenPool, ccipChangeset.BurnMintTokenPool, &txns)
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
+				}
+			} else {
+				if err := chain.Confirm(chainIxs); err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+				}
 			}
 		}
 	case solTestTokenPool.LockAndRelease_PoolType:
@@ -412,12 +415,16 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 			}
-			instructions = append(instructions, chainIxs...)
-		}
-		if cfg.MCMSSolana != nil && cfg.MCMSSolana.LockReleaseTokenPoolOwnedByTimelock[tokenPubKey] {
-			err := appendTxs(instructions, solChainState.LockReleaseTokenPool, ccipChangeset.LockReleaseTokenPool, &txns)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
+			mcmsFlag := cfg.MCMSSolana != nil && cfg.MCMSSolana.LockReleaseTokenPoolOwnedByTimelock[tokenPubKey]
+			if mcmsFlag {
+				err := appendTxs(chainIxs, solChainState.LockReleaseTokenPool, ccipChangeset.LockReleaseTokenPool, &txns)
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
+				}
+			} else {
+				if err := chain.Confirm(chainIxs); err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+				}
 			}
 		}
 	default:
@@ -434,9 +441,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
-	if err := chain.Confirm(instructions); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-	}
+
 	return deployment.ChangesetOutput{}, nil
 }
 
