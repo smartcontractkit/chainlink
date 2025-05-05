@@ -640,8 +640,6 @@ func SendRequestSol(
 			return nil, err
 		}
 
-		e.Logger.Infow("looking for adminregistry", "token", token.String(), "s.BurnMintTokenPool", s.BurnMintTokenPool.String(), "tokenPool.AdminRegistryPDA", tokenPool.AdminRegistryPDA)
-
 		// Set the token pool's lookup table address
 		var tokenAdminRegistry solCommon.TokenAdminRegistry
 		err = solcommon.GetAccountDataBorshInto(ctx, client, tokenPool.AdminRegistryPDA, solconfig.DefaultCommitment, &tokenAdminRegistry)

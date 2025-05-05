@@ -278,7 +278,9 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			m.l.Error("Error encoding receiver address")
 			return router.ClientEVM2AnyMessage{}, 0, err
 		}
-		message.Receiver = receiver
+		if dstSelFamily == selectors.FamilyEVM {
+			message.Receiver = receiver
+		}
 	}
 
 	// Set token amounts if it's a token transfer
@@ -289,7 +291,8 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 				Amount: big.NewInt(1),
 			},
 		}
-		if dstSelFamily == selectors.FamilySolana {
+		switch dstSelFamily {
+		case selectors.FamilySolana:
 			tokenReceiver, _, err = soltokens.FindAssociatedTokenAddress(
 				solana.Token2022ProgramID,
 				m.state.SolChains[m.chainSelector].LinkToken,
