@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
-	registryModuleOwnerCustomer1_6 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
@@ -300,12 +300,12 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	}
 	if len(regAddresses) == 0 {
 		customRegistryModule, err := deployment.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*registryModuleOwnerCustomer1_6.RegistryModuleOwnerCustom] {
-				regModAddr, tx2, regMod, err2 := registryModuleOwnerCustomer1_6.DeployRegistryModuleOwnerCustom(
+			func(chain deployment.Chain) deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
+				regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
 					chain.DeployerKey,
 					chain.Client,
 					tokenAdminReg.Address())
-				return deployment.ContractDeploy[*registryModuleOwnerCustomer1_6.RegistryModuleOwnerCustom]{
+				return deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
 					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_6_0), Err: err2,
 				}
 			})
