@@ -99,18 +99,20 @@ func aptosChain(t *testing.T, chainID string, adminAddress aptos.AccountAddress)
 	var url string
 	var containerName string
 	for i := 0; i < maxRetries; i++ {
-		port := freeport.GetOne(t)
+		// reserve all the ports we need explicitly to avoid port conflicts in other tests
+		ports := freeport.GetN(t, 2)
 
 		bcInput := &blockchain.Input{
 			Image:       "", // filled out by defaultAptos function
 			Type:        "aptos",
 			ChainID:     chainID,
 			PublicKey:   adminAddress.String(),
-			CustomPorts: []string{fmt.Sprintf("%d:8080", port), fmt.Sprintf("%d:8081", port+1)},
+			CustomPorts: []string{fmt.Sprintf("%d:8080", ports[0]), fmt.Sprintf("%d:8081", ports[1])},
 		}
 		output, err := blockchain.NewBlockchainNetwork(bcInput)
 		if err != nil {
 			t.Logf("Error creating Aptos network: %v", err)
+			freeport.Return(ports)
 			time.Sleep(time.Second)
 			maxRetries -= 1
 			continue

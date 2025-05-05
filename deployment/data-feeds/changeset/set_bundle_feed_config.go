@@ -6,13 +6,14 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // SetBundleFeedConfigChangeset is a changeset that sets a feed configuration on DataFeedsCache contract.
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
-var SetBundleFeedConfigChangeset = deployment.CreateChangeSet(setBundleFeedConfigLogic, setBundleFeedConfigPrecondition)
+var SetBundleFeedConfigChangeset = cldf.CreateChangeSet(setBundleFeedConfigLogic, setBundleFeedConfigPrecondition)
 
 func setBundleFeedConfigLogic(env deployment.Environment, c types.SetFeedBundleConfig) (deployment.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)

@@ -7,10 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-var LatestConfigDetailsChangeset = deployment.CreateChangeSet(LatestConfigDetailsLogic, LatestConfigDetailsPrecondition)
+var LatestConfigDetailsChangeset = cldf.CreateChangeSet(LatestConfigDetailsLogic, LatestConfigDetailsPrecondition)
 
 type LatestConfigDetailsConfig struct {
 	ConfigsByChain map[uint64][]LatestConfigDetails

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -217,7 +218,7 @@ func emitTransmissionScheduleEvent(ctx context.Context, scheduleType, workflowEx
 		peerDelaysMap[pd.peerID.String()] = pd.delay.Milliseconds()
 	}
 
-	msg := &TransmissionsScheduledEvent{
+	msg := &events.TransmissionsScheduledEvent{
 		Timestamp:              time.Now().Format(time.RFC3339),
 		ScheduleType:           scheduleType,
 		WorkflowExecutionID:    workflowExecutionID,

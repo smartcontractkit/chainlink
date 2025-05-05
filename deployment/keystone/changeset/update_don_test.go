@@ -7,12 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -133,7 +134,7 @@ func TestUpdateDon(t *testing.T) {
 						require.NotNil(t, csOut.MCMSTimelockProposals)
 						require.Len(t, csOut.MCMSTimelockProposals, 1)
 						applyErr := applyProposal(t, te, commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(changeset.UpdateDon),
+							cldf.CreateLegacyChangeSet(changeset.UpdateDon),
 							&cfg,
 						))
 						if tc.checkErr != nil {

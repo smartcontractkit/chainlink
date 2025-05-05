@@ -7,7 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -114,7 +115,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		require.Nil(t, csOut.AddressBook)
 
 		err = applyProposal(t, te, commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateNodeCapabilities),
+			cldf.CreateLegacyChangeSet(changeset.UpdateNodeCapabilities),
 			&cfg,
 		))
 		require.NoError(t, err)

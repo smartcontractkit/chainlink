@@ -132,6 +132,20 @@ type CreateNodeRequest struct {
 	CapabilityIdentities          // the capabilities of the node; must all exist in the capabilities registry
 }
 
+func NewCreateNodeRequest(nop NOPIdentity, node deployment.Node, capabilities CapabilityIdentities, registryChainSel uint64) (*CreateNodeRequest, error) {
+	s, e, err := internal.ExtractSignerEncryptionKeys(node, registryChainSel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract signer and encryption keys: %w", err)
+	}
+	return &CreateNodeRequest{
+		NOPIdentity:          nop,
+		Signer:               s,
+		P2PID:                node.PeerID,
+		EncryptionPublicKey:  e,
+		CapabilityIdentities: capabilities,
+	}, nil
+}
+
 func (r *CreateNodeRequest) Validate() error {
 	if err := r.NOPIdentity.Validate(); err != nil {
 		return fmt.Errorf("invalid NOPIdentity: %w", err)
@@ -172,7 +186,7 @@ func (r *CreateNodeRequest) Resolve(registry *kcr.CapabilitiesRegistry) (kcr.Cap
 type AddNodesRequest struct {
 	RegistryChainSel uint64
 
-	CreateNodeRequests map[string]CreateNodeRequest
+	CreateNodeRequests map[string]*CreateNodeRequest
 	// MCMS is the configuration for the Multi-Chain Manager Service
 	// Required if the registry contract has be delegated to MCMS
 	// If nil, the registry contract will be used directly

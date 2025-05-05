@@ -43,7 +43,7 @@ func TestEngineConfig_Validate(t *testing.T) {
 	})
 }
 
-func defaultTestConfig(t *testing.T) v2.EngineConfig {
+func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 	name, err := types.NewWorkflowName(testWorkflowNameA)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
@@ -56,7 +56,7 @@ func defaultTestConfig(t *testing.T) v2.EngineConfig {
 		PerSenderBurst: 100,
 	})
 	require.NoError(t, err)
-	return v2.EngineConfig{
+	return &v2.EngineConfig{
 		Lggr:                 lggr,
 		Module:               modulemocks.NewModuleV2(t),
 		CapRegistry:          regmocks.NewCapabilitiesRegistry(t),

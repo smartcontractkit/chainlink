@@ -8,7 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -26,7 +27,7 @@ func TestAddNodes(t *testing.T) {
 
 	type input struct {
 		te                 test.EnvWrapper
-		CreateNodeRequests map[string]changeset.CreateNodeRequest
+		CreateNodeRequests map[string]*changeset.CreateNodeRequest
 		MCMSConfig         *changeset.MCMSConfig
 	}
 	type testCase struct {
@@ -60,8 +61,8 @@ func TestAddNodes(t *testing.T) {
 					name: "error - unregistered nop",
 					input: input{
 						te: te,
-						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
-							"test-node": {
+						CreateNodeRequests: map[string]*changeset.CreateNodeRequest{
+							"test-node": &changeset.CreateNodeRequest{
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: math.MaxUint32,
 								},
@@ -85,7 +86,7 @@ func TestAddNodes(t *testing.T) {
 					name: "error - unregistered capability",
 					input: input{
 						te: te,
-						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
+						CreateNodeRequests: map[string]*changeset.CreateNodeRequest{
 							"test-node": {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: 1,
@@ -113,7 +114,7 @@ func TestAddNodes(t *testing.T) {
 					name: "add one node",
 					input: input{
 						te: te,
-						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
+						CreateNodeRequests: map[string]*changeset.CreateNodeRequest{
 							"test-node": {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: te.Nops()[0].NodeOperatorId,
@@ -133,7 +134,7 @@ func TestAddNodes(t *testing.T) {
 					name: "add two nodes",
 					input: input{
 						te: te,
-						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
+						CreateNodeRequests: map[string]*changeset.CreateNodeRequest{
 							"test-node": {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: te.Nops()[0].NodeOperatorId,
@@ -165,7 +166,7 @@ func TestAddNodes(t *testing.T) {
 					name: "error - deduplicate p2p",
 					input: input{
 						te: te,
-						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
+						CreateNodeRequests: map[string]*changeset.CreateNodeRequest{
 							"test-node": {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: te.Nops()[0].NodeOperatorId,
@@ -201,7 +202,7 @@ func TestAddNodes(t *testing.T) {
 					name: "error - deduplicate signer",
 					input: input{
 						te: te,
-						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
+						CreateNodeRequests: map[string]*changeset.CreateNodeRequest{
 							"test-node": {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: te.Nops()[0].NodeOperatorId,
@@ -273,7 +274,7 @@ func TestAddNodes(t *testing.T) {
 							t,
 							tc.input.te,
 							commonchangeset.Configure(
-								deployment.CreateLegacyChangeSet(changeset.AddNodes),
+								cldf.CreateLegacyChangeSet(changeset.AddNodes),
 								req,
 							),
 						)
