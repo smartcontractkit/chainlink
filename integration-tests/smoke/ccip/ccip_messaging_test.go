@@ -39,7 +39,6 @@ import (
 )
 
 func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
-	// t.Skip()
 	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
 	chains := []chainsel.Chain{
 		chainsel.GETH_TESTNET,  // source
@@ -57,13 +56,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		testhelpers.WithCLNodeConfigOpts(memory.WithFinalityDepths(map[uint64]uint32{
 			chains[1].EvmChainID: 30, // make dest chain finality depth 30 so we can observe exec behavior
 		})),
-		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			if params.ExecuteOffChainConfig != nil {
-				params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
-				params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
-			}
-			return params
-		}),
 	)
 
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -113,7 +105,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidateResp:           true,
+				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  nonce,
@@ -135,7 +127,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidateResp:           true,
+				ValidationType:         mt.ValidationType_Exec,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
@@ -154,7 +146,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidateResp:           true,
+				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
@@ -182,7 +174,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidateResp:           true,
+				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
@@ -223,18 +215,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(t,
-		testhelpers.WithSolChains(1),
-		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			t.Log("params ExecuteOffChainConfig before", params.ExecuteOffChainConfig)
-			if params.ExecuteOffChainConfig != nil {
-				params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
-				params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
-			}
-			t.Log("params ExecuteOffChainConfig", params.ExecuteOffChainConfig)
-			return params
-		}),
-	)
+	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
 
 	// TODO: do this as part of setup
 	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
@@ -307,7 +288,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidateResp:           true,
+				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  nonce,
@@ -422,13 +403,13 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidateResp: false,
-				TestSetup:    setup,
-				Replayed:     replayed, // Should be false initially
-				Nonce:        nonce,    // Should be 0 initially
-				Receiver:     receiver,
-				MsgData:      []byte("hello with too many accounts"),
-				ExtraArgs:    extraArgsFailure,
+				ValidationType: mt.ValidationTypeCommit,
+				TestSetup:      setup,
+				Replayed:       replayed, // Should be false initially
+				Nonce:          nonce,    // Should be 0 initially
+				Receiver:       receiver,
+				MsgData:        []byte("hello with too many accounts"),
+				ExtraArgs:      extraArgsFailure,
 			},
 		)
 
@@ -458,7 +439,7 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidateResp:           true,
+				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
@@ -484,7 +465,6 @@ func Test_CCIPMessaging_EVM2Solana_WithTooManyAccounts(t *testing.T) {
 }
 
 func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
-	t.Skip()
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
@@ -559,7 +539,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidateResp:           true,
+				ValidationType:         mt.ValidationType_Exec,
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  nonce,
