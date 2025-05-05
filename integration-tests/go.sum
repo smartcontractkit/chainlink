@@ -1476,6 +1476,7 @@ github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250425163923-1
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250425163923-16aa375957b7/go.mod h1:k3/Z6AvwurPUlfuDFEonRbkkiTSgNSrtVNhJEWNlUZA=
 github.com/smartcontractkit/chainlink-common v0.7.1-0.20250501204644-104910e2e382 h1:44HAEmqPk9nSwbGBteiNX6LE4wDbKGvLGQna5Hzih6U=
 github.com/smartcontractkit/chainlink-common v0.7.1-0.20250501204644-104910e2e382/go.mod h1:uNF6+noody47ZdmRwymDZAnQ7eKTXLzMKvl41LA63lo=
+github.com/smartcontractkit/chainlink-common v0.7.1-0.20250502204350-10d475f3a9a3/go.mod h1:uNF6+noody47ZdmRwymDZAnQ7eKTXLzMKvl41LA63lo=
 github.com/smartcontractkit/chainlink-common/pkg/monitoring v0.0.0-20250415235644-8703639403c7 h1:9wh1G+WbXwPVqf0cfSRSgwIcaXTQgvYezylEAfwmrbw=
 github.com/smartcontractkit/chainlink-common/pkg/monitoring v0.0.0-20250415235644-8703639403c7/go.mod h1:yaDOAZF6MNB+NGYpxGCUc+owIdKrjvFW0JODdTcQ3V0=
 github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049 h1:7HwYt8rDz1ehTcB28oNipdTZUtV17F2sfkLTLtMJC4c=
@@ -1490,6 +1491,8 @@ github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-202504081613
 github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250408161305-721208f43882/go.mod h1:NVoJQoPYr6BorpaXTusoIH1IYTySCmanQ8Q1yv3mNh4=
 github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250421203809-e0f5602c126c h1:LYnQDyMoqj0R38IlsCCjPDuQMVW4AUbw4manX+56WC4=
 github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250421203809-e0f5602c126c/go.mod h1:apM9rdhKDAFRiwQl94sGaQbXT/q1+Ji8Pt9BrLE6WHQ=
+github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250505015107-d03c54c7fa35 h1:SfGBOm0fHg6i+m7126K5trASvKGr3DzrRWjDmZ35RtU=
+github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250505015107-d03c54c7fa35/go.mod h1:qxR7Fe5pY8PcYnYvwjN3B548CLZQ4Dh99VRfVOc6gE8=
 github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250421203809-e0f5602c126c h1:aWvuA6iEpPNlXnY/xHp92P8Elt7sz1GMOVbhnjnlyxE=
 github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250421203809-e0f5602c126c/go.mod h1:SLj0NhVwj+hM6XKB/D/gu77pEUZDcfFUYf7PyMQFxns=
 github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3 h1:8+2KFkPYdCK9lHMK5D/+adw02iIjEV+5Uw4s7nMNsRI=

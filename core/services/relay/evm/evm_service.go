@@ -3,13 +3,11 @@ package evm
 import (
 	"context"
 	"math/big"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -72,14 +70,14 @@ func (r *Relayer) TransactionReceipt(ctx context.Context, txHash string) (*evmty
 }
 
 // ChainService
-func (r *Relayer) GetTransactionFee(ctx context.Context, transactionID string) (*commontypes.TransactionFee, error) {
+func (r *Relayer) GetTransactionFee(ctx context.Context, transactionID string) (*evmtypes.TransactionFee, error) {
 	return r.chain.TxManager().GetTransactionFee(ctx, transactionID)
 }
 
-func (r *Relayer) LatestAndFinalizedHead(ctx context.Context) (commontypes.Head, commontypes.Head, error) {
+func (r *Relayer) LatestAndFinalizedHead(ctx context.Context) (evmtypes.Head, evmtypes.Head, error) {
 	latest, finalized, err := r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
 	if err != nil {
-		return commontypes.Head{}, commontypes.Head{}, err
+		return evmtypes.Head{}, evmtypes.Head{}, err
 	}
 
 	return convertHead(latest), convertHead(finalized), nil
@@ -125,8 +123,13 @@ func (r *Relayer) UnregisterLogTracking(ctx context.Context, filterName string) 
 	return r.chain.LogPoller().UnregisterFilter(ctx, filterName)
 }
 
-func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
-	return r.chain.TxManager().GetTransactionStatus(ctx, transactionID)
+func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID string) (evmtypes.TransactionStatus, error) {
+	status, err := r.chain.TxManager().GetTransactionStatus(ctx, transactionID)
+	if err != nil {
+		return evmtypes.Unknown, err
+	}
+
+	return evmtypes.TransactionStatus(status), nil
 }
 
 func blockFromConfidence(ctx context.Context, ht heads.Tracker, confidence primitives.ConfidenceLevel) (*big.Int, error) {
@@ -141,11 +144,12 @@ func blockFromConfidence(ctx context.Context, ht heads.Tracker, confidence primi
 	return big.NewInt(latest.BlockNumber()), nil
 }
 
-func convertHead[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable](h H) commontypes.Head {
-	return commontypes.Head{
-		Timestamp: uint64(h.GetTimestamp().Unix()),
-		Hash:      h.BlockHash().Bytes(),
-		Height:    strconv.FormatInt(h.BlockNumber(), 10),
+func convertHead[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable](h H) evmtypes.Head {
+	return evmtypes.Head{
+		Timestamp:  uint64(h.GetTimestamp().Unix()),
+		Hash:       h.BlockHash().String(),
+		Number:     big.NewInt(h.BlockNumber()),
+		ParentHash: h.GetParentHash().String(),
 	}
 }
 
@@ -211,10 +215,10 @@ func convertTransaction(tx *gethtypes.Transaction) *evmtypes.Transaction {
 	}
 }
 
-func stringsToHashMatrix(input []string) [][]common.Hash {
+func stringsToHashMatrix(input [][]string) [][]common.Hash {
 	result := make([][]common.Hash, 0, len(input))
 	for _, row := range input {
-		result = append(result, []common.Hash{common.HexToHash(row)})
+		result = append(result, stringsToHashes(row))
 	}
 	return result
 }

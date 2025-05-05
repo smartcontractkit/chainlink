@@ -103,7 +103,7 @@ func TestConverters(t *testing.T) {
 			Hash:      common.HexToHash("0x123"),
 		}
 		result := convertHead(&head)
-		require.Equal(t, result.Hash, head.Hash.Bytes())
+		require.Equal(t, result.Hash, head.Hash.String())
 	})
 
 	t.Run("convert transaction", func(t *testing.T) {
