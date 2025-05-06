@@ -9,24 +9,27 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func TestORM_broadcasts(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	orm := log.NewORM(db, *testutils.FixtureChainID)
 
-	_, addr := cltest.MustInsertRandomKey(t, ethKeyStore)
-	specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
+	specV2 := mustInsertV2JobSpec(t, db, testutils.NewAddress())
 
 	const selectQuery = `SELECT consumed FROM log_broadcasts
 		WHERE block_hash = $1 AND block_number = $2 AND log_index = $3 AND job_id = $4 AND evm_chain_id = $5`
@@ -109,15 +112,12 @@ func TestORM_pending(t *testing.T) {
 func TestORM_MarkUnconsumed(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	orm := log.NewORM(db, *testutils.FixtureChainID)
 
-	_, addr1 := cltest.MustInsertRandomKey(t, ethKeyStore)
-	job1 := cltest.MustInsertV2JobSpec(t, db, addr1)
+	job1 := mustInsertV2JobSpec(t, db, testutils.NewAddress())
 
-	_, addr2 := cltest.MustInsertRandomKey(t, ethKeyStore)
-	job2 := cltest.MustInsertV2JobSpec(t, db, addr2)
+	job2 := mustInsertV2JobSpec(t, db, testutils.NewAddress())
 
 	logBefore := randomLog(t)
 	logBefore.BlockNumber = 34
@@ -209,7 +209,7 @@ func TestORM_Reinitialize(t *testing.T) {
 			ctx := testutils.Context(t)
 			orm := log.NewORM(db, *testutils.FixtureChainID)
 
-			jobID := cltest.MustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63()))).ID
+			jobID := mustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63()))).ID
 
 			for _, b := range tt.broadcasts {
 				if b.Consumed {
@@ -275,4 +275,34 @@ func randomBytes(t *testing.T, n int) []byte {
 		t.Fatal(err)
 	}
 	return b
+}
+
+func mustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Address) job.Job {
+	t.Helper()
+
+	addr := evmtypes.MustEIP55Address(transmitterAddress.Hex())
+
+	ocrKeyID := []byte{}
+
+	oracleSpec := job.OCROracleSpec{}
+	require.NoError(t, db.Get(&oracleSpec, `INSERT INTO ocr_oracle_specs (created_at, updated_at, contract_address, p2pv2_bootstrappers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout, evm_chain_id) VALUES (
+	NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0,0
+	) RETURNING *`, evmtypes.MustEIP55Address(testutils.NewAddress().Hex()), &ocrKeyID, &addr))
+
+	pipelineSpec := pipeline.Spec{}
+	require.NoError(t, db.Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`))
+
+	jb := job.Job{
+		OCROracleSpec:   &oracleSpec,
+		OCROracleSpecID: &oracleSpec.ID,
+		ExternalJobID:   uuid.New(),
+		Type:            job.OffchainReporting,
+		SchemaVersion:   1,
+		PipelineSpec:    &pipelineSpec,
+		PipelineSpecID:  pipelineSpec.ID,
+	}
+
+	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t))
+	require.NoError(t, jorm.InsertJob(testutils.Context(t), &jb))
+	return jb
 }
