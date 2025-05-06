@@ -1,13 +1,52 @@
 package solana
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
+
+var _ deployment.ChangeSet[VerifyBuildConfig] = VerifyBuild
+
+func runCommandStreaming(name string, args []string, dir string, onLine func(string)) error {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("error getting stdout pipe: %w", err)
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("error getting stderr pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("error starting command: %w", err)
+	}
+
+	scanner := bufio.NewScanner(io.MultiReader(stdoutPipe, stderrPipe))
+	go func() {
+		for scanner.Scan() {
+			line := scanner.Text()
+			onLine(line)
+		}
+	}()
+
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("command failed: %w", err)
+	}
+	return nil
+}
 
 // https://solana.com/developers/guides/advanced/verified-builds
 type VerifyBuildConfig struct {
@@ -42,10 +81,42 @@ func runSolanaVerify(networkURL, programID, libraryName, commitHash, mountPath s
 		cmdArgs = append(cmdArgs, "--remote")
 	}
 
-	output, err := runCommand("solana-verify", cmdArgs, ".")
-	fmt.Println(output)
+	done := make(chan struct{})
+	var injectionPath string
+
+	err := runCommandStreaming("solana-verify", cmdArgs, ".", func(line string) {
+		fmt.Println(line)
+
+		// Watch for the path creation
+		if strings.HasPrefix(line, "Build path: ") {
+			// Extract the path
+			trimmed := strings.TrimPrefix(line, "Build path: ")
+			trimmed = strings.Trim(trimmed, `"`)
+			injectionPath = trimmed
+
+			go func() {
+				// Wait for path to exist
+				for {
+					if _, err := os.Stat(injectionPath); err == nil {
+						break
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+
+				// Inject your custom file
+				err := os.WriteFile(filepath.Join(injectionPath, "CCIP_BUILD_GIT_HASH"), []byte(commitHash), 0644)
+				if err != nil {
+					fmt.Println("Error injecting file:", err)
+				}
+				close(done)
+			}()
+		}
+	})
+
+	// Wait for injection to complete before returning
+	<-done
 	if err != nil {
-		return fmt.Errorf("solana program verification failed: %s %w", output, err)
+		return fmt.Errorf("solana program verification failed: %w", err)
 	}
 	return nil
 }
