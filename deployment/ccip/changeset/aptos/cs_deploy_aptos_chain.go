@@ -85,6 +85,10 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 		seqReports = append(seqReports, mcmsSeqReport.ExecutionReports...)
 		mcmsOperations = append(mcmsOperations, mcmsSeqReport.Output.MCMSOperation)
 
+		// Save MCMS address
+		typeAndVersion := deployment.NewTypeAndVersion(changeset.AptosMCMSType, deployment.Version1_6_0)
+		deps.AB.Save(deps.AptosChain.Selector, mcmsSeqReport.Output.MCMSAddress.String(), typeAndVersion)
+
 		// CCIP Deploy operations
 		ccipSeqInput := seq.DeployCCIPSeqInput{
 			MCMSAddress: mcmsSeqReport.Output.MCMSAddress,
@@ -96,6 +100,10 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 		}
 		seqReports = append(seqReports, ccipSeqReport.ExecutionReports...)
 		mcmsOperations = append(mcmsOperations, ccipSeqReport.Output.MCMSOperations...)
+
+		// Save the address of the CCIP object
+		typeAndVersion = deployment.NewTypeAndVersion(changeset.AptosCCIPType, deployment.Version1_6_0)
+		deps.AB.Save(deps.AptosChain.Selector, ccipSeqReport.Output.CCIPAddress.String(), typeAndVersion)
 
 		// Generate MCMS proposals
 		proposal, err := utils.GenerateProposal(
