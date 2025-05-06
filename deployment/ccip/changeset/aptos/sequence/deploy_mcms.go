@@ -4,8 +4,6 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
@@ -36,8 +34,6 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 	if err != nil {
 		return DeployMCMSSeqOutput{}, err
 	}
-	typeAndVersion := deployment.NewTypeAndVersion(changeset.AptosMCMSType, deployment.Version1_0_0)
-	deps.AB.Save(deps.AptosChain.Selector, deployMCMSReport.Output.String(), typeAndVersion)
 	// Configure MCMS
 	configureMCMSBypassers := operation.ConfigureMCMSInput{
 		MCMSAddress: deployMCMSReport.Output,

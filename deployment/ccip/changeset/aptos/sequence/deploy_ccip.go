@@ -52,6 +52,7 @@ func deployCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in Deploy
 		return DeployCCIPSeqOutput{}, err
 	}
 	ccipAddress := deployCCIPReport.Output.CCIPAddress
+
 	// For CCIP deployment the txs cannot be batched - it'd exceed Aptos API limits
 	// so it's converted to batch operations with single transactions in each
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployCCIPReport.Output.MCMSOperations)...)

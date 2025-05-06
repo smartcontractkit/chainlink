@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	aptoscfg "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
@@ -112,11 +110,6 @@ func generateDeployCCIPProposal(b operations.Bundle, deps AptosDeps, in DeployCC
 			MCMSOperations: operations,
 		}, nil
 	}
-
-	// Save the address of the CCIP object
-	typeAndVersion := deployment.NewTypeAndVersion(changeset.AptosCCIPType, deployment.Version1_6_0)
-	deps.AB.Save(deps.AptosChain.Selector, ccipObjectAddress.String(), typeAndVersion)
-	deps.OnChainState.CCIPAddress = ccipObjectAddress
 
 	return DeployCCIPOutput{
 		CCIPAddress:    ccipObjectAddress,
