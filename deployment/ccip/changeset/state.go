@@ -1193,6 +1193,20 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithT
 	return mcmsStateByChain
 }
 
+func (c CCIPOnChainState) SolanaMCMSStateByChain() map[uint64]commonstate.MCMSWithTimelockState {
+	mcmsStateByChain := make(map[uint64]commonstate.MCMSWithTimelockState)
+	for chainSelector, chain := range c.SolChains {
+		mcmsStateByChain[chainSelector] = commonstate.MCMSWithTimelockState{
+			CancellerMcm: chain.CancellerMcm,
+			BypasserMcm:  chain.BypasserMcm,
+			ProposerMcm:  chain.ProposerMcm,
+			Timelock:     chain.Timelock,
+			CallProxy:    chain.CallProxy,
+		}
+	}
+	return mcmsStateByChain
+}
+
 func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env deployment.Environment, selector uint64) (uint32, error) {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {

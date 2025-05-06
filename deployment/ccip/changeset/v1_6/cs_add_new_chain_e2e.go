@@ -11,6 +11,7 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -359,6 +360,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	proposal, err := proposalutils.AggregateProposals(
 		e,
 		state.EVMMCMSStateByChain(),
+		nil,
 		allProposals,
 		nil,
 		fmt.Sprintf("Deploy and set candidates for chain with selector %d", c.NewChain.Selector),
@@ -538,6 +540,7 @@ func promoteNewChainForConfigLogic(e deployment.Environment, c PromoteNewChainFo
 	proposal, err := proposalutils.AggregateProposals(
 		e,
 		state.EVMMCMSStateByChain(),
+		nil,
 		allProposals,
 		nil,
 		fmt.Sprintf("Promote chain with selector %d for testing", c.NewChain.Selector),
@@ -756,6 +759,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 	proposal, err := proposalutils.AggregateProposals(
 		env,
 		state.EVMMCMSStateByChain(),
+		nil,
 		allEnablementProposals,
 		ownershipTransferProposals,
 		fmt.Sprintf("Connect chain with selector %d to other chains", c.NewChainSelector),

@@ -6,9 +6,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -27,79 +25,6 @@ import (
 var _ deployment.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
 var _ deployment.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
 var _ deployment.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
-var _ deployment.ChangeSetV2[AddRemoteChainE2EConfig] = AddRemoteChainE2E{}
-
-type AddRemoteChainE2EConfig struct {
-	AddToRouter    AddRemoteChainToRouterConfig
-	AddToOffRamp   AddRemoteChainToOffRampConfig
-	AddToFeeQuoter AddRemoteChainToFeeQuoterConfig
-	MCMSSolana     *MCMSConfigSolana // This will override the MCMSSolana in the configs above
-}
-
-type AddRemoteChainE2E struct{}
-
-type Dependencies struct {
-	Env deployment.Environment
-}
-
-func (a AddRemoteChainE2E) Apply(e deployment.Environment, input AddRemoteChainE2EConfig) (deployment.ChangesetOutput, error) {
-	deps := Dependencies{
-		Env: e,
-	}
-	addRemoteChainSequence := operations.NewSequence(
-		"Add-Remote-Chain-Solana",
-		semver.MustParse("1.0.0"),
-		"Add a remote chain to Solana",
-		func(b operations.Bundle, deps Dependencies, input AddRemoteChainE2EConfig) (deployment.ChangesetOutput, error) {
-			var finalOutput *deployment.ChangesetOutput
-			// Add remote chain to router
-			routerOutput, err := AddRemoteChainToRouter(deps.Env, input.AddToRouter)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to add remote chain to router: %w", err)
-			}
-			err = deployment.MergeChangesetOutput(deps.Env, finalOutput, routerOutput)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output for AddRemoteChainToRouter: %w", err)
-			}
-			// Add remote chain to offramp
-			offRampOutput, err := AddRemoteChainToOffRamp(deps.Env, input.AddToOffRamp)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to add remote chain to offramp: %w", err)
-			}
-			err = deployment.MergeChangesetOutput(deps.Env, finalOutput, offRampOutput)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output for AddRemoteChainToOffRamp: %w", err)
-			}
-			// Add remote chain to fee quoter
-			feeQuoterOutput, err := AddRemoteChainToFeeQuoter(deps.Env, input.AddToFeeQuoter)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to add remote chain to fee quoter: %w", err)
-			}
-			err = deployment.MergeChangesetOutput(deps.Env, finalOutput, feeQuoterOutput)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output for AddRemoteChainToFeeQuoter: %w", err)
-			}
-
-		},
-	)
-}
-
-func (a AddRemoteChainE2E) VerifyPreconditions(e deployment.Environment, input AddRemoteChainE2EConfig) error {
-	input.AddToRouter.MCMSSolana = input.MCMSSolana
-	input.AddToOffRamp.MCMSSolana = input.MCMSSolana
-	input.AddToFeeQuoter.MCMSSolana = input.MCMSSolana
-
-	if err := input.AddToRouter.Validate(e); err != nil {
-		return fmt.Errorf("failed to validate router config: %w", err)
-	}
-	if err := input.AddToOffRamp.Validate(e); err != nil {
-		return fmt.Errorf("failed to validate offramp config: %w", err)
-	}
-	if err := input.AddToFeeQuoter.Validate(e); err != nil {
-		return fmt.Errorf("failed to validate fee quoter config: %w", err)
-	}
-	return nil
-}
 
 type AddRemoteChainToRouterConfig struct {
 	ChainSelector uint64
