@@ -11,6 +11,7 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -126,7 +127,7 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab de
 
 	e.ExistingAddresses = abTemp
 
-	transferCs := deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2)
+	transferCs := cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2)
 	transferCfg := commonchangeset.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: contractAddresses,
 		MCMSConfig:       mcmsConfig,

@@ -136,7 +136,7 @@ func (s DataFeedsOnChainState) View(chains []uint64, e deployment.Environment) (
 	return m, nil
 }
 
-func GenerateFeedConfigView(e deployment.Environment, chainName string) *v1_0.FeedView {
+func GenerateFeedConfigView(e deployment.Environment, chainName string) *v1_0.FeedState {
 	baseDir := ".."
 	envName := e.Name
 
@@ -145,16 +145,16 @@ func GenerateFeedConfigView(e deployment.Environment, chainName string) *v1_0.Fe
 	_, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
 		e.Logger.Warnf("File %s does not exist", filePath)
-		return &v1_0.FeedView{}
+		return &v1_0.FeedState{}
 	}
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		e.Logger.Warnf("Error reading file %s: %v", filePath, err)
-		return &v1_0.FeedView{}
+		return &v1_0.FeedState{}
 	}
 
-	var feedsView v1_0.FeedView
+	var feedsView v1_0.FeedState
 
 	err = json.Unmarshal(content, &feedsView)
 	if err != nil {

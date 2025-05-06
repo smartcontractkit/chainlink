@@ -167,23 +167,3 @@ func initializeTimelock(
 
 	return nil
 }
-
-func transferOwnershipTimelock(chain deployment.SolChain, programID solana.PublicKey, seed state.PDASeed) error {
-	// transfer timelock ownership to itself
-	timelockConfigPDA := state.GetTimelockConfigPDA(programID, seed)
-	timelockSignerPDA := state.GetTimelockSignerPDA(programID, seed)
-
-	instructionBuilder := timelockBindings.NewTransferOwnershipInstruction([32]uint8(seed),
-		timelockSignerPDA, timelockConfigPDA, chain.DeployerKey.PublicKey())
-	instruction, err := instructionBuilder.ValidateAndBuild()
-	if err != nil {
-		return fmt.Errorf("failed to build TransferOwnership instruction: %w", err)
-	}
-
-	err = chain.Confirm([]solana.Instruction{instruction})
-	if err != nil {
-		return fmt.Errorf("failed to confirm TransferOwnership instruction: %w", err)
-	}
-
-	return nil
-}

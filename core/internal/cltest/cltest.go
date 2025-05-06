@@ -205,7 +205,6 @@ type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
 	Logger             logger.Logger
-	Emitter            *tests.BeholderTester
 	Server             *httptest.Server
 	Started            bool
 	Backend            *simulated.Backend
@@ -464,12 +463,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	for _, dep := range flagsAndDeps {
 		if k, ok := dep.(ethkey.KeyV2); ok {
 			ta.Keys = append(ta.Keys, k)
-		}
-	}
-
-	for _, dep := range flagsAndDeps {
-		if k, ok := dep.(*tests.BeholderTester); ok {
-			ta.Emitter = k
 		}
 	}
 

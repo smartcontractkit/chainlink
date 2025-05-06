@@ -19,9 +19,8 @@ import (
 	"html/template"
 	"math"
 	"math/big"
-	"time"
-
 	"net/url"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
@@ -37,7 +36,8 @@ import (
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -467,7 +467,7 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 		})
 	}
 
-	secrets := deployment.XXXGenerateTestOCRSecrets()
+	secrets := cldf.XXXGenerateTestOCRSecrets()
 	// Values were taken from Data Streams 250ms feeds, given by @austinborn
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsDeterministic(
 		secrets.EphemeralSk,

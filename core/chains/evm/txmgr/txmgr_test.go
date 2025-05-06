@@ -41,9 +41,9 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
+	evmtxm "github.com/smartcontractkit/chainlink-evm/pkg/txm"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	evmtxm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -624,6 +624,111 @@ func TestTxm_Reset(t *testing.T) {
 	})
 }
 
+func TestTxm_GetTransactionFee(t *testing.T) {
+	t.Parallel()
+
+	ctx := tests.Context(t)
+	db := testutils.NewSqlxDB(t)
+	txStore := cltest.NewTestTxStore(t, db)
+	memKS := keystest.NewMemoryChainStore()
+	ethKeyStore := keys.NewChainStore(memKS, big.NewInt(0))
+	feeLimit := uint64(10_000)
+
+	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
+
+	h99 := &evmtypes.Head{
+		Hash:   utils.NewHash(),
+		Number: 99,
+	}
+	h99.IsFinalized.Store(true)
+	head := &evmtypes.Head{
+		Hash:   utils.NewHash(),
+		Number: 100,
+	}
+	head.Parent.Store(h99)
+
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head.Parent.Load(), nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil)
+	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
+	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
+	feeEstimator.On("Close", mock.Anything).Return(nil).Once()
+	feeEstimator.On("OnNewLongestChain", mock.Anything, mock.Anything).Once()
+	txm, err := makeTestEvmTxm(t, db, ethClient, feeEstimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), ethKeyStore)
+	require.NoError(t, err)
+	servicetest.Run(t, txm)
+
+	txm.OnNewLongestChain(ctx, head)
+
+	t.Run("returns error if receipt not found", func(t *testing.T) {
+		idempotencyKey := uuid.New().String()
+		_, err := txm.GetTransactionFee(ctx, idempotencyKey)
+		require.Error(t, err, fmt.Sprintf("failed to find receipt with IdempotencyKey: %s", idempotencyKey))
+	})
+
+	t.Run("returns error for unstarted state", func(t *testing.T) {
+		idempotencyKey := uuid.New().String()
+		fromAddress := memKS.MustCreate(t)
+		tx := &txmgr.Tx{
+			IdempotencyKey: &idempotencyKey,
+			FromAddress:    fromAddress,
+			EncodedPayload: []byte{1, 2, 3},
+			FeeLimit:       feeLimit,
+			State:          txmgrcommon.TxUnstarted,
+		}
+		err := txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+
+		attemptD := cltest.NewDynamicFeeEthTxAttempt(t, tx.ID)
+		require.NoError(t, txStore.InsertTxAttempt(ctx, &attemptD))
+
+		// insert receipt
+		var r txmgr.Receipt
+		r = newEthReceipt(42, utils.NewHash(), attemptD.Hash, 0x1)
+		_, err = txStore.InsertReceipt(ctx, &r.Receipt)
+		require.NoError(t, err)
+
+		_, err = txm.GetTransactionFee(ctx, idempotencyKey)
+		require.Error(t, err, "tx status is not finalized")
+	})
+
+	t.Run("returns correct fee for finalized state", func(t *testing.T) {
+		idempotencyKey := uuid.New().String()
+		fromAddress := memKS.MustCreate(t)
+
+		nonce := evmtypes.Nonce(0)
+		broadcast := time.Now()
+		tx := &txmgr.Tx{
+			Sequence:           &nonce,
+			IdempotencyKey:     &idempotencyKey,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			FeeLimit:           feeLimit,
+			State:              txmgrcommon.TxFinalized,
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		err := txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+
+		attemptD := cltest.NewDynamicFeeEthTxAttempt(t, tx.ID)
+		require.NoError(t, txStore.InsertTxAttempt(ctx, &attemptD))
+
+		// insert receipt
+		var r txmgr.Receipt
+		r = newEthReceipt(42, utils.NewHash(), attemptD.Hash, 0x1)
+		expFee := r.Receipt.EffectiveGasPrice.Int64() * int64(r.Receipt.GasUsed)
+		_, err = txStore.InsertReceipt(ctx, &r.Receipt)
+		require.NoError(t, err)
+
+		fee, err := txm.GetTransactionFee(ctx, idempotencyKey)
+		require.NoError(t, err)
+		require.Equal(t, big.NewInt(expFee), fee.TransactionFee)
+	})
+}
+
 func TestTxm_GetTransactionStatus(t *testing.T) {
 	t.Parallel()
 
@@ -882,11 +987,13 @@ func newEthReceipt(blockNumber int64, blockHash common.Hash, txHash common.Hash,
 	transactionIndex := uint(cltest.NewRandomPositiveInt64())
 
 	receipt := evmtypes.Receipt{
-		BlockNumber:      big.NewInt(blockNumber),
-		BlockHash:        blockHash,
-		TxHash:           txHash,
-		TransactionIndex: transactionIndex,
-		Status:           status,
+		BlockNumber:       big.NewInt(blockNumber),
+		BlockHash:         blockHash,
+		TxHash:            txHash,
+		TransactionIndex:  transactionIndex,
+		GasUsed:           123,
+		EffectiveGasPrice: big.NewInt(55),
+		Status:            status,
 	}
 
 	r := txmgr.Receipt{

@@ -27,6 +27,9 @@ const (
 	OcrExecutePlugin
 )
 
+// use this changeset to set the OCR3 config on solana
+var _ deployment.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
+
 // SET OCR3 CONFIG
 func btoi(b bool) uint8 {
 	if b {
@@ -74,7 +77,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get don id for chain %d: %w", remote, err)
 		}
-		args, err := internal.BuildSetOCR3ConfigArgsSolana(donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote)
+		args, err := internal.BuildSetOCR3ConfigArgsSolana(donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build set ocr3 config args: %w", err)
 		}
@@ -97,8 +100,6 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 		proposers[remote] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
 		inspectors[remote] = mcmsSolana.NewInspector(chain.Client)
 
-		var instructions []solana.Instruction
-		var txns []mcmsTypes.Transaction
 		offRampConfigPDA := state.SolChains[remote].OffRampConfigPDA
 		offRampStatePDA := state.SolChains[remote].OffRampStatePDA
 		solOffRamp.SetProgramID(state.SolChains[remote].OffRamp)
@@ -138,24 +139,19 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 			}
 			if cfg.MCMS == nil {
-				instructions = append(instructions, instruction)
+				if err := e.SolChains[remote].Confirm([]solana.Instruction{instruction}); err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+				}
 			} else {
 				tx, err := BuildMCMSTxn(instruction, state.SolChains[remote].OffRamp.String(), ccipChangeset.OffRamp)
 				if err != nil {
 					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 				}
-				txns = append(txns, *tx)
+				batches = append(batches, mcmsTypes.BatchOperation{
+					ChainSelector: mcmsTypes.ChainSelector(remote),
+					Transactions:  []mcmsTypes.Transaction{*tx},
+				})
 			}
-		}
-		if cfg.MCMS == nil {
-			if err := e.SolChains[remote].Confirm(instructions); err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-			}
-		} else {
-			batches = append(batches, mcmsTypes.BatchOperation{
-				ChainSelector: mcmsTypes.ChainSelector(remote),
-				Transactions:  txns,
-			})
 		}
 	}
 	if cfg.MCMS != nil {

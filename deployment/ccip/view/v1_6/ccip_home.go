@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -8,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -15,6 +17,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -91,7 +95,7 @@ type CCIPHomeChainConfigArgView struct {
 }
 
 type CCIPHomeChainConfigView struct {
-	Readers [][]byte
+	Readers []string
 	FChain  uint8
 	Config  chainconfig.ChainConfig
 }
@@ -119,9 +123,9 @@ func GenerateCCIPHomeView(cr *capabilities_registry.CapabilitiesRegistry, ch *cc
 		if err != nil {
 			return CCIPHomeView{}, fmt.Errorf("failed to decode chain config for CCIPHome %s: %w", ch.Address(), err)
 		}
-		var readers [][]byte
+		var readers []string
 		for _, r := range cfg.ChainConfig.Readers {
-			readers = append(readers, r[:])
+			readers = append(readers, libocrtypes.PeerID(r).String())
 		}
 		chains = append(chains, CCIPHomeChainConfigArgView{
 			ChainSelector: cfg.ChainSelector,
@@ -140,7 +144,7 @@ func GenerateCCIPHomeView(cr *capabilities_registry.CapabilitiesRegistry, ch *cc
 	if crAddr != cr.Address() {
 		return CCIPHomeView{}, fmt.Errorf("capability registry address mismatch for CCIPHome %s: %w", ch.Address(), err)
 	}
-	dons, err := cr.GetDONs(nil)
+	dons, err := ccip.GetCCIPDonsFromCapRegistry(context.Background(), cr)
 	if err != nil {
 		return CCIPHomeView{}, fmt.Errorf("failed to get DONs for CCIPHome %s: %w", ch.Address(), err)
 	}

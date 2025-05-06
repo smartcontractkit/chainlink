@@ -12,14 +12,16 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/freeport"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/datastore"
 
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
@@ -253,7 +255,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
-		deployment.XXXGenerateTestOCRSecrets(),
+		cldf.XXXGenerateTestOCRSecrets(),
 	)
 }
 
@@ -295,6 +297,6 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		t.Context,
-		deployment.XXXGenerateTestOCRSecrets(),
+		cldf.XXXGenerateTestOCRSecrets(),
 	)
 }

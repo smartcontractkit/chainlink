@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -95,17 +96,17 @@ func Test_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {
 	require.Len(t, out.MCMSTimelockProposals, 1)
 	require.Nil(t, out.AddressBook)
 
-	contracts := te.ContractSets()[te.RegistrySelector]
+	capReg := te.OwnedCapabilityRegistry()
 	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
 		te.RegistrySelector: {
-			Timelock:  contracts.Timelock,
-			CallProxy: contracts.CallProxy,
+			Timelock:  capReg.McmsContracts.Timelock,
+			CallProxy: capReg.McmsContracts.CallProxy,
 		},
 	}
 
 	_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(workflowregistry.UpdateAuthorizedAddresses),
+			cldf.CreateLegacyChangeSet(workflowregistry.UpdateAuthorizedAddresses),
 			req,
 		),
 	)

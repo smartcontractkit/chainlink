@@ -345,9 +345,8 @@ func (p *priceService) observeTokenPriceUpdates(
 		if price == nil {
 			return nil, fmt.Errorf("token price is nil for token %v", tokenID)
 		}
+		lggr.Infow("fetched raw token price", "tokenID", tokenID, "price", price)
 	}
-
-	lggr.Infow("Raw token prices", "rawTokenPrices", rawTokenPricesUSD)
 
 	// at this point the rawTokenPricesUSD contains both source native and dest tokens, we only want to observe
 	// destination chain tokens.

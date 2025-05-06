@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
@@ -27,6 +28,7 @@ type ChainView struct {
 	// v1.5
 	TokenAdminRegistry map[string]v1_5.TokenAdminRegistryView `json:"tokenAdminRegistry,omitempty"`
 	TokenPoolFactory   map[string]v1_5_1.TokenPoolFactoryView `json:"tokenPoolFactory,omitempty"`
+	RegistryModules    map[string]shared.RegistryModulesView  `json:"registryModules,omitempty"`
 	TokenPools         map[string]map[string]v1_5_1.PoolView  `json:"poolByTokens,omitempty"` // TokenSymbol => TokenPool Address => PoolView
 	CommitStore        map[string]v1_5.CommitStoreView        `json:"commitStore,omitempty"`
 	PriceRegistry      map[string]v1_2.PriceRegistryView      `json:"priceRegistry,omitempty"`
@@ -49,7 +51,7 @@ type ChainView struct {
 	LinkToken          common_v1_0.LinkTokenView                     `json:"linkToken,omitempty"`
 	StaticLinkToken    common_v1_0.StaticLinkTokenView               `json:"staticLinkToken,omitempty"`
 
-	tpUpdateMu *sync.Mutex
+	UpdateMu *sync.Mutex `json:"-"`
 }
 
 func NewChain() ChainView {
@@ -78,7 +80,7 @@ func NewChain() ChainView {
 		MCMSWithTimelock:   common_v1_0.MCMSWithTimelockView{},
 		LinkToken:          common_v1_0.LinkTokenView{},
 		StaticLinkToken:    common_v1_0.StaticLinkTokenView{},
-		tpUpdateMu:         &sync.Mutex{},
+		UpdateMu:           &sync.Mutex{},
 	}
 }
 
@@ -107,9 +109,18 @@ func NewSolChain() SolChainView {
 }
 
 func (v *ChainView) UpdateTokenPool(tokenSymbol string, tokenPoolAddress string, poolView v1_5_1.PoolView) {
-	v.tpUpdateMu.Lock()
-	defer v.tpUpdateMu.Unlock()
+	v.UpdateMu.Lock()
+	defer v.UpdateMu.Unlock()
 	v.TokenPools = helpers.AddValueToNestedMap(v.TokenPools, tokenSymbol, tokenPoolAddress, poolView)
+}
+
+func (v *ChainView) UpdateRegistryModuleView(registryModuleAddress string, registryModuleView shared.RegistryModulesView) {
+	v.UpdateMu.Lock()
+	defer v.UpdateMu.Unlock()
+	if v.RegistryModules == nil {
+		v.RegistryModules = make(map[string]shared.RegistryModulesView)
+	}
+	v.RegistryModules[registryModuleAddress] = registryModuleView
 }
 
 type CCIPView struct {

@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
 var _ deployment.ChangeSetV2[CsDistributeLLOJobSpecsConfig] = CsDistributeLLOJobSpecs{}
@@ -65,8 +66,8 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
 		},
 		&ptypes.Label{
-			Key:   utils.LabelJobType,
-			Value: utils.JobTypeLLO,
+			Key:   devenv.LabelJobTypeKey,
+			Value: pointer.To(devenv.LabelJobTypeValueLLO),
 		},
 	)
 
@@ -97,22 +98,22 @@ func generateBootstrapProposals(ctx context.Context, e deployment.Environment, c
 
 	localLabels := append(labels, //nolint: gocritic // obvious and readable locally modified copy of labels
 		&ptypes.Label{
-			Key:   utils.LabelNodeType,
-			Value: pointer.To(jd.NodeTypeBootstrap.String()),
+			Key:   devenv.LabelNodeTypeKey,
+			Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
 		},
 	)
 
 	var proposals []*jobv1.ProposeJobRequest
 	for _, btNode := range bootstrapNodes {
-		externalJobID, err := fetchExternalJobID(e, []string{btNode.Id}, []*ptypes.Selector{
+		externalJobID, err := fetchExternalJobID(e, btNode.Id, []*ptypes.Selector{
 			{
-				Key:   utils.LabelJobType,
-				Value: utils.JobTypeLLO,
+				Key:   devenv.LabelJobTypeKey,
+				Value: pointer.To(devenv.LabelJobTypeValueLLO),
 				Op:    ptypes.SelectorOp_EQ,
 			},
 			{
-				Key:   utils.LabelNodeType,
-				Value: pointer.To(jd.NodeTypeBootstrap.String()),
+				Key:   devenv.LabelNodeTypeKey,
+				Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
 				Op:    ptypes.SelectorOp_EQ,
 			},
 		})
@@ -192,22 +193,22 @@ func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg 
 
 	localLabels := append(labels, //nolint: gocritic // obvious and readable locally modified copy of labels
 		&ptypes.Label{
-			Key:   utils.LabelNodeType,
-			Value: pointer.To(jd.NodeTypeOracle.String()),
+			Key:   devenv.LabelNodeTypeKey,
+			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 		},
 	)
 
 	var proposals []*jobv1.ProposeJobRequest
 	for _, n := range oracleNodes {
-		externalJobID, err := fetchExternalJobID(e, []string{n.Id}, []*ptypes.Selector{
+		externalJobID, err := fetchExternalJobID(e, n.Id, []*ptypes.Selector{
 			{
-				Key:   utils.LabelJobType,
-				Value: utils.JobTypeLLO,
+				Key:   devenv.LabelJobTypeKey,
+				Value: pointer.To(devenv.LabelJobTypeValueLLO),
 				Op:    ptypes.SelectorOp_EQ,
 			},
 			{
-				Key:   utils.LabelNodeType,
-				Value: pointer.To(jd.NodeTypeOracle.String()),
+				Key:   devenv.LabelNodeTypeKey,
+				Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 				Op:    ptypes.SelectorOp_EQ,
 			},
 		})
@@ -276,17 +277,17 @@ func getBootstrapMultiAddr(ctx context.Context, e deployment.Environment, cfg Cs
 					Op:  ptypes.SelectorOp_EXIST,
 				},
 				{
-					Key:   utils.LabelNodeType,
+					Key:   devenv.LabelNodeTypeKey,
 					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To(jd.NodeTypeBootstrap.String()),
+					Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
 				},
 				{
-					Key:   utils.LabelEnvironment,
+					Key:   devenv.LabelEnvironmentKey,
 					Op:    ptypes.SelectorOp_EQ,
 					Value: &cfg.Filter.EnvLabel,
 				},
 				{
-					Key:   utils.LabelProduct,
+					Key:   devenv.LabelProductKey,
 					Op:    ptypes.SelectorOp_EQ,
 					Value: pointer.To(utils.ProductLabel),
 				},

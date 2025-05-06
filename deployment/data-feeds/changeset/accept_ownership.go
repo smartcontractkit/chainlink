@@ -6,6 +6,7 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -14,7 +15,7 @@ import (
 // AcceptOwnershipChangeset is a changeset that will create an MCM proposal to accept the ownership of contracts.
 // Returns an MSM proposal to accept the ownership of contracts. Doesn't return a new addressbook.
 // Once proposal is executed, new owned contracts can be imported into the addressbook.
-var AcceptOwnershipChangeset = deployment.CreateChangeSet(acceptOwnershipLogic, acceptOwnershipPrecondition)
+var AcceptOwnershipChangeset = cldf.CreateChangeSet(acceptOwnershipLogic, acceptOwnershipPrecondition)
 
 func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipConfig) (deployment.ChangesetOutput, error) {
 	chain := env.Chains[c.ChainSelector]

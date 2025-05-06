@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
@@ -39,6 +39,7 @@ func TestAddNops(t *testing.T) {
 		req := &changeset.AddNopsRequest{
 			RegistryChainSel: te.RegistrySelector,
 			Nops:             nops,
+			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		}
 		csOut, err := changeset.AddNops(te.Env, req)
 		require.NoError(t, err)
@@ -71,23 +72,14 @@ func TestAddNops(t *testing.T) {
 			RegistryChainSel: te.RegistrySelector,
 			Nops:             nops,
 			MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		}
 		csOut, err := changeset.AddNops(te.Env, req)
 		require.NoError(t, err)
 		require.Len(t, csOut.MCMSTimelockProposals, 1)
 		require.Nil(t, csOut.AddressBook)
 
-		// now apply the changeset such that the proposal is signed and execed
-		contracts := te.ContractSets()[te.RegistrySelector]
-		timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
-			te.RegistrySelector: {
-				Timelock:  contracts.Timelock,
-				CallProxy: contracts.CallProxy,
-			},
-		}
-		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
-			commonchangeset.Configure(deployment.CreateLegacyChangeSet(changeset.AddNops), req),
-		)
+		err = applyProposal(t, te, commonchangeset.Configure(cldf.CreateLegacyChangeSet(changeset.AddNops), req))
 		require.NoError(t, err)
 
 		assertNopsExist(t, te.CapabilitiesRegistry(), nops...)

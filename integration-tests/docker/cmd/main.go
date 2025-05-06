@@ -2,13 +2,13 @@ package main
 
 import (
 	"io"
-	defaultlog "log"
+	defaultLog "log"
 	"os"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"github.com/testcontainers/testcontainers-go"
+	tcLog "github.com/testcontainers/testcontainers-go/log"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/cmd/internal"
 )
@@ -25,7 +25,7 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	// Discard testcontainers logs
-	testcontainers.Logger = defaultlog.New(io.Discard, "", defaultlog.LstdFlags)
+	tcLog.SetDefault(defaultLog.New(io.Discard, "", defaultLog.LstdFlags))
 }
 
 func main() {

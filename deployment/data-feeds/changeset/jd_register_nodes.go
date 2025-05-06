@@ -7,6 +7,8 @@ import (
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
@@ -15,7 +17,7 @@ import (
 
 // RegisterNodesToJDChangeset is a changeset that reads node info from a JSON file and registers them in Job Distributor
 // Register a node with a set of base labels and optionally with additional extra labels
-var RegisterNodesToJDChangeset = deployment.CreateChangeSet(registerNodesToJDLogic, registerNodesToJDLogicPrecondition)
+var RegisterNodesToJDChangeset = cldf.CreateChangeSet(registerNodesToJDLogic, registerNodesToJDLogicPrecondition)
 
 type MinimalNodeCfg struct {
 	Name        string          `json:"name"`
@@ -66,13 +68,13 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (dep
 			}
 			if node.IsBootstrap {
 				labels = append(labels, &ptypes.Label{
-					Key:   devenv.NodeLabelKeyType,
-					Value: pointer.To(devenv.NodeLabelValueBootstrap),
+					Key:   devenv.LabelNodeTypeKey,
+					Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
 				})
 			} else {
 				labels = append(labels, &ptypes.Label{
-					Key:   devenv.NodeLabelKeyType,
-					Value: pointer.To(devenv.NodeLabelValuePlugin),
+					Key:   devenv.LabelNodeTypeKey,
+					Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 				})
 			}
 			// extra labels

@@ -37,9 +37,8 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
-	dsUtils "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 
@@ -388,13 +387,13 @@ func NewNode(
 	nodeLabels := make([]*ptypes.Label, 1)
 	if nodecfg.Bootstrap {
 		nodeLabels[0] = &ptypes.Label{
-			Key:   dsUtils.LabelNodeType,
-			Value: pointer.To(jd.NodeTypeBootstrap.String()),
+			Key:   devenv.LabelNodeTypeKey,
+			Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
 		}
 	} else {
 		nodeLabels[0] = &ptypes.Label{
-			Key:   dsUtils.LabelNodeType,
-			Value: pointer.To(jd.NodeTypeOracle.String()),
+			Key:   devenv.LabelNodeTypeKey,
+			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 		}
 	}
 
