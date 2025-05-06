@@ -17,11 +17,12 @@ import (
 )
 
 type UpdateAptosLanesSeqInput struct {
-	UpdateFeeQuoterDestsConfig  operation.UpdateFeeQuoterDestsInput
-	UpdateFeeQuoterPricesConfig operation.UpdateFeeQuoterPricesInput
-	UpdateOnRampDestsConfig     operation.UpdateOnRampDestsInput
-	UpdateOffRampSourcesConfig  operation.UpdateOffRampSourcesInput
-	UpdateRouterDestConfig      operation.UpdateRouterDestInput
+	UpdateFeeQuoterDestsConfig   operation.UpdateFeeQuoterDestsInput
+	UpdateFeeQuoterPricesConfig  operation.UpdateFeeQuoterPricesInput
+	UpdateOnRampDestsConfig      operation.UpdateOnRampDestsInput
+	UpdateOffRampSourcesConfig   operation.UpdateOffRampSourcesInput
+	UpdateRouterDestConfig       operation.UpdateRouterDestInput
+	UpdateTokenTransferFeeConfig operation.UpdateTokenTransferFeeConfigsInput
 }
 
 // UpdateAptosLanesSequence orchestrates operations to update Aptos lanes
@@ -74,6 +75,14 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 		return types.BatchOperation{}, fmt.Errorf("failed to update Router: %w", err)
 	}
 	mcmsTxs = append(mcmsTxs, routerReport.Output...)
+
+	// 6. Update FeeQuoter with TokenTransferFeeConfig
+	b.Logger.Info("Updating Router")
+	feeQuoterTTFReport, err := operations.ExecuteOperation(b, operation.UpdateTokenTransferCfgOp, deps, in.UpdateTokenTransferFeeConfig)
+	if err != nil {
+		return types.BatchOperation{}, fmt.Errorf("failed to update Router: %w", err)
+	}
+	mcmsTxs = append(mcmsTxs, feeQuoterTTFReport.Output...)
 
 	return types.BatchOperation{
 		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),
@@ -155,6 +164,11 @@ func setAptosSourceUpdates(lane config.LaneConfig, updateInputsByAptosChain map[
 		DestChainSelector: dest.Selector,
 		OnRampVersion:     onRampVersion,
 	})
+
+	// Setting token transfer fee updates
+	input.UpdateTokenTransferFeeConfig.MCMSAddress = mcmsAddress
+	input.UpdateTokenTransferFeeConfig.AddTokenConfigs = source.AddTokenTransferFeeConfigs
+	input.UpdateTokenTransferFeeConfig.RemoveTokenConfigs = source.RemoveTokenTransferFeeConfigs
 
 	updateInputsByAptosChain[source.Selector] = input
 }

@@ -90,6 +90,11 @@ func getMockUpdateConfig(
 	emvSelector2,
 	aptosSelector uint64,
 ) config.UpdateAptosLanesConfig {
+	linkToken := aptos.AccountAddress{}
+	_ = linkToken.ParseStringRelaxed("0x3b17dad1bdd88f337712cc2f6187bb741d56da467320373fd9198262cc93de76")
+	otherToken := aptos.AccountAddress{}
+	_ = linkToken.ParseStringRelaxed("0xa")
+
 	return config.UpdateAptosLanesConfig{
 		EVMMCMSConfig: nil,
 		AptosMCMSConfig: &proposalutils.TimelockConfig{
@@ -97,13 +102,43 @@ func getMockUpdateConfig(
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
 			OverrideRoot: false,
 		},
-		// Aptos1 <> EVM1 | Aptos1 -> EVM2
+		// Aptos1 <> EVM1 + Aptos1 -> EVM2
 		Lanes: []config.LaneConfig{
 			{
 				Source: config.AptosChainDefinition{
 					Selector:                 aptosSelector,
 					GasPrice:                 big.NewInt(1e17),
 					FeeQuoterDestChainConfig: aptosTestDestFeeQuoterConfig(t),
+					ConnectionConfig: v1_6.ConnectionConfig{
+						RMNVerificationDisabled: true,
+						AllowListEnabled:        false,
+					},
+					AddTokenTransferFeeConfigs: []aptosfeequoter.TokenTransferFeeConfigAdded{
+						{
+							DestChainSelector: emvSelector,
+							Token:             linkToken,
+							TokenTransferFeeConfig: aptosfeequoter.TokenTransferFeeConfig{
+								MinFeeUsdCents:    1,
+								MaxFeeUsdCents:    10000,
+								DeciBps:           0,
+								DestGasOverhead:   1000,
+								DestBytesOverhead: 1000,
+								IsEnabled:         true,
+							},
+						},
+						{
+							DestChainSelector: emvSelector,
+							Token:             otherToken,
+							TokenTransferFeeConfig: aptosfeequoter.TokenTransferFeeConfig{
+								MinFeeUsdCents:    1,
+								MaxFeeUsdCents:    10000,
+								DeciBps:           0,
+								DestGasOverhead:   1000,
+								DestBytesOverhead: 1000,
+								IsEnabled:         true,
+							},
+						},
+					},
 				},
 				Dest: config.EVMChainDefinition{
 					ChainDefinition: v1_6.ChainDefinition{

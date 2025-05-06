@@ -129,7 +129,7 @@ func TestToEVMUpdateLanesConfig(t *testing.T) {
 
 func getEVMDef() EVMChainDefinition {
 	return EVMChainDefinition{
-		v1_6.ChainDefinition{
+		ChainDefinition: v1_6.ChainDefinition{
 			ConnectionConfig: v1_6.ConnectionConfig{
 				RMNVerificationDisabled: true,
 				AllowListEnabled:        false,
@@ -138,6 +138,7 @@ func getEVMDef() EVMChainDefinition {
 			GasPrice:                 big.NewInt(1e17),
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
 		},
+		OnRampVersion: []byte{1, 6, 0},
 	}
 }
 

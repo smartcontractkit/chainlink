@@ -206,3 +206,111 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 
 	return txs, nil
 }
+
+// UpdateTokenTransferFeeConfigsInput ...
+type UpdateTokenTransferFeeConfigsInput struct {
+	MCMSAddress        aptos.AccountAddress
+	AddTokenConfigs    []aptos_fee_quoter.TokenTransferFeeConfigAdded
+	RemoveTokenConfigs []aptos_fee_quoter.TokenTransferFeeConfigRemoved
+}
+
+// UpdateTokenTransferCfgOp operation to update FeeQuoter prices
+var UpdateTokenTransferCfgOp = operations.NewOperation(
+	"update-token-transfer-config-op",
+	Version1_0_0,
+	"Updates Token Transfer Fee Configs",
+	updateTokenTransferCfg,
+)
+
+func updateTokenTransferCfg(b operations.Bundle, deps AptosDeps, in UpdateTokenTransferFeeConfigsInput) ([]types.Transaction, error) {
+	var txs []types.Transaction
+
+	// Bind CCIP Package
+	ccipAddress := deps.OnChainState.CCIPAddress
+	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
+
+	// Encode the update tx
+	argsByDestChain := toApplyTokenTransferFeeConfigUpdatesArgs(in.AddTokenConfigs, in.RemoveTokenConfigs)
+	for destChainSelector, args := range argsByDestChain {
+		moduleInfo, function, _, args, err := ccipBind.FeeQuoter().Encoder().ApplyTokenTransferFeeConfigUpdates(
+			destChainSelector,
+			args.addTokens,
+			args.addMinFeeUsdCents,
+			args.addMaxFeeUsdCents,
+			args.addDeciBps,
+			args.addDestGasOverhead,
+			args.addDestBytesOverhead,
+			args.addIsEnabled,
+			args.removeTokens,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode UpdatePrices: %w", err)
+		}
+
+		additionalFields := aptosmcms.AdditionalFields{
+			PackageName: moduleInfo.PackageName,
+			ModuleName:  moduleInfo.ModuleName,
+			Function:    function,
+		}
+		afBytes, err := json.Marshal(additionalFields)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal additional fields: %w", err)
+		}
+
+		txs = append(txs, types.Transaction{
+			To:               ccipAddress.StringLong(),
+			Data:             aptosmcms.ArgsToData(args),
+			AdditionalFields: afBytes,
+		})
+		b.Logger.Infow("Adding TokenTransferFeeConfig update transaction", "destChainSelector", destChainSelector)
+	}
+
+	return txs, nil
+}
+
+type applyTokenTransferFeeConfigUpdatesArgs struct {
+	destChainSelector    uint64
+	addTokens            []aptos.AccountAddress
+	addMinFeeUsdCents    []uint32
+	addMaxFeeUsdCents    []uint32
+	addDeciBps           []uint16
+	addDestGasOverhead   []uint32
+	addDestBytesOverhead []uint32
+	addIsEnabled         []bool
+	removeTokens         []aptos.AccountAddress
+}
+
+func toApplyTokenTransferFeeConfigUpdatesArgs(
+	AddTokenConfigs []aptos_fee_quoter.TokenTransferFeeConfigAdded,
+	RemovTokenConfigs []aptos_fee_quoter.TokenTransferFeeConfigRemoved,
+) map[uint64]applyTokenTransferFeeConfigUpdatesArgs {
+	argsByDestChain := make(map[uint64]applyTokenTransferFeeConfigUpdatesArgs)
+
+	// Process added token configs
+	for _, config := range AddTokenConfigs {
+		args := argsByDestChain[config.DestChainSelector]
+
+		args.destChainSelector = config.DestChainSelector
+		args.addTokens = append(args.addTokens, config.Token)
+		args.addMinFeeUsdCents = append(args.addMinFeeUsdCents, config.TokenTransferFeeConfig.MinFeeUsdCents)
+		args.addMaxFeeUsdCents = append(args.addMaxFeeUsdCents, config.TokenTransferFeeConfig.MaxFeeUsdCents)
+		args.addDeciBps = append(args.addDeciBps, config.TokenTransferFeeConfig.DeciBps)
+		args.addDestGasOverhead = append(args.addDestGasOverhead, config.TokenTransferFeeConfig.DestGasOverhead)
+		args.addDestBytesOverhead = append(args.addDestBytesOverhead, config.TokenTransferFeeConfig.DestBytesOverhead)
+		args.addIsEnabled = append(args.addIsEnabled, config.TokenTransferFeeConfig.IsEnabled)
+
+		argsByDestChain[config.DestChainSelector] = args
+	}
+
+	// Process removed token configs
+	for _, config := range RemovTokenConfigs {
+		args := argsByDestChain[config.DestChainSelector]
+
+		args.destChainSelector = config.DestChainSelector
+		args.removeTokens = append(args.removeTokens, config.Token)
+
+		argsByDestChain[config.DestChainSelector] = args
+	}
+
+	return argsByDestChain
+}
