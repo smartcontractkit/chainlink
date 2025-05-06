@@ -6,7 +6,7 @@ toolchain go1.24.2
 
 // Make sure we're working with the latest chainlink libs
 replace (
-	github.com/smartcontractkit/chainlink-aptos/relayer => github.com/smartcontractkit/chainlink-aptos v0.0.0-20250429091131-bb7e84a7ec92
+	github.com/smartcontractkit/chainlink-aptos/relayer => github.com/smartcontractkit/chainlink-aptos v0.0.0-20250502091650-484cfa7ccddf
 	github.com/smartcontractkit/chainlink/v2 => ../
 )
 
@@ -36,7 +36,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.52
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250429091131-bb7e84a7ec92
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250502091650-484cfa7ccddf
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250430132510-be8d09930aaa
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250425163923-16aa375957b7
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250429205337-7ee5f91ed065

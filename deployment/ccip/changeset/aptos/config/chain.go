@@ -17,6 +17,7 @@ type ChainDefinition interface {
 
 type EVMChainDefinition struct {
 	v1_6.ChainDefinition
+	OnRampVersion []byte
 }
 
 func (c EVMChainDefinition) GetChainFamily() string {
