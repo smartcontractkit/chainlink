@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -123,13 +124,13 @@ func (r *Relayer) UnregisterLogTracking(ctx context.Context, filterName string) 
 	return r.chain.LogPoller().UnregisterFilter(ctx, filterName)
 }
 
-func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID string) (evmtypes.TransactionStatus, error) {
+func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
 	status, err := r.chain.TxManager().GetTransactionStatus(ctx, transactionID)
 	if err != nil {
-		return evmtypes.Unknown, err
+		return commontypes.Unknown, err
 	}
 
-	return evmtypes.TransactionStatus(status), nil
+	return commontypes.TransactionStatus(status), nil
 }
 
 func blockFromConfidence(ctx context.Context, ht heads.Tracker, confidence primitives.ConfidenceLevel) (*big.Int, error) {
