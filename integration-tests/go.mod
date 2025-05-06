@@ -49,7 +49,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250425163923-16aa375957b7
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250502144500-77c113986529
 	github.com/smartcontractkit/chainlink-deployments-framework v0.0.10
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250430150959-bec63d0dc988
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250506144221-ee990aefea6c
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
@@ -453,7 +453,7 @@ require (
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250414155853-651b4e583ee9 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
-	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250421203809-e0f5602c126c // indirect
+	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250502210357-2df484128afa // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250502210357-2df484128afa // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250502210357-2df484128afa // indirect
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250501150903-3e93089d9ad5 // indirect
