@@ -7,6 +7,8 @@ import (
 	"github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -14,7 +16,7 @@ import (
 
 // UpdateBidirectionalLanesChangeset enables or disables multiple bidirectional lanes on CCIP.
 // It batches all lane updates into a single MCMS proposal.
-var UpdateBidirectionalLanesChangeset = deployment.CreateChangeSet(updateBidirectionalLanesLogic, updateBidirectionalLanesPrecondition)
+var UpdateBidirectionalLanesChangeset = cldf.CreateChangeSet(updateBidirectionalLanesLogic, updateBidirectionalLanesPrecondition)
 
 // BidirectionalLaneDefinition indicates two chains that we want to connect.
 type BidirectionalLaneDefinition struct {

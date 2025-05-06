@@ -3,22 +3,24 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 var (
 	// RevokeJobsChangeset revokes job proposals with the given jobIDs through JD. It can only be used on
 	// the proposals that are in the pending and cancelled state.
-	RevokeJobsChangeset = deployment.CreateChangeSet(revokeJobsLogic, revokeJobsPrecondition)
+	RevokeJobsChangeset = cldf.CreateChangeSet(revokeJobsLogic, revokeJobsPrecondition)
 
 	// DeleteJobChangeset sends a delete request to the node where the job is running and marks it as deleted in Job Distributor.
 	// If the node is not connected or the delete request fails, the deletion process is halted.
 	// Nodes are expected to cancel the job once the request is sent by JD.
 	// Refer to integration-tests/smoke/ccip/ccip_jobspec_test.go for node operations example after DeleteJobChangeset.
-	DeleteJobChangeset = deployment.CreateChangeSet(deleteJobsLogic, deleteJobsPrecondition)
+	DeleteJobChangeset = cldf.CreateChangeSet(deleteJobsLogic, deleteJobsPrecondition)
 )
 
 func revokeJobsPrecondition(env deployment.Environment, jobIDs []string) error {
@@ -90,7 +92,11 @@ func deleteJobsPrecondition(env deployment.Environment, jobIDs []string) error {
 // DeleteJobChangeset sends the delete job request to nodes for the given jobID.
 // nops needs to cancel the job once the request is sent by JD.
 func deleteJobsLogic(env deployment.Environment, jobIDs []string) (deployment.ChangesetOutput, error) {
-	for _, jobID := range jobIDs {
+	jobIDsToDelete, err := jobsToDelete(env, jobIDs)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get jobIDs to delete: %w", err)
+	}
+	for _, jobID := range jobIDsToDelete {
 		res, err := env.Offchain.DeleteJob(env.GetContext(), &jobv1.DeleteJobRequest{
 			IdOneof: &jobv1.DeleteJobRequest_Id{Id: jobID},
 		})
@@ -106,4 +112,29 @@ func deleteJobsLogic(env deployment.Environment, jobIDs []string) (deployment.Ch
 	}
 	env.Logger.Infof("successfully deleted jobs %s", jobIDs)
 	return deployment.ChangesetOutput{}, nil
+}
+
+func jobsToDelete(env deployment.Environment, jobIDs []string) ([]string, error) {
+	jobs, err := env.Offchain.ListProposals(env.GetContext(), &jobv1.ListProposalsRequest{
+		Filter: &jobv1.ListProposalsRequest_Filter{
+			JobIds: jobIDs,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list proposals for jobIDs %v: %w", jobIDs, err)
+	}
+	if len(jobs.Proposals) == 0 {
+		return nil, fmt.Errorf("no proposals found for jobIDs %s", jobIDs)
+	}
+	jobIDsToDelete := make([]string, 0)
+	for _, proposal := range jobs.Proposals {
+		if proposal.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED ||
+			proposal.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED ||
+			proposal.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_PENDING {
+			jobIDsToDelete = append(jobIDsToDelete, proposal.JobId)
+		}
+	}
+	// remove duplicates
+	jobIDsToDelete = slices.Compact(jobIDsToDelete)
+	return jobIDsToDelete, nil
 }

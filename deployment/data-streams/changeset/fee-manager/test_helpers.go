@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -44,7 +45,7 @@ func NewDataStreamsEnvironment(t *testing.T, opts DataStreamsTestEnvOptions) (Da
 	if opts.DeployLinkToken {
 		env, err := commonchangesets.Apply(t, e, nil,
 			commonchangesets.Configure(
-				deployment.CreateLegacyChangeSet(commonchangesets.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(commonchangesets.DeployLinkToken),
 				[]uint64{testutil.TestChain.Selector},
 			),
 		)

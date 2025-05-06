@@ -5,6 +5,7 @@ run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_
 on:
   merge_group:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   push:
     tags:
       - "*"
@@ -13,20 +14,20 @@ on:
   workflow_dispatch:
     inputs:
       cl_ref:
-        description: 'The ref to checkout, defaults to the calling branch'
+        description: "The ref to checkout, defaults to the calling branch"
         required: false
         type: string
       evm-ref:
-        description: 'The sha of the chainlink-evm commit to use if wanted'
+        description: "The sha of the chainlink-evm commit to use if wanted"
         required: false
         type: string
       run_solana:
-        description: 'Run solana tests'
+        description: "Run solana tests"
         required: false
         type: string
-        default: 'false'
+        default: "false"
       distinct_run_name:
-        description: 'A unique identifier for this run, only use from other repos'
+        description: "A unique identifier for this run, only use from other repos"
         required: false
         type: string
 
@@ -82,11 +83,11 @@ jobs:
           module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
           enforce-semantic-tag: "true"
   changes:
+    # Don't run E2E tests on PR, unless it's tagged with "run-e2e-tests"
+    if: ${{ github.event_name != 'pull_request' || contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests') }}
     environment: integration
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -120,8 +121,8 @@ jobs:
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
-      - name: Ignore Filter On Workflow Dispatch or PR Label
-        if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-e2e')) || github.event_name == 'workflow_dispatch' }}
+      - name: Ignore Filter On Workflow Dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
         run: echo "changes=true" >> $GITHUB_OUTPUT
     outputs:
@@ -218,6 +219,92 @@ jobs:
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
 
+  run-core-cre-e2e-tests-for-merge-queue:
+    name: Run Core CRE E2E Tests For Merge Queue
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'merge_group' && ( needs.changes.outputs.cre_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run Core CRE Tests For Merge Queue
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      test_trigger: Merge Queue CRE E2E Core Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
+  run-core-cre-e2e-tests-for-push:
+    name: Run Core CRE E2E Tests For Push
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'push'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run Core CRE Tests For Merge Queue
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      test_trigger: Merge Queue CRE E2E Core Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
   run-core-e2e-tests-for-pr:
     name: Run Core E2E Tests For PR
     permissions:
@@ -280,10 +367,49 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
-      # Notify Test Tooling team in slack when merge queue tests fail
-      slack_notification_after_tests: on_failure
-      slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
-      slack_notification_after_tests_name: Core E2E Tests In Merge Queue
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
+  run-core-e2e-tests-for-push:
+    name: Run Core E2E Tests For Push
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'push'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run Core E2E Tests For Push
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      test_trigger: Push E2E Core Tests
+      # Run tests with flakeguard and rerun failed tests once
+      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -396,11 +522,66 @@ jobs:
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
 
+  run-ccip-e2e-tests-for-push:
+    name: Run CCIP E2E Tests For Push
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'push'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run CCIP E2E Tests For Push
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      # Run tests with flakeguard and rerun failed tests once
+      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
+      test_trigger: Push E2E CCIP Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      team: "CCIP"
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
   check-e2e-test-results:
     if: always()
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
-    needs: [build-chainlink, run-core-e2e-tests-for-pr, run-core-cre-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    needs:
+      [
+        build-chainlink,
+        run-core-e2e-tests-for-pr,
+        run-core-cre-e2e-tests-for-pr,
+        run-ccip-e2e-tests-for-pr,
+        run-core-e2e-tests-for-merge-queue,
+        run-ccip-e2e-tests-for-merge-queue,
+        run-core-cre-e2e-tests-for-merge-queue,
+      ]
     steps:
       - name: Check Core test results
         id: check_core_results
@@ -445,6 +626,10 @@ jobs:
         if: always() && needs.run-core-e2e-tests-for-merge-queue.result == 'failure'
         run: exit 1
 
+      - name: Fail the job if CRE tests in merge queue not successful
+        if: always() && needs.run-core-cre-e2e-tests-for-merge-queue.result == 'failure'
+        run: exit 1
+
       - name: Fail the job if Chainlink image wasn't built
         if: always() && needs.build-chainlink.result == 'failure'
         run: exit 1
@@ -452,7 +637,13 @@ jobs:
   cleanup:
     name: Clean up integration environment deployments
     if: always()
-    needs: [run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    needs:
+      [
+        run-core-e2e-tests-for-pr,
+        run-ccip-e2e-tests-for-pr,
+        run-core-e2e-tests-for-merge-queue,
+        run-ccip-e2e-tests-for-merge-queue,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -474,7 +665,13 @@ jobs:
     name: Show Chainlink Node Go Coverage
     if: false
     # if: always()
-    needs: [run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    needs:
+      [
+        run-core-e2e-tests-for-pr,
+        run-ccip-e2e-tests-for-pr,
+        run-core-e2e-tests-for-merge-queue,
+        run-ccip-e2e-tests-for-merge-queue,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -608,11 +805,10 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build contracts
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@46b1311a5a83f33d08ffa8e1e0ab04f9ad51665d # node20 update on may 10, 2024
+        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@841f6229b6a0be0114c47cb676b1136d92f935c9 # node20 update on may 10, 2024
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
-          image: backpackapp/build
-          image-version: ${{ needs.get_projectserum_version.outputs.projectserum_version }}
+          runner-os: ${{ runner.os }}
 
   solana-build-test-image:
     environment: integration
@@ -731,7 +927,8 @@ jobs:
         env:
           GH_INPUTS_EVM_REF: ${{ inputs.evm-ref }}
           GH_SHA: ${{ inputs.cl_ref || github.sha }}
-        run: | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
+        run:
+          | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
           cat << EOF > config.toml
           [ChainlinkImage]
           version="${{ env.evm-ref || env.GH_SHA }}"
@@ -788,7 +985,9 @@ jobs:
 
   notify-test-failure:
     name: Notify Test Failure
-    if: ${{ github.ref_name == 'develop' && failure() }}
+    # TODO: uncomment this when we want to notify on test failures post-merge, if Phase 3 is necessary
+    if: false
+    # if: ${{ github.ref_name == 'develop' && failure() }}
     needs: [check-e2e-test-results, solana-smoke-tests]
     runs-on: ubuntu-latest
     steps:
@@ -812,7 +1011,7 @@ jobs:
                   }
                 },
                 {
-                  "type": "section", 
+                  "type": "section",
                   "text": {
                     "type": "mrkdwn",
                     "text": "Alerting <!subteam^S04SLH4V4JJ|devex-cicd-oncall> and <@U01Q4N37KFG>, E2E tests failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop by user `${{ github.actor }}`. Please follow instructions below to remedy the issue."
@@ -824,7 +1023,7 @@ jobs:
                 {
                   "type": "section",
                   "text": {
-                    "type": "mrkdwn", 
+                    "type": "mrkdwn",
                     "text": "1. Use the `/gh-lookup ${{ github.actor }}` command to find the who made the commit.\n2. <https://smartcontract-it.atlassian.net/wiki/spaces/ENG/pages/597262421/Raising+an+Incident|Raise a Pager Duty Incident> with that engineer to fix the issue.\n3. Start a 1 hour timer. If the E2E tests cannot be made passing on `develop` branch by then, please use `git revert <last-green-commit>` to revert the `develop` branch back to a happy state.\n4. Write a quick summary of the actions taken and post it in a thread to this message."
                   }
                 }

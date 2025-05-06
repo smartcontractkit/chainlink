@@ -19,6 +19,9 @@ import (
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
+// use this changeset to disable a remote chain on solana
+var _ deployment.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
+
 type DisableRemoteChainConfig struct {
 	ChainSelector uint64
 	RemoteChains  []uint64

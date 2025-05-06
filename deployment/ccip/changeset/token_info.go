@@ -23,19 +23,21 @@ func (ts TokenSymbol) String() string {
 }
 
 const (
-	LinkSymbol      TokenSymbol = "LINK"
-	WethSymbol      TokenSymbol = "WETH"
-	WAVAXSymbol     TokenSymbol = "WAVAX"
-	WBNBSymbol      TokenSymbol = "WBNB"
-	WPOLSymbol      TokenSymbol = "WPOL"
-	USDCSymbol      TokenSymbol = "USDC"
-	CCIPBnMSymbol   TokenSymbol = "CCIP-BnM"
-	CCIPLnMSymbol   TokenSymbol = "CCIP-LnM"
-	CLCCIPLnMSymbol TokenSymbol = "clCCIP-LnM"
-	USDCName        string      = "USD Coin"
-	LinkDecimals                = 18
-	WethDecimals                = 18
-	UsdcDecimals                = 6
+	LinkSymbol                 TokenSymbol = "LINK"
+	WethSymbol                 TokenSymbol = "WETH"
+	WAVAXSymbol                TokenSymbol = "WAVAX"
+	WBNBSymbol                 TokenSymbol = "WBNB"
+	WPOLSymbol                 TokenSymbol = "WPOL"
+	WSSymbol                   TokenSymbol = "WS"
+	USDCSymbol                 TokenSymbol = "USDC"
+	FactoryBurnMintERC20Symbol TokenSymbol = "Factory-BnM-ERC20"
+	CCIPBnMSymbol              TokenSymbol = "CCIP-BnM"
+	CCIPLnMSymbol              TokenSymbol = "CCIP-LnM"
+	CLCCIPLnMSymbol            TokenSymbol = "clCCIP-LnM"
+	USDCName                   string      = "USD Coin"
+	LinkDecimals                           = 18
+	WethDecimals                           = 18
+	UsdcDecimals                           = 6
 
 	// Price Feed Descriptions
 	AvaxUSD  = "AVAX / USD"
@@ -43,6 +45,7 @@ const (
 	EthUSD   = "ETH / USD"
 	MaticUSD = "MATIC / USD"
 	BNBUSD   = "BNB / USD"
+	FTMUSD   = "FTM / USD" // S token uses FTM / USD price feed under the hood
 
 	// MockLinkAggregatorDescription is the description of the MockV3Aggregator.sol contract
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
@@ -64,6 +67,7 @@ var (
 		EthUSD:                        WethSymbol,
 		MaticUSD:                      WPOLSymbol,
 		BNBUSD:                        WBNBSymbol,
+		FTMUSD:                        WSSymbol,
 	}
 	MockSymbolToDescription = map[TokenSymbol]string{
 		LinkSymbol: MockLinkAggregatorDescription,

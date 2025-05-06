@@ -30,8 +30,7 @@ func NewTestSetupWithDeployedEnv(
 	sourceChain,
 	destChain uint64,
 	sender []byte,
-	testRouter,
-	validateResp bool,
+	testRouter bool,
 ) TestSetup {
 	return TestSetup{
 		T:            t,
@@ -42,7 +41,6 @@ func NewTestSetupWithDeployedEnv(
 		SourceChain:  sourceChain,
 		DestChain:    destChain,
 		TestRouter:   testRouter,
-		ValidateResp: validateResp,
 	}
 }
 
@@ -54,8 +52,7 @@ func NewTestSetup(
 	sourceChain,
 	destChain uint64,
 	sender []byte,
-	testRouter,
-	validateResp bool,
+	testRouter bool,
 ) TestSetup {
 	return TestSetup{
 		T:      t,
@@ -66,7 +63,6 @@ func NewTestSetup(
 		SourceChain:  sourceChain,
 		DestChain:    destChain,
 		TestRouter:   testRouter,
-		ValidateResp: validateResp,
 	}
 }
 
@@ -79,11 +75,11 @@ type TestSetup struct {
 	SourceChain  uint64
 	DestChain    uint64
 	TestRouter   bool
-	ValidateResp bool
 }
 
 type TestCase struct {
 	TestSetup
+	ValidationType         ValidationType
 	Replayed               bool
 	ExpectedRevert         string // the hex string of the revert reason if any
 	Nonce                  uint64
@@ -93,6 +89,14 @@ type TestCase struct {
 	ExpectedExecutionState int
 	ExtraAssertions        []func(t *testing.T)
 }
+
+type ValidationType int
+
+const (
+	ValidationTypeNone ValidationType = iota
+	ValidationTypeCommit
+	ValidationTypeExec // will validate both commit and exec
+)
 
 type TestCaseOutput struct {
 	Replayed     bool
@@ -136,12 +140,9 @@ func getLatestNonce(tc TestCase) uint64 {
 }
 
 // Run runs a messaging test case.
-func Run(tc TestCase) (out TestCaseOutput) {
-	if tc.ValidateResp {
-		// check latest nonce
-		latestNonce := getLatestNonce(tc)
-		require.Equal(tc.T, tc.Nonce, latestNonce)
-	}
+func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
+	// we need to reference the inner testing.T inside a t.Run
+	tc.T = t
 
 	startBlocks := make(map[uint64]*uint64)
 
@@ -204,18 +205,31 @@ func Run(tc TestCase) (out TestCaseOutput) {
 	msgId := common.Bytes2Hex(out.MsgSentEvent.Message.Header.MessageId[:])
 	tc.T.Logf("https://ccip-ui-staging.vercel.app/#/side-drawer/msg/%s", msgId)
 
-	// hack
+	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
+	// we need to replay missed logs
 	if !tc.Replayed {
 		require.NotNil(tc.T, tc.DeployedEnv)
 		sleepAndReplay(tc.T, tc.DeployedEnv, tc.SourceChain, tc.DestChain)
 		out.Replayed = true
 	}
 
-	if tc.ValidateResp {
+	// Perform validation based on ValidationType
+	switch tc.ValidationType {
+	case ValidationTypeCommit:
 		commitStart := time.Now()
 		tc.T.Logf("waiting for commit of seq nums %+v", expectedSeqNum)
 		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
+		// Explicitly log that only commit was validated if only Commit was requested
+		tc.T.Logf("only commit validation was performed")
+
+	case ValidationTypeExec: // will validate both commit and exec
+		// First, validate commit
+		commitStart := time.Now()
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
+		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
+
+		// Then, validate execution
 		execStart := time.Now()
 		tc.T.Logf("waiting for exec of seq nums %+v", expectedSeqNumExec)
 		execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.T, tc.Env, tc.OnchainState, expectedSeqNumExec, startBlocks)
@@ -239,15 +253,21 @@ func Run(tc TestCase) (out TestCaseOutput) {
 
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)
-			require.Equal(tc.T, tc.Nonce+1, latestNonce)
-			out.Nonce = latestNonce
-			tc.T.Logf("confirmed nonce bump for sender %x, latestNonce %d", tc.Sender, latestNonce)
+			// Check if Nonce is non-nil before comparing. Nonce check only makes sense if it was explicitly provided.
+			if tc.Nonce != 0 {
+				require.Equal(tc.T, tc.Nonce+1, latestNonce)
+				out.Nonce = latestNonce
+				tc.T.Logf("confirmed nonce bump for sender %x, expected %d, got latestNonce %d", tc.Sender, tc.Nonce+1, latestNonce)
+			} else {
+				tc.T.Logf("skipping nonce bump check for sender %x as initial nonce was nil, latestNonce %d", tc.Sender, latestNonce)
+			}
 		}
 
 		for _, assertion := range tc.ExtraAssertions {
 			assertion(tc.T)
 		}
-	} else {
+
+	case ValidationTypeNone:
 		tc.T.Logf("skipping validation of sent message")
 	}
 

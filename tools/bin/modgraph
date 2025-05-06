@@ -9,16 +9,16 @@ echo "# smartcontractkit Go modules
 \`\`\`mermaid
 flowchart LR
   subgraph chains
+    chainlink-aptos
     chainlink-cosmos
+    chainlink-evm
     chainlink-solana
     chainlink-starknet/relayer
-    chainlink-integrations/evm
+    chainlink-tron/relayer
   end
 
   subgraph products
     chainlink-automation
-    chainlink-ccip
-    chainlink-ccip/chains/solana
     chainlink-data-streams
     chainlink-feeds
     chainlink-functions
@@ -35,16 +35,16 @@ echo "## All modules
 \`\`\`mermaid
 flowchart LR
   subgraph chains
+    chainlink-aptos
     chainlink-cosmos
+    chainlink-evm
     chainlink-solana
     chainlink-starknet/relayer
-    chainlink-integrations/evm
+    chainlink-tron/relayer
   end
 
   subgraph products
     chainlink-automation
-    chainlink-ccip
-    chainlink-ccip/chains/solana
     chainlink-data-streams
     chainlink-feeds
     chainlink-functions

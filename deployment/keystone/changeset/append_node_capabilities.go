@@ -8,6 +8,10 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/types"
 
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -21,7 +25,7 @@ type AppendNodeCapabilitiesRequest = MutateNodeCapabilitiesRequest
 // AppendNodeCapabilities adds any new capabilities to the registry, merges the new capabilities with the existing capabilities
 // of the node, and updates the nodes in the registry host the union of the new and existing capabilities.
 func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
-	c, contractSet, err := req.convert(env)
+	c, capReg, err := req.convert(env, req.RegistryRef)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -35,10 +39,10 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]string{
-			c.Chain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.Timelock.Address().Hex(),
+			c.Chain.Selector: capReg.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			c.Chain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.ProposerMcm.Address().Hex(),
+			c.Chain.Selector: capReg.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
@@ -65,24 +69,19 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 	return out, nil
 }
 
-func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*internal.AppendNodeCapabilitiesRequest, *ContractSetV2, error) {
+func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment, ref datastore.AddressRefKey) (*internal.AppendNodeCapabilitiesRequest, *OwnedContract[*kcr.CapabilitiesRegistry], error) {
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
 	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
-	resp, err := GetContractSetsV2(e.Logger, GetContractSetsRequestV2{
-		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
-		AddressBook: e.ExistingAddresses,
-	})
+	cr, err := loadCapabilityRegistry(registryChain, e, ref)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get contract sets: %w", err)
+		return nil, nil, fmt.Errorf("failed to load capability registry: %w", err)
 	}
-	contractSet := resp.ContractSets[req.RegistryChainSel]
-
 	return &internal.AppendNodeCapabilitiesRequest{
 		Chain:                registryChain,
-		CapabilitiesRegistry: contractSet.CapabilitiesRegistry.Contract,
+		CapabilitiesRegistry: cr.Contract,
 		P2pToCapabilities:    req.P2pToCapabilities,
 		UseMCMS:              req.UseMCMS(),
-	}, &contractSet, nil
+	}, cr, nil
 }

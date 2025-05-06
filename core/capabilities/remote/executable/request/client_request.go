@@ -6,14 +6,17 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -36,10 +39,12 @@ type ClientRequest struct {
 	responseIDCount   map[[32]byte]int
 	meteringResponses map[[32]byte][]commoncap.MeteringNodeDetail
 	errorCount        map[string]int
+	totalErrorCount   int
 	responseReceived  map[p2ptypes.PeerID]bool
 	lggr              logger.Logger
 
 	requiredIdenticalResponses int
+	remoteNodeCount            int
 
 	requestTimeout time.Duration
 
@@ -71,7 +76,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	}
 
 	lggr = lggr.With("requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID)
 }
 
 var (
@@ -80,7 +85,7 @@ var (
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	tc transmission.TransmissionConfig, methodType string, rawRequest []byte) (*ClientRequest, error) {
+	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
 		return nil, errors.New("remote capability info missing DON")
@@ -89,6 +94,19 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 	peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelaysForConfig(remoteCapabilityDonInfo.Members, requestID, tc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
+	}
+
+	// send schedule through beholder for single execution performance tracking
+	err = emitTransmissionScheduleEvent(ctx,
+		tc.Schedule,
+		workflowExecutionID,
+		requestID,
+		remoteCapabilityInfo.ID,
+		stepRef,
+		peerIDToTransmissionDelay,
+	)
+	if err != nil {
+		lggr.Errorw("failed to emit transmission schedule event", "error", err)
 	}
 
 	responseReceived := make(map[p2ptypes.PeerID]bool)
@@ -166,6 +184,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		createdAt:                  time.Now(),
 		requestTimeout:             requestTimeout,
 		requiredIdenticalResponses: int(remoteCapabilityDonInfo.F + 1),
+		remoteNodeCount:            len(remoteCapabilityDonInfo.Members),
 		responseIDCount:            make(map[[32]byte]int),
 		meteringResponses:          make(map[[32]byte][]commoncap.MeteringNodeDetail),
 		errorCount:                 make(map[string]int),
@@ -174,6 +193,51 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		wg:                         &wg,
 		lggr:                       lggr,
 	}, nil
+}
+
+func emitTransmissionScheduleEvent(ctx context.Context, scheduleType, workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration) error {
+	// Create a slice of peer IDs sorted by their delay values
+	type peerDelay struct {
+		peerID p2ptypes.PeerID
+		delay  time.Duration
+	}
+
+	peerDelays := make([]peerDelay, 0, len(peerIDToTransmissionDelay))
+	for peerID, delay := range peerIDToTransmissionDelay {
+		peerDelays = append(peerDelays, peerDelay{peerID, delay})
+	}
+
+	// Sort by delay value
+	sort.Slice(peerDelays, func(i, j int) bool {
+		return peerDelays[i].delay < peerDelays[j].delay
+	})
+
+	// Create map with sorted peers and their delays in milliseconds
+	peerDelaysMap := make(map[string]int64, len(peerDelays))
+	for _, pd := range peerDelays {
+		peerDelaysMap[pd.peerID.String()] = pd.delay.Milliseconds()
+	}
+
+	msg := &events.TransmissionsScheduledEvent{
+		Timestamp:              time.Now().Format(time.RFC3339),
+		ScheduleType:           scheduleType,
+		WorkflowExecutionID:    workflowExecutionID,
+		TransmissionID:         transmissionID,
+		CapabilityID:           capabilityID,
+		StepRef:                stepRef,
+		PeerTransmissionDelays: peerDelaysMap,
+	}
+
+	b, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal TransmissionScheduleEvent: %w", err)
+	}
+
+	// emit transmission schedule event to track which nodes are successful when called to emit
+	return beholder.GetEmitter().Emit(ctx, b,
+		"beholder_data_schema", TransmissionEventSchema, // required
+		"beholder_domain", "platform", // required
+		"beholder_entity", fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)) // required
 }
 
 func (c *ClientRequest) ID() string {
@@ -251,7 +315,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 
 			nodeReports = append(nodeReports, rpt)
 		} else {
-			lggr.Errorw("node metering detail did not contain exactly 1 record", "records", len(metadata.Metering))
+			lggr.Warnw("node metering detail did not contain exactly 1 record", "records", len(metadata.Metering))
 		}
 
 		c.responseIDCount[responseID]++
@@ -272,6 +336,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	} else {
 		c.lggr.Debugw("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
 		c.errorCount[msg.ErrorMsg]++
+		c.totalErrorCount++
 
 		if len(c.errorCount) > 1 {
 			c.lggr.Warn("received multiple different errors for the same request, number of different errors received: %d", len(c.errorCount))
@@ -279,6 +344,8 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
 			c.sendResponse(clientResponse{Err: fmt.Errorf("%s : %s", msg.Error, msg.ErrorMsg)})
+		} else if c.totalErrorCount == c.remoteNodeCount-c.requiredIdenticalResponses+1 {
+			c.sendResponse(clientResponse{Err: fmt.Errorf("received %d errors, last error %s : %s", c.totalErrorCount, msg.Error, msg.ErrorMsg)})
 		}
 	}
 	return nil

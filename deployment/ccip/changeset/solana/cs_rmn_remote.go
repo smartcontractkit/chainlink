@@ -17,6 +17,12 @@ import (
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
+// use this changeset to apply a curse on a remote chain
+var _ deployment.ChangeSet[CurseConfig] = ApplyCurse
+
+// use this changeset to remove a curse on a remote chain
+var _ deployment.ChangeSet[CurseConfig] = RemoveCurse
+
 var (
 	GlobalCurse = solRmnRemote.CurseSubject{
 		Value: [16]uint8{0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01},

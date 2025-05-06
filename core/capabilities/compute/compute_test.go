@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jonboulle/clockwork"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -29,9 +32,8 @@ import (
 )
 
 const (
-	fetchBinaryLocation = "test/fetch/cmd/testmodule.wasm"
-	fetchBinaryCmd      = "core/capabilities/compute/test/fetch/cmd"
-	validRequestUUID    = "d2fe6db9-beb4-47c9-b2d6-d3065ace111e"
+	fetchBinaryCmd   = "core/capabilities/compute/test/fetch/cmd"
+	validRequestUUID = "d2fe6db9-beb4-47c9-b2d6-d3065ace111e"
 )
 
 var defaultConfig = Config{
@@ -99,7 +101,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 	th := setup(t, defaultConfig)
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"binary": binary,
@@ -142,7 +144,7 @@ func TestComputeExecute(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -188,6 +190,8 @@ func TestComputeExecute(t *testing.T) {
 	resp, err = th.compute.Execute(t.Context(), req)
 	require.NoError(t, err)
 	assert.False(t, resp.Value.Underlying["Value"].(*values.Bool).Underlying)
+	assert.Equal(t, metering.ComputeUnit.Name, resp.Metadata.Metering[0].SpendUnit)
+	assert.Equal(t, "0", resp.Metadata.Metering[0].SpendValue)
 }
 
 func TestComputeFetch(t *testing.T) {
@@ -207,13 +211,17 @@ func TestComputeFetch(t *testing.T) {
 	}, "/")
 
 	gatewayResp := gatewayResponse(t, msgID, []byte("response body"))
-	th.connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-		th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
-	}).Once()
+	th.connector.EXPECT().
+		SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).
+		Return(nil).
+		Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
+			th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+		}).
+		Once()
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -249,13 +257,90 @@ func TestComputeFetch(t *testing.T) {
 			},
 		},
 		Metadata: cappkg.ResponseMetadata{
-			Metering: []cappkg.MeteringNodeDetail{},
+			Metering: []cappkg.MeteringNodeDetail{
+				{
+					Peer2PeerID: "",
+					SpendUnit:   metering.ComputeUnit.Name,
+					SpendValue:  "0",
+				},
+			},
 		},
 	}
 
 	actual, err := th.compute.Execute(t.Context(), req)
 	require.NoError(t, err)
 	assert.EqualValues(t, expected, actual)
+}
+
+func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		time               time.Duration
+		expectedSpendValue string
+	}{
+		{time.Duration(0), "0"},
+		{time.Second, "1"},
+		{2 * time.Second, "2"},
+		{2500 * time.Millisecond, "3"},
+		{3 * time.Second, "3"},
+	}
+
+	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
+	workflowExecutionID := "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
+	msgID := strings.Join([]string{
+		workflowExecutionID,
+		ghcapabilities.MethodComputeAction,
+		validRequestUUID,
+	}, "/")
+	gatewayResp := gatewayResponse(t, msgID, []byte("response body"))
+	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
+
+	config, err := values.WrapMap(map[string]any{
+		"config": []byte(""),
+		"binary": binary,
+	})
+	require.NoError(t, err)
+
+	req := cappkg.CapabilityRequest{
+		Config: config,
+		Metadata: cappkg.RequestMetadata{
+			WorkflowID:          workflowID,
+			WorkflowExecutionID: workflowExecutionID,
+			ReferenceID:         "compute",
+		},
+	}
+
+	for idx := range tests {
+		test := tests[idx]
+
+		t.Run(test.time.String(), func(t *testing.T) {
+			t.Parallel()
+
+			th := setup(t, defaultConfig)
+
+			th.connector.EXPECT().DonID().Return("don-id")
+			th.connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
+			th.connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+
+			th.connector.EXPECT().
+				SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).
+				Return(nil).
+				Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
+					th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+				}).
+				Once().
+				After(test.time)
+
+			require.NoError(t, th.compute.Start(t.Context()))
+
+			response, err := th.compute.Execute(t.Context(), req)
+			require.NoError(t, err)
+
+			require.Len(t, response.Metadata.Metering, 1)
+			assert.Equal(t, test.expectedSpendValue, response.Metadata.Metering[0].SpendValue)
+		})
+	}
 }
 
 func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
@@ -292,7 +377,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),

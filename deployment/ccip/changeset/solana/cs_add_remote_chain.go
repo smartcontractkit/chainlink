@@ -22,6 +22,11 @@ import (
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
+// use these three changesets to add a remote chain to solana
+var _ deployment.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
+var _ deployment.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
+var _ deployment.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
+
 type AddRemoteChainToRouterConfig struct {
 	ChainSelector uint64
 	// UpdatesByChain is a mapping of SVM chain selector -> remote chain selector -> remote chain config update
@@ -32,6 +37,10 @@ type AddRemoteChainToRouterConfig struct {
 }
 
 type RouterConfig struct {
+	// if enabling AllowedSender -> it needs to be a complete list
+	// onchain just clones what we pass in
+	// and tooling does not handle upserts
+	// so you have to clone what is in state, edit the list, and then pass into this changeset
 	RouterDestinationConfig solRouter.DestChainConfig
 	// We have different instructions for add vs update, so we need to know which one to use
 	IsUpdate bool
@@ -123,7 +132,6 @@ func doAddRemoteChainToRouter(
 	cfg AddRemoteChainToRouterConfig,
 	ab deployment.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
-	ixns := make([]solana.Instruction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
 	chain := e.SolChains[chainSel]
@@ -131,7 +139,19 @@ func doAddRemoteChainToRouter(
 	offRampID := s.SolChains[chainSel].OffRamp
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
 	lookUpTableEntries := make([]solana.PublicKey, 0)
+	// router setup
+	solRouter.SetProgramID(ccipRouterID)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.Router,
+		solana.PublicKey{})
+	if err != nil {
+		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
 	for remoteChainSel, update := range updates {
+		ixns := make([]solana.Instruction, 0)
 		// verified while loading state
 		routerRemoteStatePDA, _ := solState.FindDestChainStatePDA(remoteChainSel, ccipRouterID)
 		allowedOffRampRemotePDA, _ := solState.FindAllowedOfframpPDA(remoteChainSel, offRampID, ccipRouterID)
@@ -142,21 +162,12 @@ func doAddRemoteChainToRouter(
 			)
 		}
 
-		// router setup
-		solRouter.SetProgramID(ccipRouterID)
 		var routerIx solana.Instruction
-		authority, err := GetAuthorityForIxn(
-			&e,
-			chain,
-			cfg.MCMSSolana,
-			ccipChangeset.Router,
-			solana.PublicKey{})
-		if err != nil {
-			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
-		}
 		if update.IsUpdate {
 			routerIx, err = solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
+				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
+				// right now, the user will have to send the final version of the config.
 				update.RouterDestinationConfig,
 				routerRemoteStatePDA,
 				routerConfigPDA,
@@ -334,7 +345,6 @@ func doAddRemoteChainToFeeQuoter(
 	cfg AddRemoteChainToFeeQuoterConfig,
 	ab deployment.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
-	ixns := make([]solana.Instruction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
 	chain := e.SolChains[chainSel]
@@ -342,8 +352,19 @@ func doAddRemoteChainToFeeQuoter(
 	offRampID := s.SolChains[chainSel].OffRamp
 	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-
+	// fee quoter setup
+	solFeeQuoter.SetProgramID(feeQuoterID)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.FeeQuoter,
+		solana.PublicKey{})
+	if err != nil {
+		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
 	for remoteChainSel, update := range updates {
+		ixns := make([]solana.Instruction, 0)
 		// verified while loading state
 		fqRemoteChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
 		if !update.IsUpdate {
@@ -352,21 +373,12 @@ func doAddRemoteChainToFeeQuoter(
 			)
 		}
 
-		// fee quoter setup
-		solFeeQuoter.SetProgramID(feeQuoterID)
-		authority, err := GetAuthorityForIxn(
-			&e,
-			chain,
-			cfg.MCMSSolana,
-			ccipChangeset.FeeQuoter,
-			solana.PublicKey{})
-		if err != nil {
-			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
-		}
 		var feeQuoterIx solana.Instruction
 		if update.IsUpdate {
 			feeQuoterIx, err = solFeeQuoter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
+				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
+				// right now, the user will have to send the final version of the config.
 				update.FeeQuoterDestinationConfig,
 				s.SolChains[chainSel].FeeQuoterConfigPDA,
 				fqRemoteChainPDA,
@@ -511,15 +523,25 @@ func doAddRemoteChainToSolana(
 	cfg AddRemoteChainToOffRampConfig,
 	ab deployment.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
-	ixns := make([]solana.Instruction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
 	chain := e.SolChains[chainSel]
 	offRampID := s.SolChains[chainSel].OffRamp
 	offRampUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.OffRampOwnedByTimelock
 	lookUpTableEntries := make([]solana.PublicKey, 0)
+	solOffRamp.SetProgramID(offRampID)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.OffRamp,
+		solana.PublicKey{})
+	if err != nil {
+		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
 
 	for remoteChainSel, update := range updates {
+		ixns := make([]solana.Instruction, 0)
 		// verified while loading state
 		offRampRemoteStatePDA, _, _ := solState.FindOfframpSourceChainPDA(remoteChainSel, offRampID)
 		if !update.IsUpdate {
@@ -533,17 +555,8 @@ func doAddRemoteChainToSolana(
 		if err != nil {
 			return txns, fmt.Errorf("failed to get source chain config: %w", err)
 		}
-		authority, err := GetAuthorityForIxn(
-			&e,
-			chain,
-			cfg.MCMSSolana,
-			ccipChangeset.OffRamp,
-			solana.PublicKey{})
-		if err != nil {
-			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
-		}
+
 		var offRampIx solana.Instruction
-		solOffRamp.SetProgramID(offRampID)
 		if update.IsUpdate {
 			offRampIx, err = solOffRamp.NewUpdateSourceChainConfigInstruction(
 				remoteChainSel,
@@ -629,12 +642,36 @@ func extendLookupTable(e deployment.Environment, chain deployment.SolChain, offR
 		return fmt.Errorf("failed to get offramp reference addresses: %w", err)
 	}
 
+	addresses, err := solCommonUtil.GetAddressLookupTable(
+		e.GetContext(),
+		chain.Client,
+		addressLookupTable)
+	if err != nil {
+		return fmt.Errorf("failed to get address lookup table: %w", err)
+	}
+
+	// calculate diff and add new entries
+	seen := make(map[solana.PublicKey]bool)
+	toAdd := make([]solana.PublicKey, 0)
+	for _, entry := range addresses {
+		seen[entry] = true
+	}
+	for _, entry := range lookUpTableEntries {
+		if _, ok := seen[entry]; !ok {
+			toAdd = append(toAdd, entry)
+		}
+	}
+	if len(toAdd) == 0 {
+		e.Logger.Infow("no new entries to add to lookup table")
+		return nil
+	}
+
 	if err := solCommonUtil.ExtendLookupTable(
 		e.GetContext(),
 		chain.Client,
 		addressLookupTable,
 		*chain.DeployerKey,
-		lookUpTableEntries,
+		toAdd,
 	); err != nil {
 		return fmt.Errorf("failed to extend lookup table: %w", err)
 	}

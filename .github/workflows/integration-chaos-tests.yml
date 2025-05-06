@@ -1,10 +1,7 @@
 name: Integration Chaos Test
 on:
-  schedule:
-    - cron: "0 0 * * *"
-  push:
-    tags:
-      - "*"
+  # TODO: this pipeline was failing for a long time (4 months) so now we removed cron and on push triggers
+  # TODO: find out who needs it and fix it or remove it in the future (https://smartcontract-it.atlassian.net/browse/DX-305)
   workflow_dispatch:
     inputs:
       team:

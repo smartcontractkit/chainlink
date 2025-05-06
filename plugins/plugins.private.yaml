@@ -1,0 +1,32 @@
+# This file defines private plugins to be installed via `loopinstall`.
+
+# Common plugin configuration
+defaults:
+  # The `-s` flag is added to strip debug information from the binary to reduce
+  # the binary size for releases.
+  # See: `go tool link -help`
+  goflags: "-ldflags=-s"
+
+plugins:
+  aptos:
+    - moduleURI: "github.com/smartcontractkit/chainlink-internal-integrations/aptos/relayer"
+      gitRef: "2.21.0-beta16-aptos"
+      installPath: "github.com/smartcontractkit/chainlink-internal-integrations/aptos/relayer/cmd/chainlink-aptos"
+  cron:
+    - moduleURI: "github.com/smartcontractkit/capabilities/cron"
+      gitRef: "6bb81bba0e44efbca20a1ba7a3d2fb4a4be575d5"
+      installPath: "github.com/smartcontractkit/capabilities/cron"
+  kvstore:
+    - enabled: false
+      moduleURI: "github.com/smartcontractkit/capabilities/kvstore"
+      gitRef: "6bb81bba0e44efbca20a1ba7a3d2fb4a4be575d5"
+      installPath: "github.com/smartcontractkit/capabilities/kvstore"
+  readcontract:
+    - moduleURI: "github.com/smartcontractkit/capabilities/readcontract"
+      gitRef: "6bb81bba0e44efbca20a1ba7a3d2fb4a4be575d5"
+      installPath: "github.com/smartcontractkit/capabilities/readcontract"
+  workflowevent:
+    - enabled: false
+      moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
+      gitRef: "6bb81bba0e44efbca20a1ba7a3d2fb4a4be575d5"
+      installPath: "github.com/smartcontractkit/capabilities/workflowevent"

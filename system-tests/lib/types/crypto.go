@@ -6,12 +6,11 @@ type EVMKeys struct {
 	EncryptedJSONs  [][]byte
 	PublicAddresses []common.Address
 	Password        string
-	ChainIDs        []int
+	ChainID         int
 }
 
 type P2PKeys struct {
 	EncryptedJSONs [][]byte
 	PeerIDs        []string
-	PublicHexKeys  []string
 	Password       string
 }

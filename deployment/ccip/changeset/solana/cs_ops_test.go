@@ -6,12 +6,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	tutils "github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
@@ -58,9 +59,9 @@ func TestGenericOps(t *testing.T) {
 				}
 			}
 
-			e, err := commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err := commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetDefaultCodeVersion),
+					cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetDefaultCodeVersion),
 					ccipChangesetSolana.SetDefaultCodeVersionConfig{
 						ChainSelector: solChain,
 						VersionEnum:   1,
@@ -68,7 +69,7 @@ func TestGenericOps(t *testing.T) {
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpdateEnableManualExecutionAfter),
+					cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpdateEnableManualExecutionAfter),
 					ccipChangesetSolana.UpdateEnableManualExecutionAfterConfig{
 						ChainSelector:         solChain,
 						EnableManualExecution: 1,
@@ -76,7 +77,7 @@ func TestGenericOps(t *testing.T) {
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpdateSvmChainSelector),
+					cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpdateSvmChainSelector),
 					ccipChangesetSolana.UpdateSvmChainSelectorConfig{
 						OldChainSelector: solChain,
 						NewChainSelector: solChain + 1,

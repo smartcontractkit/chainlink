@@ -21,6 +21,7 @@ import (
 
 	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 
@@ -28,6 +29,7 @@ import (
 	keystonenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
 
+// deprecated, use ComputeCapabilityFactoryFn, OCR3CapabilityFactoryFn, CronCapabilityFactoryFn instead
 var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 
@@ -68,10 +70,11 @@ var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DO
 	return capabilities
 }
 
+// deprecated, use capabilities.webapi.WebAPICapabilityFactoryFn instead
 var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-	if flags.HasFlag(donFlags, types.LogTriggerCapability) {
+	if flags.HasFlag(donFlags, types.WebAPITriggerCapability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "web-api-trigger",
@@ -97,6 +100,7 @@ var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DON
 	return capabilities
 }
 
+// deprecated, use capabilities.chainwriter.ChainWriterCapabilityFactory instead
 var ChainWriterCapabilityFactory = func(chainID uint64) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
@@ -120,6 +124,7 @@ var ChainWriterCapabilityFactory = func(chainID uint64) func(donFlags []string) 
 	}
 }
 
+// deprecated, use capabilities.chainreader.ChainReaderCapabilityFactory instead
 var ChainReaderCapabilityFactory = func(chainID uint64, chainFamily string) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
@@ -198,10 +203,20 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 			Nodes: donPeerIDs,
 		}
 
+		forwarderF := (len(workerNodes) - 1) / 3
+
+		if forwarderF == 0 {
+			if flags.HasFlag(donMetadata.Flags, types.OCR3Capability) {
+				return fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) = 0", len(workerNodes))
+			}
+			// for other capabilities, we can use 1 as F
+			forwarderF = 1
+		}
+
 		donName := donMetadata.Name + "-don"
 		donCapabilities = append(donCapabilities, keystone_changeset.DonCapabilities{
 			Name:         donName,
-			F:            1,
+			F:            libc.MustSafeUint8(forwarderF),
 			Nops:         []keystone_changeset.NOP{nop},
 			Capabilities: capabilities,
 		})
@@ -267,171 +282,77 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 	return nil
 }
 
-func DeployKeystone(testLogger zerolog.Logger, input *types.KeystoneContractsInput) (*types.KeystoneContractsOutput, error) {
-	if input == nil {
-		return nil, errors.New("input is nil")
-	}
+// values supplied by Alexandr Yepishev as the expected values for OCR3 config
+func DefaultOCR3Config(topology *types.Topology) (*keystone_changeset.OracleConfig, error) {
+	var transmissionSchedule []int
 
-	if input.Out != nil && input.Out.UseCache {
-		return input.Out, nil
-	}
+	for _, metaDon := range topology.DonsMetadata {
+		if flags.HasFlag(metaDon.Flags, types.OCR3Capability) {
+			workerNodes, workerNodesErr := node.FindManyWithLabel(metaDon.NodesMetadata, &types.Label{
+				Key:   node.NodeTypeKey,
+				Value: types.WorkerNode,
+			}, node.EqualLabels)
 
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
+			if workerNodesErr != nil {
+				return nil, errors.Wrap(workerNodesErr, "failed to find worker nodes")
+			}
 
-	var err error
-	forwarderAddress, err := DeployKeystoneForwarder(testLogger, input.CldEnv, input.ChainSelector)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deploy Keystone Forwarder contract")
-	}
-	oCR3CapabilityAddress, err := DeployOCR3(testLogger, input.CldEnv, input.ChainSelector)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deploy OCR3 contract")
-	}
-	capabilitiesRegistryAddress, err := DeployCapabilitiesRegistry(testLogger, input.CldEnv, input.ChainSelector)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deploy Capabilities Registry contract")
-	}
-	workflowRegistryAddress, err := DeployWorkflowRegistry(testLogger, input.CldEnv, input.ChainSelector)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deploy Workflow Registry contract")
-	}
-
-	out := &types.KeystoneContractsOutput{
-		ForwarderAddress:            forwarderAddress,
-		OCR3CapabilityAddress:       oCR3CapabilityAddress,
-		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
-		WorkflowRegistryAddress:     workflowRegistryAddress,
-	}
-
-	input.Out = out
-	return out, nil
-}
-
-func DeployOCR3(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) (common.Address, error) {
-	output, err := keystone_changeset.DeployOCR3(*ctfEnv, chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to deploy OCR3 contract")
-	}
-
-	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to merge address book")
-	}
-
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
-	}
-
-	var ocr3capabilityAddr common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "OCR3Capability") {
-			ocr3capabilityAddr = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed OCR3Capability contract at %s", ocr3capabilityAddr.Hex())
+			// this schedule makes sure that all worker nodes are transmitting OCR3 reports
+			transmissionSchedule = []int{len(workerNodes)}
 			break
 		}
 	}
-	if ocr3capabilityAddr == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find OCR3Capability address in the address book")
+
+	if len(transmissionSchedule) == 0 {
+		return nil, errors.New("no OCR3-capable DON found in the topology")
 	}
 
-	return ocr3capabilityAddr, nil
+	oracleConfig := &keystone_changeset.OracleConfig{
+		DeltaProgressMillis:               5000,
+		DeltaResendMillis:                 5000,
+		DeltaInitialMillis:                5000,
+		DeltaRoundMillis:                  2000,
+		DeltaGraceMillis:                  500,
+		DeltaCertifiedCommitRequestMillis: 1000,
+		DeltaStageMillis:                  30000,
+		MaxRoundsPerEpoch:                 10,
+		TransmissionSchedule:              transmissionSchedule,
+		MaxDurationQueryMillis:            1000,
+		MaxDurationObservationMillis:      1000,
+		MaxDurationShouldAcceptMillis:     1000,
+		MaxDurationShouldTransmitMillis:   1000,
+		MaxFaultyOracles:                  1,
+		MaxQueryLengthBytes:               1000000,
+		MaxObservationLengthBytes:         1000000,
+		MaxReportLengthBytes:              1000000,
+		MaxBatchSize:                      1000,
+		UniqueReports:                     true,
+	}
+
+	return oracleConfig, nil
 }
 
-func DeployCapabilitiesRegistry(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) (common.Address, error) {
-	output, err := keystone_changeset.DeployCapabilityRegistry(*ctfEnv, chainSelector)
+func FindAddressesForChain(addressBook deployment.AddressBook, chainSelector uint64, contractName string) (common.Address, error) {
+	addresses, err := addressBook.AddressesForChain(chainSelector)
 	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to deploy Capabilities Registry contract")
+		return common.Address{}, errors.Wrap(err, "failed to get addresses for chain")
 	}
 
-	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to merge address book")
-	}
-
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
-	}
-
-	var capabilitiesRegistryAddr common.Address
 	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "CapabilitiesRegistry") {
-			capabilitiesRegistryAddr = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed Capabilities Registry contract at %s", capabilitiesRegistryAddr.Hex())
-			break
+		if strings.Contains(tv.String(), contractName) {
+			return common.HexToAddress(addrStr), nil
 		}
 	}
-	if capabilitiesRegistryAddr == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find Capabilities Registry address in the address book")
-	}
 
-	return capabilitiesRegistryAddr, nil
+	return common.Address{}, fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector)
 }
 
-func DeployKeystoneForwarder(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) (common.Address, error) {
-	output, err := keystone_changeset.DeployForwarder(*ctfEnv, keystone_changeset.DeployForwarderRequest{
-		ChainSelectors: []uint64{chainSelector},
-	})
+func MustFindAddressesForChain(addressBook deployment.AddressBook, chainSelector uint64, contractName string) common.Address {
+	addr, err := FindAddressesForChain(addressBook, chainSelector, contractName)
 	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to deploy forwarder contract")
+		panic(fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector))
 	}
-
-	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to merge address book")
-	}
-
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
-	}
-
-	var forwarderAddress common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "KeystoneForwarder") {
-			forwarderAddress = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed KeystoneForwarder contract at %s", forwarderAddress.Hex())
-			break
-		}
-	}
-	if forwarderAddress == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find KeystoneForwarder address in the address book")
-	}
-
-	return forwarderAddress, nil
-}
-
-func DeployWorkflowRegistry(testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) (common.Address, error) {
-	output, err := workflow_registry_changeset.Deploy(*ctfEnv, chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to deploy workflow registry contract")
-	}
-
-	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
-	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to merge address book")
-	}
-
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return common.Address{}, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", chainSelector)
-	}
-
-	var workflowRegistryAddr common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "WorkflowRegistry") {
-			workflowRegistryAddr = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed WorkflowRegistry contract at %s", workflowRegistryAddr.Hex())
-		}
-	}
-	if workflowRegistryAddr == (common.Address{}) {
-		return common.Address{}, errors.New("failed to find WorkflowRegistry address in the address book")
-	}
-
-	return workflowRegistryAddr, nil
+	return addr
 }
 
 func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowRegistryInput) (*types.WorkflowRegistryOutput, error) {
@@ -476,48 +397,6 @@ func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowR
 	}
 
 	input.Out = out
-	return out, nil
-}
-
-func DeployDataFeedsCache(testLogger zerolog.Logger, input *types.DeployDataFeedsCacheInput) (*types.DeployDataFeedsCacheOutput, error) {
-	if input == nil {
-		return nil, errors.New("input is nil")
-	}
-
-	if input.Out != nil && input.Out.UseCache {
-		return input.Out, nil
-	}
-
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
-
-	deployConfig := df_changeset_types.DeployConfig{
-		ChainsToDeploy: []uint64{input.ChainSelector},
-		Labels:         []string{"data-feeds"},
-	}
-
-	dfOutput, dfErr := df_changeset.RunChangeset(df_changeset.DeployCacheChangeset, *input.CldEnv, deployConfig)
-	if dfErr != nil {
-		return nil, errors.Wrap(dfErr, "failed to deploy data feed cache contract")
-	}
-
-	mergeErr := input.CldEnv.ExistingAddresses.Merge(dfOutput.AddressBook)
-	if mergeErr != nil {
-		return nil, errors.Wrap(mergeErr, "failed to merge address book")
-	}
-
-	dataFeedsCacheAddress := df_changeset.GetDataFeedsCacheAddress(input.CldEnv.ExistingAddresses, input.ChainSelector, nil)
-
-	if dataFeedsCacheAddress == "" {
-		return nil, errors.New("failed to find FeedConsumer address in the address book")
-	}
-
-	out := &types.DeployDataFeedsCacheOutput{
-		DataFeedsCacheAddress: common.HexToAddress(dataFeedsCacheAddress),
-	}
-	input.Out = out
-
 	return out, nil
 }
 

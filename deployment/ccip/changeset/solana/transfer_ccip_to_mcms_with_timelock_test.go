@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -213,7 +214,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 	require.NoError(t, err)
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 			v1_6.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
@@ -225,11 +226,11 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
 			selectors,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(solanachangesets.DeployChainContractsChangeset),
+			cldf.CreateLegacyChangeSet(solanachangesets.DeployChainContractsChangeset),
 			solanachangesets.DeployChainContractsConfig{
 				HomeChainSelector: homeChainSel,
 				ChainSelector:     solChain1,
@@ -244,7 +245,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
+			cldf.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
 			solanachangesets.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: changeset.SPL2022Tokens,
@@ -252,7 +253,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
+			cldf.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
 			solanachangesets.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: changeset.SPL2022Tokens,
@@ -260,7 +261,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			map[uint64]commontypes.MCMSWithTimelockConfigV2{
 				solChain1: {
 					Canceller:        proposalutils.SingleGroupMCMSV2(t),
@@ -282,18 +283,18 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(solanachangesets.AddTokenPool),
+			cldf.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
 			solanachangesets.TokenPoolConfig{
 				ChainSelector: solChain1,
-				TokenPubKey:   tokenAddressLockRelease.String(),
+				TokenPubKey:   tokenAddressLockRelease,
 				PoolType:      test_token_pool.LockAndRelease_PoolType,
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(solanachangesets.AddTokenPool),
+			cldf.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
 			solanachangesets.TokenPoolConfig{
 				ChainSelector: solChain1,
-				TokenPubKey:   tokenAddressBurnMint.String(),
+				TokenPubKey:   tokenAddressBurnMint,
 				PoolType:      test_token_pool.BurnAndMint_PoolType,
 			},
 		),

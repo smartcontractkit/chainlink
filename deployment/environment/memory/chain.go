@@ -26,7 +26,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
-	"github.com/hashicorp/consul/sdk/freeport"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -265,7 +266,11 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	maxRetries := 10
 	var url, wsURL string
 	for i := 0; i < maxRetries; i++ {
-		port := freeport.GetOne(t)
+		// solana requires 2 ports, one for http and one for ws, but only allows one to be specified
+		// the other is +1 of the first one
+		// must reserve 2 to avoid port conflicts in the freeport library with other tests
+		// https://github.com/smartcontractkit/chainlink-testing-framework/blob/e109695d311e6ed42ca3194907571ce6454fae8d/framework/components/blockchain/blockchain.go#L39
+		ports := freeport.GetN(t, 2)
 
 		image := ""
 		if runtime.GOOS == "linux" {
@@ -277,13 +282,14 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 			Type:           "solana",
 			ChainID:        strconv.FormatUint(chainID, 10),
 			PublicKey:      adminKey.PublicKey().String(),
-			Port:           strconv.Itoa(port),
+			Port:           strconv.Itoa(ports[0]),
 			ContractsDir:   ProgramsPath,
 			SolanaPrograms: SolanaProgramIDs,
 		}
 		output, err := blockchain.NewBlockchainNetwork(bcInput)
 		if err != nil {
 			t.Logf("Error creating solana network: %v", err)
+			freeport.Return(ports)
 			time.Sleep(time.Second)
 			maxRetries -= 1
 			continue
@@ -424,7 +430,7 @@ func getSolanaCcipDependencyVersion(gomodPath string) (string, error) {
 	return "", fmt.Errorf("dependency %s not found", dependency)
 }
 
-func getSha() (version string, err error) {
+func GetSha() (version string, err error) {
 	modFilePath, err := getModFilePath()
 	if err != nil {
 		return "", err
@@ -448,7 +454,7 @@ func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr lo
 	const name = "artifacts.tar.gz"
 
 	if sha == "" {
-		version, err := getSha()
+		version, err := GetSha()
 		if err != nil {
 			return err
 		}

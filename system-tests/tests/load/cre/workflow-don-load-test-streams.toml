@@ -1,0 +1,116 @@
+duration = "2h"
+
+[[blockchains]]
+  chain_id = "1337"
+  type = "anvil"
+  docker_cmd_params = ["-b", "5"]
+
+[binaries_config]
+  mock_capability_binary_path = "./amd64_mock"
+
+[jd]
+  image = "job-distributor:0.9.0"
+
+[[mock_capabilities]]
+  name="streams-triggeer"
+  version= "2.0.0"
+  type="trigger"
+  description="streams trigger mock"
+
+[[mock_capabilities]]
+  name="write_ethereum"
+  version= "1.0.0"
+  type="target"
+  description="write trigger mock"
+
+[workflow_load]
+  streams = 1000
+  jobs = 2
+
+[chaos]
+  # chaos mode can be "rpc", "full" or "clean"
+  # no experiments will be run in "clean" mode
+  mode = "clean"
+  # latency that we add to Aptos or EVM node to simulate realistic production scenario
+  # latency works only with mode = "rpc"
+  latency = "200ms"
+  # latency jitter that we add to Aptos or EVM node to simulate realistic production scenario
+  # jitter works only with mode = "rpc"
+  jitter = "200ms"
+  # dashboard to which add annotation when experiments start and end
+  dashboard_uids = [""]
+  # wait before starting chaos tests
+  wait_before_start = "30s"
+  # full chaos experiment interval, time from chaos start to end + recovery
+  experiment_full_interval = "1m"
+  # chaos experiment injection interval - time from chaos start to end
+  experiment_injection_interval = "30s"
+
+
+[infra]
+  type = "crib"
+
+[infra.crib]
+  namespace = "crib-workflow-don-load-test"
+  folder_location = "/Users/ionita/crib/deployments/cre"
+  provider = "aws"
+
+  [infra.crib.team_input]
+    team="cre"
+    product="workflow-don"
+    component="workflow-don"
+    cost_center="capabilities-df-migration-performance-tests"
+
+[[nodesets]]
+nodes = 17
+override_mode = "all"
+http_port_range_start = 10100
+name = "workflow"
+
+[nodesets.db]
+image = "postgres:12.0"
+port = 13000
+volume_name = "workflow_volume"
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "***.dkr.ecr.***.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets]]
+nodes = 5
+override_mode = "all"
+http_port_range_start = 10200
+name = "capabilities"
+
+[nodesets.db]
+image = "postgres:12.0"
+port = 13200
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "***.dkr.ecr.***.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+        FeedsManager = true
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
