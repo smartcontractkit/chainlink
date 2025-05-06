@@ -29,7 +29,7 @@ func (r *Relayer) CallContract(ctx context.Context, msg *evmtypes.CallMsg, confi
 	return r.chain.Client().CallContract(ctx, toEthMsg(msg), blockNumber)
 }
 
-func (r *Relayer) GetLogs(ctx context.Context, filterQuery evmtypes.FilterQuery) ([]*evmtypes.Log, error) {
+func (r *Relayer) FilterLogs(ctx context.Context, filterQuery evmtypes.FilterQuery) ([]*evmtypes.Log, error) {
 	logs, err := r.chain.Client().FilterLogs(ctx, convertEthFilter(filterQuery))
 	if err != nil {
 		return nil, err
