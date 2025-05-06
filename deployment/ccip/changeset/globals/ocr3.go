@@ -66,15 +66,28 @@ var (
 var (
 	// ExecOCRParams represents the default OCR3 parameters for all chains (beside Ethereum, see ExecOCRParamsForEthereum).
 	ExecOCRParams = types.OCRParameters{
-		DeltaProgress:               120 * time.Second,
-		DeltaResend:                 30 * time.Second,
-		DeltaInitial:                20 * time.Second,
-		DeltaRound:                  2 * time.Second,
-		DeltaGrace:                  5 * time.Second,
+		// DeltaProgress is the timeout that is triggered if there is no outcome within the given duration
+		// relative to the previous outcome.
+		DeltaProgress: 60 * time.Second,
+		DeltaResend:   30 * time.Second,
+		// If no message from the leader has been received after the epoch start plus
+		// DeltaInitial, we enter a new epoch. It shouldn't be too long because it can
+		// cause delays when a leader is not responsive.
+		DeltaInitial: 2 * time.Second,
+		DeltaRound:   2 * time.Second,
+		// Rounds driven by correct leaders will always take at least DeltaGrace.
+		// Therefore making it longer than DeltaRound isn't logical.
+		DeltaGrace:                  2 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
 		DeltaStage: 25 * time.Second,
-		Rmax:       3,
+		// Rmax indicates the maximum number of rounds that are handled by a specific leader
+		// before a leader change happens.
+		// Since exec does not rely on the leader to provide information that can influence
+		// the report, we can set a higher value to reduce the impact of frequent leader changes.
+		// Frequent leader changes make it more likely to select a leader that is not responsive,
+		// which can lead to increased latencies.
+		Rmax: 30,
 		// MaxDurationQuery is set to very low value, because Execution plugin doesn't use Query
 		MaxDurationQuery:                        100 * time.Millisecond,
 		MaxDurationObservation:                  13 * time.Second,
