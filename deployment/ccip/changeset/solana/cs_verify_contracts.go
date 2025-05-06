@@ -114,7 +114,7 @@ func runSolanaVerify(networkURL, programID, libraryName, commitHash, mountPath s
 				}
 
 				// Inject your custom file
-				err := os.WriteFile(filepath.Join(injectionPath, "CCIP_BUILD_GIT_HASH"), []byte(commitHash), 0644)
+				err := os.WriteFile(filepath.Join(injectionPath, "CCIP_BUILD_GIT_HASH"), []byte(commitHash), 0600)
 				if err != nil {
 					fmt.Println("Error injecting file:", err)
 				}
