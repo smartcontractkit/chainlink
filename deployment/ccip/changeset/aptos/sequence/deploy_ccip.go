@@ -47,7 +47,7 @@ func deployCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in Deploy
 	deployCCIPInput := operation.DeployCCIPInput{
 		MCMSAddress: in.MCMSAddress,
 	}
-	deployCCIPReport, err := operations.ExecuteOperation(b, operation.GenerateDeployCCIPProposalOp, deps, deployCCIPInput)
+	deployCCIPReport, err := operations.ExecuteOperation(b, operation.DeployCCIPOp, deps, deployCCIPInput)
 	if err != nil {
 		return DeployCCIPSeqOutput{}, err
 	}
@@ -62,21 +62,21 @@ func deployCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in Deploy
 		CCIPAddress: ccipAddress,
 	}
 	// Generate proposal to deploy OnRamp module
-	deployOnRampReport, err := operations.ExecuteOperation(b, operation.GenerateDeployOnRampProposalOp, deps, deployModulesInput)
+	deployOnRampReport, err := operations.ExecuteOperation(b, operation.DeployOnRampOp, deps, deployModulesInput)
 	if err != nil {
 		return DeployCCIPSeqOutput{}, err
 	}
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployOnRampReport.Output)...)
 
 	// Generate proposal to deploy OffRamp module
-	deployOffRampReport, err := operations.ExecuteOperation(b, operation.GenerateDeployOffRampProposalOp, deps, deployModulesInput)
+	deployOffRampReport, err := operations.ExecuteOperation(b, operation.DeployOffRampOp, deps, deployModulesInput)
 	if err != nil {
 		return DeployCCIPSeqOutput{}, err
 	}
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployOffRampReport.Output)...)
 
 	// Generate proposal to deploy Router module
-	deployRouterReport, err := operations.ExecuteOperation(b, operation.GenerateDeployRouterProposalOp, deps, deployModulesInput)
+	deployRouterReport, err := operations.ExecuteOperation(b, operation.DeployRouterOp, deps, deployModulesInput)
 	if err != nil {
 		return DeployCCIPSeqOutput{}, err
 	}

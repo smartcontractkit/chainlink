@@ -35,7 +35,7 @@ func updateCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in config
 			MCMSAddress: deps.OnChainState.MCMSAddress,
 			IsUpdate:    in.UpdateCCIP,
 		}
-		deployCCIPReport, err := operations.ExecuteOperation(b, operation.GenerateDeployCCIPProposalOp, deps, deployCCIPInput)
+		deployCCIPReport, err := operations.ExecuteOperation(b, operation.DeployCCIPOp, deps, deployCCIPInput)
 		if err != nil {
 			return nil, err
 		}
@@ -48,7 +48,7 @@ func updateCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in config
 	}
 
 	if in.UpdateOnRamp {
-		deployOnRampReport, err := operations.ExecuteOperation(b, operation.GenerateDeployOnRampProposalOp, deps, deployModulesInput)
+		deployOnRampReport, err := operations.ExecuteOperation(b, operation.DeployOnRampOp, deps, deployModulesInput)
 		if err != nil {
 			return nil, err
 		}
@@ -56,7 +56,7 @@ func updateCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in config
 	}
 
 	if in.UpdateOffRamp {
-		deployOffRampReport, err := operations.ExecuteOperation(b, operation.GenerateDeployOffRampProposalOp, deps, deployModulesInput)
+		deployOffRampReport, err := operations.ExecuteOperation(b, operation.DeployOffRampOp, deps, deployModulesInput)
 		if err != nil {
 			return nil, err
 		}
@@ -64,7 +64,7 @@ func updateCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in config
 	}
 
 	if in.UpdateRouter {
-		deployRouterReport, err := operations.ExecuteOperation(b, operation.GenerateDeployRouterProposalOp, deps, deployModulesInput)
+		deployRouterReport, err := operations.ExecuteOperation(b, operation.DeployRouterOp, deps, deployModulesInput)
 		if err != nil {
 			return nil, err
 		}

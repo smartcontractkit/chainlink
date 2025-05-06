@@ -80,14 +80,15 @@ type DeployCCIPOutput struct {
 	MCMSOperations []types.Operation
 }
 
-var GenerateDeployCCIPProposalOp = operations.NewOperation(
+// DeployCCIPOp deploys the CCIP package on Aptos chain
+var DeployCCIPOp = operations.NewOperation(
 	"deploy-ccip-op",
 	Version1_0_0,
 	"Deploys CCIP Package for Aptos Chain",
-	generateDeployCCIPProposal,
+	deployCCIP,
 )
 
-func generateDeployCCIPProposal(b operations.Bundle, deps AptosDeps, in DeployCCIPInput) (DeployCCIPOutput, error) {
+func deployCCIP(b operations.Bundle, deps AptosDeps, in DeployCCIPInput) (DeployCCIPOutput, error) {
 	// Validate there's no package deployed
 	if (deps.OnChainState.CCIPAddress == (aptos.AccountAddress{})) == (in.IsUpdate) {
 		if in.IsUpdate {
@@ -155,15 +156,15 @@ type DeployModulesInput struct {
 	CCIPAddress aptos.AccountAddress
 }
 
-// GenerateDeployRouterProposal generates deployment MCMS operations for the Router module
-var GenerateDeployRouterProposalOp = operations.NewOperation(
+// DeployRouterOp generates deployment MCMS operations for the Router module
+var DeployRouterOp = operations.NewOperation(
 	"deploy-router-op",
 	Version1_0_0,
 	"Generates MCMS proposals that deployes Router module on CCIP package",
-	getDeployRouterMCMSOperations,
+	deployRouter,
 )
 
-func getDeployRouterMCMSOperations(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]types.Operation, error) {
+func deployRouter(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]types.Operation, error) {
 	// TODO: is there a way to check if module exists?
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	// Compile Package
@@ -180,14 +181,15 @@ func getDeployRouterMCMSOperations(b operations.Bundle, deps AptosDeps, in Deplo
 	return operations, nil
 }
 
-var GenerateDeployOffRampProposalOp = operations.NewOperation(
+// DeployOffRampOp generates deployment MCMS operations for the OffRamp module
+var DeployOffRampOp = operations.NewOperation(
 	"deploy-offramp-op",
 	Version1_0_0,
 	"Generates MCMS proposals that deployes OffRamp module on CCIP package",
-	getDeployOffRampMCMSOperations,
+	deployOffRamp,
 )
 
-func getDeployOffRampMCMSOperations(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]types.Operation, error) {
+func deployOffRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]types.Operation, error) {
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	// Compile Package
 	payload, err := ccip_offramp.Compile(in.CCIPAddress, mcmsContract.Address(), true)
@@ -202,14 +204,15 @@ func getDeployOffRampMCMSOperations(b operations.Bundle, deps AptosDeps, in Depl
 	return operations, nil
 }
 
-var GenerateDeployOnRampProposalOp = operations.NewOperation(
+// DeployOnRampOp generates MCMS proposals for the OnRamp module deployment
+var DeployOnRampOp = operations.NewOperation(
 	"deploy-onramp-op",
 	Version1_0_0,
 	"Generates MCMS proposals that deployes OnRamp module on CCIP package",
-	getDeployOnRampMCMSOperations,
+	deployOnRamp,
 )
 
-func getDeployOnRampMCMSOperations(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]types.Operation, error) {
+func deployOnRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]types.Operation, error) {
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	// Compile Package
 	payload, err := ccip_onramp.Compile(in.CCIPAddress, mcmsContract.Address(), true)
@@ -235,10 +238,10 @@ var InitializeCCIPOp = operations.NewOperation(
 	"initialize-ccip-op",
 	Version1_0_0,
 	"Initializes CCIP components with configuration parameters",
-	generateInitializeCCIPProposal,
+	initializeCCIP,
 )
 
-func generateInitializeCCIPProposal(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput) (types.BatchOperation, error) {
+func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput) (types.BatchOperation, error) {
 	var txs []types.Transaction
 
 	// Config OnRamp with empty lane configs. We're only able to get router address after deploying the router module

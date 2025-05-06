@@ -69,7 +69,7 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 		return DeployMCMSSeqOutput{}, err
 	}
 	// Generate proposal to accept ownership
-	gaopReport, err := operations.ExecuteOperation(b, operation.GenerateAcceptOwnershipProposalOp, deps, deployMCMSReport.Output)
+	gaopReport, err := operations.ExecuteOperation(b, operation.AcceptOwnershipOp, deps, deployMCMSReport.Output)
 	if err != nil {
 		return DeployMCMSSeqOutput{}, err
 	}

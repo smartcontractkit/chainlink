@@ -83,14 +83,14 @@ func transferOwnershipToSelf(b operations.Bundle, deps AptosDeps, mcmsAddress ap
 	return nil, nil
 }
 
-var GenerateAcceptOwnershipProposalOp = operations.NewOperation(
+var AcceptOwnershipOp = operations.NewOperation(
 	"generate-accept-ownership-proposal-op",
 	Version1_0_0,
 	"Generate Accept Ownership Proposal for MCMS Contract",
-	generateAcceptOwnershipProposal,
+	acceptOwnership,
 )
 
-func generateAcceptOwnershipProposal(b operations.Bundle, deps AptosDeps, mcmsAddress aptos.AccountAddress) (mcmstypes.BatchOperation, error) {
+func acceptOwnership(b operations.Bundle, deps AptosDeps, mcmsAddress aptos.AccountAddress) (mcmstypes.BatchOperation, error) {
 	contractMCMS := mcmsbind.Bind(mcmsAddress, deps.AptosChain.Client)
 	moduleInfo, function, _, args, err := contractMCMS.MCMSAccount().Encoder().AcceptOwnership()
 	if err != nil {
