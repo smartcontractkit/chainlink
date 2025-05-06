@@ -40,6 +40,7 @@ flowchart LR
 	click chainlink-common/pkg/monitoring href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
+	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
 	chainlink-evm --> chainlink-protos/svr
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
@@ -105,6 +106,7 @@ flowchart LR
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
 	subgraph chainlink-framework-repo[chainlink-framework]
+		 chainlink-framework/capabilities
 		 chainlink-framework/chains
 		 chainlink-framework/metrics
 		 chainlink-framework/multinode
@@ -298,6 +300,7 @@ flowchart LR
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
 	subgraph chainlink-framework-repo[chainlink-framework]
+		 chainlink-framework/capabilities
 		 chainlink-framework/chains
 		 chainlink-framework/metrics
 		 chainlink-framework/multinode
