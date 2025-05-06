@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -143,7 +144,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 				var err error
 				e, err = commoncs.Apply(t, e, nil,
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+						cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 						v1_5_1.ConfigureTokenPoolContractsConfig{
 							PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
 								selectors[0]: {
@@ -217,7 +218,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				// Transfer ownership of token pools to timelock
 				e, err = commoncs.Apply(t, e, timelockContracts,
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: timelockOwnedContractsByChain,
 							MCMSConfig:       *mcmsConfig,
@@ -229,7 +230,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 
 			e, err = commoncs.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+					cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 					v1_5_1.ConfigureTokenPoolContractsConfig{
 						MCMS: mcmsConfig,
 						PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
@@ -256,7 +257,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 
 			e, err = commoncs.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_5_1.SyncUSDCDomainsWithChainsChangeset),
+					cldf.CreateLegacyChangeSet(v1_5_1.SyncUSDCDomainsWithChainsChangeset),
 					v1_5_1.SyncUSDCDomainsWithChainsConfig{
 						MCMS: mcmsConfig,
 						USDCVersionByChain: map[uint64]semver.Version{

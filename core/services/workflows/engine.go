@@ -8,45 +8,38 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	billing "github.com/smartcontractkit/chainlink-common/pkg/billing/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	meteringpb "github.com/smartcontractkit/chainlink-common/pkg/metering/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	workflowpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/events/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const (
 	fifteenMinutesSec            = 15 * 60
 	reservedFieldNameStepTimeout = "cre_step_timeout"
 	maxStepTimeoutOverrideSec    = 10 * 60 // 10 minutes
-)
-
-var (
-	errGlobalWorkflowCountLimitReached   = errors.New("global workflow count limit reached")
-	errPerOwnerWorkflowCountLimitReached = errors.New("per owner workflow count limit reached")
 )
 
 type stepRequest struct {
@@ -122,7 +115,7 @@ type Engine struct {
 	workflow             *workflow
 	secretsFetcher       SecretsFor
 	env                  exec.Env
-	localNode            capabilities.Node
+	localNode            atomic.Pointer[capabilities.Node]
 	executionsStore      store.Store
 	pendingStepRequests  chan stepRequest
 	triggerEvents        chan capabilities.TriggerResponse
@@ -167,14 +160,14 @@ func (e *Engine) Start(_ context.Context) error {
 		ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
 		if !globalAllow {
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitGlobalCounter(ctx)
-			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errGlobalWorkflowCountLimitReached.Error(), e.logger)
-			return errGlobalWorkflowCountLimitReached
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), types.ErrGlobalWorkflowCountLimitReached.Error(), e.logger)
+			return types.ErrGlobalWorkflowCountLimitReached
 		}
 
 		if !ownerAllow {
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitPerOwnerCounter(ctx)
-			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errPerOwnerWorkflowCountLimitReached.Error(), e.logger)
-			return errPerOwnerWorkflowCountLimitReached
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), types.ErrPerOwnerWorkflowCountLimitReached.Error(), e.logger)
+			return types.ErrPerOwnerWorkflowCountLimitReached
 		}
 
 		e.metrics.incrementWorkflowInitializationCounter(ctx)
@@ -299,7 +292,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		cp = transmission.NewLocalTargetCapability(
 			e.logger,
 			step.ID,
-			e.localNode,
+			*e.localNode.Load(),
 			cp.(capabilities.TargetCapability),
 		)
 	}
@@ -352,7 +345,7 @@ func (e *Engine) init(ctx context.Context) {
 		if err != nil {
 			return fmt.Errorf("failed to get donInfo: %w", err)
 		}
-		e.localNode = node
+		e.localNode.Store(&node)
 
 		err = e.resolveWorkflowCapabilities(ctx)
 		if err != nil {
@@ -395,6 +388,9 @@ func generateTriggerID(workflowID string, triggerIdx int) string {
 
 // registerTrigger is used during the initialization phase to bind a trigger to this workflow
 func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	triggerID := generateTriggerID(e.workflow.id, triggerIdx)
 
 	tc, err := values.NewMap(t.Config)
@@ -402,19 +398,20 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 		return err
 	}
 
-	t.config.Store(tc)
+	t.config = tc
 
+	ln := e.localNode.Load()
 	triggerRegRequest := capabilities.TriggerRegistrationRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
 			WorkflowOwner:            e.workflow.owner,
 			WorkflowName:             e.workflow.name.Hex(),
-			WorkflowDonID:            e.localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
+			WorkflowDonID:            ln.WorkflowDON.ID,
+			WorkflowDonConfigVersion: ln.WorkflowDON.ConfigVersion,
 			ReferenceID:              t.Ref,
 			DecodedWorkflowName:      e.workflow.name.String(),
 		},
-		Config:    t.config.Load(),
+		Config:    t.config,
 		TriggerID: triggerID,
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
@@ -516,7 +513,7 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
 	e.meterReports.Add(executionID, NewMeteringReport())
 
-	err := emitExecutionStartedEvent(ctx, e.cma, triggerID, executionID)
+	err := events.EmitExecutionStartedEvent(ctx, e.cma, triggerID, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution started event: %+v", err)
 	}
@@ -668,7 +665,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 	report, exists := e.meterReports.Get(executionID)
 	if exists {
 		// send metering report to beholder
-		if err = emitMeteringReport(ctx, cma, report); err != nil {
+		if err = events.EmitMeteringReport(ctx, cma, report.Message()); err != nil {
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).incrementWorkflowMissingMeteringReport(ctx)
 			l.Warn(fmt.Sprintf("metering report send to beholder error %s", err))
 		}
@@ -705,7 +702,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 
 	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d (seconds)", executionDuration), l)
 	l.Infof("execution duration: %d (seconds)", executionDuration)
-	err = emitExecutionFinishedEvent(ctx, cma, status, executionID)
+	err = events.EmitExecutionFinishedEvent(ctx, cma, status, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution finished event: %+v", err)
 	}
@@ -733,6 +730,7 @@ func (e *Engine) worker(ctx context.Context) {
 
 			if resp.Err != nil {
 				e.logger.Errorf("trigger event was an error %v; not executing", resp.Err)
+				logCustMsg(ctx, e.cma, fmt.Sprintf("failed to resolve trigger: %s", resp.Err), e.logger)
 				continue
 			}
 
@@ -954,7 +952,7 @@ func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *st
 	if !step.info.IsLocal {
 		donID = step.info.DON.ID
 	} else {
-		donID = e.localNode.WorkflowDON.ID
+		donID = e.localNode.Load().WorkflowDON.ID
 	}
 
 	capConfig, err := e.registry.ConfigForCapability(ctx, ID, donID)
@@ -1016,6 +1014,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 		}
 	}
 
+	ln := e.localNode.Load()
 	tr := capabilities.CapabilityRequest{
 		Inputs: inputsMap,
 		Config: config,
@@ -1024,8 +1023,8 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 			WorkflowExecutionID:      msg.state.ExecutionID,
 			WorkflowOwner:            e.workflow.owner,
 			WorkflowName:             e.workflow.name.Hex(),
-			WorkflowDonID:            e.localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
+			WorkflowDonID:            ln.WorkflowDON.ID,
+			WorkflowDonConfigVersion: ln.WorkflowDON.ConfigVersion,
 			ReferenceID:              msg.stepRef,
 			DecodedWorkflowName:      e.workflow.name.String(),
 		},
@@ -1035,7 +1034,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	defer cancel()
 
 	e.metrics.with(platform.KeyCapabilityID, curStep.ID).incrementCapabilityInvocationCounter(ctx)
-	err = emitCapabilityStartedEvent(ctx, e.cma, curStep.ID, msg.stepRef)
+	err = events.EmitCapabilityStartedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef)
 	if err != nil {
 		e.logger.Errorf("failed to emit capability event: %v", err)
 	}
@@ -1050,7 +1049,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	}
 
 	defer func() {
-		if err := emitCapabilityFinishedEvent(ctx, e.cma, curStep.ID, msg.stepRef, status); err != nil {
+		if err := events.EmitCapabilityFinishedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef, status); err != nil {
 			e.logger.Errorf("failed to emit capability event: %v", err)
 		}
 	}()
@@ -1064,24 +1063,27 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
-	deregRequest := capabilities.TriggerRegistrationRequest{
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:               e.workflow.id,
-			WorkflowDonID:            e.localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
-			WorkflowName:             e.workflow.name.Hex(),
-			WorkflowOwner:            e.workflow.owner,
-			ReferenceID:              t.Ref,
-			DecodedWorkflowName:      e.workflow.name.String(),
-		},
-		TriggerID: generateTriggerID(e.workflow.id, triggerIdx),
-		Config:    t.config.Load(),
-	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
-	// if t.trigger == nil or !t.registered, then we haven't initialized the workflow
-	// yet, and can safely consider the trigger deregistered with
-	// no further action.
 	if t.trigger != nil && t.registered {
+		// if t.trigger == nil or !t.registered, then we haven't initialized the workflow
+		// yet, and can safely consider the trigger deregistered with
+		// no further action.
+		ln := e.localNode.Load()
+		deregRequest := capabilities.TriggerRegistrationRequest{
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID:               e.workflow.id,
+				WorkflowDonID:            ln.WorkflowDON.ID,
+				WorkflowDonConfigVersion: ln.WorkflowDON.ConfigVersion,
+				WorkflowName:             e.workflow.name.Hex(),
+				WorkflowOwner:            e.workflow.owner,
+				ReferenceID:              t.Ref,
+				DecodedWorkflowName:      e.workflow.name.String(),
+			},
+			TriggerID: generateTriggerID(e.workflow.id, triggerIdx),
+			Config:    t.config,
+		}
 		return t.trigger.UnregisterTrigger(ctx, deregRequest)
 	}
 
@@ -1308,7 +1310,7 @@ type Config struct {
 	Workflow             sdk.WorkflowSpec
 	WorkflowID           string
 	WorkflowOwner        string
-	WorkflowName         WorkflowNamer
+	WorkflowName         types.WorkflowName
 	Lggr                 logger.Logger
 	Registry             core.CapabilitiesRegistry
 	MaxWorkerLimit       int
@@ -1540,174 +1542,4 @@ func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log
 	if err != nil {
 		log.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 	}
-}
-
-// buildWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).
-func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
-	m := &pb.WorkflowMetadata{}
-
-	m.WorkflowOwner = kvs[platform.KeyWorkflowOwner]
-	m.WorkflowName = kvs[platform.KeyWorkflowName]
-	m.Version = kvs[platform.KeyWorkflowVersion]
-	m.WorkflowID = kvs[platform.KeyWorkflowID]
-	m.WorkflowExecutionID = kvs[platform.KeyWorkflowExecutionID]
-
-	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
-		if id, err := strconv.ParseInt(donIDStr, 10, 32); err == nil {
-			m.DonID = int32(id)
-		}
-	}
-
-	m.P2PID = kvs[platform.KeyP2PID]
-
-	if donFStr, ok := kvs[platform.KeyDonF]; ok {
-		if id, err := strconv.ParseInt(donFStr, 10, 32); err == nil {
-			m.DonF = int32(id)
-		}
-	}
-	if donNStr, ok := kvs[platform.KeyDonN]; ok {
-		if id, err := strconv.ParseInt(donNStr, 10, 32); err == nil {
-			m.DonN = int32(id)
-		}
-	}
-	if donQStr, ok := kvs[platform.KeyDonQ]; ok {
-		if id, err := strconv.ParseInt(donQStr, 10, 32); err == nil {
-			m.DonQ = int32(id)
-		}
-	}
-
-	return m
-}
-
-// buildCommonWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).
-func buildCommonWorkflowMetadata(kvs map[string]string) *workflowpb.WorkflowMetadata {
-	m := &workflowpb.WorkflowMetadata{}
-
-	m.WorkflowName = kvs[platform.KeyWorkflowName]
-	m.Version = kvs[platform.KeyWorkflowVersion]
-	m.WorkflowID = kvs[platform.KeyWorkflowID]
-	m.WorkflowExecutionID = kvs[platform.KeyWorkflowExecutionID]
-	m.Owner = kvs[platform.KeyWorkflowOwner]
-
-	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
-		if id, err := strconv.ParseInt(donIDStr, 10, 32); err == nil {
-			m.DonID = int32(id)
-		}
-	}
-
-	m.P2PID = kvs[platform.KeyP2PID]
-
-	if donFStr, ok := kvs[platform.KeyDonF]; ok {
-		if id, err := strconv.ParseInt(donFStr, 10, 32); err == nil {
-			m.DonF = int32(id)
-		}
-	}
-	if donNStr, ok := kvs[platform.KeyDonN]; ok {
-		if id, err := strconv.ParseInt(donNStr, 10, 32); err == nil {
-			m.DonN = int32(id)
-		}
-	}
-	if donQStr, ok := kvs[platform.KeyDonQ]; ok {
-		if id, err := strconv.ParseInt(donQStr, 10, 32); err == nil {
-			m.DonQ = int32(id)
-		}
-	}
-
-	return m
-}
-
-// emitProtoMessage marshals a proto.Message and emits it via beholder.
-func emitProtoMessage(ctx context.Context, msg proto.Message) error {
-	b, err := proto.Marshal(msg)
-	if err != nil {
-		return err
-	}
-
-	// Determine the schema and entity based on the message type
-	// entity must be prefixed with the proto package name
-	var schema, entity string
-	switch msg.(type) {
-	case *pb.WorkflowExecutionStarted:
-		schema = SchemaWorkflowStarted
-		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionStarted)
-	case *pb.WorkflowExecutionFinished:
-		schema = SchemaWorkflowFinished
-		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionFinished)
-	case *pb.CapabilityExecutionStarted:
-		schema = SchemaCapabilityStarted
-		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionStarted)
-	case *pb.CapabilityExecutionFinished:
-		schema = SchemaCapabilityFinished
-		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionFinished)
-	case *meteringpb.MeteringReport:
-		schema = MeteringReportSchema
-		entity = fmt.Sprintf("%s.%s", MeteringProtoPkg, MeteringReportEntity)
-	default:
-		return fmt.Errorf("unknown message type: %T", msg)
-	}
-
-	return beholder.GetEmitter().Emit(ctx, b,
-		"beholder_data_schema", schema, // required
-		"beholder_domain", "platform", // required
-		"beholder_entity", entity) // required
-}
-
-func emitMeteringReport(ctx context.Context, cma custmsg.MessageEmitter, report *MeteringReport) error {
-	rpt := report.Message()
-	rpt.Metadata = buildCommonWorkflowMetadata(cma.Labels())
-
-	return emitProtoMessage(ctx, rpt)
-}
-
-func emitExecutionStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, triggerID string, executionID string) error {
-	cma = cma.With(platform.KeyWorkflowExecutionID, executionID)
-	metadata := buildWorkflowMetadata(cma.Labels())
-
-	event := &pb.WorkflowExecutionStarted{
-		M:         metadata,
-		Timestamp: time.Now().String(),
-		TriggerID: triggerID,
-	}
-
-	return emitProtoMessage(ctx, event)
-}
-
-func emitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, status string, executionID string) error {
-	cma = cma.With(platform.KeyWorkflowExecutionID, executionID)
-	metadata := buildWorkflowMetadata(cma.Labels())
-
-	event := &pb.WorkflowExecutionFinished{
-		M:         metadata,
-		Timestamp: time.Now().String(),
-		Status:    status,
-	}
-
-	return emitProtoMessage(ctx, event)
-}
-
-func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef string) error {
-	metadata := buildWorkflowMetadata(cma.Labels())
-
-	event := &pb.CapabilityExecutionStarted{
-		M:            metadata,
-		Timestamp:    time.Now().String(),
-		CapabilityID: capabilityID,
-		StepRef:      stepRef,
-	}
-
-	return emitProtoMessage(ctx, event)
-}
-
-func emitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef, status string) error {
-	metadata := buildWorkflowMetadata(cma.Labels())
-
-	event := &pb.CapabilityExecutionFinished{
-		M:            metadata,
-		Timestamp:    time.Now().String(),
-		CapabilityID: capabilityID,
-		StepRef:      stepRef,
-		Status:       status,
-	}
-
-	return emitProtoMessage(ctx, event)
 }

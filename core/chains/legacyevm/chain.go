@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups"
@@ -28,8 +29,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/monitor"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/tron"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 )
 
@@ -47,6 +50,11 @@ type Chain interface {
 	BalanceMonitor() monitor.BalanceMonitor
 	LogPoller() logpoller.LogPoller
 	GasEstimator() gas.EvmFeeEstimator
+}
+
+// ChainTronSupport is an Chain interface extension for Tron support.
+type ChainTronSupport interface {
+	GetTronTXM() *trontxm.TronTxm
 }
 
 var (
@@ -113,6 +121,9 @@ type chain struct {
 	logPoller       logpoller.LogPoller
 	balanceMonitor  monitor.BalanceMonitor
 	gasEstimator    gas.EvmFeeEstimator
+
+	// Extends with support for the Tron TXM
+	tronTxm *trontxm.TronTxm
 }
 
 type errChainDisabled struct {
@@ -245,7 +256,13 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 				BackupPollerBlockDelay:   int64(cfg.EVM().BackupLogPollerBlockDelay()),
 				ClientErrors:             cfg.EVM().NodePool().Errors(),
 			}
-			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, opts.DS, l), cl, l, headTracker, lpOpts)
+
+			lpORM, err := logpoller.NewObservedORM(chainID, opts.DS, l)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create logpoller observed ORM: %w", err)
+			}
+
+			logPoller = logpoller.NewLogPoller(lpORM, cl, l, headTracker, lpOpts)
 		}
 	}
 
@@ -260,6 +277,8 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 	//nolint:gocritic // ignoring suggestion to convert to switch statement
 	if !opts.ChainConfigs.RPCEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+	} else if cfg.EVM().ChainType() == chaintype.ChainTron {
+		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("EVM TXM disabled for tron based chains %d, using Tron TXM instead", chainID)}
 	} else if !cfg.EVM().Transactions().Enabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for chain %d", chainID)}
 	} else {
@@ -296,6 +315,15 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 
 	headBroadcaster.Subscribe(logBroadcaster)
 
+	// Construct the Tron TXM, will be nil if the chaintype is not tron
+	var tronTxm *trontxm.TronTxm
+	if cfg.EVM().ChainType() == chaintype.ChainTron {
+		tronTxm, err = tron.ConstructTronTxm(l, cfg, nodes, opts.KeyStore)
+		if err != nil {
+			return nil, fmt.Errorf("failed to construct tron txm: %w", err)
+		}
+	}
+
 	return &chain{
 		id:              chainID,
 		cfg:             cfg,
@@ -308,6 +336,9 @@ func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, 
 		logPoller:       logPoller,
 		balanceMonitor:  balanceMonitor,
 		gasEstimator:    gasEstimator,
+
+		// Extends with support for the Tron TXM
+		tronTxm: tronTxm,
 	}, nil
 }
 
@@ -329,6 +360,12 @@ func (c *chain) Start(ctx context.Context) error {
 		if err := ms.Start(ctx, c.txm, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
 			return err
 		}
+
+		if c.cfg.EVM().ChainType() == chaintype.ChainTron {
+			c.gasEstimator.Start(ctx) // Still need gas estimator to be working for the OCR2 plugin
+			c.tronTxm.Start(ctx)
+		}
+
 		if c.balanceMonitor != nil {
 			if err := ms.Start(ctx, c.balanceMonitor); err != nil {
 				return err
@@ -355,6 +392,13 @@ func (c *chain) Close() error {
 		merr = multierr.Combine(merr, c.headBroadcaster.Close())
 		c.logger.Debug("Chain: stopping evmTxm")
 		merr = multierr.Combine(merr, c.txm.Close())
+
+		// Tron doesn't use the EVM TXM but still uses the gas estimator, we'll close it here
+		if c.cfg.EVM().ChainType() == chaintype.ChainTron {
+			merr = multierr.Combine(merr, c.gasEstimator.Close())
+			merr = multierr.Combine(merr, c.tronTxm.Close())
+		}
+
 		c.logger.Debug("Chain: stopping client")
 		c.client.Close()
 		c.logger.Debug("Chain: stopped")
@@ -491,3 +535,6 @@ func (c *chain) HeadTracker() heads.Tracker             { return c.headTracker }
 func (c *chain) Logger() logger.Logger                  { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor { return c.balanceMonitor }
 func (c *chain) GasEstimator() gas.EvmFeeEstimator      { return c.gasEstimator }
+
+// Add ChainTronSupport
+func (c *chain) GetTronTXM() *trontxm.TronTxm { return c.tronTxm }

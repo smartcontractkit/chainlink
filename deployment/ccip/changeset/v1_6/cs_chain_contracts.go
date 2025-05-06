@@ -47,8 +47,9 @@ const (
 		  		bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
 				```
 	*/
-	EVMFamilySelector = "2812d52c"
-	SVMFamilySelector = "1e10bdc4"
+	EVMFamilySelector   = "2812d52c"
+	SVMFamilySelector   = "1e10bdc4"
+	AptosFamilySelector = "ac77ffec"
 )
 
 var (
@@ -1278,11 +1279,19 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 		}
 		if !cfg.SkipOwnershipCheck {
 			if cfg.TestRouter {
+				// If activating on the test router, we don't need the other CCIP contracts to have proper ownership.
 				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
 					return err
 				}
+			} else if cfg.MCMS == nil {
+				// If we are not using MCMS, then we know we aren't in a production environment given the EnforceMCMSUsageIfProd check above.
+				// In this case, we only need to validate that the router contract is owned by the deployer key.
+				// We don't care about uniform ownership in non-production environments.
+				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
+					return err
+				}
 			} else {
-				// If we are activating ramps on the main router, we should validate two things:
+				// If we are activating ramps on the main router in a production environment, we should validate two things:
 				//   1. All expected CCIP contracts exist on the chain.
 				//   2. All contracts have the expected owner.
 				// That way, if cfg.MCMS exists, we ensure that every contract is owned by MCMS.
@@ -1534,6 +1543,9 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[remote], tx, offramp.OffRampABI, err); err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error setting OCR3 config for chain %d: %w", remote, err)
 			}
+			e.Logger.Infow("Set OCR3 config on offramp", "chain", remote,
+				"offRamp", offRamp.Address().Hex(), "donID", donID,
+				"config", args)
 		} else {
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
@@ -1760,6 +1772,8 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
 		if destFamily == chain_selectors.FamilySolana {
 			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
+		} else if destFamily == chain_selectors.FamilyAptos {
+			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
 		}
 	}
 	return fee_quoter.FeeQuoterDestChainConfig{

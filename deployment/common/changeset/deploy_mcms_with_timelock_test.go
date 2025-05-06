@@ -23,6 +23,7 @@ import (
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -45,7 +46,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	}
 	// deploy the MCMS with timelock contracts
 	configuredChangeset := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 		changesetConfig,
 	)
 	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
@@ -165,7 +166,7 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	require.NoError(t, env.ExistingAddresses.Merge(addrBook))
 
 	configuredChangeset := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 		changesetConfig,
 	)
 
@@ -307,7 +308,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 		},
 	}
 	configuredChangeset := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 		changesetConfig,
 	)
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelectors[0])
@@ -444,8 +445,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 	timelockConfig := solanaTimelockConfig(ctx, t, solanaChain0, solanaState0.TimelockProgram, solanaState0.TimelockSeed)
 	require.NoError(t, err)
-	require.Equal(t, timelockConfig.ProposedOwner.String(),
-		timelockSignerPDA(solanaState0.TimelockProgram, solanaState0.TimelockSeed))
+	require.Equal(t, timelockConfig.ProposedOwner.String(), "11111111111111111111111111111111")
 }
 
 // TestDeployMCMSWithTimelockV2SkipInit tests calling the deploy changeset when accounts have already been initialized
@@ -505,7 +505,7 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 		},
 	}
 	configuredChangeset := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 		changesetConfig,
 	)
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelectors[0])

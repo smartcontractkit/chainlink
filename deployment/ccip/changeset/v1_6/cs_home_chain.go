@@ -22,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -39,20 +41,20 @@ var (
 	//	- if node is not already present in the CapabilitiesRegistry contract.
 	//  - if node is part of CapabilitiesDON
 	//  - if node is part of WorkflowDON
-	RemoveNodesFromCapRegChangeset = deployment.CreateChangeSet(removeNodesLogic, removeNodesPrecondition)
+	RemoveNodesFromCapRegChangeset = cldf.CreateChangeSet(removeNodesLogic, removeNodesPrecondition)
 	// UpdateNopsInCapRegChangeset is a changeset that updates node operators in the CapabilitiesRegistry contract.
 	// It fails validation
 	// - if the changeset is executed neither by CapabilitiesRegistry contract owner nor by the node operator admin.
 	// - if node operator is not already present in the CapabilitiesRegistry contract.
-	UpdateNopsInCapRegChangeset = deployment.CreateChangeSet(updateNopsLogic, addUpdateOrRemoveNopsPrecondition)
+	UpdateNopsInCapRegChangeset = cldf.CreateChangeSet(updateNopsLogic, addUpdateOrRemoveNopsPrecondition)
 	// AddNopsToCapRegChangeset is a changeset that adds node operators to the CapabilitiesRegistry contract.
 	// It fails validation
 	// - if the changeset is not executed by CapabilitiesRegistry contract owner
-	AddNopsToCapRegChangeset = deployment.CreateChangeSet(addNopsLogic, addUpdateOrRemoveNopsPrecondition)
+	AddNopsToCapRegChangeset = cldf.CreateChangeSet(addNopsLogic, addUpdateOrRemoveNopsPrecondition)
 	// RemoveNopsFromCapRegChangeset is a changeset that removes node operators from the CapabilitiesRegistry contract.
 	// It fails validation
 	// - if the changeset is not executed by CapabilitiesRegistry contract owner
-	RemoveNopsFromCapRegChangeset = deployment.CreateChangeSet(removeNopsLogic, addUpdateOrRemoveNopsPrecondition)
+	RemoveNopsFromCapRegChangeset = cldf.CreateChangeSet(removeNopsLogic, addUpdateOrRemoveNopsPrecondition)
 )
 
 // DeployHomeChainChangeset is a separate changeset because it is a standalone deployment performed once in home chain for the entire CCIP deployment.
@@ -283,8 +285,8 @@ func deployHomeChain(
 		return nil, fmt.Errorf("failed to get capabilities: %w", err)
 	}
 	capabilityToAdd := capabilities_registry.CapabilitiesRegistryCapability{
-		LabelledName:          internal.CapabilityLabelledName,
-		Version:               internal.CapabilityVersion,
+		LabelledName:          ccip.CapabilityLabelledName,
+		Version:               ccip.CapabilityVersion,
 		CapabilityType:        2, // consensus. not used (?)
 		ResponseType:          0, // report. not used (?)
 		ConfigurationContract: ccipHomeAddr,
@@ -441,7 +443,7 @@ func addNodes(
 				Signer:              p2pID, // Not used in tests
 				P2pId:               p2pID,
 				EncryptionPublicKey: p2pID, // Not used in tests
-				HashedCapabilityIds: [][32]byte{internal.CCIPCapabilityID},
+				HashedCapabilityIds: [][32]byte{ccip.CCIPCapabilityID},
 			}
 			if existing, ok := existingNodeParams[p2pID]; ok {
 				if isEqualCapabilitiesRegistryNodeParams(existing, nodeParam) {

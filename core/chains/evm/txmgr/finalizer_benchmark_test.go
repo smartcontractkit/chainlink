@@ -30,6 +30,8 @@ func BenchmarkFinalizer(b *testing.B) {
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	rpcBatchSize := uint32(1)
 	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
+	metrics, err := txmgr.NewEVMTxmMetrics(ethClient.ConfiguredChainID().String())
+	require.NoError(b, err)
 
 	h99 := &types.Head{
 		Hash:   utils.NewHash(),
@@ -41,7 +43,7 @@ func BenchmarkFinalizer(b *testing.B) {
 		Number: 100,
 	}
 	head.Parent.Store(h99)
-	finalizer := txmgr.NewEvmFinalizer(logger.Test(b), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+	finalizer := txmgr.NewEvmFinalizer(logger.Test(b), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 	servicetest.Run(b, finalizer)
 
 	_, fromAddress := cltest.MustInsertRandomKey(b, ethKeyStore)

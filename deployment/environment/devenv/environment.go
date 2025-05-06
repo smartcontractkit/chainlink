@@ -7,8 +7,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/datastore"
 )
 
 const (
@@ -65,6 +66,6 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		nodeIDs,
 		offChain,
 		ctx,
-		deployment.XXXGenerateTestOCRSecrets(),
+		cldf.XXXGenerateTestOCRSecrets(),
 	), jd.don, nil
 }

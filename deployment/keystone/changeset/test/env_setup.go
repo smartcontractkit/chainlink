@@ -13,19 +13,29 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/datastore"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
+)
+
+var (
+	registryQualifier         = "test registry"          // qualifier for the registry chain in the env datastore
+	ocr3Qualifier             = "test ocr3"              // qualifier for the ocr3 chain in the env datastore
+	forwarderQualifier        = "test forwarder"         // qualifier for the forwarder chain in the env datastore
+	workflowRegistryQualifier = "test workflow registry" // qualifier for the workflow registry chain in the env datastore
 )
 
 type DonConfig struct {
@@ -51,7 +61,6 @@ func (c DonConfig) Validate() error {
 }
 
 type testEnvIface interface {
-	ContractSets() map[uint64]changeset.ContractSet
 	CapabilitiesRegistry() *kcr.CapabilitiesRegistry
 	CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo
 	Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded
@@ -80,12 +89,15 @@ func (c EnvWrapperConfig) Validate() error {
 	if err := c.WFDonConfig.Validate(); err != nil {
 		return err
 	}
+
 	if err := c.AssetDonConfig.Validate(); err != nil {
 		return err
 	}
+
 	if err := c.WriterDonConfig.Validate(); err != nil {
 		return err
 	}
+
 	if c.NumChains < 1 {
 		return errors.New("NumChains must be at least 1")
 	}
@@ -102,22 +114,8 @@ type EnvWrapper struct {
 	dons testDons
 }
 
-func (te EnvWrapper) ContractSets() map[uint64]changeset.ContractSet {
-	r, err := changeset.GetContractSets(te.Env.Logger, &changeset.GetContractSetsRequest{
-		Chains:      te.Env.Chains,
-		AddressBook: te.Env.ExistingAddresses,
-	})
-	require.NoError(te.t, err)
-	return r.ContractSets
-}
-
 func (te EnvWrapper) CapabilitiesRegistry() *kcr.CapabilitiesRegistry {
-	r, err := changeset.GetContractSets(te.Env.Logger, &changeset.GetContractSetsRequest{
-		Chains:      te.Env.Chains,
-		AddressBook: te.Env.ExistingAddresses,
-	})
-	require.NoError(te.t, err)
-	return r.ContractSets[te.RegistrySelector].CapabilitiesRegistry
+	return te.OwnedCapabilityRegistry().Contract
 }
 
 func (te EnvWrapper) CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo {
@@ -125,6 +123,49 @@ func (te EnvWrapper) CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo 
 	caps, err := te.CapabilitiesRegistry().GetCapabilities(nil)
 	require.NoError(te.t, err)
 	return caps
+}
+
+func (te EnvWrapper) OwnedCapabilityRegistry() *changeset.OwnedContract[*kcr.CapabilitiesRegistry] {
+	return loadOneContract[*kcr.CapabilitiesRegistry](te.t, te.Env, te.Env.Chains[te.RegistrySelector], registryQualifier)
+}
+
+func loadOneContract[T changeset.Ownable](t *testing.T, env deployment.Environment, chain deployment.Chain, qualifier string) *changeset.OwnedContract[T] {
+	t.Helper()
+	addrs := env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))
+	require.Len(t, addrs, 1)
+	c, err := changeset.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address)
+	require.NoError(t, err)
+	require.NotNil(t, c)
+	return c
+}
+
+func (te EnvWrapper) CapabilityRegistryAddressRef() datastore.AddressRefKey {
+	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(registryQualifier))
+	require.Len(te.t, addrs, 1)
+	return addrs[0].Key()
+}
+
+func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
+	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
+	require.NotEmpty(te.t, addrs)
+	out := make([]datastore.AddressRefKey, len(addrs))
+	for i, addr := range addrs {
+		out[i] = addr.Key()
+	}
+	return out
+}
+
+func (te EnvWrapper) OwnedForwarders() map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder] { // chain selector -> forwarders
+	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
+	require.NotEmpty(te.t, addrs)
+	out := make(map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder])
+	for _, addr := range addrs {
+		c, err := changeset.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.Chains[addr.ChainSelector], addr.Address)
+		require.NoError(te.t, err)
+		require.NotNil(te.t, c)
+		out[addr.ChainSelector] = append(out[addr.ChainSelector], c)
+	}
+	return out
 }
 
 func (te EnvWrapper) Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded {
@@ -159,25 +200,51 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 		Logger:            logger.Test(t),
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		DataStore:         datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]().Seal(),
 	}
 
-	env, err := commonchangeset.Apply(t, env, nil,
+	forwarderChangesets := make([]commonchangeset.ConfiguredChangeSet, nChains)
+	i := 0
+	for _, c := range chains {
+		forwarderChangesets[i] = commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(changeset.DeployForwarderV2),
+			&changeset.DeployRequestV2{
+				ChainSel:  c.Selector,
+				Qualifier: forwarderQualifier,
+			},
+		)
+		i++
+	}
+
+	changes := []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
-			registryChainSel,
+			cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2),
+			&changeset.DeployRequestV2{
+				ChainSel:  registryChainSel,
+				Qualifier: registryQualifier,
+				Labels:    nil,
+			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployOCR3),
-			registryChainSel,
+			cldf.CreateLegacyChangeSet(changeset.DeployOCR3V2),
+			&changeset.DeployRequestV2{
+				ChainSel:  registryChainSel,
+				Qualifier: ocr3Qualifier,
+				Labels:    nil,
+			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployForwarder),
-			changeset.DeployForwarderRequest{},
+			cldf.CreateLegacyChangeSet(workflowregistry.DeployV2),
+			&changeset.DeployRequestV2{
+				ChainSel:  registryChainSel,
+				Qualifier: workflowRegistryQualifier,
+				Labels:    nil,
+			},
 		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(workflowregistry.Deploy),
-			registryChainSel,
-		),
+	}
+	changes = append(changes, forwarderChangesets...)
+	env, err := commonchangeset.ApplyChangesets(t, env, nil,
+		changes,
 	)
 	require.NoError(t, err)
 	require.NotNil(t, env)
@@ -186,13 +253,18 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 	return registryChainSel, env
 }
 
+// SetupContractTestEnv sets up a keystone test environment for contract testing with the given configuration
+// The resulting environment will have the following:
+//
+// - all the initial contracts deployed (capability registry, ocr3, forwarder, workflow registry) on the registry chain
+//
+// - the forwarder deployed on all chains
+//
+// - the capability registry configured with the initial dons (WFDon => ocr capability, AssetDon => stream trigger capability, WriterDon => writer capability for all the chains)
+//
+// - a view-only Offchain client that supports all the read api operations of the Offchain client
 func SetupContractTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	c.useInMemoryNodes = false
-	return setupTestEnv(t, c)
-}
-
-func SetupDevTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
-	c.useInMemoryNodes = true
 	return setupTestEnv(t, c)
 }
 
@@ -215,6 +287,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	}
 	err := env.ExistingAddresses.Merge(envWithContracts.ExistingAddresses)
 	require.NoError(t, err)
+	env.DataStore = envWithContracts.DataStore
 
 	ocr3CapCfg := GetDefaultCapConfig(t, internal.OCR3Cap)
 	writerChainCapCfg := GetDefaultCapConfig(t, internal.WriteChainCap)
@@ -273,19 +346,12 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	require.NoError(t, err)
 	require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
 
-	req := changeset.GetContractSetsRequestV2{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	}
-
-	contractSetsResp, err := changeset.GetContractSetsV2(lggr, req)
-	require.NoError(t, err)
-	require.Len(t, contractSetsResp.ContractSets, len(env.Chains))
 	// check the registry
-	gotRegistry := contractSetsResp.ContractSets[registryChainSel].CapabilitiesRegistry.Contract
-	require.NotNil(t, gotRegistry)
+	gotOwnedRegistry := loadOneContract[*kcr.CapabilitiesRegistry](t, env, env.Chains[registryChainSel], registryQualifier)
+	require.NotNil(t, gotOwnedRegistry)
 	// validate the registry
 	// check the nodes
+	gotRegistry := gotOwnedRegistry.Contract
 	gotNodes, err := gotRegistry.GetNodes(nil)
 	require.NoError(t, err)
 	require.Len(t, gotNodes, len(dons.P2PIDs()))
@@ -307,7 +373,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 		}
 		env, err = commonchangeset.Apply(t, env, nil,
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 				timelockCfgs,
 			),
 		)
@@ -330,7 +396,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 					sel: {Timelock: mcms.Timelock, CallProxy: mcms.CallProxy},
 				},
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.AcceptAllOwnershipsProposal),
+					cldf.CreateLegacyChangeSet(changeset.AcceptAllOwnershipsProposal),
 					&changeset.AcceptAllOwnershipRequest{
 						ChainSelector: sel,
 						MinDelay:      0,
@@ -350,40 +416,30 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 
 func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]deployment.Chain, c EnvWrapperConfig) (testDons, deployment.Environment) {
 	// now that we have the initial contracts deployed, we can configure the nodes with the addresses
-	wfConfig := make([]envtest.NodeConfig, 0, len(c.WFDonConfig.ChainSelectors))
-	for i := 0; i < c.WFDonConfig.N; i++ {
-		wfConfig = append(wfConfig, envtest.NodeConfig{
-			ChainSelectors: []uint64{registryChainSel},
-			Name:           fmt.Sprintf("%s-%d", c.WFDonConfig.Name, i),
-		})
-	}
-	wfNodes := envtest.NewNodes(t, wfConfig)
-	require.Len(t, wfNodes, c.WFDonConfig.N)
-
-	assetConfig := make([]envtest.NodeConfig, 0, len(c.AssetDonConfig.ChainSelectors))
-	for i := 0; i < c.AssetDonConfig.N; i++ {
-		assetConfig = append(assetConfig, envtest.NodeConfig{
-			ChainSelectors: maps.Keys(chains),
-			Name:           fmt.Sprintf("%s-%d", c.AssetDonConfig.Name, i),
-		})
-	}
-	assetNodes := envtest.NewNodes(t, assetConfig)
-	require.Len(t, assetNodes, c.AssetDonConfig.N)
-
-	writerConfig := make([]envtest.NodeConfig, 0, len(c.WriterDonConfig.ChainSelectors))
-	for i := 0; i < c.WriterDonConfig.N; i++ {
-		writerConfig = append(writerConfig, envtest.NodeConfig{
-			ChainSelectors: maps.Keys(chains),
-			Name:           fmt.Sprintf("%s-%d", c.WriterDonConfig.Name, i),
-		})
-	}
-	writerNodes := envtest.NewNodes(t, writerConfig)
-	require.Len(t, writerNodes, c.WriterDonConfig.N)
-
 	dons := newViewOnlyDons()
-	dons.Put(newViewOnlyDon(c.WFDonConfig.Name, wfNodes))
-	dons.Put(newViewOnlyDon(c.AssetDonConfig.Name, assetNodes))
-	dons.Put(newViewOnlyDon(c.WriterDonConfig.Name, writerNodes))
+	for _, donCfg := range []DonConfig{c.WFDonConfig, c.AssetDonConfig, c.WriterDonConfig} {
+		require.NoError(t, donCfg.Validate())
+
+		ncfg := make([]envtest.NodeConfig, 0, len(donCfg.ChainSelectors))
+		for i := 0; i < donCfg.N; i++ {
+			labels := map[string]string{
+				"don": donCfg.Name,
+			}
+			if donCfg.Labels != nil {
+				for k, v := range donCfg.Labels {
+					labels[k] = v
+				}
+			}
+			ncfg = append(ncfg, envtest.NodeConfig{
+				ChainSelectors: []uint64{registryChainSel},
+				Name:           fmt.Sprintf("%s-%d", donCfg.Name, i),
+				Labels:         labels,
+			})
+		}
+		n := envtest.NewNodes(t, ncfg)
+		require.Len(t, n, donCfg.N)
+		dons.Put(newViewOnlyDon(donCfg.Name, n))
+	}
 
 	env := deployment.NewEnvironment(
 		"view only nodes",
@@ -399,7 +455,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		dons.NodeList().IDs(),
 		envtest.NewJDService(dons.NodeList()),
 		t.Context,
-		deployment.XXXGenerateTestOCRSecrets(),
+		cldf.XXXGenerateTestOCRSecrets(),
 	)
 
 	return dons, *env

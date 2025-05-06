@@ -9,11 +9,13 @@ import (
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 )
 
-var SetProductionConfigChangeset = deployment.CreateChangeSet(setProductionConfigLogic, setProductionConfigPrecondition)
+var SetProductionConfigChangeset = cldf.CreateChangeSet(setProductionConfigLogic, setProductionConfigPrecondition)
 
 // SetProductionConfigConfig contains the parameters needed to set a production config.
 type SetProductionConfigConfig struct {
