@@ -245,7 +245,7 @@ func (rs *CoreRelayerChainInteroperators) Get(id types.RelayID) (loop.Relayer, e
 	return lr, nil
 }
 
-func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
+func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	result := make(map[types.RelayID]loop.Relayer)
@@ -253,7 +253,7 @@ func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() (map[types.RelayID
 		result[id] = relayer
 	}
 
-	return result, nil
+	return result
 }
 
 // LegacyEVMChains returns a container with all the evm chains

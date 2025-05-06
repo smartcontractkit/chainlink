@@ -476,10 +476,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	for i, chain := range legacyEVMChains.Slice() {
 		evmChainIDs[i] = chain.ID()
 	}
-	loopRelayers := relayChainInterops.loopRelayers
+
 	legacyEVMTelemReporter := headreporter.NewLegacyEVMTelemetryReporter(telemetryManager, globalLogger, evmChainIDs...)
-	solanaTelemReporter := headreporter.NewTelemetryReporter(telemetryManager, globalLogger, loopRelayers)
-	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, legacyEVMTelemReporter, solanaTelemReporter)
+	loopTelemReporter := headreporter.NewTelemetryReporter(telemetryManager, globalLogger, relayChainInterops.GetIDToRelayerMap())
+	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, legacyEVMTelemReporter, loopTelemReporter)
 	srvcs = append(srvcs, headReporter)
 	for _, chain := range legacyEVMChains.Slice() {
 		chain.HeadBroadcaster().Subscribe(headReporter)
