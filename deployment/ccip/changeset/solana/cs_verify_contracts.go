@@ -9,6 +9,8 @@ import (
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
+var _ deployment.ChangeSet[VerifyBuildConfig] = VerifyBuild
+
 // https://solana.com/developers/guides/advanced/verified-builds
 type VerifyBuildConfig struct {
 	GitCommitSha               string
