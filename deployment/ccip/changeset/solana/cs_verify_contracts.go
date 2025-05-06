@@ -76,6 +76,16 @@ func runSolanaVerify(networkURL, programID, libraryName, commitHash, mountPath s
 		"--mount-path", mountPath,
 	}
 
+	cmdArgs = []string{
+		"verify-from-repo",
+		"-u", "https://solana-mainnet.core.chainstack.com/2faf655d61d30edc66df431358f2d7cf",
+		"--program-id", "Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C",
+		"--library-name", "ccip_router",
+		strings.TrimSuffix(repoURL, ".git"),
+		"--commit-hash", commitHash,
+		"--mount-path", mountPath,
+	}
+
 	// Add --remote flag if remote verification is enabled
 	if remote {
 		cmdArgs = append(cmdArgs, "--remote")
