@@ -2,11 +2,12 @@ package p2pkey
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
+	"io"
 	"math/big"
 
 	"github.com/smartcontractkit/libocr/ragep2p/types"
@@ -25,25 +26,38 @@ func KeyFor(raw internal.Raw) KeyV2 {
 	if err != nil {
 		panic(err)
 	}
+	key.raw = raw
 	return key
 }
 
 func unmarshalPrivateKey(raw internal.Raw) (ed25519.PrivateKey, error) {
-	if !bytes.HasPrefix(raw.Bytes(), libp2pPBPrefix) {
+	b := internal.Bytes((raw))
+	if !bytes.HasPrefix(b, libp2pPBPrefix) {
 		return nil, errors.New("invalid key: missing libp2p protobuf prefix")
 	}
-	return raw.Bytes()[len(libp2pPBPrefix):], nil
+	return b[len(libp2pPBPrefix):], nil
 }
 
 func marshalPrivateKey(key ed25519.PrivateKey) ([]byte, error) {
 	return bytes.Join([][]byte{libp2pPBPrefix, key}, nil), nil
 }
 
-var _ fmt.GoStringer = &KeyV2{}
-
 type KeyV2 struct {
-	PrivKey ed25519.PrivateKey
-	peerID  PeerID
+	raw    internal.Raw
+	signer crypto.Signer
+
+	peerID PeerID
+}
+
+func fromPrivkey(privKey ed25519.PrivateKey) (KeyV2, error) {
+	peerID, err := types.PeerIDFromPrivateKey(privKey)
+	if err != nil {
+		return KeyV2{}, err
+	}
+	return KeyV2{
+		signer: privKey,
+		peerID: PeerID(peerID),
+	}, nil
 }
 
 func NewV2() (KeyV2, error) {
@@ -51,7 +65,16 @@ func NewV2() (KeyV2, error) {
 	if err != nil {
 		return KeyV2{}, err
 	}
-	return fromPrivkey(privKey)
+	key, err := fromPrivkey(privKey)
+	if err != nil {
+		return KeyV2{}, err
+	}
+	marshalledPrivK, err := marshalPrivateKey(privKey)
+	if err != nil {
+		return KeyV2{}, err
+	}
+	key.raw = internal.NewRaw(marshalledPrivK)
+	return key, nil
 }
 
 func MustNewV2XXXTestingOnly(k *big.Int) KeyV2 {
@@ -62,6 +85,11 @@ func MustNewV2XXXTestingOnly(k *big.Int) KeyV2 {
 	if err != nil {
 		panic(err)
 	}
+	marshalledPrivK, err := marshalPrivateKey(pk)
+	if err != nil {
+		panic(err)
+	}
+	key.raw = internal.NewRaw(marshalledPrivK)
 	return key
 }
 
@@ -70,11 +98,7 @@ func (key KeyV2) ID() string {
 }
 
 func (key KeyV2) Raw() internal.Raw {
-	marshalledPrivK, err := marshalPrivateKey(key.PrivKey)
-	if err != nil {
-		panic(err)
-	}
-	return internal.NewRaw(marshalledPrivK)
+	return key.raw
 }
 
 func (key KeyV2) PeerID() PeerID {
@@ -82,25 +106,12 @@ func (key KeyV2) PeerID() PeerID {
 }
 
 func (key KeyV2) PublicKeyHex() string {
-	pubKeyBytes := key.PrivKey.Public().(ed25519.PublicKey)
+	pubKeyBytes := key.signer.Public().(ed25519.PublicKey)
 	return hex.EncodeToString(pubKeyBytes)
 }
 
-func (key KeyV2) String() string {
-	return fmt.Sprintf("P2PKeyV2{PrivateKey: <redacted>, PeerID: %s}", key.peerID.Raw())
-}
+func (key KeyV2) Public() crypto.PublicKey { return key.signer.Public() }
 
-func (key KeyV2) GoString() string {
-	return key.String()
-}
-
-func fromPrivkey(privKey ed25519.PrivateKey) (KeyV2, error) {
-	peerID, err := types.PeerIDFromPrivateKey(privKey)
-	if err != nil {
-		return KeyV2{}, err
-	}
-	return KeyV2{
-		PrivKey: privKey,
-		peerID:  PeerID(peerID),
-	}, nil
+func (key KeyV2) Sign(rand io.Reader, message []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	return key.signer.Sign(rand, message, opts)
 }

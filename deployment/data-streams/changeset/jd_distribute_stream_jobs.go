@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
 var _ deployment.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStreamJobSpecs{}
@@ -68,19 +69,19 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 		for _, n := range oracleNodes {
 			localLabels := append(cfg.Labels, //nolint: gocritic // locally modified copy of labels
 				&ptypes.Label{
-					Key:   utils.LabelStreamID,
+					Key:   devenv.LabelStreamIDKey,
 					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
 				},
 				&ptypes.Label{
-					Key:   utils.LabelJobType,
-					Value: utils.JobTypeStream,
+					Key:   devenv.LabelJobTypeKey,
+					Value: pointer.To(devenv.LabelJobTypeValueStream),
 				},
 			)
 
 			// Check if there is already a job spec for this stream on this node:
-			externalJobID, err := fetchExternalJobID(e, []string{n.Id}, []*ptypes.Selector{
+			externalJobID, err := fetchExternalJobID(e, n.Id, []*ptypes.Selector{
 				{
-					Key:   utils.LabelStreamID,
+					Key:   devenv.LabelStreamIDKey,
 					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
 					Op:    ptypes.SelectorOp_EQ,
 				},

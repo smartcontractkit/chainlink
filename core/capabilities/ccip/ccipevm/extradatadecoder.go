@@ -28,21 +28,15 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 	}
 
 	var method string
-	var extraByteOffset int
+	var extraByteOffset = 4
 	switch string(extraArgs[:4]) {
 	case string(evmExtraArgsV1Tag):
 		// for EVMExtraArgs, the first four bytes is the method name
 		method = evmV1DecodeName
-		extraByteOffset = 4
 	case string(evmExtraArgsV2Tag):
 		method = evmV2DecodeName
-		extraByteOffset = 4
 	case string(svmExtraArgsV1Tag):
-		// for SVMExtraArgs there's the four bytes plus another 32 bytes padding for the dynamic array
-		// TODO this is a temporary solution, the evm on-chain side will fix it, so the offset should just be 4 instead of 36
-		// https://smartcontract-it.atlassian.net/browse/BCI-4180
-		method = svmV1DecodeName
-		extraByteOffset = 36
+		method = svmV1DecodeStructName
 	default:
 		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs)
 	}
@@ -54,8 +48,31 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 		return nil, fmt.Errorf("abi decode extra args %v: %w", method, err)
 	}
 
-	for k, val := range args {
-		output[k] = val
+	switch method {
+	case evmV1DecodeName, evmV2DecodeName:
+		for k, val := range args {
+			output[k] = val
+		}
+	case svmV1DecodeStructName:
+		// NOTE: the cast only works with this particular struct definition, including the json tags
+		extraArgsStruct, ok := args["extraArgs"].(struct {
+			ComputeUnits             uint32      `json:"computeUnits"`
+			AccountIsWritableBitmap  uint64      `json:"accountIsWritableBitmap"`
+			AllowOutOfOrderExecution bool        `json:"allowOutOfOrderExecution"`
+			TokenReceiver            [32]uint8   `json:"tokenReceiver"`
+			Accounts                 [][32]uint8 `json:"accounts"`
+		})
+		if !ok {
+			return nil, fmt.Errorf("solana extra args struct is not the equivalent of message_hasher.ClientSVMExtraArgsV1")
+		}
+		output["computeUnits"] = extraArgsStruct.ComputeUnits
+		output["accountIsWritableBitmap"] = extraArgsStruct.AccountIsWritableBitmap
+		output["allowOutOfOrderExecution"] = extraArgsStruct.AllowOutOfOrderExecution
+		output["tokenReceiver"] = extraArgsStruct.TokenReceiver
+		output["accounts"] = extraArgsStruct.Accounts
+	default:
+		return nil, fmt.Errorf("unknown extra args method: %s", method)
 	}
+
 	return output, nil
 }

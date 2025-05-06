@@ -179,7 +179,7 @@ var (
 					},
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://mainnet.solana.com")},
+					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://mainnet.solana.com"), Order: ptr(int32(1))},
 				},
 			},
 			{
@@ -209,7 +209,7 @@ var (
 					},
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("secondary"), URL: commoncfg.MustParseURL("http://testnet.solana.com")},
+					{Name: ptr("secondary"), URL: commoncfg.MustParseURL("http://testnet.solana.com"), Order: ptr(int32(2))},
 				},
 			},
 		},
@@ -488,6 +488,7 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxBinarySize:           ptr(utils.FileSize(20 * utils.MB)),
 			MaxEncryptedSecretsSize: ptr(utils.FileSize(26.4 * utils.KB)),
 			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
+			SyncStrategy:            ptr("event"),
 		},
 		Dispatcher: toml.Dispatcher{
 			SupportedVersion:   ptr(1),
@@ -565,6 +566,7 @@ func TestConfig_Marshal(t *testing.T) {
 		TraceSampleRatio:      ptr(0.01),
 		EmitterBatchProcessor: ptr(true),
 		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
+		ChipIngressEndpoint:   ptr("example.com/chip-ingress"),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
@@ -723,9 +725,10 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 			Nodes: []*evmcfg.Node{
 				{
-					Name:    ptr("foo"),
-					HTTPURL: mustURL("https://foo.web"),
-					WSURL:   mustURL("wss://web.socket/test/foo"),
+					Name:              ptr("foo"),
+					HTTPURL:           mustURL("https://foo.web"),
+					WSURL:             mustURL("wss://web.socket/test/foo"),
+					HTTPURLExtraWrite: mustURL("https://foo.web/extra"),
 				},
 				{
 					Name:    ptr("bar"),
@@ -791,9 +794,9 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			},
 			Nodes: []*solcfg.Node{
-				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web")},
-				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true},
-				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true},
+				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web"), Order: ptr(int32(1))},
+				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true, Order: ptr(int32(2))},
+				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true, Order: ptr(int32(3))},
 			},
 		},
 	}
@@ -1207,6 +1210,7 @@ GasLimitDefault = 400000
 Name = 'foo'
 WSURL = 'wss://web.socket/test/foo'
 HTTPURL = 'https://foo.web'
+HTTPURLExtraWrite = 'https://foo.web/extra'
 
 [[EVM.Nodes]]
 Name = 'bar'
@@ -1269,16 +1273,19 @@ FinalizedBlockOffset = 0
 Name = 'primary'
 URL = 'http://solana.web'
 SendOnly = false
+Order = 1
 
 [[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
 SendOnly = true
+Order = 2
 
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
 SendOnly = true
+Order = 3
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
 VerboseLogging = true
@@ -1343,6 +1350,9 @@ func TestConfig_full(t *testing.T) {
 			}
 			if got.EVM[c].Nodes[n].Order == nil {
 				got.EVM[c].Nodes[n].Order = ptr(int32(100))
+			}
+			if got.EVM[c].Nodes[n].HTTPURLExtraWrite == nil {
+				got.EVM[c].Nodes[n].HTTPURLExtraWrite = new(commoncfg.URL)
 			}
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.BlockTime == nil {
@@ -1420,7 +1430,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 10 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron, rootstock or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be greater than or equal to FinalizedBlockOffset
 			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.Threshold: missing: needs to be set if auto-purge feature is enabled for Foo
@@ -1433,7 +1443,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron, rootstock or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3: 3 errors:
@@ -1709,6 +1719,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 	if err := invalid.Validate(); assert.Error(t, err) {
 		got := err.Error()
 		assert.Equal(t, expMsg, got, diff.Diff(expMsg, got))
+
 	}
 }
 

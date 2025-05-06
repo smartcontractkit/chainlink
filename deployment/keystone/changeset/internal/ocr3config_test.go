@@ -16,6 +16,7 @@ import (
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -94,7 +95,7 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 		chain: deployment.Chain{
 			Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 		},
-		ocrSecrets: deployment.XXXGenerateTestOCRSecrets(),
+		ocrSecrets: cldf.XXXGenerateTestOCRSecrets(),
 	}
 	got, err := r.generateOCR3Config()
 	require.NoError(t, err)
@@ -114,7 +115,7 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 			chain: deployment.Chain{
 				Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 			},
-			ocrSecrets: deployment.XXXGenerateTestOCRSecrets(),
+			ocrSecrets: cldf.XXXGenerateTestOCRSecrets(),
 		}
 		_, err := r.generateOCR3Config()
 		require.Error(t, err)
@@ -128,7 +129,7 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 			chain: deployment.Chain{
 				Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 			},
-			ocrSecrets: deployment.XXXGenerateTestOCRSecrets(),
+			ocrSecrets: cldf.XXXGenerateTestOCRSecrets(),
 		}
 		_, err := r.generateOCR3Config()
 		require.Error(t, err)

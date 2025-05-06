@@ -4,13 +4,14 @@ import (
 	"errors"
 	"fmt"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // ImportToAddressbookChangeset is a changeset that reads already deployed contract addresses from input file
 // and saves them to the address book. Returns a new addressbook with the imported addresses.
-var ImportToAddressbookChangeset = deployment.CreateChangeSet(importToAddressbookLogic, importToAddressbookPrecondition)
+var ImportToAddressbookChangeset = cldf.CreateChangeSet(importToAddressbookLogic, importToAddressbookPrecondition)
 
 type AddressesSchema struct {
 	Address        string                    `json:"address"`
@@ -39,8 +40,11 @@ func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddres
 }
 
 func importToAddressbookPrecondition(env deployment.Environment, c types.ImportToAddressbookConfig) error {
-	_, ok := env.Chains[c.ChainSelector]
-	if !ok {
+	_, evmOK := env.Chains[c.ChainSelector]
+	_, aptosOK := env.AptosChains[c.ChainSelector]
+	_, solOK := env.SolChains[c.ChainSelector]
+
+	if !evmOK && !aptosOK && !solOK {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
 

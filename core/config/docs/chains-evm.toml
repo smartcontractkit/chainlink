@@ -500,6 +500,8 @@ Name = 'foo' # Example
 WSURL = 'wss://web.socket/test' # Example
 # HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
 HTTPURL = 'https://foo.web' # Example
+# HTTPURLExtraWrite is the HTTP(S) endpoint used for chains that require a separate endpoint for writing on-chain.
+HTTPURLExtraWrite = 'https://foo.web/extra' # Example
 # SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
 SendOnly = false # Default
 # Order of the node in the pool, will takes effect if `SelectionMode` is `PriorityLevel` or will be used as a tie-breaker for `HighestHead` and `TotalDifficulty`

@@ -7,13 +7,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	verifier "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 )
 
-var DeployVerifierChangeset = deployment.CreateChangeSet(deployVerifierLogic, deployVerifierPrecondition)
+var DeployVerifierChangeset = cldf.CreateChangeSet(deployVerifierLogic, deployVerifierPrecondition)
 
 type DeployVerifier struct {
 	VerifierProxyAddress common.Address

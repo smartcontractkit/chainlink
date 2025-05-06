@@ -8,11 +8,15 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -73,6 +77,29 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 		} else {
 			addresses = currentEnv.ExistingAddresses
 		}
+
+		// Collect expected DataStore state after changeset is applied
+		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
+		if out.DataStore != nil {
+			ds1 := datastore.NewMemoryDataStore[
+				datastore.DefaultMetadata,
+				datastore.DefaultMetadata,
+			]()
+			// New Addresses
+			err := ds1.Merge(out.DataStore.Seal())
+			if err != nil {
+				return e, fmt.Errorf("failed to merge new addresses into datastore: %w", err)
+			}
+			// Existing Addresses
+			err = ds1.Merge(currentEnv.DataStore)
+			if err != nil {
+				return e, fmt.Errorf("failed to merge current addresses into datastore: %w", err)
+			}
+			ds = ds1.Seal()
+		} else {
+			ds = currentEnv.DataStore
+		}
+
 		if out.Jobs != nil {
 			// do nothing, as these jobs auto-accept.
 		}
@@ -125,12 +152,15 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			Name:              e.Name,
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
+			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
+			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
+			OperationsBundle:  e.OperationsBundle,
 		}
 	}
 	return currentEnv, nil
@@ -156,6 +186,29 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 		} else {
 			addresses = currentEnv.ExistingAddresses
 		}
+
+		// Collect expected DataStore state after changeset is applied
+		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
+		if out.DataStore != nil {
+			ds1 := datastore.NewMemoryDataStore[
+				datastore.DefaultMetadata,
+				datastore.DefaultMetadata,
+			]()
+			// New Addresses
+			err := ds1.Merge(out.DataStore.Seal())
+			if err != nil {
+				return e, nil, fmt.Errorf("failed to merge new addresses into datastore: %w", err)
+			}
+			// Existing Addresses
+			err = ds1.Merge(currentEnv.DataStore)
+			if err != nil {
+				return e, nil, fmt.Errorf("failed to merge current addresses into datastore: %w", err)
+			}
+			ds = ds1.Seal()
+		} else {
+			ds = currentEnv.DataStore
+		}
+
 		if out.Jobs != nil { //nolint:revive,staticcheck // we want the empty block as documentation
 			// do nothing, as these jobs auto-accept.
 		}
@@ -166,12 +219,15 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 			Name:              e.Name,
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
+			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
+			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
+			OperationsBundle:  e.OperationsBundle,
 		}
 
 		if out.MCMSTimelockProposals != nil {
@@ -185,6 +241,11 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return deployment.Environment{}, nil, err
+				}
+				if prop.Action != mcmsTypes.TimelockActionSchedule {
+					// We don't need to execute the proposal if it's not a schedule action
+					// because the proposal is already executed in the previous step.
+					return currentEnv, outputs, nil
 				}
 				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, currentEnv, &prop)
 				if err != nil {
@@ -226,7 +287,7 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 
 	e, err := ApplyChangesets(t, e, nil, []ConfiguredChangeSet{
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployLinkToken),
+			cldf.CreateLegacyChangeSet(DeployLinkToken),
 			config,
 		),
 	})

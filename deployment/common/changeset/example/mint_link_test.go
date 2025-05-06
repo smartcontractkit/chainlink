@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 )
@@ -32,7 +32,7 @@ func TestMintLink(t *testing.T) {
 
 	_, err = changeset.Apply(t, env, nil,
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(example.AddMintersBurnersLink),
+			cldf.CreateLegacyChangeSet(example.AddMintersBurnersLink),
 			&example.AddMintersBurnersLinkConfig{
 				ChainSelector: chainSelector,
 				Minters:       []common.Address{chain.DeployerKey.From},

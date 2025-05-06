@@ -13,8 +13,8 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 
@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -62,7 +63,7 @@ func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deploy
 		// Deploy MCMS and Timelock
 		_, err := commonChangesets.Apply(t, env, nil,
 			commonChangesets.Configure(
-				deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 				map[uint64]types.MCMSWithTimelockConfigV2{
 					chainSelector: config,
 				},
@@ -133,7 +134,7 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 	if cfg.ShouldDeployLinkToken {
 		updatedEnv, err := commonChangesets.Apply(t, env, nil,
 			commonChangesets.Configure(
-				deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
 				[]uint64{chainSelector},
 			),
 		)
@@ -153,7 +154,7 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 		// Deploy MCMS and Timelock
 		updatedEnv, err := commonChangesets.Apply(t, env, nil,
 			commonChangesets.Configure(
-				deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 				map[uint64]types.MCMSWithTimelockConfigV2{
 					chainSelector: config,
 				},
@@ -196,7 +197,7 @@ func DeployMCMS(
 
 	env, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
 				chainSelector: {
 					Canceller:        config,
@@ -229,7 +230,7 @@ func DeployMCMS(
 		env, err = commonChangesets.Apply(
 			t, env, timelocks,
 			commonChangesets.Configure(
-				deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
 				commonChangesets.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: addressesToTransfer[0],
 					MCMSConfig:       proposalutils.TimelockConfig{MinDelay: 0},
@@ -256,15 +257,15 @@ func GetNodeLabels(donID uint64, donName string, env string) []*ptypes.Label {
 			Value: nil,
 		},
 		{
-			Key:   utils.LabelNodeType,
-			Value: pointer.To(jd.NodeTypeOracle.String()),
+			Key:   devenv.LabelNodeTypeKey,
+			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 		},
 		{
-			Key:   utils.LabelEnvironment,
+			Key:   devenv.LabelEnvironmentKey,
 			Value: pointer.To(env),
 		},
 		{
-			Key:   utils.LabelProduct,
+			Key:   devenv.LabelProductKey,
 			Value: pointer.To(utils.ProductLabel),
 		},
 	}

@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -21,6 +19,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
@@ -28,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
@@ -343,6 +344,8 @@ func TestVRFv2Basic(t *testing.T) {
 			Msg("Random Words Fulfilment Details For Link Billing")
 	})
 	t.Run("Oracle Withdraw", func(t *testing.T) {
+		tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-527")
+
 		configCopy := config.MustCopy().(tc.TestConfig)
 		consumers, subIDsForOracleWithDraw, err := vrfv2.SetupNewConsumersAndSubs(
 			sethClient,
@@ -681,6 +684,8 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 }
 
 func TestVRFOwner(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-565")
+
 	t.Parallel()
 	var (
 		testEnv                      *test_env.CLClusterTestEnv
@@ -1013,7 +1018,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 }
 
 func TestVRFV2NodeReorg(t *testing.T) {
-	t.Skip("Flakey", "https://smartcontract-it.atlassian.net/browse/DEVSVCS-829")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DEVSVCS-829")
 	t.Parallel()
 	var (
 		env                          *test_env.CLClusterTestEnv

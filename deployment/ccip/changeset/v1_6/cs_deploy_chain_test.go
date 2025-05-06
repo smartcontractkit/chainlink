@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -48,7 +49,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 			v1_6.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
@@ -60,21 +61,21 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
 			evmSelectors,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			cfg,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
 			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
 			v1_6.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParams,
@@ -103,6 +104,39 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		require.NotNil(t, state.Chains[sel].FeeQuoter)
 		require.NotNil(t, state.Chains[sel].OffRamp)
 		require.NotNil(t, state.Chains[sel].OnRamp)
+	}
+	// remove feequoter from address book
+	// and deploy again, it should deploy a new feequoter
+	ab := deployment.NewMemoryAddressBook()
+	for _, sel := range evmSelectors {
+		require.NoError(t, ab.Save(sel, state.Chains[sel].FeeQuoter.Address().Hex(),
+			deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_6_0)))
+	}
+	//nolint:staticcheck //SA1019 ignoring deprecated
+	require.NoError(t, e.ExistingAddresses.Remove(ab))
+
+	// try to deploy chain contracts again and it should not deploy any new contracts except feequoter
+	// but should not error
+	e, err = commonchangeset.Apply(t, e, nil, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+		v1_6.DeployChainContractsConfig{
+			HomeChainSelector:      homeChainSel,
+			ContractParamsPerChain: contractParams,
+		},
+	))
+	require.NoError(t, err)
+	// verify all contracts populated
+	postState, err := changeset.LoadOnchainState(e)
+	require.NoError(t, err)
+	for _, sel := range evmSelectors {
+		require.Equal(t, state.Chains[sel].RMNRemote, postState.Chains[sel].RMNRemote)
+		require.Equal(t, state.Chains[sel].Router, postState.Chains[sel].Router)
+		require.Equal(t, state.Chains[sel].TestRouter, postState.Chains[sel].TestRouter)
+		require.Equal(t, state.Chains[sel].NonceManager, postState.Chains[sel].NonceManager)
+		require.NotEqual(t, state.Chains[sel].FeeQuoter, postState.Chains[sel].FeeQuoter)
+		require.NotEmpty(t, postState.Chains[sel].FeeQuoter)
+		require.Equal(t, state.Chains[sel].OffRamp, postState.Chains[sel].OffRamp)
+		require.Equal(t, state.Chains[sel].OnRamp, postState.Chains[sel].OnRamp)
 	}
 }
 

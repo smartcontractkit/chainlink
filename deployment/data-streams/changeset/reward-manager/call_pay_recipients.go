@@ -9,13 +9,15 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 )
 
-var PayRecipientsChangeset = deployment.CreateChangeSet(PayRecipientsLogic, PayRecipientsPrecondition)
+var PayRecipientsChangeset = cldf.CreateChangeSet(PayRecipientsLogic, PayRecipientsPrecondition)
 
 type PayRecipientsConfig struct {
 	ConfigsByChain map[uint64][]PayRecipients

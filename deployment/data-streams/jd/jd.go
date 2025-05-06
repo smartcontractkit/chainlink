@@ -8,8 +8,9 @@ import (
 	nodeapiv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	jdtypesv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
@@ -32,17 +33,17 @@ func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 				Op:  jdtypesv1.SelectorOp_EXIST,
 			},
 			{
-				Key:   utils.LabelNodeType,
+				Key:   devenv.LabelNodeTypeKey,
 				Op:    jdtypesv1.SelectorOp_EQ,
-				Value: pointer.To(NodeTypeBootstrap.String()),
+				Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
 			},
 			{
-				Key:   utils.LabelEnvironment,
+				Key:   devenv.LabelEnvironmentKey,
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: &f.EnvLabel,
 			},
 			{
-				Key:   utils.LabelProduct,
+				Key:   devenv.LabelProductKey,
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: pointer.To(utils.ProductLabel),
 			},
@@ -59,17 +60,17 @@ func (f *ListFilter) oraclesFilter() *nodeapiv1.ListNodesRequest_Filter {
 				Op:  jdtypesv1.SelectorOp_EXIST,
 			},
 			{
-				Key:   utils.LabelNodeType,
+				Key:   devenv.LabelNodeTypeKey,
 				Op:    jdtypesv1.SelectorOp_EQ,
-				Value: pointer.To(NodeTypeOracle.String()),
+				Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 			},
 			{
-				Key:   utils.LabelEnvironment,
+				Key:   devenv.LabelEnvironmentKey,
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: &f.EnvLabel,
 			},
 			{
-				Key:   utils.LabelProduct,
+				Key:   devenv.LabelProductKey,
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: pointer.To(utils.ProductLabel),
 			},

@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/metering"
@@ -31,9 +32,8 @@ import (
 )
 
 const (
-	fetchBinaryLocation = "test/fetch/cmd/testmodule.wasm"
-	fetchBinaryCmd      = "core/capabilities/compute/test/fetch/cmd"
-	validRequestUUID    = "d2fe6db9-beb4-47c9-b2d6-d3065ace111e"
+	fetchBinaryCmd   = "core/capabilities/compute/test/fetch/cmd"
+	validRequestUUID = "d2fe6db9-beb4-47c9-b2d6-d3065ace111e"
 )
 
 var defaultConfig = Config{
@@ -101,7 +101,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 	th := setup(t, defaultConfig)
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"binary": binary,
@@ -144,7 +144,7 @@ func TestComputeExecute(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -221,7 +221,7 @@ func TestComputeFetch(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -294,7 +294,7 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 		validRequestUUID,
 	}, "/")
 	gatewayResp := gatewayResponse(t, msgID, []byte("response body"))
-	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -377,7 +377,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),

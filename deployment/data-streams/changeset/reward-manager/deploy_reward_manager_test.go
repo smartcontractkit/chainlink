@@ -5,10 +5,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
@@ -20,7 +20,7 @@ func TestDeployRewardManager(t *testing.T) {
 
 	e, err := commonChangesets.Apply(t, testEnv.Environment, nil,
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
+			cldf.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
 			[]uint64{testutil.TestChain.Selector},
 		),
 	)

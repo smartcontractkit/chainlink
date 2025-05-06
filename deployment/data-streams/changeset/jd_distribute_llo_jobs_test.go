@@ -7,8 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	job2 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
+	jdJob "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -17,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
 func TestDistributeLLOJobSpecs(t *testing.T) {
@@ -33,11 +33,11 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		NumBootstrapNodes:     1,
 		NodeLabels: []*ptypes.Label{
 			{
-				Key:   utils.LabelProduct,
+				Key:   devenv.LabelProductKey,
 				Value: pointer.To(utils.ProductLabel),
 			},
 			{
-				Key:   utils.LabelEnvironment,
+				Key:   devenv.LabelEnvironmentKey,
 				Value: pointer.To(envName),
 			},
 			{
@@ -238,8 +238,8 @@ chainID = '90000001'
 				}
 
 				// Ensure the labels are set correctly.
-				job, err := env.Offchain.GetJob(t.Context(), &job2.GetJobRequest{
-					IdOneof: &job2.GetJobRequest_Id{Id: j.JobID},
+				job, err := env.Offchain.GetJob(t.Context(), &jdJob.GetJobRequest{
+					IdOneof: &jdJob.GetJobRequest_Id{Id: j.JobID},
 				})
 				require.NoError(t, err)
 				foundLabel := false

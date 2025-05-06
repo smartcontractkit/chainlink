@@ -6,13 +6,15 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // ConfirmAggregatorChangeset is a changeset that confirms a proposed aggregator on deployed AggregatorProxy contract
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
-var ConfirmAggregatorChangeset = deployment.CreateChangeSet(confirmAggregatorLogic, confirmAggregatorPrecondition)
+var ConfirmAggregatorChangeset = cldf.CreateChangeSet(confirmAggregatorLogic, confirmAggregatorPrecondition)
 
 func confirmAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAggregatorConfig) (deployment.ChangesetOutput, error) {
 	chain := env.Chains[c.ChainSelector]

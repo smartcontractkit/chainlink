@@ -1271,6 +1271,7 @@ ChainID = '1' # Default
 MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
+SyncStrategy = 'event' # Default
 ```
 
 
@@ -1309,6 +1310,13 @@ MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fet
 MaxConfigSize = '50.00kb' # Default
 ```
 MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
+
+### SyncStrategy
+```toml
+SyncStrategy = 'event' # Default
+```
+SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
+Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
 
 ## Workflows
 ```toml
@@ -2066,6 +2074,7 @@ InsecureConnection = false # Default
 TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
+ChipIngressEndpoint = '' # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2114,6 +2123,12 @@ EmitterBatchProcessor enables batching for telemetry events
 EmitterExportTimeout = '1s' # Default
 ```
 EmitterExportTimeout sets timeout for exporting telemetry events
+
+### ChipIngressEndpoint
+```toml
+ChipIngressEndpoint = '' # Default
+```
+ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 
 ## Telemetry.ResourceAttributes
 ```toml
@@ -2675,224 +2690,6 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
-
-[Workflow]
-GasLimitDefault = 400000
-```
-
-</p></details>
-
-<details><summary>RSK Mainnet (30)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-FinalityDepth = 50
-FinalityTagEnabled = false
-LinkContractAddress = '0x14AdaE34beF7ca957Ce2dDe5ADD97ea050123827'
-LogBackfillBatchSize = 1000
-LogPollInterval = '30s'
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
-MinContractPayment = '0.001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '3m0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '50 mwei'
-PriceMax = '50 gwei'
-PriceMin = '0'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = false
-FeeCapDefault = '100 mwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 8
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
-PersistenceEnabled = true
-
-[NodePool]
-PollFailureThreshold = 5
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-```
-
-</p></details>
-
-<details><summary>RSK Testnet (31)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-FinalityDepth = 50
-FinalityTagEnabled = false
-LinkContractAddress = '0x8bBbd80981FE76d44854D8DF305e8985c19f0e78'
-LogBackfillBatchSize = 1000
-LogPollInterval = '30s'
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
-MinContractPayment = '0.001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '3m0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '50 mwei'
-PriceMax = '50 gwei'
-PriceMin = '0'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = false
-FeeCapDefault = '100 mwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 8
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
-PersistenceEnabled = true
-
-[NodePool]
-PollFailureThreshold = 5
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -16017,6 +15814,7 @@ ObservationGracePeriod sets `OCR.ObservationGracePeriod` for this EVM chain.
 Name = 'foo' # Example
 WSURL = 'wss://web.socket/test' # Example
 HTTPURL = 'https://foo.web' # Example
+HTTPURLExtraWrite = 'https://foo.web/extra' # Example
 SendOnly = false # Default
 Order = 100 # Default
 ```
@@ -16039,6 +15837,12 @@ WSURL is the WS(S) endpoint for this node. Required for primary nodes when `LogB
 HTTPURL = 'https://foo.web' # Example
 ```
 HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
+
+### HTTPURLExtraWrite
+```toml
+HTTPURLExtraWrite = 'https://foo.web/extra' # Example
+```
+HTTPURLExtraWrite is the HTTP(S) endpoint used for chains that require a separate endpoint for writing on-chain.
 
 ### SendOnly
 ```toml
@@ -16535,6 +16339,7 @@ FinalizedBlockOffset is the offset from the finalized block to use for finality 
 Name = 'primary' # Example
 URL = 'http://solana.web' # Example
 SendOnly = false # Default
+Order = 100 # Default
 ```
 
 
@@ -16555,6 +16360,12 @@ URL is the HTTP(S) endpoint for this node.
 SendOnly = false # Default
 ```
 SendOnly is a multinode config that only sends transactions to a node and does not read state
+
+### Order
+```toml
+Order = 100 # Default
+```
+Order specifies the priority for each node. 1 is highest priority down to 100 being the lowest.
 
 ## Starknet
 ```toml

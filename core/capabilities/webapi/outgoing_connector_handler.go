@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -43,6 +46,7 @@ type OutgoingConnectorHandler struct {
 	outgoingRateLimiter *common.RateLimiter
 	responses           *responses
 	selectorOpts        []func(*RoundRobinSelector)
+	metrics             *metrics
 }
 
 func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger, opts ...func(*RoundRobinSelector)) (*OutgoingConnectorHandler, error) {
@@ -61,6 +65,11 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 		return nil, fmt.Errorf("invalid outgoing connector handler method: %s", method)
 	}
 
+	m, err := newMetrics(method)
+	if err != nil {
+		return nil, err
+	}
+
 	return &OutgoingConnectorHandler{
 		gc:                  gc,
 		method:              method,
@@ -69,12 +78,31 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 		incomingRateLimiter: incomingRateLimiter,
 		lggr:                lgger,
 		selectorOpts:        opts,
+		metrics:             m,
 	}, nil
 }
 
 // HandleSingleNodeRequest sends a request to first available gateway node and blocks until response is received
 // TODO: handle retries
 func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
+	start := time.Now()
+
+	m, err := c.handleSingleNodeRequest(ctx, messageID, req)
+
+	totalDuration := time.Since(start)
+	status := "fail"
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		status = "timeout"
+	case err == nil:
+		status = "success"
+	}
+	c.metrics.recordSingleNodeRequestDuration(ctx, totalDuration, status, req.WorkflowID)
+
+	return m, err
+}
+
+func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
 	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", req.WorkflowID)
 	workflowAllow, globalAllow := c.outgoingRateLimiter.AllowVerbose(req.WorkflowID)
 	if !workflowAllow {
@@ -115,10 +143,12 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 		Payload:   payload,
 	}
 
+	start := time.Now()
 	selectedGateway, err := c.awaitConnection(ctx, awaitContext{
 		messageID:  messageID,
 		workflowID: req.WorkflowID,
 	})
+	c.metrics.recordAwaitConnectionDuration(ctx, time.Since(start), req.WorkflowID, selectedGateway, err == nil)
 	if err != nil {
 		return nil, err
 	}
@@ -396,4 +426,45 @@ func (r *responses) get(id string) (chan *api.Message, bool) {
 	defer r.mu.RUnlock()
 	ch, ok := r.chs[id]
 	return ch, ok
+}
+
+type metrics struct {
+	handleDuration    metric.Int64Histogram
+	awaitConnDuration metric.Int64Histogram
+	method            string
+}
+
+func (m *metrics) recordSingleNodeRequestDuration(ctx context.Context, d time.Duration, status string, wid string) {
+	m.handleDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
+		attribute.String("status", status),
+		attribute.String("workflowID", wid),
+		attribute.String("method", m.method),
+	))
+}
+
+func (m *metrics) recordAwaitConnectionDuration(ctx context.Context, d time.Duration, wid string, gateway string, success bool) {
+	successStr := "false"
+	if success {
+		successStr = "true"
+	}
+	m.awaitConnDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
+		attribute.String("gateway", gateway),
+		attribute.String("workflowID", wid),
+		attribute.String("success", successStr),
+		attribute.String("method", m.method),
+	))
+}
+
+func newMetrics(method string) (*metrics, error) {
+	h, err := beholder.GetMeter().Int64Histogram("platform_outgoing_connector_handler_single_node_request_duration_ms")
+	if err != nil {
+		return nil, err
+	}
+
+	a, err := beholder.GetMeter().Int64Histogram("platform_outgoing_connector_handler_await_conn_duration_ms")
+	if err != nil {
+		return nil, err
+	}
+
+	return &metrics{handleDuration: h, awaitConnDuration: a}, nil
 }

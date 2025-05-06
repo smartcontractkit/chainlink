@@ -7,23 +7,25 @@ import (
 
 	router1_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type FeeQuoterView struct {
 	types.ContractMetaData
-	AuthorizedCallers      []string                                 `json:"authorizedCallers,omitempty"`
-	FeeTokens              []string                                 `json:"feeTokens,omitempty"`
-	StaticConfig           FeeQuoterStaticConfig                    `json:"staticConfig,omitempty"`
-	DestinationChainConfig map[uint64]FeeQuoterDestChainConfig      `json:"destinationChainConfig,omitempty"`
-	TokenPriceFeedConfig   map[string]FeeQuoterTokenPriceFeedConfig `json:"tokenPriceFeedConfig,omitempty"`
+	AuthorizedCallers                       []string                                 `json:"authorizedCallers,omitempty"`
+	FeeTokens                               []string                                 `json:"feeTokens,omitempty"`
+	StaticConfig                            FeeQuoterStaticConfig                    `json:"staticConfig,omitempty"`
+	DestinationChainConfigBasedOnTestRouter map[uint64]FeeQuoterDestChainConfig      `json:"destinationChainConfigBasedOnTestRouter,omitempty"`
+	DestinationChainConfig                  map[uint64]FeeQuoterDestChainConfig      `json:"destinationChainConfig,omitempty"`
+	TokenPriceFeedConfig                    map[string]FeeQuoterTokenPriceFeedConfig `json:"tokenPriceFeedConfig,omitempty"`
 }
 
 type FeeQuoterStaticConfig struct {
 	MaxFeeJuelsPerMsg            string `json:"maxFeeJuelsPerMsg,omitempty"`
 	LinkToken                    string `json:"linkToken,omitempty"`
-	TokenPriceStalenessThreshold uint32 `json:"tokenPriseStalenessThreshold,omitempty"`
+	TokenPriceStalenessThreshold uint32 `json:"tokenPriceStalenessThreshold,omitempty"`
 }
 
 type FeeQuoterDestChainConfig struct {
@@ -52,7 +54,7 @@ type FeeQuoterTokenPriceFeedConfig struct {
 	TokenDecimals   uint8  `json:"tokenDecimals,omitempty"`
 }
 
-func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.Router, tokens []common.Address) (FeeQuoterView, error) {
+func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router, testRouter *router1_2.Router, tokens []common.Address) (FeeQuoterView, error) {
 	fq := FeeQuoterView{}
 	authorizedCallers, err := fqContract.GetAllAuthorizedCallers(nil)
 	if err != nil {
@@ -84,17 +86,42 @@ func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.R
 		TokenPriceStalenessThreshold: staticConfig.TokenPriceStalenessThreshold,
 	}
 	// find router contract in dependencies
-	fq.DestinationChainConfig = make(map[uint64]FeeQuoterDestChainConfig)
+	fq.DestinationChainConfig, err = generateDestChainConfig(fqContract, router)
+	if err != nil {
+		return FeeQuoterView{}, err
+	}
+	if testRouter != nil {
+		fq.DestinationChainConfigBasedOnTestRouter, err = generateDestChainConfig(fqContract, testRouter)
+		if err != nil {
+			return FeeQuoterView{}, err
+		}
+	}
+	fq.TokenPriceFeedConfig = make(map[string]FeeQuoterTokenPriceFeedConfig)
+	for _, token := range tokens {
+		t, err := fqContract.GetTokenPriceFeedConfig(nil, token)
+		if err != nil {
+			return FeeQuoterView{}, err
+		}
+		fq.TokenPriceFeedConfig[token.String()] = FeeQuoterTokenPriceFeedConfig{
+			DataFeedAddress: t.DataFeedAddress.Hex(),
+			TokenDecimals:   t.TokenDecimals,
+		}
+	}
+	return fq, nil
+}
+
+func generateDestChainConfig(fqContract *fee_quoter.FeeQuoter, router *router1_2.Router) (map[uint64]FeeQuoterDestChainConfig, error) {
+	destinationChainConfig := make(map[uint64]FeeQuoterDestChainConfig)
 	destSelectors, err := v1_2.GetRemoteChainSelectors(router)
 	if err != nil {
-		return FeeQuoterView{}, fmt.Errorf("view error for FeeQuoter: %w", err)
+		return nil, fmt.Errorf("view error for FeeQuoter while getting remote chain selectors from router: %w", err)
 	}
 	for _, destChainSelector := range destSelectors {
 		destChainConfig, err := fqContract.GetDestChainConfig(nil, destChainSelector)
 		if err != nil {
-			return FeeQuoterView{}, err
+			return nil, err
 		}
-		fq.DestinationChainConfig[destChainSelector] = FeeQuoterDestChainConfig{
+		destinationChainConfig[destChainSelector] = FeeQuoterDestChainConfig{
 			IsEnabled:                         destChainConfig.IsEnabled,
 			MaxNumberOfTokensPerMsg:           destChainConfig.MaxNumberOfTokensPerMsg,
 			MaxDataBytes:                      destChainConfig.MaxDataBytes,
@@ -115,16 +142,5 @@ func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.R
 			ChainFamilySelector:               fmt.Sprintf("%x", destChainConfig.ChainFamilySelector),
 		}
 	}
-	fq.TokenPriceFeedConfig = make(map[string]FeeQuoterTokenPriceFeedConfig)
-	for _, token := range tokens {
-		t, err := fqContract.GetTokenPriceFeedConfig(nil, token)
-		if err != nil {
-			return FeeQuoterView{}, err
-		}
-		fq.TokenPriceFeedConfig[token.String()] = FeeQuoterTokenPriceFeedConfig{
-			DataFeedAddress: t.DataFeedAddress.Hex(),
-			TokenDecimals:   t.TokenDecimals,
-		}
-	}
-	return fq, nil
+	return destinationChainConfig, nil
 }

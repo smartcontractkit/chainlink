@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	job2 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	jdJob "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -239,8 +239,8 @@ ask_price [type=median allowedFaults=3 index=2];
 			}
 			// Ensure the labels are set correctly
 			for _, job := range out[0].Jobs {
-				j, err := env.Offchain.GetJob(t.Context(), &job2.GetJobRequest{
-					IdOneof: &job2.GetJobRequest_Id{Id: job.JobID},
+				j, err := env.Offchain.GetJob(t.Context(), &jdJob.GetJobRequest{
+					IdOneof: &jdJob.GetJobRequest_Id{Id: job.JobID},
 				})
 				require.NoError(t, err)
 				foundLabel := false
