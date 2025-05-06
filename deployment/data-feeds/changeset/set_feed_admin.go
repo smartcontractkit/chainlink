@@ -5,13 +5,14 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // SetFeedAdminChangeset is a changeset that sets/removes an admin on DataFeedsCache contract.
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
-var SetFeedAdminChangeset = deployment.CreateChangeSet(setFeedAdminLogic, setFeedAdminPrecondition)
+var SetFeedAdminChangeset = cldf.CreateChangeSet(setFeedAdminLogic, setFeedAdminPrecondition)
 
 func setFeedAdminLogic(env deployment.Environment, c types.SetFeedAdminConfig) (deployment.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)

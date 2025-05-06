@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -158,7 +158,7 @@ func TestRemoveDONs(t *testing.T) {
 
 				// If finalizeOnChain is true, we actually apply the proposals on-chain
 				if tt.finalizeOnChain {
-					err = applyProposal(t, te, commonchangeset.Configure(deployment.CreateLegacyChangeSet(changeset.RemoveDONs), req))
+					err = applyProposal(t, te, commonchangeset.Configure(cldf.CreateLegacyChangeSet(changeset.RemoveDONs), req))
 					require.NoError(t, err, "failed to finalize MCMS proposal on-chain")
 
 					// Check on-chain that the DON is removed

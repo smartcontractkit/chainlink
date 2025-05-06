@@ -11,6 +11,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -102,7 +103,7 @@ func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(workflowregistry.UpdateAllowedDons),
+			cldf.CreateLegacyChangeSet(workflowregistry.UpdateAllowedDons),
 			req,
 		),
 	)

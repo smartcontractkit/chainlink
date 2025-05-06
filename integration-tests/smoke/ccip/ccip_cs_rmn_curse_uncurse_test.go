@@ -8,9 +8,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -479,7 +480,7 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state c
 	// This is required because RMN Contracts is initially owned by the deployer
 	_, err := commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{
@@ -549,7 +550,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase, action types.Timelock
 	_, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env,
 		[]commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
+				cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
 				config,
 			)},
 	)
@@ -560,7 +561,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase, action types.Timelock
 	_, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env,
 		[]commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset),
+				cldf.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset),
 				config,
 			)},
 	)
@@ -687,7 +688,7 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase, action types.TimelockAc
 	_, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env,
 		[]commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
+				cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
 				config,
 			)},
 	)
@@ -701,7 +702,10 @@ func verifyTestCaseAssertions(t *testing.T, e *testhelpers.DeployedEnv, tc Curse
 	require.NoError(t, err)
 
 	for _, assertion := range tc.curseAssertions {
-		cursedSubject := globals.SelectorToSubject(mapIDToSelector(assertion.subject))
+		family, err := chain_selectors.GetSelectorFamily(mapIDToSelector(assertion.chainID))
+		require.NoError(t, err)
+
+		cursedSubject := globals.FamilyAwareSelectorToSubject(mapIDToSelector(assertion.subject), family)
 		if assertion.globalCurse {
 			cursedSubject = globals.GlobalCurseSubject()
 		}
@@ -718,9 +722,12 @@ func verifyNoActiveCurseOnAllChains(t *testing.T, e *testhelpers.DeployedEnv) {
 
 	for chainSelector, chain := range cursableChains {
 		for selector := range cursableChains {
-			isCursed, err := chain.IsSubjectCursed(globals.SelectorToSubject(selector))
+			family, err := chain_selectors.GetSelectorFamily(chainSelector)
 			require.NoError(t, err)
-			require.False(t, isCursed, "chain %d subject %d", chainSelector, globals.SelectorToSubject(selector))
+
+			isCursed, err := chain.IsSubjectCursed(globals.FamilyAwareSelectorToSubject(selector, family))
+			require.NoError(t, err)
+			require.False(t, isCursed, "chain %d subject %d", chainSelector, globals.FamilyAwareSelectorToSubject(selector, family))
 		}
 	}
 }

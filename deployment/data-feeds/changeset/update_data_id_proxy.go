@@ -6,13 +6,14 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // UpdateDataIDProxyChangeset is a changeset that updates the proxy-dataId mapping on DataFeedsCache contract.
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
-var UpdateDataIDProxyChangeset = deployment.CreateChangeSet(updateDataIDProxyLogic, updateDataIDProxyPrecondition)
+var UpdateDataIDProxyChangeset = cldf.CreateChangeSet(updateDataIDProxyLogic, updateDataIDProxyPrecondition)
 
 func updateDataIDProxyLogic(env deployment.Environment, c types.UpdateDataIDProxyConfig) (deployment.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)

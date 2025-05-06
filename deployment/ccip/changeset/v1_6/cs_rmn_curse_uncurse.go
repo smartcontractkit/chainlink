@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -32,7 +33,7 @@ type RMNCurseAction struct {
 
 // CurseAction is a function that returns a list of RMNCurseAction to be applied on a chain
 // CurseChain, CurseLane, CurseGloballyOnlyOnSource are examples of function implementing CurseAction
-type CurseAction func(e deployment.Environment) []RMNCurseAction
+type CurseAction func(e deployment.Environment) ([]RMNCurseAction, error)
 
 type RMNCurseConfig struct {
 	MCMS         *proposalutils.TimelockConfig
@@ -61,22 +62,28 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 		return errors.New("reason is required")
 	}
 
-	validSubjects := map[globals.Subject]struct{}{
+	validEVMSubjects := map[globals.Subject]struct{}{
 		globals.GlobalCurseSubject(): {},
 	}
+
+	validSolanaSubjects := map[globals.Subject]struct{}{
+		globals.GlobalCurseSubject(): {},
+	}
+
 	for _, selector := range GetAllCursableChainsSelector(e) {
-		validSubjects[globals.SelectorToSubject(selector)] = struct{}{}
+		validEVMSubjects[globals.FamilyAwareSelectorToSubject(selector, chain_selectors.FamilyEVM)] = struct{}{}
+		validSolanaSubjects[globals.FamilyAwareSelectorToSubject(selector, chain_selectors.FamilySolana)] = struct{}{}
 	}
 
 	for _, curseAction := range c.CurseActions {
-		result := curseAction(e)
+		result, err := curseAction(e)
+		if err != nil {
+			return fmt.Errorf("failed to generate curse actions: %w", err)
+		}
+
 		for _, action := range result {
 			if err = deployment.IsValidChainSelector(action.ChainSelector); err != nil {
 				return fmt.Errorf("invalid chain selector %d", action.ChainSelector)
-			}
-
-			if _, ok := validSubjects[action.SubjectToCurse]; !ok {
-				return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
 			}
 
 			family, err := chain_selectors.GetSelectorFamily(action.ChainSelector)
@@ -87,6 +94,10 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 			// TODO: Implement chain family agnostic validation
 			switch family {
 			case chain_selectors.FamilyEVM:
+				if _, ok := validEVMSubjects[action.SubjectToCurse]; !ok {
+					return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
+				}
+
 				targetChain := e.Chains[action.ChainSelector]
 				targetChainState, ok := state.Chains[action.ChainSelector]
 				if !ok {
@@ -97,6 +108,10 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 					return fmt.Errorf("chain %s: %w", targetChain.String(), err)
 				}
 			case chain_selectors.FamilySolana:
+				if _, ok := validSolanaSubjects[action.SubjectToCurse]; !ok {
+					return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
+				}
+
 				targetChain := e.SolChains[action.ChainSelector]
 				targetChainState, ok := state.SolChains[action.ChainSelector]
 				if !ok {
@@ -119,13 +134,18 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 // CurseLaneOnlyOnSource(A, B) will curse A with the curse subject of B
 func CurseLaneOnlyOnSource(sourceSelector uint64, destinationSelector uint64) CurseAction {
 	// Curse from source to destination
-	return func(e deployment.Environment) []RMNCurseAction {
+	return func(e deployment.Environment) ([]RMNCurseAction, error) {
+		family, err := chain_selectors.GetSelectorFamily(sourceSelector)
+		if err != nil {
+			return nil, err
+		}
+
 		return []RMNCurseAction{
 			{
 				ChainSelector:  sourceSelector,
-				SubjectToCurse: globals.SelectorToSubject(destinationSelector),
+				SubjectToCurse: globals.FamilyAwareSelectorToSubject(destinationSelector, family),
 			},
-		}
+		}, nil
 	}
 }
 
@@ -133,13 +153,13 @@ func CurseLaneOnlyOnSource(sourceSelector uint64, destinationSelector uint64) Cu
 // Given 3 chains A, B, C
 // CurseGloballyOnlyOnChain(A) will curse a with the global curse subject only
 func CurseGloballyOnlyOnChain(selector uint64) CurseAction {
-	return func(e deployment.Environment) []RMNCurseAction {
+	return func(e deployment.Environment) ([]RMNCurseAction, error) {
 		return []RMNCurseAction{
 			{
 				ChainSelector:  selector,
 				SubjectToCurse: globals.GlobalCurseSubject(),
 			},
-		}
+		}, nil
 	}
 }
 
@@ -147,12 +167,20 @@ func CurseGloballyOnlyOnChain(selector uint64) CurseAction {
 // Given 3 chains A, B, C
 // CurseLaneBidirectionally(A, B) will curse A with the curse subject of B and B with the curse subject of A
 func CurseLaneBidirectionally(sourceSelector uint64, destinationSelector uint64) CurseAction {
+
 	// Bidirectional curse between two chains
-	return func(e deployment.Environment) []RMNCurseAction {
-		return append(
-			CurseLaneOnlyOnSource(sourceSelector, destinationSelector)(e),
-			CurseLaneOnlyOnSource(destinationSelector, sourceSelector)(e)...,
-		)
+	return func(e deployment.Environment) ([]RMNCurseAction, error) {
+		curseActions1, err := CurseLaneOnlyOnSource(sourceSelector, destinationSelector)(e)
+		if err != nil {
+			return nil, err
+		}
+
+		curseActions2, err := CurseLaneOnlyOnSource(destinationSelector, sourceSelector)(e)
+		if err != nil {
+			return nil, err
+		}
+
+		return append(curseActions1, curseActions2...), nil
 	}
 }
 
@@ -160,24 +188,33 @@ func CurseLaneBidirectionally(sourceSelector uint64, destinationSelector uint64)
 // Given 3 chains A, B, C
 // CurseChain(A) will curse A with the global curse subject and curse B and C with the curse subject of A
 func CurseChain(chainSelector uint64) CurseAction {
-	return func(e deployment.Environment) []RMNCurseAction {
+	return func(e deployment.Environment) ([]RMNCurseAction, error) {
 		chainSelectors := GetAllCursableChainsSelector(e)
 
 		// Curse all other chains to prevent onramp from sending message to the cursed chain
 		var curseActions []RMNCurseAction
 		for _, otherChainSelector := range chainSelectors {
 			if otherChainSelector != chainSelector {
+				family, err := chain_selectors.GetSelectorFamily(otherChainSelector)
+				if err != nil {
+					return nil, err
+				}
+
 				curseActions = append(curseActions, RMNCurseAction{
 					ChainSelector:  otherChainSelector,
-					SubjectToCurse: globals.SelectorToSubject(chainSelector),
+					SubjectToCurse: globals.FamilyAwareSelectorToSubject(chainSelector, family),
 				})
 			}
 		}
 
 		// Curse the chain with a global curse to prevent any onramp or offramp message from send message in and out of the chain
-		curseActions = append(curseActions, CurseGloballyOnlyOnChain(chainSelector)(e)...)
+		globalCurse, err := CurseGloballyOnlyOnChain(chainSelector)(e)
+		if err != nil {
+			return nil, err
+		}
+		curseActions = append(curseActions, globalCurse...)
 
-		return curseActions
+		return curseActions, nil
 	}
 }
 
@@ -196,7 +233,14 @@ func FilterOutNotConnectedLanes(e deployment.Environment, curseActions []RMNCurs
 		}
 
 		targetChainSelector := action.ChainSelector
-		sourceChainSelector := globals.SubjectToSelector(action.SubjectToCurse)
+
+		targetFamily, err := chain_selectors.GetSelectorFamily(targetChainSelector)
+		if err != nil {
+			e.Logger.Errorf("failed to get family for chain %d: %v", targetChainSelector, err)
+			return nil, err
+		}
+
+		sourceChainSelector := globals.FamilyAwareSubjectToSelector(action.SubjectToCurse, targetFamily)
 
 		targetSourceConnected, err := cursableChains[targetChainSelector].IsConnectedToSourceChain(sourceChainSelector)
 		if err != nil {
@@ -225,11 +269,16 @@ func FilterOutNotConnectedLanes(e deployment.Environment, curseActions []RMNCurs
 	return returnActions, nil
 }
 
-func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf bool, onlyKeepGlobal bool) map[uint64][]globals.Subject {
+func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf bool, onlyKeepGlobal bool) (map[uint64][]globals.Subject, error) {
 	grouped := make(map[uint64][]globals.Subject)
 	for _, s := range rmnSubjects {
+		family, err := chain_selectors.GetSelectorFamily(s.ChainSelector)
+		if err != nil {
+			return nil, err
+		}
+
 		// Skip self-curse if needed
-		if s.SubjectToCurse == globals.SelectorToSubject(s.ChainSelector) && avoidCursingSelf {
+		if s.SubjectToCurse == globals.FamilyAwareSelectorToSubject(s.ChainSelector, family) && avoidCursingSelf {
 			continue
 		}
 		// Initialize slice for this chain if needed
@@ -258,7 +307,7 @@ func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf bo
 		}
 	}
 
-	return grouped
+	return grouped, nil
 }
 
 // RMNCurseChangeset creates a new changeset for cursing chains or lanes on RMNRemote contracts.
@@ -293,7 +342,12 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 	// Generate curse actions
 	var curseActions []RMNCurseAction
 	for _, curseAction := range cfg.CurseActions {
-		curseActions = append(curseActions, curseAction(e)...)
+		actions, err := curseAction(e)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate curse actions: %w", err)
+		}
+
+		curseActions = append(curseActions, actions...)
 	}
 
 	if !cfg.IncludeNotConnectedLanes {
@@ -304,7 +358,10 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 	}
 
 	// Group curse actions by chain selector
-	grouped := groupRMNSubjectBySelector(curseActions, true, true)
+	grouped, err := groupRMNSubjectBySelector(curseActions, true, true)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to group curse actions: %w", err)
+	}
 	// For each chain in the environment get the RMNRemote contract and call curse
 	cursableChains, err := GetCursableChains(e)
 	if err != nil {
@@ -375,10 +432,18 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 	// Generate curse actions
 	var curseActions []RMNCurseAction
 	for _, curseAction := range cfg.CurseActions {
-		curseActions = append(curseActions, curseAction(e)...)
+		actions, err := curseAction(e)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate curse actions: %w", err)
+		}
+
+		curseActions = append(curseActions, actions...)
 	}
 	// Group curse actions by chain selector
-	grouped := groupRMNSubjectBySelector(curseActions, false, false)
+	grouped, err := groupRMNSubjectBySelector(curseActions, false, false)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to group curse actions: %w", err)
+	}
 
 	// For each chain in the environement get the RMNRemote contract and call uncurse
 	cursableChains, err := GetCursableChains(e)
@@ -457,6 +522,11 @@ func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, err
 }
 
 func (c SolanaCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilySolana)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
 	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
@@ -491,6 +561,11 @@ func (c SolanaCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subje
 }
 
 func (c SolanaCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilySolana)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
 	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
@@ -576,6 +651,11 @@ func (c EvmCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error)
 }
 
 func (c EvmCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilyEVM)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
 	deployer, err := deployerGroup.GetDeployer(c.selector)
 	if err != nil {
 		return fmt.Errorf("failed to get deployer for chain %d: %w", c.selector, err)
@@ -589,6 +669,11 @@ func (c EvmCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subjects
 }
 
 func (c EvmCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilyEVM)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
 	deployer, err := deployerGroup.GetDeployer(c.selector)
 	if err != nil {
 		return fmt.Errorf("failed to get deployer for chain %d: %w", c.selector, err)
@@ -631,4 +716,25 @@ func GetAllCursableChainsSelector(env deployment.Environment) []uint64 {
 	selectors = append(selectors, env.AllChainSelectors()...)
 	selectors = append(selectors, env.AllChainSelectorsSolana()...)
 	return selectors
+}
+
+func assertEndianness(subjects []globals.Subject, family string) error {
+	for _, subject := range subjects {
+		if subject == globals.GlobalCurseSubject() {
+			continue
+		}
+		switch family {
+		case chain_selectors.FamilySolana:
+			// Solana uses little endian to encode the subject so we expect the last 8 bytes to be 0
+			if !bytes.Equal(subject[8:], []byte{0, 0, 0, 0, 0, 0, 0, 0}) {
+				return fmt.Errorf("endianness incorrect for Solana curse subject: %s", subject)
+			}
+		default:
+			// EVM uses big endian to encode the subject so we expect the first 8 bytes to be 0
+			if !bytes.Equal(subject[:8], []byte{0, 0, 0, 0, 0, 0, 0, 0}) {
+				return fmt.Errorf("endianness incorrect for curse subject: %s", subject)
+			}
+		}
+	}
+	return nil
 }

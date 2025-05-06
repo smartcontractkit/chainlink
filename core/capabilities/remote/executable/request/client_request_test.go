@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"google.golang.org/protobuf/proto"
 
@@ -413,7 +414,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		assert.Len(t, messages, 1)
 
 		// Unmarshal the message to verify its contents
-		var event request.TransmissionsScheduledEvent
+		var event events.TransmissionsScheduledEvent
 		err = proto.Unmarshal(messages[0].Body, &event)
 		require.NoError(t, err)
 

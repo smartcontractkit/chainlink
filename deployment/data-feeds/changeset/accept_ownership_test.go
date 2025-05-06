@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -33,7 +34,7 @@ func TestAcceptOwnership(t *testing.T) {
 
 	newEnv, err := commonChangesets.Apply(t, env, nil,
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
 				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 			},

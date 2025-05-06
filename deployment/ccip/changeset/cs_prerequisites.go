@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"fmt"
+
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -159,7 +160,6 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	var tokenAdminReg *token_admin_registry.TokenAdminRegistry
 	var tokenPoolFactory *token_pool_factory.TokenPoolFactory
 	var factoryBurnMintERC20 *factory_burn_mint_erc20.FactoryBurnMintERC20
-	var registryModules []*registry_module_owner_custom.RegistryModuleOwnerCustom
 	var rmnProxy *rmn_proxy_contract.RMNProxy
 	var r *router.Router
 	var mc3 *multicall3.Multicall3
@@ -168,7 +168,6 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		tokenAdminReg = chainState.TokenAdminRegistry
 		tokenPoolFactory = chainState.TokenPoolFactory
 		factoryBurnMintERC20 = chainState.FactoryBurnMintERC20Token
-		registryModules = chainState.RegistryModules1_6
 		rmnProxy = chainState.RMNProxy
 		r = chainState.Router
 		mc3 = chainState.Multicall3
@@ -291,7 +290,15 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	} else {
 		e.Logger.Infow("tokenAdminRegistry already deployed", "chain", chain.String(), "addr", tokenAdminReg.Address)
 	}
-	if len(registryModules) == 0 {
+	// fetch addresses of both version of the registry module
+	var regAddresses []common.Address
+	for _, reg := range chainState.RegistryModules1_6 {
+		regAddresses = append(regAddresses, reg.Address())
+	}
+	for _, reg := range chainState.RegistryModules1_5 {
+		regAddresses = append(regAddresses, reg.Address())
+	}
+	if len(regAddresses) == 0 {
 		customRegistryModule, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
 				regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
@@ -306,23 +313,19 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			e.Logger.Errorw("Failed to deploy custom registry module", "chain", chain.String(), "err", err)
 			return err
 		}
-		registryModules = append(registryModules, customRegistryModule.Contract)
+		regAddresses = append(regAddresses, customRegistryModule.Address)
 		e.Logger.Infow("deployed custom registry module", "chain", chain.String(), "addr", customRegistryModule.Address)
 	} else {
-		regAddresses := make([]common.Address, len(registryModules))
-		for _, reg := range registryModules {
-			regAddresses = append(regAddresses, reg.Address())
-		}
 		e.Logger.Infow("custom registry module already deployed", "chain", chain.String(), "addr", regAddresses)
 	}
-	for _, reg := range registryModules {
-		isRegistryAdded, err := tokenAdminReg.IsRegistryModule(nil, reg.Address())
+	for _, reg := range regAddresses {
+		isRegistryAdded, err := tokenAdminReg.IsRegistryModule(nil, reg)
 		if err != nil {
 			e.Logger.Errorw("Failed to check if registry module is added on token admin registry", "chain", chain.String(), "err", err)
 			return fmt.Errorf("failed to check if registry module is added on token admin registry: %w", err)
 		}
 		if !isRegistryAdded {
-			tx, err := tokenAdminReg.AddRegistryModule(chain.DeployerKey, reg.Address())
+			tx, err := tokenAdminReg.AddRegistryModule(chain.DeployerKey, reg)
 			if err != nil {
 				e.Logger.Errorw("Failed to assign registry module on token admin registry", "chain", chain.String(), "err", err)
 				return fmt.Errorf("failed to assign registry module on token admin registry: %w", err)
@@ -392,7 +395,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 						// There will always be at least one registry module deployed at this point.
 						// We just use the first one here. If a different RegistryModule is desired,
 						// users can run DeployTokenPoolFactoryChangeset with the desired address.
-						registryModules[0].Address(),
+						regAddresses[0],
 						rmnProxy.Address(),
 						r.Address(),
 					)
