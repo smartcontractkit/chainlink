@@ -5,6 +5,9 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
+	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -69,4 +72,9 @@ func loadAptosChainStateFromAddresses(addresses map[string]deployment.TypeAndVer
 		}
 	}
 	return chainState, nil
+}
+
+func getOfframpDynamicConfig(c deployment.AptosChain, ccipAddress aptos.AccountAddress) (module_offramp.DynamicConfig, error) {
+	offrampBind := ccip_offramp.Bind(ccipAddress, c.Client)
+	return offrampBind.Offramp().GetDynamicConfig(&aptosBind.CallOpts{})
 }

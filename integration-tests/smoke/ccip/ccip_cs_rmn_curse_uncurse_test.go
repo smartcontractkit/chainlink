@@ -8,6 +8,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -701,7 +702,10 @@ func verifyTestCaseAssertions(t *testing.T, e *testhelpers.DeployedEnv, tc Curse
 	require.NoError(t, err)
 
 	for _, assertion := range tc.curseAssertions {
-		cursedSubject := globals.SelectorToSubject(mapIDToSelector(assertion.subject))
+		family, err := chain_selectors.GetSelectorFamily(mapIDToSelector(assertion.chainID))
+		require.NoError(t, err)
+
+		cursedSubject := globals.FamilyAwareSelectorToSubject(mapIDToSelector(assertion.subject), family)
 		if assertion.globalCurse {
 			cursedSubject = globals.GlobalCurseSubject()
 		}
@@ -718,9 +722,12 @@ func verifyNoActiveCurseOnAllChains(t *testing.T, e *testhelpers.DeployedEnv) {
 
 	for chainSelector, chain := range cursableChains {
 		for selector := range cursableChains {
-			isCursed, err := chain.IsSubjectCursed(globals.SelectorToSubject(selector))
+			family, err := chain_selectors.GetSelectorFamily(chainSelector)
 			require.NoError(t, err)
-			require.False(t, isCursed, "chain %d subject %d", chainSelector, globals.SelectorToSubject(selector))
+
+			isCursed, err := chain.IsSubjectCursed(globals.FamilyAwareSelectorToSubject(selector, family))
+			require.NoError(t, err)
+			require.False(t, isCursed, "chain %d subject %d", chainSelector, globals.FamilyAwareSelectorToSubject(selector, family))
 		}
 	}
 }

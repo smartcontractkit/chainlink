@@ -1247,8 +1247,7 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		if chainState.CCIPAddress == (aptos.AccountAddress{}) {
 			return 0, fmt.Errorf("ccip not found in existing state, deploy the ccip first for Aptos chain %d", selector)
 		}
-		pChain := deployment.PAptosChain{AptosChain: chain}
-		offrampDynamicConfig, err := pChain.GetOfframpDynamicConfig(chainState.CCIPAddress)
+		offrampDynamicConfig, err := getOfframpDynamicConfig(chain, chainState.CCIPAddress)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get offramp dynamic config for Aptos chain %d: %w", selector, err)
 		}
