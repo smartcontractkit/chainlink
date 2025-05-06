@@ -421,11 +421,15 @@ RPCJitter = "0ms"
 # The sum of all ratios should be 100
 # Messages that include data MUST have a `DataLengthBytes` field
 MessageDetails = [
-    {Ratio = 100, MsgType = "TokenTransfer"},
+#    {Ratio = 3, MsgType = "TokenTransfer"},
 #    {Ratio = 82, MsgType = "ProgrammableTokenTransfer", DataLengthBytes = 5000, DestGasLimit=650_000},
-    {Ratio = 0,  MsgType = "Messaging", DataLengthBytes = 100, DestGasLimit=800_000},
+#    {Ratio = 10,  MsgType = "Messaging", DataLengthBytes = 10_000, DestGasLimit=800_000},
 #    {Ratio = 5,  MsgType = "Messaging", DataLengthBytes = 10_000, DestGasLimit=2_500_000},
+    {Ratio = 50,  MsgType = "TokenTransfer"},
+    {Ratio = 50,  MsgType = "Messaging", DataLengthBytes = 10_000, DestGasLimit=2_500_000},
 ]
+# overrides the `DataLengthBytes` when sending messages to/from Solana. This is due to block size limitations
+SolanaDataSize = 200
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
 RequestFrequency = "30s"
 LoadDuration = "5m"

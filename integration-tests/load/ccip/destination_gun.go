@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"math/big"
@@ -14,7 +15,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"go.uber.org/atomic"
@@ -201,6 +201,26 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 	rcv, extraArgs := []byte{}, []byte{}
 	svmExtraArgs := message_hasher.ClientSVMExtraArgsV1{}
 	var tokenReceiver solana.PublicKey
+
+	// Select a message type based on ratio
+	randomValue := mathrand.Intn(100)
+	accumulatedRatio := 0
+	var selectedMsgDetails *ccip.MsgDetails
+
+	for _, msg := range *m.testConfig.MessageDetails {
+		accumulatedRatio += *msg.Ratio
+		if randomValue < accumulatedRatio {
+			selectedMsgDetails = &msg
+			break
+		}
+	}
+
+	if selectedMsgDetails == nil {
+		return router.ClientEVM2AnyMessage{}, 0, errors.New("failed to select message type")
+	}
+
+	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
+
 	switch dstSelFamily {
 	case selectors.FamilyEVM:
 		rcv, err = utils.ABIEncode(`[{"type":"address"}]`, common.BytesToAddress(m.receiver))
@@ -231,26 +251,6 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			ComputeUnits:             150000,
 		}
 	}
-
-	// Select a message type based on ratio
-	randomValue := mathrand.Intn(100)
-	accumulatedRatio := 0
-	var selectedMsgDetails *ccip.MsgDetails
-
-	for _, msg := range *m.testConfig.MessageDetails {
-		accumulatedRatio += *msg.Ratio
-		if randomValue < accumulatedRatio {
-			selectedMsgDetails = &msg
-			break
-		}
-	}
-
-	if selectedMsgDetails == nil {
-		return router.ClientEVM2AnyMessage{}, 0, errors.New("failed to select message type")
-	}
-
-	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
-
 	message := router.ClientEVM2AnyMessage{
 		Receiver:  rcv,
 		FeeToken:  common.HexToAddress("0x0"),
@@ -260,6 +260,12 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 	// Set data length if it's a data transfer
 	if selectedMsgDetails.IsDataTransfer() {
 		dataLength := *selectedMsgDetails.DataLengthBytes
+		switch dstSelFamily {
+		case selectors.FamilyEVM:
+			dataLength = *selectedMsgDetails.DataLengthBytes
+		case selectors.FamilySolana:
+			dataLength = *m.testConfig.SolanaDataSize
+		}
 		data := make([]byte, dataLength)
 		_, err2 := rand.Read(data)
 		if err2 != nil {
@@ -270,12 +276,12 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 
 	// When it's not a programmable token transfer the receiver can be an EOA, we use a random address to denote that
 	if selectedMsgDetails.IsTokenOnlyTransfer() {
-		receiver, err := utils.ABIEncode(`[{"type":"address"}]`, common.HexToAddress(utils.RandomAddress().Hex()))
-		if err != nil {
-			m.l.Error("Error encoding receiver address")
-			return router.ClientEVM2AnyMessage{}, 0, err
-		}
 		if dstSelFamily == selectors.FamilyEVM {
+			receiver, err := utils.ABIEncode(`[{"type":"address"}]`, common.HexToAddress(utils.RandomAddress().Hex()))
+			if err != nil {
+				m.l.Error("Error encoding receiver address")
+				return router.ClientEVM2AnyMessage{}, 0, err
+			}
 			message.Receiver = receiver
 		}
 	}
@@ -288,8 +294,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 				Amount: big.NewInt(1),
 			},
 		}
-		switch dstSelFamily {
-		case selectors.FamilySolana:
+		if dstSelFamily == selectors.FamilySolana {
 			tokenReceiver, _, err = soltokens.FindAssociatedTokenAddress(
 				solana.Token2022ProgramID,
 				m.state.SolChains[m.chainSelector].LinkToken,
@@ -299,18 +304,21 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 				return router.ClientEVM2AnyMessage{}, 0, err
 			}
 			svmExtraArgs.TokenReceiver = tokenReceiver
-			extraArgs, err = ccipevm.SerializeClientSVMExtraArgsV1(svmExtraArgs)
-			if err != nil {
-				m.l.Errorw("Error encoding extra args for sol dest")
-				return router.ClientEVM2AnyMessage{}, 0, err
-			}
-			message.ExtraArgs = extraArgs
 		}
 	}
 
 	gasLimit := int64(0)
 	if selectedMsgDetails.DestGasLimit != nil {
 		gasLimit = *selectedMsgDetails.DestGasLimit
+	}
+
+	if dstSelFamily == selectors.FamilySolana {
+		extraArgs, err = ccipevm.SerializeClientSVMExtraArgsV1(svmExtraArgs)
+		if err != nil {
+			m.l.Errorw("Error encoding extra args for sol dest")
+			return router.ClientEVM2AnyMessage{}, 0, err
+		}
+		message.ExtraArgs = extraArgs
 	}
 
 	return message, gasLimit, nil
@@ -353,15 +361,44 @@ func (m *DestinationGun) sendSOLSourceMessage(src uint64) error {
 }
 
 func (m *DestinationGun) getSolanaMessage(src uint64, account *solana.PrivateKey) (ccip_router.SVM2AnyMessage, error) {
-	return ccip_router.SVM2AnyMessage{
-		Receiver: common.LeftPadBytes(m.receiver, 32),
-		TokenAmounts: []ccip_router.SVMTokenAmount{
+	// Select a message type based on ratio
+	randomValue := mathrand.Intn(100)
+	accumulatedRatio := 0
+	var selectedMsgDetails *ccip.MsgDetails
+
+	for _, msg := range *m.testConfig.MessageDetails {
+		accumulatedRatio += *msg.Ratio
+		if randomValue < accumulatedRatio {
+			selectedMsgDetails = &msg
+			break
+		}
+	}
+
+	if selectedMsgDetails == nil {
+		return ccip_router.SVM2AnyMessage{}, errors.New("failed to select message type")
+	}
+
+	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
+	message := ccip_router.SVM2AnyMessage{
+		Receiver:  common.LeftPadBytes(m.receiver, 32),
+		ExtraArgs: []byte{},
+	}
+	switch {
+	case selectedMsgDetails.IsDataTransfer():
+		data := make([]byte, *m.testConfig.SolanaDataSize)
+		_, err := rand.Read(data)
+		if err != nil {
+			return ccip_router.SVM2AnyMessage{}, err
+		}
+		message.Data = data
+	case selectedMsgDetails.IsTokenTransfer():
+		message.TokenAmounts = []ccip_router.SVMTokenAmount{
 			{
 				Token:  m.state.SolChains[src].LinkToken,
 				Amount: 1,
 			},
-		},
-		Data:      []byte("hello world"),
-		ExtraArgs: []byte{},
-	}, nil
+		}
+	}
+
+	return message, nil
 }
