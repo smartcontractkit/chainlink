@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -46,8 +47,8 @@ var (
 	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
 	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
 
-	DeployDonIDClaimerChangeset = deployment.CreateChangeSet(deployDonIDClaimerChangesetLogic, deployDonIDClaimerPrecondition)
-	DonIDClaimerOffSetChangeset = deployment.CreateChangeSet(donIDClaimerOffSetChangesetLogic, donIDClaimerOffSetChangesetPrecondition)
+	DeployDonIDClaimerChangeset = cldf.CreateChangeSet(deployDonIDClaimerChangesetLogic, deployDonIDClaimerPrecondition)
+	DonIDClaimerOffSetChangeset = cldf.CreateChangeSet(donIDClaimerOffSetChangesetLogic, donIDClaimerOffSetChangesetPrecondition)
 )
 
 func findTokenInfo(tokens []changeset.TokenDetails, address common.Address) (string, uint8, error) {
@@ -1446,7 +1447,9 @@ func ValidateCCIPHomeConfigSetUp(
 	return nil
 }
 
-func deployDonIDClaimerChangesetLogic(e deployment.Environment) (deployment.ChangesetOutput, error) {
+type DeployDonIDClaimerConfig struct{}
+
+func deployDonIDClaimerChangesetLogic(e deployment.Environment, _ DeployDonIDClaimerConfig) (deployment.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -1502,7 +1505,7 @@ func deployDonIDClaimerContract(e deployment.Environment, ab deployment.AddressB
 	return nil
 }
 
-func deployDonIDClaimerPrecondition(e deployment.Environment) error {
+func deployDonIDClaimerPrecondition(e deployment.Environment, _ DeployDonIDClaimerConfig) error {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -1517,8 +1520,7 @@ func deployDonIDClaimerPrecondition(e deployment.Environment) error {
 }
 
 type DonIDClaimerOffSetConfig struct {
-	HomeChainSelector uint64 `json:"homeChainSelector"`
-	OffSet            uint32 `json:"offset"`
+	OffSet uint32 `json:"offset"`
 }
 
 func donIDClaimerOffSetChangesetLogic(e deployment.Environment, cfg DonIDClaimerOffSetConfig) (deployment.ChangesetOutput, error) {
@@ -1528,15 +1530,20 @@ func donIDClaimerOffSetChangesetLogic(e deployment.Environment, cfg DonIDClaimer
 		return deployment.ChangesetOutput{}, err
 	}
 
-	// perform the offset operation
-	donIDClaimer := state.Chains[cfg.HomeChainSelector].DonIDClaimer
+	homeChainSel, err := state.HomeChainSelector()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get HomeChainSelector: %w", err)
+	}
 
-	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
+	// perform the offset operation
+	donIDClaimer := state.Chains[homeChainSel].DonIDClaimer
+
+	txOpts := e.Chains[homeChainSel].DeployerKey
 	txOpts.Context = e.GetContext()
 
 	tx, err := donIDClaimer.SyncNextDONIdWithOffset(txOpts, cfg.OffSet)
-	if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.HomeChainSelector], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error apply offset to donIDClaimer for chain %d: %w", cfg.HomeChainSelector, err)
+	if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[homeChainSel], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error apply offset to donIDClaimer for chain %d: %w", homeChainSel, err)
 	}
 
 	return deployment.ChangesetOutput{}, err
@@ -1549,14 +1556,32 @@ func donIDClaimerOffSetChangesetPrecondition(e deployment.Environment, c DonIDCl
 		return err
 	}
 
-	err = donIDClaimerValidationHelper(state, c.HomeChainSelector)
+	homeChainSel, err := state.HomeChainSelector()
+	if err != nil {
+		return fmt.Errorf("failed to get homeChainSelector state: %w", err)
+	}
+
+	// check the donIDClaimer contract exist
+	if state.Chains[homeChainSel].DonIDClaimer == nil {
+		return errors.New("donIDClaimer contract does not exist")
+	}
+
+	err = donIDClaimerValidationHelper(state, homeChainSel)
 	if err != nil {
 		return err
 	}
 
-	// check the donIDClaimer contract exist
-	if state.Chains[c.HomeChainSelector].DonIDClaimer == nil {
-		return errors.New("donIDClaimer contract does not exist")
+	txOpts := e.Chains[homeChainSel].DeployerKey
+	// ensure deployer key is authorized
+	isAuthorizedDeployer, err := state.Chains[homeChainSel].DonIDClaimer.IsAuthorizedDeployer(&bind.CallOpts{
+		Context: e.GetContext(),
+	}, txOpts.From)
+	if err != nil {
+		return fmt.Errorf("failed to run IsAuthorizedDeployed on home chain for donIDClaimer: %w", err)
+	}
+
+	if !isAuthorizedDeployer {
+		return fmt.Errorf("deployerKey %v is not authorized deployer on donIDClaimer. ", txOpts.From.String())
 	}
 
 	return nil

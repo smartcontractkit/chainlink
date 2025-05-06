@@ -117,7 +117,7 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	// apply the changeset once again to ensure idempotency
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 			homeChainCfg,
 		))
 	require.NoError(t, err)
@@ -133,9 +133,7 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			v1_6.DeployDonIDClaimerChangeset,
-			v1_6.DeployDonIDClaimerConfig{
-				HomeChainSelector: deployedEnvironment.HomeChainSel,
-			},
+			v1_6.DeployDonIDClaimerConfig{},
 		))
 
 	require.NoError(t, err)
@@ -147,8 +145,7 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 		commonchangeset.Configure(
 			v1_6.DonIDClaimerOffSetChangeset,
 			v1_6.DonIDClaimerOffSetConfig{
-				HomeChainSelector: deployedEnvironment.HomeChainSel,
-				OffSet:            1,
+				OffSet: 1,
 			},
 		))
 

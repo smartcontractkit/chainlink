@@ -438,9 +438,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			e, err = commonchangeset.Apply(t, e, nil,
 				commonchangeset.Configure(
 					v1_6.DeployDonIDClaimerChangeset,
-					v1_6.DeployDonIDClaimerConfig{
-						HomeChainSelector: deployedEnvironment.HomeChainSel,
-					},
+					v1_6.DeployDonIDClaimerConfig{},
 				))
 			require.NoError(t, err, "must deploy donIDClaimer contract")
 
