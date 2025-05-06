@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
@@ -103,12 +104,6 @@ func (cfg RegisterNodesInput) Validate() error {
 		if key == "" {
 			return errors.New("common node labels have empty key")
 		}
-	}
-	if cfg.EnvLabel == "" {
-		return errors.New("EnvLabel must not be empty")
-	}
-	if cfg.ProductName == "" {
-		return errors.New("ProductName must not be empty")
 	}
 	for i, don := range cfg.DONsList {
 		if don.Name == "" {
