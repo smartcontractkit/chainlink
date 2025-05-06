@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -686,9 +687,9 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 
 	addressBook := deployment.NewMemoryAddressBook()
 
-	// /////////////////////////
+	///////////////////////////
 	// DEPLOY EVM TOKEN POOL //
-	// /////////////////////////
+	///////////////////////////
 	for _, selector := range evmSelectors {
 		token, err := deployment.DeployContract(e.Logger, e.Chains[selector], addressBook,
 			func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
@@ -719,9 +720,9 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		}, false)
 	}
 
-	// ////////////////////////////
+	//////////////////////////////
 	// DEPLOY SOLANA TOKEN POOL //
-	// ////////////////////////////
+	//////////////////////////////
 	for _, selector := range solanaSelectors {
 		e, err = commonchangeset.Apply(t, e, nil,
 			commonchangeset.Configure(
@@ -754,9 +755,9 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	// ///////////////////////////
+	/////////////////////////////
 	// ADD SOLANA CHAIN CONFIG //
-	// ///////////////////////////
+	/////////////////////////////
 	for _, selector := range evmSelectors {
 		solChainUpdates := make(map[uint64]v1_5_1.SolChainUpdate)
 		for _, remoteSelector := range solanaSelectors {
@@ -788,9 +789,9 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		}
 	}
 
-	// //////////////////////////////
+	////////////////////////////////
 	// UPDATE SOLANA CHAIN CONFIG //
-	// //////////////////////////////
+	////////////////////////////////
 	for _, selector := range evmSelectors {
 		solChainUpdates := make(map[uint64]v1_5_1.SolChainUpdate)
 		for _, remoteSelector := range solanaSelectors {
