@@ -3,6 +3,8 @@ package txmgr
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.opentelemetry.io/otel/attribute"
@@ -98,7 +100,7 @@ func (m *evmTxmMetrics) IncrementNumRevertedTxs(ctx context.Context) {
 }
 
 func (m *evmTxmMetrics) IncrementFwdTxCount(ctx context.Context, successful bool) {
-	promNumSuccessfulTxs.WithLabelValues(m.chainID).Add(float64(1))
+	promFwdTxCount.WithLabelValues(m.chainID, strconv.FormatBool(successful)).Add(float64(1))
 	m.fwdTxCount.Add(ctx, 1, metric.WithAttributes(attribute.String("chainID", m.chainID), attribute.Bool("successful", successful)))
 }
 
