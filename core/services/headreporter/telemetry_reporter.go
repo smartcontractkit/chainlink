@@ -22,20 +22,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type evmTelemetryReporter struct {
+type legacyEVMTelemetryReporter struct {
 	lggr      logger.Logger
 	endpoints map[uint64]commontypes.MonitoringEndpoint
 }
 
-func NewEVMTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGenerator, lggr logger.Logger, chainIDs ...*big.Int) HeadReporter {
+func NewLegacyEVMTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGenerator, lggr logger.Logger, chainIDs ...*big.Int) HeadReporter {
 	endpoints := make(map[uint64]commontypes.MonitoringEndpoint)
 	for _, chainID := range chainIDs {
 		endpoints[chainID.Uint64()] = monitoringEndpointGen.GenMonitoringEndpoint("EVM", chainID.String(), "", synchronization.HeadReport)
 	}
-	return &evmTelemetryReporter{lggr: lggr.Named("TelemetryReporter"), endpoints: endpoints}
+	return &legacyEVMTelemetryReporter{lggr: lggr.Named("TelemetryReporter"), endpoints: endpoints}
 }
 
-func (t *evmTelemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
+func (t *legacyEVMTelemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
 	monitoringEndpoint := t.endpoints[head.EVMChainID.ToInt().Uint64()]
 	if monitoringEndpoint == nil {
 		return fmt.Errorf("No monitoring endpoint provided chain_id=%d", head.EVMChainID.Int64())
@@ -44,8 +44,8 @@ func (t *evmTelemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes
 	latestFinalizedHead := head.LatestFinalizedHead()
 	if latestFinalizedHead != nil {
 		finalized = &telem.Block{
-			Timestamp: utils.NonNegativeInt64ToUint64(latestFinalizedHead.GetTimestamp().UTC().Unix()), // golint:gosec
-			Number:    utils.NonNegativeInt64ToUint64(latestFinalizedHead.BlockNumber()),               // golint:gosec
+			Timestamp: utils.NonNegativeInt64ToUint64(latestFinalizedHead.GetTimestamp().UTC().Unix()),
+			Number:    utils.NonNegativeInt64ToUint64(latestFinalizedHead.BlockNumber()),
 			Hash:      latestFinalizedHead.BlockHash().Hex(),
 		}
 	}
@@ -70,44 +70,41 @@ func (t *evmTelemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes
 	return nil
 }
 
-func (t *evmTelemetryReporter) ReportPeriodic(_ context.Context) error {
+func (t *legacyEVMTelemetryReporter) ReportPeriodic(_ context.Context) error {
 	return nil
 }
 
-type solanaTelemetryReporter struct {
+type loopTelemetryReporter struct {
 	lggr      logger.Logger
-	endpoints map[string]commontypes.MonitoringEndpoint
-	relays    map[string]loop.Relayer
+	endpoints map[types.RelayID]commontypes.MonitoringEndpoint
+	relays    map[types.RelayID]loop.Relayer
 }
 
-// NewSolanaTelemetryReporter creates a new telemetry reporter for Solana.
-func NewSolanaTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGenerator, lggr logger.Logger, solanaRelays map[types.RelayID]loop.Relayer) HeadReporter {
-	if solanaRelays == nil {
+// NewTelemetryReporter creates a new telemetry reporter for each relayer
+func NewTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGenerator, lggr logger.Logger, relayers map[types.RelayID]loop.Relayer) HeadReporter {
+	if relayers == nil {
 		return nil
 	}
-	endpoints := make(map[string]commontypes.MonitoringEndpoint)
-	relays := make(map[string]loop.Relayer)
-	for relayID, relay := range solanaRelays {
-		chainID := relayID.ChainID
-		endpoints[relayID.ChainID] = monitoringEndpointGen.GenMonitoringEndpoint("Solana", chainID, "", synchronization.HeadReport)
-		relays[relayID.ChainID] = relay
+	endpoints := make(map[types.RelayID]commontypes.MonitoringEndpoint)
+	for relayID := range relayers {
+		endpoints[relayID] = monitoringEndpointGen.GenMonitoringEndpoint(relayID.Network, relayID.ChainID, "", synchronization.HeadReport)
 	}
-	return &solanaTelemetryReporter{lggr: lggr.Named("TelemetryReporter"), endpoints: endpoints, relays: relays}
+	return &loopTelemetryReporter{lggr: lggr.Named("TelemetryReporter"), endpoints: endpoints, relays: relayers}
 }
 
 // ReportNewHead is unimplemented on Solana because there is no Headtracker to subscribe to
-func (t *solanaTelemetryReporter) ReportNewHead(_ context.Context, _ *evmtypes.Head) error {
+func (t *loopTelemetryReporter) ReportNewHead(_ context.Context, _ *evmtypes.Head) error {
 	return nil
 }
 
 // ReportPeriodic is used on Solana to report the latest head
-func (t *solanaTelemetryReporter) ReportPeriodic(ctx context.Context) error {
-	for chainID, endpoint := range t.endpoints {
-		relay, ok := t.relays[chainID]
+func (t *loopTelemetryReporter) ReportPeriodic(ctx context.Context) error {
+	for relayID, endpoint := range t.endpoints {
+		relay, ok := t.relays[relayID]
 		if !ok {
-			return fmt.Errorf("no relay found for Solana chain_id=%s", chainID)
+			return fmt.Errorf("no relay found for Solana chain_id=%s", relayID.ChainID)
 		}
-		err := reportLatestHead(ctx, endpoint, chainID, relay)
+		err := reportLatestHead(ctx, endpoint, relayID.ChainID, relay)
 		if err != nil {
 			return err
 		}

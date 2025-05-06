@@ -471,14 +471,14 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, workflowORM)
 
-	promReporter := headreporter.NewPrometheusReporter(opts.DS, legacyEVMChains)
+	promReporter := headreporter.NewLegacyEVMPrometheusReporter(opts.DS, legacyEVMChains)
 	evmChainIDs := make([]*big.Int, legacyEVMChains.Len())
 	for i, chain := range legacyEVMChains.Slice() {
 		evmChainIDs[i] = chain.ID()
 	}
-	solanaRelayers, _ := relayChainInterops.List(FilterRelayersByType("Solana")).GetIDToRelayerMap()
-	legacyEVMTelemReporter := headreporter.NewEVMTelemetryReporter(telemetryManager, globalLogger, evmChainIDs...)
-	solanaTelemReporter := headreporter.NewSolanaTelemetryReporter(telemetryManager, globalLogger, solanaRelayers)
+	loopRelayers := relayChainInterops.loopRelayers
+	legacyEVMTelemReporter := headreporter.NewLegacyEVMTelemetryReporter(telemetryManager, globalLogger, evmChainIDs...)
+	solanaTelemReporter := headreporter.NewTelemetryReporter(telemetryManager, globalLogger, loopRelayers)
 	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, legacyEVMTelemReporter, solanaTelemReporter)
 	srvcs = append(srvcs, headReporter)
 	for _, chain := range legacyEVMChains.Slice() {
