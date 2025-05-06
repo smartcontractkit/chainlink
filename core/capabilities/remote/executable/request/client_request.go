@@ -10,8 +10,9 @@ import (
 	"sync"
 	"time"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
+
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -63,7 +64,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 
 	workflowExecutionID := req.Metadata.WorkflowExecutionID
 	if err = validation.ValidateWorkflowOrExecutionID(workflowExecutionID); err != nil {
-		return nil, fmt.Errorf("workflow execution ID is invalid: %w", err)
+		return nil, fmt.Errorf("workflow  execution ID is invalid: %w", err)
 	}
 
 	// the requestID must be delineated by the workflow execution ID and the reference ID
