@@ -379,7 +379,7 @@ func labelNodesForProposals(ctx context.Context, jd cldf.OffchainClient, props [
 		if err != nil {
 			return fmt.Errorf("failed to get node %s: %w", p.NodeId, err)
 		}
-		newLabels := append(nodeResp.Node.Labels, &ptypes.Label{
+		newLabels := append(nodeResp.Node.Labels, &ptypes.Label{ //nolint: gocritic // local copy
 			Key: donIdentifier,
 		})
 
