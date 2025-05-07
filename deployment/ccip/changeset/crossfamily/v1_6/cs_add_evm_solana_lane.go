@@ -58,7 +58,7 @@ var (
 					}
 					return output.MCMSTimelockProposals, nil
 				},
-			), deps, input.evmOnRampInput)
+			), deps, deps.changesetInput.evmOnRampInput)
 			if err != nil {
 				return nil, err
 			}
@@ -78,7 +78,7 @@ var (
 					}
 					return output.MCMSTimelockProposals, nil
 				},
-			), deps, input.evmFeeQuoterDestChainInput)
+			), deps, deps.changesetInput.evmFeeQuoterDestChainInput)
 			if err != nil {
 				return nil, err
 			}
@@ -98,7 +98,7 @@ var (
 					}
 					return output.MCMSTimelockProposals, nil
 				},
-			), deps, input.evmFeeQuoterPriceInput)
+			), deps, deps.changesetInput.evmFeeQuoterPriceInput)
 			if err != nil {
 				return nil, err
 			}
@@ -118,7 +118,7 @@ var (
 					}
 					return output.MCMSTimelockProposals, nil
 				},
-			), deps, input.evmOffRampInput)
+			), deps, deps.changesetInput.evmOffRampInput)
 			if err != nil {
 				return nil, err
 			}
@@ -139,7 +139,7 @@ var (
 					}
 					return output.MCMSTimelockProposals, nil
 				},
-			), deps, input.evmRouterInput)
+			), deps, deps.changesetInput.evmRouterInput)
 			if err != nil {
 				return nil, err
 			}
@@ -159,7 +159,7 @@ var (
 					}
 					return output.MCMSTimelockProposals, nil
 				},
-			), deps, input.solanaRouterInput)
+			), deps, deps.changesetInput.solanaRouterInput)
 			if err != nil {
 				return nil, err
 			}
@@ -179,7 +179,7 @@ var (
 					}
 					return output.MCMSTimelockProposals, nil
 				},
-			), deps, input.solanaOffRampInput)
+			), deps, deps.changesetInput.solanaOffRampInput)
 			if err != nil {
 				return nil, err
 			}
@@ -199,7 +199,7 @@ var (
 					}
 					return output.MCMSTimelockProposals, nil
 				},
-			), deps, input.solanaFeeQuoterInput)
+			), deps, deps.changesetInput.solanaFeeQuoterInput)
 			if err != nil {
 				return nil, err
 			}
@@ -207,11 +207,15 @@ var (
 			if len(updateSolanaFeeQuoterReport.Output) > 0 {
 				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateSolanaFeeQuoterReport.Output...)
 			}
+			var mcmsCfg *proposalutils.TimelockConfig
+			if input.MCMSConfig != nil {
+				mcmsCfg = input.MCMSConfig.MCMS
+			}
 			// post ops where we merge all the proposals into one
 			postOpsReport, err := operations.ExecuteOperation(b, postOps, deps, postOpsInput{
 				SolanaChainSelector: input.SolanaChainSelector,
 				EVMChainSelector:    input.EVMChainSelector,
-				MCMSConfig:          input.MCMSConfig.MCMS,
+				MCMSConfig:          mcmsCfg,
 				Proposals:           finalOutput.MCMSTimelockProposals,
 			})
 			return postOpsReport.Output, nil
@@ -223,6 +227,8 @@ type Dependencies struct {
 	Env             deployment.Environment
 	EVMMCMSState    map[uint64]commonstate.MCMSWithTimelockState
 	SolanaMCMSState map[uint64]commonstate.MCMSWithTimelockStateSolana
+
+	changesetInput csInputs
 }
 
 type postOpsInput struct {
@@ -230,6 +236,17 @@ type postOpsInput struct {
 	EVMChainSelector    uint64
 	MCMSConfig          *proposalutils.TimelockConfig
 	Proposals           []mcmslib.TimelockProposal
+}
+
+type csInputs struct {
+	evmOnRampInput             v1_6.UpdateOnRampDestsConfig
+	evmFeeQuoterDestChainInput v1_6.UpdateFeeQuoterDestsConfig
+	evmFeeQuoterPriceInput     v1_6.UpdateFeeQuoterPricesConfig
+	evmOffRampInput            v1_6.UpdateOffRampSourcesConfig
+	evmRouterInput             v1_6.UpdateRouterRampsConfig
+	solanaRouterInput          solana.AddRemoteChainToRouterConfig
+	solanaOffRampInput         solana.AddRemoteChainToOffRampConfig
+	solanaFeeQuoterInput       solana.AddRemoteChainToFeeQuoterConfig
 }
 
 type AddRemoteChainE2EConfig struct {
@@ -247,33 +264,22 @@ type AddRemoteChainE2EConfig struct {
 	SolanaFeeQuoterConfig                solana.FeeQuoterConfig
 
 	MCMSConfig *solana.MCMSConfigSolana
-
-	// inputs not to be filled by user
-	// but populated by the precondition function
-	// we do this to avoid having mismatch of chain selectors in setting these inputs
-	evmOnRampInput             v1_6.UpdateOnRampDestsConfig
-	evmFeeQuoterDestChainInput v1_6.UpdateFeeQuoterDestsConfig
-	evmFeeQuoterPriceInput     v1_6.UpdateFeeQuoterPricesConfig
-	evmOffRampInput            v1_6.UpdateOffRampSourcesConfig
-	evmRouterInput             v1_6.UpdateRouterRampsConfig
-	solanaRouterInput          solana.AddRemoteChainToRouterConfig
-	solanaOffRampInput         solana.AddRemoteChainToOffRampConfig
-	solanaFeeQuoterInput       solana.AddRemoteChainToFeeQuoterConfig
 }
 
-func (input *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env deployment.Environment, evmState ccipchangeset.CCIPOnChainState) error {
+func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env deployment.Environment, evmState ccipchangeset.CCIPOnChainState) (csInputs, error) {
 	var timelockConfig *proposalutils.TimelockConfig
-	if input.MCMSConfig != nil {
-		timelockConfig = input.MCMSConfig.MCMS
+	if cfg.MCMSConfig != nil {
+		timelockConfig = cfg.MCMSConfig.MCMS
 	}
+	var input csInputs
 	input.evmOnRampInput = v1_6.UpdateOnRampDestsConfig{
 		MCMS: timelockConfig,
 		UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
-			input.EVMChainSelector: {
-				input.SolanaChainSelector: {
+			cfg.EVMChainSelector: {
+				cfg.SolanaChainSelector: {
 					IsEnabled:        true,
-					TestRouter:       input.IsTestRouter,
-					AllowListEnabled: input.EVMOnRampAllowListEnabled,
+					TestRouter:       cfg.IsTestRouter,
+					AllowListEnabled: cfg.EVMOnRampAllowListEnabled,
 				},
 			},
 		},
@@ -281,94 +287,94 @@ func (input *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env 
 	input.evmFeeQuoterDestChainInput = v1_6.UpdateFeeQuoterDestsConfig{
 		MCMS: timelockConfig,
 		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-			input.EVMChainSelector: {
-				input.SolanaChainSelector: input.EVMFeeQuoterDestChainInput,
+			cfg.EVMChainSelector: {
+				cfg.SolanaChainSelector: cfg.EVMFeeQuoterDestChainInput,
 			},
 		},
 	}
 	input.evmFeeQuoterPriceInput = v1_6.UpdateFeeQuoterPricesConfig{
 		MCMS: timelockConfig,
 		PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
-			input.EVMChainSelector: {
+			cfg.EVMChainSelector: {
 				GasPrices: map[uint64]*big.Int{
-					input.SolanaChainSelector: input.InitialSolanaGasPriceForEVMFeeQuoter,
+					cfg.SolanaChainSelector: cfg.InitialSolanaGasPriceForEVMFeeQuoter,
 				},
-				TokenPrices: input.InitialEVMTokenPricesForEVMFeeQuoter,
+				TokenPrices: cfg.InitialEVMTokenPricesForEVMFeeQuoter,
 			},
 		},
 	}
 	input.evmOffRampInput = v1_6.UpdateOffRampSourcesConfig{
 		MCMS: timelockConfig,
 		UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
-			input.EVMChainSelector: {
-				input.SolanaChainSelector: {
+			cfg.EVMChainSelector: {
+				cfg.SolanaChainSelector: {
 					IsEnabled:                 true,
-					TestRouter:                input.IsTestRouter,
-					IsRMNVerificationDisabled: input.IsRMNVerificationEnabledOnEVMOffRamp,
+					TestRouter:                cfg.IsTestRouter,
+					IsRMNVerificationDisabled: cfg.IsRMNVerificationEnabledOnEVMOffRamp,
 				},
 			},
 		},
 	}
 	input.evmRouterInput = v1_6.UpdateRouterRampsConfig{
 		MCMS:       timelockConfig,
-		TestRouter: input.IsTestRouter,
+		TestRouter: cfg.IsTestRouter,
 		UpdatesByChain: map[uint64]v1_6.RouterUpdates{
-			input.EVMChainSelector: {
+			cfg.EVMChainSelector: {
 				OffRampUpdates: map[uint64]bool{
-					input.SolanaChainSelector: true,
+					cfg.SolanaChainSelector: true,
 				},
 				OnRampUpdates: map[uint64]bool{
-					input.SolanaChainSelector: true,
+					cfg.SolanaChainSelector: true,
 				},
 			},
 		},
 	}
 	input.solanaRouterInput = solana.AddRemoteChainToRouterConfig{
-		ChainSelector: input.SolanaChainSelector,
-		MCMSSolana:    input.MCMSConfig,
+		ChainSelector: cfg.SolanaChainSelector,
+		MCMSSolana:    cfg.MCMSConfig,
 		UpdatesByChain: map[uint64]solana.RouterConfig{
-			input.EVMChainSelector: input.SolanaRouterConfig,
+			cfg.EVMChainSelector: cfg.SolanaRouterConfig,
 		},
 	}
 	input.solanaOffRampInput = solana.AddRemoteChainToOffRampConfig{
-		ChainSelector: input.SolanaChainSelector,
-		MCMSSolana:    input.MCMSConfig,
+		ChainSelector: cfg.SolanaChainSelector,
+		MCMSSolana:    cfg.MCMSConfig,
 		UpdatesByChain: map[uint64]solana.OffRampConfig{
-			input.EVMChainSelector: input.SolanaOffRampConfig,
+			cfg.EVMChainSelector: cfg.SolanaOffRampConfig,
 		},
 	}
 	input.solanaFeeQuoterInput = solana.AddRemoteChainToFeeQuoterConfig{
-		ChainSelector: input.SolanaChainSelector,
-		MCMSSolana:    input.MCMSConfig,
+		ChainSelector: cfg.SolanaChainSelector,
+		MCMSSolana:    cfg.MCMSConfig,
 		UpdatesByChain: map[uint64]solana.FeeQuoterConfig{
-			input.EVMChainSelector: input.SolanaFeeQuoterConfig,
+			cfg.EVMChainSelector: cfg.SolanaFeeQuoterConfig,
 		},
 	}
 	if err := input.evmOnRampInput.Validate(env); err != nil {
-		return fmt.Errorf("failed to validate evm on ramp input: %w", err)
+		return input, fmt.Errorf("failed to validate evm on ramp input: %w", err)
 	}
 	if err := input.evmFeeQuoterDestChainInput.Validate(env); err != nil {
-		return fmt.Errorf("failed to validate evm fee quoter dest chain input: %w", err)
+		return input, fmt.Errorf("failed to validate evm fee quoter dest chain input: %w", err)
 	}
 	if err := input.evmFeeQuoterPriceInput.Validate(env); err != nil {
-		return fmt.Errorf("failed to validate evm fee quoter price input: %w", err)
+		return input, fmt.Errorf("failed to validate evm fee quoter price input: %w", err)
 	}
 	if err := input.evmRouterInput.Validate(env, evmState); err != nil {
-		return fmt.Errorf("failed to validate evm router input: %w", err)
+		return input, fmt.Errorf("failed to validate evm router input: %w", err)
 	}
 	if err := input.evmOffRampInput.Validate(env, evmState); err != nil {
-		return fmt.Errorf("failed to validate evm off ramp input: %w", err)
+		return input, fmt.Errorf("failed to validate evm off ramp input: %w", err)
 	}
 	if err := input.solanaRouterInput.Validate(env); err != nil {
-		return fmt.Errorf("failed to validate solana router input: %w", err)
+		return input, fmt.Errorf("failed to validate solana router input: %w", err)
 	}
 	if err := input.solanaOffRampInput.Validate(env); err != nil {
-		return fmt.Errorf("failed to validate solana off ramp input: %w", err)
+		return input, fmt.Errorf("failed to validate solana off ramp input: %w", err)
 	}
 	if err := input.solanaFeeQuoterInput.Validate(env); err != nil {
-		return fmt.Errorf("failed to validate solana fee quoter input: %w", err)
+		return input, fmt.Errorf("failed to validate solana fee quoter input: %w", err)
 	}
-	return nil
+	return input, nil
 }
 
 func addEVMSolanaPreconditions(env deployment.Environment, input *AddRemoteChainE2EConfig) error {
@@ -394,11 +400,6 @@ func addEVMSolanaPreconditions(env deployment.Environment, input *AddRemoteChain
 	if _, exists := solanaState.SolChains[input.SolanaChainSelector]; !exists {
 		return fmt.Errorf("failed to find Solana chain in state %d", input.SolanaChainSelector)
 	}
-	// now populate individual inputs from the config
-	err = input.populateAndValidateIndividualCSConfig(env, evmState)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -418,12 +419,18 @@ func addEVMAndSolanaLaneLogic(env deployment.Environment, input *AddRemoteChainE
 	if mcmState == nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load Solana MCMS state: %w", err)
 	}
+	// now populate individual inputs from the config
+	changesetInputs, err := input.populateAndValidateIndividualCSConfig(env, evmState)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	deps := Dependencies{
 		Env:          env,
 		EVMMCMSState: evmState.EVMMCMSStateByChain(),
 		SolanaMCMSState: map[uint64]commonstate.MCMSWithTimelockStateSolana{
 			input.SolanaChainSelector: *mcmState,
 		},
+		changesetInput: changesetInputs,
 	}
 	report, err := operations.ExecuteSequence(env.OperationsBundle, addEVMAndSolanaLaneSequence, deps, *input)
 	if err != nil {

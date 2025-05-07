@@ -7,8 +7,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/stretchr/testify/require"
 
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -111,6 +113,32 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 
 			// Check that the changeset was applied
 			evmState, err = ccipchangeset.LoadOnchainState(e)
+			require.NoError(t, err)
+
+			solanaState, err := ccipchangeset.LoadOnchainStateSolana(e)
+			require.NoError(t, err)
+
+			var offRampSourceChain solOffRamp.SourceChain
+			var destChainStateAccount solRouter.DestChain
+			var destChainFqAccount solFeeQuoter.DestChain
+			var offRampEvmSourceChainPDA solana.PublicKey
+			var evmDestChainStatePDA solana.PublicKey
+			var fqEvmDestChainPDA solana.PublicKey
+			offRampEvmSourceChainPDA, _, _ = solState.FindOfframpSourceChainPDA(evmChain, solanaState.SolChains[solChain].OffRamp)
+			err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
+			require.NoError(t, err)
+			require.True(t, offRampSourceChain.Config.IsEnabled)
+
+			fqEvmDestChainPDA, _, _ = solState.FindFqDestChainPDA(evmChain, solanaState.SolChains[solChain].FeeQuoter)
+			err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
+			require.NoError(t, err, "failed to get account info")
+			require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
+			require.True(t, destChainFqAccount.Config.IsEnabled)
+
+			evmDestChainStatePDA = solanaState.SolChains[solChain].DestChainStatePDAs[evmChain]
+			err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
+			require.NotEmpty(t, destChainStateAccount.Config.AllowedSenders)
+			require.True(t, destChainStateAccount.Config.AllowListEnabled)
 			require.NoError(t, err)
 		})
 	}
