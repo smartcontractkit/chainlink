@@ -39,6 +39,14 @@ func (r *WorkflowRegistry) RegisterWorkflow(input Workflow, donID uint32) {
 	registerWorkflow(r.t, r.backend, r.contract, input, donID)
 }
 
+func (r *WorkflowRegistry) UpdateWorkflow(input UpdatedWorkflow, donID uint32) {
+	updateWorkflow(r.t, r.backend, r.contract, input)
+}
+
+func (r *WorkflowRegistry) ComputeHashKey(owner string, field string) [32]byte {
+	return computeHashKey(r.t, r.contract, owner, field)
+}
+
 func updateAuthorizedAddress(
 	t *testing.T,
 	th *EthBlockchain,
@@ -102,4 +110,38 @@ func registerWorkflow(
 	th.Backend.Commit()
 	th.Backend.Commit()
 	th.Backend.Commit()
+}
+
+type UpdatedWorkflow struct {
+	WorkflowKey [32]byte
+	ID          [32]byte
+	BinaryURL   string
+	ConfigURL   string
+	SecretsURL  string
+}
+
+func updateWorkflow(
+	t *testing.T,
+	th *EthBlockchain,
+	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	input UpdatedWorkflow,
+) {
+	t.Helper()
+	_, err := wfRegC.UpdateWorkflow(th.transactionOpts, input.WorkflowKey, input.ID, input.BinaryURL, input.ConfigURL, input.SecretsURL)
+	require.NoError(t, err, "failed to update workflow")
+	th.Backend.Commit()
+	th.Backend.Commit()
+	th.Backend.Commit()
+}
+
+func computeHashKey(
+	t *testing.T,
+	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	owner string,
+	field string,
+) [32]byte {
+	t.Helper()
+	hashKey, err := wfRegC.ComputeHashKey(&bind.CallOpts{}, common.HexToAddress(owner), field)
+	require.NoError(t, err, "failed to compute hash key")
+	return hashKey
 }

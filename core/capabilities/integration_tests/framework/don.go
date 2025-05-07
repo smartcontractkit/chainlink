@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -94,6 +95,16 @@ func (c DonContext) WaitForCapabilitiesToBeExposed(t *testing.T, dons ...*DON) {
 
 		return true
 	}, 1*time.Minute, 1*time.Second, "timeout waiting for capabilities to be exposed")
+}
+
+func (c DonContext) WaitForWorkflowRegistryMetadata(t *testing.T, workflowName string, owner string, workflowID [32]byte) {
+	require.Eventually(t, func() bool {
+		wf, err := c.workflowRegistry.contract.GetWorkflowMetadata(&bind.CallOpts{}, common.HexToAddress(owner), workflowName)
+		if err != nil {
+			return false
+		}
+		return wf.WorkflowID == workflowID
+	}, 1*time.Minute, 5*time.Second, "timeout waiting for workflow")
 }
 
 type capabilityNode struct {
@@ -387,6 +398,24 @@ func (d *DON) AddWorkflow(workflow Workflow) error {
 	d.workflowRegistry.RegisterWorkflow(workflow, *d.id)
 
 	return nil
+}
+
+func (d *DON) UpdateWorkflow(workflow UpdatedWorkflow) error {
+	if !d.config.AcceptsWorkflows {
+		return errors.New("cannot add workflow to non-workflow DON")
+	}
+
+	if !d.initialised {
+		return errors.New("cannot add workflow to non-initialised DON")
+	}
+
+	d.workflowRegistry.UpdateWorkflow(workflow, *d.id)
+
+	return nil
+}
+
+func (d *DON) ComputeHashKey(owner string, field string) [32]byte {
+	return d.workflowRegistry.ComputeHashKey(owner, field)
 }
 
 type TriggerFactory interface {
