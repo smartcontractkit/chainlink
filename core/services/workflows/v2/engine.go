@@ -285,7 +285,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	e.cfg.Hooks.OnExecutionFinished(executionID)
 }
 
-// blocking
 func (e *Engine) CallCapability(ctx context.Context, request *cappb.CapabilityRequest) (*cappb.CapabilityResponse, error) {
 	select {
 	case e.capCallsSemaphore <- struct{}{}: // block if too many concurrent capability calls
