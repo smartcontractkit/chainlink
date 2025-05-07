@@ -5,12 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
 
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -37,6 +39,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 			e := tenv.Env
 			solChains := tenv.Env.AllChainSelectorsSolana()
@@ -68,18 +71,30 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 
 			// Add EVM and Solana lane
 			evmChainState := evmState.Chains[evmChain]
-			evmSolanaLaneCSInput := &crossfamily.AddRemoteChainE2EConfig{
+			feeQCfgSolana := solFeeQuoter.DestChainConfig{
+				IsEnabled:                   true,
+				DefaultTxGasLimit:           200000,
+				MaxPerMsgGasLimit:           3000000,
+				MaxDataBytes:                30000,
+				MaxNumberOfTokensPerMsg:     5,
+				DefaultTokenDestGasOverhead: 90000,
+				DestGasOverhead:             90000,
+				// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+				ChainFamilySelector: [4]uint8{40, 18, 213, 44},
+			}
+			feeQCfgEVM := v1_6.DefaultFeeQuoterDestChainConfig(true, solChain)
+			evmSolanaLaneCSInput := crossfamily.AddRemoteChainE2EConfig{
 				SolanaChainSelector:                  solChain,
 				EVMChainSelector:                     evmChain,
 				IsTestRouter:                         true,
 				EVMOnRampAllowListEnabled:            false,
-				EVMFeeQuoterDestChainInput:           v1_6.DefaultFeeQuoterDestChainConfig(true, solChain),
+				EVMFeeQuoterDestChainInput:           feeQCfgEVM,
 				InitialSolanaGasPriceForEVMFeeQuoter: testhelpers.DefaultGasPrice,
 				InitialEVMTokenPricesForEVMFeeQuoter: map[common.Address]*big.Int{
 					evmChainState.LinkToken.Address(): testhelpers.DefaultLinkPrice,
 					evmChainState.Weth9.Address():     testhelpers.DefaultWethPrice,
 				},
-				IsRMNVerificationEnabledOnEVMOffRamp: false,
+				IsRMNVerificationEnabledOnEVMOffRamp: true,
 				SolanaRouterConfig: ccipChangesetSolana.RouterConfig{
 					RouterDestinationConfig: solRouter.DestChainConfig{
 						AllowListEnabled: true,
@@ -90,17 +105,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 					EnabledAsSource: true,
 				},
 				SolanaFeeQuoterConfig: ccipChangesetSolana.FeeQuoterConfig{
-					FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
-						IsEnabled:                   true,
-						DefaultTxGasLimit:           200000,
-						MaxPerMsgGasLimit:           3000000,
-						MaxDataBytes:                30000,
-						MaxNumberOfTokensPerMsg:     5,
-						DefaultTokenDestGasOverhead: 90000,
-						DestGasOverhead:             90000,
-						// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-						ChainFamilySelector: [4]uint8{40, 18, 213, 44},
-					},
+					FeeQuoterDestinationConfig: feeQCfgSolana,
 				},
 				MCMSConfig: mcmsConfig,
 			}
@@ -118,6 +123,28 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			solanaState, err := ccipchangeset.LoadOnchainStateSolana(e)
 			require.NoError(t, err)
 
+			// evm changes
+			evmChainState = evmState.Chains[evmChain]
+
+			destCfg, err := evmChainState.OnRamp.GetDestChainConfig(&bind.CallOpts{Context: ctx}, solChain)
+			require.NoError(t, err)
+			require.Equal(t, evmChainState.TestRouter.Address(), destCfg.Router)
+			require.False(t, destCfg.AllowlistEnabled)
+
+			srcCfg, err := evmChainState.OffRamp.GetSourceChainConfig(&bind.CallOpts{Context: ctx}, solChain)
+			require.NoError(t, err)
+			require.Equal(t, evmChainState.TestRouter.Address(), destCfg.Router)
+			require.True(t, srcCfg.IsRMNVerificationDisabled)
+			require.True(t, srcCfg.IsEnabled)
+			expOnRamp, err := evmState.GetOnRampAddressBytes(solChain)
+			require.NoError(t, err)
+			require.Equal(t, expOnRamp, srcCfg.OnRamp)
+
+			fqDestCfg, err := evmChainState.FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, solChain)
+			require.NoError(t, err)
+			testhelpers.AssertEqualFeeConfig(t, feeQCfgEVM, fqDestCfg)
+
+			// solana changes
 			var offRampSourceChain solOffRamp.SourceChain
 			var destChainStateAccount solRouter.DestChain
 			var destChainFqAccount solFeeQuoter.DestChain
@@ -134,6 +161,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			require.NoError(t, err, "failed to get account info")
 			require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
 			require.True(t, destChainFqAccount.Config.IsEnabled)
+			require.Equal(t, feeQCfgSolana, destChainFqAccount.Config)
 
 			evmDestChainStatePDA = solanaState.SolChains[solChain].DestChainStatePDAs[evmChain]
 			err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)

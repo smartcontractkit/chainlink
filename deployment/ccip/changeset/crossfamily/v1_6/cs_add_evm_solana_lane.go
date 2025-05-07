@@ -46,6 +46,7 @@ var (
 		semver.MustParse("1.0.0"),
 		"Adds bi-directional lane between EVM chain and Solana",
 		func(b operations.Bundle, deps Dependencies, input AddRemoteChainE2EConfig) ([]mcmslib.TimelockProposal, error) {
+			deps.Env.Logger.Infow("Adding EVM and Solana lane", "EVMChainSelector", input.EVMChainSelector, "SolanaChainSelector", input.SolanaChainSelector)
 			var finalOutput deployment.ChangesetOutput
 			updateEVMOnRampReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateEVMOnRamp",
@@ -377,7 +378,7 @@ func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env de
 	return input, nil
 }
 
-func addEVMSolanaPreconditions(env deployment.Environment, input *AddRemoteChainE2EConfig) error {
+func addEVMSolanaPreconditions(env deployment.Environment, input AddRemoteChainE2EConfig) error {
 	evmState, err := ccipchangeset.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain evm state: %w", err)
@@ -403,7 +404,7 @@ func addEVMSolanaPreconditions(env deployment.Environment, input *AddRemoteChain
 	return nil
 }
 
-func addEVMAndSolanaLaneLogic(env deployment.Environment, input *AddRemoteChainE2EConfig) (deployment.ChangesetOutput, error) {
+func addEVMAndSolanaLaneLogic(env deployment.Environment, input AddRemoteChainE2EConfig) (deployment.ChangesetOutput, error) {
 	evmState, err := ccipchangeset.LoadOnchainState(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load evm onchain state: %w", err)
@@ -424,6 +425,7 @@ func addEVMAndSolanaLaneLogic(env deployment.Environment, input *AddRemoteChainE
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+	env.Logger.Infow("router input", "input", changesetInputs.solanaRouterInput)
 	deps := Dependencies{
 		Env:          env,
 		EVMMCMSState: evmState.EVMMCMSStateByChain(),
@@ -432,7 +434,7 @@ func addEVMAndSolanaLaneLogic(env deployment.Environment, input *AddRemoteChainE
 		},
 		changesetInput: changesetInputs,
 	}
-	report, err := operations.ExecuteSequence(env.OperationsBundle, addEVMAndSolanaLaneSequence, deps, *input)
+	report, err := operations.ExecuteSequence(env.OperationsBundle, addEVMAndSolanaLaneSequence, deps, input)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to execute addEVMAndSolanaLane sequence: %w", err)
 	}
