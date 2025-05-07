@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
 func TestRevokeJobSpecs(t *testing.T) {
@@ -27,11 +28,11 @@ func TestRevokeJobSpecs(t *testing.T) {
 		NumBootstrapNodes:     numOracles,
 		NodeLabels: []*ptypes.Label{
 			{
-				Key:   utils.LabelProduct,
+				Key:   devenv.LabelProductKey,
 				Value: pointer.To(utils.ProductLabel),
 			},
 			{
-				Key:   utils.LabelEnvironment,
+				Key:   devenv.LabelEnvironmentKey,
 				Value: pointer.To("memory"),
 			},
 			{
