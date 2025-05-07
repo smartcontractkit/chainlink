@@ -7,6 +7,7 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
+	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router/router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	config "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -16,10 +17,12 @@ import (
 )
 
 type UpdateAptosLanesSeqInput struct {
-	UpdateFeeQuoterDestsConfig  operation.UpdateFeeQuoterDestsInput
-	UpdateFeeQuoterPricesConfig operation.UpdateFeeQuoterPricesInput
-	UpdateOnRampDestsConfig     operation.UpdateOnRampDestsInput
-	UpdateOffRampSourcesConfig  operation.UpdateOffRampSourcesInput
+	UpdateFeeQuoterDestsConfig   operation.UpdateFeeQuoterDestsInput
+	UpdateFeeQuoterPricesConfig  operation.UpdateFeeQuoterPricesInput
+	UpdateOnRampDestsConfig      operation.UpdateOnRampDestsInput
+	UpdateOffRampSourcesConfig   operation.UpdateOffRampSourcesInput
+	UpdateRouterDestConfig       operation.UpdateRouterDestInput
+	UpdateTokenTransferFeeConfig operation.UpdateTokenTransferFeeConfigsInput
 }
 
 // UpdateAptosLanesSequence orchestrates operations to update Aptos lanes
@@ -57,7 +60,6 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	}
 	mcmsTxs = append(mcmsTxs, offRampReport.Output...)
 
-	// TODO: This is not working
 	// 4. Update FeeQuoters with gas prices
 	b.Logger.Info("Updating gas prices on FeeQuoters")
 	feeQuoterPricesReport, err := operations.ExecuteOperation(b, operation.UpdateFeeQuoterPricesOp, deps, in.UpdateFeeQuoterPricesConfig)
@@ -65,6 +67,22 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 		return types.BatchOperation{}, fmt.Errorf("failed to update FeeQuoter prices: %w", err)
 	}
 	mcmsTxs = append(mcmsTxs, feeQuoterPricesReport.Output...)
+
+	// 5. Update Router with destination OnRamp versions
+	b.Logger.Info("Updating Router")
+	routerReport, err := operations.ExecuteOperation(b, operation.UpdateRouterOp, deps, in.UpdateRouterDestConfig)
+	if err != nil {
+		return types.BatchOperation{}, fmt.Errorf("failed to update Router: %w", err)
+	}
+	mcmsTxs = append(mcmsTxs, routerReport.Output...)
+
+	// 6. Update FeeQuoter with TokenTransferFeeConfig
+	b.Logger.Info("Updating Router")
+	feeQuoterTTFReport, err := operations.ExecuteOperation(b, operation.UpdateTokenTransferCfgOp, deps, in.UpdateTokenTransferFeeConfig)
+	if err != nil {
+		return types.BatchOperation{}, fmt.Errorf("failed to update Router: %w", err)
+	}
+	mcmsTxs = append(mcmsTxs, feeQuoterTTFReport.Output...)
 
 	return types.BatchOperation{
 		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),
@@ -132,6 +150,25 @@ func setAptosSourceUpdates(lane config.LaneConfig, updateInputsByAptosChain map[
 		input.UpdateFeeQuoterDestsConfig.Updates = make(map[uint64]aptos_fee_quoter.DestChainConfig)
 	}
 	input.UpdateFeeQuoterDestsConfig.Updates[dest.Selector] = dest.GetConvertedAptosFeeQuoterConfig()
+
+	// Setting Router OnRamp version updates
+	input.UpdateRouterDestConfig.MCMSAddress = mcmsAddress
+	if input.UpdateRouterDestConfig.Updates == nil {
+		input.UpdateRouterDestConfig.Updates = []aptos_router.OnRampSet{}
+	}
+	onRampVersion := dest.OnRampVersion
+	if onRampVersion == nil {
+		onRampVersion = []byte{1, 6, 0}
+	}
+	input.UpdateRouterDestConfig.Updates = append(input.UpdateRouterDestConfig.Updates, aptos_router.OnRampSet{
+		DestChainSelector: dest.Selector,
+		OnRampVersion:     onRampVersion,
+	})
+
+	// Setting token transfer fee updates
+	input.UpdateTokenTransferFeeConfig.MCMSAddress = mcmsAddress
+	input.UpdateTokenTransferFeeConfig.AddTokenConfigs = source.AddTokenTransferFeeConfigs
+	input.UpdateTokenTransferFeeConfig.RemoveTokenConfigs = source.RemoveTokenTransferFeeConfigs
 
 	updateInputsByAptosChain[source.Selector] = input
 }

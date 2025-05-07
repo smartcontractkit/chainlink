@@ -17,6 +17,7 @@ type ChainDefinition interface {
 
 type EVMChainDefinition struct {
 	v1_6.ChainDefinition
+	OnRampVersion []byte
 }
 
 func (c EVMChainDefinition) GetChainFamily() string {
@@ -58,6 +59,10 @@ type AptosChainDefinition struct {
 	GasPrice *big.Int `json:"gasPrice"`
 	// FeeQuoterDestChainConfig is the configuration on a fee quoter for this chain as a destination.
 	FeeQuoterDestChainConfig aptos_fee_quoter.DestChainConfig `json:"feeQuoterDestChainConfig"`
+	// AddTokenTransferFeeConfigs is the configuration for token transfer fees to be added to fee quoter
+	AddTokenTransferFeeConfigs []aptos_fee_quoter.TokenTransferFeeConfigAdded
+	// RemoveTokenTransferFeeConfigs holds token transfer fees to be removed from fee quoter
+	RemoveTokenTransferFeeConfigs []aptos_fee_quoter.TokenTransferFeeConfigRemoved
 }
 
 func (c AptosChainDefinition) GetChainFamily() string {

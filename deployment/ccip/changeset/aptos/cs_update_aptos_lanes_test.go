@@ -13,6 +13,7 @@ import (
 	aptosfeequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
@@ -60,6 +61,7 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 	aptosCCIPAddr := state.AptosChains[aptosSelector].CCIPAddress
 	aptosOnRamp := ccip_onramp.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
 	aptosOffRamp := ccip_offramp.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
+	aptosRouter := ccip_router.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
 
 	dynCfg, err := aptosOffRamp.Offramp().GetDynamicConfig(&bind.CallOpts{})
 	require.NoError(t, err)
@@ -76,6 +78,10 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 	_, _, router2, err := aptosOnRamp.Onramp().GetDestChainConfig(&bind.CallOpts{}, emvSelector2)
 	require.NoError(t, err)
 	require.NotEqual(t, router2, aptos.AccountAddress{})
+
+	versions, err := aptosRouter.Router().GetOnRampVersions(&bind.CallOpts{}, []uint64{emvSelector, emvSelector2})
+	require.NoError(t, err)
+	require.ElementsMatch(t, versions, [][]byte{{1, 6, 1}, {1, 6, 0}})
 }
 
 func getMockUpdateConfig(
@@ -84,6 +90,11 @@ func getMockUpdateConfig(
 	emvSelector2,
 	aptosSelector uint64,
 ) config.UpdateAptosLanesConfig {
+	linkToken := aptos.AccountAddress{}
+	_ = linkToken.ParseStringRelaxed("0x3b17dad1bdd88f337712cc2f6187bb741d56da467320373fd9198262cc93de76")
+	otherToken := aptos.AccountAddress{}
+	_ = linkToken.ParseStringRelaxed("0xa")
+
 	return config.UpdateAptosLanesConfig{
 		EVMMCMSConfig: nil,
 		AptosMCMSConfig: &proposalutils.TimelockConfig{
@@ -91,13 +102,43 @@ func getMockUpdateConfig(
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
 			OverrideRoot: false,
 		},
-		// Aptos1 <> EVM1 | Aptos1 -> EVM2
+		// Aptos1 <> EVM1 + Aptos1 -> EVM2
 		Lanes: []config.LaneConfig{
 			{
 				Source: config.AptosChainDefinition{
 					Selector:                 aptosSelector,
 					GasPrice:                 big.NewInt(1e17),
 					FeeQuoterDestChainConfig: aptosTestDestFeeQuoterConfig(t),
+					ConnectionConfig: v1_6.ConnectionConfig{
+						RMNVerificationDisabled: true,
+						AllowListEnabled:        false,
+					},
+					AddTokenTransferFeeConfigs: []aptosfeequoter.TokenTransferFeeConfigAdded{
+						{
+							DestChainSelector: emvSelector,
+							Token:             linkToken,
+							TokenTransferFeeConfig: aptosfeequoter.TokenTransferFeeConfig{
+								MinFeeUsdCents:    1,
+								MaxFeeUsdCents:    10000,
+								DeciBps:           0,
+								DestGasOverhead:   1000,
+								DestBytesOverhead: 1000,
+								IsEnabled:         true,
+							},
+						},
+						{
+							DestChainSelector: emvSelector,
+							Token:             otherToken,
+							TokenTransferFeeConfig: aptosfeequoter.TokenTransferFeeConfig{
+								MinFeeUsdCents:    1,
+								MaxFeeUsdCents:    10000,
+								DeciBps:           0,
+								DestGasOverhead:   1000,
+								DestBytesOverhead: 1000,
+								IsEnabled:         true,
+							},
+						},
+					},
 				},
 				Dest: config.EVMChainDefinition{
 					ChainDefinition: v1_6.ChainDefinition{
@@ -105,7 +146,12 @@ func getMockUpdateConfig(
 						GasPrice:                 big.NewInt(1e17),
 						TokenPrices:              map[common.Address]*big.Int{},
 						FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
+						ConnectionConfig: v1_6.ConnectionConfig{
+							RMNVerificationDisabled: true,
+							AllowListEnabled:        false,
+						},
 					},
+					OnRampVersion: []byte{1, 6, 1},
 				},
 				IsDisabled: false,
 			},
@@ -116,6 +162,10 @@ func getMockUpdateConfig(
 						GasPrice:                 big.NewInt(1e17),
 						TokenPrices:              map[common.Address]*big.Int{},
 						FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
+						ConnectionConfig: v1_6.ConnectionConfig{
+							RMNVerificationDisabled: true,
+							AllowListEnabled:        false,
+						},
 					},
 				},
 				Dest: config.AptosChainDefinition{
@@ -163,7 +213,7 @@ func aptosTestDestFeeQuoterConfig(t *testing.T) aptosfeequoter.DestChainConfig {
 		DestDataAvailabilityMultiplierBps: 2,
 		DefaultTokenDestGasOverhead:       100_000,
 		DefaultTxGasLimit:                 100_000,
-		GasMultiplierWeiPerEth:            12e17,
+		GasMultiplierWeiPerEth:            1e7,
 		NetworkFeeUsdCents:                20,
 		ChainFamilySelector:               hexMustDecode(t, v1_6.AptosFamilySelector),
 		EnforceOutOfOrder:                 false,
