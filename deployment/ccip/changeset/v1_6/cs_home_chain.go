@@ -23,6 +23,7 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -115,30 +116,30 @@ func (c DeployHomeChainConfig) Validate() error {
 }
 
 // deployCapReg deploys the CapabilitiesRegistry contract if it is not already deployed
-// and returns a deployment.ContractDeploy struct with the address and contract instance.
+// and returns a cldf.ContractDeploy struct with the address and contract instance.
 func deployCapReg(
 	lggr logger.Logger,
 	state changeset.CCIPOnChainState,
 	ab deployment.AddressBook,
 	chain deployment.Chain,
-) (*deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
+) (*cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
 	homeChainState, exists := state.Chains[chain.Selector]
 	if exists {
 		cr := homeChainState.CapabilityRegistry
 		if cr != nil {
 			lggr.Infow("Found CapabilitiesRegistry in chain state", "address", cr.Address().String())
-			return &deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
+			return &cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
 				Address: cr.Address(), Contract: cr, Tv: deployment.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0),
 			}, nil
 		}
 	}
-	capReg, err := deployment.DeployContract(lggr, chain, ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+	capReg, err := cldf.DeployContract(lggr, chain, ab,
+		func(chain deployment.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 				chain.DeployerKey,
 				chain.Client,
 			)
-			return deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
+			return cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
 				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
 			}
 		})
@@ -158,7 +159,7 @@ func deployHomeChain(
 	rmnHomeDynamic rmn_home.RMNHomeDynamicConfig,
 	nodeOps []capabilities_registry.CapabilitiesRegistryNodeOperator,
 	nodeP2PIDsPerNodeOpAdmin map[string][][32]byte,
-) (*deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
+) (*cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
 	// load existing state
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
@@ -176,15 +177,15 @@ func deployHomeChain(
 		lggr.Infow("CCIPHome already deployed", "addr", state.Chains[chain.Selector].CCIPHome.Address().String())
 		ccipHomeAddr = state.Chains[chain.Selector].CCIPHome.Address()
 	} else {
-		ccipHome, err := deployment.DeployContract(
+		ccipHome, err := cldf.DeployContract(
 			lggr, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*ccip_home.CCIPHome] {
+			func(chain deployment.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
 				ccAddr, tx, cc, err2 := ccip_home.DeployCCIPHome(
 					chain.DeployerKey,
 					chain.Client,
 					capReg.Address,
 				)
-				return deployment.ContractDeploy[*ccip_home.CCIPHome]{
+				return cldf.ContractDeploy[*ccip_home.CCIPHome]{
 					Address: ccAddr, Tv: deployment.NewTypeAndVersion(changeset.CCIPHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: cc,
 				}
 			})
@@ -198,14 +199,14 @@ func deployHomeChain(
 	if state.Chains[chain.Selector].RMNHome != nil {
 		lggr.Infow("RMNHome already deployed", "addr", state.Chains[chain.Selector].RMNHome.Address().String())
 	} else {
-		rmnHomeContract, err := deployment.DeployContract(
+		rmnHomeContract, err := cldf.DeployContract(
 			lggr, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_home.RMNHome] {
+			func(chain deployment.Chain) cldf.ContractDeploy[*rmn_home.RMNHome] {
 				rmnAddr, tx, rmn, err2 := rmn_home.DeployRMNHome(
 					chain.DeployerKey,
 					chain.Client,
 				)
-				return deployment.ContractDeploy[*rmn_home.RMNHome]{
+				return cldf.ContractDeploy[*rmn_home.RMNHome]{
 					Address: rmnAddr, Tv: deployment.NewTypeAndVersion(changeset.RMNHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: rmn,
 				}
 			},

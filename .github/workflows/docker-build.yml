@@ -58,6 +58,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        CL_SOLANA_CMD=chainlink-solana
       docker-build-cache-disabled: "true"
       docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
@@ -86,6 +87,7 @@ jobs:
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_APTOS_CMD=chainlink-aptos
+        CL_SOLANA_CMD=chainlink-solana
       docker-build-cache-disabled: "true"
       docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
@@ -115,6 +117,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         CL_CHAIN_DEFAULTS=/ccip-config
+        CL_SOLANA_CMD=
         COMMIT_SHA=${{ github.sha }}
       docker-build-cache-disabled: "true"
       docker-image-type: ${{ needs.init.outputs.build-type }}

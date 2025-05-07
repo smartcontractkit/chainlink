@@ -70,6 +70,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -111,6 +112,7 @@ var (
 	OnRamp               deployment.ContractType = "OnRamp"
 	OffRamp              deployment.ContractType = "OffRamp"
 	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
+	DonIDClaimer         deployment.ContractType = "DonIDClaimer"
 	PriceFeed            deployment.ContractType = "PriceFeed"
 
 	// Test contracts. Note test router maps to a regular router contract.
@@ -181,6 +183,7 @@ type CCIPChainState struct {
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPHome           *ccip_home.CCIPHome
 	RMNHome            *rmn_home.RMNHome
+	DonIDClaimer       *don_id_claimer.DonIDClaimer
 
 	// Test contracts
 	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
@@ -1261,8 +1264,7 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		if chainState.CCIPAddress == (aptos.AccountAddress{}) {
 			return 0, fmt.Errorf("ccip not found in existing state, deploy the ccip first for Aptos chain %d", selector)
 		}
-		pChain := deployment.PAptosChain{AptosChain: chain}
-		offrampDynamicConfig, err := pChain.GetOfframpDynamicConfig(chainState.CCIPAddress)
+		offrampDynamicConfig, err := getOfframpDynamicConfig(chain, chainState.CCIPAddress)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get offramp dynamic config for Aptos chain %d: %w", selector, err)
 		}
@@ -2030,6 +2032,13 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			deployment.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_6_0).String():
 			// Ignore firedrill contracts
 			// Firedrill contracts are unknown to core and their state is being loaded separately
+		case deployment.NewTypeAndVersion(DonIDClaimer, deployment.Version1_6_1).String():
+			donIDClaimer, err := don_id_claimer.NewDonIDClaimer(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.DonIDClaimer = donIDClaimer
+			state.ABIByAddress[address] = don_id_claimer.DonIDClaimerABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller

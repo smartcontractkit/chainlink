@@ -143,10 +143,10 @@ func DonInfos(dons []DonCapabilities, jd cldf.OffchainClient) ([]DonInfo, error)
 	return donInfos, nil
 }
 
-func GetRegistryContract(e *deployment.Environment, registryChainSel uint64) (*capabilities_registry.CapabilitiesRegistry, deployment.Chain, error) {
+func getRegistryContract(e *deployment.Environment, registryChainSel uint64) (*capabilities_registry.CapabilitiesRegistry, *deployment.Chain, error) {
 	registryChain, ok := e.Chains[registryChainSel]
 	if !ok {
-		return nil, deployment.Chain{}, fmt.Errorf("chain %d not found in environment", registryChainSel)
+		return nil, nil, fmt.Errorf("chain %d not found in environment", registryChainSel)
 	}
 
 	contractSetsResp, err := GetContractSets(e.Logger, &GetContractSetsRequest{
@@ -154,21 +154,21 @@ func GetRegistryContract(e *deployment.Environment, registryChainSel uint64) (*c
 		AddressBook: e.ExistingAddresses,
 	})
 	if err != nil {
-		return nil, deployment.Chain{}, fmt.Errorf("failed to get contract sets: %w", err)
+		return nil, nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 
 	// ensure registry is deployed and get the registry contract and chain
 	var registry *capabilities_registry.CapabilitiesRegistry
 	registryChainContracts, ok := contractSetsResp.ContractSets[registryChainSel]
 	if !ok {
-		return nil, deployment.Chain{}, fmt.Errorf("failed to deploy registry chain contracts. expected chain %d", registryChainSel)
+		return nil, nil, fmt.Errorf("failed to deploy registry chain contracts. expected chain %d", registryChainSel)
 	}
 	registry = registryChainContracts.CapabilitiesRegistry
 	if registry == nil {
-		return nil, deployment.Chain{}, errors.New("no registry contract found")
+		return nil, nil, errors.New("no registry contract found")
 	}
 	e.Logger.Debugf("registry contract address: %s, chain %d", registry.Address().String(), registryChainSel)
-	return registry, registryChain, nil
+	return registry, &registryChain, nil
 }
 
 type ConfigureRegistryRequest struct {
@@ -409,19 +409,23 @@ type RegisteredCapability struct {
 }
 
 func FromCapabilitiesRegistryCapability(capReg *capabilities_registry.CapabilitiesRegistryCapability, cfg *capabilitiespb.CapabilityConfig, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
-	registry, _, err := GetRegistryContract(&e, registryChainSelector)
+	registry, _, err := getRegistryContract(&e, registryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}
-	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, capReg.LabelledName, capReg.Version)
+	return NewRegisteredCapability(registry, capReg, cfg)
+}
+
+func NewRegisteredCapability(registry *capabilities_registry.CapabilitiesRegistry, capability *capabilities_registry.CapabilitiesRegistryCapability, cfg *capabilitiespb.CapabilityConfig) (*RegisteredCapability, error) {
+	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, capability.LabelledName, capability.Version)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", capReg, err)
+		return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", capability, err)
 	}
 	if cfg == nil {
-		return nil, fmt.Errorf("config is required for capability %v", capReg)
+		return nil, fmt.Errorf("config is required for capability %v", capability)
 	}
 	return &RegisteredCapability{
-		CapabilitiesRegistryCapability: *capReg,
+		CapabilitiesRegistryCapability: *capability,
 		ID:                             id,
 		Config:                         cfg,
 	}, nil
@@ -440,7 +444,7 @@ type RegisterNOPSResponse struct {
 }
 
 func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector)
+	registry, registryChain, err := getRegistryContract(req.Env, req.RegistryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}
@@ -476,7 +480,7 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 	}
 
 	if req.UseMCMS {
-		ops, err := addNOPsMCMSProposal(registry, nops, registryChain)
+		ops, err := addNOPsMCMSProposal(registry, nops, *registryChain)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate proposal to add node operators: %w", err)
 		}
@@ -550,7 +554,7 @@ type RegisterNodesResponse struct {
 // registerNodes registers the nodes with the registry. it assumes that the deployer key in the Chain
 // can sign the transactions update the contract state
 func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNodesResponse, error) {
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector)
+	registry, registryChain, err := getRegistryContract(req.Env, req.RegistryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}
@@ -634,7 +638,7 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 		}
 	}
 	addResp, err := AddNodes(lggr, &AddNodesRequest{
-		RegistryChain:        registryChain,
+		RegistryChain:        *registryChain,
 		NodeParams:           nodeIDToParams,
 		UseMCMS:              req.UseMCMS,
 		CapabilitiesRegistry: registry,
@@ -794,10 +798,31 @@ type RegisterDonsRequest struct {
 	Env                   *deployment.Environment
 	RegistryChainSelector uint64
 
+	Registry      *capabilities_registry.CapabilitiesRegistry
+	RegistryChain *deployment.Chain
+
 	NodeIDToP2PID     map[string][32]byte
 	DonToCapabilities map[string][]RegisteredCapability
 	DonsToRegister    []DONToRegister
 	UseMCMS           bool
+}
+
+func (r *RegisterDonsRequest) Validate() error {
+	if r.Registry != nil {
+		if r.RegistryChain == nil {
+			return errors.New("registry chain is nil")
+		}
+	}
+	if len(r.DonsToRegister) == 0 {
+		return errors.New("no dons to register")
+	}
+	if len(r.NodeIDToP2PID) == 0 {
+		return errors.New("no node ids to p2p ids mapping")
+	}
+	if len(r.DonToCapabilities) == 0 {
+		return errors.New("no dons to capabilities mapping")
+	}
+	return nil
 }
 
 type RegisterDonsResponse struct {
@@ -817,9 +842,19 @@ func sortedHash(p2pids [][32]byte) string {
 }
 
 func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsResponse, error) {
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get registry: %w", err)
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+	var (
+		err           error
+		registry      = req.Registry
+		registryChain = req.RegistryChain
+	)
+	if registry == nil {
+		registry, registryChain, err = getRegistryContract(req.Env, req.RegistryChainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get registry: %w", err)
+		}
 	}
 	lggr.Infow("registering DONs...", "len", len(req.DonsToRegister))
 	// track hash of sorted p2pids to don name because the registry return value does not include the don name

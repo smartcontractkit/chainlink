@@ -13,6 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
@@ -138,13 +141,13 @@ func DeployUSDCTokenPoolContractsChangeset(env deployment.Environment, c DeployU
 		if c.IsTestRouter {
 			router = chainState.TestRouter
 		}
-		_, err := deployment.DeployContract(env.Logger, chain, newAddresses,
-			func(chain deployment.Chain) deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
+		_, err := cldf.DeployContract(env.Logger, chain, newAddresses,
+			func(chain deployment.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 				poolAddress, tx, usdcTokenPool, err := usdc_token_pool.DeployUSDCTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenMessenger, poolConfig.TokenAddress,
 					poolConfig.AllowList, chainState.RMNProxy.Address(), router.Address(),
 				)
-				return deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
+				return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
 					Address:  poolAddress,
 					Contract: usdcTokenPool,
 					Tv:       deployment.NewTypeAndVersion(changeset.USDCTokenPool, deployment.Version1_5_1),

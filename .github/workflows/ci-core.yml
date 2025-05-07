@@ -203,7 +203,7 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [filter, run-frequency, runner-config]
-    timeout-minutes: ${{ github.event_name == 'schedule' && 40 || 20 }} # 40 minute timeout for scheduled events (race tests)
+    timeout-minutes: ${{ github.event_name == 'schedule' && 40 || 25 }} # 40 minute timeout for scheduled events (race tests)
     runs-on: ${{ matrix.type.os }}
     permissions:
       id-token: write
@@ -307,6 +307,7 @@ jobs:
 
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}
+        timeout-minutes: ${{ github.event_name == 'schedule' && 37 || 22 }} # leave  minute for remaining steps
         id: run-tests
         shell: bash
         env:
