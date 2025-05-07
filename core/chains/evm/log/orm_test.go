@@ -286,7 +286,7 @@ func mustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 
 	var jobSpecId int32
 	require.NoError(t, db.Get(&jobSpecId, `INSERT INTO jobs (schema_version, created_at, type, ocr_oracle_spec_id, external_job_id) VALUES (
-    1, NOW(), 1, $1, $2) RETURNING id`, oracleSpecId, uuid.New()))
+    1,NOW(),1,$1,$2) RETURNING id`, oracleSpecId, uuid.New()))
 
 	return jobSpecId
 }
