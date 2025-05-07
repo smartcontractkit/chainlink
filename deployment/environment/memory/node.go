@@ -390,7 +390,9 @@ func NewNode(
 
 	setupJD(t, app)
 	return &Node{
-		App: app,
+		Name: "node-" + keys.PeerID.String(),
+		ID:   app.ID().String(),
+		App:  app,
 		Chains: slices.Concat(
 			maps.Keys(chains),
 			maps.Keys(solchains),

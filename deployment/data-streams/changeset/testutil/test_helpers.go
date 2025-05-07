@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
@@ -255,10 +256,6 @@ func GetNodeLabels(donID uint64, donName string, env string) []*ptypes.Label {
 		{
 			Key:   utils.DonIdentifier(donID, donName),
 			Value: nil,
-		},
-		{
-			Key:   devenv.LabelNodeTypeKey,
-			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 		},
 		{
 			Key:   devenv.LabelEnvironmentKey,

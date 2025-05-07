@@ -9,12 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
@@ -31,19 +30,7 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		ShouldDeployLinkToken: false,
 		NumNodes:              2,
 		NumBootstrapNodes:     1,
-		NodeLabels: []*ptypes.Label{
-			{
-				Key:   devenv.LabelProductKey,
-				Value: pointer.To(utils.ProductLabel),
-			},
-			{
-				Key:   devenv.LabelEnvironmentKey,
-				Value: pointer.To(envName),
-			},
-			{
-				Key: utils.DonIdentifier(donID, donName),
-			},
-		},
+		NodeLabels:            testutil.GetNodeLabels(donID, donName, envName),
 	}).Environment
 
 	// Collect the names of the nodes.

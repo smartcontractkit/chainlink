@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -86,7 +87,7 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate oracle proposals: %w", err)
 	}
-	allProposals := append(bootstrapProposals, oracleProposals...)
+	allProposals := append(bootstrapProposals, oracleProposals...) //nolint: gocritic // ignore a silly rule
 	proposedJobs, err := proposeAllOrNothing(ctx, e.Offchain, allProposals)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose all jobs: %w", err)
@@ -374,13 +375,19 @@ func (f CsDistributeLLOJobSpecs) VerifyPreconditions(_ deployment.Environment, c
 // labelNodesForProposals adds a DON Identifier label to the nodes for the given proposals.
 func labelNodesForProposals(ctx context.Context, jd cldf.OffchainClient, props []*jobv1.ProposeJobRequest, donIdentifier string) error {
 	for _, p := range props {
-		_, err := jd.UpdateNode(ctx, &node.UpdateNodeRequest{
-			Id: p.NodeId,
-			Labels: []*ptypes.Label{
-				{
-					Key: donIdentifier,
-				},
-			},
+		nodeResp, err := jd.GetNode(ctx, &node.GetNodeRequest{Id: p.NodeId})
+		if err != nil {
+			return fmt.Errorf("failed to get node %s: %w", p.NodeId, err)
+		}
+		newLabels := append(nodeResp.Node.Labels, &ptypes.Label{
+			Key: donIdentifier,
+		})
+
+		_, err = jd.UpdateNode(ctx, &node.UpdateNodeRequest{
+			Id:        p.NodeId,
+			Name:      nodeResp.Node.Name,
+			PublicKey: nodeResp.Node.PublicKey,
+			Labels:    newLabels,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to label node %s: %w", p.NodeId, err)
