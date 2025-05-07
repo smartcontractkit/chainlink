@@ -166,33 +166,25 @@ func (v *EtherscanContractVerifier) getConstructorArgs(ctx context.Context) (str
 
 // sendEtherscanRequest sends a request to the Etherscan API and returns the response.
 func sendEtherscanRequest[R any](ctx context.Context, method, endpoint, module, action, key string, extraParams map[string]string) (etherscanAPIResponse[R], error) {
-	baseURL, err := url.Parse(endpoint)
-	if err != nil {
-		return etherscanAPIResponse[R]{}, fmt.Errorf("invalid endpoint URL: %w", err)
-	}
-	query := url.Values{}
-	query.Set("module", module)
-	query.Set("action", action)
-	query.Set("apikey", key)
+	form := url.Values{}
+	form.Add("module", module)
+	form.Add("action", action)
+	form.Add("apikey", key)
 	for key, value := range extraParams {
-		query.Set(key, value)
+		form.Add(key, value)
 	}
-	baseURL.RawQuery = query.Encode()
 
-	httpReq, err := http.NewRequestWithContext(ctx, method, baseURL.String(), nil)
+	httpReq, err := http.NewRequestWithContext(ctx, method, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return etherscanAPIResponse[R]{}, fmt.Errorf("failed to create request: %w", err)
 	}
+	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return etherscanAPIResponse[R]{}, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return etherscanAPIResponse[R]{}, fmt.Errorf("received non-200 response from etherscan: %d", resp.StatusCode)
-	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -204,8 +196,12 @@ func sendEtherscanRequest[R any](ctx context.Context, method, endpoint, module, 
 		return etherscanAPIResponse[R]{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
-	if apiResp.Status != statusOK || apiResp.Message != messageOK {
-		return etherscanAPIResponse[R]{}, fmt.Errorf("etherscan error - status=%s message=%s result=%+v", apiResp.Status, apiResp.Message, apiResp.Result)
+	// Return an error if either the HTTP status is not 200, or the Etherscan response isn't OK
+	if resp.StatusCode != http.StatusOK || apiResp.Status != statusOK || apiResp.Message != messageOK {
+		return apiResp, fmt.Errorf(
+			"etherscan error - httpStatus=%d etherscanStatus=%s message=%s result=%+v",
+			resp.StatusCode, apiResp.Status, apiResp.Message, apiResp.Result,
+		)
 	}
 
 	return apiResp, nil
