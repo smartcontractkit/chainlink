@@ -165,9 +165,9 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 
 			evmDestChainStatePDA = solanaState.SolChains[solChain].DestChainStatePDAs[evmChain]
 			err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
+			require.NoError(t, err)
 			require.NotEmpty(t, destChainStateAccount.Config.AllowedSenders)
 			require.True(t, destChainStateAccount.Config.AllowListEnabled)
-			require.NoError(t, err)
 		})
 	}
 }
