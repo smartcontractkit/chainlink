@@ -10,8 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
-	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
+	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -198,9 +199,9 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 }
 
 func newTriggerSubs(n int) *wasmpb.ExecutionResult {
-	subs := make([]*wasmpb.TriggerSubscription, 0, n)
+	subs := make([]*sdkpb.TriggerSubscription, 0, n)
 	for i := range n {
-		subs = append(subs, &wasmpb.TriggerSubscription{
+		subs = append(subs, &sdkpb.TriggerSubscription{
 			ExecId: fmt.Sprintf("execId_%d", i),
 			Id:     fmt.Sprintf("id_%d", i),
 			Method: "method",
@@ -208,7 +209,7 @@ func newTriggerSubs(n int) *wasmpb.ExecutionResult {
 	}
 	return &wasmpb.ExecutionResult{
 		Result: &wasmpb.ExecutionResult_TriggerSubscriptions{
-			TriggerSubscriptions: &wasmpb.TriggerSubscriptionRequest{
+			TriggerSubscriptions: &sdkpb.TriggerSubscriptionRequest{
 				Subscriptions: subs,
 			},
 		},

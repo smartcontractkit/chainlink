@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -363,8 +364,8 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 	for selector, cfg := range tokenDeployCfg {
 		switch cfg.Type {
 		case changeset.BurnMintToken:
-			token, err := deployment.DeployContract(e.Logger, e.Chains[selector], ab,
-				func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
+				func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 						e.Chains[selector].DeployerKey,
 						e.Chains[selector].Client,
@@ -373,7 +374,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 						cfg.TokenDecimals,
 						cfg.MaxSupply,
 					)
-					return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+					return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 						Address:  tokenAddress,
 						Contract: token,
 						Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
@@ -403,15 +404,15 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 
 			tokenAddresses[selector] = token.Address
 		case changeset.ERC20Token:
-			token, err := deployment.DeployContract(e.Logger, e.Chains[selector], ab,
-				func(chain deployment.Chain) deployment.ContractDeploy[*erc20.ERC20] {
+			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
+				func(chain deployment.Chain) cldf.ContractDeploy[*erc20.ERC20] {
 					tokenAddress, tx, token, err := erc20.DeployERC20(
 						e.Chains[selector].DeployerKey,
 						e.Chains[selector].Client,
 						cfg.TokenName,
 						string(cfg.TokenSymbol),
 					)
-					return deployment.ContractDeploy[*erc20.ERC20]{
+					return cldf.ContractDeploy[*erc20.ERC20]{
 						Address:  tokenAddress,
 						Contract: token,
 						Tv:       deployment.NewTypeAndVersion(changeset.ERC20Token, deployment.Version1_0_0),
@@ -426,15 +427,15 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 			}
 			tokenAddresses[selector] = token.Address
 		case changeset.ERC677Token:
-			token, err := deployment.DeployContract(e.Logger, e.Chains[selector], ab,
-				func(chain deployment.Chain) deployment.ContractDeploy[*erc677.ERC677] {
+			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
+				func(chain deployment.Chain) cldf.ContractDeploy[*erc677.ERC677] {
 					tokenAddress, tx, token, err := erc677.DeployERC677(
 						e.Chains[selector].DeployerKey,
 						e.Chains[selector].Client,
 						cfg.TokenName,
 						string(cfg.TokenSymbol),
 					)
-					return deployment.ContractDeploy[*erc677.ERC677]{
+					return cldf.ContractDeploy[*erc677.ERC677]{
 						Address:  tokenAddress,
 						Contract: token,
 						Tv:       deployment.NewTypeAndVersion(changeset.ERC677Token, deployment.Version1_0_0),
