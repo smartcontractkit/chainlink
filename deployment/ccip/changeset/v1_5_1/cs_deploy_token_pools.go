@@ -16,6 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
@@ -200,15 +202,15 @@ func deployTokenPool(
 	addressBook deployment.AddressBook,
 	poolConfig DeployTokenPoolInput,
 	isTestRouter bool,
-) (*deployment.ContractDeploy[*token_pool.TokenPool], error) {
+) (*cldf.ContractDeploy[*token_pool.TokenPool], error) {
 	router := chainState.Router
 	if isTestRouter {
 		router = chainState.TestRouter
 	}
 	rmnProxy := chainState.RMNProxy
 
-	return deployment.DeployContract(logger, chain, addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*token_pool.TokenPool] {
+	return cldf.DeployContract(logger, chain, addressBook,
+		func(chain deployment.Chain) cldf.ContractDeploy[*token_pool.TokenPool] {
 			var tpAddr common.Address
 			var tx *types.Transaction
 			var err error
@@ -238,7 +240,7 @@ func deployTokenPool(
 			if err == nil { // prevents overwriting the error (also, if there were an error with deployment, converting to an abstract token pool wouldn't be useful)
 				tp, err = token_pool.NewTokenPool(tpAddr, chain.Client)
 			}
-			return deployment.ContractDeploy[*token_pool.TokenPool]{
+			return cldf.ContractDeploy[*token_pool.TokenPool]{
 				Address:  tpAddr,
 				Contract: tp,
 				Tv:       deployment.NewTypeAndVersion(poolConfig.Type, changeset.CurrentTokenPoolVersion),

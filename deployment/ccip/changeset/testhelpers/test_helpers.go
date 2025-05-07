@@ -179,13 +179,13 @@ func DeployTestContracts(t *testing.T,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := deployment.DeployContract(lggr, chains[homeChainSel], ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+	capReg, err := cldf.DeployContract(lggr, chains[homeChainSel], ab,
+		func(chain deployment.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 				chain.DeployerKey,
 				chain.Client,
 			)
-			return deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
+			return cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
 				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
 			}
 		})
@@ -1118,7 +1118,7 @@ func DeployFeeds(
 	wethPrice *big.Int,
 ) (map[string]common.Address, error) {
 	linkTV := deployment.NewTypeAndVersion(changeset.PriceFeed, deployment.Version1_0_0)
-	mockLinkFeed := func(chain deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+	mockLinkFeed := func(chain deployment.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
 			chain.DeployerKey,
 			chain.Client,
@@ -1127,12 +1127,12 @@ func DeployFeeds(
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
-		return deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
+		return cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
 			Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
 		}
 	}
 
-	mockWethFeed := func(chain deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+	mockWethFeed := func(chain deployment.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		wethFeed, tx, _, err1 := mock_ethusd_aggregator_wrapper.DeployMockETHUSDAggregator(
 			chain.DeployerKey,
 			chain.Client,
@@ -1140,7 +1140,7 @@ func DeployFeeds(
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(wethFeed, chain.Client)
 
-		return deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
+		return cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
 			Address: wethFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
 		}
 	}
@@ -1167,11 +1167,11 @@ func deploySingleFeed(
 	lggr logger.Logger,
 	ab deployment.AddressBook,
 	chain deployment.Chain,
-	deployFunc func(deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
+	deployFunc func(deployment.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
 	symbol changeset.TokenSymbol,
 ) (common.Address, string, error) {
 	// tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
-	mockTokenFeed, err := deployment.DeployContract(lggr, chain, ab, deployFunc)
+	mockTokenFeed, err := cldf.DeployContract(lggr, chain, ab, deployFunc)
 	if err != nil {
 		lggr.Errorw("Failed to deploy token feed", "err", err, "symbol", symbol)
 		return common.Address{}, "", err
@@ -1614,8 +1614,8 @@ func deployTransferTokenOneEnd(
 
 	tokenDecimals := uint8(18)
 
-	tokenContract, err := deployment.DeployContract(lggr, chain, addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+	tokenContract, err := cldf.DeployContract(lggr, chain, addressBook,
+		func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				deployer,
 				chain.Client,
@@ -1624,7 +1624,7 @@ func deployTransferTokenOneEnd(
 				tokenDecimals,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
-			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address: tokenAddress, Contract: token, Tx: tx, Tv: deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0), Err: err2,
 			}
 		})
@@ -1642,8 +1642,8 @@ func deployTransferTokenOneEnd(
 		return nil, nil, err
 	}
 
-	tokenPool, err := deployment.DeployContract(lggr, chain, addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
+	tokenPool, err := cldf.DeployContract(lggr, chain, addressBook,
+		func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
 			tokenPoolAddress, tx, tokenPoolContract, err2 := burn_mint_token_pool.DeployBurnMintTokenPool(
 				deployer,
 				chain.Client,
@@ -1653,7 +1653,7 @@ func deployTransferTokenOneEnd(
 				common.HexToAddress(rmnAddress),
 				common.HexToAddress(routerAddress),
 			)
-			return deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
+			return cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
 				Address: tokenPoolAddress, Contract: tokenPoolContract, Tx: tx, Tv: deployment.NewTypeAndVersion(changeset.BurnMintTokenPool, deployment.Version1_5_1), Err: err2,
 			}
 		})

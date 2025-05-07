@@ -372,5 +372,5 @@ func UnregisterCommitPluginLpFilters(srcProvider commontypes.CCIPCommitProvider,
 
 type RelayGetter interface {
 	Get(id commontypes.RelayID) (loop.Relayer, error)
-	GetIDToRelayerMap() (map[commontypes.RelayID]loop.Relayer, error)
+	GetIDToRelayerMap() map[commontypes.RelayID]loop.Relayer
 }

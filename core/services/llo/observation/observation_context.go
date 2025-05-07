@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"strconv"
 	"sync"
 	"time"
@@ -204,10 +205,10 @@ func resultMapToTimestampedStreamValue(m map[string]interface{}) (*llo.Timestamp
 	// providerIndicatedTimeUnixMs is the best option, with providerDataReceivedUnixMs as a fallback
 	k := "providerIndicatedTimeUnixMs"
 	rawObservedAtMillis, exists := ts[k]
-	if !exists {
+	if !exists || rawObservedAtMillis == nil {
 		k = "providerDataReceivedUnixMs"
 		rawObservedAtMillis, exists = ts[k]
-		if !exists {
+		if !exists || rawObservedAtMillis == nil {
 			return nil, errors.New("expected a key labeled 'providerIndicatedTimeUnixMs' or 'providerDataReceivedUnixMs'")
 		}
 	}
@@ -252,8 +253,20 @@ func toUint64(v interface{}) (uint64, error) {
 			return 0, fmt.Errorf("expected positive int64, got: %d", v)
 		}
 		return uint64(v), nil
+	case decimal.Decimal:
+		if v.IsNegative() {
+			return 0, fmt.Errorf("expected positive decimal, got: %s", v.String())
+		}
+		// Convert the integer part of the decimal to a big.Int, discard fractional part
+		bigIntVal := v.BigInt()
+
+		// Check if the value is greater than maxUint64
+		if bigIntVal.Cmp(new(big.Int).SetUint64(math.MaxUint64)) > 0 {
+			return 0, fmt.Errorf("decimal too large, got: %s", v.String())
+		}
+		return bigIntVal.Uint64(), nil
 	default:
-		return 0, fmt.Errorf("expected float64 or string, got: %T", v)
+		return 0, fmt.Errorf("expected float64, int64, string, or decimal, got: %T", v)
 	}
 }
 
