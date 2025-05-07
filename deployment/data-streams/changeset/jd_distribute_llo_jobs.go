@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -75,14 +76,25 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate bootstrap proposals: %w", err)
 	}
-	oracleProposals, err := generateOracleProposals(ctx, e, cfg, chainID, labels)
+	// These will be empty when we send only oracle jobs. In that case we'll fetch the bootstrappers by the don
+	// identifier label.
+	boostrapNodeIDs := make([]string, 0, len(bootstrapProposals))
+	for _, p := range bootstrapProposals {
+		boostrapNodeIDs = append(boostrapNodeIDs, p.NodeId)
+	}
+	oracleProposals, err := generateOracleProposals(ctx, e, cfg, chainID, labels, boostrapNodeIDs)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate oracle proposals: %w", err)
 	}
-
-	proposedJobs, err := proposeAllOrNothing(ctx, e.Offchain, append(bootstrapProposals, oracleProposals...))
+	allProposals := append(bootstrapProposals, oracleProposals...)
+	proposedJobs, err := proposeAllOrNothing(ctx, e.Offchain, allProposals)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose all jobs: %w", err)
+	}
+
+	err = labelNodesForProposals(e.GetContext(), e.Offchain, allProposals, utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName))
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to label nodes for proposals: %w", err)
 	}
 
 	return deployment.ChangesetOutput{
@@ -90,13 +102,19 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 	}, nil
 }
 
-func generateBootstrapProposals(ctx context.Context, e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig, chainID string, labels []*ptypes.Label) ([]*jobv1.ProposeJobRequest, error) {
+func generateBootstrapProposals(
+	ctx context.Context,
+	e deployment.Environment,
+	cfg CsDistributeLLOJobSpecsConfig,
+	chainID string,
+	labels []*ptypes.Label,
+) ([]*jobv1.ProposeJobRequest, error) {
 	bootstrapNodes, err := jd.FetchDONBootstrappersFromJD(ctx, e.Offchain, cfg.Filter, cfg.NodeNames)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bootstrap nodes: %w", err)
 	}
 
-	localLabels := append(labels, //nolint: gocritic // obvious and readable locally modified copy of labels
+	localLabels := append(labels, // nolint: gocritic // obvious and readable locally modified copy of labels
 		&ptypes.Label{
 			Key:   devenv.LabelNodeTypeKey,
 			Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
@@ -146,7 +164,14 @@ func generateBootstrapProposals(ctx context.Context, e deployment.Environment, c
 	return proposals, nil
 }
 
-func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig, chainID string, labels []*ptypes.Label) ([]*jobv1.ProposeJobRequest, error) {
+func generateOracleProposals(
+	ctx context.Context,
+	e deployment.Environment,
+	cfg CsDistributeLLOJobSpecsConfig,
+	chainID string,
+	labels []*ptypes.Label,
+	boostrapNodeIDs []string,
+) ([]*jobv1.ProposeJobRequest, error) {
 	// nils will be filled out later with n-specific values:
 	lloSpec := &jobs.LLOJobSpec{
 		Base: jobs.Base{
@@ -186,12 +211,12 @@ func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg 
 		return nil, fmt.Errorf("failed to get node chain configs: %w", err)
 	}
 
-	bootstrapMultiaddr, err := getBootstrapMultiAddr(ctx, e, cfg)
+	bootstrapMultiaddr, err := getBootstrapMultiAddr(ctx, e, cfg, boostrapNodeIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bootstrap bootstrapMultiaddr: %w", err)
 	}
 
-	localLabels := append(labels, //nolint: gocritic // obvious and readable locally modified copy of labels
+	localLabels := append(labels, // nolint: gocritic // obvious and readable locally modified copy of labels
 		&ptypes.Label{
 			Key:   devenv.LabelNodeTypeKey,
 			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
@@ -265,45 +290,53 @@ func chainConfigs(ctx context.Context, e deployment.Environment, chainID string,
 }
 
 // getBootstrapMultiAddr fetches the bootstrap node from Job Distributor and returns its multiaddr.
-func getBootstrapMultiAddr(ctx context.Context, e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig) (string, error) {
-	// Get all bootstrap nodes for this DON.
-	// We fetch these with a custom filter because the filter in the config defines which nodes need to be sent jobs
-	// and this might not cover any bootstrap nodes.
-	respBoots, err := e.Offchain.ListNodes(ctx, &node.ListNodesRequest{
-		Filter: &node.ListNodesRequest_Filter{
-			Selectors: []*ptypes.Selector{
-				{
-					Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
-					Op:  ptypes.SelectorOp_EXIST,
-				},
-				{
-					Key:   devenv.LabelNodeTypeKey,
-					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
-				},
-				{
-					Key:   devenv.LabelEnvironmentKey,
-					Op:    ptypes.SelectorOp_EQ,
-					Value: &cfg.Filter.EnvLabel,
-				},
-				{
-					Key:   devenv.LabelProductKey,
-					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To(utils.ProductLabel),
+// If boostrapNodeIDs is empty, it will return the first bootstrap node found for this DON.
+func getBootstrapMultiAddr(ctx context.Context, e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig, boostrapNodeIDs []string) (string, error) {
+	if len(boostrapNodeIDs) == 0 {
+		// Get all bootstrap nodes for this DON.
+		// We fetch these with a custom filter because the filter in the config defines which nodes need to be sent jobs
+		// and this might not cover any bootstrap nodes.
+		respBoots, err := e.Offchain.ListNodes(ctx, &node.ListNodesRequest{
+			Filter: &node.ListNodesRequest_Filter{
+				Selectors: []*ptypes.Selector{
+					// We can afford to filter by DonIdentifier here because if the caller didn't provide any bootstrap node IDs,
+					// then they are updating an existing job spec and the bootstrap nodes are already labeled with the DON ID.
+					{
+						Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
+						Op:  ptypes.SelectorOp_EXIST,
+					},
+					{
+						Key:   devenv.LabelNodeTypeKey,
+						Op:    ptypes.SelectorOp_EQ,
+						Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
+					},
+					{
+						Key:   devenv.LabelEnvironmentKey,
+						Op:    ptypes.SelectorOp_EQ,
+						Value: &cfg.Filter.EnvLabel,
+					},
+					{
+						Key:   devenv.LabelProductKey,
+						Op:    ptypes.SelectorOp_EQ,
+						Value: pointer.To(utils.ProductLabel),
+					},
 				},
 			},
-		},
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to list bootstrap nodes for DON %d - %s: %w", cfg.Filter.DONID, cfg.Filter.DONName, err)
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to list bootstrap nodes for DON %d - %s: %w", cfg.Filter.DONID, cfg.Filter.DONName, err)
+		}
+		if len(respBoots.Nodes) == 0 {
+			return "", errors.New("no bootstrap nodes found")
+		}
+		for _, n := range respBoots.Nodes {
+			boostrapNodeIDs = append(boostrapNodeIDs, n.Id)
+		}
 	}
 
-	if len(respBoots.Nodes) == 0 {
-		return "", errors.New("no bootstrap nodes found")
-	}
 	resp, err := e.Offchain.ListNodeChainConfigs(ctx, &node.ListNodeChainConfigsRequest{
 		Filter: &node.ListNodeChainConfigsRequest_Filter{
-			NodeIds: []string{respBoots.Nodes[0].Id},
+			NodeIds: boostrapNodeIDs,
 		},
 	})
 	if err != nil {
@@ -335,5 +368,23 @@ func (f CsDistributeLLOJobSpecs) VerifyPreconditions(_ deployment.Environment, c
 		return errors.New("node names are required")
 	}
 
+	return nil
+}
+
+// labelNodesForProposals adds a DON Identifier label to the nodes for the given proposals.
+func labelNodesForProposals(ctx context.Context, jd cldf.OffchainClient, props []*jobv1.ProposeJobRequest, donIdentifier string) error {
+	for _, p := range props {
+		_, err := jd.UpdateNode(ctx, &node.UpdateNodeRequest{
+			Id: p.NodeId,
+			Labels: []*ptypes.Label{
+				{
+					Key: donIdentifier,
+				},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to label node %s: %w", p.NodeId, err)
+		}
+	}
 	return nil
 }
