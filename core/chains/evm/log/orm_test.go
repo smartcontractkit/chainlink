@@ -26,12 +26,12 @@ func TestORM_broadcasts(t *testing.T) {
 
 	orm := log.NewORM(db, *testutils.FixtureChainID)
 
-	specV2 := mustInsertV2JobSpec(t, db, testutils.NewAddress())
+	jobID := mustInsertV2JobSpec(t, db, testutils.NewAddress())
 
 	const selectQuery = `SELECT consumed FROM log_broadcasts
 		WHERE block_hash = $1 AND block_number = $2 AND log_index = $3 AND job_id = $4 AND evm_chain_id = $5`
 
-	listener := &mockListener{specV2}
+	listener := &mockListener{jobID}
 
 	rawLog := randomLog(t)
 	queryArgs := []interface{}{rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID(), testutils.FixtureChainID.String()}
