@@ -9,6 +9,7 @@ import (
 	jdtypesv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
@@ -28,10 +29,6 @@ type ListFilter struct {
 func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 	return &nodeapiv1.ListNodesRequest_Filter{
 		Selectors: []*jdtypesv1.Selector{
-			{
-				Key: utils.DonIdentifier(f.DONID, f.DONName),
-				Op:  jdtypesv1.SelectorOp_EXIST,
-			},
 			{
 				Key:   devenv.LabelNodeTypeKey,
 				Op:    jdtypesv1.SelectorOp_EQ,
@@ -55,10 +52,6 @@ func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 func (f *ListFilter) oraclesFilter() *nodeapiv1.ListNodesRequest_Filter {
 	return &nodeapiv1.ListNodesRequest_Filter{
 		Selectors: []*jdtypesv1.Selector{
-			{
-				Key: utils.DonIdentifier(f.DONID, f.DONName),
-				Op:  jdtypesv1.SelectorOp_EXIST,
-			},
 			{
 				Key:   devenv.LabelNodeTypeKey,
 				Op:    jdtypesv1.SelectorOp_EQ,
