@@ -254,7 +254,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 	}
 }
 
-// new workflow execution, blocking until completed
+// startExecution initiates a new workflow execution, blocking until completed
 func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueuedTriggerEvent) {
 	triggerEvent := wrappedTriggerEvent.event.Event
 	executionID, err := types.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
@@ -274,7 +274,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			},
 		},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
-		// no Config needed
+		// TODO(CAPPL-729): pass workflow config
 	})
 	if err != nil {
 		e.cfg.Lggr.Errorw("Workflow execution failed", "err", err)
