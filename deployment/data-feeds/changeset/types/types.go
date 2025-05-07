@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 
+	modulefeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
 	moduleplatform "github.com/smartcontractkit/chainlink-aptos/bindings/platform"
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
