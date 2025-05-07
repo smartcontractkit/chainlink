@@ -128,6 +128,7 @@ func generateBootstrapProposals(ctx context.Context, e deployment.Environment, c
 		bootstrapSpec := jobs.NewBootstrapSpec(
 			cfg.ConfiguratorAddress,
 			cfg.Filter.DONID,
+			cfg.Filter.DONName,
 			jobs.RelayTypeEVM,
 			jobs.RelayConfig{
 				ChainID: chainID,
