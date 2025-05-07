@@ -32,6 +32,8 @@ type EtherscanContractVerifier struct {
 	apiURL                    string
 	apiKey                    string
 	address                   string
+	contractType              deployment.ContractType
+	version                   semver.Version
 	input                     solidityContractMetadata
 	verificationCheckInterval time.Duration
 }
@@ -54,9 +56,16 @@ func NewEtherscanContractVerifier(
 		apiURL:                    apiURL,
 		apiKey:                    apiKey,
 		address:                   address,
+		contractType:              contractType,
+		version:                   version,
 		input:                     input,
 		verificationCheckInterval: verificationCheckInterval,
 	}, nil
+}
+
+// String returns a string representation of the EtherscanContractVerifier.
+func (v *EtherscanContractVerifier) String() string {
+	return fmt.Sprintf("%s %s (%s)", v.contractType, v.version, v.address)
 }
 
 // Verify verifies the contract on Etherscan.
