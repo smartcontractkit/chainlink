@@ -3,7 +3,6 @@ package changeset_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -104,7 +103,6 @@ func TestKeystoneView(t *testing.T) {
 		chainName, err := chain_selectors.NameFromChainId(chainID)
 		require.NoError(t, err)
 
-		fmt.Printf("outView.Chains: %v, %s\n", outView.Chains, chainName)
 		viewChain, ok := outView.Chains[chainName]
 		require.True(t, ok)
 		viewOCR3Config, ok := viewChain.OCRContracts[newOCR3Addr]

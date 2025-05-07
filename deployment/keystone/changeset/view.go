@@ -27,7 +27,6 @@ func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.M
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
-	fmt.Printf("contract sets: %+v\n", contractSets)
 
 	prevViewBytes, err := previousView.MarshalJSON()
 	if err != nil {
