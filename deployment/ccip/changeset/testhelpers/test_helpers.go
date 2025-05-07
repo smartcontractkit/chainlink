@@ -1392,7 +1392,6 @@ func DeployTransferableTokenSolana(
 			},
 		),
 	)
-
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
@@ -1778,7 +1777,8 @@ func Transfer(
 	case chainsel.FamilySolana:
 		feeTokenAddr := solana.PublicKey{}
 		if len(feeToken) > 0 {
-			feeTokenAddr = solana.MustPublicKeyFromBase58(feeToken)
+			feeTokenAddr, err = solana.PublicKeyFromBase58(feeToken)
+			require.NoError(t, err)
 		}
 
 		msg = ccip_router.SVM2AnyMessage{

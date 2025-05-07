@@ -169,7 +169,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	case chain_selectors.FamilySolana:
 		feeToken := solana.PublicKey{}
 		if len(tc.FeeToken) > 0 {
-			feeToken = solana.MustPublicKeyFromBase58(tc.FeeToken)
+			feeToken, err = solana.PublicKeyFromBase58(tc.FeeToken)
+			require.NoError(t, err)
 		}
 
 		msg = ccip_router.SVM2AnyMessage{
