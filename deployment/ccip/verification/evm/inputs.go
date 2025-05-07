@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
@@ -201,5 +200,5 @@ func (s solidityContractMetadata) SourceCode() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal source code: %w", err)
 	}
-	return hexutil.Encode(jsonBytes), nil
+	return string(jsonBytes), nil
 }

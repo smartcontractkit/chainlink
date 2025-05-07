@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -74,6 +75,7 @@ func (v *EtherscanContractVerifier) Verify(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to get constructor args: %w", err)
 	}
+	fmt.Println("Constructor Args: ", constructorArgs)
 
 	sourceCode, err := v.input.SourceCode()
 	if err != nil {
@@ -163,13 +165,21 @@ func (v *EtherscanContractVerifier) getConstructorArgs(ctx context.Context) (str
 }
 
 // sendEtherscanRequest sends a request to the Etherscan API and returns the response.
-func sendEtherscanRequest[R any](ctx context.Context, method, endpoint, module, action, key string, params map[string]string) (etherscanAPIResponse[R], error) {
-	queryStr := fmt.Sprintf("%s?module=%s&action=%s&apikey=%s", endpoint, module, action, key) // TODO: use net/url to build query string
-	for key, value := range params {
-		queryStr += fmt.Sprintf("&%s=%s", key, value)
+func sendEtherscanRequest[R any](ctx context.Context, method, endpoint, module, action, key string, extraParams map[string]string) (etherscanAPIResponse[R], error) {
+	baseURL, err := url.Parse(endpoint)
+	if err != nil {
+		return etherscanAPIResponse[R]{}, fmt.Errorf("invalid endpoint URL: %w", err)
 	}
+	query := url.Values{}
+	query.Set("module", module)
+	query.Set("action", action)
+	query.Set("apikey", key)
+	for key, value := range extraParams {
+		query.Set(key, value)
+	}
+	baseURL.RawQuery = query.Encode()
 
-	httpReq, err := http.NewRequestWithContext(ctx, method, queryStr, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, method, baseURL.String(), nil)
 	if err != nil {
 		return etherscanAPIResponse[R]{}, fmt.Errorf("failed to create request: %w", err)
 	}
