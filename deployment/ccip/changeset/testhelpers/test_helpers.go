@@ -2316,3 +2316,33 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 		require.NotEmpty(t, addrs)
 	}
 }
+
+func TransferToTimelock(
+	t *testing.T,
+	tenv DeployedEnv,
+	state changeset.CCIPOnChainState,
+	chains []uint64,
+) {
+	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(chains)+1)
+	for _, chain := range chains {
+		timelockContracts[chain] = &proposalutils.TimelockExecutionContracts{
+			Timelock:  state.Chains[chain].Timelock,
+			CallProxy: state.Chains[chain].CallProxy,
+		}
+	}
+	// Add the home chain to the timelock contracts.
+	timelockContracts[tenv.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
+		Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+		CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+	}
+	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+	_, err := commoncs.Apply(t, tenv.Env,
+		timelockContracts,
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+			GenTestTransferOwnershipConfig(tenv, chains, state),
+		),
+	)
+	require.NoError(t, err)
+	AssertTimelockOwnership(t, tenv, chains, state)
+}

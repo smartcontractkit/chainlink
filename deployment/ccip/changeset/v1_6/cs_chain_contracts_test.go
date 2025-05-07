@@ -65,7 +65,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -141,7 +141,7 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -209,7 +209,7 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -288,7 +288,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -399,7 +399,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -475,7 +475,7 @@ func TestUpdateFQDests(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -568,7 +568,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 					chains = []uint64{source, dest}
 				}
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, chains)
+				testhelpers.TransferToTimelock(t, tenv, state, chains)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -647,7 +647,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -707,7 +707,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -986,7 +986,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -1045,7 +1045,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			require.NoError(t, err)
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -1181,7 +1181,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -1274,7 +1274,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 			require.NoError(t, err)
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
