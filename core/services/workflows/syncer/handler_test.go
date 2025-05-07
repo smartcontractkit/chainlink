@@ -575,7 +575,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					BinaryURL:     event.BinaryURL,
 					ConfigURL:     event.ConfigURL,
 				}
-				_, err := s.UpsertWorkflowSpec(ctx, entry)
+				urlHash, err := crypto.Keccak256([]byte(event.SecretsURL))
+				require.NoError(t, err)
+				_, err = s.UpsertWorkflowSpecWithSecrets(ctx, entry, event.SecretsURL, hex.EncodeToString(urlHash), "secrets")
 				require.NoError(t, err)
 
 				err = h.workflowRegisteredEvent(ctx, event)
