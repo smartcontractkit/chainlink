@@ -14,8 +14,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/hashicorp/go-multierror"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -28,42 +26,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
-
-func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {
-	if err != nil {
-		//revive:disable
-		var d rpc.DataError
-		ok := errors.As(err, &d)
-		if ok {
-			return 0, fmt.Errorf("transaction reverted on chain %s: Error %s ErrorData %v", chain.String(), d.Error(), d.ErrorData())
-		}
-		return 0, err
-	}
-	return chain.Confirm(tx)
-}
-
-// ConfirmIfNoErrorWithABI confirms the transaction if no error occurred.
-// if the error is a DataError, it will return the decoded error message and data.
-func ConfirmIfNoErrorWithABI(chain Chain, tx *types.Transaction, abi string, err error) (uint64, error) {
-	if err != nil {
-		return 0, fmt.Errorf("transaction reverted on chain %s: Error %w",
-			chain.String(), DecodedErrFromABIIfDataErr(err, abi))
-	}
-	return chain.Confirm(tx)
-}
-
-func DecodedErrFromABIIfDataErr(err error, abi string) error {
-	var d rpc.DataError
-	ok := errors.As(err, &d)
-	if ok {
-		errReason, err := parseErrorFromABI(fmt.Sprintf("%s", d.ErrorData()), abi)
-		if err != nil {
-			return fmt.Errorf("%s: %v", d.Error(), d.ErrorData())
-		}
-		return fmt.Errorf("%s due to %s: %v", d.Error(), errReason, d.ErrorData())
-	}
-	return err
-}
 
 func UBigInt(i uint64) *big.Int {
 	return new(big.Int).SetUint64(i)
