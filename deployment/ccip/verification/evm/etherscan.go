@@ -12,6 +12,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/verification"
 )
 
 // etherscanAPIResponse defines a generic response from etherscan.
@@ -43,7 +44,7 @@ const (
 
 // NewEtherscanContractVerifier creates a new EtherscanContractVerifier instance.
 func NewEtherscanContractVerifier(
-	apiURL, apiKey, address string, contractType deployment.ContractType, version semver.Version, verificationCheckInterval time.Duration) (*EtherscanContractVerifier, error) {
+	apiURL, apiKey, address string, contractType deployment.ContractType, version semver.Version, verificationCheckInterval time.Duration) (verification.Verifiable, error) {
 	input, err := loadSolidityContractMetadata(contractType, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load solidity standard JSON input: %w", err)
