@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -269,7 +268,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		Id: executionID,
 		Request: &wasmpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
-				Id:      strconv.FormatInt(int64(wrappedTriggerEvent.triggerIndex), 10), // TODO: change to an integer oncce proto is refactored
+				Id:      uint64(wrappedTriggerEvent.triggerIndex),
 				Payload: triggerEvent.Payload,
 			},
 		},
