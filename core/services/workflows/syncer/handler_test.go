@@ -799,6 +799,9 @@ func (m *mockArtifactStore) DeleteWorkflowArtifacts(ctx context.Context, workflo
 func (m *mockArtifactStore) GetSecrets(ctx context.Context, secretsURL string, workflowID [32]byte, workflowOwner []byte) ([]byte, error) {
 	return m.artifactStore.GetSecrets(ctx, secretsURL, workflowID, workflowOwner)
 }
+func (m *mockArtifactStore) ValidateSecrets(ctx context.Context, workflowID, workflowOwner string) error {
+	return m.artifactStore.ValidateSecrets(ctx, workflowID, workflowOwner)
+}
 func (m *mockArtifactStore) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
 	return m.artifactStore.SecretsFor(ctx, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID)
 }
