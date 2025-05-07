@@ -12,6 +12,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -121,7 +122,7 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab de
 	if err = abTemp.Merge(ab); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging new addresses into temp addresses: %w", err)
 	}
-	if err = abTemp.Merge(e.ExistingAddresses); err != nil {
+	if err = abTemp.Merge(e.ExistingAddresses); err != nil { //nolint: staticcheck // We'll handle the deprecation later.
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging existing addresses into temp addresses: %w", err)
 	}
 
