@@ -26,18 +26,18 @@ var (
 		"postOpsToAggregateProposals",
 		semver.MustParse("1.0.0"),
 		"Post ops to aggregate proposals",
-		func(b operations.Bundle, deps Dependencies, input postOpsInput) (deployment.ChangesetOutput, error) {
-			allProposals := input.ConsolidatedCSOutput.MCMSTimelockProposals
+		func(b operations.Bundle, deps Dependencies, input postOpsInput) ([]mcmslib.TimelockProposal, error) {
+			allProposals := input.Proposals
 			proposal, err := proposalutils.AggregateProposals(
 				deps.Env, deps.EVMMCMSState, deps.SolanaMCMSState, allProposals, nil,
 				"Adding EVM and Solana lane", input.MCMSConfig)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return nil, err
 			}
 			if proposal != nil {
-				input.ConsolidatedCSOutput.MCMSTimelockProposals = []mcmslib.TimelockProposal{*proposal}
+				input.Proposals = []mcmslib.TimelockProposal{*proposal}
 			}
-			return input.ConsolidatedCSOutput, nil
+			return input.Proposals, nil
 		},
 	)
 
@@ -45,76 +45,86 @@ var (
 		"addEVMAndSolanaLane",
 		semver.MustParse("1.0.0"),
 		"Adds bi-directional lane between EVM chain and Solana",
-		func(b operations.Bundle, deps Dependencies, input AddRemoteChainE2EConfig) (deployment.ChangesetOutput, error) {
+		func(b operations.Bundle, deps Dependencies, input AddRemoteChainE2EConfig) ([]mcmslib.TimelockProposal, error) {
 			var finalOutput deployment.ChangesetOutput
 			updateEVMOnRampReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateEVMOnRamp",
 				semver.MustParse("1.0.0"),
 				"Updates EVM OnRamps with Destination Chain Configs for Solana",
-				func(b operations.Bundle, deps Dependencies, input v1_6.UpdateOnRampDestsConfig) (deployment.ChangesetOutput, error) {
-					return v1_6.UpdateOnRampsDestsChangeset(deps.Env, input)
+				func(b operations.Bundle, deps Dependencies, input v1_6.UpdateOnRampDestsConfig) ([]mcmslib.TimelockProposal, error) {
+					output, err := v1_6.UpdateOnRampsDestsChangeset(deps.Env, input)
+					if err != nil {
+						return nil, err
+					}
+					return output.MCMSTimelockProposals, nil
 				},
 			), deps, input.evmOnRampInput)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return nil, err
 			}
 			// merge the changeset outputs
-			err = deployment.MergeChangesetOutput(deps.Env, &finalOutput, updateEVMOnRampReport.Output)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset outputs after EVMOnRampUpdate: %w", err)
+			if len(updateEVMOnRampReport.Output) > 0 {
+				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateEVMOnRampReport.Output...)
 			}
 			// update EVM fee quoter dest chain
 			updateEVMFeeQuoterDestChainReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateEVMFeeQuoterDestChain",
 				semver.MustParse("1.0.0"),
 				"Updates EVM Fee Quoter with Destination Chain Configs for Solana",
-				func(b operations.Bundle, deps Dependencies, input v1_6.UpdateFeeQuoterDestsConfig) (deployment.ChangesetOutput, error) {
-					return v1_6.UpdateFeeQuoterDestsChangeset(deps.Env, input)
+				func(b operations.Bundle, deps Dependencies, input v1_6.UpdateFeeQuoterDestsConfig) ([]mcmslib.TimelockProposal, error) {
+					output, err := v1_6.UpdateFeeQuoterDestsChangeset(deps.Env, input)
+					if err != nil {
+						return nil, err
+					}
+					return output.MCMSTimelockProposals, nil
 				},
 			), deps, input.evmFeeQuoterDestChainInput)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return nil, err
 			}
 			// merge the changeset outputs
-			err = deployment.MergeChangesetOutput(deps.Env, &finalOutput, updateEVMFeeQuoterDestChainReport.Output)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset outputs after EVMFeeQuoterDestChainUpdate: %w", err)
+			if len(updateEVMFeeQuoterDestChainReport.Output) > 0 {
+				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateEVMFeeQuoterDestChainReport.Output...)
 			}
-
 			// update EVM fee quoter prices
 			updateEVMFeeQuoterPricesReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateEVMFeeQuoterPrices",
 				semver.MustParse("1.0.0"),
 				"Updates EVM Fee Quoter with Prices for Solana",
-				func(b operations.Bundle, deps Dependencies, input v1_6.UpdateFeeQuoterPricesConfig) (deployment.ChangesetOutput, error) {
-					return v1_6.UpdateFeeQuoterPricesChangeset(deps.Env, input)
+				func(b operations.Bundle, deps Dependencies, input v1_6.UpdateFeeQuoterPricesConfig) ([]mcmslib.TimelockProposal, error) {
+					output, err := v1_6.UpdateFeeQuoterPricesChangeset(deps.Env, input)
+					if err != nil {
+						return nil, err
+					}
+					return output.MCMSTimelockProposals, nil
 				},
 			), deps, input.evmFeeQuoterPriceInput)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return nil, err
 			}
 			// merge the changeset outputs
-			err = deployment.MergeChangesetOutput(deps.Env, &finalOutput, updateEVMFeeQuoterPricesReport.Output)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset outputs after EVMFeeQuoterPricesUpdate: %w", err)
+			if len(updateEVMFeeQuoterPricesReport.Output) > 0 {
+				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateEVMFeeQuoterPricesReport.Output...)
 			}
-
 			// update EVM off ramp
 			updateEVMOffRampReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateEVMOffRamp",
 				semver.MustParse("1.0.0"),
 				"Updates EVM OffRamps with Source Chain Configs for Solana",
-				func(b operations.Bundle, deps Dependencies, input v1_6.UpdateOffRampSourcesConfig) (deployment.ChangesetOutput, error) {
-					return v1_6.UpdateOffRampSourcesChangeset(deps.Env, input)
+				func(b operations.Bundle, deps Dependencies, input v1_6.UpdateOffRampSourcesConfig) ([]mcmslib.TimelockProposal, error) {
+					output, err := v1_6.UpdateOffRampSourcesChangeset(deps.Env, input)
+					if err != nil {
+						return nil, err
+					}
+					return output.MCMSTimelockProposals, nil
 				},
 			), deps, input.evmOffRampInput)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return nil, err
 			}
 			// merge the changeset outputs
-			err = deployment.MergeChangesetOutput(deps.Env, &finalOutput, updateEVMOffRampReport.Output)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset outputs after EVMOffRampUpdate: %w", err)
+			if len(updateEVMOffRampReport.Output) > 0 {
+				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateEVMOffRampReport.Output...)
 			}
 
 			// update EVM router
@@ -122,78 +132,87 @@ var (
 				"updateEVMRouter",
 				semver.MustParse("1.0.0"),
 				"Updates EVM Router with onRamp and OffRamp for Solana",
-				func(b operations.Bundle, deps Dependencies, input v1_6.UpdateRouterRampsConfig) (deployment.ChangesetOutput, error) {
-					return v1_6.UpdateRouterRampsChangeset(deps.Env, input)
+				func(b operations.Bundle, deps Dependencies, input v1_6.UpdateRouterRampsConfig) ([]mcmslib.TimelockProposal, error) {
+					output, err := v1_6.UpdateRouterRampsChangeset(deps.Env, input)
+					if err != nil {
+						return nil, err
+					}
+					return output.MCMSTimelockProposals, nil
 				},
 			), deps, input.evmRouterInput)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return nil, err
 			}
 			// merge the changeset outputs
-			err = deployment.MergeChangesetOutput(deps.Env, &finalOutput, updateEVMRouterReport.Output)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset outputs after EVMRouterUpdate: %w", err)
+			if len(updateEVMRouterReport.Output) > 0 {
+				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateEVMRouterReport.Output...)
 			}
-
 			// update Solana router
 			updateSolanaRouterReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateSolanaRouter",
 				semver.MustParse("1.0.0"),
 				"Updates Solana Router with EVM Chain Configs",
-				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToRouterConfig) (deployment.ChangesetOutput, error) {
-					return solana.AddRemoteChainToRouter(deps.Env, input)
+				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToRouterConfig) ([]mcmslib.TimelockProposal, error) {
+					output, err := solana.AddRemoteChainToRouter(deps.Env, input)
+					if err != nil {
+						return nil, err
+					}
+					return output.MCMSTimelockProposals, nil
 				},
 			), deps, input.solanaRouterInput)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return nil, err
 			}
 			// merge the changeset outputs
-			err = deployment.MergeChangesetOutput(deps.Env, &finalOutput, updateSolanaRouterReport.Output)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset outputs after SolanaRouterUpdate: %w", err)
+			if len(updateSolanaRouterReport.Output) > 0 {
+				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateSolanaRouterReport.Output...)
 			}
 			// update Solana off ramp
 			updateSolanaOffRampReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateSolanaOffRamp",
 				semver.MustParse("1.0.0"),
 				"Updates Solana OffRamps with EVM Chain Configs",
-				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToOffRampConfig) (deployment.ChangesetOutput, error) {
-					return solana.AddRemoteChainToOffRamp(deps.Env, input)
+				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToOffRampConfig) ([]mcmslib.TimelockProposal, error) {
+					output, err := solana.AddRemoteChainToOffRamp(deps.Env, input)
+					if err != nil {
+						return nil, err
+					}
+					return output.MCMSTimelockProposals, nil
 				},
 			), deps, input.solanaOffRampInput)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return nil, err
 			}
 			// merge the changeset outputs
-			err = deployment.MergeChangesetOutput(deps.Env, &finalOutput, updateSolanaOffRampReport.Output)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset outputs after SolanaOffRampUpdate: %w", err)
+			if len(updateSolanaOffRampReport.Output) > 0 {
+				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateSolanaOffRampReport.Output...)
 			}
-
 			// update Solana fee quoter
 			updateSolanaFeeQuoterReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateSolanaFeeQuoter",
 				semver.MustParse("1.0.0"),
 				"Updates Solana Fee Quoter with EVM Chain Configs",
-				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToFeeQuoterConfig) (deployment.ChangesetOutput, error) {
-					return solana.AddRemoteChainToFeeQuoter(deps.Env, input)
+				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToFeeQuoterConfig) ([]mcmslib.TimelockProposal, error) {
+					output, err := solana.AddRemoteChainToFeeQuoter(deps.Env, input)
+					if err != nil {
+						return nil, err
+					}
+					return output.MCMSTimelockProposals, nil
 				},
 			), deps, input.solanaFeeQuoterInput)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return nil, err
 			}
 			// merge the changeset outputs
-			err = deployment.MergeChangesetOutput(deps.Env, &finalOutput, updateSolanaFeeQuoterReport.Output)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset outputs after SolanaFeeQuoterUpdate: %w", err)
+			if len(updateSolanaFeeQuoterReport.Output) > 0 {
+				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateSolanaFeeQuoterReport.Output...)
 			}
-
 			// post ops where we merge all the proposals into one
 			postOpsReport, err := operations.ExecuteOperation(b, postOps, deps, postOpsInput{
-				SolanaChainSelector:  input.SolanaChainSelector,
-				EVMChainSelector:     input.EVMChainSelector,
-				MCMSConfig:           input.MCMSConfig.MCMS,
-				ConsolidatedCSOutput: finalOutput,
+				SolanaChainSelector: input.SolanaChainSelector,
+				EVMChainSelector:    input.EVMChainSelector,
+				MCMSConfig:          input.MCMSConfig.MCMS,
+				Proposals:           finalOutput.MCMSTimelockProposals,
 			})
 			return postOpsReport.Output, nil
 		},
@@ -207,10 +226,10 @@ type Dependencies struct {
 }
 
 type postOpsInput struct {
-	SolanaChainSelector  uint64
-	EVMChainSelector     uint64
-	MCMSConfig           *proposalutils.TimelockConfig
-	ConsolidatedCSOutput deployment.ChangesetOutput
+	SolanaChainSelector uint64
+	EVMChainSelector    uint64
+	MCMSConfig          *proposalutils.TimelockConfig
+	Proposals           []mcmslib.TimelockProposal
 }
 
 type AddRemoteChainE2EConfig struct {
@@ -410,5 +429,5 @@ func addEVMAndSolanaLaneLogic(env deployment.Environment, input *AddRemoteChainE
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to execute addEVMAndSolanaLane sequence: %w", err)
 	}
-	return report.Output, nil
+	return deployment.ChangesetOutput{MCMSTimelockProposals: report.Output}, nil
 }

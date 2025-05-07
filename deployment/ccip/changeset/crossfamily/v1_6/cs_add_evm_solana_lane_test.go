@@ -26,12 +26,12 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 		mcmsEnabled bool
 	}{
 		{
-			name:        "MCMS enabled",
-			mcmsEnabled: true,
-		},
-		{
 			name:        "MCMS disabled",
 			mcmsEnabled: false,
+		},
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
