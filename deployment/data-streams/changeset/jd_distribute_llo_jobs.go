@@ -114,7 +114,7 @@ func generateBootstrapProposals(
 		return nil, fmt.Errorf("failed to get bootstrap nodes: %w", err)
 	}
 
-	localLabels := append(labels, // nolint: gocritic // obvious and readable locally modified copy of labels
+	localLabels := append(labels, //nolint: gocritic // obvious and readable locally modified copy of labels
 		&ptypes.Label{
 			Key:   devenv.LabelNodeTypeKey,
 			Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
@@ -216,7 +216,7 @@ func generateOracleProposals(
 		return nil, fmt.Errorf("failed to get bootstrap bootstrapMultiaddr: %w", err)
 	}
 
-	localLabels := append(labels, // nolint: gocritic // obvious and readable locally modified copy of labels
+	localLabels := append(labels, //nolint: gocritic // obvious and readable locally modified copy of labels
 		&ptypes.Label{
 			Key:   devenv.LabelNodeTypeKey,
 			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
