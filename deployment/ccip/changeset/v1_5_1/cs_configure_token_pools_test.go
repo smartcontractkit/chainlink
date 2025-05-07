@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -51,7 +52,7 @@ func validateMemberOfTokenPoolPair(
 	state changeset.CCIPOnChainState,
 	tokenPool *token_pool.TokenPool,
 	expectedRemotePools []common.Address,
-	tokens map[uint64]*deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677],
+	tokens map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677],
 	tokenSymbol changeset.TokenSymbol,
 	chainSelector uint64,
 	rate *big.Int,
@@ -690,8 +691,8 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	// DEPLOY EVM TOKEN POOL //
 	///////////////////////////
 	for _, selector := range evmSelectors {
-		token, err := deployment.DeployContract(e.Logger, e.Chains[selector], addressBook,
-			func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+		token, err := cldf.DeployContract(e.Logger, e.Chains[selector], addressBook,
+			func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 				tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 					e.Chains[selector].DeployerKey,
 					e.Chains[selector].Client,
@@ -700,7 +701,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 					testhelpers.LocalTokenDecimals,
 					big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 				)
-				return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+				return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 					Address:  tokenAddress,
 					Contract: token,
 					Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),

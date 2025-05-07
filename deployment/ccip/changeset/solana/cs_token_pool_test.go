@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -43,8 +44,8 @@ func TestAddTokenPoolMcms(t *testing.T) {
 
 func deployEVMTokenPool(t *testing.T, e deployment.Environment, evmChain uint64) (deployment.Environment, common.Address, error) {
 	addressBook := deployment.NewMemoryAddressBook()
-	evmToken, err := deployment.DeployContract(e.Logger, e.Chains[evmChain], addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+	evmToken, err := cldf.DeployContract(e.Logger, e.Chains[evmChain], addressBook,
+		func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 				e.Chains[evmChain].DeployerKey,
 				e.Chains[evmChain].Client,
@@ -53,7 +54,7 @@ func deployEVMTokenPool(t *testing.T, e deployment.Environment, evmChain uint64)
 				testhelpers.LocalTokenDecimals,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
-			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: token,
 				Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),

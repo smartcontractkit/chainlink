@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
@@ -94,8 +95,8 @@ func deployTokenPoolFactoryLogic(e deployment.Environment, config DeployTokenPoo
 			registryModuleAddress = chainState.RegistryModules1_6[0].Address()
 		}
 
-		tokenPoolFactory, err := deployment.DeployContract(e.Logger, chain, addressBook,
-			func(chain deployment.Chain) deployment.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
+		tokenPoolFactory, err := cldf.DeployContract(e.Logger, chain, addressBook,
+			func(chain deployment.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
 				address, tx, tokenPoolFactory, err := token_pool_factory.DeployTokenPoolFactory(
 					chain.DeployerKey,
 					chain.Client,
@@ -105,7 +106,7 @@ func deployTokenPoolFactoryLogic(e deployment.Environment, config DeployTokenPoo
 					chainState.Router.Address(),
 				)
 
-				return deployment.ContractDeploy[*token_pool_factory.TokenPoolFactory]{
+				return cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory]{
 					Address:  address,
 					Contract: tokenPoolFactory,
 					Tx:       tx,

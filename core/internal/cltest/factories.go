@@ -328,33 +328,6 @@ func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) *evmtypes
 	return &h
 }
 
-func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Address) job.Job {
-	t.Helper()
-
-	addr, err := evmtypes.NewEIP55Address(transmitterAddress.Hex())
-	require.NoError(t, err)
-
-	pipelineSpec := pipeline.Spec{}
-	err = db.Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
-	require.NoError(t, err)
-
-	oracleSpec := MustInsertOffchainreportingOracleSpec(t, db, addr)
-	jb := job.Job{
-		OCROracleSpec:   &oracleSpec,
-		OCROracleSpecID: &oracleSpec.ID,
-		ExternalJobID:   uuid.New(),
-		Type:            job.OffchainReporting,
-		SchemaVersion:   1,
-		PipelineSpec:    &pipelineSpec,
-		PipelineSpecID:  pipelineSpec.ID,
-	}
-
-	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t))
-	err = jorm.InsertJob(testutils.Context(t), &jb)
-	require.NoError(t, err)
-	return jb
-}
-
 func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress evmtypes.EIP55Address) job.OCROracleSpec {
 	t.Helper()
 
