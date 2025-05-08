@@ -232,20 +232,20 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			state.OffRampStatePDA = offRampStatePDA
 		case BurnMintTokenPool:
 			pub := solana.MustPublicKeyFromBase58(address)
+			if len(tvStr.Labels) == 0 {
+				state.BurnMintTokenPools[CLLMetadata] = pub
+			}
 			// Labels should only have one entry
 			for metadataStr := range tvStr.Labels {
-				if metadataStr == "" {
-					return state, fmt.Errorf("partner name cannot be empty")
-				}
 				state.BurnMintTokenPools[metadataStr] = pub
 			}
 		case LockReleaseTokenPool:
 			pub := solana.MustPublicKeyFromBase58(address)
+			if len(tvStr.Labels) == 0 {
+				state.LockReleaseTokenPools[CLLMetadata] = pub
+			}
 			// Labels should only have one entry
 			for metadataStr := range tvStr.Labels {
-				if metadataStr == "" {
-					return state, fmt.Errorf("partner name cannot be empty")
-				}
 				state.LockReleaseTokenPools[metadataStr] = pub
 			}
 		case RMNRemote:
