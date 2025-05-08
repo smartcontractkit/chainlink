@@ -34,7 +34,6 @@ import (
 )
 
 func TestAddTokenPool(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
 	doTestTokenPool(t, false)
 }
@@ -349,15 +348,12 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 }
 
 func TestPartnerTokenPools(t *testing.T) {
-	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	e := tenv.Env
 	solChainSelectors := e.AllChainSelectorsSolana()
-	err := testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
-	require.NoError(t, err)
 	mcmsConfig := proposalutils.SingleGroupTimelockConfigV2(t)
 	metadata := "partner_testing"
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+	e, _, err := commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 		ccipChangesetSolana.DeployChainContractsConfig{
 			HomeChainSelector: e.AllChainSelectors()[0],

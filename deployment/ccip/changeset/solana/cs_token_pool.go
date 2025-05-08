@@ -413,6 +413,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 	var txns []mcmsTypes.Transaction
 	switch cfg.SolPoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
+		solBurnMintTokenPool.SetProgramID(tokenPool)
 		for evmChainSelector, evmRemoteConfig := range cfg.EVMRemoteConfigs {
 			e.Logger.Infow("Setting up token pool for remote chain", "remote_chain_selector", evmChainSelector, "token_pubkey", tokenPubKey.String(), "pool_type", cfg.SolPoolType)
 			chainIxs, err := getInstructionsForBurnMint(e, chain, envState, solChainState, cfg, evmChainSelector, evmRemoteConfig)
@@ -428,6 +429,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 			}
 		}
 	case solTestTokenPool.LockAndRelease_PoolType:
+		solLockReleaseTokenPool.SetProgramID(tokenPool)
 		for evmChainSelector, evmRemoteConfig := range cfg.EVMRemoteConfigs {
 			e.Logger.Infow("Setting up token pool for remote chain", "remote_chain_selector", evmChainSelector, "token_pubkey", tokenPubKey.String(), "pool_type", cfg.SolPoolType)
 			chainIxs, err := getInstructionsForLockRelease(e, chain, envState, solChainState, cfg, evmChainSelector, evmRemoteConfig)
@@ -562,7 +564,6 @@ func getInstructionsForBurnMint(
 	tokenPubKey := cfg.SolTokenPubKey
 	tokenPool, contractType := GetActiveTokenPool(&e, solTestTokenPool.BurnAndMint_PoolType, cfg.SolChainSelector, cfg.Metadata)
 	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, tokenPool, evmChainSelector)
-	solBurnMintTokenPool.SetProgramID(tokenPool)
 	ixns := make([]solana.Instruction, 0)
 	authority, err := GetAuthorityForIxn(
 		&e,
@@ -732,7 +733,6 @@ func getInstructionsForLockRelease(
 	tokenPubKey := cfg.SolTokenPubKey
 	tokenPool, contractType := GetActiveTokenPool(&e, solTestTokenPool.BurnAndMint_PoolType, cfg.SolChainSelector, cfg.Metadata)
 	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, tokenPool, evmChainSelector)
-	solLockReleaseTokenPool.SetProgramID(tokenPool)
 	ixns := make([]solana.Instruction, 0)
 	authority, err := GetAuthorityForIxn(
 		&e,

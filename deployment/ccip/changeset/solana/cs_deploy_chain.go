@@ -615,7 +615,6 @@ func deployChainContractsSolana(
 		rmnRemoteCursePDA,
 	}
 
-	e.Logger.Debugw("Populating lookup table", "keys", lookupTableKeys)
 	if err := extendLookupTable(e, chain, offRampAddress, lookupTableKeys); err != nil {
 		return txns, fmt.Errorf("failed to extend lookup table: %w", err)
 	}

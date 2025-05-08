@@ -73,7 +73,6 @@ func TestAddRemoteChainWithMcms(t *testing.T) {
 }
 
 func TestAddRemoteChainWithoutMcms(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
 	doTestAddRemoteChain(t, false)
 }
@@ -586,7 +585,6 @@ func TestBillingWithMcms(t *testing.T) {
 }
 
 func TestBillingWithoutMcms(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
 	doTestBilling(t, false)
 }
@@ -734,7 +732,6 @@ func TestTokenAdminRegistryWithMcms(t *testing.T) {
 }
 
 func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
 	doTestTokenAdminRegistry(t, false)
 }
@@ -839,7 +836,6 @@ func TestPoolLookupTableWithMcms(t *testing.T) {
 }
 
 func TestPoolLookupTableWithoutMcms(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
 	doTestPoolLookupTable(t, false)
 }
