@@ -97,6 +97,5 @@ func TestCallDeactivateConfig(t *testing.T) {
 			verifierAddr,
 			setConfigPayload,
 			false)
-
 	})
 }

@@ -77,7 +77,5 @@ func TestCallSetConfig(t *testing.T) {
 			testutil.TestChain.Selector,
 			verifierAddr,
 			setConfigPayload, true)
-
 	})
-
 }

@@ -110,9 +110,7 @@ func runSetRewardRecipientsTest(t *testing.T, useMCMS bool) {
 				t.Fatalf("Unexpected recipient address: %s", recipient.Addr.Hex())
 			}
 		}
-
 	})
-
 }
 
 func TestSetRewardRecipients(t *testing.T) {
