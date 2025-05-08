@@ -326,7 +326,7 @@ func DeploySolanaLinkToken(e deployment.Environment, cfg DeploySolanaLinkTokenCo
 	mint := cfg.TokenPrivKey
 	instructions, err := solTokenUtil.CreateToken(
 		context.Background(),
-		solana.Token2022ProgramID,
+		solana.TokenProgramID,
 		mint.PublicKey(),
 		chain.DeployerKey.PublicKey(),
 		cfg.TokenDecimals,
