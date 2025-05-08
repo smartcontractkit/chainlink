@@ -23,7 +23,6 @@ if [[ -n "$USE_FLAKEGUARD" ]]; then
     --run-count=1 \
     --rerun-failed-count=3 \
     --min-pass-ratio=1 \
-    --omit-test-outputs-on-success=true \
     --main-results-path="go_core_ccip_deployment_tests_flakeguard_results/main/test_results.json" \
     --rerun-results-path="go_core_ccip_deployment_tests_flakeguard_results/rerun/test_results.json"
   EXITCODE=${PIPESTATUS[0]}

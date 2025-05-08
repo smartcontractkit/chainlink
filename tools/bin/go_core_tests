@@ -24,7 +24,6 @@ if [[ -n "$USE_FLAKEGUARD" ]]; then
     --rerun-failed-count=3 \
     --min-pass-ratio=1 \
     --go-test-timeout=16m \
-    --omit-test-outputs-on-success=true \
     --main-results-path="go_core_tests_flakeguard_results/main/test_results.json" \
     --rerun-results-path="go_core_tests_flakeguard_results/rerun/test_results.json"
   EXITCODE=${PIPESTATUS[0]}
