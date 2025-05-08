@@ -32,7 +32,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.55
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250414155853-651b4e583ee9
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250507191515-f125ee6d6cf4
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250507213635-f023985bff30
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250425163923-16aa375957b7
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250506185033-ea88ef405511
 	github.com/smartcontractkit/chainlink-deployments-framework v0.0.13

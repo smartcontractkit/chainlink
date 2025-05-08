@@ -40,12 +40,16 @@ type EtherscanContractVerifier struct {
 }
 
 const (
-	statusOK       = "1"
-	messageOK      = "OK"
-	resultVerified = "Pass - Verified"
+	statusOK  = "1"
+	messageOK = "OK"
+
+	resultVerified        = "Pass - Verified"
+	resultAlreadyVerified = "Already Verified"
+	resultPendingInQueue  = "Pending in queue"
 )
 
 // NewEtherscanContractVerifier creates a new EtherscanContractVerifier instance.
+// TODO: Add logging support, use contract.getabi to check if the contract is verified
 func NewEtherscanContractVerifier(
 	apiURL, apiKey, address string, contractType deployment.ContractType, version semver.Version, verificationCheckInterval time.Duration) (verification.Verifiable, error) {
 	input, err := loadSolidityContractMetadata(contractType, version)
@@ -75,16 +79,10 @@ func (v *EtherscanContractVerifier) Verify(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to get constructor args: %w", err)
 	}
-	fmt.Println("Constructor Args: ", constructorArgs)
 
 	sourceCode, err := v.input.SourceCode()
 	if err != nil {
 		return false, fmt.Errorf("failed to get source code: %w", err)
-	}
-
-	version := v.input.Version
-	if !strings.HasPrefix(version, "v") {
-		version = "v" + version
 	}
 
 	resp, err := sendEtherscanRequest[string](ctx, "POST", v.apiURL, "contract", "verifysourcecode", v.apiKey, map[string]string{
@@ -92,11 +90,18 @@ func (v *EtherscanContractVerifier) Verify(ctx context.Context) (bool, error) {
 		"sourceCode":            sourceCode,
 		"codeformat":            "solidity-standard-json-input",
 		"contractname":          v.input.Name,
-		"compilerversion":       version,
+		"compilerversion":       v.input.Version,
 		"constructorArguements": constructorArgs, // "Arguements" is a typo in etherscan API
+		"constructorArguments":  constructorArgs,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to verify contract: %w", err)
+	}
+	if resp.Result != resultPendingInQueue && resp.Result != resultVerified && resp.Result != resultAlreadyVerified {
+		return false, fmt.Errorf(
+			"etherscan error - status=%s message=%s result=%+v",
+			resp.Status, resp.Message, resp.Result,
+		)
 	}
 	guid := resp.Result
 
@@ -109,10 +114,10 @@ func (v *EtherscanContractVerifier) Verify(ctx context.Context) (bool, error) {
 		if verified {
 			break
 		}
-		// Wait for configured time before checking again
-		time.Sleep(v.verificationCheckInterval)
 
 		select {
+		case <-time.After(v.verificationCheckInterval):
+			// continue
 		case <-ctx.Done():
 			return false, ctx.Err()
 		}
@@ -130,7 +135,7 @@ func (v *EtherscanContractVerifier) isVerified(ctx context.Context, guid string)
 		return false, fmt.Errorf("failed to check verification status: %w", err)
 	}
 
-	return resp.Result == resultVerified, nil
+	return resp.Result == resultVerified || resp.Result == resultAlreadyVerified, nil
 }
 
 // getConstructorArgs returns the construction arguments used to deploy the contract.
@@ -191,17 +196,13 @@ func sendEtherscanRequest[R any](ctx context.Context, method, endpoint, module, 
 		return etherscanAPIResponse[R]{}, fmt.Errorf("failed to read response body: %w", err)
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		return etherscanAPIResponse[R]{}, fmt.Errorf("http error - status=%d body=%s", resp.StatusCode, string(body))
+	}
+
 	var apiResp etherscanAPIResponse[R]
 	if err := json.Unmarshal(body, &apiResp); err != nil {
 		return etherscanAPIResponse[R]{}, fmt.Errorf("failed to decode response body: %w", err)
-	}
-
-	// Return an error if either the HTTP status is not 200, or the Etherscan response isn't OK
-	if resp.StatusCode != http.StatusOK || apiResp.Status != statusOK || apiResp.Message != messageOK {
-		return apiResp, fmt.Errorf(
-			"etherscan error - httpStatus=%d etherscanStatus=%s message=%s result=%+v",
-			resp.StatusCode, apiResp.Status, apiResp.Message, apiResp.Result,
-		)
 	}
 
 	return apiResp, nil
