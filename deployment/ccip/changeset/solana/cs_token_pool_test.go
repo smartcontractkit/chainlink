@@ -170,7 +170,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 					EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 						evmChain: {
 							TokenSymbol: testhelpers.TestTokenSymbol,
-							PoolType:    testCase.contractType,
+							PoolType:    changeset.BurnMintTokenPool, // EVM test tokens are always burn and mint
 							PoolVersion: changeset.CurrentTokenPoolVersion,
 							RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
 								Inbound:  rateLimitConfig,
