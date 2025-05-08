@@ -12,6 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -29,7 +31,7 @@ func (r *Relayer) CallContract(ctx context.Context, msg *evmtypes.CallMsg, confi
 	return r.chain.Client().CallContract(ctx, toEthMsg(msg), blockNumber)
 }
 
-func (r *Relayer) GetLogs(ctx context.Context, filterQuery evmtypes.FilterQuery) ([]*evmtypes.Log, error) {
+func (r *Relayer) FilterLogs(ctx context.Context, filterQuery evmtypes.FilterQuery) ([]*evmtypes.Log, error) {
 	logs, err := r.chain.Client().FilterLogs(ctx, convertEthFilter(filterQuery))
 	if err != nil {
 		return nil, err
@@ -120,13 +122,13 @@ func (r *Relayer) UnregisterLogTracking(ctx context.Context, filterName string) 
 	return r.chain.LogPoller().UnregisterFilter(ctx, filterName)
 }
 
-func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID string) (evmtypes.TransactionStatus, error) {
+func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
 	status, err := r.chain.TxManager().GetTransactionStatus(ctx, transactionID)
 	if err != nil {
-		return evmtypes.Unknown, err
+		return commontypes.Unknown, err
 	}
 
-	return evmtypes.TransactionStatus(status), nil
+	return status, nil
 }
 
 func blockFromConfidence(ctx context.Context, ht heads.Tracker, confidence primitives.ConfidenceLevel) (*big.Int, error) {
