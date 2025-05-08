@@ -658,7 +658,7 @@ func SendRequestSol(
 	for _, tokenAmount := range message.TokenAmounts {
 		tokenPubKey := tokenAmount.Token
 
-		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, []solana.PublicKey{s.LockReleaseTokenPool, s.BurnMintTokenPool})
+		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, []solana.PublicKey{s.LockReleaseTokenPools[changeset.CLLMetadata], s.BurnMintTokenPools[changeset.CLLMetadata]})
 		if err != nil {
 			return nil, err
 		}
@@ -1318,7 +1318,7 @@ func DeployTransferableTokenSolana(
 	}
 
 	// configure evm
-	poolConfigPDA, err := soltokens.TokenPoolConfigAddress(solTokenAddress, state.SolChains[solChainSel].BurnMintTokenPool)
+	poolConfigPDA, err := soltokens.TokenPoolConfigAddress(solTokenAddress, state.SolChains[solChainSel].BurnMintTokenPools[changeset.CLLMetadata])
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}

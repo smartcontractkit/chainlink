@@ -129,11 +129,11 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 	testCases := []poolTestType{
 		{
 			poolType:    solTestTokenPool.BurnAndMint_PoolType,
-			poolAddress: state.SolChains[solChain].BurnMintTokenPool,
+			poolAddress: state.SolChains[solChain].BurnMintTokenPools[ccipChangeset.CLLMetadata],
 		},
 		{
 			poolType:    solTestTokenPool.LockAndRelease_PoolType,
-			poolAddress: state.SolChains[solChain].LockReleaseTokenPool,
+			poolAddress: state.SolChains[solChain].LockReleaseTokenPools[ccipChangeset.CLLMetadata],
 		},
 	}
 	burnAndMintOwnedByTimelock := make(map[solana.PublicKey]bool)
