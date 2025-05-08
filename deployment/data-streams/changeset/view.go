@@ -11,11 +11,15 @@ import (
 var _ deployment.ViewState = ViewDataStreams
 
 func ViewDataStreams(e deployment.Environment) (json.Marshaler, error) {
+	return ViewDataStreamsChain(e, e.AllChainSelectors())
+}
+
+func ViewDataStreamsChain(e deployment.Environment, chainselectors []uint64) (json.Marshaler, error) {
 	state, err := dsstate.LoadOnchainState(e)
 	if err != nil {
 		return nil, err
 	}
-	chainView, err := state.View(e.GetContext(), e.AllChainSelectors())
+	chainView, err := state.View(e.GetContext(), chainselectors)
 	if err != nil {
 		return nil, err
 	}
