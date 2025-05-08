@@ -12,10 +12,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
