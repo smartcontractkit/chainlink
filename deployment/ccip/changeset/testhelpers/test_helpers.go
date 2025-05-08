@@ -2302,7 +2302,7 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 		commoncs.Configure(cldf.CreateLegacyChangeSet(commoncs.DeployLinkToken), config),
 	)
 	require.NoError(t, err)
-	addrs, err := e.ExistingAddresses.AddressesForChain(chain1) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility
+	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
 	state, err := commonstate.MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
@@ -2312,7 +2312,7 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 
 	// solana test
 	if solChains > 0 {
-		addrs, err = e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility
+		addrs, err = e.ExistingAddresses.AddressesForChain(solChain1)
 		require.NoError(t, err)
 		require.NotEmpty(t, addrs)
 	}
