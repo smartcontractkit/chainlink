@@ -18,6 +18,7 @@ import (
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
 
 type Engine struct {
@@ -264,11 +265,18 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	subCtx, cancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs))
 	defer cancel()
+
+	tid, err := safe.IntToUint64(wrappedTriggerEvent.triggerIndex)
+	if err != nil {
+		// TODO(CAPPL-736): observability
+		return
+	}
+
 	result, err := e.cfg.Module.Execute(subCtx, &wasmpb.ExecuteRequest{
 		Id: executionID,
 		Request: &wasmpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
-				Id:      uint64(wrappedTriggerEvent.triggerIndex),
+				Id:      tid,
 				Payload: triggerEvent.Payload,
 			},
 		},
