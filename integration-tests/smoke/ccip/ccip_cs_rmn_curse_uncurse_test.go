@@ -11,6 +11,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -735,5 +736,121 @@ func verifyNoActiveCurseOnAllChains(t *testing.T, e *testhelpers.DeployedEnv) {
 			require.NoError(t, err)
 			require.False(t, isCursed, "chain %d subject %d", chainSelector, globals.FamilyAwareSelectorToSubject(selector, family))
 		}
+	}
+}
+
+type ForceOptionTestCase struct {
+	name               string
+	force              bool
+	expectedOperations int
+	expectProposal     bool
+	applyChangeset     func(
+		env *testhelpers.DeployedEnv,
+		config v1_6.RMNCurseConfig,
+		t *testing.T,
+	) deployment.ChangesetOutput
+}
+
+var forceOptionTestCases = []ForceOptionTestCase{
+	{
+		name: "RMNUncurseForceOptionFalse",
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+			cs, err := v1_6.RMNUncurseChangeset(env.Env, config)
+			require.NoError(t, err)
+			return cs
+		},
+		force:          false,
+		expectProposal: false,
+	},
+	{
+		name: "RMNCurseForceOptionFalse",
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+			_, _, err := commonchangeset.ApplyChangesetsV2(t, env.Env,
+				[]commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
+						config,
+					)},
+			)
+			require.NoError(t, err)
+
+			cs, err := v1_6.RMNCurseChangeset(env.Env, config)
+			require.NoError(t, err)
+
+			return cs
+		},
+		force:          false,
+		expectProposal: false,
+	},
+	{
+		name: "RMNUncurseForceOptionTrue",
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+			cs, err := v1_6.RMNUncurseChangeset(env.Env, config)
+			require.NoError(t, err)
+			return cs
+		},
+		force:              true,
+		expectProposal:     true,
+		expectedOperations: 3, // 3 operations for 3 chains
+	},
+	{
+		name: "RMNCurseForceOptionTrue",
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+			_, _, err := commonchangeset.ApplyChangesetsV2(t, env.Env,
+				[]commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
+						config,
+					)},
+			)
+			require.NoError(t, err)
+
+			cs, err := v1_6.RMNCurseChangeset(env.Env, config)
+			require.NoError(t, err)
+
+			return cs
+		},
+		force:              true,
+		expectProposal:     true,
+		expectedOperations: 3, // 3 operations for 3 chains
+	},
+}
+
+func TestRMNUncurseForceOption(t *testing.T) {
+	for _, tc := range forceOptionTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1))
+
+			mapIDToSelector := func(id uint64) uint64 {
+				return v1_6.GetAllCursableChainsSelector(e.Env)[id]
+			}
+
+			state, err := changeset.LoadOnchainState(e.Env)
+			require.NoError(t, err)
+
+			transferRMNContractToMCMS(t, &e, state)
+
+			// Apply a curse changeset to create an active curse
+			config := v1_6.RMNCurseConfig{
+				CurseActions:             []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(EVM_1))},
+				Reason:                   "test curse",
+				IncludeNotConnectedLanes: true,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+				Force: tc.force,
+			}
+
+			cs := tc.applyChangeset(&e, config, t)
+
+			if tc.expectProposal {
+				require.Len(t, cs.MCMSTimelockProposals, 1)
+				proposal := cs.MCMSTimelockProposals[0]
+				require.Len(t, proposal.Operations, tc.expectedOperations)
+			} else {
+				require.Len(t, cs.MCMSTimelockProposals, 0)
+			}
+		})
 	}
 }

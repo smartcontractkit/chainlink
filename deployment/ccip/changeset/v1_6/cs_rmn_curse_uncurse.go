@@ -40,7 +40,9 @@ type RMNCurseConfig struct {
 	CurseActions []CurseAction
 	// Use this if you need to include lanes that are not in sourcechain in the offramp. i.e. not yet migrated lane from 1.5
 	IncludeNotConnectedLanes bool
-	Reason                   string
+	// Use this if you want to include curse subject even when they are already cursed (CurseChangeset) or already uncursed (UncurseChangeset)
+	Force  bool
+	Reason string
 }
 
 func (c RMNCurseConfig) Validate(e deployment.Environment) error {
@@ -377,7 +379,7 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
 				}
 
-				if !cursed {
+				if !cursed || cfg.Force {
 					notAlreadyCursedSubjects = append(notAlreadyCursedSubjects, subject)
 				} else {
 					e.Logger.Warnf("chain %s subject %x is already cursed, ignoring it while cursing", cursableChains[selector].Name(), subject)
@@ -460,7 +462,7 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
 				}
 
-				if cursed {
+				if cursed || cfg.Force {
 					actuallyCursedSubjects = append(actuallyCursedSubjects, subject)
 				} else {
 					e.Logger.Warnf("chain %s subject %x is not cursed, ignoring it while uncursing", cursableChains[selector].Name(), subject)
