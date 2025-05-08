@@ -28,20 +28,20 @@ const IdlIxTag uint64 = 0x0a69e9a778bcf440
 
 // IDL
 type IDLConfig struct {
-	ChainSelector                       uint64
-	GitCommitSha                        string
-	Router                              bool
-	FeeQuoter                           bool
-	OffRamp                             bool
-	RMNRemote                           bool
-	BurnMintTokenPool                   bool
-	LockReleaseTokenPool                bool
-	AccessController                    bool
-	MCM                                 bool
-	Timelock                            bool
+	ChainSelector                uint64
+	GitCommitSha                 string
+	Router                       bool
+	FeeQuoter                    bool
+	OffRamp                      bool
+	RMNRemote                    bool
+	BurnMintTokenPool            bool
+	LockReleaseTokenPool         bool
+	AccessController             bool
+	MCM                          bool
+	Timelock                     bool
 	BurnMintTokenPoolMetadata    string
 	LockReleaseTokenPoolMetadata string
-	MCMS                                *proposalutils.TimelockConfig
+	MCMS                         *proposalutils.TimelockConfig
 }
 
 // parse anchor version from running anchor --version

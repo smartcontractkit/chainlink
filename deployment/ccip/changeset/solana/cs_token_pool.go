@@ -345,7 +345,7 @@ type RemoteChainTokenPoolConfig struct {
 	SolPoolType      solTestTokenPool.PoolType
 	EVMRemoteConfigs map[uint64]EVMRemoteConfig
 	MCMSSolana       *MCMSConfigSolana
-	Metadata  string
+	Metadata         string
 }
 
 func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
@@ -816,10 +816,10 @@ func getInstructionsForLockRelease(
 
 // ADD TOKEN POOL LOOKUP TABLE
 type TokenPoolLookupTableConfig struct {
-	ChainSelector   uint64
-	TokenPubKey     solana.PublicKey
-	PoolType        *solTestTokenPool.PoolType
-	Metadata string
+	ChainSelector uint64
+	TokenPubKey   solana.PublicKey
+	PoolType      *solTestTokenPool.PoolType
+	Metadata      string
 }
 
 func (cfg TokenPoolLookupTableConfig) Validate(e deployment.Environment) error {
@@ -901,7 +901,7 @@ type SetPoolConfig struct {
 	ChainSelector   uint64
 	TokenPubKey     solana.PublicKey
 	PoolType        solTestTokenPool.PoolType
-	Metadata string
+	Metadata        string
 	WritableIndexes []uint8
 	MCMSSolana      *MCMSConfigSolana
 }
@@ -1005,9 +1005,9 @@ type ConfigureTokenPoolAllowListConfig struct {
 	Accounts         []solana.PublicKey
 	// whether or not the given accounts are being added to the allow list or removed
 	// i.e. true = add, false = remove
-	Enabled         bool
-	MCMSSolana      *MCMSConfigSolana
-	Metadata string
+	Enabled    bool
+	MCMSSolana *MCMSConfigSolana
+	Metadata   string
 }
 
 func (cfg ConfigureTokenPoolAllowListConfig) Validate(e deployment.Environment) error {
@@ -1121,7 +1121,7 @@ type RemoveFromAllowListConfig struct {
 	PoolType         solTestTokenPool.PoolType
 	Accounts         []solana.PublicKey
 	MCMSSolana       *MCMSConfigSolana
-	Metadata  string
+	Metadata         string
 }
 
 func (cfg RemoveFromAllowListConfig) Validate(e deployment.Environment) error {
@@ -1232,7 +1232,7 @@ type LockReleaseLiquidityOpsConfig struct {
 	LiquidityCfg     *LiquidityConfig
 	RebalancerCfg    *RebalancerConfig
 	MCMSSolana       *MCMSConfigSolana
-	Metadata  string
+	Metadata         string
 }
 
 type SetLiquidityConfig struct {
@@ -1422,7 +1422,7 @@ type TokenPoolOpsCfg struct {
 	SetRouterCfg     *SetRouterCfg
 	PoolType         solTestTokenPool.PoolType
 	MCMSSolana       *MCMSConfigSolana
-	Metadata  string
+	Metadata         string
 }
 
 type DeleteChainCfg struct {
