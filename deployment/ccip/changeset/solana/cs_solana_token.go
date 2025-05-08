@@ -317,21 +317,6 @@ func isURLAccessible(url string) error {
 
 func UploadTokenMetadata(e deployment.Environment, cfg UploadTokenMetadataConfig) (deployment.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
-	state, err := ccipChangeset.LoadOnchainState(e)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-	chainState, chainExists := state.SolChains[cfg.ChainSelector]
-	if !chainExists {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
-	}
-	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get token program ID: %w", err)
-	}
-	if tokenprogramID != solana.Token2022ProgramID {
-		return deployment.ChangesetOutput{}, fmt.Errorf("token program is not Token2022, cannot upload metadata")
-	}
 	e.Logger.Infow("Uploading token metadata", "tokenPubkey", cfg.TokenPubkey.String())
 	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
 	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
