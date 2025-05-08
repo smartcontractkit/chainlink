@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -2301,9 +2302,9 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 		commoncs.Configure(cldf.CreateLegacyChangeSet(commoncs.DeployLinkToken), config),
 	)
 	require.NoError(t, err)
-	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
+	addrs, err := e.ExistingAddresses.AddressesForChain(chain1) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility
 	require.NoError(t, err)
-	state, err := commoncs.MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
+	state, err := commonstate.MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
 	// View itself already unit tested
 	_, err = state.GenerateLinkView()
@@ -2311,7 +2312,7 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 
 	// solana test
 	if solChains > 0 {
-		addrs, err = e.ExistingAddresses.AddressesForChain(solChain1)
+		addrs, err = e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility
 		require.NoError(t, err)
 		require.NotEmpty(t, addrs)
 	}
@@ -2339,7 +2340,7 @@ func TransferToTimelock(
 	_, err := commoncs.Apply(t, tenv.Env,
 		timelockContracts,
 		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 			GenTestTransferOwnershipConfig(tenv, chains, state),
 		),
 	)

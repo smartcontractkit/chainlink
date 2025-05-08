@@ -6,10 +6,11 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	mcmslib "github.com/smartcontractkit/mcms"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	mcmslib "github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -219,7 +220,7 @@ var (
 				MCMSConfig:          mcmsCfg,
 				Proposals:           finalOutput,
 			})
-			return postOpsReport.Output, nil
+			return postOpsReport.Output, err
 		},
 	)
 )
