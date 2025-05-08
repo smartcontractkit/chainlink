@@ -719,8 +719,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 
 		ctx := t.Context()
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 
 		estimator := gasmocks.NewEvmEstimator(t)
 		newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
@@ -766,8 +765,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 
 		ctx := t.Context()
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 
 		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, pkgerrors.Wrapf(fees.ErrConnectivity, "transaction..."))
@@ -813,14 +811,12 @@ func TestEthConfirmer_RebroadcastWhereNecessary_MaxFeeScenario(t *testing.T) {
 	ctx := t.Context()
 
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	evmcfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 		c.GasEstimator.PriceMax = assets.GWei(500)
 	})
 
-	_, _ = cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	fromAddress := testutils.NewAddress()
 
 	kst := &keystest.FakeChainStore{Addresses: keystest.Addresses{fromAddress}}
 	// Use a mock keystore for this test

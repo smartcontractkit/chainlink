@@ -775,9 +775,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	t.Run("cannot be more than one transaction per address in an unfinished state", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 
 		firstInProgress := txmgr.Tx{
 			FromAddress:    fromAddress,
