@@ -165,7 +165,7 @@ func TestDeployLinkTokenV2(t *testing.T) {
 	solChain1 := e.AllChainSelectorsSolana()[0]
 	newPrivKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
-	e, err = commonchangeset.Apply(t, e, nil,
+	_, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaLinkToken),
 			changeset_solana.DeploySolanaLinkTokenConfig{
