@@ -816,6 +816,8 @@ func doTestPoolLookupTable(t *testing.T, e deployment.Environment, mcms bool, to
 			ccipChangesetSolana.SetPoolConfig{
 				ChainSelector:   solChain,
 				TokenPubKey:     tokenAddress,
+				PoolType:        &pool,
+				Metadata:        tokenMetadata,
 				WritableIndexes: []uint8{3, 4, 7},
 				MCMSSolana:      mcmsConfig,
 			},

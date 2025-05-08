@@ -739,13 +739,14 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		state, err := changeset.LoadOnchainState(e)
 		require.NoError(t, err)
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
+		bnm := solTestTokenPool.BurnAndMint_PoolType
 		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 				changeset_solana.TokenPoolConfig{
 					ChainSelector: selector,
 					TokenPubKey:   tokenAddress,
-					PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+					PoolType:      &bnm,
 				},
 			),
 		})
@@ -844,6 +845,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		require.NoError(t, err)
 		onchainState, err := changeset.LoadOnchainState(e)
 		require.NoError(t, err)
+		bnm := solTestTokenPool.BurnAndMint_PoolType
 		for _, tokenAddress := range onchainState.SolChains[selector].SPL2022Tokens {
 			if slices.Contains(tokensBefore, tokenAddress) {
 				continue
@@ -854,7 +856,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 					changeset_solana.TokenPoolConfig{
 						ChainSelector: selector,
 						TokenPubKey:   tokenAddress,
-						PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+						PoolType:      &bnm,
 					},
 				),
 			})

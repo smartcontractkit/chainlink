@@ -513,7 +513,7 @@ func deployChainContractsSolana(
 	}
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.LockReleaseTokenPools[metadata].IsZero() {
-		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.LockReleaseTokenPool, deployment.Version1_0_0, false, "")
+		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.LockReleaseTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
