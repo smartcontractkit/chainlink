@@ -26,15 +26,17 @@ type VerifyBuildConfig struct {
 	MCMSSolana                 *MCMSConfigSolana
 }
 
-func runSolanaVerify(networkURL, programID, libraryName, commitHash, mountPath string, remote bool) error {
+func runSolanaVerify(keypairPath, networkURL, programID, libraryName, commitHash, mountPath string, remote bool) error {
 	cmdArgs := []string{
 		"verify-from-repo",
 		"-u", networkURL,
+		"-k", keypairPath,
 		"--program-id", programID,
 		"--library-name", libraryName,
 		strings.TrimSuffix(repoURL, ".git"),
 		"--commit-hash", commitHash,
 		"--mount-path", mountPath,
+		"--skip-prompt",
 	}
 
 	// Add --remote flag if remote verification is enabled
@@ -88,6 +90,7 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 
 		e.Logger.Debugw("Verifying program", "name", v.name, "programID", v.programID, "programLib", v.programLib)
 		err := runSolanaVerify(
+			chain.KeypairPath,
 			chain.URL,
 			v.programID,
 			v.programLib,
