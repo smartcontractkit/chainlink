@@ -121,21 +121,17 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 	outboundConfig := rateLimitConfig
 
 	type poolTestType struct {
-		poolType     solTestTokenPool.PoolType
-		contractType deployment.ContractType
-		poolAddress  solana.PublicKey
-		mcms         bool
+		poolType    solTestTokenPool.PoolType
+		poolAddress solana.PublicKey
 	}
 	testCases := []poolTestType{
 		{
-			poolType:     solTestTokenPool.BurnAndMint_PoolType,
-			contractType: changeset.BurnMintTokenPool,
-			poolAddress:  state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
+			poolType:    solTestTokenPool.BurnAndMint_PoolType,
+			poolAddress: state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
 		},
 		{
-			poolType:     solTestTokenPool.LockAndRelease_PoolType,
-			contractType: changeset.LockReleaseTokenPool,
-			poolAddress:  state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
+			poolType:    solTestTokenPool.LockAndRelease_PoolType,
+			poolAddress: state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
 		},
 	}
 	burnAndMintOwnedByTimelock := make(map[solana.PublicKey]bool)
@@ -222,7 +218,8 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 						},
 					})
 				burnAndMintOwnedByTimelock[tokenAddress] = true
-			} else {
+				mcmsConfig.BurnMintTokenPoolOwnedByTimelock = burnAndMintOwnedByTimelock
+			} else if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType {
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
@@ -231,9 +228,8 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 						},
 					})
 				lockAndReleaseOwnedByTimelock[tokenAddress] = true
+				mcmsConfig.LockReleaseTokenPoolOwnedByTimelock = lockAndReleaseOwnedByTimelock
 			}
-			mcmsConfig.BurnMintTokenPoolOwnedByTimelock = burnAndMintOwnedByTimelock
-			mcmsConfig.LockReleaseTokenPoolOwnedByTimelock = lockAndReleaseOwnedByTimelock
 			e.Logger.Debugf("MCMS Configured for token pool %v with token address %v", testCase.poolType, tokenAddress)
 		}
 
@@ -272,7 +268,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 					EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 						evmChain: {
 							TokenSymbol: testhelpers.TestTokenSymbol,
-							PoolType:    changeset.BurnMintTokenPool,
+							PoolType:    changeset.BurnMintTokenPool, // EVM test tokens are always burn and mint
 							PoolVersion: changeset.CurrentTokenPoolVersion,
 							RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
 								Inbound:  newInboundConfig,
