@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -344,4 +346,44 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 		}
 		// }
 	}
+}
+
+func TestPartnerTokenPools(t *testing.T) {
+	skipInCI(t)
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	e := tenv.Env
+	solChainSelectors := e.AllChainSelectorsSolana()
+	err := testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
+	require.NoError(t, err)
+	mcmsConfig := proposalutils.SingleGroupTimelockConfigV2(t)
+	metadata := "partner_testing"
+	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
+		ccipChangesetSolana.DeployChainContractsConfig{
+			HomeChainSelector: e.AllChainSelectors()[0],
+			ChainSelector:     solChainSelectors[0],
+			ContractParamsPerChain: ccipChangesetSolana.ChainContractParams{
+				FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
+					DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
+				},
+				OffRampParams: ccipChangesetSolana.OffRampParams{
+					EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
+				},
+			},
+			MCMSWithTimelockConfig: &mcmsConfig,
+			BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
+				GitCommitSha:   OldSha,
+				DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
+				LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+					BuildLocally:        true,
+					CleanDestinationDir: true,
+					GenerateVanityKeys:  true,
+				},
+			},
+			LockReleaseTokenPoolMetadata: metadata,
+			BurnMintTokenPoolMetadata:    metadata,
+		},
+	)})
+	require.NoError(t, err)
+	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 }

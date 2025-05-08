@@ -80,7 +80,7 @@ func validatePoolDeployment(
 	}
 	tokenPool, _ = GetActiveTokenPool(e, poolType, selector, metadata)
 	if tokenPool.IsZero() {
-		return fmt.Errorf("token pool of type BurnAndMint not found in existing state, deploy the token pool first for chain %d", selector)
+		return fmt.Errorf("token pool of type %s not found in existing state, deploy the token pool first for chain %d", poolType, selector)
 	}
 	switch poolType {
 	case solTestTokenPool.BurnAndMint_PoolType:

@@ -178,10 +178,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 		case TokenPoolLookupTable:
 			lookupTablePubKey := solana.MustPublicKeyFromBase58(address)
-			var poolType solTestTokenPool.PoolType
+			var poolType *solTestTokenPool.PoolType
 			var tokenPubKey solana.PublicKey
 			var poolMetadata string
-			// Labels should only have one entry
 			for label := range tvStr.Labels {
 				maybeTokenPubKey, err := solana.PublicKeyFromBase58(label)
 				if err == nil {
@@ -189,9 +188,11 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				} else {
 					switch label {
 					case solTestTokenPool.BurnAndMint_PoolType.String():
-						poolType = solTestTokenPool.BurnAndMint_PoolType
+						t := solTestTokenPool.BurnAndMint_PoolType
+						poolType = &t
 					case solTestTokenPool.LockAndRelease_PoolType.String():
-						poolType = solTestTokenPool.LockAndRelease_PoolType
+						t := solTestTokenPool.LockAndRelease_PoolType
+						poolType = &t
 					default:
 						poolMetadata = label
 					}
@@ -200,7 +201,17 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			if poolMetadata == "" {
 				poolMetadata = CLLMetadata
 			}
-			state.TokenPoolLookupTable[tokenPubKey][poolType][poolMetadata] = lookupTablePubKey
+			if poolType == nil {
+				t := solTestTokenPool.BurnAndMint_PoolType
+				poolType = &t
+			}
+			if state.TokenPoolLookupTable[tokenPubKey] == nil {
+				state.TokenPoolLookupTable[tokenPubKey] = make(map[solTestTokenPool.PoolType]map[string]solana.PublicKey)
+			}
+			if state.TokenPoolLookupTable[tokenPubKey][*poolType] == nil {
+				state.TokenPoolLookupTable[tokenPubKey][*poolType] = make(map[string]solana.PublicKey)
+			}
+			state.TokenPoolLookupTable[tokenPubKey][*poolType][poolMetadata] = lookupTablePubKey
 		case FeeQuoter:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.FeeQuoter = pub
