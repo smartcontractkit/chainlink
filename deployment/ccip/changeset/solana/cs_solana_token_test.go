@@ -150,6 +150,19 @@ func TestSolanaTokenOps(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))
+
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			// deployer creates token
+			cldf.CreateLegacyChangeSet(changeset_solana.UploadTokenMetadata),
+			changeset_solana.UploadTokenMetadataConfig{
+				ChainSelector:     solChain1,
+				TokenPubkey:       tokenAddress2,
+				TokenMetaDataFile: "https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/CompressedCoil/metadata.json",
+			},
+		),
+	)
+	require.NoError(t, err)
 }
 
 func TestDeployLinkToken(t *testing.T) {

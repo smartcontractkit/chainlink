@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -538,64 +536,4 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 	return deployment.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
-}
-
-type UploadTokenMetadataConfig struct {
-	ChainSelector     uint64
-	TokenPubkey       solana.PublicKey
-	TokenName         string
-	TokenSymbol       string
-	TokenDescription  string
-	TokenMetaDataLink string
-}
-
-// isURLAccessible checks if a URL is accessible with a 200 OK status.
-func isURLAccessible(url string) error {
-	client := http.Client{
-		Timeout: 5 * time.Second, // prevent hanging
-	}
-	resp, err := client.Get(url)
-	if err != nil {
-		return fmt.Errorf("failed to fetch URL: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("URL returned non-OK status: %d", resp.StatusCode)
-	}
-	return nil
-}
-
-func UploadTokenMetadata(e deployment.Environment, cfg UploadTokenMetadataConfig) (deployment.ChangesetOutput, error) {
-	chain := e.SolChains[cfg.ChainSelector]
-	state, err := ccipChangeset.LoadOnchainState(e)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-	chainState, chainExists := state.SolChains[cfg.ChainSelector]
-	if !chainExists {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
-	}
-	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get token program ID: %w", err)
-	}
-	if tokenprogramID != solana.Token2022ProgramID {
-		return deployment.ChangesetOutput{}, fmt.Errorf("token program is not Token2022, cannot upload metadata")
-	}
-	if err := isURLAccessible(cfg.TokenMetaDataLink); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("metadata URL check failed: %w", err)
-	}
-	e.Logger.Infow("Uploading token metadata", "tokenPubkey", cfg.TokenPubkey.String())
-	args := []string{"initialize-metadata", cfg.TokenPubkey.String(), cfg.TokenName, cfg.TokenSymbol, cfg.TokenMetaDataLink}
-	e.Logger.Info(args)
-	output, err := runCommand("spl-token", args, chain.ProgramsPath)
-	e.Logger.Debugw("spl-token output", "output", output)
-	if err != nil {
-		e.Logger.Debugw("spl-token error", "error", err)
-		return deployment.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
-	}
-	e.Logger.Infow("Token metadata uploaded", "tokenPubkey", cfg.TokenPubkey.String())
-
-	return deployment.ChangesetOutput{}, nil
 }

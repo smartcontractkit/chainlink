@@ -3,6 +3,8 @@ package solana
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -286,6 +288,62 @@ func SetTokenAuthority(e deployment.Environment, cfg SetTokenAuthorityConfig) (d
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infow("Set token authority on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String(), "newAuthority", cfg.NewAuthority.String(), "authorityType", cfg.AuthorityType)
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+type UploadTokenMetadataConfig struct {
+	ChainSelector     uint64
+	TokenPubkey       solana.PublicKey
+	TokenMetaDataFile string
+}
+
+// isURLAccessible checks if a URL is accessible with a 200 OK status.
+func isURLAccessible(url string) error {
+	client := http.Client{
+		Timeout: 5 * time.Second, // prevent hanging
+	}
+	resp, err := client.Get(url)
+	if err != nil {
+		return fmt.Errorf("failed to fetch URL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("URL returned non-OK status: %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func UploadTokenMetadata(e deployment.Environment, cfg UploadTokenMetadataConfig) (deployment.ChangesetOutput, error) {
+	chain := e.SolChains[cfg.ChainSelector]
+	state, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState, chainExists := state.SolChains[cfg.ChainSelector]
+	if !chainExists {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
+	}
+	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get token program ID: %w", err)
+	}
+	if tokenprogramID != solana.Token2022ProgramID {
+		return deployment.ChangesetOutput{}, fmt.Errorf("token program is not Token2022, cannot upload metadata")
+	}
+	e.Logger.Infow("Uploading token metadata", "tokenPubkey", cfg.TokenPubkey.String())
+	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
+	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	args := []string{"create", "metadata", "--mint", cfg.TokenPubkey.String(), "--metadata", cfg.TokenMetaDataFile}
+	e.Logger.Info(args)
+	output, err := runCommand("metaboss", args, chain.ProgramsPath)
+	e.Logger.Debugw("metaboss output", "output", output)
+	if err != nil {
+		e.Logger.Debugw("metaboss create error", "error", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
+	}
+	e.Logger.Infow("Token metadata uploaded", "tokenPubkey", cfg.TokenPubkey.String())
 
 	return deployment.ChangesetOutput{}, nil
 }
