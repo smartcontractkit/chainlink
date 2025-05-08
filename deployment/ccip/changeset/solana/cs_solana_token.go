@@ -3,8 +3,6 @@ package solana
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -296,23 +294,6 @@ type UploadTokenMetadataConfig struct {
 	ChainSelector     uint64
 	TokenPubkey       solana.PublicKey
 	TokenMetaDataFile string
-}
-
-// isURLAccessible checks if a URL is accessible with a 200 OK status.
-func isURLAccessible(url string) error {
-	client := http.Client{
-		Timeout: 5 * time.Second, // prevent hanging
-	}
-	resp, err := client.Get(url)
-	if err != nil {
-		return fmt.Errorf("failed to fetch URL: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("URL returned non-OK status: %d", resp.StatusCode)
-	}
-	return nil
 }
 
 func UploadTokenMetadata(e deployment.Environment, cfg UploadTokenMetadataConfig) (deployment.ChangesetOutput, error) {
