@@ -59,5 +59,4 @@ func TestDeployVerifierProxy(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address(), owner)
 	})
-
 }

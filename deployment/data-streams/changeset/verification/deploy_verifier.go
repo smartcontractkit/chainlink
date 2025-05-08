@@ -118,7 +118,6 @@ func deployVerifier(e deployment.Environment, dataStore ds.MutableDataStore[meta
 		); err != nil {
 			return fmt.Errorf("failed to upser contract metadata: %w", err)
 		}
-
 	}
 
 	return nil
