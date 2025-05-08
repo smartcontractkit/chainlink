@@ -260,6 +260,7 @@ func AddTokenPoolAndLookupTable(e deployment.Environment, cfg TokenPoolConfig) (
 		ChainSelector: cfg.ChainSelector,
 		TokenPubKey:   cfg.TokenPubKey,
 		PoolType:      &cfg.PoolType,
+		Metadata:      cfg.Metadata,
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)

@@ -737,15 +737,15 @@ func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
 }
 
 // pool lookup table test
-func doTestPoolLookupTable(t *testing.T, mcms bool) {
+func doTestPoolLookupTable(t *testing.T, e deployment.Environment, mcms bool, tokenMetadata string) {
 	ctx := testcontext.Get(t)
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+
+	solChain := e.AllChainSelectorsSolana()[0]
 
 	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
-	newAdmin := tenv.Env.SolChains[solChain].DeployerKey.PublicKey()
+	newAdmin := e.SolChains[solChain].DeployerKey.PublicKey()
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true,
+		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
 				FeeQuoter: true,
@@ -759,12 +759,12 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 			FeeQuoterOwnedByTimelock: true,
 			OffRampOwnedByTimelock:   true,
 		}
-		timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(tenv.Env, solChain)
+		timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 		require.NoError(t, err)
 		newAdmin = timelockSignerPDA
 	}
 
-	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
+	e, tokenAddress, err := deployTokenAndMint(t, e, solChain, []string{})
 	require.NoError(t, err)
 	pool := solTestTokenPool.LockAndRelease_PoolType
 	e, err = commonchangeset.Apply(t, e, nil,
@@ -775,13 +775,14 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 				ChainSelector: solChain,
 				TokenPubKey:   tokenAddress,
 				PoolType:      &pool,
+				Metadata:      tokenMetadata,
 			},
 		),
 	)
 	require.NoError(t, err)
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	lookupTablePubKey := state.SolChains[solChain].TokenPoolLookupTable[tokenAddress][pool][ccipChangeset.CLLMetadata]
+	lookupTablePubKey := state.SolChains[solChain].TokenPoolLookupTable[tokenAddress][pool][tokenMetadata]
 
 	lookupTableEntries0, err := solCommonUtil.GetAddressLookupTable(ctx, e.SolChains[solChain].Client, lookupTablePubKey)
 	require.NoError(t, err)
@@ -832,12 +833,14 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
 	t.Parallel()
-	doTestPoolLookupTable(t, true)
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	doTestPoolLookupTable(t, tenv.Env, true, ccipChangeset.CLLMetadata)
 }
 
 func TestPoolLookupTableWithoutMcms(t *testing.T) {
 	t.Parallel()
-	doTestPoolLookupTable(t, false)
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	doTestPoolLookupTable(t, tenv.Env, false, ccipChangeset.CLLMetadata)
 }
 
 func TestDeployCCIPContracts(t *testing.T) {
