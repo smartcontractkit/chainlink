@@ -39,6 +39,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 			e := tenv.Env
@@ -163,7 +164,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			require.True(t, destChainFqAccount.Config.IsEnabled)
 			require.Equal(t, feeQCfgSolana, destChainFqAccount.Config)
 
-			evmDestChainStatePDA = solanaState.SolChains[solChain].DestChainStatePDAs[evmChain]
+			evmDestChainStatePDA, _ = solState.FindDestChainStatePDA(evmChain, solanaState.SolChains[solChain].Router)
 			err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
 			require.NoError(t, err)
 			require.NotEmpty(t, destChainStateAccount.Config.AllowedSenders)

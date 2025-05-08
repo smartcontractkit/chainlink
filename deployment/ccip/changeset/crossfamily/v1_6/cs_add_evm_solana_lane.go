@@ -47,7 +47,7 @@ var (
 		"Adds bi-directional lane between EVM chain and Solana",
 		func(b operations.Bundle, deps Dependencies, input AddRemoteChainE2EConfig) ([]mcmslib.TimelockProposal, error) {
 			deps.Env.Logger.Infow("Adding EVM and Solana lane", "EVMChainSelector", input.EVMChainSelector, "SolanaChainSelector", input.SolanaChainSelector)
-			var finalOutput deployment.ChangesetOutput
+			finalOutput := make([]mcmslib.TimelockProposal, 0)
 			updateEVMOnRampReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateEVMOnRamp",
 				semver.MustParse("1.0.0"),
@@ -65,7 +65,7 @@ var (
 			}
 			// merge the changeset outputs
 			if len(updateEVMOnRampReport.Output) > 0 {
-				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateEVMOnRampReport.Output...)
+				finalOutput = append(finalOutput, updateEVMOnRampReport.Output...)
 			}
 			// update EVM fee quoter dest chain
 			updateEVMFeeQuoterDestChainReport, err := operations.ExecuteOperation(b, operations.NewOperation(
@@ -85,7 +85,7 @@ var (
 			}
 			// merge the changeset outputs
 			if len(updateEVMFeeQuoterDestChainReport.Output) > 0 {
-				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateEVMFeeQuoterDestChainReport.Output...)
+				finalOutput = append(finalOutput, updateEVMFeeQuoterDestChainReport.Output...)
 			}
 			// update EVM fee quoter prices
 			updateEVMFeeQuoterPricesReport, err := operations.ExecuteOperation(b, operations.NewOperation(
@@ -105,7 +105,7 @@ var (
 			}
 			// merge the changeset outputs
 			if len(updateEVMFeeQuoterPricesReport.Output) > 0 {
-				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateEVMFeeQuoterPricesReport.Output...)
+				finalOutput = append(finalOutput, updateEVMFeeQuoterPricesReport.Output...)
 			}
 			// update EVM off ramp
 			updateEVMOffRampReport, err := operations.ExecuteOperation(b, operations.NewOperation(
@@ -125,7 +125,7 @@ var (
 			}
 			// merge the changeset outputs
 			if len(updateEVMOffRampReport.Output) > 0 {
-				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateEVMOffRampReport.Output...)
+				finalOutput = append(finalOutput, updateEVMOffRampReport.Output...)
 			}
 
 			// update EVM router
@@ -146,7 +146,7 @@ var (
 			}
 			// merge the changeset outputs
 			if len(updateEVMRouterReport.Output) > 0 {
-				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateEVMRouterReport.Output...)
+				finalOutput = append(finalOutput, updateEVMRouterReport.Output...)
 			}
 			// update Solana router
 			updateSolanaRouterReport, err := operations.ExecuteOperation(b, operations.NewOperation(
@@ -166,7 +166,7 @@ var (
 			}
 			// merge the changeset outputs
 			if len(updateSolanaRouterReport.Output) > 0 {
-				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateSolanaRouterReport.Output...)
+				finalOutput = append(finalOutput, updateSolanaRouterReport.Output...)
 			}
 			// update Solana off ramp
 			updateSolanaOffRampReport, err := operations.ExecuteOperation(b, operations.NewOperation(
@@ -186,7 +186,7 @@ var (
 			}
 			// merge the changeset outputs
 			if len(updateSolanaOffRampReport.Output) > 0 {
-				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateSolanaOffRampReport.Output...)
+				finalOutput = append(finalOutput, updateSolanaOffRampReport.Output...)
 			}
 			// update Solana fee quoter
 			updateSolanaFeeQuoterReport, err := operations.ExecuteOperation(b, operations.NewOperation(
@@ -206,7 +206,7 @@ var (
 			}
 			// merge the changeset outputs
 			if len(updateSolanaFeeQuoterReport.Output) > 0 {
-				finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, updateSolanaFeeQuoterReport.Output...)
+				finalOutput = append(finalOutput, updateSolanaFeeQuoterReport.Output...)
 			}
 			var mcmsCfg *proposalutils.TimelockConfig
 			if input.MCMSConfig != nil {
@@ -217,7 +217,7 @@ var (
 				SolanaChainSelector: input.SolanaChainSelector,
 				EVMChainSelector:    input.EVMChainSelector,
 				MCMSConfig:          mcmsCfg,
-				Proposals:           finalOutput.MCMSTimelockProposals,
+				Proposals:           finalOutput,
 			})
 			return postOpsReport.Output, nil
 		},
