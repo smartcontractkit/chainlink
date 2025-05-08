@@ -33,7 +33,7 @@ func (l DisableRetryExampleChangeset) Apply(e deployment.Environment, config ope
 	// If retry was not disable, the operation would be retried for 10 times with exponential backoff.
 	_, err := operations.ExecuteOperation(e.OperationsBundle, SuccessFailOperation, nil, operationInput,
 		operations.WithRetryConfig[SuccessFailOperationInput, any](operations.RetryConfig[SuccessFailOperationInput, any]{
-			DisableRetry: true,
+			Enabled: false,
 		}))
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
