@@ -731,7 +731,7 @@ func getInstructionsForLockRelease(
 	evmRemoteConfig EVMRemoteConfig,
 ) ([]solana.Instruction, error) {
 	tokenPubKey := cfg.SolTokenPubKey
-	tokenPool, contractType := GetActiveTokenPool(&e, solTestTokenPool.BurnAndMint_PoolType, cfg.SolChainSelector, cfg.Metadata)
+	tokenPool, contractType := GetActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, cfg.SolChainSelector, cfg.Metadata)
 	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, tokenPool, evmChainSelector)
 	ixns := make([]solana.Instruction, 0)
 	authority, err := GetAuthorityForIxn(
@@ -1281,7 +1281,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 	chain := e.SolChains[cfg.SolChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.SolChainSelector]
-	tokenPool, contractType := GetActiveTokenPool(&e, solTestTokenPool.BurnAndMint_PoolType, cfg.SolChainSelector, cfg.Metadata)
+	tokenPool, contractType := GetActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, cfg.SolChainSelector, cfg.Metadata)
 
 	solLockReleaseTokenPool.SetProgramID(tokenPool)
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)

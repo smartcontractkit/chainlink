@@ -33,7 +33,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-func TestAddTokenPool(t *testing.T) {
+func TestAddTokenPoolWithoutMcms(t *testing.T) {
 	t.Parallel()
 	doTestTokenPool(t, false)
 }
