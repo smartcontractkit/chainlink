@@ -15,6 +15,7 @@ import (
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // use this changest to deploy a token, create ATAs and mint the token to those ATAs
@@ -312,4 +313,44 @@ func UploadTokenMetadata(e deployment.Environment, cfg UploadTokenMetadataConfig
 	e.Logger.Infow("Token metadata uploaded", "tokenPubkey", cfg.TokenPubkey.String())
 
 	return deployment.ChangesetOutput{}, nil
+}
+
+type DeploySolanaLinkTokenConfig struct {
+	ChainSelector uint64
+	TokenPrivKey  solana.PrivateKey
+	TokenDecimals uint8
+}
+
+func DeploySolanaLinkToken(e deployment.Environment, cfg DeploySolanaLinkTokenConfig) (deployment.ChangesetOutput, error) {
+	chain := e.SolChains[cfg.ChainSelector]
+	mint := cfg.TokenPrivKey
+	instructions, err := solTokenUtil.CreateToken(
+		context.Background(),
+		solana.Token2022ProgramID,
+		mint.PublicKey(),
+		chain.DeployerKey.PublicKey(),
+		cfg.TokenDecimals,
+		chain.Client,
+		cldf.SolDefaultCommitment,
+	)
+	if err != nil {
+		e.Logger.Errorw("Failed to generate instructions for link token deployment", "chain", chain.String(), "err", err)
+		return deployment.ChangesetOutput{}, err
+	}
+	err = chain.Confirm(instructions, solCommonUtil.AddSigners(mint))
+	if err != nil {
+		e.Logger.Errorw("Failed to confirm instructions for link token deployment", "chain", chain.String(), "err", err)
+		return deployment.ChangesetOutput{}, err
+	}
+	tv := deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
+	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.PublicKey().String(), "chain", chain.String())
+	newAddresses := deployment.NewMemoryAddressBook()
+	err = newAddresses.Save(chain.Selector, mint.PublicKey().String(), tv)
+	if err != nil {
+		e.Logger.Errorw("Failed to save link token", "chain", chain.String(), "err", err)
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{
+		AddressBook: newAddresses,
+	}, nil
 }

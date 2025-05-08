@@ -155,3 +155,25 @@ func TestSolanaTokenOps(t *testing.T) {
 func TestDeployLinkToken(t *testing.T) {
 	testhelpers.DeployLinkTokenTest(t, 1)
 }
+
+func TestDeployLinkTokenV2(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		SolChains: 1,
+	})
+	solChain1 := e.AllChainSelectorsSolana()[0]
+	newPrivKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaLinkToken),
+			changeset_solana.DeploySolanaLinkTokenConfig{
+				ChainSelector: solChain1,
+				TokenPrivKey:  newPrivKey,
+				TokenDecimals: 9,
+			},
+		),
+	)
+	require.NoError(t, err)
+}
