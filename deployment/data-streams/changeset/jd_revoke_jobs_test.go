@@ -89,7 +89,7 @@ func TestRevokeJobSpecs(t *testing.T) {
 				env,
 				[]changeset.ConfiguredChangeSet{
 					changeset.Configure(CsRevokeJobSpecs{}, CsRevokeJobSpecsConfig{
-						JobID: tc.jobID,
+						JobIDs: []string{tc.jobID},
 					}),
 				})
 			if tc.wantErr != "" {
