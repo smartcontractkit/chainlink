@@ -187,11 +187,12 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				if err == nil {
 					tokenPubKey = maybeTokenPubKey
 				} else {
-					if label == solTestTokenPool.BurnAndMint_PoolType.String() {
+					switch label {
+					case solTestTokenPool.BurnAndMint_PoolType.String():
 						poolType = solTestTokenPool.BurnAndMint_PoolType
-					} else if label == solTestTokenPool.LockAndRelease_PoolType.String() {
+					case solTestTokenPool.LockAndRelease_PoolType.String():
 						poolType = solTestTokenPool.LockAndRelease_PoolType
-					} else {
+					default:
 						poolMetadata = label
 					}
 				}

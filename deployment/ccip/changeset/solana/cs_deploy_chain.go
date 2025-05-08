@@ -489,6 +489,7 @@ func deployChainContractsSolana(
 	if config.BurnMintTokenPoolMetadata != "" {
 		metadata = config.BurnMintTokenPoolMetadata
 	}
+	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.BurnMintTokenPools[metadata].IsZero() {
 		burnMintTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.BurnMintTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
@@ -510,6 +511,7 @@ func deployChainContractsSolana(
 	if config.LockReleaseTokenPoolMetadata != "" {
 		metadata = config.LockReleaseTokenPoolMetadata
 	}
+	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.LockReleaseTokenPools[metadata].IsZero() {
 		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.LockReleaseTokenPool, deployment.Version1_0_0, false, "")
 		if err != nil {
@@ -1029,7 +1031,9 @@ type CloseBuffersConfig struct {
 
 func CloseBuffersChangeset(e deployment.Environment, cfg CloseBuffersConfig) (deployment.ChangesetOutput, error) {
 	for _, buffer := range cfg.Buffers {
-		e.SolChains[cfg.ChainSelector].CloseBuffers(e.Logger, buffer)
+		if err := e.SolChains[cfg.ChainSelector].CloseBuffers(e.Logger, buffer); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to close buffer: %w", err)
+		}
 	}
 	return deployment.ChangesetOutput{}, nil
 }

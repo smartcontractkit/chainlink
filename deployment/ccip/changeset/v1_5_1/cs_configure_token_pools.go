@@ -90,7 +90,7 @@ type SolChainUpdate struct {
 func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state changeset.SolCCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
 	metadata := changeset.CLLMetadata
 	if c.Metadata != "" {
-		c.Metadata = metadata
+		metadata = c.Metadata
 	}
 
 	var tokenPoolProgram solana.PublicKey
