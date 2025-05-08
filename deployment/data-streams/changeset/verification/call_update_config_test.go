@@ -116,7 +116,5 @@ func TestCallUpdateConfig(t *testing.T) {
 			testutil.TestChain.Selector,
 			verifierAddr,
 			expectedCfg, true)
-
 	})
-
 }

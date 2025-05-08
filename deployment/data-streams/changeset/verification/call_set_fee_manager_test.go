@@ -91,7 +91,5 @@ func TestSetFeeManager(t *testing.T) {
 		contractMetadata := testutil.MustGetContractMetaData[v0_5.VerifierProxyView](t, output.DataStore, testutil.TestChain.Selector, verifierProxyAddr.Hex())
 		require.NotNil(t, contractMetadata)
 		require.Equal(t, feeManagerAddr.Hex(), contractMetadata.View.FeeManager)
-
 	})
-
 }

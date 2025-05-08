@@ -155,7 +155,6 @@ func (f *FeeManagerViewGenerator) fetchContractState(ctx context.Context, view *
 	view.TypeAndVersion = typeAndVersion
 
 	return nil
-
 }
 
 // Function to gather all discounts and organize them by subscriber and feedId
