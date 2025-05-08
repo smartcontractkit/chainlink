@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -111,10 +112,7 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	relayersMap, err := r.App.GetRelayers().GetIDToRelayerMap()
-	if err != nil {
-		return nil, err
-	}
+	relayersMap := r.App.GetRelayers().GetIDToRelayerMap()
 
 	chains := make([]chainlink.NetworkChainStatus, 0, len(relayersMap))
 	for k, v := range relayersMap {
