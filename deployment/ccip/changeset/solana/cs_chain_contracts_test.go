@@ -239,14 +239,12 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			RouterDestinationConfig: solRouter.DestChainConfig{
 				AllowListEnabled: false,
 			},
-			IsUpdate: true,
 		}
 	}
 	offRampUpdates = make(map[uint64]ccipChangesetSolana.OffRampConfig)
 	for _, evmChain := range evmChains {
 		offRampUpdates[evmChain] = ccipChangesetSolana.OffRampConfig{
 			EnabledAsSource: true,
-			IsUpdate:        true,
 		}
 	}
 	feeQuoterUpdates = make(map[uint64]ccipChangesetSolana.FeeQuoterConfig)
@@ -261,7 +259,6 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 				DefaultTokenDestGasOverhead: 5000,
 				ChainFamilySelector:         [4]uint8{40, 18, 213, 44},
 			},
-			IsUpdate: true,
 		}
 	}
 
@@ -418,7 +415,6 @@ func doTestBilling(t *testing.T, mcms bool) {
 					PremiumMultiplierWeiPerEth: 200,
 				},
 				MCMSSolana: mcmsConfig,
-				IsUpdate:   true,
 			},
 		),
 	})
