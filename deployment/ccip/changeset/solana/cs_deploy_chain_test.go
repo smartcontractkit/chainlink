@@ -25,7 +25,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonchangesetSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
@@ -86,8 +85,8 @@ func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipCh
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangesetSolana.DeploySolanaLinkToken),
-			commonchangesetSolana.DeploySolanaLinkTokenConfig{
+			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
+			commonchangeset.DeploySolanaLinkTokenConfig{
 				ChainSelector: solChainSelectors[0],
 				TokenPrivKey:  solLinkTokenPrivKey,
 				TokenDecimals: 9,

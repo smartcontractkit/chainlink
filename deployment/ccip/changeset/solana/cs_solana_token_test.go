@@ -17,7 +17,6 @@ import (
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -169,8 +168,8 @@ func TestDeployLinkTokenV2(t *testing.T) {
 	require.NoError(t, err)
 	_, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonSolana.DeploySolanaLinkToken),
-			commonSolana.DeploySolanaLinkTokenConfig{
+			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
+			commonchangeset.DeploySolanaLinkTokenConfig{
 				ChainSelector: solChain1,
 				TokenPrivKey:  newPrivKey,
 				TokenDecimals: 9,

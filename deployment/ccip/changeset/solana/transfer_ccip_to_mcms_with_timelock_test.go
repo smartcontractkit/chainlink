@@ -34,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonchangesetSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -229,8 +228,8 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangesetSolana.DeploySolanaLinkToken),
-			commonchangesetSolana.DeploySolanaLinkTokenConfig{
+			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
+			commonchangeset.DeploySolanaLinkTokenConfig{
 				ChainSelector: solChain1,
 				TokenPrivKey:  solLinkTokenPrivKey,
 				TokenDecimals: 9,

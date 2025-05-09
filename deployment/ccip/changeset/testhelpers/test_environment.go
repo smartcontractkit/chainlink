@@ -38,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonchangesetSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -551,8 +550,8 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	if len(solChains) > 0 {
 		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
 		deploySolanaLinkApp := commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangesetSolana.DeploySolanaLinkToken),
-			commonchangesetSolana.DeploySolanaLinkTokenConfig{
+			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
+			commonchangeset.DeploySolanaLinkTokenConfig{
 				ChainSelector: solChains[0],
 				TokenPrivKey:  solLinkTokenPrivKey,
 				TokenDecimals: 9,

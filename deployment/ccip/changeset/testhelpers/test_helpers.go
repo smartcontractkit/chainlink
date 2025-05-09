@@ -30,7 +30,6 @@ import (
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commoncsSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -2325,7 +2324,7 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 	if solChains > 0 {
 		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
 		e, err := commoncs.Apply(t, e, nil,
-			commoncs.Configure(cldf.CreateLegacyChangeSet(commoncsSolana.DeploySolanaLinkToken), commoncsSolana.DeploySolanaLinkTokenConfig{
+			commoncs.Configure(cldf.CreateLegacyChangeSet(commoncs.DeploySolanaLinkToken), commoncs.DeploySolanaLinkTokenConfig{
 				ChainSelector: e.AllChainSelectorsSolana()[0],
 				TokenPrivKey:  solLinkTokenPrivKey,
 				TokenDecimals: 9,
