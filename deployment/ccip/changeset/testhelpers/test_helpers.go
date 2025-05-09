@@ -2323,15 +2323,16 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 	// solana test
 	if solChains > 0 {
 		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
-		e, err := commoncs.Apply(t, e, nil,
+		e, solanaerr := commoncs.Apply(t, e, nil,
 			commoncs.Configure(cldf.CreateLegacyChangeSet(commoncs.DeploySolanaLinkToken), commoncs.DeploySolanaLinkTokenConfig{
 				ChainSelector: e.AllChainSelectorsSolana()[0],
 				TokenPrivKey:  solLinkTokenPrivKey,
 				TokenDecimals: 9,
 			}),
 		)
-		addrs, err = e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
-		require.NoError(t, err)
+		require.NoError(t, solanaerr)
+		addrs, solanaerr = e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
+		require.NoError(t, solanaerr)
 		require.NotEmpty(t, addrs)
 	}
 }
