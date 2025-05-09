@@ -17,7 +17,9 @@ import (
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -29,7 +31,7 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.Chan
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 	deployGrp := errgroup.Group{}
 	for _, chain := range chains {
 		family, err := chainsel.GetSelectorFamily(chain)
@@ -65,7 +67,7 @@ func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (deploymen
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 	for _, chainSel := range chains {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
@@ -81,7 +83,7 @@ func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (deploymen
 					Address:  linkTokenAddr,
 					Contract: linkToken,
 					Tx:       tx,
-					Tv:       deployment.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0),
+					Tv:       cldf.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0),
 					Err:      err2,
 				}
 			})
@@ -96,7 +98,7 @@ func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (deploymen
 func deployLinkTokenContractEVM(
 	lggr logger.Logger,
 	chain deployment.Chain,
-	ab deployment.AddressBook,
+	ab cldf.AddressBook,
 ) (*cldf.ContractDeploy[*link_token.LinkToken], error) {
 	linkToken, err := cldf.DeployContract[*link_token.LinkToken](lggr, chain, ab,
 		func(chain deployment.Chain) cldf.ContractDeploy[*link_token.LinkToken] {
@@ -108,7 +110,7 @@ func deployLinkTokenContractEVM(
 				Address:  linkTokenAddr,
 				Contract: linkToken,
 				Tx:       tx,
-				Tv:       deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),
+				Tv:       cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),
 				Err:      err2,
 			}
 		})
@@ -146,9 +148,9 @@ func DeploySolanaLinkToken(e deployment.Environment, cfg DeploySolanaLinkTokenCo
 		e.Logger.Errorw("Failed to confirm instructions for link token deployment", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
-	tv := deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
+	tv := cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
 	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.PublicKey().String(), "chain", chain.String())
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 	err = newAddresses.Save(chain.Selector, mint.PublicKey().String(), tv)
 	if err != nil {
 		e.Logger.Errorw("Failed to save link token", "chain", chain.String(), "err", err)

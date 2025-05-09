@@ -7,7 +7,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
@@ -31,7 +33,7 @@ func (cc DeployConfiguratorConfig) Validate() error {
 }
 
 func deployConfiguratorLogic(e deployment.Environment, cc DeployConfiguratorConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	err := deploy(e, ab, cc)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy Configurator", "err", err, "addresses", ab)
@@ -50,7 +52,7 @@ func deployConfiguratorPrecondition(_ deployment.Environment, cc DeployConfigura
 	return nil
 }
 
-func deploy(e deployment.Environment, ab deployment.AddressBook, cc DeployConfiguratorConfig) error {
+func deploy(e deployment.Environment, ab cldf.AddressBook, cc DeployConfiguratorConfig) error {
 	for _, chainSel := range cc.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
@@ -95,7 +97,7 @@ func DeployFn() changeset.ContractDeployFn[*configurator.Configurator] {
 			Address:  ccsAddr,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.Configurator, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.Configurator, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

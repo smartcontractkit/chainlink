@@ -12,6 +12,9 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -216,6 +219,21 @@ func CurseChain(chainSelector uint64) CurseAction {
 		}
 		curseActions = append(curseActions, globalCurse...)
 
+		return curseActions, nil
+	}
+}
+
+func CurseGloballyAllChains() CurseAction {
+	return func(e deployment.Environment) ([]RMNCurseAction, error) {
+		chainSelectors := GetAllCursableChainsSelector(e)
+		var curseActions []RMNCurseAction
+		for _, chainSelector := range chainSelectors {
+			actions, err := CurseGloballyOnlyOnChain(chainSelector)(e)
+			if err != nil {
+				return nil, err
+			}
+			curseActions = append(curseActions, actions...)
+		}
 		return curseActions, nil
 	}
 }
@@ -488,6 +506,7 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 type CursableChain interface {
 	Name() string
 	IsConnectedToSourceChain(selector uint64) (bool, error)
+	IsCursable() (bool, error)
 	IsSubjectCursed(subject globals.Subject) (bool, error)
 	Curse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error
 	Uncurse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error
@@ -540,7 +559,7 @@ func (c SolanaCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subje
 		curseSubject := solRmnRemote.CurseSubject{
 			Value: subject,
 		}
-		_, err := deployer(func(authority solana.PublicKey) (solana.Instruction, string, deployment.ContractType, error) {
+		_, err := deployer(func(authority solana.PublicKey) (solana.Instruction, string, cldf.ContractType, error) {
 			ix, err := solRmnRemote.NewCurseInstruction(
 				curseSubject,
 				rmnRemoteConfigPDA,
@@ -579,7 +598,7 @@ func (c SolanaCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, sub
 		curseSubject := solRmnRemote.CurseSubject{
 			Value: subject,
 		}
-		_, err := deployer(func(authority solana.PublicKey) (solana.Instruction, string, deployment.ContractType, error) {
+		_, err := deployer(func(authority solana.PublicKey) (solana.Instruction, string, cldf.ContractType, error) {
 			ix, err := solRmnRemote.NewUncurseInstruction(
 				curseSubject,
 				rmnRemoteConfigPDA,
@@ -597,6 +616,10 @@ func (c SolanaCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, sub
 		}
 	}
 	return nil
+}
+
+func (c SolanaCursableChain) IsCursable() (bool, error) {
+	return c.chain.RMNRemote != solana.PublicKey{}, nil
 }
 
 func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, error) {
@@ -650,6 +673,10 @@ func (c EvmCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error)
 		return false, fmt.Errorf("failed to check if chain %d is cursed: %w", c.selector, err)
 	}
 	return cursed, nil
+}
+
+func (c EvmCursableChain) IsCursable() (bool, error) {
+	return c.chain.RMNRemote != nil, nil
 }
 
 func (c EvmCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
@@ -710,7 +737,18 @@ func GetCursableChains(env deployment.Environment) (map[uint64]CursableChain, er
 		}
 	}
 
-	return cursableChains, nil
+	activeCursableChains := make(map[uint64]CursableChain)
+	for selector, chain := range cursableChains {
+		cursable, err := chain.IsCursable()
+		if err != nil {
+			return nil, fmt.Errorf("failed to check if chain %d is cursable: %w", selector, err)
+		}
+		if cursable {
+			activeCursableChains[selector] = chain
+		}
+	}
+
+	return activeCursableChains, nil
 }
 
 func GetAllCursableChainsSelector(env deployment.Environment) []uint64 {

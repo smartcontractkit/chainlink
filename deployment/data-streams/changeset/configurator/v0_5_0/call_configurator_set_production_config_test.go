@@ -7,7 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
@@ -33,7 +34,7 @@ func TestCallSetProductionConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ab, 1)
 
-	configuratorAddr, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.Configurator)
+	configuratorAddr, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.Configurator)
 	require.NoError(t, err)
 
 	onchainConfigHex := "0000000000000000000000000000000000000000000000000000000000000001" +

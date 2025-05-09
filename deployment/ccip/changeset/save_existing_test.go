@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -31,27 +33,27 @@ func TestSaveExistingCCIP(t *testing.T) {
 		ExistingContracts: []commonchangeset.Contract{
 			{
 				Address:        common.BigToAddress(big.NewInt(1)).String(),
-				TypeAndVersion: deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0),
+				TypeAndVersion: cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0),
 				ChainSelector:  chain1,
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(2)).String(),
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.WETH9, deployment.Version1_0_0),
+				TypeAndVersion: cldf.NewTypeAndVersion(changeset.WETH9, deployment.Version1_0_0),
 				ChainSelector:  chain1,
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(3)).String(),
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.TokenAdminRegistry, deployment.Version1_5_0),
+				TypeAndVersion: cldf.NewTypeAndVersion(changeset.TokenAdminRegistry, deployment.Version1_5_0),
 				ChainSelector:  chain1,
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(4)).String(),
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.RegistryModule, deployment.Version1_6_0),
+				TypeAndVersion: cldf.NewTypeAndVersion(changeset.RegistryModule, deployment.Version1_6_0),
 				ChainSelector:  chain2,
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(5)).String(),
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_2_0),
+				TypeAndVersion: cldf.NewTypeAndVersion(changeset.Router, deployment.Version1_2_0),
 				ChainSelector:  chain2,
 			},
 		},

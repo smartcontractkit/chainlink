@@ -5,6 +5,9 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -17,7 +20,7 @@ func Deploy(env deployment.Environment, registrySelector uint64) (deployment.Cha
 	if !ok {
 		return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	wrResp, err := deployWorkflowRegistry(chain, ab)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy WorkflowRegistry: %w", err)
@@ -33,7 +36,7 @@ func DeployV2(env deployment.Environment, req *changeset.DeployRequestV2) (deplo
 	if !ok {
 		return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	wrResp, err := deployWorkflowRegistry(chain, ab)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy WorkflowRegistry: %w", err)

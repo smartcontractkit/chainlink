@@ -13,14 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 func ptr[T any](t T) *T { return &t }
 
 type TestDatabaseConfig struct {
-	config.Database
+	DatabaseConfig
 	defaultQueryTimeout time.Duration
 }
 
@@ -33,14 +31,14 @@ func (d *TestDatabaseConfig) LogSQL() bool {
 }
 
 type TestListenerConfig struct {
-	config.Listener
+	ListenerConfig
 }
 
 func (l *TestListenerConfig) FallbackPollInterval() time.Duration {
 	return 1 * time.Minute
 }
 
-func (d *TestDatabaseConfig) Listener() config.Listener {
+func (d *TestDatabaseConfig) Listener() ListenerConfig {
 	return &TestListenerConfig{}
 }
 
