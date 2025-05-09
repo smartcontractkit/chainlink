@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/sync/errgroup"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -46,14 +45,13 @@ func DeployChainContractsChangeset(env deployment.Environment, c DeployChainCont
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 	err := deployChainContractsForChains(env, newAddresses, c.HomeChainSelector, c.ContractParamsPerChain)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
 		return deployment.ChangesetOutput{AddressBook: newAddresses}, deployment.MaybeDataErr(err)
 	}
 	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: newAddresses,
 	}, nil
 }
@@ -205,7 +203,7 @@ func ValidateHomeChainState(e deployment.Environment, homeChainSel uint64, exist
 
 func deployChainContractsForChains(
 	e deployment.Environment,
-	ab deployment.AddressBook,
+	ab cldf.AddressBook,
 	homeChainSel uint64,
 	contractParamsPerChain map[uint64]ChainContractParams) error {
 	existingState, err := changeset.LoadOnchainState(e)
@@ -260,7 +258,7 @@ func deployChainContractsForChains(
 	return nil
 }
 
-func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, ab deployment.AddressBook, rmnHome *rmn_home.RMNHome, contractParams ChainContractParams) error {
+func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, ab cldf.AddressBook, rmnHome *rmn_home.RMNHome, contractParams ChainContractParams) error {
 	// check for existing contracts
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
@@ -320,7 +318,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					rmnLegacyAddr,
 				)
 				return cldf.ContractDeploy[*rmn_remote.RMNRemote]{
-					Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: deployment.NewTypeAndVersion(changeset.RMNRemote, deployment.Version1_6_0), Err: err2,
+					Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: cldf.NewTypeAndVersion(changeset.RMNRemote, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -384,7 +382,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					RMNProxy.Address(),
 				)
 				return cldf.ContractDeploy[*router.Router]{
-					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.TestRouter, deployment.Version1_2_0), Err: err2,
+					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: cldf.NewTypeAndVersion(changeset.TestRouter, deployment.Version1_2_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -405,7 +403,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					[]common.Address{}, // Need to add onRamp after
 				)
 				return cldf.ContractDeploy[*nonce_manager.NonceManager]{
-					Address: nonceManagerAddr, Contract: nonceManager, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.NonceManager, deployment.Version1_6_0), Err: err2,
+					Address: nonceManagerAddr, Contract: nonceManager, Tx: tx2, Tv: cldf.NewTypeAndVersion(changeset.NonceManager, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -445,7 +443,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					contractParams.FeeQuoterParams.DestChainConfigArgs,
 				)
 				return cldf.ContractDeploy[*fee_quoter.FeeQuoter]{
-					Address: prAddr, Contract: pr, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_6_0), Err: err2,
+					Address: prAddr, Contract: pr, Tx: tx2, Tv: cldf.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -476,7 +474,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					[]onramp.OnRampDestChainConfigArgs{},
 				)
 				return cldf.ContractDeploy[*onramp.OnRamp]{
-					Address: onRampAddr, Contract: onRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.OnRamp, deployment.Version1_6_0), Err: err2,
+					Address: onRampAddr, Contract: onRamp, Tx: tx2, Tv: cldf.NewTypeAndVersion(changeset.OnRamp, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -509,7 +507,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					[]offramp.OffRampSourceChainConfigArgs{},
 				)
 				return cldf.ContractDeploy[*offramp.OffRamp]{
-					Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_6_0), Err: err2,
+					Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: cldf.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {

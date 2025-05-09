@@ -6,12 +6,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 type MCMSConfig struct {
@@ -23,7 +24,7 @@ type AddressType string
 type DeployCacheResponse struct {
 	Address  common.Address
 	Tx       common.Hash
-	Tv       deployment.TypeAndVersion
+	Tv       cldf.TypeAndVersion
 	Contract *cache.DataFeedsCache
 }
 
@@ -48,14 +49,14 @@ type DeployBundleAggregatorProxyConfig struct {
 type DeployBundleAggregatorProxyResponse struct {
 	Address  common.Address
 	Tx       common.Hash
-	Tv       deployment.TypeAndVersion
+	Tv       cldf.TypeAndVersion
 	Contract *bundleproxy.BundleAggregatorProxy
 }
 
 type DeployProxyResponse struct {
 	Address  common.Address
 	Tx       common.Hash
-	Tv       deployment.TypeAndVersion
+	Tv       cldf.TypeAndVersion
 	Contract *proxy.AggregatorProxy
 }
 

@@ -7,11 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
+	cldf "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment/data-streams/changeset"
 
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
-
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"

@@ -12,9 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	cappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
 
 type Engine struct {
@@ -31,12 +35,17 @@ type Engine struct {
 
 	allTriggerEventsQueueCh chan enqueuedTriggerEvent
 	executionsSemaphore     chan struct{}
+	capCallsSemaphore       chan struct{}
 }
 
 type enqueuedTriggerEvent struct {
-	event     capabilities.TriggerResponse
-	timestamp time.Time
+	triggerCapID string
+	triggerIndex int
+	timestamp    time.Time
+	event        capabilities.TriggerResponse
 }
+
+var _ host.CapabilityExecutor = (*Engine)(nil)
 
 func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
 	err := cfg.Validate()
@@ -48,6 +57,7 @@ func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
 		triggers:                make(map[string]capabilities.TriggerCapability),
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
+		capCallsSemaphore:       make(chan struct{}, cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
 	}
 	engine.Service, engine.srvcEng = services.Config{
 		Name:  "WorkflowEngineV2",
@@ -102,7 +112,15 @@ func (e *Engine) init(ctx context.Context) {
 		return
 	}
 
-	err := e.runTriggerSubscriptionPhase(ctx)
+	err := e.cfg.Module.SetCapabilityExecutor(e)
+	if err != nil {
+		e.cfg.Lggr.Errorw("Workflow Engine initialization failed", "err", err)
+		// TODO(CAPPL-736): observability
+		e.cfg.Hooks.OnInitialized(err)
+		return
+	}
+
+	err = e.runTriggerSubscriptionPhase(ctx)
 	if err != nil {
 		e.cfg.Lggr.Errorw("Workflow Engine initialization failed", "err", err)
 		// TODO(CAPPL-736): observability
@@ -185,7 +203,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	}
 
 	// start listening for trigger events only if all registrations succeeded
-	for _, triggerEventCh := range eventChans {
+	for idx, triggerEventCh := range eventChans {
 		e.srvcEng.Go(func(srvcCtx context.Context) {
 			for {
 				select {
@@ -197,8 +215,10 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 					}
 					select {
 					case e.allTriggerEventsQueueCh <- enqueuedTriggerEvent{
-						event:     event,
-						timestamp: e.cfg.Clock.Now(),
+						triggerCapID: subs.Subscriptions[idx].Id,
+						triggerIndex: idx,
+						timestamp:    e.cfg.Clock.Now(),
+						event:        event,
 					}:
 					default: // queue full, drop the event
 						// TODO(CAPPL-736): observability
@@ -216,7 +236,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case queueElem, isOpen := <-e.allTriggerEventsQueueCh:
+		case queueHead, isOpen := <-e.allTriggerEventsQueueCh:
 			if !isOpen {
 				return
 			}
@@ -224,7 +244,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			select {
 			case e.executionsSemaphore <- struct{}{}: // block if too many concurrent workflow executions
 				e.srvcEng.Go(func(srvcCtx context.Context) {
-					e.startNewWorkflowExecution(srvcCtx, queueElem.event)
+					e.startExecution(srvcCtx, queueHead)
 					<-e.executionsSemaphore
 				})
 			case <-ctx.Done():
@@ -234,8 +254,70 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 	}
 }
 
-func (e *Engine) startNewWorkflowExecution(_ context.Context, _ capabilities.TriggerResponse) {
-	// TODO(CAPPL-735): implement execution phase
+// startExecution initiates a new workflow execution, blocking until completed
+func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueuedTriggerEvent) {
+	triggerEvent := wrappedTriggerEvent.event.Event
+	executionID, err := types.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+	if err != nil {
+		// TODO(CAPPL-736): observability
+		return
+	}
+
+	subCtx, cancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs))
+	defer cancel()
+
+	tid, err := safe.IntToUint64(wrappedTriggerEvent.triggerIndex)
+	if err != nil {
+		// TODO(CAPPL-736): observability
+		return
+	}
+
+	result, err := e.cfg.Module.Execute(subCtx, &wasmpb.ExecuteRequest{
+		Id: executionID,
+		Request: &wasmpb.ExecuteRequest_Trigger{
+			Trigger: &sdkpb.Trigger{
+				Id:      tid,
+				Payload: triggerEvent.Payload,
+			},
+		},
+		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
+		// TODO(CAPPL-729): pass workflow config
+	})
+	if err != nil {
+		e.cfg.Lggr.Errorw("Workflow execution failed", "err", err)
+		// TODO(CAPPL-736): observability
+		return
+	}
+	// TODO(CAPPL-736): handle execution result
+	e.cfg.Lggr.Debugw("Workflow execution finished", "executionID", executionID, "result", result)
+	e.cfg.Hooks.OnExecutionFinished(executionID)
+}
+
+func (e *Engine) CallCapability(ctx context.Context, request *cappb.CapabilityRequest) (*cappb.CapabilityResponse, error) {
+	select {
+	case e.capCallsSemaphore <- struct{}{}: // block if too many concurrent capability calls
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-e.capCallsSemaphore }()
+
+	// TODO (CAPPL-735): use request.Metadata.WorkflowExecutionId to associate the call with a specific execution
+	capability, err := e.cfg.CapRegistry.GetExecutable(ctx, request.CapabilityId)
+	if err != nil {
+		return nil, fmt.Errorf("trigger capability not found: %w", err)
+	}
+
+	capReq, err := cappb.CapabilityRequestFromProto(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert capability request: %w", err)
+	}
+
+	// TODO(CAPPL-737): run with a timeout
+	capResp, err := capability.Execute(ctx, capReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute capability: %w", err)
+	}
+	return cappb.CapabilityResponseToProto(capResp), nil
 }
 
 func (e *Engine) close() error {

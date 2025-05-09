@@ -43,8 +43,7 @@ func TestStuckTxDetector_Disabled(t *testing.T) {
 
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	fromAddress := testutils.NewAddress()
 
 	lggr := logger.Test(t)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
@@ -66,7 +65,6 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
 	blockNum := int64(100)
 
@@ -86,7 +84,7 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 
 	t.Run("purge num map loaded on startup rate limits new purges on startup", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		mustInsertFatalErrorTxWithError(t, txStore, 0, fromAddress, blockNum)
 
 		err := stuckTxDetector.LoadPurgeBlockNumMap(ctx, []common.Address{fromAddress})
@@ -111,7 +109,6 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	config := configtest.NewChainScopedConfig(t, nil)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
@@ -120,15 +117,15 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 
 	t.Run("returns empty list if no unconfimed transactions found", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		stuckTxs, err := stuckTxDetector.FindUnconfirmedTxWithLowestNonce(ctx, []common.Address{fromAddress})
 		require.NoError(t, err)
 		require.Len(t, stuckTxs, 0)
 	})
 
 	t.Run("returns 1 unconfirmed transaction for each unique from address", func(t *testing.T) {
-		_, fromAddress1 := cltest.MustInsertRandomKey(t, ethKeyStore)
-		_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress1 := testutils.NewAddress()
+		fromAddress2 := testutils.NewAddress()
 		// Insert 2 txs for from address, should only return the lowest nonce txs
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress1)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress1)
@@ -151,7 +148,7 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 	})
 
 	t.Run("excludes transactions already marked for purge", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		mustInsertUnconfirmedEthTxWithBroadcastPurgeAttempt(t, txStore, 0, fromAddress)
 		stuckTxs, err := stuckTxDetector.FindUnconfirmedTxWithLowestNonce(ctx, []common.Address{fromAddress})
 		require.NoError(t, err)
@@ -159,7 +156,7 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 	})
 
 	t.Run("excludes transactions with a in-progress attempt", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 		attempt.TxFee.GasPrice = assets.NewWeiI(2)
@@ -171,7 +168,7 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 	})
 
 	t.Run("excludes transactions with an insufficient funds attempt", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 		attempt.TxFee.GasPrice = assets.NewWeiI(2)
@@ -188,7 +185,6 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
@@ -209,7 +205,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 
 	t.Run("not stuck, Threshold amount of blocks have not passed since broadcast", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		enabledAddresses := []common.Address{fromAddress}
 		// Create attempts broadcasted at the current broadcast number to test the block num threshold check
 		// Create autoPurgeMinAttempts number of attempts to ensure the broadcast attempt count check is not being triggered
@@ -223,7 +219,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	})
 
 	t.Run("not stuck, Threshold amount of blocks have not passed since last purge", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		enabledAddresses := []common.Address{fromAddress}
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
 		// Create autoPurgeMinAttempts number of attempts to ensure the broadcast attempt count check is not being triggered
@@ -240,7 +236,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	})
 
 	t.Run("not stuck, MinAttempts amount of attempts have not been broadcasted", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		enabledAddresses := []common.Address{fromAddress}
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
 		// Create fewer attempts than autoPurgeMinAttempts to test min attempt check
@@ -254,7 +250,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	})
 
 	t.Run("not stuck, transaction gas price is lower than market gas price", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		enabledAddresses := []common.Address{fromAddress}
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
 		// Create autoPurgeMinAttempts number of attempts to ensure the broadcast attempt count check is not being triggered
@@ -268,7 +264,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	})
 
 	t.Run("detects stuck transaction", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		enabledAddresses := []common.Address{fromAddress}
 		// Create attempts so that the oldest broadcast attempt's block num is what meets the threshold check
 		// Create autoPurgeMinAttempts number of attempts to ensure the broadcast attempt count check is not being triggered
@@ -282,7 +278,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	})
 
 	t.Run("detects stuck transaction with empty BroadcastBeforeBlockNum in attempts will be skipped without panic", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		enabledAddresses := []common.Address{fromAddress}
 		mustInsertUnconfirmedTxWithBroadcastAttemptsContainsEmptyBroadcastBeforeBlockNum(t, txStore, 0, fromAddress, autoPurgeMinAttempts, marketGasPrice.Add(oneGwei))
 		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, enabledAddresses, blockNum)
@@ -296,7 +292,6 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
@@ -317,7 +312,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, chaintype.ChainZircuit, assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 
 	t.Run("returns empty list if no fraud or stuck transactions identified", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, 1, blockNum, tenGwei)
 		attempts := tx.TxAttempts[0]
 		// Request still returns transaction by hash, transaction not discarded by network and not considered stuck
@@ -338,7 +333,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 	})
 
 	t.Run("returns fraud transactions identified", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, 1, blockNum, tenGwei)
 		attempts := tx.TxAttempts[0]
 		// Request still returns transaction by hash, transaction not discarded by network and not considered stuck
@@ -359,7 +354,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 	})
 
 	t.Run("returns the transaction only once if it's identified as both fraud and stuck", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold)+int64(autoPurgeMinAttempts-1), marketGasPrice.Add(oneGwei))
 		attempts := tx.TxAttempts[0]
 
@@ -379,7 +374,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 		require.Len(t, txs, 1)
 	})
 	t.Run("returns the stuck tx even if failed to detect fraud tx", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold)+int64(autoPurgeMinAttempts-1), marketGasPrice.Add(oneGwei))
 		attempts := tx.TxAttempts[0]
 
@@ -398,7 +393,6 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
@@ -411,7 +405,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 
 	t.Run("returns empty list if no stuck transactions identified", func(t *testing.T) {
 		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, chaintype.ChainZkEvm, assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, 1, blockNum, tenGwei)
 		attempts := tx.TxAttempts[0]
 		// Request still returns transaction by hash, transaction not discarded by network and not considered stuck
@@ -432,11 +426,11 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 	t.Run("returns stuck transactions discarded by chain", func(t *testing.T) {
 		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, chaintype.ChainZkEvm, assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 		// Insert tx that will be mocked as stuck
-		_, fromAddress1 := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress1 := testutils.NewAddress()
 		mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress1, 1, blockNum, tenGwei)
 
 		// Insert tx that will still be valid
-		_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress2 := testutils.NewAddress()
 		mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress2, 1, blockNum, tenGwei)
 
 		// Return nil response for a tx and a normal response for the other
@@ -460,7 +454,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 		autoPurgeCfg.minAttempts = ptr(uint32(2))
 		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, chaintype.ChainZkEvm, assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 		// Insert tx with enough attempts for detection
-		_, fromAddress1 := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress1 := testutils.NewAddress()
 		etx1 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress1, 1, blockNum, tenGwei)
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx1.ID)
 		attempt.TxFee.GasPrice = assets.NewWeiI(2)
@@ -468,7 +462,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 
 		// Insert tx that will be skipped for too few attempts
-		_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress2 := testutils.NewAddress()
 		mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress2, 1, blockNum, tenGwei)
 
 		// Return nil response for a tx and a normal response for the other
@@ -490,7 +484,6 @@ func TestStuckTxDetector_DetectStuckTransactionsScroll(t *testing.T) {
 
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
@@ -500,12 +493,12 @@ func TestStuckTxDetector_DetectStuckTransactionsScroll(t *testing.T) {
 
 	t.Run("returns stuck tx identified using the custom scroll API", func(t *testing.T) {
 		// Insert tx that will be mocked as stuck
-		_, fromAddress1 := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress1 := testutils.NewAddress()
 		tx1 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress1, 1, blockNum, tenGwei)
 		attempts1 := tx1.TxAttempts[0]
 
 		// Insert tx that will still be valid
-		_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress2 := testutils.NewAddress()
 		tx2 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress2, 1, blockNum, tenGwei)
 		attempts2 := tx2.TxAttempts[0]
 

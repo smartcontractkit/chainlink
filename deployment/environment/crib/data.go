@@ -7,7 +7,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
@@ -68,8 +69,8 @@ func (r *OutputReader) ReadChainConfigs() ([]devenv.ChainConfig, error) {
 	return result, nil
 }
 
-func (r *OutputReader) ReadAddressBook() (*deployment.AddressBookMap, error) {
-	var result map[uint64]map[string]deployment.TypeAndVersion
+func (r *OutputReader) ReadAddressBook() (*cldf.AddressBookMap, error) {
+	var result map[uint64]map[string]cldf.TypeAndVersion
 	byteValue, err := r.readCRIBDataFile(AddressBookFileName)
 	if err != nil {
 		return nil, err
@@ -81,7 +82,7 @@ func (r *OutputReader) ReadAddressBook() (*deployment.AddressBookMap, error) {
 		return nil, err
 	}
 
-	return deployment.NewMemoryAddressBookFromMap(result), nil
+	return cldf.NewMemoryAddressBookFromMap(result), nil
 }
 
 func (r *OutputReader) readCRIBDataFile(fileName string) ([]byte, error) {

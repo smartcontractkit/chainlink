@@ -7,6 +7,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -26,7 +28,7 @@ func (l TerminalErrorExampleChangeset) VerifyPreconditions(e deployment.Environm
 }
 
 func (l TerminalErrorExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	_, err := operations.ExecuteOperation(e.OperationsBundle, TerminalErrorOperation, nil, operations.EmptyInput{})
 	if err != nil {

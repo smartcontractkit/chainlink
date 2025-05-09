@@ -15,6 +15,8 @@ import (
 	accessControllerBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/access_controller"
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -33,7 +35,7 @@ type OwnableContract struct {
 	ProgramID solana.PublicKey
 	Seed      [32]byte
 	OwnerPDA  solana.PublicKey
-	Type      deployment.ContractType
+	Type      cldf.ContractType
 }
 
 // TransferToTimelockSolana transfers a set of Solana "contracts" to the Timelock
@@ -58,7 +60,7 @@ func (t *TransferToTimelockSolana) VerifyPreconditions(
 		}
 
 		for _, contract := range contracts {
-			exists, err := deployment.AddressBookContains(env.ExistingAddresses, chainSelector, contract.ProgramID.String())
+			exists, err := cldf.AddressBookContains(env.ExistingAddresses, chainSelector, contract.ProgramID.String())
 			if err != nil {
 				return fmt.Errorf("failed to search address book for program id: %w", err)
 			}
@@ -70,19 +72,19 @@ func (t *TransferToTimelockSolana) VerifyPreconditions(
 				continue
 			}
 
-			exists, err = deployment.AddressBookContains(env.ExistingAddresses, chainSelector, base58.Encode(contract.Seed[:]))
+			exists, err = cldf.AddressBookContains(env.ExistingAddresses, chainSelector, base58.Encode(contract.Seed[:]))
 			if err != nil {
 				return fmt.Errorf("failed to search address book for seed (%s): %w", base58.Encode(contract.Seed[:]), err)
 			}
 			if !exists {
 				address := solanaAddress(contract.ProgramID, contract.Seed)
-				exists, err = deployment.AddressBookContains(env.ExistingAddresses, chainSelector, address)
+				exists, err = cldf.AddressBookContains(env.ExistingAddresses, chainSelector, address)
 				if err != nil {
 					return fmt.Errorf("failed to search address book for seed (%s): %w", address, err)
 				}
 			}
 			if !exists {
-				exists, err = deployment.AddressBookContains(env.ExistingAddresses, chainSelector, string(contract.Seed[:]))
+				exists, err = cldf.AddressBookContains(env.ExistingAddresses, chainSelector, string(contract.Seed[:]))
 				if err != nil {
 					return fmt.Errorf("failed to search address book for seed (%s): %w", string(contract.Seed[:]), err)
 				}
@@ -350,9 +352,9 @@ func (s *seededInstruction) ProgramID() solana.PublicKey {
 	return s.programID
 }
 
-func addressBookContains(addressBook deployment.AddressBook, chainSelector uint64, ctypes ...deployment.ContractType) error {
+func addressBookContains(addressBook cldf.AddressBook, chainSelector uint64, ctypes ...cldf.ContractType) error {
 	for _, ctype := range ctypes {
-		_, err := deployment.SearchAddressBook(addressBook, chainSelector, ctype)
+		_, err := cldf.SearchAddressBook(addressBook, chainSelector, ctype)
 		if err != nil {
 			return fmt.Errorf("address book does not contain a %s contract for chain %d", ctype, chainSelector)
 		}

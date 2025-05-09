@@ -9,7 +9,7 @@ EXTRA_FLAGS="-timeout 16m"
 
 if [[ -n "$USE_FLAKEGUARD" ]]; then
   # Install flakeguard
-  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7f8fa09251be87f51357ffc517fd93cd408f5723
+  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25
   # Install gotestsum to parse JSON test outputs from flakeguard to console outputs
   go install gotest.tools/gotestsum@latest
   # Make sure bins are in PATH
@@ -24,7 +24,6 @@ if [[ -n "$USE_FLAKEGUARD" ]]; then
     --rerun-failed-count=3 \
     --min-pass-ratio=1 \
     --go-test-timeout=16m \
-    --omit-test-outputs-on-success=true \
     --main-results-path="go_core_tests_flakeguard_results/main/test_results.json" \
     --rerun-results-path="go_core_tests_flakeguard_results/rerun/test_results.json"
   EXITCODE=${PIPESTATUS[0]}

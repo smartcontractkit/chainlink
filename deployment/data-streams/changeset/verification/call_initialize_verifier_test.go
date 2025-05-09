@@ -7,7 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"

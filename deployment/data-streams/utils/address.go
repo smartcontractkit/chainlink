@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 func EnvironmentAddresses(e deployment.Environment) (addresses map[string]deployment.TypeAndVersion, err error) {

@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-
 	feemanager "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
 
 	"github.com/smartcontractkit/chainlink/deployment"

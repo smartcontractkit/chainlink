@@ -174,7 +174,7 @@ jobs:
             os: ${{ needs.runner-config.outputs.core-tests-runner }}
             is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            use-flakeguard: ${{ github.event_name == 'merge_group' && 'true' || 'false' }}
+            use-flakeguard: 'true'
 
           - cmd: go_core_tests_integration
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
@@ -197,7 +197,7 @@ jobs:
             is-self-hosted: ${{ needs.runner-config.outputs.deployment-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             setup-solana: "true"
-            use-flakeguard: ${{ github.event_name == 'merge_group' && 'true' || 'false' }}
+            use-flakeguard: 'true'
 
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources

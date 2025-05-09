@@ -9,6 +9,9 @@ import (
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -29,7 +32,7 @@ func DeployCache(chain deployment.Chain, labels []string) (*types.DeployCacheRes
 		return nil, fmt.Errorf("failed to get type and version: %w", err)
 	}
 
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
@@ -60,7 +63,7 @@ func DeployAggregatorProxy(chain deployment.Chain, aggregator common.Address, ac
 
 	// AggregatorProxy contract doesn't implement typeAndVersion interface, so we have to set it manually
 	tvStr := "AggregatorProxy 1.0.0"
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
@@ -93,7 +96,7 @@ func DeployBundleAggregatorProxy(chain deployment.Chain, aggregator common.Addre
 	if err != nil {
 		return nil, fmt.Errorf("failed to get type and version: %w", err)
 	}
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
