@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -37,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangesetSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -525,6 +527,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
 		allChains,
 	)
+
 	if tc.IsStaticLink {
 		deployLinkApp = commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployStaticLinkToken),
@@ -545,6 +548,21 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 		),
 	)
 	require.NoError(t, err)
+	if len(solChains) > 0 {
+		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
+		deploySolanaLinkApp := commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(commonchangesetSolana.DeploySolanaLinkToken),
+			commonchangesetSolana.DeploySolanaLinkTokenConfig{
+				ChainSelector: solChains[0],
+				TokenPrivKey:  solLinkTokenPrivKey,
+				TokenDecimals: 9,
+			},
+		)
+		e.Env, err = commonchangeset.Apply(t, e.Env, nil,
+			deploySolanaLinkApp,
+		)
+		require.NoError(t, err)
+	}
 	tEnv.UpdateDeployedEnvironment(e)
 	return e
 }

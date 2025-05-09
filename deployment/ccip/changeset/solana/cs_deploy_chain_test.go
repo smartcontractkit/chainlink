@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangesetSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
@@ -70,6 +71,7 @@ func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipCh
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
 	mcmsConfig := proposalutils.SingleGroupTimelockConfigV2(t)
+	solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
 	return []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
@@ -84,8 +86,12 @@ func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipCh
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			e.AllChainSelectorsSolana(),
+			cldf.CreateLegacyChangeSet(commonchangesetSolana.DeploySolanaLinkToken),
+			commonchangesetSolana.DeploySolanaLinkTokenConfig{
+				ChainSelector: solChainSelectors[0],
+				TokenPrivKey:  solLinkTokenPrivKey,
+				TokenDecimals: 9,
+			},
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),

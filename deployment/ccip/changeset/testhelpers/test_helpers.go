@@ -30,6 +30,7 @@ import (
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commoncsSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -2307,11 +2308,6 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 	})
 	chain1 := e.AllChainSelectors()[0]
 	config := []uint64{chain1}
-	var solChain1 uint64
-	if solChains > 0 {
-		solChain1 = e.AllChainSelectorsSolana()[0]
-		config = append(config, solChain1)
-	}
 
 	e, err := commoncs.Apply(t, e, nil,
 		commoncs.Configure(cldf.CreateLegacyChangeSet(commoncs.DeployLinkToken), config),
@@ -2327,7 +2323,15 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 
 	// solana test
 	if solChains > 0 {
-		addrs, err = e.ExistingAddresses.AddressesForChain(solChain1)
+		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
+		e, err := commoncs.Apply(t, e, nil,
+			commoncs.Configure(cldf.CreateLegacyChangeSet(commoncsSolana.DeploySolanaLinkToken), commoncsSolana.DeploySolanaLinkTokenConfig{
+				ChainSelector: e.AllChainSelectorsSolana()[0],
+				TokenPrivKey:  solLinkTokenPrivKey,
+				TokenDecimals: 9,
+			}),
+		)
+		addrs, err = e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
 		require.NoError(t, err)
 		require.NotEmpty(t, addrs)
 	}

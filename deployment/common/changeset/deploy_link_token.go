@@ -1,17 +1,12 @@
 package changeset
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
@@ -23,10 +18,6 @@ import (
 )
 
 var _ deployment.ChangeSet[[]uint64] = DeployLinkToken
-
-const (
-	TokenDecimalsSolana = 9
-)
 
 // DeployLinkToken deploys a link token contract to the chain identified by the ChainSelector.
 func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.ChangesetOutput, error) {
@@ -48,14 +39,6 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.Chan
 			deployFn = func() error {
 				_, err := deployLinkTokenContractEVM(
 					e.Logger, e.Chains[chain], newAddresses,
-				)
-				return err
-			}
-		case chainsel.FamilySolana:
-			// Deploy Solana LINK token
-			deployFn = func() error {
-				err := deployLinkTokenContractSolana(
-					e.Logger, e.SolChains[chain], newAddresses,
 				)
 				return err
 			}
@@ -130,40 +113,4 @@ func deployLinkTokenContractEVM(
 		return linkToken, err
 	}
 	return linkToken, nil
-}
-
-func deployLinkTokenContractSolana(
-	lggr logger.Logger,
-	chain deployment.SolChain,
-	ab deployment.AddressBook,
-) error {
-	tokenAdminPubKey := chain.DeployerKey.PublicKey()
-	mint, _ := solana.NewRandomPrivateKey()
-	mintPublicKey := mint.PublicKey() // this is the token address
-	instructions, err := solTokenUtil.CreateToken(
-		context.Background(),
-		solana.Token2022ProgramID,
-		mintPublicKey,
-		tokenAdminPubKey,
-		TokenDecimalsSolana,
-		chain.Client,
-		cldf.SolDefaultCommitment,
-	)
-	if err != nil {
-		lggr.Errorw("Failed to generate instructions for link token deployment", "chain", chain.String(), "err", err)
-		return err
-	}
-	err = chain.Confirm(instructions, solCommomUtil.AddSigners(mint))
-	if err != nil {
-		lggr.Errorw("Failed to confirm instructions for link token deployment", "chain", chain.String(), "err", err)
-		return err
-	}
-	tv := deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
-	lggr.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.PublicKey().String(), "chain", chain.String())
-	err = ab.Save(chain.Selector, mint.PublicKey().String(), tv)
-	if err != nil {
-		lggr.Errorw("Failed to save link token", "chain", chain.String(), "err", err)
-		return err
-	}
-	return nil
 }
