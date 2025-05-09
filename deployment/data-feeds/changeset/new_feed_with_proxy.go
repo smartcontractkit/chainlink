@@ -8,7 +8,9 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -26,7 +28,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 	chain := env.Chains[c.ChainSelector]
 	state, _ := LoadOnchainState(env)
 	chainState := state.Chains[c.ChainSelector]
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, nil)
 	if dataFeedsCacheAddress == "" {
@@ -55,7 +57,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to execute DeployAggregatorProxyChangeset: %w", err)
 		}
-		proxyAddress, err := deployment.SearchAddressBook(newEnv.AddressBook, c.ChainSelector, "AggregatorProxy")
+		proxyAddress, err := cldf.SearchAddressBook(newEnv.AddressBook, c.ChainSelector, "AggregatorProxy")
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("AggregatorProxy not present in addressbook: %w", err)
 		}
@@ -64,7 +66,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 		// We don't use the existing changesets so that we can batch the transactions into a single MCMS proposal
 
 		// transfer proxy ownership
-		timelockAddr, _ := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock)
+		timelockAddr, _ := cldf.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock)
 		_, proxyContract, err := changeset.LoadOwnableContract(common.HexToAddress(proxyAddress), chain.Client)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to load proxy contract %w", err)

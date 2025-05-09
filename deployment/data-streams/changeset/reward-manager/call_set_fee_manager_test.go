@@ -6,10 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	feeManagerCs "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
@@ -41,7 +43,7 @@ func runSetFeeManagerTest(t *testing.T, useMCMS bool) {
 
 	require.NoError(t, err)
 
-	feeManagerAddrHex, err := deployment.SearchAddressBook(e.ExistingAddresses, testutil.TestChain.Selector, types.FeeManager)
+	feeManagerAddrHex, err := cldf.SearchAddressBook(e.ExistingAddresses, testutil.TestChain.Selector, types.FeeManager)
 	require.NoError(t, err)
 
 	feeManagerAddr := common.HexToAddress(feeManagerAddrHex)

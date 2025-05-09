@@ -18,6 +18,8 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	ccipTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -124,8 +126,8 @@ func (tc *TimelockConfig) ValidateSolana(e deployment.Environment, chainSelector
 		return err
 	}
 
-	validateContract := func(contractType deployment.ContractType) error {
-		timelockID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, contractType) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
+	validateContract := func(contractType cldf.ContractType) error {
+		timelockID, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, contractType) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
 		if err != nil {
 			return fmt.Errorf("%s not present on the chain %w", contractType, err)
 		}

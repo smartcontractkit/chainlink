@@ -9,6 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -48,10 +50,10 @@ func LoadOnchainState(e deployment.Environment) (DataStreamsOnChainState, error)
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
-			if !errors.Is(err, deployment.ErrChainNotFound) {
+			if !errors.Is(err, cldf.ErrChainNotFound) {
 				return state, err
 			}
-			addresses = make(map[string]deployment.TypeAndVersion)
+			addresses = make(map[string]cldf.TypeAndVersion)
 		}
 		chainState, err := LoadChainState(e.Logger, chain, addresses)
 		if err != nil {
@@ -63,7 +65,7 @@ func LoadOnchainState(e deployment.Environment) (DataStreamsOnChainState, error)
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*DataStreamsChainState, error) {
+func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*DataStreamsChainState, error) {
 	var cc DataStreamsChainState
 
 	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
@@ -86,49 +88,49 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 		}
 
 		switch tv.String() {
-		case deployment.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0).String():
 			ccs, err := channel_config_store.NewChannelConfigStore(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
 			}
 			cc.ChannelConfigStores[common.HexToAddress(address)] = ccs
 
-		case deployment.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0).String():
+		case cldf.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0).String():
 			ccs, err := fee_manager.NewFeeManager(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
 			}
 			cc.FeeManagers[common.HexToAddress(address)] = ccs
 
-		case deployment.NewTypeAndVersion(commonTypes.LinkToken, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(commonTypes.LinkToken, deployment.Version1_0_0).String():
 			ccs, err := link_token_interface.NewLinkToken(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
 			}
 			cc.LinkTokens[common.HexToAddress(address)] = ccs
 
-		case deployment.NewTypeAndVersion(types.Configurator, deployment.Version0_5_0).String():
+		case cldf.NewTypeAndVersion(types.Configurator, deployment.Version0_5_0).String():
 			ccs, err := configurator.NewConfigurator(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
 			}
 			cc.Configurators[common.HexToAddress(address)] = ccs
 
-		case deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0).String():
+		case cldf.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0).String():
 			ccs, err := rewardManager.NewRewardManager(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
 			}
 			cc.RewardManagers[common.HexToAddress(address)] = ccs
 
-		case deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0).String():
+		case cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0).String():
 			ccs, err := verifier.NewVerifier(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
 			}
 			cc.Verifiers[common.HexToAddress(address)] = ccs
 
-		case deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0).String():
+		case cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0).String():
 			css, err := verifier_proxy_v0_5_0.NewVerifierProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err

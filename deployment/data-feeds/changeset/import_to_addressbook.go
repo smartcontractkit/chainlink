@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -14,13 +16,13 @@ import (
 var ImportToAddressbookChangeset = cldf.CreateChangeSet(importToAddressbookLogic, importToAddressbookPrecondition)
 
 type AddressesSchema struct {
-	Address        string                    `json:"address"`
-	TypeAndVersion deployment.TypeAndVersion `json:"typeAndVersion"`
-	Label          string                    `json:"label"`
+	Address        string              `json:"address"`
+	TypeAndVersion cldf.TypeAndVersion `json:"typeAndVersion"`
+	Label          string              `json:"label"`
 }
 
 func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddressbookConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	addresses, _ := LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
 

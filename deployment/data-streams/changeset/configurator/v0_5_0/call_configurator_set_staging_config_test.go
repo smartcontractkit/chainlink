@@ -13,7 +13,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
@@ -37,7 +39,7 @@ func TestCallSetStagingConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ab, 1)
 
-	configuratorAddrHex, err := deployment.SearchAddressBook(e.ExistingAddresses, testutil.TestChain.Selector, types.Configurator)
+	configuratorAddrHex, err := cldf.SearchAddressBook(e.ExistingAddresses, testutil.TestChain.Selector, types.Configurator)
 	configuratorAddr := common.HexToAddress(configuratorAddrHex)
 
 	require.NoError(t, err)

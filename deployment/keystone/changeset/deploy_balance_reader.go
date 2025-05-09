@@ -6,6 +6,9 @@ import (
 	"slices"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -21,7 +24,7 @@ type DeployBalanceReaderRequest struct {
 // Deprecated: use DeployBalanceReaderV2 instead
 func DeployBalanceReader(env deployment.Environment, cfg DeployBalanceReaderRequest) (deployment.ChangesetOutput, error) {
 	out := deployment.ChangesetOutput{
-		AddressBook: deployment.NewMemoryAddressBook(),
+		AddressBook: cldf.NewMemoryAddressBook(),
 		DataStore:   datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata](),
 	}
 

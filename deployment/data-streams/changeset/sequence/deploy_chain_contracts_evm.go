@@ -6,6 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	feemanager "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
@@ -16,7 +18,7 @@ import (
 )
 
 // deployChainComponentsEVM deploys all necessary components for a single evm chain
-func deployChainComponentsEVM(env deployment.Environment, chain uint64, cfg DeployDataStreams, newAddresses deployment.AddressBook) ([]mcms.TimelockProposal, error) {
+func deployChainComponentsEVM(env deployment.Environment, chain uint64, cfg DeployDataStreams, newAddresses cldf.AddressBook) ([]mcms.TimelockProposal, error) {
 	var timelockProposals []mcms.TimelockProposal
 
 	// Step 1: Deploy MCMS if configured
@@ -65,7 +67,7 @@ func deployChainComponentsEVM(env deployment.Environment, chain uint64, cfg Depl
 }
 
 // deployVerifierProxy deploys VerifierProxy contract
-func deployVerifierProxy(env deployment.Environment, chain uint64, cfg DeployDataStreams, newAddresses deployment.AddressBook) (common.Address, []mcms.TimelockProposal, error) {
+func deployVerifierProxy(env deployment.Environment, chain uint64, cfg DeployDataStreams, newAddresses cldf.AddressBook) (common.Address, []mcms.TimelockProposal, error) {
 	verifierProxyCfg := verification.DeployVerifierProxyConfig{
 		ChainsToDeploy: map[uint64]verification.DeployVerifierProxy{
 			chain: {}, // Implement AccessController as needed
@@ -96,7 +98,7 @@ func deployVerifierProxy(env deployment.Environment, chain uint64, cfg DeployDat
 }
 
 // deployVerifier deploys Verifier contract
-func deployVerifier(env deployment.Environment, chain uint64, cfg DeployDataStreams, verifierProxyAddr common.Address, newAddresses deployment.AddressBook) (common.Address, []mcms.TimelockProposal, error) {
+func deployVerifier(env deployment.Environment, chain uint64, cfg DeployDataStreams, verifierProxyAddr common.Address, newAddresses cldf.AddressBook) (common.Address, []mcms.TimelockProposal, error) {
 	verifierCfg := verification.DeployVerifierConfig{
 		ChainsToDeploy: map[uint64]verification.DeployVerifier{
 			chain: {VerifierProxyAddress: verifierProxyAddr},
@@ -167,7 +169,7 @@ func setVerifierConfig(env deployment.Environment, chain uint64, cfg DeployDataS
 }
 
 // deployBillingComponents deploys and configures RewardManager and FeeManager
-func deployBillingComponents(env deployment.Environment, chain uint64, cfg DeployDataStreams, verifierProxyAddr common.Address, newAddresses deployment.AddressBook) ([]mcms.TimelockProposal, error) {
+func deployBillingComponents(env deployment.Environment, chain uint64, cfg DeployDataStreams, verifierProxyAddr common.Address, newAddresses cldf.AddressBook) ([]mcms.TimelockProposal, error) {
 	var timelockProposals []mcms.TimelockProposal
 
 	// Step 1: Deploy RewardManager
@@ -203,7 +205,7 @@ func deployBillingComponents(env deployment.Environment, chain uint64, cfg Deplo
 }
 
 // deployRewardManager deploys the RewardManager contract
-func deployRewardManager(env deployment.Environment, chain uint64, cfg DeployDataStreams, newAddresses deployment.AddressBook) (common.Address, []mcms.TimelockProposal, error) {
+func deployRewardManager(env deployment.Environment, chain uint64, cfg DeployDataStreams, newAddresses cldf.AddressBook) (common.Address, []mcms.TimelockProposal, error) {
 	rewardMgrCfg := rewardmanager.DeployRewardManagerConfig{
 		ChainsToDeploy: map[uint64]rewardmanager.DeployRewardManager{
 			chain: {LinkTokenAddress: cfg.Billing.Config.LinkTokenAddress},
@@ -233,7 +235,7 @@ func deployRewardManager(env deployment.Environment, chain uint64, cfg DeployDat
 }
 
 // deployFeeManager deploys the FeeManager contract
-func deployFeeManager(env deployment.Environment, chain uint64, cfg DeployDataStreams, verifierProxyAddr, rewardMgrAddr common.Address, newAddresses deployment.AddressBook) (common.Address, []mcms.TimelockProposal, error) {
+func deployFeeManager(env deployment.Environment, chain uint64, cfg DeployDataStreams, verifierProxyAddr, rewardMgrAddr common.Address, newAddresses cldf.AddressBook) (common.Address, []mcms.TimelockProposal, error) {
 	feeMgrCfg := feemanager.DeployFeeManagerConfig{
 		ChainsToDeploy: map[uint64]feemanager.DeployFeeManager{
 			chain: {
@@ -331,7 +333,7 @@ func setFeeManagerOnRewardManager(env deployment.Environment, chain uint64, rewa
 }
 
 // deployMCMS deploys Multi-Chain Management System
-func deployMCMS(env deployment.Environment, chain uint64, cfg DeployDataStreams, newAddresses deployment.AddressBook) ([]mcms.TimelockProposal, error) {
+func deployMCMS(env deployment.Environment, chain uint64, cfg DeployDataStreams, newAddresses cldf.AddressBook) ([]mcms.TimelockProposal, error) {
 	mcmsDeployCfg := changeset.DeployMCMSConfig{
 		ChainsToDeploy: []uint64{chain},
 		Ownership:      cfg.Ownership.AsSettings(),

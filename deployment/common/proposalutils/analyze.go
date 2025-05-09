@@ -13,7 +13,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 const Indent = "    "
@@ -53,7 +53,7 @@ func ContextGet[T any](ctx *ArgumentContext, key string) (T, error) {
 	return ctxElem, nil
 }
 
-func NewArgumentContext(addresses deployment.AddressesByChain) *ArgumentContext {
+func NewArgumentContext(addresses cldf.AddressesByChain) *ArgumentContext {
 	return &ArgumentContext{
 		Ctx: map[string]interface{}{
 			"AddressesByChain": addresses,
@@ -169,7 +169,7 @@ type AddressArgument struct {
 
 func (a AddressArgument) Describe(ctx *ArgumentContext) string {
 	description := a.Value + " (address of <type unknown> from <chain unknown>)"
-	addresses, err := ContextGet[deployment.AddressesByChain](ctx, "AddressesByChain")
+	addresses, err := ContextGet[cldf.AddressesByChain](ctx, "AddressesByChain")
 	if err != nil {
 		return description
 	}

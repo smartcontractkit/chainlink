@@ -8,6 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -20,7 +22,7 @@ import (
 
 type GetContractSetsRequest struct {
 	Chains      map[uint64]deployment.Chain
-	AddressBook deployment.AddressBook
+	AddressBook cldf.AddressBook
 
 	// Labels indicates the label set that a contract must include to be considered as a member
 	// of the returned contract set.  By default, an empty label set implies that only contracts without
@@ -87,7 +89,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 
 		// Forwarder addresses now have informative labels, but we don't want them to be ignored if no labels are provided for filtering.
 		// If labels are provided, just filter by those.
-		forwarderAddrs := make(map[string]deployment.TypeAndVersion)
+		forwarderAddrs := make(map[string]cldf.TypeAndVersion)
 		if len(req.Labels) == 0 {
 			for addr, tv := range addrs {
 				if tv.Type == KeystoneForwarder {
@@ -113,7 +115,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 	return resp, nil
 }
 
-func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
+func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
 	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
@@ -40,7 +41,7 @@ func (cc DeployRewardManagerConfig) Validate() error {
 }
 
 func deployRewardManagerLogic(e deployment.Environment, cc DeployRewardManagerConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	err := deployRewardManager(e, ab, cc)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy RewardManager", "err", err, "addresses", ab)
@@ -48,7 +49,7 @@ func deployRewardManagerLogic(e deployment.Environment, cc DeployRewardManagerCo
 	}
 
 	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
-		filter := deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0)
+		filter := cldf.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0)
 		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.Ownership.MCMSProposalConfig)
 	}
 
@@ -65,7 +66,7 @@ func deployRewardManagerPrecondition(_ deployment.Environment, cc DeployRewardMa
 	return nil
 }
 
-func deployRewardManager(e deployment.Environment, ab deployment.AddressBook, cc DeployRewardManagerConfig) error {
+func deployRewardManager(e deployment.Environment, ab cldf.AddressBook, cc DeployRewardManagerConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployRewardManagerConfig: %w", err)
 	}
@@ -116,7 +117,7 @@ func RewardManagerDeployFn(linkAddress common.Address) changeset.ContractDeployF
 			Address:  ccsAddr,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

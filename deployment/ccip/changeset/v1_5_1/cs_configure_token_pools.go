@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -80,7 +82,7 @@ type SolChainUpdate struct {
 	// TokenAddress is the address of the token on the Solana chain.
 	TokenAddress string
 	// Type is the type of the token pool.
-	Type deployment.ContractType
+	Type cldf.ContractType
 	// Metadata is an identifier for which instance of the token pool this is.
 	// This is used to differentiate between multiple token pools on the same chain.
 	// e.g. "CLL" for the CLL token pool, "Partner1" for the partner token pool, etc.
@@ -140,7 +142,7 @@ type TokenPoolConfig struct {
 	// SolChainUpdates defines the Solana chains and corresponding rate limits that should be defined on the token pool.
 	SolChainUpdates map[uint64]SolChainUpdate
 	// Type is the type of the token pool.
-	Type deployment.ContractType
+	Type cldf.ContractType
 	// Version is the version of the token pool.
 	Version semver.Version
 	// OverrideTokenSymbol is the token symbol to use to override against main symbol (ex: override to clCCIP-LnM when the main token symbol is CCIP-LnM)
@@ -459,7 +461,7 @@ func configureTokenPool(
 func GetTokenStateFromPoolEVM(
 	ctx context.Context,
 	symbol changeset.TokenSymbol,
-	poolType deployment.ContractType,
+	poolType cldf.ContractType,
 	version semver.Version,
 	chain deployment.Chain,
 	state changeset.CCIPChainState,

@@ -9,6 +9,9 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	view "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -33,7 +36,7 @@ type MCMSWithTimelockProgramsSolana struct {
 	BypasserAccessControllerAccount  solana.PublicKey
 }
 
-func (s *MCMSWithTimelockProgramsSolana) GetStateFromType(programType deployment.ContractType) (solana.PublicKey, PDASeed, error) {
+func (s *MCMSWithTimelockProgramsSolana) GetStateFromType(programType cldf.ContractType) (solana.PublicKey, PDASeed, error) {
 	switch programType {
 	case types.ManyChainMultisigProgram:
 		return s.McmProgram, PDASeed{}, nil
@@ -62,7 +65,7 @@ func (s *MCMSWithTimelockProgramsSolana) GetStateFromType(programType deployment
 	}
 }
 
-func (s *MCMSWithTimelockProgramsSolana) SetState(contractType deployment.ContractType, program solana.PublicKey, seed PDASeed) error {
+func (s *MCMSWithTimelockProgramsSolana) SetState(contractType cldf.ContractType, program solana.PublicKey, seed PDASeed) error {
 	switch contractType {
 	case types.ManyChainMultisigProgram:
 		s.McmProgram = program
@@ -170,11 +173,11 @@ func MaybeLoadMCMSWithTimelockStateSolana(env deployment.Environment, chainSelec
 		}
 		addressesChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
-			if !errors.Is(err, deployment.ErrChainNotFound) {
+			if !errors.Is(err, cldf.ErrChainNotFound) {
 				return nil, fmt.Errorf("unable to get addresses for chain %v: %w", chainSelector, err)
 			}
 			// chain not found in address book, initialize empty
-			addressesChain = make(map[string]deployment.TypeAndVersion)
+			addressesChain = make(map[string]cldf.TypeAndVersion)
 		}
 		state, err := MaybeLoadMCMSWithTimelockChainStateSolana(chain, addressesChain)
 		if err != nil {
@@ -193,30 +196,30 @@ func MaybeLoadMCMSWithTimelockStateSolana(env deployment.Environment, chainSelec
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
-func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addresses map[string]deployment.TypeAndVersion) (*MCMSWithTimelockStateSolana, error) {
+func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockStateSolana, error) {
 	state := MCMSWithTimelockStateSolana{MCMSWithTimelockProgramsSolana: &MCMSWithTimelockProgramsSolana{}}
 
-	mcmProgram := deployment.NewTypeAndVersion(types.ManyChainMultisigProgram, deployment.Version1_0_0)
-	timelockProgram := deployment.NewTypeAndVersion(types.RBACTimelockProgram, deployment.Version1_0_0)
-	accessControllerProgram := deployment.NewTypeAndVersion(types.AccessControllerProgram, deployment.Version1_0_0)
-	proposerMCM := deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
-	cancellerMCM := deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
-	bypasserMCM := deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
-	timelock := deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
-	proposerAccessControllerAccount := deployment.NewTypeAndVersion(types.ProposerAccessControllerAccount, deployment.Version1_0_0)
-	executorAccessControllerAccount := deployment.NewTypeAndVersion(types.ExecutorAccessControllerAccount, deployment.Version1_0_0)
-	cancellerAccessControllerAccount := deployment.NewTypeAndVersion(types.CancellerAccessControllerAccount, deployment.Version1_0_0)
-	bypasserAccessControllerAccount := deployment.NewTypeAndVersion(types.BypasserAccessControllerAccount, deployment.Version1_0_0)
+	mcmProgram := cldf.NewTypeAndVersion(types.ManyChainMultisigProgram, deployment.Version1_0_0)
+	timelockProgram := cldf.NewTypeAndVersion(types.RBACTimelockProgram, deployment.Version1_0_0)
+	accessControllerProgram := cldf.NewTypeAndVersion(types.AccessControllerProgram, deployment.Version1_0_0)
+	proposerMCM := cldf.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
+	cancellerMCM := cldf.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
+	bypasserMCM := cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
+	timelock := cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+	proposerAccessControllerAccount := cldf.NewTypeAndVersion(types.ProposerAccessControllerAccount, deployment.Version1_0_0)
+	executorAccessControllerAccount := cldf.NewTypeAndVersion(types.ExecutorAccessControllerAccount, deployment.Version1_0_0)
+	cancellerAccessControllerAccount := cldf.NewTypeAndVersion(types.CancellerAccessControllerAccount, deployment.Version1_0_0)
+	bypasserAccessControllerAccount := cldf.NewTypeAndVersion(types.BypasserAccessControllerAccount, deployment.Version1_0_0)
 
 	// Convert map keys to a slice
-	wantTypes := []deployment.TypeAndVersion{
+	wantTypes := []cldf.TypeAndVersion{
 		mcmProgram, timelockProgram, accessControllerProgram, proposerMCM, cancellerMCM, bypasserMCM, timelock,
 		proposerAccessControllerAccount, executorAccessControllerAccount, cancellerAccessControllerAccount,
 		bypasserAccessControllerAccount,
 	}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.EnsureDeduped(addresses, wantTypes)
+	_, err := cldf.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
