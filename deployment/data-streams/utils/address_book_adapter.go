@@ -2,15 +2,15 @@ package utils
 
 import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 // AddressBookToDataStore converts an AddressBook to a DataStore
 // AddressBook is deprecated and will be removed in the future. You can use this function to migrate or interact with legacy code that uses AddressBook.
 // You can call this with your custom metadata like this:
 //
-//	ds, err := deployment.AddressBookToDataStore[metadata.CustomContractMetaData, datastore.CustomEnvMetaData](addressBook)
-func AddressBookToDataStore[CM datastore.Cloneable[CM], EM datastore.Cloneable[EM]](ab deployment.AddressBook) (datastore.DataStore[CM, EM], error) {
+//	ds, err := cldf.AddressBookToDataStore[metadata.CustomContractMetaData, datastore.CustomEnvMetaData](addressBook)
+func AddressBookToDataStore[CM datastore.Cloneable[CM], EM datastore.Cloneable[EM]](ab cldf.AddressBook) (datastore.DataStore[CM, EM], error) {
 	ds := datastore.NewMemoryDataStore[CM, EM]()
 
 	// Get all addresses from the AddressBook
@@ -45,8 +45,8 @@ func AddressBookToDataStore[CM datastore.Cloneable[CM], EM datastore.Cloneable[E
 // DataStoreToAddressBook converts a DataStore to an AddressBook
 // DataStore ContractMetadata and EnvMetadata are not preserved in the AddressBook.
 // AddressBook is deprecated and will be removed in the future. You can use this function to migrate or interact with legacy code that uses AddressBook.
-func DataStoreToAddressBook[CM datastore.Cloneable[CM], EM datastore.Cloneable[EM]](ds datastore.DataStore[CM, EM]) (deployment.AddressBook, error) {
-	ab := deployment.NewMemoryAddressBook()
+func DataStoreToAddressBook[CM datastore.Cloneable[CM], EM datastore.Cloneable[EM]](ds datastore.DataStore[CM, EM]) (cldf.AddressBook, error) {
+	ab := cldf.NewMemoryAddressBook()
 
 	// Get all addresses from the DataStore
 	addressRefs, err := ds.Addresses().Fetch()
@@ -57,10 +57,10 @@ func DataStoreToAddressBook[CM datastore.Cloneable[CM], EM datastore.Cloneable[E
 	// For each address, create a TypeAndVersion and add it to the AddressBook
 	for _, addressRef := range addressRefs {
 		// Create a TypeAndVersion
-		tv := deployment.TypeAndVersion{
-			Type:    deployment.ContractType(addressRef.Type),
+		tv := cldf.TypeAndVersion{
+			Type:    cldf.ContractType(addressRef.Type),
 			Version: *addressRef.Version,
-			Labels:  deployment.NewLabelSet(addressRef.Labels.List()...),
+			Labels:  cldf.NewLabelSet(addressRef.Labels.List()...),
 		}
 
 		// Add the TypeAndVersion to the AddressBook
@@ -75,7 +75,7 @@ func DataStoreToAddressBook[CM datastore.Cloneable[CM], EM datastore.Cloneable[E
 
 // AddressBookToNewDataStore converts an AddressBook to a new mutable DataStore
 // AddressBook is deprecated and will be removed in the future. You can use this function to migrate or interact with legacy code that uses AddressBook.
-func AddressBookToNewDataStore[CM datastore.Cloneable[CM], EM datastore.Cloneable[EM]](ab deployment.AddressBook) (*datastore.MemoryDataStore[CM, EM], error) {
+func AddressBookToNewDataStore[CM datastore.Cloneable[CM], EM datastore.Cloneable[EM]](ab cldf.AddressBook) (*datastore.MemoryDataStore[CM, EM], error) {
 	ds := datastore.NewMemoryDataStore[CM, EM]()
 
 	// Get all addresses from the AddressBook
@@ -105,13 +105,13 @@ func AddressBookToNewDataStore[CM datastore.Cloneable[CM], EM datastore.Cloneabl
 	return ds, nil
 }
 
-func AddressRefsToAddressBook(addressRefs []datastore.AddressRef) (deployment.AddressBook, error) {
-	ab := deployment.NewMemoryAddressBook()
+func AddressRefsToAddressBook(addressRefs []datastore.AddressRef) (cldf.AddressBook, error) {
+	ab := cldf.NewMemoryAddressBook()
 	for _, addressRef := range addressRefs {
-		tv := deployment.TypeAndVersion{
-			Type:    deployment.ContractType(addressRef.Type),
+		tv := cldf.TypeAndVersion{
+			Type:    cldf.ContractType(addressRef.Type),
 			Version: *addressRef.Version,
-			Labels:  deployment.NewLabelSet(addressRef.Labels.List()...),
+			Labels:  cldf.NewLabelSet(addressRef.Labels.List()...),
 		}
 
 		err := ab.Save(addressRef.ChainSelector, addressRef.Address, tv)
@@ -123,16 +123,16 @@ func AddressRefsToAddressBook(addressRefs []datastore.AddressRef) (deployment.Ad
 	return ab, nil
 }
 
-func AddressRefsToAddressByChain(addressRefs []datastore.AddressRef) deployment.AddressesByChain {
-	addressesByChain := make(deployment.AddressesByChain)
+func AddressRefsToAddressByChain(addressRefs []datastore.AddressRef) cldf.AddressesByChain {
+	addressesByChain := make(cldf.AddressesByChain)
 	for _, addressRef := range addressRefs {
 		if addressesByChain[addressRef.ChainSelector] == nil {
-			addressesByChain[addressRef.ChainSelector] = make(map[string]deployment.TypeAndVersion)
+			addressesByChain[addressRef.ChainSelector] = make(map[string]cldf.TypeAndVersion)
 		}
-		addressesByChain[addressRef.ChainSelector][addressRef.Address] = deployment.TypeAndVersion{
-			Type:    deployment.ContractType(addressRef.Type),
+		addressesByChain[addressRef.ChainSelector][addressRef.Address] = cldf.TypeAndVersion{
+			Type:    cldf.ContractType(addressRef.Type),
 			Version: *addressRef.Version,
-			Labels:  deployment.NewLabelSet(addressRef.Labels.List()...),
+			Labels:  cldf.NewLabelSet(addressRef.Labels.List()...),
 		}
 	}
 	return addressesByChain

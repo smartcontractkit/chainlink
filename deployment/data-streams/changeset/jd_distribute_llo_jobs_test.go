@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -74,10 +76,10 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
 	err = env.ExistingAddresses.Save(chainSelector, configuratorAddr,
-		deployment.TypeAndVersion{
+		cldf.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
-			Labels:  deployment.NewLabelSet("don-1"),
+			Labels:  cldf.NewLabelSet("don-1"),
 		})
 	require.NoError(t, err)
 

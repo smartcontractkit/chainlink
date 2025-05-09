@@ -39,7 +39,7 @@ func deployAndTransferMcmsLogic(e deployment.Environment, cc DeployMCMSConfig) (
 	}
 
 	// CallProxy has no owner, RBACTimelock has an "admin" setting in place of owner
-	transferContracts := []deployment.ContractType{
+	transferContracts := []cldf.ContractType{
 		commontypes.ProposerManyChainMultisig,
 		commontypes.BypasserManyChainMultisig,
 		commontypes.CancellerManyChainMultisig,

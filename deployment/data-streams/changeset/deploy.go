@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
@@ -31,7 +33,7 @@ type (
 		Address  common.Address
 		Contract C
 		Tx       *types.Transaction
-		Tv       deployment.TypeAndVersion
+		Tv       cldf.TypeAndVersion
 		Err      error
 		Block    uint64
 	}

@@ -7,15 +7,15 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-func EnvironmentAddresses(e deployment.Environment) (addresses map[string]deployment.TypeAndVersion, err error) {
-	addresses = make(map[string]deployment.TypeAndVersion)
+func EnvironmentAddresses(e cldf.Environment) (addresses map[string]cldf.TypeAndVersion, err error) {
+	addresses = make(map[string]cldf.TypeAndVersion)
 	records, err := e.DataStore.Addresses().Fetch()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch addresses from datastore: %w", err)
 	}
 	for _, record := range records {
-		addresses[record.Address] = deployment.TypeAndVersion{
-			Type:    deployment.ContractType(record.Type),
+		addresses[record.Address] = cldf.TypeAndVersion{
+			Type:    cldf.ContractType(record.Type),
 			Version: *record.Version,
 		}
 	}
@@ -23,7 +23,7 @@ func EnvironmentAddresses(e deployment.Environment) (addresses map[string]deploy
 }
 
 // GetContractAddress returns the address for a specific contract type. Used when expecting only one contract
-func GetContractAddress(addresses datastore.AddressRefStore, contractType deployment.ContractType) (string, error) {
+func GetContractAddress(addresses datastore.AddressRefStore, contractType cldf.ContractType) (string, error) {
 	records := addresses.Filter(datastore.AddressRefByType(datastore.ContractType(contractType)))
 	if len(records) != 1 {
 		return "", fmt.Errorf("expected 1 %s address, found %d", contractType, len(records))

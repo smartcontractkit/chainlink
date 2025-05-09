@@ -138,7 +138,7 @@ func channelConfigStoreDeployFn() changeset.ContractDeployFn[*channel_config_sto
 			Block:    bn,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0),
+			Tv:       cldf.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0),
 			Err:      nil,
 		}
 	}

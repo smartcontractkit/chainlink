@@ -148,7 +148,7 @@ func RewardManagerDeployFn(linkAddress common.Address) changeset.ContractDeployF
 			Block:    bn,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

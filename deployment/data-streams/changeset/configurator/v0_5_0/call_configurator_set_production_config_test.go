@@ -7,13 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	cldf "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment/data-streams/changeset"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
 
-	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
+	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 )
 
 func TestCallSetProductionConfig(t *testing.T) {

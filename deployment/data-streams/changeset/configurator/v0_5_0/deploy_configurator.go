@@ -139,7 +139,7 @@ func DeployFn() changeset.ContractDeployFn[*configurator.Configurator] {
 			Block:    bn,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.Configurator, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.Configurator, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

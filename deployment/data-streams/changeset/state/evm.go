@@ -25,6 +25,8 @@ import (
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 	verifier "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type DataStreamsEVMChainState struct {
@@ -57,10 +59,10 @@ func LoadOnchainState(e deployment.Environment) (DataStreamsOnChainState, error)
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
-			if !errors.Is(err, deployment.ErrChainNotFound) {
+			if !errors.Is(err, cldf.ErrChainNotFound) {
 				return state, err
 			}
-			addresses = make(map[string]deployment.TypeAndVersion)
+			addresses = make(map[string]cldf.TypeAndVersion)
 		}
 		chainState, err := LoadChainState(e.Logger, chain, addresses, envDatastore.ContractMetadata())
 		if err != nil {
@@ -73,7 +75,7 @@ func LoadOnchainState(e deployment.Environment) (DataStreamsOnChainState, error)
 
 func LoadChainState(logger logger.Logger,
 	chain deployment.Chain,
-	addresses map[string]deployment.TypeAndVersion,
+	addresses map[string]cldf.TypeAndVersion,
 	mdStore datastore.ContractMetadataStore[metadata.SerializedContractMetadata]) (*DataStreamsEVMChainState, error) {
 	var cc DataStreamsEVMChainState
 
@@ -96,7 +98,7 @@ func LoadChainState(logger logger.Logger,
 		}
 
 		switch tv.String() {
-		case deployment.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0).String():
 			ccs, err := channel_config_store.NewChannelConfigStore(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
@@ -112,7 +114,7 @@ func LoadChainState(logger logger.Logger,
 				Metadata: previousMetadata,
 			}
 
-		case deployment.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0).String():
+		case cldf.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0).String():
 			ccs, err := fee_manager.NewFeeManager(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
@@ -128,7 +130,7 @@ func LoadChainState(logger logger.Logger,
 				Metadata: previousMetadata,
 			}
 
-		case deployment.NewTypeAndVersion(types.Configurator, deployment.Version0_5_0).String():
+		case cldf.NewTypeAndVersion(types.Configurator, deployment.Version0_5_0).String():
 			ccs, err := configurator.NewConfigurator(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
@@ -144,7 +146,7 @@ func LoadChainState(logger logger.Logger,
 				Metadata: previousMetadata,
 			}
 
-		case deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0).String():
+		case cldf.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0).String():
 			ccs, err := rewardManager.NewRewardManager(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
@@ -160,7 +162,7 @@ func LoadChainState(logger logger.Logger,
 				Metadata: previousMetadata,
 			}
 
-		case deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0).String():
+		case cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0).String():
 			ccs, err := verifier.NewVerifier(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
@@ -176,7 +178,7 @@ func LoadChainState(logger logger.Logger,
 				Metadata: previousMetadata,
 			}
 
-		case deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0).String():
+		case cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0).String():
 			ccs, err := verifier_proxy_v0_5_0.NewVerifierProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err

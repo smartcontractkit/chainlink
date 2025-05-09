@@ -160,7 +160,7 @@ func verifyProxyDeployFn(cfg DeployVerifierProxy) changeset.ContractDeployFn[*ve
 			Block:    bn,
 			Contract: contract,
 			Tx:       tx,
-			Tv:       deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

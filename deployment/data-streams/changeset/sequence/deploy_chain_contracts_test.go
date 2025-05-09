@@ -63,13 +63,13 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 				}},
 			},
 			expectedContracts: []deployment.TypeAndVersion{
-				deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
-				deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
-				deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0),
-				deployment.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0),
-				deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0),
-				deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0),
-				deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0),
+				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0),
+				cldf.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0),
+				cldf.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0),
 			},
 		},
 		{
@@ -87,11 +87,11 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 				}},
 			},
 			expectedContracts: []deployment.TypeAndVersion{
-				deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
-				deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
-				deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0),
-				deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0),
-				deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0),
+				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0),
+				cldf.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0),
+				cldf.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0),
 			},
 		},
 		{
@@ -107,8 +107,8 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 				}},
 			},
 			expectedContracts: []deployment.TypeAndVersion{
-				deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
-				deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
 			},
 		},
 		{
@@ -120,8 +120,8 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 				}},
 			},
 			expectedContracts: []deployment.TypeAndVersion{
-				deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
-				deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
 			},
 		},
 	}

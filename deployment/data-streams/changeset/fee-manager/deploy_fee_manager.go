@@ -151,7 +151,7 @@ func FeeManagerDeployFn(cfg DeployFeeManager) changeset.ContractDeployFn[*fee_ma
 			Block:    bn,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

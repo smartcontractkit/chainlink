@@ -146,7 +146,7 @@ func VerifierDeployFn(verifierProxyAddress common.Address) changeset.ContractDep
 			Block:    bn,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

@@ -104,16 +104,16 @@ func MaybeLoadMCMSWithTimelockStateDataStore(env deployment.Environment, chainSe
 }
 
 // TODO there should be some common utility/adapter for this
-func loadAddressesFromDataStore(ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata], chainSelector uint64) (map[string]deployment.TypeAndVersion, error) {
-	addressesChain := make(map[string]deployment.TypeAndVersion)
+func loadAddressesFromDataStore(ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata], chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
+	addressesChain := make(map[string]cldf.TypeAndVersion)
 	addresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
 	if len(addresses) == 0 {
 		return nil, fmt.Errorf("no addresses found for chain %d", chainSelector)
 	}
 
 	for _, addressRef := range addresses {
-		addressesChain[addressRef.Address] = deployment.TypeAndVersion{
-			Type:    deployment.ContractType(addressRef.Type),
+		addressesChain[addressRef.Address] = cldf.TypeAndVersion{
+			Type:    cldf.ContractType(addressRef.Type),
 			Version: *addressRef.Version,
 		}
 	}
