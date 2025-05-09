@@ -122,7 +122,7 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab de
 	if err = abTemp.Merge(ab); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging new addresses into temp addresses: %w", err)
 	}
-	if err = abTemp.Merge(e.ExistingAddresses); err != nil { //nolint: staticcheck // We'll handle the deprecation later.
+	if err = abTemp.Merge(e.ExistingAddresses); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging existing addresses into temp addresses: %w", err)
 	}
 

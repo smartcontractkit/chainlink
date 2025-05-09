@@ -26,7 +26,7 @@ import (
 func sendTestLLOJobs(t *testing.T, e deployment.Environment, numOracles, numBootstraps int, autoApproveJobs bool) []deployment.ChangesetOutput {
 	chainSel := e.AllChainSelectors()[0]
 	configurator := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
-	err := e.ExistingAddresses.Save(chainSel, configurator, //nolint: staticcheck // I don't care that ExistingAddresses is deprecated. We will fix it later.
+	err := e.ExistingAddresses.Save(chainSel, configurator,
 		deployment.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
