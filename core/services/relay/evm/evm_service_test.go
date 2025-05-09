@@ -43,11 +43,11 @@ func TestEVMService(t *testing.T) {
 		filter := evmtypes.LPFilterQuery{
 			Name:         "filter-1",
 			Retention:    time.Second,
-			Addresses:    []string{common.HexToAddress("0x123").Hex()},
-			EventSigs:    []string{common.HexToHash("0x321").Hex()},
-			Topic2:       []string{common.HexToHash("0x222").Hex()},
-			Topic3:       []string{common.HexToHash("0x543").Hex()},
-			Topic4:       []string{common.HexToHash("0x432").Hex()},
+			Addresses:    []evmtypes.Address{common.HexToAddress("0x123")},
+			EventSigs:    []evmtypes.Hash{common.HexToHash("0x321")},
+			Topic2:       []evmtypes.Hash{common.HexToHash("0x222")},
+			Topic3:       []evmtypes.Hash{common.HexToHash("0x543")},
+			Topic4:       []evmtypes.Hash{common.HexToHash("0x432")},
 			MaxLogsKept:  100,
 			LogsPerBlock: 10,
 		}
@@ -58,12 +58,12 @@ func TestEVMService(t *testing.T) {
 		poller.On("RegisterFilter", ctx, mock.MatchedBy(func(f logpoller.Filter) bool {
 			return f.LogsPerBlock == filter.LogsPerBlock &&
 				f.Retention == filter.Retention &&
-				f.Topic2[0].Hex() == filter.Topic2[0] &&
-				f.Topic3[0].Hex() == filter.Topic3[0] &&
-				f.Topic4[0].Hex() == filter.Topic4[0] &&
-				f.EventSigs[0].Hex() == filter.EventSigs[0] &&
+				f.Topic2[0] == filter.Topic2[0] &&
+				f.Topic3[0] == filter.Topic3[0] &&
+				f.Topic4[0] == filter.Topic4[0] &&
+				f.EventSigs[0] == filter.EventSigs[0] &&
 				f.MaxLogsKept == filter.MaxLogsKept &&
-				f.Addresses[0].Hex() == filter.Addresses[0] &&
+				f.Addresses[0] == filter.Addresses[0] &&
 				f.Name == filter.Name
 		})).Return(nil)
 
@@ -82,7 +82,7 @@ func TestEVMService(t *testing.T) {
 
 		transaction := gethtypes.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
 		evmClient.On("TransactionByHash", ctx, hash).Return(transaction, nil)
-		tx, err := relayer.TransactionByHash(ctx, hash.Hex())
+		tx, err := relayer.TransactionByHash(ctx, hash)
 		require.NoError(t, err)
 		require.Equal(t, transaction.Hash().Hex(), tx.Hash)
 		require.Equal(t, transaction.Nonce(), tx.Nonce)
