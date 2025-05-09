@@ -46,7 +46,6 @@ import (
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 func makeTestEvmTxm(
@@ -387,11 +386,6 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 func BenchmarkCreateTransaction(b *testing.B) {
 	db := testutils.NewSqlxDB(b)
-	//txStore := cltest.NewTestTxStore(t, db)
-	kst := cltest.NewKeyStore(b, db)
-
-	_, fromAddress := cltest.MustInsertRandomKey(b, kst.Eth())
-	toAddress := testutils.NewAddress()
 	gasLimit := uint64(1000)
 	payload := []byte{1, 2, 3}
 
@@ -402,7 +396,11 @@ func BenchmarkCreateTransaction(b *testing.B) {
 
 	estimator, err := gas.NewEstimator(logger.Test(b), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
 	require.NoError(b, err)
-	txm, err := makeTestEvmTxm(b, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), keys.NewChainStore(keystore.NewEthSigner(kst.Eth(), new(big.Int)), new(big.Int)))
+	ms := keystest.NewMemoryChainStore()
+	ks := keys.NewChainStore(ms, new(big.Int))
+	fromAddress := ms.MustCreate(b)
+	toAddress := testutils.NewAddress()
+	txm, err := makeTestEvmTxm(b, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), ks)
 	require.NoError(b, err)
 
 	subject := uuid.New()

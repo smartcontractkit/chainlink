@@ -19,7 +19,63 @@ chainID = '42161'
 fromBlock = 283806260
 `
 
-func Test_Bootstrap(t *testing.T) {
+func TestNewBootstrapSpec(t *testing.T) {
+	t.Parallel()
+
+	externalJobID := uuid.New()
+
+	tests := []struct {
+		name          string
+		contractID    string
+		donID         uint64
+		donName       string
+		relay         RelayType
+		relayConfig   RelayConfig
+		externalJobID uuid.UUID
+		want          *BootstrapSpec
+	}{
+		{
+			name:       "success",
+			contractID: "0x01",
+			donID:      123,
+			donName:    "don-123",
+			relay:      RelayTypeEVM,
+			relayConfig: RelayConfig{
+				ChainID:   "234",
+				FromBlock: 345,
+			},
+			externalJobID: externalJobID,
+			want: &BootstrapSpec{
+				Base: Base{
+					Name:          "don-123 | 123",
+					Type:          JobSpecTypeBootstrap,
+					SchemaVersion: 1,
+					ExternalJobID: externalJobID,
+				},
+				ContractID: "0x01",
+				DonID:      123,
+				Relay:      RelayTypeEVM,
+				RelayConfig: RelayConfig{
+					ChainID:   "234",
+					FromBlock: 345,
+				}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := NewBootstrapSpec(tc.contractID, tc.donID, tc.donName, tc.relay, tc.relayConfig, tc.externalJobID)
+			if got == nil {
+				t.Fatal("got nil")
+			}
+			if *got != *tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMarshalTOML(t *testing.T) {
 	t.Parallel()
 
 	bootstrapSpec := BootstrapSpec{

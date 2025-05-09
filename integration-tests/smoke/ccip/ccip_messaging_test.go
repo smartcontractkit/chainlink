@@ -19,11 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
@@ -115,7 +112,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
-
 					},
 				},
 			},
@@ -435,34 +431,6 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 		)
 	)
 
-	// TODO: handle in setup
-	deployer := e.Env.SolChains[sourceChain].DeployerKey
-	rpcClient := e.Env.SolChains[sourceChain].Client
-
-	// create ATA for user
-	tokenProgram := solana.TokenProgramID
-	wSOL := solana.SolMint
-	ixAtaUser, deployerWSOL, uerr := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, deployer.PublicKey(), deployer.PublicKey())
-	require.NoError(t, uerr)
-
-	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(state.SolChains[sourceChain].Router)
-	require.NoError(t, err)
-
-	// Approve CCIP to transfer the user's token for billing
-	ixApprove, err := soltokens.TokenApproveChecked(1e9, 9, tokenProgram, deployerWSOL, wSOL, billingSignerPDA, deployer.PublicKey(), []solana.PublicKey{})
-	require.NoError(t, err)
-
-	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixAtaUser, ixApprove}, *deployer, solconfig.DefaultCommitment)
-
-	// fund user WSOL (transfer SOL + syncNative)
-	transferAmount := 1.0 * solana.LAMPORTS_PER_SOL
-	ixTransfer, err := soltokens.NativeTransfer(tokenProgram, transferAmount, deployer.PublicKey(), deployerWSOL)
-	require.NoError(t, err)
-	ixSync, err := soltokens.SyncNative(tokenProgram, deployerWSOL)
-	require.NoError(t, err)
-	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixTransfer, ixSync}, *deployer, solconfig.DefaultCommitment)
-	// END: handle in setup
-
 	emptyEVMExtraArgsV2 := []byte{}
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
@@ -478,6 +446,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 				Nonce:                  &nonce,
 				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
+				FeeToken:               "",        // use native SOL - internally this will be converted to wSOL via Sync Native
 				ExtraArgs:              extraArgs, // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){

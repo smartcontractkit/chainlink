@@ -167,6 +167,10 @@ linters-settings:
     require-explanation: true
 issues:
   exclude-rules:
+    # when performing simple refactor, the usage of addressbook will fail CI, this is a temporary ignore
+    - text: "SA1019: (.*).ExistingAddresses is deprecated: AddressBook is deprecated"
+      linters:
+          - staticcheck
     - text: "^var-naming: don't use an underscore in package name"
       linters:
           - revive

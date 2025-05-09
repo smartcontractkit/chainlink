@@ -28,6 +28,7 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/launcher"
@@ -51,7 +52,7 @@ import (
 
 type RelayGetter interface {
 	Get(types.RelayID) (loop.Relayer, error)
-	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
+	GetIDToRelayerMap() map[types.RelayID]loop.Relayer
 }
 
 type Keystore[K keystore.Key] interface {
@@ -145,10 +146,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, err
 	}
 
-	allRelayers, err := d.relayers.GetIDToRelayerMap()
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch all relayers: %w", err)
-	}
+	allRelayers := d.relayers.GetIDToRelayerMap()
 	transmitterKeys, err := d.getTransmitterKeys(ctx, maps.Keys(allRelayers))
 	if err != nil {
 		return nil, err

@@ -4,28 +4,24 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 var _ deployment.ChangeSet[[]uint64] = DeployLinkToken
-
-const (
-	TokenDecimalsSolana = 9
-)
 
 // DeployLinkToken deploys a link token contract to the chain identified by the ChainSelector.
 func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.ChangesetOutput, error) {
@@ -47,14 +43,6 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.Chan
 			deployFn = func() error {
 				_, err := deployLinkTokenContractEVM(
 					e.Logger, e.Chains[chain], newAddresses,
-				)
-				return err
-			}
-		case chainsel.FamilySolana:
-			// Deploy Solana LINK token
-			deployFn = func() error {
-				err := deployLinkTokenContractSolana(
-					e.Logger, e.SolChains[chain], newAddresses,
 				)
 				return err
 			}
@@ -83,13 +71,13 @@ func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (deploymen
 		if !ok {
 			return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment: %d", chainSel)
 		}
-		_, err := deployment.DeployContract[*link_token_interface.LinkToken](e.Logger, chain, newAddresses,
-			func(chain deployment.Chain) deployment.ContractDeploy[*link_token_interface.LinkToken] {
+		_, err := cldf.DeployContract[*link_token_interface.LinkToken](e.Logger, chain, newAddresses,
+			func(chain deployment.Chain) cldf.ContractDeploy[*link_token_interface.LinkToken] {
 				linkTokenAddr, tx, linkToken, err2 := link_token_interface.DeployLinkToken(
 					chain.DeployerKey,
 					chain.Client,
 				)
-				return deployment.ContractDeploy[*link_token_interface.LinkToken]{
+				return cldf.ContractDeploy[*link_token_interface.LinkToken]{
 					Address:  linkTokenAddr,
 					Contract: linkToken,
 					Tx:       tx,
@@ -109,14 +97,14 @@ func deployLinkTokenContractEVM(
 	lggr logger.Logger,
 	chain deployment.Chain,
 	ab deployment.AddressBook,
-) (*deployment.ContractDeploy[*link_token.LinkToken], error) {
-	linkToken, err := deployment.DeployContract[*link_token.LinkToken](lggr, chain, ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*link_token.LinkToken] {
+) (*cldf.ContractDeploy[*link_token.LinkToken], error) {
+	linkToken, err := cldf.DeployContract[*link_token.LinkToken](lggr, chain, ab,
+		func(chain deployment.Chain) cldf.ContractDeploy[*link_token.LinkToken] {
 			linkTokenAddr, tx, linkToken, err2 := link_token.DeployLinkToken(
 				chain.DeployerKey,
 				chain.Client,
 			)
-			return deployment.ContractDeploy[*link_token.LinkToken]{
+			return cldf.ContractDeploy[*link_token.LinkToken]{
 				Address:  linkTokenAddr,
 				Contract: linkToken,
 				Tx:       tx,
@@ -131,38 +119,42 @@ func deployLinkTokenContractEVM(
 	return linkToken, nil
 }
 
-func deployLinkTokenContractSolana(
-	lggr logger.Logger,
-	chain deployment.SolChain,
-	ab deployment.AddressBook,
-) error {
-	tokenAdminPubKey := chain.DeployerKey.PublicKey()
-	mint, _ := solana.NewRandomPrivateKey()
-	mintPublicKey := mint.PublicKey() // this is the token address
+type DeploySolanaLinkTokenConfig struct {
+	ChainSelector uint64
+	TokenPrivKey  solana.PrivateKey
+	TokenDecimals uint8
+}
+
+func DeploySolanaLinkToken(e deployment.Environment, cfg DeploySolanaLinkTokenConfig) (deployment.ChangesetOutput, error) {
+	chain := e.SolChains[cfg.ChainSelector]
+	mint := cfg.TokenPrivKey
 	instructions, err := solTokenUtil.CreateToken(
 		context.Background(),
-		solana.Token2022ProgramID,
-		mintPublicKey,
-		tokenAdminPubKey,
-		TokenDecimalsSolana,
+		solana.TokenProgramID,
+		mint.PublicKey(),
+		chain.DeployerKey.PublicKey(),
+		cfg.TokenDecimals,
 		chain.Client,
 		cldf.SolDefaultCommitment,
 	)
 	if err != nil {
-		lggr.Errorw("Failed to generate instructions for link token deployment", "chain", chain.String(), "err", err)
-		return err
+		e.Logger.Errorw("Failed to generate instructions for link token deployment", "chain", chain.String(), "err", err)
+		return deployment.ChangesetOutput{}, err
 	}
-	err = chain.Confirm(instructions, solCommomUtil.AddSigners(mint))
+	err = chain.Confirm(instructions, solCommonUtil.AddSigners(mint))
 	if err != nil {
-		lggr.Errorw("Failed to confirm instructions for link token deployment", "chain", chain.String(), "err", err)
-		return err
+		e.Logger.Errorw("Failed to confirm instructions for link token deployment", "chain", chain.String(), "err", err)
+		return deployment.ChangesetOutput{}, err
 	}
 	tv := deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
-	lggr.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.PublicKey().String(), "chain", chain.String())
-	err = ab.Save(chain.Selector, mint.PublicKey().String(), tv)
+	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.PublicKey().String(), "chain", chain.String())
+	newAddresses := deployment.NewMemoryAddressBook()
+	err = newAddresses.Save(chain.Selector, mint.PublicKey().String(), tv)
 	if err != nil {
-		lggr.Errorw("Failed to save link token", "chain", chain.String(), "err", err)
-		return err
+		e.Logger.Errorw("Failed to save link token", "chain", chain.String(), "err", err)
+		return deployment.ChangesetOutput{}, err
 	}
-	return nil
+	return deployment.ChangesetOutput{
+		AddressBook: newAddresses,
+	}, nil
 }

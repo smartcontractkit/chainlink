@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -37,11 +38,11 @@ func WithLabel(label string) DeployMCMSOption {
 
 // MCMSWithTimelockEVMDeploy holds a bundle of MCMS contract deploys.
 type MCMSWithTimelockEVMDeploy struct {
-	Canceller *deployment.ContractDeploy[*bindings.ManyChainMultiSig]
-	Bypasser  *deployment.ContractDeploy[*bindings.ManyChainMultiSig]
-	Proposer  *deployment.ContractDeploy[*bindings.ManyChainMultiSig]
-	Timelock  *deployment.ContractDeploy[*bindings.RBACTimelock]
-	CallProxy *deployment.ContractDeploy[*bindings.CallProxy]
+	Canceller *cldf.ContractDeploy[*bindings.ManyChainMultiSig]
+	Bypasser  *cldf.ContractDeploy[*bindings.ManyChainMultiSig]
+	Proposer  *cldf.ContractDeploy[*bindings.ManyChainMultiSig]
+	Timelock  *cldf.ContractDeploy[*bindings.RBACTimelock]
+	CallProxy *cldf.ContractDeploy[*bindings.CallProxy]
 }
 
 func DeployMCMSWithConfigEVM(
@@ -51,14 +52,14 @@ func DeployMCMSWithConfigEVM(
 	ab deployment.AddressBook,
 	mcmConfig mcmsTypes.Config,
 	options ...DeployMCMSOption,
-) (*deployment.ContractDeploy[*bindings.ManyChainMultiSig], error) {
+) (*cldf.ContractDeploy[*bindings.ManyChainMultiSig], error) {
 	groupQuorums, groupParents, signerAddresses, signerGroups, err := evmMcms.ExtractSetConfigInputs(&mcmConfig)
 	if err != nil {
 		lggr.Errorw("Failed to extract set config inputs", "chain", chain.String(), "err", err)
 		return nil, err
 	}
-	mcm, err := deployment.DeployContract(lggr, chain, ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*bindings.ManyChainMultiSig] {
+	mcm, err := cldf.DeployContract(lggr, chain, ab,
+		func(chain deployment.Chain) cldf.ContractDeploy[*bindings.ManyChainMultiSig] {
 			mcmAddr, tx, mcm, err2 := bindings.DeployManyChainMultiSig(
 				chain.DeployerKey,
 				chain.Client,
@@ -69,7 +70,7 @@ func DeployMCMSWithConfigEVM(
 				option(&tv)
 			}
 
-			return deployment.ContractDeploy[*bindings.ManyChainMultiSig]{
+			return cldf.ContractDeploy[*bindings.ManyChainMultiSig]{
 				Address: mcmAddr, Contract: mcm, Tx: tx, Tv: tv, Err: err2,
 			}
 		})
@@ -153,8 +154,8 @@ func DeployMCMSWithTimelockContractsEVM(
 	}
 
 	if timelock == nil {
-		timelockC, err := deployment.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*bindings.RBACTimelock] {
+		timelockC, err := cldf.DeployContract(lggr, chain, ab,
+			func(chain deployment.Chain) cldf.ContractDeploy[*bindings.RBACTimelock] {
 				timelock, tx2, cc, err2 := bindings.DeployRBACTimelock(
 					chain.DeployerKey,
 					chain.Client,
@@ -176,7 +177,7 @@ func DeployMCMSWithTimelockContractsEVM(
 					tv.AddLabel(*config.Label)
 				}
 
-				return deployment.ContractDeploy[*bindings.RBACTimelock]{
+				return cldf.ContractDeploy[*bindings.RBACTimelock]{
 					Address: timelock, Contract: cc, Tx: tx2, Tv: tv, Err: err2,
 				}
 			})
@@ -191,8 +192,8 @@ func DeployMCMSWithTimelockContractsEVM(
 	}
 
 	if callProxy == nil {
-		callProxyC, err := deployment.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*bindings.CallProxy] {
+		callProxyC, err := cldf.DeployContract(lggr, chain, ab,
+			func(chain deployment.Chain) cldf.ContractDeploy[*bindings.CallProxy] {
 				callProxy, tx2, cc, err2 := bindings.DeployCallProxy(
 					chain.DeployerKey,
 					chain.Client,
@@ -204,7 +205,7 @@ func DeployMCMSWithTimelockContractsEVM(
 					tv.AddLabel(*config.Label)
 				}
 
-				return deployment.ContractDeploy[*bindings.CallProxy]{
+				return cldf.ContractDeploy[*bindings.CallProxy]{
 					Address: callProxy, Contract: cc, Tx: tx2, Tv: tv, Err: err2,
 				}
 			})
