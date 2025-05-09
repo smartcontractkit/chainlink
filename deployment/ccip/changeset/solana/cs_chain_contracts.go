@@ -560,11 +560,7 @@ func (cfg SetLinkTokenConfig) Validate(e deployment.Environment) error {
 	}
 	chain := e.SolChains[cfg.ChainSelector]
 
-	if err := validateRouterConfig(chain, chainState); err != nil {
-		return err
-	}
-
-	return nil
+	return validateRouterConfig(chain, chainState)
 }
 
 func SetLinkToken(e deployment.Environment, cfg SetLinkTokenConfig) (deployment.ChangesetOutput, error) {

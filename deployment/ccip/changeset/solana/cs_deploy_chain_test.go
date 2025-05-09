@@ -381,12 +381,7 @@ func TestUpgrade(t *testing.T) {
 }
 
 func TestIDL(t *testing.T) {
-	ci := os.Getenv("CI") == "true"
-	// turning off in CI for now because this requires anchor setup
-	// and we want to optimize CI setup based on labels instead of setting up anchor/solana for every test
-	if ci {
-		return
-	}
+	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
 	e, _, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
