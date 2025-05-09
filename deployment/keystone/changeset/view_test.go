@@ -137,6 +137,7 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
+			//nolint:SA1019 // Temporarily using deprecated AddressBook until migration is complete
 			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
 			env.Env.DataStore = resp.DataStore.Seal()
 
@@ -145,6 +146,7 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
+			//nolint:SA1019 // Temporarily using deprecated AddressBook until migration is complete
 			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
 			env.Env.DataStore = resp.DataStore.Seal()
 
@@ -153,6 +155,7 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
+			//nolint:SA1019 // Temporarily using deprecated AddressBook until migration is complete
 			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
 			env.Env.DataStore = resp.DataStore.Seal()
 
