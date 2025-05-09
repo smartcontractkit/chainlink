@@ -611,12 +611,7 @@ func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([
 	if err != nil {
 		return nil, err
 	}
-	value := [28]uint8{}
-	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
-	if !ok {
-		return nil, errors.New("failed to set string to big.Int")
-	}
-	bigNum.FillBytes(value[:])
+	value := [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 51, 74, 153, 67, 41, 73, 55, 39, 96, 0, 0}
 	return []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.DeployChainContractsChangeset),
@@ -625,25 +620,27 @@ func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([
 				ChainSelector:     solChainSelector,
 				ContractParamsPerChain: ccipChangeSetSolana.ChainContractParams{
 					FeeQuoterParams: ccipChangeSetSolana.FeeQuoterParams{
-						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000000000000, Hi: 0, Endianness: nil},
+						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{
+							Lo: 15532559262904483840, Hi: 10, Endianness: nil,
+						},
 						BillingConfig: []solFeeQuoter.BillingTokenConfig{
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].LinkToken,
 								UsdPerToken: solFeeQuoter.TimestampedPackedU224{
 									Value:     value,
-									Timestamp: int64(100),
+									Timestamp: time.Now().Unix(),
 								},
-								PremiumMultiplierWeiPerEth: 100,
+								PremiumMultiplierWeiPerEth: 9e17,
 							},
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].WSOL,
 								UsdPerToken: solFeeQuoter.TimestampedPackedU224{
 									Value:     value,
-									Timestamp: int64(100),
+									Timestamp: time.Now().Unix(),
 								},
-								PremiumMultiplierWeiPerEth: 100,
+								PremiumMultiplierWeiPerEth: 1e18,
 							},
 						},
 					},
