@@ -21,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,6 +28,8 @@ import (
 	"golang.org/x/crypto/sha3"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -735,6 +736,8 @@ lloConfigMode = "bluegreen"
 		deribitFundingTimeStreamID := uint32(10)
 		deribitFundingIntervalHoursStreamID := uint32(11)
 		timestampedStonkPriceStreamID := uint32(12)
+		nullTimestampPriceStreamID := uint32(13)
+		missingTimestampPriceStreamID := uint32(14)
 
 		mustEncodeOpts := func(opts any) []byte {
 			encoded, err := json.Marshal(opts)
@@ -945,6 +948,14 @@ lloConfigMode = "bluegreen"
 						StreamID:   timestampedStonkPriceStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
+					{
+						StreamID:   nullTimestampPriceStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   missingTimestampPriceStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
 				},
 			},
 		}
@@ -962,25 +973,28 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 		bridgeName := "superbridge"
 
-		resultJSON := `{
-	"benchmarkPrice": "2976.39",
-	"baseMarketDepth": "1000.1212",
-	"quoteMarketDepth": "998.5431",
-	"marketStatus": 1,
-	"binanceFundingRate": "1234.5678",
-	"binanceFundingTime": "1630000000",
-	"binanceFundingIntervalHours": "8",
-	"deribitFundingRate": "5432.2345",
-	"deribitFundingTime": "1630000000",
-	"deribitFundingIntervalHours": "8",
-	"ethPrice": "3976.39",
-	"linkPrice": "23.45",
-	"stonk": {
-	  "result": "1234.5678",
-	  "timestamps": {
+		responseJSON := `{
+	"data": {
+		"benchmarkPrice": "111.22",
+		"marketStatus": 1
+	},
+	"result": {
+		"benchmarkPrice": "2976.39",
+		"baseMarketDepth": "1000.1212",
+		"quoteMarketDepth": "998.5431",
+		"binanceFundingRate": "1234.5678",
+		"binanceFundingTime": "1630000000",
+		"binanceFundingIntervalHours": "8",
+		"deribitFundingRate": "5432.2345",
+		"deribitFundingTime": "1630000000",
+		"deribitFundingIntervalHours": "8",
+		"ethPrice": "3976.39",
+		"linkPrice": "23.45"
+	},
+	"timestamps": {
 		"providerIndicatedTimeUnixMs": 1742314713000,
+		"providerIndicatedTimeUnixMs_TestNull": null,
 		"providerDataReceivedUnixMs": 1742314713050
-	  }
 	}
 }`
 
@@ -1012,16 +1026,43 @@ dp -> quote_market_depth_parse -> quote_market_depth_decimal;
 
 		// Don't use a multiply task so that the task result has int64 type.
 		rwaPipeline := fmt.Sprintf(`
-dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+dp [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 
-market_status_parse   [type=jsonparse path="result,marketStatus" streamID=%d];
-
-stonk_price_parse   [type=jsonparse path="result,stonk"];
-merge [type=merge left="$(stonk_price_parse)" right="{\\"streamValueType\\":%d}" streamID=%d];
+market_status_parse [type=jsonparse path="data,marketStatus" streamID=%d];
+stonk_price_parse [type=jsonparse path="data,benchmarkPrice"];
 
 dp -> market_status_parse;
-dp -> stonk_price_parse -> merge;
-`, bridgeName, marketStatusStreamID, datastreamsllo.LLOStreamValue_TimestampedStreamValue, timestampedStonkPriceStreamID)
+
+provider_indicated_time_parse [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs"];
+provider_data_received_parse [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
+provider_indicated_time [type=median lax=true];
+provider_data_received [type=median lax=true];
+stonk_price_timestamped [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(provider_indicated_time),\\"providerDataReceivedUnixMs\\":$(provider_data_received)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
+
+dp -> provider_indicated_time_parse -> provider_indicated_time;
+dp -> provider_data_received_parse -> provider_data_received;
+dp -> stonk_price_parse -> stonk_price_timestamped;
+
+# test null providerIndicatedTimeUnixMs
+null_provider_indicated_time_parse [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs_TestNull"];
+null_provider_indicated_time [type=median lax=true];
+stonk_price_timestamped_null_indicated_time [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(null_provider_indicated_time),\\"providerDataReceivedUnixMs\\":$(provider_data_received)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
+
+dp -> null_provider_indicated_time_parse -> null_provider_indicated_time;
+dp -> stonk_price_parse -> stonk_price_timestamped_null_indicated_time;
+
+# test missing providerIndicatedTimeUnixMs
+missing_provider_indicated_time_parse [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs_TestMissing"];
+missing_provider_indicated_time [type=median lax=true];
+stonk_price_timestamped_missing_indicated_time [type=merge left="{}" right="{\\"streamValueType\\": %d, \\"timestamps\\":{\\"providerIndicatedTimeUnixMs\\":$(missing_provider_indicated_time),\\"providerDataReceivedUnixMs\\":$(provider_data_received)}, \\"result\\": $(stonk_price_parse)}" streamID=%d];
+
+dp -> missing_provider_indicated_time_parse -> missing_provider_indicated_time;
+dp -> stonk_price_parse -> stonk_price_timestamped_missing_indicated_time;
+`, bridgeName, marketStatusStreamID,
+			datastreamsllo.LLOStreamValue_TimestampedStreamValue, timestampedStonkPriceStreamID,
+			datastreamsllo.LLOStreamValue_TimestampedStreamValue, nullTimestampPriceStreamID,
+			datastreamsllo.LLOStreamValue_TimestampedStreamValue, missingTimestampPriceStreamID,
+		)
 
 		benchmarkPricePipeline := fmt.Sprintf(`
 dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
@@ -1065,7 +1106,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 		for i, node := range nodes {
 			// superBridge returns a JSON with everything you want in it,
 			// stream specs can just pick the individual fields they need
-			createBridge(t, bridgeName, resultJSON, node.App.BridgeORM())
+			createBridge(t, bridgeName, responseJSON, node.App.BridgeORM())
 			addStreamSpec(t, node, "pricePipeline", nil, pricePipeline)
 			addStreamSpec(t, node, "dexBasedAssetPipeline", nil, dexBasedAssetPipeline)
 			addStreamSpec(t, node, "rwaPipeline", nil, rwaPipeline)
@@ -1251,10 +1292,19 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				report := v["report"].(map[string]interface{})
 				cid := report["ChannelID"].(float64)
 				delete(feedIDs, pad32bytes(uint32(cid)))
-				assert.Len(t, report["Values"].([]interface{}), 1)
-				tsv := report["Values"].([]interface{})[0].(map[string]interface{})
-				assert.Equal(t, 2, int(tsv["t"].(float64)))
-				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713000000000, StreamValue: {"t":0,"v":"1234.5678"}}`, tsv["v"].(string))
+				assert.Len(t, report["Values"].([]interface{}), 3)
+				// default uses provider indicated time
+				tsv1 := report["Values"].([]interface{})[0].(map[string]interface{})
+				assert.Equal(t, 2, int(tsv1["t"].(float64)))
+				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713000000000, StreamValue: {"t":0,"v":"111.22"}}`, tsv1["v"].(string))
+				// null provider indicated time - uses data received time fallback
+				tsv2 := report["Values"].([]interface{})[1].(map[string]interface{})
+				assert.Equal(t, 2, int(tsv2["t"].(float64)))
+				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713050000000, StreamValue: {"t":0,"v":"111.22"}}`, tsv2["v"].(string))
+				// missing provider indicated time - uses data received time fallback
+				tsv3 := report["Values"].([]interface{})[2].(map[string]interface{})
+				assert.Equal(t, 2, int(tsv3["t"].(float64)))
+				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713050000000, StreamValue: {"t":0,"v":"111.22"}}`, tsv3["v"].(string))
 			default:
 				t.Fatalf("unexpected report format: %d", req.ReportFormat)
 			}

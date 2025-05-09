@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -286,7 +286,7 @@ func TestConfigureOCR3(t *testing.T) {
 		w2 := &bytes.Buffer{}
 		cfg.WriteGeneratedConfig = w2
 
-		err = applyProposal(t, te, commonchangeset.Configure(deployment.CreateLegacyChangeSet(changeset.ConfigureOCR3Contract), cfg))
+		err = applyProposal(t, te, commonchangeset.Configure(cldf.CreateLegacyChangeSet(changeset.ConfigureOCR3Contract), cfg))
 		require.NoError(t, err)
 	})
 }

@@ -16,7 +16,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -66,7 +69,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 		if err != nil {
 			return e, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
 		}
-		var addresses deployment.AddressBook
+		var addresses cldf.AddressBook
 		if out.AddressBook != nil {
 			addresses = out.AddressBook
 			err := addresses.Merge(currentEnv.ExistingAddresses)
@@ -154,10 +157,12 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
+			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
+			OperationsBundle:  e.OperationsBundle,
 		}
 	}
 	return currentEnv, nil
@@ -173,7 +178,7 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 			return e, nil, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
 		}
 		outputs = append(outputs, out)
-		var addresses deployment.AddressBook
+		var addresses cldf.AddressBook
 		if out.AddressBook != nil {
 			addresses = out.AddressBook
 			err := addresses.Merge(currentEnv.ExistingAddresses)
@@ -219,10 +224,12 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
+			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
+			OperationsBundle:  e.OperationsBundle,
 		}
 
 		if out.MCMSTimelockProposals != nil {
@@ -282,7 +289,7 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 
 	e, err := ApplyChangesets(t, e, nil, []ConfiguredChangeSet{
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployLinkToken),
+			cldf.CreateLegacyChangeSet(DeployLinkToken),
 			config,
 		),
 	})
@@ -304,15 +311,15 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 }
 
 func SetPreloadedSolanaAddresses(t *testing.T, env deployment.Environment, selector uint64) {
-	typeAndVersion := deployment.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
+	typeAndVersion := cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
 	err := env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["mcm"], typeAndVersion)
 	require.NoError(t, err)
 
-	typeAndVersion = deployment.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
+	typeAndVersion = cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
 	err = env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["access_controller"], typeAndVersion)
 	require.NoError(t, err)
 
-	typeAndVersion = deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
+	typeAndVersion = cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
 	err = env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["timelock"], typeAndVersion)
 	require.NoError(t, err)
 }

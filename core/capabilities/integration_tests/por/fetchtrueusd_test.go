@@ -68,7 +68,7 @@ func Test_FetchTrueUSDWorkflow(t *testing.T) {
 	framework.CreateWasmBinary(t, mainFile, wasmFile)
 
 	triggerSink := framework.NewTriggerSink(t, "cron-trigger", "1.0.0")
-	dataFeedsCacheContract := setupDons(ctx, t, lggr, wasmFile, "*/5 * * * * *", triggerSink)
+	dataFeedsCacheContract, thenCallback := setupDons(ctx, t, lggr, wasmFile, "*/5 * * * * *", "*/4 * * * * *", triggerSink)
 
 	bundleReceived := make(chan *data_feeds_cache.DataFeedsCacheBundleReportUpdated, 1000)
 	bundleSub, err := dataFeedsCacheContract.WatchBundleReportUpdated(&bind.WatchOpts{}, bundleReceived, nil, nil)
@@ -82,17 +82,39 @@ func Test_FetchTrueUSDWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	triggerSink.SendOutput(wrappedMap, uuid.New().String())
 
-loop:
-	for {
+	endTime, ok := ctxWithTimeout.Deadline()
+	if !ok {
+		endTime = time.Now().Add(time.Minute)
+	}
+	require.Eventually(t, func() bool {
 		select {
 		case <-ctxWithTimeout.Done():
 			t.Fatalf("timed out waiting for bundle")
 		case err := <-bundleSub.Err():
 			require.NoError(t, err)
 		case <-bundleReceived:
-			break loop
+			return true
 		}
-	}
+		return false
+	}, time.Until(endTime), time.Second, "timed out waiting for first bundle")
+
+	// Update workflow
+	thenCallback()
+
+	time.Sleep(time.Second * 30)
+	triggerSink.SendOutput(wrappedMap, uuid.New().String())
+
+	require.Eventually(t, func() bool {
+		select {
+		case <-ctxWithTimeout.Done():
+			t.Fatalf("timed out waiting for bundle")
+		case err := <-bundleSub.Err():
+			require.NoError(t, err)
+		case <-bundleReceived:
+			return true
+		}
+		return false
+	}, time.Until(endTime), time.Second, "timed out waiting for second bundle")
 }
 
 func generateRandomReservesResponse() string {
@@ -147,11 +169,15 @@ func (n ComputeFetcherFactory) NewFetcher(log commonlogger.Logger, emitter custm
 	}
 }
 
-func setupDons(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, workflowURL string, cronSchedule string,
-	triggerFactory framework.TriggerFactory) *data_feeds_cache.DataFeedsCache {
+func setupDons(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, workflowURL string, cronSchedule string, cronSchedule2 string,
+	triggerFactory framework.TriggerFactory) (*data_feeds_cache.DataFeedsCache, func()) {
 	configURL := "workflow-config.json"
 	workflowConfig := fetchTrueUSDConfig{
 		CronSchedule: cronSchedule,
+	}
+	configURL2 := "workflow-config2.json"
+	workflowConfig2 := fetchTrueUSDConfig{
+		CronSchedule: cronSchedule2,
 	}
 
 	compressedBinary, base64EncodedCompressedBinary := framework.GetCompressedWorkflowWasm(t, workflowURL)
@@ -165,6 +191,10 @@ func setupDons(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, wor
 			configBytes, err := json.Marshal(workflowConfig)
 			require.NoError(t, err)
 			return configBytes, nil
+		case configURL2:
+			configBytes2, err := json.Marshal(workflowConfig2)
+			require.NoError(t, err)
+			return configBytes2, nil
 		}
 
 		return nil, fmt.Errorf("unknown  url: %s", url)
@@ -205,11 +235,13 @@ func setupDons(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, wor
 		workflows.HashTruncateName(workflowName))
 
 	workflowConfig.ConsumerAddress = dataFeedsCacheAddr.String()
+	workflowConfig2.ConsumerAddress = dataFeedsCacheAddr.String()
 
 	// Setup Write capability DON
 	writeTargetCapabilityID, err := writeCapabilityDon.AddPublishedEthereumWriteTargetNonStandardCapability(forwarderAddr)
 	require.NoError(t, err)
 	workflowConfig.WriteTargetCapabilityID = writeTargetCapabilityID
+	workflowConfig2.WriteTargetCapabilityID = writeTargetCapabilityID
 
 	writeCapabilityDon.Initialise()
 	servicetest.Run(t, writeCapabilityDon)
@@ -222,7 +254,21 @@ func setupDons(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, wor
 
 	registerWorkflow(t, donContext, workflowName, compressedBinary, "", workflowDon,
 		workflowURL, configURL, workflowConfigBytes)
-	return dataFeedsCache
+
+	workflowConfigBytes2, err := json.Marshal(workflowConfig2)
+	require.NoError(t, err)
+
+	then := func() {
+		newWfID := updateWorkflow(t, donContext, workflowName, compressedBinary, "", workflowDon,
+			workflowURL, configURL2, workflowConfigBytes2, workflowOwner)
+
+		// Wait for workflow to be added to the Workflow Registry
+		donContext.WaitForWorkflowRegistryMetadata(t, workflowName, workflowOwner, newWfID)
+
+		donContext.WaitForCapabilitiesToBeExposed(t, writeCapabilityDon, workflowDon)
+	}
+
+	return dataFeedsCache, then
 }
 
 func SetupDataFeedsCacheContract(t *testing.T, backend *framework.EthBlockchain,
@@ -273,4 +319,21 @@ func registerWorkflow(t *testing.T, donContext framework.DonContext, workflowNam
 		SecretsURL: secretsURL,
 	})
 	require.NoError(t, err)
+}
+
+func updateWorkflow(t *testing.T, donContext framework.DonContext, workflowName string, compressedBinary []byte,
+	secretsURL string, workflowDon *framework.DON, binaryURL string, configURL string, configBytes []byte, owner string) [32]byte {
+	workflowID, err := workflows.GenerateWorkflowID(donContext.EthBlockchain.TransactionOpts().From[:], workflowName, compressedBinary, configBytes, secretsURL)
+	require.NoError(t, err)
+
+	err = workflowDon.UpdateWorkflow(framework.UpdatedWorkflow{
+		WorkflowKey: workflowDon.ComputeHashKey(owner, workflowName),
+		ID:          workflowID,
+		BinaryURL:   binaryURL,
+		ConfigURL:   configURL,
+		SecretsURL:  secretsURL,
+	})
+	require.NoError(t, err)
+
+	return workflowID
 }

@@ -18,6 +18,7 @@ type VerifyBuildConfig struct {
 	VerifyOffRamp              bool
 	VerifyRMNRemote            bool
 	VerifyBurnMintTokenPool    bool
+	BurnMintTokenPoolMetadata  string
 	VerifyLockReleaseTokenPool bool
 	VerifyAccessController     bool
 	VerifyMCM                  bool
@@ -74,8 +75,8 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 		{"Router", chainState.Router.String(), deployment.RouterProgramName, cfg.VerifyRouter},
 		{"OffRamp", chainState.OffRamp.String(), deployment.OffRampProgramName, cfg.VerifyOffRamp},
 		{"RMN Remote", chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, cfg.VerifyRMNRemote},
-		{"Burn Mint Token Pool", chainState.BurnMintTokenPool.String(), deployment.BurnMintTokenPoolProgramName, cfg.VerifyBurnMintTokenPool},
-		{"Lock Release Token Pool", chainState.LockReleaseTokenPool.String(), deployment.LockReleaseTokenPoolProgramName, cfg.VerifyLockReleaseTokenPool},
+		{"Burn Mint Token Pool", chainState.BurnMintTokenPools[ccipChangeset.CLLMetadata].String(), deployment.BurnMintTokenPoolProgramName, cfg.VerifyBurnMintTokenPool},
+		{"Lock Release Token Pool", chainState.LockReleaseTokenPools[ccipChangeset.CLLMetadata].String(), deployment.LockReleaseTokenPoolProgramName, cfg.VerifyLockReleaseTokenPool},
 		{"Access Controller", mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, cfg.VerifyAccessController},
 		{"MCM", mcmState.McmProgram.String(), deployment.McmProgramName, cfg.VerifyMCM},
 		{"Timelock", mcmState.TimelockProgram.String(), deployment.TimelockProgramName, cfg.VerifyTimelock},

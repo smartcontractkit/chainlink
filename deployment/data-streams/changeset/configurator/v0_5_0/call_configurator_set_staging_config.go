@@ -10,6 +10,8 @@ import (
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
@@ -23,7 +25,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
-var SetStagingConfigChangeset = deployment.CreateChangeSet(setStagingConfigLogic, setStagingConfigPrecondition)
+var SetStagingConfigChangeset = cldf.CreateChangeSet(setStagingConfigLogic, setStagingConfigPrecondition)
 
 type Config interface {
 	GetConfiguratorAddress() common.Address

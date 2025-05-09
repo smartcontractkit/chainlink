@@ -3,12 +3,15 @@ package changeset_test
 import (
 	"testing"
 
+	"github.com/gagliardetto/solana-go"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -32,7 +35,7 @@ func setupFiredrillTestEnv(t *testing.T) deployment.Environment {
 	// Deploy MCMS and Timelock
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			map[uint64]commontypes.MCMSWithTimelockConfigV2{
 				chainSelector:       config,
 				chainSelector2:      config,
@@ -41,12 +44,26 @@ func setupFiredrillTestEnv(t *testing.T) deployment.Environment {
 		),
 	)
 	require.NoError(t, err)
+	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelectorSolana)
+	require.NoError(t, err)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[env.AllChainSelectorsSolana()[0]], addresses)
+	require.NoError(t, err)
+	timelockSigner := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	mcmSigner := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
+	mcmSignerBypasser := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)
+	solChain := env.SolChains[chainSelectorSolana]
+	memory.FundSolanaAccounts(env.GetContext(), t, []solana.PublicKey{timelockSigner, mcmSigner, mcmSignerBypasser, solChain.DeployerKey.PublicKey()}, 150, solChain.Client)
+	require.NoError(t, err)
 	return env
 }
 
 func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	t.Parallel()
 	env := setupFiredrillTestEnv(t)
+	chainSelector := env.AllChainSelectors()[0]
+	chainSelector2 := env.AllChainSelectors()[1]
+	chainSelectorSolana := env.AllChainSelectorsSolana()[0]
 	// Add the timelock as a signer to check state changes
 	for _, tc := range []struct {
 		name       string
@@ -57,8 +74,9 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 			changeSets: func() []commonchangeset.ConfiguredChangeSet {
 				return []commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commonchangeset.MCMSSignFireDrillChangeset),
+						cldf.CreateLegacyChangeSet(commonchangeset.MCMSSignFireDrillChangeset),
 						commonchangeset.FireDrillConfig{
+							Selectors: []uint64{chainSelector, chainSelector2, chainSelectorSolana},
 							TimelockCfg: proposalutils.TimelockConfig{
 								MCMSAction: mcmsTypes.TimelockActionBypass,
 							},

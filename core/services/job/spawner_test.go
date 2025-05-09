@@ -72,8 +72,8 @@ func (g *relayGetter) Get(id types.RelayID) (loop.Relayer, error) {
 	return evmrelayer.NewLOOPRelayAdapter(g.r), nil
 }
 
-func (g *relayGetter) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
-	return map[types.RelayID]loop.Relayer{}, nil
+func (g *relayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
+	return map[types.RelayID]loop.Relayer{}
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {

@@ -6,17 +6,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // DeployAggregatorProxyChangeset deploys an AggregatorProxy contract on the given chains. It uses the address of DataFeedsCache contract
 // from addressbook to set it in the AggregatorProxy constructor. Returns a new addressbook with deploy AggregatorProxy contract addresses.
-var DeployAggregatorProxyChangeset = deployment.CreateChangeSet(deployAggregatorProxyLogic, deployAggregatorProxyPrecondition)
+var DeployAggregatorProxyChangeset = cldf.CreateChangeSet(deployAggregatorProxyLogic, deployAggregatorProxyPrecondition)
 
 func deployAggregatorProxyLogic(env deployment.Environment, c types.DeployAggregatorProxyConfig) (deployment.ChangesetOutput, error) {
 	lggr := env.Logger
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	for index, chainSelector := range c.ChainsToDeploy {
 		chain := env.Chains[chainSelector]

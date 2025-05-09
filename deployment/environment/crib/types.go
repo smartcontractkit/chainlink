@@ -7,7 +7,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
@@ -17,12 +19,12 @@ const (
 
 type DeployOutput struct {
 	NodeIDs     []string
-	Chains      []devenv.ChainConfig   // chain selector -> Chain Config
-	AddressBook deployment.AddressBook // Addresses of all contracts
+	Chains      []devenv.ChainConfig // chain selector -> Chain Config
+	AddressBook cldf.AddressBook     // Addresses of all contracts
 }
 
 type DeployCCIPOutput struct {
-	AddressBook deployment.AddressBookMap
+	AddressBook cldf.AddressBookMap
 	NodeIDs     []string
 }
 

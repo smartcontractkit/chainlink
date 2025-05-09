@@ -7,13 +7,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	verifier "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 )
 
-var DeployVerifierChangeset = deployment.CreateChangeSet(deployVerifierLogic, deployVerifierPrecondition)
+var DeployVerifierChangeset = cldf.CreateChangeSet(deployVerifierLogic, deployVerifierPrecondition)
 
 type DeployVerifier struct {
 	VerifierProxyAddress common.Address
@@ -37,7 +41,7 @@ func (cc DeployVerifierConfig) Validate() error {
 }
 
 func deployVerifierLogic(e deployment.Environment, cc DeployVerifierConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	err := deployVerifier(e, ab, cc)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy Verifier", "err", err, "addresses", ab)
@@ -45,7 +49,7 @@ func deployVerifierLogic(e deployment.Environment, cc DeployVerifierConfig) (dep
 	}
 
 	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
-		filter := deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0)
+		filter := cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0)
 		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.Ownership.MCMSProposalConfig)
 	}
 
@@ -60,7 +64,7 @@ func deployVerifierPrecondition(_ deployment.Environment, cc DeployVerifierConfi
 	return nil
 }
 
-func deployVerifier(e deployment.Environment, ab deployment.AddressBook, cc DeployVerifierConfig) error {
+func deployVerifier(e deployment.Environment, ab cldf.AddressBook, cc DeployVerifierConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployVerifierConfig: %w", err)
 	}
@@ -111,7 +115,7 @@ func VerifierDeployFn(verifierProxyAddress common.Address) changeset.ContractDep
 			Address:  ccsAddr,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

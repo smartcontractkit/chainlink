@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -13,7 +12,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	corejob "github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -64,8 +63,8 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		if !node.IsBootstrap {
 			spec, err = validate.NewCCIPSpecToml(validate.SpecArgs{
 				P2PV2Bootstrappers:     nodes.BootstrapLocators(),
-				CapabilityVersion:      internal.CapabilityVersion,
-				CapabilityLabelledName: internal.CapabilityLabelledName,
+				CapabilityVersion:      ccip.CapabilityVersion,
+				CapabilityLabelledName: ccip.CapabilityLabelledName,
 				OCRKeyBundleIDs:        keyBundles,
 				P2PKeyID:               node.PeerID.String(),
 				RelayConfigs:           nil,
@@ -74,8 +73,8 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		} else {
 			spec, err = validate.NewCCIPSpecToml(validate.SpecArgs{
 				P2PV2Bootstrappers:     []string{}, // Intentionally empty for bootstraps.
-				CapabilityVersion:      internal.CapabilityVersion,
-				CapabilityLabelledName: internal.CapabilityLabelledName,
+				CapabilityVersion:      ccip.CapabilityVersion,
+				CapabilityLabelledName: ccip.CapabilityLabelledName,
 				OCRKeyBundleIDs:        map[string]string{},
 				P2PKeyID:               node.PeerID.String(),
 				RelayConfigs:           nil,
@@ -130,9 +129,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		}
 	}
 	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
-		AddressBook: nil,
-		Jobs:        Jobs,
+		Jobs: Jobs,
 	}, nil
 }
 

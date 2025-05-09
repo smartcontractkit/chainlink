@@ -7,10 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	feemanager "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
@@ -35,14 +37,14 @@ func TestSetFeeManager(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure the VerifierProxy was deployed
-	verifierProxyAddrHex, err := deployment.SearchAddressBook(e.ExistingAddresses, testChain, types.VerifierProxy)
+	verifierProxyAddrHex, err := cldf.SearchAddressBook(e.ExistingAddresses, testChain, types.VerifierProxy)
 	require.NoError(t, err)
 	verifierProxyAddr := common.HexToAddress(verifierProxyAddrHex)
 
 	// Need the Link Token For FeeManager
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
 			[]uint64{testutil.TestChain.Selector},
 		),
 	)
@@ -75,7 +77,7 @@ func TestSetFeeManager(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure the FeeManager was deployed
-	feeManagerAddrHex, err := deployment.SearchAddressBook(e.ExistingAddresses, testChain, types.FeeManager)
+	feeManagerAddrHex, err := cldf.SearchAddressBook(e.ExistingAddresses, testChain, types.FeeManager)
 	require.NoError(t, err)
 	feeManagerAddr := common.HexToAddress(feeManagerAddrHex)
 

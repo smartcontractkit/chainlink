@@ -21,6 +21,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -47,8 +49,9 @@ const (
 		  		bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
 				```
 	*/
-	EVMFamilySelector = "2812d52c"
-	SVMFamilySelector = "1e10bdc4"
+	EVMFamilySelector   = "2812d52c"
+	SVMFamilySelector   = "1e10bdc4"
+	AptosFamilySelector = "ac77ffec"
 )
 
 var (
@@ -854,7 +857,7 @@ func (cfg UpdateFeeQuoterPricesConfig) Validate(e deployment.Environment) error 
 			if token == (common.Address{}) {
 				return fmt.Errorf("token address for chain %d is empty", chainSel)
 			}
-			contains, err := deployment.AddressBookContains(e.ExistingAddresses, chainSel, token.String())
+			contains, err := cldf.AddressBookContains(e.ExistingAddresses, chainSel, token.String())
 			if err != nil {
 				return fmt.Errorf("error checking address book for token %s: %w", token.String(), err)
 			}
@@ -1542,6 +1545,9 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[remote], tx, offramp.OffRampABI, err); err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error setting OCR3 config for chain %d: %w", remote, err)
 			}
+			e.Logger.Infow("Set OCR3 config on offramp", "chain", remote,
+				"offRamp", offRamp.Address().Hex(), "donID", donID,
+				"config", args)
 		} else {
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
@@ -1768,6 +1774,8 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
 		if destFamily == chain_selectors.FamilySolana {
 			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
+		} else if destFamily == chain_selectors.FamilyAptos {
+			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
 		}
 	}
 	return fee_quoter.FeeQuoterDestChainConfig{

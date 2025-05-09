@@ -7,7 +7,10 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verification"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
@@ -15,7 +18,7 @@ import (
 
 // DeployDataStreamsChainContractsChangeset deploys the entire data streams destination chain contracts. It should be kept up to date
 // with the latest contract versions and deployment logic.
-var DeployDataStreamsChainContractsChangeset = deployment.CreateChangeSet(deployDataStreamsLogic, deployDataStreamsPrecondition)
+var DeployDataStreamsChainContractsChangeset = cldf.CreateChangeSet(deployDataStreamsLogic, deployDataStreamsPrecondition)
 
 type DeployDataStreamsConfig struct {
 	ChainsToDeploy map[uint64]DeployDataStreams
@@ -29,7 +32,7 @@ type DeployDataStreams struct {
 }
 
 func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig) (deployment.ChangesetOutput, error) {
-	newAddresses := deployment.NewMemoryAddressBook() // changeset output expects only new addresses
+	newAddresses := cldf.NewMemoryAddressBook() // changeset output expects only new addresses
 
 	// Clone env to avoid mutation
 	cloneEnv, err := cloneEnvironment(e)
@@ -111,7 +114,7 @@ func cloneEnvironment(e deployment.Environment) (deployment.Environment, error) 
 	if err != nil {
 		return deployment.Environment{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	abClone := deployment.NewMemoryAddressBookFromMap(existingAddresses)
+	abClone := cldf.NewMemoryAddressBookFromMap(existingAddresses)
 
 	return deployment.Environment{
 		Name:              e.Name,
@@ -123,5 +126,6 @@ func cloneEnvironment(e deployment.Environment) (deployment.Environment, error) 
 		Offchain:          e.Offchain,
 		OCRSecrets:        e.OCRSecrets,
 		GetContext:        e.GetContext,
+		OperationsBundle:  e.OperationsBundle,
 	}, nil
 }

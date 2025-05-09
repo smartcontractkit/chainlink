@@ -9,6 +9,8 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -33,12 +35,12 @@ func TestSaveExistingCCIP(t *testing.T) {
 		ExistingContracts: []commonchangeset.Contract{
 			{
 				Address:        solAddr1,
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0),
+				TypeAndVersion: cldf.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0),
 				ChainSelector:  solChain,
 			},
 			{
 				Address:        solAddr2,
-				TypeAndVersion: deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0),
+				TypeAndVersion: cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0),
 				ChainSelector:  solChain,
 			},
 		},
@@ -59,7 +61,7 @@ func TestSaveExisting(t *testing.T) {
 	dummyEnv := deployment.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
-		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		SolChains: map[uint64]deployment.SolChain{
 			chainsel.SOLANA_DEVNET.Selector: {},
 		},
@@ -68,7 +70,7 @@ func TestSaveExisting(t *testing.T) {
 		ExistingContracts: []commonchangeset.Contract{
 			{
 				Address: solana.NewWallet().PublicKey().String(),
-				TypeAndVersion: deployment.TypeAndVersion{
+				TypeAndVersion: cldf.TypeAndVersion{
 					Type:    "dummy3",
 					Version: deployment.Version1_1_0,
 				},

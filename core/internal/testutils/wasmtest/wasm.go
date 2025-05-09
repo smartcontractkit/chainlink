@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/andybalholm/brotli"
@@ -14,17 +15,14 @@ import (
 )
 
 func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
-	tempFile, err := os.CreateTemp("", uuid.New().String()+".wasm")
-	require.NoError(t, err)
-	defer os.Remove(tempFile.Name())
-
-	cmd := exec.Command("go", "build", "-o", tempFile.Name(), "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
+	filePath := filepath.Join(t.TempDir(), uuid.New().String()+".wasm")
+	cmd := exec.Command("go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(output))
 
-	binary, err := os.ReadFile(tempFile.Name())
+	binary, err := os.ReadFile(filePath)
 	require.NoError(t, err)
 
 	if !compress {

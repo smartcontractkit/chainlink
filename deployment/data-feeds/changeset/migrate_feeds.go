@@ -6,7 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -14,13 +17,13 @@ import (
 // 1. It reads the existing Aggregator Proxy contract addresses from the input file and saves them to the address book.
 // 2. It reads the data ids and descriptions from the input file and sets the feed config on the DataFeedsCache contract.
 // Returns a new addressbook with the deployed AggregatorProxy addresses.
-var MigrateFeedsChangeset = deployment.CreateChangeSet(migrateFeedsLogic, migrateFeedsPrecondition)
+var MigrateFeedsChangeset = cldf.CreateChangeSet(migrateFeedsLogic, migrateFeedsPrecondition)
 
 type MigrationSchema struct {
-	Address        string                    `json:"address"`
-	TypeAndVersion deployment.TypeAndVersion `json:"typeAndVersion"`
-	FeedID         string                    `json:"feedId"`
-	Description    string                    `json:"description"`
+	Address        string              `json:"address"`
+	TypeAndVersion cldf.TypeAndVersion `json:"typeAndVersion"`
+	FeedID         string              `json:"feedId"`
+	Description    string              `json:"description"`
 }
 
 func migrateFeedsLogic(env deployment.Environment, c types.MigrationConfig) (deployment.ChangesetOutput, error) {
@@ -28,7 +31,7 @@ func migrateFeedsLogic(env deployment.Environment, c types.MigrationConfig) (dep
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	proxies, _ := LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
 

@@ -7,6 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/mock_fee_manager_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
@@ -42,7 +45,7 @@ func TestPayLinkDeficit(t *testing.T) {
 	_, err = changeset.DeployContract[*mock_fee_manager_v0_5_0.MockFeeManager](e, ab, chain, MockFeeManagerDeployFn(cc))
 	require.NoError(t, err)
 
-	feeManagerAddressHex, err := deployment.SearchAddressBook(e.ExistingAddresses, chain.Selector, types.FeeManager)
+	feeManagerAddressHex, err := cldf.SearchAddressBook(e.ExistingAddresses, chain.Selector, types.FeeManager)
 	require.NoError(t, err)
 	feeManagerAddress := common.HexToAddress(feeManagerAddressHex)
 
@@ -105,7 +108,7 @@ func MockFeeManagerDeployFn(cfg DeployFeeManager) changeset.ContractDeployFn[*mo
 			Address:  ccsAddr,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

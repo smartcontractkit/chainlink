@@ -7,7 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -51,7 +52,7 @@ func TestConfirmAggregator(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	proxyAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "AggregatorProxy")
+	proxyAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "AggregatorProxy")
 	require.NoError(t, err)
 
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
@@ -73,7 +74,7 @@ func TestConfirmAggregator(t *testing.T) {
 			},
 		),
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
 				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -94,7 +95,7 @@ func TestConfirmAggregator(t *testing.T) {
 		),
 		// transfer proxy ownership to timelock
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
 			commonChangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					chainSelector: {common.HexToAddress(proxyAddress)},

@@ -10,7 +10,8 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/crypto"
-	"github.com/hashicorp/consul/sdk/freeport"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -43,7 +44,7 @@ func createAptosAccount(t *testing.T, useDefault bool) *aptos.Account {
 
 		t.Logf("Using default Aptos account: %s %+v", addressStr, privateKeyBytes)
 
-		account, err := aptos.NewAccountFromSigner(&crypto.Ed25519PrivateKey{Inner: privateKey})
+		account, err := aptos.NewAccountFromSigner(&crypto.Ed25519PrivateKey{Inner: privateKey}, defaultAddress)
 		require.NoError(t, err)
 		return account
 	} else {
@@ -71,6 +72,16 @@ func GenerateChainsAptos(t *testing.T, numChains int) map[uint64]deployment.Apto
 			Client:         nodeClient,
 			DeployerSigner: account,
 			URL:            url,
+			Confirm: func(txHash string, opts ...any) error {
+				userTx, err := nodeClient.WaitForTransaction(txHash, opts...)
+				if err != nil {
+					return err
+				}
+				if !userTx.Success {
+					return fmt.Errorf("transaction failed: %s", userTx.VmStatus)
+				}
+				return nil
+			},
 		}
 	}
 	t.Logf("Created %d Aptos chains: %+v", len(chains), chains)
@@ -88,18 +99,20 @@ func aptosChain(t *testing.T, chainID string, adminAddress aptos.AccountAddress)
 	var url string
 	var containerName string
 	for i := 0; i < maxRetries; i++ {
-		port := freeport.GetOne(t)
+		// reserve all the ports we need explicitly to avoid port conflicts in other tests
+		ports := freeport.GetN(t, 2)
 
 		bcInput := &blockchain.Input{
 			Image:       "", // filled out by defaultAptos function
 			Type:        "aptos",
 			ChainID:     chainID,
 			PublicKey:   adminAddress.String(),
-			CustomPorts: []string{fmt.Sprintf("%d:8080", port), fmt.Sprintf("%d:8081", port+1)},
+			CustomPorts: []string{fmt.Sprintf("%d:8080", ports[0]), fmt.Sprintf("%d:8081", ports[1])},
 		}
 		output, err := blockchain.NewBlockchainNetwork(bcInput)
 		if err != nil {
 			t.Logf("Error creating Aptos network: %v", err)
+			freeport.Return(ports)
 			time.Sleep(time.Second)
 			maxRetries -= 1
 			continue

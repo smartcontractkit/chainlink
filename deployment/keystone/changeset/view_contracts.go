@@ -23,7 +23,8 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -176,7 +177,7 @@ func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder, 
 		if err != nil {
 			return nil, fmt.Errorf("error getting TypeAndVersion for forwarder: %w", err)
 		}
-		tv, err := deployment.TypeAndVersionFromString(tvStr)
+		tv, err := cldf.TypeAndVersionFromString(tvStr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 		}

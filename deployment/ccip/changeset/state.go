@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"golang.org/x/sync/errgroup"
 
@@ -15,14 +16,20 @@ import (
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
@@ -65,6 +72,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -86,51 +94,55 @@ import (
 
 var (
 	// Legacy
-	CommitStore   deployment.ContractType = "CommitStore"
-	PriceRegistry deployment.ContractType = "PriceRegistry"
-	RMN           deployment.ContractType = "RMN"
+	CommitStore   cldf.ContractType = "CommitStore"
+	PriceRegistry cldf.ContractType = "PriceRegistry"
+	RMN           cldf.ContractType = "RMN"
 
 	// Not legacy
-	MockRMN              deployment.ContractType = "MockRMN"
-	RMNRemote            deployment.ContractType = "RMNRemote"
-	ARMProxy             deployment.ContractType = "ARMProxy"
-	WETH9                deployment.ContractType = "WETH9"
-	Router               deployment.ContractType = "Router"
-	TokenAdminRegistry   deployment.ContractType = "TokenAdminRegistry"
-	TokenPoolFactory     deployment.ContractType = "TokenPoolFactory"
-	RegistryModule       deployment.ContractType = "RegistryModuleOwnerCustom"
-	NonceManager         deployment.ContractType = "NonceManager"
-	FeeQuoter            deployment.ContractType = "FeeQuoter"
-	CCIPHome             deployment.ContractType = "CCIPHome"
-	RMNHome              deployment.ContractType = "RMNHome"
-	OnRamp               deployment.ContractType = "OnRamp"
-	OffRamp              deployment.ContractType = "OffRamp"
-	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
-	PriceFeed            deployment.ContractType = "PriceFeed"
+	MockRMN              cldf.ContractType = "MockRMN"
+	RMNRemote            cldf.ContractType = "RMNRemote"
+	ARMProxy             cldf.ContractType = "ARMProxy"
+	WETH9                cldf.ContractType = "WETH9"
+	Router               cldf.ContractType = "Router"
+	TokenAdminRegistry   cldf.ContractType = "TokenAdminRegistry"
+	TokenPoolFactory     cldf.ContractType = "TokenPoolFactory"
+	RegistryModule       cldf.ContractType = "RegistryModuleOwnerCustom"
+	NonceManager         cldf.ContractType = "NonceManager"
+	FeeQuoter            cldf.ContractType = "FeeQuoter"
+	CCIPHome             cldf.ContractType = "CCIPHome"
+	RMNHome              cldf.ContractType = "RMNHome"
+	OnRamp               cldf.ContractType = "OnRamp"
+	OffRamp              cldf.ContractType = "OffRamp"
+	CapabilitiesRegistry cldf.ContractType = "CapabilitiesRegistry"
+	DonIDClaimer         cldf.ContractType = "DonIDClaimer"
+	PriceFeed            cldf.ContractType = "PriceFeed"
 
 	// Test contracts. Note test router maps to a regular router contract.
-	TestRouter             deployment.ContractType = "TestRouter"
-	Multicall3             deployment.ContractType = "Multicall3"
-	CCIPReceiver           deployment.ContractType = "CCIPReceiver"
-	LogMessageDataReceiver deployment.ContractType = "LogMessageDataReceiver"
-	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
+	TestRouter             cldf.ContractType = "TestRouter"
+	Multicall3             cldf.ContractType = "Multicall3"
+	CCIPReceiver           cldf.ContractType = "CCIPReceiver"
+	LogMessageDataReceiver cldf.ContractType = "LogMessageDataReceiver"
+	USDCMockTransmitter    cldf.ContractType = "USDCMockTransmitter"
 
 	// Pools
-	BurnMintToken                  deployment.ContractType = "BurnMintToken"
-	FactoryBurnMintERC20Token      deployment.ContractType = "FactoryBurnMintERC20Token"
-	ERC20Token                     deployment.ContractType = "ERC20Token"
-	ERC677Token                    deployment.ContractType = "ERC677Token"
-	BurnMintTokenPool              deployment.ContractType = "BurnMintTokenPool"
-	BurnWithFromMintTokenPool      deployment.ContractType = "BurnWithFromMintTokenPool"
-	BurnFromMintTokenPool          deployment.ContractType = "BurnFromMintTokenPool"
-	LockReleaseTokenPool           deployment.ContractType = "LockReleaseTokenPool"
-	USDCToken                      deployment.ContractType = "USDCToken"
-	USDCTokenMessenger             deployment.ContractType = "USDCTokenMessenger"
-	USDCTokenPool                  deployment.ContractType = "USDCTokenPool"
-	HybridLockReleaseUSDCTokenPool deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
+	BurnMintToken                  cldf.ContractType = "BurnMintToken"
+	FactoryBurnMintERC20Token      cldf.ContractType = "FactoryBurnMintERC20Token"
+	ERC20Token                     cldf.ContractType = "ERC20Token"
+	ERC677Token                    cldf.ContractType = "ERC677Token"
+	BurnMintTokenPool              cldf.ContractType = "BurnMintTokenPool"
+	BurnWithFromMintTokenPool      cldf.ContractType = "BurnWithFromMintTokenPool"
+	BurnFromMintTokenPool          cldf.ContractType = "BurnFromMintTokenPool"
+	LockReleaseTokenPool           cldf.ContractType = "LockReleaseTokenPool"
+	USDCToken                      cldf.ContractType = "USDCToken"
+	USDCTokenMessenger             cldf.ContractType = "USDCTokenMessenger"
+	USDCTokenPool                  cldf.ContractType = "USDCTokenPool"
+	HybridLockReleaseUSDCTokenPool cldf.ContractType = "HybridLockReleaseUSDCTokenPool"
 
 	// Firedrill
-	FiredrillEntrypointType deployment.ContractType = "FiredrillEntrypoint"
+	FiredrillEntrypointType cldf.ContractType = "FiredrillEntrypoint"
+
+	// Treasury
+	FeeAggregator cldf.ContractType = "FeeAggregator"
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
@@ -173,6 +185,7 @@ type CCIPChainState struct {
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPHome           *ccip_home.CCIPHome
 	RMNHome            *rmn_home.RMNHome
+	DonIDClaimer       *don_id_claimer.DonIDClaimer
 
 	// Test contracts
 	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
@@ -189,6 +202,441 @@ type CCIPChainState struct {
 	MockRMN        *mock_rmn_contract.MockRMNContract
 	PriceRegistry  *price_registry_1_2_0.PriceRegistry
 	RMN            *rmn_contract.RMNContract
+
+	// Treasury contracts
+	FeeAggregator common.Address
+}
+
+// validateHomeChain validates the home chain contracts and their configurations after complete set up
+// It cross-references the config across CCIPHome and OffRamps to ensure they are in sync
+// This should be called after the complete deployment is done
+func (c CCIPChainState) validateHomeChain(e deployment.Environment, nodes deployment.Nodes, offRampsByChain map[uint64]offramp.OffRampInterface) error {
+	if c.RMNHome == nil {
+		return errors.New("no RMNHome contract found in the state for home chain")
+	}
+	if c.CCIPHome == nil {
+		return errors.New("no CCIPHome contract found in the state for home chain")
+	}
+	if c.CapabilityRegistry == nil {
+		return errors.New("no CapabilityRegistry contract found in the state for home chain")
+	}
+	// get capReg from CCIPHome
+	capReg, err := c.CCIPHome.GetCapabilityRegistry(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get capability registry from CCIPHome contract: %w", err)
+	}
+	if capReg != c.CapabilityRegistry.Address() {
+		return fmt.Errorf("capability registry mismatch: expected %s, got %s", capReg.Hex(), c.CapabilityRegistry.Address().Hex())
+	}
+	ccipDons, err := ccip.GetCCIPDonsFromCapRegistry(e.GetContext(), c.CapabilityRegistry)
+	if err != nil {
+		return fmt.Errorf("failed to get CCIP Dons from capability registry: %w", err)
+	}
+	if len(ccipDons) == 0 {
+		return errors.New("no CCIP Dons found in capability registry")
+	}
+	// validate for all ccipDons
+	for _, don := range ccipDons {
+		if err := nodes.P2PIDsPresentInJD(don.NodeP2PIds); err != nil {
+			return fmt.Errorf("failed to find Capability Registry p2pIDs in JD: %w", err)
+		}
+		commitConfig, err := c.CCIPHome.GetAllConfigs(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, don.Id, uint8(cciptypes.PluginTypeCCIPCommit))
+		if err != nil {
+			return fmt.Errorf("failed to get commit config for don %d: %w", don.Id, err)
+		}
+		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, commitConfig.ActiveConfig, offRampsByChain); err != nil {
+			return fmt.Errorf("failed to validate active commit config for don %d: %w", don.Id, err)
+		}
+		execConfig, err := c.CCIPHome.GetAllConfigs(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, don.Id, uint8(cciptypes.PluginTypeCCIPExec))
+		if err != nil {
+			return fmt.Errorf("failed to get exec config for don %d: %w", don.Id, err)
+		}
+		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, execConfig.ActiveConfig, offRampsByChain); err != nil {
+			return fmt.Errorf("failed to validate active exec config for don %d: %w", don.Id, err)
+		}
+	}
+	return nil
+}
+
+// validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on corresponding chain selector and its state
+// The validation related to correctness of F and node length is omitted here as it is already validated in the contract
+func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Environment, nodes deployment.Nodes, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
+	if homeCfg.ConfigDigest == [32]byte{} {
+		return errors.New("active config digest is empty")
+	}
+	chainSel := homeCfg.Config.ChainSelector
+	if _, exists := e.SolChains[chainSel]; exists {
+		return nil
+	}
+	offRamp, ok := offRampsByChain[chainSel]
+	if !ok {
+		return fmt.Errorf("offRamp for chain %d not found in the state", chainSel)
+	}
+	// validate ChainConfig in CCIPHome
+	homeChainConfig, err := c.CCIPHome.GetChainConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	}, chainSel)
+	if err != nil {
+		return fmt.Errorf("failed to get home chain config for chain %d: %w", chainSel, err)
+	}
+	// Node details should match with what we fetch from JD for CCIP Home Readers
+	if err := nodes.P2PIDsPresentInJD(homeChainConfig.Readers); err != nil {
+		return fmt.Errorf("failed to find homechain readers in JD for chain %d: %w",
+			chainSel, err)
+	}
+
+	// Validate CCIPHome OCR3 Related Config
+	if offRamp.Address() != common.BytesToAddress(homeCfg.Config.OfframpAddress) {
+		return fmt.Errorf("offRamp address mismatch in active config for ccip home for chain %d: expected %s, got %s",
+			chainSel, offRamp.Address().Hex(), homeCfg.Config.OfframpAddress)
+	}
+	if c.RMNHome.Address() != common.BytesToAddress(homeCfg.Config.RmnHomeAddress) {
+		return fmt.Errorf("RMNHome address mismatch in active config for ccip home for chain %d: expected %s, got %s",
+			chainSel, c.RMNHome.Address().Hex(), homeCfg.Config.RmnHomeAddress)
+	}
+	p2pIDs := make([][32]byte, 0)
+	for _, node := range homeCfg.Config.Nodes {
+		p2pIDs = append(p2pIDs, node.P2pId)
+	}
+	if err := nodes.P2PIDsPresentInJD(p2pIDs); err != nil {
+		return fmt.Errorf("failed to find p2pIDs from CCIPHome config in JD for chain %d: %w", chainSel, err)
+	}
+	// cross-check with offRamp whether all in sync
+	switch homeCfg.Config.PluginType {
+	case uint8(cciptypes.PluginTypeCCIPCommit):
+		commitConfig, err := offRamp.LatestConfigDetails(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, uint8(cciptypes.PluginTypeCCIPCommit))
+		if err != nil {
+			return fmt.Errorf("failed to get commit config for chain %d offRamp %s: %w", chainSel, c.OffRamp.Address().Hex(), err)
+		}
+		// the config digest should match with CCIP Home ActiveConfig
+		if commitConfig.ConfigInfo.ConfigDigest != homeCfg.ConfigDigest {
+			return fmt.Errorf("offRamp %s commit config digest mismatch with CCIPHome for chain %d: expected %x, got %x",
+				offRamp.Address().Hex(), chainSel, homeCfg.ConfigDigest, commitConfig.ConfigInfo.ConfigDigest)
+		}
+		if !commitConfig.ConfigInfo.IsSignatureVerificationEnabled {
+			return fmt.Errorf("offRamp %s for chain %d commit config signature verification is not enabled",
+				offRamp.Address().Hex(), chainSel)
+		}
+		if err := validateLatestConfigOffRamp(offRamp, commitConfig, homeChainConfig); err != nil {
+			return fmt.Errorf("offRamp %s for chain %d commit config validation error: %w",
+				offRamp.Address().Hex(), chainSel, err)
+		}
+	case uint8(cciptypes.PluginTypeCCIPExec):
+		execConfig, err := offRamp.LatestConfigDetails(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, uint8(cciptypes.PluginTypeCCIPExec))
+		if err != nil {
+			return fmt.Errorf("failed to get exec config for chain %d offRamp %s: %w", chainSel, offRamp.Address().Hex(), err)
+		}
+		// the config digest should match with CCIP Home ActiveConfig
+		if execConfig.ConfigInfo.ConfigDigest != homeCfg.ConfigDigest {
+			return fmt.Errorf("offRamp %s exec config digest mismatch with CCIPHome for chain %d: expected %x, got %x",
+				offRamp.Address().Hex(), chainSel, homeCfg.ConfigDigest, execConfig.ConfigInfo.ConfigDigest)
+		}
+		if execConfig.ConfigInfo.IsSignatureVerificationEnabled {
+			return fmt.Errorf("offRamp %s for chain %d exec config signature verification is enabled",
+				offRamp.Address().Hex(), chainSel)
+		}
+		if err := validateLatestConfigOffRamp(offRamp, execConfig, homeChainConfig); err != nil {
+			return fmt.Errorf("offRamp %s for chain %d exec config validation error: %w",
+				offRamp.Address().Hex(), chainSel, err)
+		}
+	default:
+		return fmt.Errorf("unsupported plugin type %d for chain %d", homeCfg.Config.PluginType, chainSel)
+	}
+	return nil
+}
+
+// validateOnRamp validates whether the contract addresses configured in static and dynamic config are in sync with state
+func (c CCIPChainState) validateOnRamp(
+	e deployment.Environment,
+	selector uint64,
+	connectedChains []uint64,
+) error {
+	if c.OnRamp == nil {
+		return errors.New("no OnRamp contract found in the state")
+	}
+	staticCfg, err := c.OnRamp.GetStaticConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return err
+	}
+	if staticCfg.ChainSelector != selector {
+		return fmt.Errorf("onRamp %s chainSelector mismatch in static config: expected %d, got %d",
+			c.OnRamp.Address().Hex(), selector, staticCfg.ChainSelector)
+	}
+	// it should be RMNProxy pointing to the RMNRemote
+	if c.RMNProxy.Address() != staticCfg.RmnRemote {
+		return fmt.Errorf("onRamp %s RMNRemote mismatch in static config: expected %s, got %s",
+			c.OnRamp.Address().Hex(), c.RMNRemote.Address().Hex(), staticCfg.RmnRemote)
+	}
+	if c.NonceManager.Address() != staticCfg.NonceManager {
+		return fmt.Errorf("onRamp %s NonceManager mismatch in static config: expected %s, got %s",
+			c.OnRamp.Address().Hex(), c.NonceManager.Address().Hex(), staticCfg.NonceManager)
+	}
+	if c.TokenAdminRegistry.Address() != staticCfg.TokenAdminRegistry {
+		return fmt.Errorf("onRamp %s TokenAdminRegistry mismatch in static config: expected %s, got %s",
+			c.OnRamp.Address().Hex(), c.TokenAdminRegistry.Address().Hex(), staticCfg.TokenAdminRegistry)
+	}
+	dynamicCfg, err := c.OnRamp.GetDynamicConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get dynamic config for chain %d onRamp %s: %w", selector, c.OnRamp.Address().Hex(), err)
+	}
+	if dynamicCfg.FeeQuoter != c.FeeQuoter.Address() {
+		return fmt.Errorf("onRamp %s feeQuoter mismatch in dynamic config: expected %s, got %s",
+			c.OnRamp.Address().Hex(), c.FeeQuoter.Address().Hex(), dynamicCfg.FeeQuoter.Hex())
+	}
+	// if the fee aggregator is set, it should match the one in the dynamic config
+	// otherwise the fee aggregator should be the timelock address
+	if c.FeeAggregator != (common.Address{}) {
+		if c.FeeAggregator != dynamicCfg.FeeAggregator {
+			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected %s, got %s",
+				c.OnRamp.Address().Hex(), c.FeeAggregator.Hex(), dynamicCfg.FeeAggregator.Hex())
+		}
+	} else {
+		if dynamicCfg.FeeAggregator != e.Chains[selector].DeployerKey.From {
+			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected deployer key %s, got %s",
+				c.OnRamp.Address().Hex(), e.Chains[selector].DeployerKey.From.Hex(), dynamicCfg.FeeAggregator.Hex())
+		}
+	}
+
+	for _, otherChainSel := range connectedChains {
+		destChainCfg, err := c.OnRamp.GetDestChainConfig(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, otherChainSel)
+		if err != nil {
+			return fmt.Errorf("failed to get dest chain config from source chain %d onRamp %s for dest chain %d: %w",
+				selector, c.OnRamp.Address(), otherChainSel, err)
+		}
+		// if not blank, the dest chain config should be enabled
+		if destChainCfg != (onramp.GetDestChainConfig{}) {
+			if destChainCfg.Router != c.Router.Address() && destChainCfg.Router != c.TestRouter.Address() {
+				return fmt.Errorf("onRamp %s router mismatch in dest chain config: expected router %s or test router %s, got %s",
+					c.OnRamp.Address().Hex(), c.Router.Address().Hex(), c.TestRouter.Address().Hex(), destChainCfg.Router.Hex())
+			}
+		}
+	}
+
+	return nil
+}
+
+// validateFeeQuoter validates whether the fee quoter contract address configured in static config is in sync with state
+func (c CCIPChainState) validateFeeQuoter(e deployment.Environment) error {
+	if c.FeeQuoter == nil {
+		return errors.New("no FeeQuoter contract found in the state")
+	}
+	staticConfig, err := c.FeeQuoter.GetStaticConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get static config for FeeQuoter %s: %w", c.FeeQuoter.Address().Hex(), err)
+	}
+	linktokenAddr, err := c.LinkTokenAddress()
+	if err != nil {
+		return fmt.Errorf("failed to get link token address for from state: %w", err)
+	}
+	if staticConfig.LinkToken != linktokenAddr {
+		return fmt.Errorf("feeQuoter %s LinkToken mismatch: expected either linktoken %s or static link token %s, got %s",
+			c.FeeQuoter.Address().Hex(), c.LinkToken.Address().Hex(), c.StaticLinkToken.Address(), staticConfig.LinkToken.Hex())
+	}
+	return nil
+}
+
+// validateRouter validates the router contract to check if all wired contracts are synced with state
+// and returns all connected chains with respect to the router
+func (c CCIPChainState) validateRouter(e deployment.Environment, isTestRouter bool) ([]uint64, error) {
+	if c.Router == nil && c.TestRouter == nil {
+		return nil, errors.New("no Router or TestRouter contract found in the state")
+	}
+	routerC := c.Router
+	if isTestRouter {
+		routerC = c.TestRouter
+	}
+	armProxy, err := routerC.GetArmProxy(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get armProxy from router : %w", err)
+	}
+	if armProxy != c.RMNProxy.Address() {
+		return nil, fmt.Errorf("armProxy %s mismatch in router %s: expected %s, got %s",
+			armProxy.Hex(), routerC.Address().Hex(), c.RMNProxy.Address().Hex(), armProxy)
+	}
+	native, err := routerC.GetWrappedNative(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get wrapped native from router %s: %w", routerC.Address().Hex(), err)
+	}
+	if native != c.Weth9.Address() {
+		return nil, fmt.Errorf("wrapped native %s mismatch in router %s: expected %s, got %s",
+			native.Hex(), routerC.Address().Hex(), c.Weth9.Address().Hex(), native)
+	}
+	allConnectedChains := make([]uint64, 0)
+	// get offRamps
+	offRampDetails, err := routerC.GetOffRamps(&bind.CallOpts{
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get offRamps from router %s: %w", routerC.Address().Hex(), err)
+	}
+	for _, d := range offRampDetails {
+		// skip if solana - solana state is maintained in solana
+		if _, exists := e.SolChains[d.SourceChainSelector]; exists {
+			continue
+		}
+		allConnectedChains = append(allConnectedChains, d.SourceChainSelector)
+		// check if offRamp is valid
+		if d.OffRamp != c.OffRamp.Address() {
+			return nil, fmt.Errorf("offRamp %s mismatch for source %d in router %s: expected %s, got %s",
+				d.OffRamp.Hex(), d.SourceChainSelector, routerC.Address().Hex(), c.OffRamp.Address().Hex(), d.OffRamp)
+		}
+	}
+	// all lanes are bi-directional, if we have a lane from A to B, we also have a lane from B to A
+	// source to offRamp should be same as dest to onRamp
+	for _, dest := range allConnectedChains {
+		onRamp, err := routerC.GetOnRamp(&bind.CallOpts{
+			Context: context.Background(),
+		}, dest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get onRamp for dest %d from router %s: %w", dest, routerC.Address().Hex(), err)
+		}
+		if onRamp != c.OnRamp.Address() {
+			return nil, fmt.Errorf("onRamp %s mismatch for dest chain %d in router %s: expected %s, got %s",
+				onRamp.Hex(), dest, routerC.Address().Hex(), c.OnRamp.Address().Hex(), onRamp)
+		}
+	}
+	return allConnectedChains, nil
+}
+
+// validateRMNRemote validates the RMNRemote contract to check if all wired contracts are synced with state
+// and returns whether RMN is enabled for the chain on the RMNRemote
+// It validates whether RMNRemote is in sync with the RMNHome contract
+func (c CCIPChainState) validateRMNRemote(
+	e deployment.Environment,
+	selector uint64,
+	rmnHomeActiveDigest [32]byte,
+) (bool, error) {
+	if c.RMNRemote == nil {
+		return false, errors.New("no RMNRemote contract found in the state")
+	}
+	chainSelector, err := c.RMNRemote.GetLocalChainSelector(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to get local chain selector from RMNRemote %s: %w", c.RMNRemote.Address().Hex(), err)
+	}
+	if chainSelector != selector {
+		return false, fmt.Errorf("RMNRemote %s chainSelector mismatch: expected %d, got %d",
+			c.RMNRemote.Address().Hex(), selector, chainSelector)
+	}
+	versionedCfg, err := c.RMNRemote.GetVersionedConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to get versioned config from RMNRemote %s: %w", c.RMNRemote.Address().Hex(), err)
+	}
+	if versionedCfg.Version == 0 {
+		return false, errors.New("RMNRemote config is not set")
+	}
+	if versionedCfg.Config.RmnHomeContractConfigDigest != rmnHomeActiveDigest {
+		return false, fmt.Errorf("RMNRemote %s config digest mismatch: expected %x, got %x",
+			c.RMNRemote.Address().Hex(), rmnHomeActiveDigest, versionedCfg.Config.RmnHomeContractConfigDigest)
+	}
+	return versionedCfg.Config.FSign > 0, nil
+}
+
+// validateOffRamp validates the offRamp contract to check if all wired contracts are synced with state
+func (c CCIPChainState) validateOffRamp(
+	e deployment.Environment,
+	selector uint64,
+	onRampsBySelector map[uint64]common.Address,
+	isRMNEnabledBySource map[uint64]bool,
+) error {
+	if c.OffRamp == nil {
+		return errors.New("no OffRamp contract found in the state")
+	}
+	// staticConfig chainSelector matches the selector key for the CCIPChainState
+	staticConfig, err := c.OffRamp.GetStaticConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get static config for chain %d offRammp %s: %w", selector, c.OffRamp.Address().Hex(), err)
+	}
+	// staticConfig chainSelector should match the selector key for the CCIPChainState
+	if staticConfig.ChainSelector != selector {
+		return fmt.Errorf("offRamp %s chainSelector mismatch: expected %d, got %d",
+			c.OffRamp.Address().Hex(), selector, staticConfig.ChainSelector)
+	}
+	// RMNProxy address for chain should be the same as the one in the static config for RMNRemote
+	if c.RMNProxy.Address() != staticConfig.RmnRemote {
+		return fmt.Errorf("offRamp %s RMNRemote mismatch: expected %s, got %s",
+			c.OffRamp.Address().Hex(), c.RMNRemote.Address().Hex(), staticConfig.RmnRemote)
+	}
+	// NonceManager address for chain should be the same as the one in the static config
+	if c.NonceManager.Address() != staticConfig.NonceManager {
+		return fmt.Errorf("offRamp %s NonceManager mismatch: expected %s, got %s",
+			c.OffRamp.Address().Hex(), c.NonceManager.Address().Hex(), staticConfig.NonceManager)
+	}
+	// TokenAdminRegistry address for chain should be the same as the one in the static config
+	if c.TokenAdminRegistry.Address() != staticConfig.TokenAdminRegistry {
+		return fmt.Errorf("offRamp %s TokenAdminRegistry mismatch: expected %s, got %s",
+			c.OffRamp.Address().Hex(), c.TokenAdminRegistry.Address().Hex(), staticConfig.TokenAdminRegistry)
+	}
+	dynamicConfig, err := c.OffRamp.GetDynamicConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get dynamic config for chain %d offRamp %s: %w", selector, c.OffRamp.Address().Hex(), err)
+	}
+	// FeeQuoter address for chain should be the same as the one in the static config
+	if dynamicConfig.FeeQuoter != c.FeeQuoter.Address() {
+		return fmt.Errorf("offRamp %s feeQuoter mismatch: expected %s, got %s",
+			c.OffRamp.Address().Hex(), c.FeeQuoter.Address().Hex(), dynamicConfig.FeeQuoter.Hex())
+	}
+	if dynamicConfig.PermissionLessExecutionThresholdSeconds != uint32(globals.PermissionLessExecutionThreshold.Seconds()) {
+		return fmt.Errorf("offRamp %s permissionless execution threshold mismatch: expected %f, got %d",
+			c.OffRamp.Address().Hex(), globals.PermissionLessExecutionThreshold.Seconds(), dynamicConfig.PermissionLessExecutionThresholdSeconds)
+	}
+	for chainSel, srcChainOnRamp := range onRampsBySelector {
+		config, err := c.OffRamp.GetSourceChainConfig(&bind.CallOpts{
+			Context: e.GetContext(),
+		}, chainSel)
+		if err != nil {
+			return fmt.Errorf("failed to get source chain config for chain %d: %w", chainSel, err)
+		}
+		if config.IsEnabled {
+			// For all configured sources, the address of configured onRamp for chain A must be the Address() of the onramp on chain A
+			if srcChainOnRamp != common.BytesToAddress(config.OnRamp) {
+				return fmt.Errorf("onRamp address mismatch for source chain %d on OffRamp %s : expected %s, got %x",
+					chainSel, c.OffRamp.Address().Hex(), srcChainOnRamp.Hex(), config.OnRamp)
+			}
+			// The address of router should be accurate
+			if c.Router.Address() != config.Router && c.TestRouter.Address() != config.Router {
+				return fmt.Errorf("router address mismatch for source chain %d on OffRamp %s : expected either router %s or test router %s, got %s",
+					chainSel, c.OffRamp.Address().Hex(), c.Router.Address().Hex(), c.TestRouter.Address().Hex(), config.Router.Hex())
+			}
+			// if RMN is enabled for the source chain, the RMNRemote and RMNHome should be configured to enable RMN
+			// the reverse is not always true, as RMN verification can be disable at offRamp but enabled in RMNRemote and RMNHome
+			if !config.IsRMNVerificationDisabled && !isRMNEnabledBySource[chainSel] {
+				return fmt.Errorf("RMN verification is enabled in offRamp %s for source chain %d, "+
+					"but RMN is not enabled in RMNHome and RMNRemote for the chain",
+					c.OffRamp.Address().Hex(), chainSel)
+			}
+		}
+	}
+	return nil
 }
 
 func (c CCIPChainState) TokenAddressBySymbol() (map[TokenSymbol]common.Address, error) {
@@ -263,6 +711,7 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.ChainView, error) {
 	chainView := view.NewChain()
 	grp := errgroup.Group{}
+
 	if c.Router != nil {
 		grp.Go(func() error {
 			routerView, err := v1_2.GenerateRouterView(c.Router, false)
@@ -439,7 +888,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			for _, tokenDetail := range tokenDetails {
 				tokens = append(tokens, tokenDetail.Address())
 			}
-			fqView, err := viewv1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, tokens)
+			fqView, err := viewv1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TestRouter, tokens)
 			if err != nil {
 				return errors.Wrapf(err, "failed to generate fee quoter view for fee quoter %s", c.FeeQuoter.Address().String())
 			}
@@ -456,6 +905,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			onRampView, err := viewv1_6.GenerateOnRampView(
 				c.OnRamp,
 				c.Router,
+				c.TestRouter,
 				c.TokenAdminRegistry,
 			)
 			if err != nil {
@@ -474,6 +924,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			offRampView, err := viewv1_6.GenerateOffRampView(
 				c.OffRamp,
 				c.Router,
+				c.TestRouter,
 			)
 			if err != nil {
 				return errors.Wrapf(err, "failed to generate off ramp view for off ramp %s", c.OffRamp.Address().String())
@@ -565,6 +1016,10 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		})
 	}
 
+	// Legacy contracts
+	// OnRamp, OffRamp, CommitStore legacy contract related state generation is not done right now
+	// considering the state of these contracts are not referred currently, and it's enormously expensive to generate
+	// state for multiple lanes per chain
 	for _, registryModule := range c.RegistryModules1_6 {
 		grp.Go(func() error {
 			registryModuleView, err := shared.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
@@ -585,23 +1040,6 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			}
 			chainView.UpdateRegistryModuleView(registryModule.Address().Hex(), registryModuleView)
 			lggr.Infow("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
-			return nil
-		})
-	}
-
-	// Legacy contracts
-	if c.CommitStore != nil {
-		grp.Go(func() error {
-			chainView.UpdateMu.Lock()
-			defer chainView.UpdateMu.Unlock()
-			for source, commitStore := range c.CommitStore {
-				commitStoreView, err := viewv1_5.GenerateCommitStoreView(commitStore)
-				if err != nil {
-					return errors.Wrapf(err, "failed to generate commit store view for commit store %s for source %d", commitStore.Address().String(), source)
-				}
-				chainView.CommitStore[commitStore.Address().Hex()] = commitStoreView
-				lggr.Infow("generated commit store view", "commitStore", commitStore.Address().Hex(), "chain", chain)
-			}
 			return nil
 		})
 	}
@@ -634,38 +1072,6 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		})
 	}
 
-	if c.EVM2EVMOffRamp != nil {
-		grp.Go(func() error {
-			chainView.UpdateMu.Lock()
-			defer chainView.UpdateMu.Unlock()
-			for source, offRamp := range c.EVM2EVMOffRamp {
-				offRampView, err := viewv1_5.GenerateOffRampView(offRamp)
-				if err != nil {
-					return errors.Wrapf(err, "failed to generate off ramp view for off ramp %s for source %d", offRamp.Address().String(), source)
-				}
-				chainView.EVM2EVMOffRamp[offRamp.Address().Hex()] = offRampView
-				lggr.Infow("generated EVM2EVMOffRamp view", "offRamp", offRamp.Address().Hex(), "chain", chain)
-			}
-			return nil
-		})
-	}
-
-	if c.EVM2EVMOnRamp != nil {
-		grp.Go(func() error {
-			chainView.UpdateMu.Lock()
-			defer chainView.UpdateMu.Unlock()
-			for dest, onRamp := range c.EVM2EVMOnRamp {
-				onRampView, err := viewv1_5.GenerateOnRampView(onRamp)
-				if err != nil {
-					return errors.Wrapf(err, "failed to generate on ramp view for on ramp %s for dest %d", onRamp.Address().String(), dest)
-				}
-				chainView.EVM2EVMOnRamp[onRamp.Address().Hex()] = onRampView
-				lggr.Infow("generated EVM2EVMOnRamp view", "onRamp", onRamp.Address().Hex(), "chain", chain)
-			}
-			return nil
-		})
-	}
-
 	return chainView, grp.Wait()
 }
 
@@ -686,6 +1092,86 @@ type CCIPOnChainState struct {
 	Chains      map[uint64]CCIPChainState
 	SolChains   map[uint64]SolCCIPChainState
 	AptosChains map[uint64]AptosCCIPChainState
+}
+
+// ValidatePostDeploymentState should be called after the deployment and configuration for all contracts
+// in environment is complete.
+// It validates the state of the contracts and ensures that they are correctly configured and wired with each other.
+func (c CCIPOnChainState) ValidatePostDeploymentState(e deployment.Environment) error {
+	onRampsBySelector := make(map[uint64]common.Address)
+	offRampsBySelector := make(map[uint64]offramp.OffRampInterface)
+	for selector, chainState := range c.Chains {
+		if chainState.OnRamp == nil {
+			return fmt.Errorf("onramp not found in the state for chain %d", selector)
+		}
+		onRampsBySelector[selector] = chainState.OnRamp.Address()
+		offRampsBySelector[selector] = chainState.OffRamp
+	}
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return fmt.Errorf("failed to get node info from env: %w", err)
+	}
+	homeChain, err := c.HomeChainSelector()
+	if err != nil {
+		return fmt.Errorf("failed to get home chain selector: %w", err)
+	}
+	homeChainState := c.Chains[homeChain]
+	if err := homeChainState.validateHomeChain(e, nodes, offRampsBySelector); err != nil {
+		return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
+	}
+	rmnHomeActiveDigest, err := homeChainState.RMNHome.GetActiveDigest(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get active digest for RMNHome %s at home chain %d: %w", homeChainState.RMNHome.Address().Hex(), homeChain, err)
+	}
+	isRMNEnabledInRMNHomeBySourceChain := make(map[uint64]bool)
+	rmnHomeConfig, err := homeChainState.RMNHome.GetConfig(&bind.CallOpts{
+		Context: e.GetContext(),
+	}, rmnHomeActiveDigest)
+	if err != nil {
+		return fmt.Errorf("failed to get config for RMNHome %s at home chain %d: %w", homeChainState.RMNHome.Address().Hex(), homeChain, err)
+	}
+	// if Fobserve is greater than 0, RMN is enabled for the source chain in RMNHome
+	for _, rmnHomeChain := range rmnHomeConfig.VersionedConfig.DynamicConfig.SourceChains {
+		isRMNEnabledInRMNHomeBySourceChain[rmnHomeChain.ChainSelector] = rmnHomeChain.FObserve > 0
+	}
+	for selector, chainState := range c.Chains {
+		isRMNEnabledInRmnRemote, err := chainState.validateRMNRemote(e, selector, rmnHomeActiveDigest)
+		if err != nil {
+			return fmt.Errorf("failed to validate RMNRemote %s for chain %d: %w", chainState.RMNRemote.Address().Hex(), selector, err)
+		}
+		// check whether RMNRemote and RMNHome are in sync in terms of RMNEnabled
+		if isRMNEnabledInRmnRemote != isRMNEnabledInRMNHomeBySourceChain[selector] {
+			return fmt.Errorf("RMNRemote %s rmnEnabled mismatch with RMNHome for chain %d: expected %v, got %v",
+				chainState.RMNRemote.Address().Hex(), selector, isRMNEnabledInRMNHomeBySourceChain[selector], isRMNEnabledInRmnRemote)
+		}
+		otherOnRamps := make(map[uint64]common.Address)
+		isTestRouter := true
+		if chainState.Router != nil {
+			isTestRouter = false
+		}
+		connectedChains, err := chainState.validateRouter(e, isTestRouter)
+		if err != nil {
+			return fmt.Errorf("failed to validate router %s for chain %d: %w", chainState.Router.Address().Hex(), selector, err)
+		}
+		for _, connectedChain := range connectedChains {
+			if connectedChain == selector {
+				continue
+			}
+			otherOnRamps[connectedChain] = c.Chains[connectedChain].OnRamp.Address()
+		}
+		if err := chainState.validateOffRamp(e, selector, otherOnRamps, isRMNEnabledInRMNHomeBySourceChain); err != nil {
+			return fmt.Errorf("failed to validate offramp %s for chain %d: %w", chainState.OffRamp.Address().Hex(), selector, err)
+		}
+		if err := chainState.validateOnRamp(e, selector, connectedChains); err != nil {
+			return fmt.Errorf("failed to validate onramp %s for chain %d: %w", chainState.OnRamp.Address().Hex(), selector, err)
+		}
+		if err := chainState.validateFeeQuoter(e); err != nil {
+			return fmt.Errorf("failed to validate fee quoter %s for chain %d: %w", chainState.FeeQuoter.Address().Hex(), selector, err)
+		}
+	}
+	return nil
 }
 
 // HomeChainSelector returns the selector of the home chain based on the presence of RMNHome, CapabilityRegistry and CCIPHome contracts.
@@ -754,6 +1240,23 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		}
 		// #nosec G115
 		return uint32(offRampConfig.EnableManualExecutionAfter), nil
+	case chain_selectors.FamilyAptos:
+		chainState, ok := c.AptosChains[selector]
+		if !ok {
+			return 0, fmt.Errorf("chain %d does not exist in state", selector)
+		}
+		chain, ok := env.AptosChains[selector]
+		if !ok {
+			return 0, fmt.Errorf("chain %d does not exist in env", selector)
+		}
+		if chainState.CCIPAddress == (aptos.AccountAddress{}) {
+			return 0, fmt.Errorf("ccip not found in existing state, deploy the ccip first for Aptos chain %d", selector)
+		}
+		offrampDynamicConfig, err := getOfframpDynamicConfig(chain, chainState.CCIPAddress)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get offramp dynamic config for Aptos chain %d: %w", selector, err)
+		}
+		return offrampDynamicConfig.PermissionlessExecutionThresholdSeconds, nil
 	}
 	return 0, fmt.Errorf("unsupported chain family %s", family)
 }
@@ -804,6 +1307,9 @@ func (c CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 		chains[chain] = struct{}{}
 	}
 	for chain := range c.SolChains {
+		chains[chain] = struct{}{}
+	}
+	for chain := range c.AptosChains {
 		chains[chain] = struct{}{}
 	}
 	return chains
@@ -1005,6 +1511,9 @@ func (c CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, 
 		offRampAddress = c.Chains[chainSelector].OffRamp.Address().Bytes()
 	case chain_selectors.FamilySolana:
 		offRampAddress = c.SolChains[chainSelector].OffRamp.Bytes()
+	case chain_selectors.FamilyAptos:
+		ccipAddress := c.AptosChains[chainSelector].CCIPAddress
+		offRampAddress = ccipAddress[:]
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}
@@ -1030,6 +1539,12 @@ func (c CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, e
 			return nil, fmt.Errorf("no router found in the state for chain %d", chainSelector)
 		}
 		onRampAddressBytes = c.SolChains[chainSelector].Router.Bytes()
+	case chain_selectors.FamilyAptos:
+		ccipAddress := c.AptosChains[chainSelector].CCIPAddress
+		if ccipAddress == (aptos.AccountAddress{}) {
+			return nil, fmt.Errorf("no ccip address found in the state for Aptos chain %d", chainSelector)
+		}
+		onRampAddressBytes = ccipAddress[:]
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}
@@ -1037,7 +1552,7 @@ func (c CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, e
 	return onRampAddressBytes, nil
 }
 
-func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment.ContractType) error {
+func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType cldf.ContractType) error {
 	family, err := chain_selectors.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return err
@@ -1079,6 +1594,15 @@ func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment
 			return fmt.Errorf("unknown ramp type %s", rampType)
 		}
 
+	case chain_selectors.FamilyAptos:
+		chainState, exists := c.AptosChains[chainSelector]
+		if !exists {
+			return fmt.Errorf("chain %d does not exist", chainSelector)
+		}
+		if chainState.CCIPAddress == (aptos.AccountAddress{}) {
+			return fmt.Errorf("ccip package does not exist on aptos chain %d", chainSelector)
+		}
+
 	default:
 		return fmt.Errorf("unknown chain family %s", family)
 	}
@@ -1086,20 +1610,25 @@ func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment
 }
 
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
-	solState, err := LoadOnchainStateSolana(e)
+	solanaState, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		return CCIPOnChainState{}, err
+	}
+	aptosChains, err := LoadOnchainStateAptos(e)
 	if err != nil {
 		return CCIPOnChainState{}, err
 	}
 	state := CCIPOnChainState{
-		Chains:    make(map[uint64]CCIPChainState),
-		SolChains: solState.SolChains,
+		Chains:      make(map[uint64]CCIPChainState),
+		SolChains:   solanaState.SolChains,
+		AptosChains: aptosChains,
 	}
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty
-			if errors.Is(err, deployment.ErrChainNotFound) {
-				addresses = make(map[string]deployment.TypeAndVersion)
+			if errors.Is(err, cldf.ErrChainNotFound) {
+				addresses = make(map[string]cldf.TypeAndVersion)
 			} else {
 				return state, err
 			}
@@ -1114,7 +1643,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
+func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
 	mcmsWithTimelock, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
@@ -1135,124 +1664,124 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	state.ABIByAddress = make(map[string]string)
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
-		case deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.RBACTimelockABI
-		case deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.CallProxyABI
-		case deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
+			cldf.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
+			cldf.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
-		case deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = link_token.LinkTokenABI
-		case deployment.NewTypeAndVersion(commontypes.StaticLinkToken, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(commontypes.StaticLinkToken, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = link_token_interface.LinkTokenABI
-		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.CapabilityRegistry = cr
 			state.ABIByAddress[address] = capabilities_registry.CapabilitiesRegistryABI
-		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0).String():
+		case cldf.NewTypeAndVersion(OnRamp, deployment.Version1_6_0).String():
 			onRampC, err := onramp.NewOnRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.OnRamp = onRampC
 			state.ABIByAddress[address] = onramp.OnRampABI
-		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0).String():
+		case cldf.NewTypeAndVersion(OffRamp, deployment.Version1_6_0).String():
 			offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.OffRamp = offRamp
 			state.ABIByAddress[address] = offramp.OffRampABI
-		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0).String():
 			armProxy, err := rmn_proxy_contract.NewRMNProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMNProxy = armProxy
 			state.ABIByAddress[address] = rmn_proxy_contract.RMNProxyABI
-		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0).String():
+		case cldf.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0).String():
 			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMNRemote = rmnRemote
 			state.ABIByAddress[address] = rmn_remote.RMNRemoteABI
-		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0).String():
+		case cldf.NewTypeAndVersion(RMNHome, deployment.Version1_6_0).String():
 			rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMNHome = rmnHome
 			state.ABIByAddress[address] = rmn_home.RMNHomeABI
-		case deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(WETH9, deployment.Version1_0_0).String():
 			_weth9, err := weth9.NewWETH9(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.Weth9 = _weth9
 			state.ABIByAddress[address] = weth9.WETH9ABI
-		case deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0).String():
+		case cldf.NewTypeAndVersion(NonceManager, deployment.Version1_6_0).String():
 			nm, err := nonce_manager.NewNonceManager(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.NonceManager = nm
 			state.ABIByAddress[address] = nonce_manager.NonceManagerABI
-		case deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0).String():
 			tm, err := token_admin_registry.NewTokenAdminRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.TokenAdminRegistry = tm
 			state.ABIByAddress[address] = token_admin_registry.TokenAdminRegistryABI
-		case deployment.NewTypeAndVersion(TokenPoolFactory, deployment.Version1_5_1).String():
+		case cldf.NewTypeAndVersion(TokenPoolFactory, deployment.Version1_5_1).String():
 			tpf, err := token_pool_factory.NewTokenPoolFactory(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.TokenPoolFactory = tpf
 			state.ABIByAddress[address] = token_pool_factory.TokenPoolFactoryABI
-		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_6_0).String():
+		case cldf.NewTypeAndVersion(RegistryModule, deployment.Version1_6_0).String():
 			rm, err := registryModuleOwnerCustomv16.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RegistryModules1_6 = append(state.RegistryModules1_6, rm)
 			state.ABIByAddress[address] = registryModuleOwnerCustomv16.RegistryModuleOwnerCustomABI
-		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0).String():
 			rm, err := registryModuleOwnerCustomv15.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RegistryModules1_5 = append(state.RegistryModules1_5, rm)
 			state.ABIByAddress[address] = registryModuleOwnerCustomv15.RegistryModuleOwnerCustomABI
-		case deployment.NewTypeAndVersion(Router, deployment.Version1_2_0).String():
+		case cldf.NewTypeAndVersion(Router, deployment.Version1_2_0).String():
 			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.Router = r
 			state.ABIByAddress[address] = router.RouterABI
-		case deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0).String():
+		case cldf.NewTypeAndVersion(TestRouter, deployment.Version1_2_0).String():
 			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.TestRouter = r
 			state.ABIByAddress[address] = router.RouterABI
-		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0).String():
+		case cldf.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0).String():
 			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.FeeQuoter = fq
 			state.ABIByAddress[address] = fee_quoter.FeeQuoterABI
-		case deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(USDCToken, deployment.Version1_0_0).String():
 			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -1261,7 +1790,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				USDCSymbol: ut,
 			}
 			state.ABIByAddress[address] = burn_mint_erc677.BurnMintERC677ABI
-		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_5_1).String():
+		case cldf.NewTypeAndVersion(USDCTokenPool, deployment.Version1_5_1).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -1270,7 +1799,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				state.USDCTokenPools = make(map[semver.Version]*usdc_token_pool.USDCTokenPool)
 			}
 			state.USDCTokenPools[deployment.Version1_5_1] = utp
-		case deployment.NewTypeAndVersion(HybridLockReleaseUSDCTokenPool, deployment.Version1_5_1).String():
+		case cldf.NewTypeAndVersion(HybridLockReleaseUSDCTokenPool, deployment.Version1_5_1).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -1280,49 +1809,49 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.USDCTokenPools[deployment.Version1_5_1] = utp
 			state.ABIByAddress[address] = usdc_token_pool.USDCTokenPoolABI
-		case deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0).String():
 			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.MockUSDCTransmitter = umt
 			state.ABIByAddress[address] = mock_usdc_token_transmitter.MockE2EUSDCTransmitterABI
-		case deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0).String():
 			utm, err := mock_usdc_token_messenger.NewMockE2EUSDCTokenMessenger(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.MockUSDCTokenMessenger = utm
 			state.ABIByAddress[address] = mock_usdc_token_messenger.MockE2EUSDCTokenMessengerABI
-		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0).String():
+		case cldf.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0).String():
 			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.CCIPHome = ccipHome
 			state.ABIByAddress[address] = ccip_home.CCIPHomeABI
-		case deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0).String():
 			mr, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.Receiver = mr
 			state.ABIByAddress[address] = maybe_revert_message_receiver.MaybeRevertMessageReceiverABI
-		case deployment.NewTypeAndVersion(LogMessageDataReceiver, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(LogMessageDataReceiver, deployment.Version1_0_0).String():
 			mr, err := log_message_data_receiver.NewLogMessageDataReceiver(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.LogMessageDataReceiver = mr
 			state.ABIByAddress[address] = log_message_data_receiver.LogMessageDataReceiverABI
-		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
 			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.Multicall3 = mc
 			state.ABIByAddress[address] = multicall3.Multicall3ABI
-		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
 			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -1340,7 +1869,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.USDFeeds[key] = feed
 			state.ABIByAddress[address] = aggregator_v3_interface.AggregatorV3InterfaceABI
-		case deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1).String():
+		case cldf.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
 			pool, metadata, err := NewTokenPoolWithMetadata(ctx, burn_mint_token_pool.NewBurnMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
@@ -1348,7 +1877,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.BurnMintTokenPools = helpers.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
-		case deployment.NewTypeAndVersion(BurnWithFromMintTokenPool, deployment.Version1_5_1).String():
+		case cldf.NewTypeAndVersion(BurnWithFromMintTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
 			pool, metadata, err := NewTokenPoolWithMetadata(ctx, burn_with_from_mint_token_pool.NewBurnWithFromMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
@@ -1356,7 +1885,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.BurnWithFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnWithFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_with_from_mint_token_pool.BurnWithFromMintTokenPoolABI
-		case deployment.NewTypeAndVersion(BurnFromMintTokenPool, deployment.Version1_5_1).String():
+		case cldf.NewTypeAndVersion(BurnFromMintTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
 			pool, metadata, err := NewTokenPoolWithMetadata(ctx, burn_from_mint_token_pool.NewBurnFromMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
@@ -1364,7 +1893,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.BurnFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_from_mint_token_pool.BurnFromMintTokenPoolABI
-		case deployment.NewTypeAndVersion(LockReleaseTokenPool, deployment.Version1_5_1).String():
+		case cldf.NewTypeAndVersion(LockReleaseTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
 			pool, metadata, err := NewTokenPoolWithMetadata(ctx, lock_release_token_pool.NewLockReleaseTokenPool, ethAddress, chain.Client)
 			if err != nil {
@@ -1372,7 +1901,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.LockReleaseTokenPools = helpers.AddValueToNestedMap(state.LockReleaseTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = lock_release_token_pool.LockReleaseTokenPoolABI
-		case deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0).String():
 			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -1386,7 +1915,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.BurnMintTokens677[TokenSymbol(symbol)] = tok
 			state.ABIByAddress[address] = burn_mint_erc677.BurnMintERC677ABI
-		case deployment.NewTypeAndVersion(ERC20Token, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(ERC20Token, deployment.Version1_0_0).String():
 			tok, err := erc20.NewERC20(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -1400,14 +1929,14 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.ERC20Tokens[TokenSymbol(symbol)] = tok
 			state.ABIByAddress[address] = erc20.ERC20ABI
-		case deployment.NewTypeAndVersion(FactoryBurnMintERC20Token, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(FactoryBurnMintERC20Token, deployment.Version1_0_0).String():
 			tok, err := factory_burn_mint_erc20.NewFactoryBurnMintERC20(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.FactoryBurnMintERC20Token = tok
 			state.ABIByAddress[address] = factory_burn_mint_erc20.FactoryBurnMintERC20ABI
-		case deployment.NewTypeAndVersion(ERC677Token, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(ERC677Token, deployment.Version1_0_0).String():
 			tok, err := erc677.NewERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -1422,7 +1951,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.ERC677Tokens[TokenSymbol(symbol)] = tok
 			state.ABIByAddress[address] = erc677.ERC677ABI
 		// legacy addresses below
-		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(OnRamp, deployment.Version1_5_0).String():
 			onRampC, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -1436,7 +1965,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.EVM2EVMOnRamp[sCfg.DestChainSelector] = onRampC
 			state.ABIByAddress[address] = evm_2_evm_onramp.EVM2EVMOnRampABI
-		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(OffRamp, deployment.Version1_5_0).String():
 			offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -1450,7 +1979,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.EVM2EVMOffRamp[sCfg.SourceChainSelector] = offRamp
 			state.ABIByAddress[address] = evm_2_evm_offramp.EVM2EVMOffRampABI
-		case deployment.NewTypeAndVersion(CommitStore, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(CommitStore, deployment.Version1_5_0).String():
 			commitStore, err := commit_store.NewCommitStore(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -1464,31 +1993,40 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.CommitStore[sCfg.SourceChainSelector] = commitStore
 			state.ABIByAddress[address] = commit_store.CommitStoreABI
-		case deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_2_0).String():
+		case cldf.NewTypeAndVersion(PriceRegistry, deployment.Version1_2_0).String():
 			pr, err := price_registry_1_2_0.NewPriceRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.PriceRegistry = pr
 			state.ABIByAddress[address] = price_registry_1_2_0.PriceRegistryABI
-		case deployment.NewTypeAndVersion(RMN, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(RMN, deployment.Version1_5_0).String():
 			rmnC, err := rmn_contract.NewRMNContract(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMN = rmnC
 			state.ABIByAddress[address] = rmn_contract.RMNContractABI
-		case deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0).String():
+		case cldf.NewTypeAndVersion(MockRMN, deployment.Version1_0_0).String():
 			mockRMN, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.MockRMN = mockRMN
 			state.ABIByAddress[address] = mock_rmn_contract.MockRMNContractABI
-		case deployment.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_5_0).String(),
-			deployment.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_6_0).String():
+		case cldf.NewTypeAndVersion(FeeAggregator, deployment.Version1_0_0).String():
+			state.FeeAggregator = common.HexToAddress(address)
+		case cldf.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_5_0).String(),
+			cldf.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_6_0).String():
 			// Ignore firedrill contracts
 			// Firedrill contracts are unknown to core and their state is being loaded separately
+		case cldf.NewTypeAndVersion(DonIDClaimer, deployment.Version1_6_1).String():
+			donIDClaimer, err := don_id_claimer.NewDonIDClaimer(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.DonIDClaimer = donIDClaimer
+			state.ABIByAddress[address] = don_id_claimer.DonIDClaimerABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller
@@ -1528,6 +2066,49 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateLatestConfigOffRamp(offRamp offramp.OffRampInterface, cfg offramp.MultiOCR3BaseOCRConfig, homeChainConfig ccip_home.CCIPHomeChainConfig) error {
+	// check if number of signers are unique and greater than 3
+	if cfg.ConfigInfo.IsSignatureVerificationEnabled {
+		if len(cfg.Signers) < 3 {
+			return fmt.Errorf("offRamp %s config signers count mismatch: expected at least 3, got %d",
+				offRamp.Address().Hex(), len(cfg.Signers))
+		}
+		if !deployment.IsAddressListUnique(cfg.Signers) {
+			return fmt.Errorf("offRamp %s config signers list %v is not unique", offRamp.Address().Hex(), cfg.Signers)
+		}
+		if deployment.AddressListContainsEmptyAddress(cfg.Signers) {
+			return fmt.Errorf("offRamp %s config signers list %v contains empty address", offRamp.Address().Hex(), cfg.Signers)
+		}
+	} else if len(cfg.Signers) != 0 {
+		return fmt.Errorf("offRamp %s config signers count mismatch: expected 0, got %d",
+			offRamp.Address().Hex(), len(cfg.Signers))
+	}
+	if len(cfg.Transmitters) < 3 {
+		return fmt.Errorf("offRamp %s config transmitters count mismatch: expected at least 3, got %d",
+			offRamp.Address().Hex(), len(cfg.Transmitters))
+	}
+	if !deployment.IsAddressListUnique(cfg.Transmitters) {
+		return fmt.Errorf("offRamp %s config transmitters list %v is not unique", offRamp.Address().Hex(), cfg.Transmitters)
+	}
+	if deployment.AddressListContainsEmptyAddress(cfg.Transmitters) {
+		return fmt.Errorf("offRamp %s config transmitters list %v contains empty address", offRamp.Address().Hex(), cfg.Transmitters)
+	}
+
+	// FRoleDON >= fChain is a requirement
+	if cfg.ConfigInfo.F < homeChainConfig.FChain {
+		return fmt.Errorf("offRamp %s config fChain mismatch: expected at least %d, got %d",
+			offRamp.Address().Hex(), homeChainConfig.FChain, cfg.ConfigInfo.F)
+	}
+
+	//  transmitters.length should be validated such that it meets the 3 * fChain + 1 requirement
+	minTransmitterReq := 3*int(homeChainConfig.FChain) + 1
+	if len(cfg.Transmitters) < minTransmitterReq {
+		return fmt.Errorf("offRamp %s config transmitters count mismatch: expected at least %d, got %d",
+			offRamp.Address().Hex(), minTransmitterReq, len(cfg.Transmitters))
 	}
 	return nil
 }

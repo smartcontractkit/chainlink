@@ -11,7 +11,10 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
@@ -98,8 +101,8 @@ func ExecuteOrPropose(
 // TransferToMCMSWithTimelockForTypeAndVersion transfers ownership of the contracts of a specific type and version to the
 // MCMS timelock on that chain. The output will contain an MCMS timelock proposal for "AcceptOwnership" of those contracts
 // The address book should be recently deployed addresses that are being transferred to MCMS and should not be in e.ExistingAddresses
-func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab deployment.AddressBook,
-	filter deployment.TypeAndVersion, mcmsConfig proposalutils.TimelockConfig) (deployment.ChangesetOutput, error) {
+func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab cldf.AddressBook,
+	filter cldf.TypeAndVersion, mcmsConfig proposalutils.TimelockConfig) (deployment.ChangesetOutput, error) {
 	contractAddresses := make(map[uint64][]common.Address)
 	addresses, err := ab.Addresses()
 	if err != nil {
@@ -116,7 +119,7 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab de
 
 	// create a merged addressbook with the existing + new addresses. Sub-changesets will need all addresses
 	// This is required when chaining together changesets
-	abTemp := deployment.NewMemoryAddressBook()
+	abTemp := cldf.NewMemoryAddressBook()
 	if err := abTemp.Merge(ab); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging new addresses into temp addresses: %w", err)
 	}
@@ -126,7 +129,7 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab de
 
 	e.ExistingAddresses = abTemp
 
-	transferCs := deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2)
+	transferCs := cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2)
 	transferCfg := commonchangeset.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: contractAddresses,
 		MCMSConfig:       mcmsConfig,
