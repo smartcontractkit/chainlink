@@ -80,7 +80,7 @@ func (r *Relayer) LatestAndFinalizedHead(ctx context.Context) (evmtypes.Head, ev
 	return convertHead(latest), convertHead(finalized), nil
 }
 
-func (r *Relayer) QueryLogsFromCache(ctx context.Context, filterQuery []query.Expression,
+func (r *Relayer) QueryTrackedLogs(ctx context.Context, filterQuery []query.Expression,
 	limitAndSort query.LimitAndSort, confidenceLevel primitives.ConfidenceLevel) ([]*evmtypes.Log, error) {
 	// TODO move evm specific expressions to common
 	// TODO check if required filters[event sig and address] are set

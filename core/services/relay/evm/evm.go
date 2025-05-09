@@ -1002,10 +1002,6 @@ func (r *Relayer) EVM() (commontypes.EVMService, error) {
 	return r, nil
 }
 
-func (r *Relayer) Client() commontypes.EVMClient {
-	return r
-}
-
 func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
 	lggr := logger.Sugared(r.lggr).Named("MedianProvider").Named(rargs.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(rargs)
