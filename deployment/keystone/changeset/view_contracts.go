@@ -98,7 +98,7 @@ func GenerateKeystoneChainView(
 					addrCopy := addr
 					capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cr)
 					if err != nil {
-						lggr.Warn("failed to generate capability registry view: %w", err)
+						lggr.Warnf("failed to generate capability registry view for address %s: %v", addrCopy, err)
 						errCh <- err
 					}
 					outMu.Lock()
@@ -125,9 +125,9 @@ func GenerateKeystoneChainView(
 					if err != nil {
 						// don't block view on single OCR3 not being configured
 						if errors.Is(err, ErrOCR3NotConfigured) {
-							lggr.Warnf("ocr3 not configured for address %s", addr)
+							lggr.Warnf("ocr3 not configured for address %s", addrCopy)
 						} else {
-							lggr.Errorf("failed to generate OCR3 config view: %v", err)
+							lggr.Errorf("failed to generate OCR3 config view for address %s: %v", addrCopy, err)
 							errCh <- err
 						}
 						continue
@@ -155,7 +155,7 @@ func GenerateKeystoneChainView(
 					addrCopy := addr
 					wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(wr)
 					for _, err := range wrErrs {
-						lggr.Errorf("WorkflowRegistry error: %v", err)
+						lggr.Errorf("WorkflowRegistry error for address %s: %v", addrCopy, err)
 						errCh <- err
 					}
 					outMu.Lock()
@@ -200,7 +200,7 @@ func GenerateKeystoneChainView(
 							lggr.Warnf("forwarder view generation cancelled for address %s", fwrCopy.Address())
 							errCh <- fwrErr
 						default:
-							lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
+							lggr.Errorf("failed to generate forwarder view for address %s: %v", fwrCopy.Address(), fwrErr)
 							errCh <- fwrErr
 						}
 					} else {
