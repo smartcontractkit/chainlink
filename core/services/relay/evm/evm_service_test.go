@@ -84,12 +84,12 @@ func TestEVMService(t *testing.T) {
 		evmClient.On("TransactionByHash", ctx, hash).Return(transaction, nil)
 		tx, err := relayer.TransactionByHash(ctx, hash)
 		require.NoError(t, err)
-		require.Equal(t, transaction.Hash().Hex(), tx.Hash)
+		require.Equal(t, transaction.Hash().Bytes(), tx.Hash[:])
 		require.Equal(t, transaction.Nonce(), tx.Nonce)
 		require.Equal(t, transaction.GasPrice(), tx.GasPrice)
 		require.Equal(t, transaction.Data(), tx.Data)
 		require.Equal(t, transaction.Gas(), tx.Gas)
-		require.Equal(t, transaction.To().Hex(), tx.To)
+		require.Equal(t, transaction.To().Bytes(), tx.To[:])
 	})
 }
 
@@ -103,7 +103,7 @@ func TestConverters(t *testing.T) {
 			Hash:      common.HexToHash("0x123"),
 		}
 		result := convertHead(&head)
-		require.Equal(t, result.Hash, head.Hash.String())
+		require.Equal(t, head.Hash.Bytes(), result.Hash[:])
 	})
 
 	t.Run("convert transaction", func(t *testing.T) {
@@ -118,12 +118,12 @@ func TestConverters(t *testing.T) {
 
 		result := convertTransaction(tx)
 		require.NotNil(t, result)
-		require.Equal(t, tx.Hash().Hex(), result.Hash)
+		require.Equal(t, tx.Hash().Bytes(), result.Hash[:])
 		require.Equal(t, tx.Nonce(), result.Nonce)
 		require.Equal(t, tx.Gas(), result.Gas)
 		require.Equal(t, tx.GasPrice(), result.GasPrice)
 		require.Equal(t, tx.Value(), result.Value)
-		require.Equal(t, tx.To().Hex(), result.To)
+		require.Equal(t, tx.To().Bytes(), result.To[:])
 		require.Equal(t, tx.Data(), result.Data)
 	})
 }
