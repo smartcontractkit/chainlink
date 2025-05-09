@@ -63,14 +63,14 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 	t.Run("track abandoned addresses", func(t *testing.T) {
 		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		tracker, txStore := newTestEvmTrackerSetup(t)
-		inProgressAddr := cltest.MustGenerateRandomKey(t).Address
-		unstartedAddr := cltest.MustGenerateRandomKey(t).Address
-		unconfirmedAddr := cltest.MustGenerateRandomKey(t).Address
-		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
+		inProgressAddr := testutils.NewAddress()
+		unstartedAddr := testutils.NewAddress()
+		unconfirmedAddr := testutils.NewAddress()
+		confirmedAddr := testutils.NewAddress()
 		_ = mustInsertInProgressEthTxWithAttempt(t, txStore, 123, inProgressAddr)
 		_ = cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, unconfirmedAddr)
 		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
-		_ = mustCreateUnstartedTx(t, txStore, unstartedAddr, cltest.MustGenerateRandomKey(t).Address, []byte{}, 0, big.Int{}, ethClient.ConfiguredChainID())
+		_ = mustCreateUnstartedTx(t, txStore, unstartedAddr, testutils.NewAddress(), []byte{}, 0, big.Int{}, ethClient.ConfiguredChainID())
 
 		servicetest.Run(t, tracker)
 
@@ -86,7 +86,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 	/* TODO: finalized tx state https://smartcontract-it.atlassian.net/browse/BCI-2920
 	t.Run("stop tracking finalized tx", func(t *testing.T) {
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
-		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
+		confirmedAddr := testutils.NewAddress()
 		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
 
 		err := tracker.Start(ctx)
@@ -118,8 +118,8 @@ func TestEvmTracker_ExceedingTTL(t *testing.T) {
 	ctx := tests.Context(t)
 
 	tracker, txStore := newTestEvmTrackerSetup(t)
-	addr1 := cltest.MustGenerateRandomKey(t).Address
-	addr2 := cltest.MustGenerateRandomKey(t).Address
+	addr1 := testutils.NewAddress()
+	addr2 := testutils.NewAddress()
 	tx1 := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, addr1)
 	tx2 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, addr2)
 
