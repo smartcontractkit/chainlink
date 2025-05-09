@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verification"
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 var (
@@ -40,7 +42,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 		name                    string
 		hasExistingMcms         bool
 		deployDataStreamsConfig DeployDataStreamsConfig
-		expectedContracts       []deployment.TypeAndVersion
+		expectedContracts       []cldf.TypeAndVersion
 	}{
 		{
 			name:            "Deploy with billing and MCMS",
@@ -62,7 +64,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					},
 				}},
 			},
-			expectedContracts: []deployment.TypeAndVersion{
+			expectedContracts: []cldf.TypeAndVersion{
 				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
 				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
 				cldf.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0),
@@ -86,7 +88,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					},
 				}},
 			},
-			expectedContracts: []deployment.TypeAndVersion{
+			expectedContracts: []cldf.TypeAndVersion{
 				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
 				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
 				cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0),
@@ -106,7 +108,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					},
 				}},
 			},
-			expectedContracts: []deployment.TypeAndVersion{
+			expectedContracts: []cldf.TypeAndVersion{
 				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
 				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
 			},
@@ -119,7 +121,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					VerifierConfig: verificationCfg,
 				}},
 			},
-			expectedContracts: []deployment.TypeAndVersion{
+			expectedContracts: []cldf.TypeAndVersion{
 				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
 				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
 			},
