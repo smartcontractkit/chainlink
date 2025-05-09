@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -41,45 +42,51 @@ func TestRevokeJobSpecs(t *testing.T) {
 		},
 	}).Environment
 
+	uuidFromJobSpec := func(jobSpec string) string {
+		matches := regexp.MustCompile(`externalJobID\s*=\s*'([a-f0-9-]+)'`).FindStringSubmatch(jobSpec)
+		require.Len(t, matches, 2, "expected to find a UUID in the job spec")
+		return matches[1]
+	}
+
 	// Create some jobs:
 	sentJobs := sendTestLLOJobs(t, env, numOracles, numBootstraps, false)
 	require.Len(t, sentJobs, 1)
 	require.Len(t, sentJobs[0].Jobs, numBootstraps+numOracles)
 
-	var oracleJobID, btJobID string
+	var oracleJobUUIDs, btJobUUIDs []string
 	for _, job := range sentJobs[0].Jobs {
 		if strings.Contains(job.Spec, "bootstrap") {
-			btJobID = job.JobID
+			btJobUUIDs = append(btJobUUIDs, uuidFromJobSpec(job.Spec))
 		} else {
-			oracleJobID = job.JobID
+			oracleJobUUIDs = append(oracleJobUUIDs, uuidFromJobSpec(job.Spec))
 		}
 	}
 
 	tests := []struct {
 		name      string
-		jobID     string
+		uuids     []string
 		wantErr   string
 		wantJobID string
 	}{
 		{
 			name:      "Revoke an oracle job",
-			jobID:     oracleJobID,
-			wantJobID: oracleJobID,
+			uuids:     oracleJobUUIDs,
+			wantJobID: oracleJobUUIDs[0], // we only have one
 		},
 		{
 			name:    "Revoke the same job again",
-			jobID:   oracleJobID,
+			uuids:   oracleJobUUIDs,
 			wantErr: "failed to revoke job",
 		},
 		{
 			name:      "Revoke a bootstrap job",
-			jobID:     btJobID,
-			wantJobID: btJobID,
+			uuids:     btJobUUIDs,
+			wantJobID: btJobUUIDs[0], // we only have one
 		},
 		{
 			name:    "Revoke a non-existing job",
-			jobID:   "non-existing-job",
-			wantErr: "no proposals found for job",
+			uuids:   []string{"non-existing-job"},
+			wantErr: "failed to find jobs for all provided UUIDs",
 		},
 	}
 
@@ -89,7 +96,7 @@ func TestRevokeJobSpecs(t *testing.T) {
 				env,
 				[]changeset.ConfiguredChangeSet{
 					changeset.Configure(CsRevokeJobSpecs{}, CsRevokeJobSpecsConfig{
-						JobIDs: []string{tc.jobID},
+						UUIDs: tc.uuids,
 					}),
 				})
 			if tc.wantErr != "" {

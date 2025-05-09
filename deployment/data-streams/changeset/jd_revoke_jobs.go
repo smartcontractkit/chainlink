@@ -12,17 +12,31 @@ import (
 var _ deployment.ChangeSetV2[CsRevokeJobSpecsConfig] = CsRevokeJobSpecs{}
 
 type CsRevokeJobSpecsConfig struct {
-	JobIDs []string
+	// UUIDs is a list of external job IDs to revoke.
+	UUIDs []string
 }
 
 type CsRevokeJobSpecs struct{}
 
 func (CsRevokeJobSpecs) Apply(e deployment.Environment, cfg CsRevokeJobSpecsConfig) (deployment.ChangesetOutput, error) {
-	revokedJobs := make([]deployment.ProposedJob, 0, len(cfg.JobIDs))
-	for _, jobID := range cfg.JobIDs {
+	// Fetch the internal job IDs from the job distributor:
+	jobsResp, err := e.Offchain.ListJobs(e.GetContext(), &jobv1.ListJobsRequest{
+		Filter: &jobv1.ListJobsRequest_Filter{
+			Uuids: cfg.UUIDs,
+		},
+	})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to list jobs: %w", err)
+	}
+	if len(jobsResp.Jobs) != len(cfg.UUIDs) {
+		return deployment.ChangesetOutput{}, errors.New("failed to find jobs for all provided UUIDs")
+	}
+
+	revokedJobs := make([]deployment.ProposedJob, 0, len(jobsResp.Jobs))
+	for _, job := range jobsResp.Jobs {
 		resp, err := e.Offchain.RevokeJob(e.GetContext(), &jobv1.RevokeJobRequest{
 			IdOneof: &jobv1.RevokeJobRequest_Id{
-				Id: jobID,
+				Id: job.GetId(),
 			},
 		})
 		if err != nil {
@@ -40,7 +54,7 @@ func (CsRevokeJobSpecs) Apply(e deployment.Environment, cfg CsRevokeJobSpecsConf
 }
 
 func (f CsRevokeJobSpecs) VerifyPreconditions(_ deployment.Environment, config CsRevokeJobSpecsConfig) error {
-	if len(config.JobIDs) == 0 {
+	if len(config.UUIDs) == 0 {
 		return errors.New("job ids are required")
 	}
 
