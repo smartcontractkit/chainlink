@@ -30,8 +30,8 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	OldSha = "3f2255c2bf22194f4856cb3b0b168af14e59a47c"
-	NewSha = "34a541118d89c346e2c642b089a63c3f2b2df320"
+	OldSha = "5e3357dcbaa58c89259c238c4a424e82afac2110"
+	NewSha = "6ff430180f5272baa3a0b11e7e6bbed0276bef91"
 )
 
 func verifyProgramSizes(t *testing.T, e deployment.Environment) {
@@ -45,8 +45,8 @@ func verifyProgramSizes(t *testing.T, e deployment.Environment) {
 		deployment.RouterProgramName:               state.SolChains[e.AllChainSelectorsSolana()[0]].Router,
 		deployment.OffRampProgramName:              state.SolChains[e.AllChainSelectorsSolana()[0]].OffRamp,
 		deployment.FeeQuoterProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].FeeQuoter,
-		deployment.BurnMintTokenPoolProgramName:    state.SolChains[e.AllChainSelectorsSolana()[0]].BurnMintTokenPool,
-		deployment.LockReleaseTokenPoolProgramName: state.SolChains[e.AllChainSelectorsSolana()[0]].LockReleaseTokenPool,
+		deployment.BurnMintTokenPoolProgramName:    state.SolChains[e.AllChainSelectorsSolana()[0]].BurnMintTokenPools[ccipChangeset.CLLMetadata],
+		deployment.LockReleaseTokenPoolProgramName: state.SolChains[e.AllChainSelectorsSolana()[0]].LockReleaseTokenPools[ccipChangeset.CLLMetadata],
 		deployment.AccessControllerProgramName:     chainState.AccessControllerProgram,
 		deployment.TimelockProgramName:             chainState.TimelockProgram,
 		deployment.McmProgramName:                  chainState.McmProgram,
@@ -251,8 +251,8 @@ func TestUpgrade(t *testing.T) {
 						UpgradeKeys: map[deployment.ContractType]string{
 							ccipChangeset.Router:               state.SolChains[solChainSelectors[0]].Router.String(),
 							ccipChangeset.FeeQuoter:            state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
-							ccipChangeset.BurnMintTokenPool:    state.SolChains[solChainSelectors[0]].BurnMintTokenPool.String(),
-							ccipChangeset.LockReleaseTokenPool: state.SolChains[solChainSelectors[0]].LockReleaseTokenPool.String(),
+							ccipChangeset.BurnMintTokenPool:    state.SolChains[solChainSelectors[0]].BurnMintTokenPools[ccipChangeset.CLLMetadata].String(),
+							ccipChangeset.LockReleaseTokenPool: state.SolChains[solChainSelectors[0]].LockReleaseTokenPools[ccipChangeset.CLLMetadata].String(),
 							ccipChangeset.OffRamp:              state.SolChains[solChainSelectors[0]].OffRamp.String(),
 							types.AccessControllerProgram:      chainState.AccessControllerProgram.String(),
 							types.RBACTimelockProgram:          chainState.TimelockProgram.String(),

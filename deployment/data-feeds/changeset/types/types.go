@@ -176,6 +176,7 @@ type WorkflowSpecConfig struct {
 type ProposeWFJobsConfig struct {
 	ChainSelector      uint64
 	CacheLabel         string   // Label for the DataFeedsCache contract in AB
+	MigrationName      string   // Name of the migration in CLD
 	InputFS            embed.FS // filesystem to read the feeds json mapping
 	WorkflowJobName    string   // Required
 	WorkflowSpecConfig WorkflowSpecConfig

@@ -60,6 +60,9 @@ type DeployChainContractsConfig struct {
 	ContractParamsPerChain ChainContractParams
 	UpgradeConfig          UpgradeConfig
 	BuildConfig            *BuildSolanaConfig
+	// identifier for which token pool to deploy (i.e. partner identifier). defaults to CLL
+	BurnMintTokenPoolMetadata    string
+	LockReleaseTokenPoolMetadata string
 	// TODO: add validation for this
 	MCMSWithTimelockConfig *types.MCMSWithTimelockConfigV2
 }
@@ -236,9 +239,16 @@ func DeployAndMaybeSaveToAddressBook(
 	ab deployment.AddressBook,
 	contractType deployment.ContractType,
 	version semver.Version,
-	isUpgrade bool) (solana.PublicKey, error) {
+	isUpgrade bool,
+	metadata string) (solana.PublicKey, error) {
 	programName := getTypeToProgramDeployName()[contractType]
-	programID, err := chain.DeployProgram(e.Logger, programName, isUpgrade)
+	overallocate := true
+	// by default we want to overallocate buffers, but if metadata is set (i.e. we're managing partner programs)
+	// we want to set the overallocate flag to false
+	if metadata != "" && metadata != ccipChangeset.CLLMetadata {
+		overallocate = false
+	}
+	programID, err := chain.DeployProgram(e.Logger, programName, isUpgrade, overallocate)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
@@ -248,6 +258,9 @@ func DeployAndMaybeSaveToAddressBook(
 
 	if !isUpgrade {
 		tv := deployment.NewTypeAndVersion(contractType, version)
+		if metadata != "" {
+			tv.AddLabel(metadata)
+		}
 		err = ab.Save(chain.Selector, programID, tv)
 		if err != nil {
 			return solana.PublicKey{}, fmt.Errorf("failed to save address: %w", err)
@@ -283,7 +296,7 @@ func deployChainContractsSolana(
 	var feeQuoterAddress solana.PublicKey
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.FeeQuoter.IsZero() {
-		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.FeeQuoter, deployment.Version1_0_0, false)
+		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.FeeQuoter, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -306,7 +319,7 @@ func deployChainContractsSolana(
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.Router.IsZero() {
 		// deploy router
-		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Router, deployment.Version1_0_0, false)
+		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Router, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -329,7 +342,7 @@ func deployChainContractsSolana(
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
-		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, deployment.Version1_0_0, false)
+		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -342,7 +355,7 @@ func deployChainContractsSolana(
 		offRampAddress = ccipChangeset.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
 			// deploy offramp, not upgraded in place so upgrade is false
-			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false)
+			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false, "")
 			if err != nil {
 				return txns, fmt.Errorf("failed to deploy program: %w", err)
 			}
@@ -387,7 +400,7 @@ func deployChainContractsSolana(
 	// RMN REMOTE DEPLOY
 	var rmnRemoteAddress solana.PublicKey
 	if chainState.RMNRemote.IsZero() {
-		rmnRemoteAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.RMNRemote, deployment.Version1_0_0, false)
+		rmnRemoteAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.RMNRemote, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -472,39 +485,48 @@ func deployChainContractsSolana(
 
 	// TOKEN POOLS DEPLOY
 	var burnMintTokenPool solana.PublicKey
-	if chainState.BurnMintTokenPool.IsZero() {
-		burnMintTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.BurnMintTokenPool, deployment.Version1_0_0, false)
+	metadata := ccipChangeset.CLLMetadata
+	if config.BurnMintTokenPoolMetadata != "" {
+		metadata = config.BurnMintTokenPoolMetadata
+	}
+	//nolint:gocritic // this is a false positive, we need to check if the address is zero
+	if chainState.BurnMintTokenPools[metadata].IsZero() {
+		burnMintTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.BurnMintTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil {
-		burnMintTokenPool = chainState.BurnMintTokenPool
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPool, ccipChangeset.BurnMintTokenPool)
+		burnMintTokenPool = chainState.BurnMintTokenPools[metadata]
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPools[metadata], ccipChangeset.BurnMintTokenPool)
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
 		txns = append(txns, newTxns...)
 	} else {
-		e.Logger.Infow("Using existing burn mint token pool", "addr", chainState.BurnMintTokenPool.String())
-		burnMintTokenPool = chainState.BurnMintTokenPool
+		e.Logger.Infow("Using existing burn mint token pool", "addr", chainState.BurnMintTokenPools[metadata].String())
+		burnMintTokenPool = chainState.BurnMintTokenPools[metadata]
 	}
 
 	var lockReleaseTokenPool solana.PublicKey
-	if chainState.LockReleaseTokenPool.IsZero() {
-		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.LockReleaseTokenPool, deployment.Version1_0_0, false)
+	if config.LockReleaseTokenPoolMetadata != "" {
+		metadata = config.LockReleaseTokenPoolMetadata
+	}
+	//nolint:gocritic // this is a false positive, we need to check if the address is zero
+	if chainState.LockReleaseTokenPools[metadata].IsZero() {
+		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.LockReleaseTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil {
-		lockReleaseTokenPool = chainState.LockReleaseTokenPool
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPool, ccipChangeset.LockReleaseTokenPool)
+		lockReleaseTokenPool = chainState.LockReleaseTokenPools[metadata]
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPools[metadata], ccipChangeset.LockReleaseTokenPool)
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
 		txns = append(txns, newTxns...)
 	} else {
-		e.Logger.Infow("Using existing lock release token pool", "addr", chainState.LockReleaseTokenPool.String())
-		lockReleaseTokenPool = chainState.LockReleaseTokenPool
+		e.Logger.Infow("Using existing lock release token pool", "addr", chainState.LockReleaseTokenPools[metadata].String())
+		lockReleaseTokenPool = chainState.LockReleaseTokenPools[metadata]
 	}
 
 	// MCMS
@@ -593,7 +615,6 @@ func deployChainContractsSolana(
 		rmnRemoteCursePDA,
 	}
 
-	e.Logger.Debugw("Populating lookup table", "keys", lookupTableKeys)
 	if err := extendLookupTable(e, chain, offRampAddress, lookupTableKeys); err != nil {
 		return txns, fmt.Errorf("failed to extend lookup table: %w", err)
 	}
@@ -791,7 +812,7 @@ func generateUpgradeTxns(
 ) ([]mcmsTypes.Transaction, error) {
 	e.Logger.Infow("Generating instruction for upgrading contract", "contractType", contractType)
 	txns := make([]mcmsTypes.Transaction, 0)
-	bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, contractType, *newVersion, true)
+	bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, contractType, *newVersion, true, "")
 	if err != nil {
 		return txns, fmt.Errorf("failed to deploy program: %w", err)
 	}
@@ -1000,4 +1021,18 @@ func getSolProgramData(e deployment.Environment, chain deployment.SolChain, prog
 		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
 	}
 	return programData, nil
+}
+
+type CloseBuffersConfig struct {
+	ChainSelector uint64
+	Buffers       []string
+}
+
+func CloseBuffersChangeset(e deployment.Environment, cfg CloseBuffersConfig) (deployment.ChangesetOutput, error) {
+	for _, buffer := range cfg.Buffers {
+		if err := e.SolChains[cfg.ChainSelector].CloseBuffers(e.Logger, buffer); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to close buffer: %w", err)
+		}
+	}
+	return deployment.ChangesetOutput{}, nil
 }

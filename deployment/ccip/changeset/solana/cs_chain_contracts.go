@@ -256,9 +256,10 @@ func UpdateOffRampRefAddresses(
 type SetUpgradeAuthorityConfig struct {
 	ChainSelector         uint64
 	NewUpgradeAuthority   solana.PublicKey
-	SetAfterInitialDeploy bool // set all of the programs after the initial deploy
-	SetOffRamp            bool // offramp not upgraded in place, so may need to set separately
-	SetMCMSPrograms       bool // these all deploy at once so just set them all
+	SetAfterInitialDeploy bool               // set all of the programs after the initial deploy
+	SetOffRamp            bool               // offramp not upgraded in place, so may need to set separately
+	SetMCMSPrograms       bool               // these all deploy at once so just set them all
+	TransferKeys          []solana.PublicKey // any keys not covered by the above e.g. partner programs
 }
 
 func SetUpgradeAuthorityChangeset(
@@ -277,7 +278,7 @@ func SetUpgradeAuthorityChangeset(
 	}
 	programs := make([]solana.PublicKey, 0)
 	if config.SetAfterInitialDeploy {
-		programs = append(programs, chainState.Router, chainState.FeeQuoter, chainState.RMNRemote, chainState.BurnMintTokenPool, chainState.LockReleaseTokenPool)
+		programs = append(programs, chainState.Router, chainState.FeeQuoter, chainState.RMNRemote, chainState.BurnMintTokenPools[ccipChangeset.CLLMetadata], chainState.LockReleaseTokenPools[ccipChangeset.CLLMetadata])
 	}
 	if config.SetOffRamp {
 		programs = append(programs, chainState.OffRamp)
@@ -292,6 +293,12 @@ func SetUpgradeAuthorityChangeset(
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 		}
 		programs = append(programs, mcmState.AccessControllerProgram, mcmState.TimelockProgram, mcmState.McmProgram)
+	}
+	for _, transfer := range config.TransferKeys {
+		if transfer.IsZero() {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get program address for chain %s", chain.String())
+		}
+		programs = append(programs, transfer)
 	}
 	// We do two loops here just to catch any errors before we get partway through the process
 	for _, program := range programs {
@@ -489,13 +496,13 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 	if !cfg.IsUpgrade {
 		//nolint:gocritic // this is a false positive, we need to check if the address is zero
 		if chainState.Receiver.IsZero() {
-			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
+			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false, "")
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
 		} else if cfg.ReceiverVersion != nil {
 			// this block is for re-deploying with a new version
-			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, *cfg.ReceiverVersion, false)
+			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, *cfg.ReceiverVersion, false, "")
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}

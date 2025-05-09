@@ -77,7 +77,10 @@ var DeployAndMintSequence = operations.NewSequence(
 	semver.MustParse("1.0.0"),
 	"Deploy LINK token contract, grants mint and mints some amount to same address",
 	func(b operations.Bundle, deps EthereumDeps, input SqDeployLinkInput) (SqDeployLinkOutput, error) {
-		linkDeployReport, err := operations.ExecuteOperation(b, DeployLinkOp, deps, operations.EmptyInput{})
+		linkDeployReport, err := operations.ExecuteOperation(
+			b, DeployLinkOp, deps, operations.EmptyInput{},
+			operations.WithRetry[operations.EmptyInput, EthereumDeps](),
+		)
 		if err != nil {
 			return SqDeployLinkOutput{}, err
 		}
@@ -86,7 +89,10 @@ var DeployAndMintSequence = operations.NewSequence(
 			ContractAddress: linkDeployReport.Output,
 			To:              deps.Auth.From,
 		}
-		_, err = operations.ExecuteOperation(b, GrantMintOp, deps, grantMintConfig)
+		_, err = operations.ExecuteOperation(
+			b, GrantMintOp, deps, grantMintConfig,
+			operations.WithRetry[GrantMintRoleConfig, EthereumDeps](),
+		)
 		if err != nil {
 			return SqDeployLinkOutput{}, err
 		}
@@ -96,7 +102,10 @@ var DeployAndMintSequence = operations.NewSequence(
 			Amount:          input.MintAmount,
 			To:              input.To,
 		}
-		_, err = operations.ExecuteOperation(b, MintLinkOp, deps, mintConfig)
+		_, err = operations.ExecuteOperation(
+			b, MintLinkOp, deps, mintConfig,
+			operations.WithRetry[MintLinkConfig, EthereumDeps](),
+		)
 		if err != nil {
 			return SqDeployLinkOutput{}, err
 		}

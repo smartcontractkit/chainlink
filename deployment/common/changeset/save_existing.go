@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
@@ -82,8 +81,6 @@ func SaveExistingContractsChangeset(env deployment.Environment, cfg ExistingCont
 		}
 	}
 	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
-		Jobs:        nil,
 	}, nil
 }

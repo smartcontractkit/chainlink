@@ -70,6 +70,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -111,6 +112,7 @@ var (
 	OnRamp               deployment.ContractType = "OnRamp"
 	OffRamp              deployment.ContractType = "OffRamp"
 	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
+	DonIDClaimer         deployment.ContractType = "DonIDClaimer"
 	PriceFeed            deployment.ContractType = "PriceFeed"
 
 	// Test contracts. Note test router maps to a regular router contract.
@@ -181,6 +183,7 @@ type CCIPChainState struct {
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPHome           *ccip_home.CCIPHome
 	RMNHome            *rmn_home.RMNHome
+	DonIDClaimer       *don_id_claimer.DonIDClaimer
 
 	// Test contracts
 	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
@@ -706,6 +709,7 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.ChainView, error) {
 	chainView := view.NewChain()
 	grp := errgroup.Group{}
+
 	if c.Router != nil {
 		grp.Go(func() error {
 			routerView, err := v1_2.GenerateRouterView(c.Router, false)
@@ -882,7 +886,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			for _, tokenDetail := range tokenDetails {
 				tokens = append(tokens, tokenDetail.Address())
 			}
-			fqView, err := viewv1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, tokens)
+			fqView, err := viewv1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TestRouter, tokens)
 			if err != nil {
 				return errors.Wrapf(err, "failed to generate fee quoter view for fee quoter %s", c.FeeQuoter.Address().String())
 			}
@@ -899,6 +903,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			onRampView, err := viewv1_6.GenerateOnRampView(
 				c.OnRamp,
 				c.Router,
+				c.TestRouter,
 				c.TokenAdminRegistry,
 			)
 			if err != nil {
@@ -917,6 +922,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			offRampView, err := viewv1_6.GenerateOffRampView(
 				c.OffRamp,
 				c.Router,
+				c.TestRouter,
 			)
 			if err != nil {
 				return errors.Wrapf(err, "failed to generate off ramp view for off ramp %s", c.OffRamp.Address().String())
@@ -1008,6 +1014,10 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		})
 	}
 
+	// Legacy contracts
+	// OnRamp, OffRamp, CommitStore legacy contract related state generation is not done right now
+	// considering the state of these contracts are not referred currently, and it's enormously expensive to generate
+	// state for multiple lanes per chain
 	for _, registryModule := range c.RegistryModules1_6 {
 		grp.Go(func() error {
 			registryModuleView, err := shared.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
@@ -1028,23 +1038,6 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			}
 			chainView.UpdateRegistryModuleView(registryModule.Address().Hex(), registryModuleView)
 			lggr.Infow("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
-			return nil
-		})
-	}
-
-	// Legacy contracts
-	if c.CommitStore != nil {
-		grp.Go(func() error {
-			chainView.UpdateMu.Lock()
-			defer chainView.UpdateMu.Unlock()
-			for source, commitStore := range c.CommitStore {
-				commitStoreView, err := viewv1_5.GenerateCommitStoreView(commitStore)
-				if err != nil {
-					return errors.Wrapf(err, "failed to generate commit store view for commit store %s for source %d", commitStore.Address().String(), source)
-				}
-				chainView.CommitStore[commitStore.Address().Hex()] = commitStoreView
-				lggr.Infow("generated commit store view", "commitStore", commitStore.Address().Hex(), "chain", chain)
-			}
 			return nil
 		})
 	}
@@ -1073,38 +1066,6 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			defer chainView.UpdateMu.Unlock()
 			chainView.RMN[c.RMN.Address().Hex()] = rmnView
 			lggr.Infow("generated rmn view", "rmn", c.RMN.Address().Hex(), "chain", chain)
-			return nil
-		})
-	}
-
-	if c.EVM2EVMOffRamp != nil {
-		grp.Go(func() error {
-			chainView.UpdateMu.Lock()
-			defer chainView.UpdateMu.Unlock()
-			for source, offRamp := range c.EVM2EVMOffRamp {
-				offRampView, err := viewv1_5.GenerateOffRampView(offRamp)
-				if err != nil {
-					return errors.Wrapf(err, "failed to generate off ramp view for off ramp %s for source %d", offRamp.Address().String(), source)
-				}
-				chainView.EVM2EVMOffRamp[offRamp.Address().Hex()] = offRampView
-				lggr.Infow("generated EVM2EVMOffRamp view", "offRamp", offRamp.Address().Hex(), "chain", chain)
-			}
-			return nil
-		})
-	}
-
-	if c.EVM2EVMOnRamp != nil {
-		grp.Go(func() error {
-			chainView.UpdateMu.Lock()
-			defer chainView.UpdateMu.Unlock()
-			for dest, onRamp := range c.EVM2EVMOnRamp {
-				onRampView, err := viewv1_5.GenerateOnRampView(onRamp)
-				if err != nil {
-					return errors.Wrapf(err, "failed to generate on ramp view for on ramp %s for dest %d", onRamp.Address().String(), dest)
-				}
-				chainView.EVM2EVMOnRamp[onRamp.Address().Hex()] = onRampView
-				lggr.Infow("generated EVM2EVMOnRamp view", "onRamp", onRamp.Address().Hex(), "chain", chain)
-			}
 			return nil
 		})
 	}
@@ -1289,8 +1250,7 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		if chainState.CCIPAddress == (aptos.AccountAddress{}) {
 			return 0, fmt.Errorf("ccip not found in existing state, deploy the ccip first for Aptos chain %d", selector)
 		}
-		pChain := deployment.PAptosChain{AptosChain: chain}
-		offrampDynamicConfig, err := pChain.GetOfframpDynamicConfig(chainState.CCIPAddress)
+		offrampDynamicConfig, err := getOfframpDynamicConfig(chain, chainState.CCIPAddress)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get offramp dynamic config for Aptos chain %d: %w", selector, err)
 		}
@@ -2058,6 +2018,13 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			deployment.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_6_0).String():
 			// Ignore firedrill contracts
 			// Firedrill contracts are unknown to core and their state is being loaded separately
+		case deployment.NewTypeAndVersion(DonIDClaimer, deployment.Version1_6_1).String():
+			donIDClaimer, err := don_id_claimer.NewDonIDClaimer(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.DonIDClaimer = donIDClaimer
+			state.ABIByAddress[address] = don_id_claimer.DonIDClaimerABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller

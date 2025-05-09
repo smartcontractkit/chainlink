@@ -360,7 +360,8 @@ func buildProposalMetadataV2(
 // Required if you are merging multiple changesets that have different proposal formats.
 func AggregateProposals(
 	env deployment.Environment,
-	mcmsState map[uint64]state.MCMSWithTimelockState,
+	mcmsEVMState map[uint64]state.MCMSWithTimelockState,
+	mcmsSolanaState map[uint64]state.MCMSWithTimelockStateSolana,
 	proposals []mcmslib.TimelockProposal,
 	legacyProposals []timelock.MCMSWithTimelockProposal,
 	description string,
@@ -406,12 +407,30 @@ func AggregateProposals(
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 	for _, op := range batches {
 		chainSel := uint64(op.ChainSelector)
-		mcmsContract, err := mcmsConfig.MCMBasedOnAction(mcmsState[chainSel])
-		if err != nil {
-			return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to get MCMS contract for chain with selector %d: %w", chainSel, err)
+		var err error
+		if _, exists := mcmsEVMState[chainSel]; exists {
+			mcmsContract, err := mcmsConfig.MCMBasedOnAction(mcmsEVMState[chainSel])
+			if err != nil {
+				return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to get MCMS contract for chain with selector %d: %w", chainSel, err)
+			}
+			timelocks[chainSel] = mcmsEVMState[chainSel].Timelock.Address().Hex()
+			mcmsPerChain[chainSel] = mcmsContract.Address().Hex()
+		} else if mcmsSolanaState == nil {
+			return nil, fmt.Errorf("missing MCMS state for chain with selector %d", chainSel)
+		} else if solanaState, existsInSolana := mcmsSolanaState[chainSel]; existsInSolana {
+			timelocks[chainSel] = mcmsSolana.ContractAddress(
+				solanaState.TimelockProgram,
+				mcmsSolana.PDASeed(solanaState.TimelockSeed),
+			)
+			mcmsAddr, err := mcmsConfig.MCMBasedOnActionSolana(solanaState)
+			if err != nil {
+				return nil, err
+			}
+			mcmsPerChain[chainSel] = mcmsAddr
+		} else {
+			return nil, fmt.Errorf("missing MCMS state for chain with selector %d", chainSel)
 		}
-		timelocks[chainSel] = mcmsState[chainSel].Timelock.Address().Hex()
-		mcmsPerChain[chainSel] = mcmsContract.Address().Hex()
+
 		inspectors[chainSel], err = McmsInspectorForChain(env, chainSel)
 		if err != nil {
 			return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to get MCMS inspector for chain with selector %d: %w", chainSel, err)

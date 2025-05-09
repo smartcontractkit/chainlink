@@ -23,6 +23,18 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 )
 
+// All label keys:
+// * must be non-empty,
+// * must be 63 characters or less,
+// * must begin and end with an alphanumeric character ([a-z0-9A-Z]),
+// * could contain dashes (-), underscores (_), dots (.), and alphanumerics between.
+//
+// All label values:
+// * must be 63 characters or less (can be empty),
+// * unless empty, must begin and end with an alphanumeric character ([a-z0-9A-Z]),
+// * could contain dashes (-), underscores (_), dots (.), and alphanumerics between.
+//
+// Source: https://github.com/smartcontractkit/job-distributor/blob/main/pkg/entities/labels.go
 const (
 	LabelNodeTypeKey            = "type"
 	LabelNodeTypeValueBootstrap = "bootstrap"
