@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -83,13 +84,13 @@ func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (deploymen
 		if !ok {
 			return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment: %d", chainSel)
 		}
-		_, err := deployment.DeployContract[*link_token_interface.LinkToken](e.Logger, chain, newAddresses,
-			func(chain deployment.Chain) deployment.ContractDeploy[*link_token_interface.LinkToken] {
+		_, err := cldf.DeployContract[*link_token_interface.LinkToken](e.Logger, chain, newAddresses,
+			func(chain deployment.Chain) cldf.ContractDeploy[*link_token_interface.LinkToken] {
 				linkTokenAddr, tx, linkToken, err2 := link_token_interface.DeployLinkToken(
 					chain.DeployerKey,
 					chain.Client,
 				)
-				return deployment.ContractDeploy[*link_token_interface.LinkToken]{
+				return cldf.ContractDeploy[*link_token_interface.LinkToken]{
 					Address:  linkTokenAddr,
 					Contract: linkToken,
 					Tx:       tx,
@@ -109,14 +110,14 @@ func deployLinkTokenContractEVM(
 	lggr logger.Logger,
 	chain deployment.Chain,
 	ab deployment.AddressBook,
-) (*deployment.ContractDeploy[*link_token.LinkToken], error) {
-	linkToken, err := deployment.DeployContract[*link_token.LinkToken](lggr, chain, ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*link_token.LinkToken] {
+) (*cldf.ContractDeploy[*link_token.LinkToken], error) {
+	linkToken, err := cldf.DeployContract[*link_token.LinkToken](lggr, chain, ab,
+		func(chain deployment.Chain) cldf.ContractDeploy[*link_token.LinkToken] {
 			linkTokenAddr, tx, linkToken, err2 := link_token.DeployLinkToken(
 				chain.DeployerKey,
 				chain.Client,
 			)
-			return deployment.ContractDeploy[*link_token.LinkToken]{
+			return cldf.ContractDeploy[*link_token.LinkToken]{
 				Address:  linkTokenAddr,
 				Contract: linkToken,
 				Tx:       tx,

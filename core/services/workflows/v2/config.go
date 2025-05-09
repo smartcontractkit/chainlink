@@ -42,8 +42,10 @@ const (
 	defaultMaxTriggerSubscriptions             = 10
 	defaultTriggerEventQueueSize               = 1000
 
-	defaultMaxConcurrentWorkflowExecutions = 100
-	defaultMaxConcurrentCapabilityCalls    = 10
+	defaultMaxConcurrentWorkflowExecutions         = 100
+	defaultMaxConcurrentCapabilityCallsPerWorkflow = 10
+	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
+	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
 
 	defaultShutdownTimeoutMs = 5000
 )
@@ -57,8 +59,10 @@ type EngineLimits struct {
 	MaxTriggerSubscriptions             uint16
 	TriggerEventQueueSize               uint16
 
-	MaxConcurrentWorkflowExecutions uint16
-	MaxConcurrentCapabilityCalls    uint16
+	MaxConcurrentWorkflowExecutions         uint16
+	MaxConcurrentCapabilityCallsPerWorkflow uint16
+	WorkflowExecutionTimeoutMs              uint32
+	CapabilityCallTimeoutMs                 uint32
 
 	ShutdownTimeoutMs uint32
 }
@@ -133,8 +137,14 @@ func (l *EngineLimits) setDefaultLimits() {
 	if l.MaxConcurrentWorkflowExecutions == 0 {
 		l.MaxConcurrentWorkflowExecutions = defaultMaxConcurrentWorkflowExecutions
 	}
-	if l.MaxConcurrentCapabilityCalls == 0 {
-		l.MaxConcurrentCapabilityCalls = defaultMaxConcurrentCapabilityCalls
+	if l.MaxConcurrentCapabilityCallsPerWorkflow == 0 {
+		l.MaxConcurrentCapabilityCallsPerWorkflow = defaultMaxConcurrentCapabilityCallsPerWorkflow
+	}
+	if l.WorkflowExecutionTimeoutMs == 0 {
+		l.WorkflowExecutionTimeoutMs = defaultWorkflowExecutionTimeoutMs
+	}
+	if l.CapabilityCallTimeoutMs == 0 {
+		l.CapabilityCallTimeoutMs = defaultCapabilityCallTimeoutMs
 	}
 	if l.ShutdownTimeoutMs == 0 {
 		l.ShutdownTimeoutMs = defaultShutdownTimeoutMs

@@ -421,6 +421,9 @@ func Test_RegisterDons(t *testing.T) {
 					F:    2,
 				},
 			},
+			NodeIDToP2PID: map[string][32]byte{
+				"test-node-id": testPeerID(t, "0x1"),
+			},
 			UseMCMS: useMCMS,
 		})
 		require.NoError(t, err)
@@ -514,6 +517,9 @@ func Test_RegisterDons(t *testing.T) {
 					F:    1,
 				},
 			},
+			NodeIDToP2PID: map[string][32]byte{
+				"test-node-id": testPeerID(t, "0x1"),
+			},
 			UseMCMS: true,
 		})
 		require.NoError(t, err)
@@ -552,6 +558,9 @@ func Test_RegisterDons(t *testing.T) {
 					Name: "test-don-2",
 					F:    2,
 				},
+			},
+			NodeIDToP2PID: map[string][32]byte{
+				"test-node-id": testPeerID(t, "0x1"),
 			},
 			UseMCMS: useMCMS,
 		})

@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -18,13 +19,13 @@ var DeployLinkOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Deploy LINK Contract Operation",
 	func(b operations.Bundle, deps EthereumDeps, input operations.EmptyInput) (common.Address, error) {
-		linkToken, err := deployment.DeployContract[*link_token.LinkToken](b.Logger, deps.Chain, deps.AB,
-			func(chain deployment.Chain) deployment.ContractDeploy[*link_token.LinkToken] {
+		linkToken, err := cldf.DeployContract[*link_token.LinkToken](b.Logger, deps.Chain, deps.AB,
+			func(chain deployment.Chain) cldf.ContractDeploy[*link_token.LinkToken] {
 				linkTokenAddr, tx, linkToken, err2 := link_token.DeployLinkToken(
 					chain.DeployerKey,
 					chain.Client,
 				)
-				return deployment.ContractDeploy[*link_token.LinkToken]{
+				return cldf.ContractDeploy[*link_token.LinkToken]{
 					Address:  linkTokenAddr,
 					Contract: linkToken,
 					Tx:       tx,

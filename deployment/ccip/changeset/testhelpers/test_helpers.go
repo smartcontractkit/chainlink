@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -179,13 +180,13 @@ func DeployTestContracts(t *testing.T,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := deployment.DeployContract(lggr, chains[homeChainSel], ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+	capReg, err := cldf.DeployContract(lggr, chains[homeChainSel], ab,
+		func(chain deployment.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 				chain.DeployerKey,
 				chain.Client,
 			)
-			return deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
+			return cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
 				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
 			}
 		})
@@ -658,7 +659,7 @@ func SendRequestSol(
 	for _, tokenAmount := range message.TokenAmounts {
 		tokenPubKey := tokenAmount.Token
 
-		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, []solana.PublicKey{s.LockReleaseTokenPool, s.BurnMintTokenPool})
+		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, []solana.PublicKey{s.LockReleaseTokenPools[changeset.CLLMetadata], s.BurnMintTokenPools[changeset.CLLMetadata]})
 		if err != nil {
 			return nil, err
 		}
@@ -1118,7 +1119,7 @@ func DeployFeeds(
 	wethPrice *big.Int,
 ) (map[string]common.Address, error) {
 	linkTV := deployment.NewTypeAndVersion(changeset.PriceFeed, deployment.Version1_0_0)
-	mockLinkFeed := func(chain deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+	mockLinkFeed := func(chain deployment.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
 			chain.DeployerKey,
 			chain.Client,
@@ -1127,12 +1128,12 @@ func DeployFeeds(
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
-		return deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
+		return cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
 			Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
 		}
 	}
 
-	mockWethFeed := func(chain deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+	mockWethFeed := func(chain deployment.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		wethFeed, tx, _, err1 := mock_ethusd_aggregator_wrapper.DeployMockETHUSDAggregator(
 			chain.DeployerKey,
 			chain.Client,
@@ -1140,7 +1141,7 @@ func DeployFeeds(
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(wethFeed, chain.Client)
 
-		return deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
+		return cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
 			Address: wethFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
 		}
 	}
@@ -1167,11 +1168,11 @@ func deploySingleFeed(
 	lggr logger.Logger,
 	ab deployment.AddressBook,
 	chain deployment.Chain,
-	deployFunc func(deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
+	deployFunc func(deployment.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
 	symbol changeset.TokenSymbol,
 ) (common.Address, string, error) {
 	// tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
-	mockTokenFeed, err := deployment.DeployContract(lggr, chain, ab, deployFunc)
+	mockTokenFeed, err := cldf.DeployContract(lggr, chain, ab, deployFunc)
 	if err != nil {
 		lggr.Errorw("Failed to deploy token feed", "err", err, "symbol", symbol)
 		return common.Address{}, "", err
@@ -1301,6 +1302,7 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, err
 	}
 	solTokenAddress := state.SolChains[solChainSel].SPL2022Tokens[0]
+	bnm := solTestTokenPool.BurnAndMint_PoolType
 
 	e, err = commoncs.Apply(nil, e, nil,
 		commoncs.Configure(
@@ -1309,7 +1311,7 @@ func DeployTransferableTokenSolana(
 			ccipChangeSetSolana.TokenPoolConfig{
 				ChainSelector: solChainSel,
 				TokenPubKey:   solTokenAddress,
-				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+				PoolType:      &bnm,
 			},
 		),
 	)
@@ -1318,7 +1320,7 @@ func DeployTransferableTokenSolana(
 	}
 
 	// configure evm
-	poolConfigPDA, err := soltokens.TokenPoolConfigAddress(solTokenAddress, state.SolChains[solChainSel].BurnMintTokenPool)
+	poolConfigPDA, err := soltokens.TokenPoolConfigAddress(solTokenAddress, state.SolChains[solChainSel].BurnMintTokenPools[changeset.CLLMetadata])
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
@@ -1339,7 +1341,7 @@ func DeployTransferableTokenSolana(
 			ccipChangeSetSolana.RemoteChainTokenPoolConfig{
 				SolChainSelector: solChainSel,
 				SolTokenPubKey:   solTokenAddress,
-				SolPoolType:      solTestTokenPool.BurnAndMint_PoolType,
+				SolPoolType:      &bnm,
 				EVMRemoteConfigs: map[uint64]ccipChangeSetSolana.EVMRemoteConfig{
 					evmChainSel: {
 						TokenSymbol: changeset.TokenSymbol(evmTokenName),
@@ -1389,12 +1391,12 @@ func DeployTransferableTokenSolana(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.SetPool),
 			ccipChangeSetSolana.SetPoolConfig{
 				ChainSelector:   solChainSel,
+				PoolType:        &bnm,
 				TokenPubKey:     solTokenAddress,
 				WritableIndexes: []uint8{3, 4, 7},
 			},
 		),
 	)
-
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
@@ -1614,8 +1616,8 @@ func deployTransferTokenOneEnd(
 
 	tokenDecimals := uint8(18)
 
-	tokenContract, err := deployment.DeployContract(lggr, chain, addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+	tokenContract, err := cldf.DeployContract(lggr, chain, addressBook,
+		func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				deployer,
 				chain.Client,
@@ -1624,7 +1626,7 @@ func deployTransferTokenOneEnd(
 				tokenDecimals,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
-			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address: tokenAddress, Contract: token, Tx: tx, Tv: deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0), Err: err2,
 			}
 		})
@@ -1642,8 +1644,8 @@ func deployTransferTokenOneEnd(
 		return nil, nil, err
 	}
 
-	tokenPool, err := deployment.DeployContract(lggr, chain, addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
+	tokenPool, err := cldf.DeployContract(lggr, chain, addressBook,
+		func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
 			tokenPoolAddress, tx, tokenPoolContract, err2 := burn_mint_token_pool.DeployBurnMintTokenPool(
 				deployer,
 				chain.Client,
@@ -1653,7 +1655,7 @@ func deployTransferTokenOneEnd(
 				common.HexToAddress(rmnAddress),
 				common.HexToAddress(routerAddress),
 			)
-			return deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
+			return cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
 				Address: tokenPoolAddress, Contract: tokenPoolContract, Tx: tx, Tv: deployment.NewTypeAndVersion(changeset.BurnMintTokenPool, deployment.Version1_5_1), Err: err2,
 			}
 		})
@@ -1752,6 +1754,7 @@ func Transfer(
 	receiver []byte,
 	useTestRouter bool,
 	data, extraArgs []byte,
+	feeToken string,
 ) (*onramp.OnRampCCIPMessageSent, map[uint64]*uint64) {
 	startBlocks := make(map[uint64]*uint64)
 
@@ -1764,18 +1767,30 @@ func Transfer(
 	var msg any
 	switch family {
 	case chainsel.FamilyEVM:
+		feeTokenAddr := common.HexToAddress("0x0")
+		if len(feeToken) > 0 {
+			feeTokenAddr = common.HexToAddress(feeToken)
+		}
+
 		msg = router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(receiver, 32),
 			Data:         data,
 			TokenAmounts: tokens.([]router.ClientEVMTokenAmount),
-			FeeToken:     common.HexToAddress("0x0"),
+			FeeToken:     feeTokenAddr,
 			ExtraArgs:    extraArgs,
 		}
 	case chainsel.FamilySolana:
+		feeTokenAddr := solana.PublicKey{}
+		if len(feeToken) > 0 {
+			feeTokenAddr, err = solana.PublicKeyFromBase58(feeToken)
+			require.NoError(t, err)
+		}
+
 		msg = ccip_router.SVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(receiver, 32),
 			Data:         data,
 			TokenAmounts: tokens.([]ccip_router.SVMTokenAmount),
+			FeeToken:     feeTokenAddr,
 			ExtraArgs:    extraArgs,
 		}
 
@@ -1801,6 +1816,7 @@ type TestTransferRequest struct {
 	ExpectedTokenBalances []ExpectedBalance
 	RouterAddress         common.Address // Expected for long-living environments
 	UseTestRouter         bool
+	FeeToken              string
 }
 
 // TransferMultiple sends multiple CCIPMessages (represented as TestTransferRequest) sequentially.
@@ -1868,7 +1884,7 @@ func TransferMultiple(
 			}
 
 			msg, blocks := Transfer(
-				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs)
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs, tt.FeeToken)
 			if _, ok := expectedExecutionStates[pairId]; !ok {
 				expectedExecutionStates[pairId] = make(map[uint64]int)
 			}
@@ -2303,7 +2319,7 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
-	state, err := commoncs.MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
+	state, err := commonstate.MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
 	// View itself already unit tested
 	_, err = state.GenerateLinkView()
@@ -2315,4 +2331,34 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 		require.NoError(t, err)
 		require.NotEmpty(t, addrs)
 	}
+}
+
+func TransferToTimelock(
+	t *testing.T,
+	tenv DeployedEnv,
+	state changeset.CCIPOnChainState,
+	chains []uint64,
+) {
+	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(chains)+1)
+	for _, chain := range chains {
+		timelockContracts[chain] = &proposalutils.TimelockExecutionContracts{
+			Timelock:  state.Chains[chain].Timelock,
+			CallProxy: state.Chains[chain].CallProxy,
+		}
+	}
+	// Add the home chain to the timelock contracts.
+	timelockContracts[tenv.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
+		Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+		CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+	}
+	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+	_, err := commoncs.Apply(t, tenv.Env,
+		timelockContracts,
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
+			GenTestTransferOwnershipConfig(tenv, chains, state),
+		),
+	)
+	require.NoError(t, err)
+	AssertTimelockOwnership(t, tenv, chains, state)
 }
