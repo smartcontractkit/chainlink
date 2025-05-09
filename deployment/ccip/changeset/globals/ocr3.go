@@ -76,8 +76,9 @@ var (
 		DeltaInitial: 2 * time.Second,
 		DeltaRound:   2 * time.Second,
 		// Rounds driven by correct leaders will always take at least DeltaGrace.
-		// Therefore making it longer than DeltaRound isn't logical.
-		DeltaGrace:                  2 * time.Second,
+		// We set it to 5s to try to boost participation of oracles but reserve the right to lower it
+		// as CCIP 1.6 stabilizes.
+		DeltaGrace:                  5 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
 		DeltaStage: 25 * time.Second,
