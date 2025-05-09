@@ -492,10 +492,6 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	evmChains := e.Env.AllChainSelectors()
 	solChains := e.Env.AllChainSelectorsSolana()
 	//nolint:gocritic // we need to segregate EVM and Solana chains
-	allChains := append(evmChains)
-	// if len(solChains) > 0 {
-	// 	SavePreloadedSolAddresses(e.Env, solChains[0])
-	// }
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
@@ -524,13 +520,13 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	}
 	deployLinkApp := commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-		allChains,
+		evmChains,
 	)
 
 	if tc.IsStaticLink {
 		deployLinkApp = commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployStaticLinkToken),
-			allChains,
+			evmChains,
 		)
 	}
 	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
