@@ -9,18 +9,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// PluginConfig is a struct that contains the configuration for a plugin.
-type PluginConfig struct {
+// pluginConfig is a struct that contains the configuration for a plugin.
+type pluginConfig struct {
 	extraDataCodec ccipcommon.ExtraDataCodec
 }
 
-// NewPluginConfig returns a new PluginConfig.
-func NewPluginConfig(extraDataCodec ccipcommon.ExtraDataCodec) *PluginConfig {
-	return &PluginConfig{extraDataCodec: extraDataCodec}
+// NewPluginConfig returns a new pluginConfig.
+func NewPluginConfig(extraDataCodec ccipcommon.ExtraDataCodec) ccipcommon.OffChainPluginConfig {
+	return &pluginConfig{extraDataCodec: extraDataCodec}
 }
 
-// InitializePluginConfig returns a PluginConfig for Solana chains.
-func (p PluginConfig) InitializePluginConfig(lggr logger.Logger) ccipcommon.PluginConfig {
+// InitializePluginConfig returns a pluginConfig for Solana chains.
+func (p pluginConfig) InitializePluginConfig(lggr logger.Logger) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:          NewCommitPluginCodecV1(),
 		ExecutePluginCodec:         NewExecutePluginCodecV1(p.extraDataCodec),
