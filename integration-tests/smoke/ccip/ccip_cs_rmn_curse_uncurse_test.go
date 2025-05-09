@@ -825,7 +825,7 @@ func TestGetAllCursableChainsEmptyWhenNoRMNRemote(t *testing.T) {
 	cursableChains, err := v1_6.GetCursableChains(e.Env)
 	require.NoError(t, err)
 	require.NotNil(t, cursableChains)
-	require.Len(t, cursableChains, 0)
+	require.Empty(t, cursableChains)
 }
 
 func TestGetAllCursableChainsWithRMNRemote(t *testing.T) {
