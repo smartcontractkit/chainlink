@@ -282,10 +282,7 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 }
 
 func (s SolCCIPChainState) TokenToTokenProgram(tokenAddress solana.PublicKey) (solana.PublicKey, error) {
-	if tokenAddress.Equals(s.LinkToken) {
-		return solana.Token2022ProgramID, nil
-	}
-	if tokenAddress.Equals(s.WSOL) {
+	if tokenAddress.Equals(s.LinkToken) || tokenAddress.Equals(s.WSOL) {
 		return solana.TokenProgramID, nil
 	}
 	for _, spl2022Token := range s.SPL2022Tokens {

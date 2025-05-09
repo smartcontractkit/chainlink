@@ -305,18 +305,10 @@ func MustInsertRandomKeyNoChains(t testing.TB, keystore keystore.Eth) (ethkey.Ke
 	return RandomKey{chainIDs: []ubig.Big{}}.MustInsert(t, keystore)
 }
 
-func MustInsertRandomKeyReturningState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
-	return RandomKey{}.MustInsertWithState(t, keystore)
-}
-
 func MustGenerateRandomKey(t testing.TB) ethkey.KeyV2 {
 	key, err := ethkey.NewV2()
 	require.NoError(t, err)
 	return key
-}
-
-func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
-	return ethkey.State{Address: NewEIP55Address()}
 }
 
 func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) *evmtypes.Head {

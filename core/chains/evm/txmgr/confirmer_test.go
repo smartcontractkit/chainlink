@@ -197,7 +197,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 	head.IsFinalized.Store(true)
 
 	t.Run("does nothing if no re-org'd or included transactions found", func(t *testing.T) {
-		fromAddress := cltest.MustGenerateRandomKey(t).Address
+		fromAddress := testutils.NewAddress()
 		ethKeyStore := &keystest.FakeChainStore{Addresses: keystest.Addresses{fromAddress}}
 		etx1 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 0, blockNum)
 		etx2 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 4, fromAddress, 1, blockNum, assets.NewWeiI(1))
@@ -1644,10 +1644,10 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	fromAddress := cltest.MustGenerateRandomKey(t)
-	ethKeyStore := &keystest.FakeChainStore{Addresses: keystest.Addresses{fromAddress.Address}}
+	fromAddress := testutils.NewAddress()
+	ethKeyStore := &keystest.FakeChainStore{Addresses: keystest.Addresses{fromAddress}}
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
-	ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress.Address).Return(multinode.Successful, nil).Once()
+	ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(multinode.Successful, nil).Once()
 	lggr := logger.Test(t)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 
@@ -1688,7 +1688,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		// Create attempts so that the oldest broadcast attempt's block num is what meets the threshold check
 		// Create autoPurgeMinAttempts number of attempts to ensure the broadcast attempt count check is not being triggered
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
-		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, nonce, fromAddress.Address, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
+		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, nonce, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
 		// Update tx to signal callback once it is identified as terminally stuck
 		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, uuid.New(), tx.ID)
 		head := evmtypes.Head{
