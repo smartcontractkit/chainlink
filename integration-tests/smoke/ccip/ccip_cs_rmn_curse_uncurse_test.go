@@ -158,6 +158,17 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: true},
 		},
 	},
+	{
+		name: "all chain",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseGloballyAllChains()}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, globalCurse: true, cursed: true},
+			{chainID: Sol1, globalCurse: true, cursed: true},
+		},
+	},
 }
 
 func TestRMNCurse(t *testing.T) {

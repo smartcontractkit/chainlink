@@ -223,6 +223,21 @@ func CurseChain(chainSelector uint64) CurseAction {
 	}
 }
 
+func CurseGloballyAllChains() CurseAction {
+	return func(e deployment.Environment) ([]RMNCurseAction, error) {
+		chainSelectors := GetAllCursableChainsSelector(e)
+		var curseActions []RMNCurseAction
+		for _, chainSelector := range chainSelectors {
+			actions, err := CurseGloballyOnlyOnChain(chainSelector)(e)
+			if err != nil {
+				return nil, err
+			}
+			curseActions = append(curseActions, actions...)
+		}
+		return curseActions, nil
+	}
+}
+
 func FilterOutNotConnectedLanes(e deployment.Environment, curseActions []RMNCurseAction) ([]RMNCurseAction, error) {
 	cursableChains, err := GetCursableChains(e)
 	if err != nil {
