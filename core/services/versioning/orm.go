@@ -48,7 +48,7 @@ func (o *orm) UpsertNodeVersion(ctx context.Context, version NodeVersion) error 
 
 	return sqlutil.TransactDataSource(ctx, o.ds, nil, func(tx sqlutil.DataSource) error {
 		if os.Getenv("SKIP_APP_VERSION_CHECK") == "true" {
-			o.lggr.Infow("Skipping app version check", "appVersion", version.Version)
+			o.lggr.Warnw("Skipping app version check", "appVersion", version.Version)
 		} else if _, _, err := CheckVersion(ctx, tx, logger.NullLogger, version.Version); err != nil {
 			return err
 		}
