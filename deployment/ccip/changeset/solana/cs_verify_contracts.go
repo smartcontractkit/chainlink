@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -28,6 +29,20 @@ type VerifyBuildConfig struct {
 }
 
 func runSolanaVerify(keypairPath, networkURL, programID, libraryName, commitHash, mountPath string, remote bool) error {
+	params := map[string]string{
+		"Keypair Path": keypairPath,
+		"Network URL":  networkURL,
+		"Program ID":   programID,
+		"Lib Name":     libraryName,
+		"Commit Hash":  commitHash,
+		"Mount Path":   mountPath,
+	}
+	if log, err := json.MarshalIndent(params, "", " "); err != nil {
+		return err
+	} else {
+		fmt.Println(string(log))
+	}
+
 	cmdArgs := []string{
 		"verify-from-repo",
 		"-u", networkURL,
