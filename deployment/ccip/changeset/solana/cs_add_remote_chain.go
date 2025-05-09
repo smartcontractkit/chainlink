@@ -665,6 +665,7 @@ func extendLookupTable(e deployment.Environment, chain deployment.SolChain, offR
 		return nil
 	}
 
+	e.Logger.Debugw("Populating lookup table", "keys", toAdd)
 	if err := solCommonUtil.ExtendLookupTable(
 		e.GetContext(),
 		chain.Client,

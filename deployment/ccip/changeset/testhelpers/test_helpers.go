@@ -659,7 +659,7 @@ func SendRequestSol(
 	for _, tokenAmount := range message.TokenAmounts {
 		tokenPubKey := tokenAmount.Token
 
-		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, []solana.PublicKey{s.LockReleaseTokenPool, s.BurnMintTokenPool})
+		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, []solana.PublicKey{s.LockReleaseTokenPools[changeset.CLLMetadata], s.BurnMintTokenPools[changeset.CLLMetadata]})
 		if err != nil {
 			return nil, err
 		}
@@ -1302,6 +1302,7 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, err
 	}
 	solTokenAddress := state.SolChains[solChainSel].SPL2022Tokens[0]
+	bnm := solTestTokenPool.BurnAndMint_PoolType
 
 	e, err = commoncs.Apply(nil, e, nil,
 		commoncs.Configure(
@@ -1310,7 +1311,7 @@ func DeployTransferableTokenSolana(
 			ccipChangeSetSolana.TokenPoolConfig{
 				ChainSelector: solChainSel,
 				TokenPubKey:   solTokenAddress,
-				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+				PoolType:      &bnm,
 			},
 		),
 	)
@@ -1319,7 +1320,7 @@ func DeployTransferableTokenSolana(
 	}
 
 	// configure evm
-	poolConfigPDA, err := soltokens.TokenPoolConfigAddress(solTokenAddress, state.SolChains[solChainSel].BurnMintTokenPool)
+	poolConfigPDA, err := soltokens.TokenPoolConfigAddress(solTokenAddress, state.SolChains[solChainSel].BurnMintTokenPools[changeset.CLLMetadata])
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
@@ -1340,7 +1341,7 @@ func DeployTransferableTokenSolana(
 			ccipChangeSetSolana.RemoteChainTokenPoolConfig{
 				SolChainSelector: solChainSel,
 				SolTokenPubKey:   solTokenAddress,
-				SolPoolType:      solTestTokenPool.BurnAndMint_PoolType,
+				SolPoolType:      &bnm,
 				EVMRemoteConfigs: map[uint64]ccipChangeSetSolana.EVMRemoteConfig{
 					evmChainSel: {
 						TokenSymbol: changeset.TokenSymbol(evmTokenName),
@@ -1390,6 +1391,7 @@ func DeployTransferableTokenSolana(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.SetPool),
 			ccipChangeSetSolana.SetPoolConfig{
 				ChainSelector:   solChainSel,
+				PoolType:        &bnm,
 				TokenPubKey:     solTokenAddress,
 				WritableIndexes: []uint8{3, 4, 7},
 			},

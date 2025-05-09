@@ -81,15 +81,24 @@ type SolChainUpdate struct {
 	TokenAddress string
 	// Type is the type of the token pool.
 	Type deployment.ContractType
+	// Metadata is an identifier for which instance of the token pool this is.
+	// This is used to differentiate between multiple token pools on the same chain.
+	// e.g. "CLL" for the CLL token pool, "Partner1" for the partner token pool, etc.
+	Metadata string
 }
 
 func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state changeset.SolCCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
+	metadata := changeset.CLLMetadata
+	if c.Metadata != "" {
+		metadata = c.Metadata
+	}
+
 	var tokenPoolProgram solana.PublicKey
 	switch c.Type {
 	case changeset.BurnMintTokenPool:
-		tokenPoolProgram = state.BurnMintTokenPool
+		tokenPoolProgram = state.BurnMintTokenPools[metadata]
 	case changeset.LockReleaseTokenPool:
-		tokenPoolProgram = state.LockReleaseTokenPool
+		tokenPoolProgram = state.LockReleaseTokenPools[metadata]
 	default:
 		err = fmt.Errorf("unknown solana token pool type %s", c.Type)
 		return
