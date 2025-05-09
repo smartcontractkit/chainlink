@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -955,7 +956,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
 			allChains := maps.Keys(tenv.Env.Chains)
 			// deploy a new token
-			ab := deployment.NewMemoryAddressBook()
+			ab := cldf.NewMemoryAddressBook()
 			for _, selector := range allChains {
 				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
 					func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
@@ -970,7 +971,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 						return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 							Address:  tokenAddress,
 							Contract: token,
-							Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+							Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 							Tx:       tx,
 							Err:      err,
 						}
@@ -1074,7 +1075,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "token TEST not found in state for chain")
 			// deploy test new token
-			ab := deployment.NewMemoryAddressBook()
+			ab := cldf.NewMemoryAddressBook()
 			for _, selector := range allChains {
 				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
 					func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
@@ -1089,7 +1090,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 						return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 							Address:  tokenAddress,
 							Contract: token,
-							Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+							Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 							Tx:       tx,
 							Err:      err,
 						}
@@ -1154,7 +1155,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 			source := allChains[0]
 			dest := allChains[1]
 			// deploy a new token
-			ab := deployment.NewMemoryAddressBook()
+			ab := cldf.NewMemoryAddressBook()
 			_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[source], ab,
 				func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
@@ -1168,7 +1169,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 					return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 						Address:  tokenAddress,
 						Contract: token,
-						Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+						Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 						Tx:       tx,
 						Err:      err,
 					}

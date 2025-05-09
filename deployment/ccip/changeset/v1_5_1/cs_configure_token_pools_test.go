@@ -24,6 +24,7 @@ import (
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -685,7 +686,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	evmSelectors := []uint64{e.AllChainSelectors()[0]}
 	solanaSelectors := e.AllChainSelectorsSolana()
 
-	addressBook := deployment.NewMemoryAddressBook()
+	addressBook := cldf.NewMemoryAddressBook()
 
 	///////////////////////////
 	// DEPLOY EVM TOKEN POOL //
@@ -704,7 +705,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 					Address:  tokenAddress,
 					Contract: token,
-					Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+					Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 					Tx:       tx,
 					Err:      err,
 				}

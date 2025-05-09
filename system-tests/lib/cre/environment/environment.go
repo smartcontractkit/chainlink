@@ -21,6 +21,9 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -155,7 +158,7 @@ func SetupTestEnvironment(
 	allChainsCLDEnvironment := &deployment.Environment{
 		Logger:            singeFileLogger,
 		Chains:            allChains,
-		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		GetContext: func() context.Context {
 			return ctx
 		},

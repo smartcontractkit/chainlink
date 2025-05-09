@@ -16,6 +16,8 @@ import (
 
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -23,9 +25,9 @@ import (
 
 func deployMCMProgram(
 	env deployment.Environment, chainState *state.MCMSWithTimelockStateSolana,
-	chain deployment.SolChain, addressBook deployment.AddressBook,
+	chain deployment.SolChain, addressBook cldf.AddressBook,
 ) error {
-	typeAndVersion := deployment.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
+	typeAndVersion := cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
 	log := logger.With(env.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
 
 	programID, _, err := chainState.GetStateFromType(commontypes.ManyChainMultisigProgram)
@@ -63,8 +65,8 @@ func deployMCMProgram(
 }
 
 func initMCM(
-	env deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType deployment.ContractType,
-	chain deployment.SolChain, addressBook deployment.AddressBook, mcmConfig *mcmsTypes.Config,
+	env deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType cldf.ContractType,
+	chain deployment.SolChain, addressBook cldf.AddressBook, mcmConfig *mcmsTypes.Config,
 ) error {
 	if chainState.McmProgram.IsZero() {
 		return errors.New("mcm program is not deployed")
@@ -72,7 +74,7 @@ func initMCM(
 	programID := chainState.McmProgram
 	mcmBindings.SetProgramID(programID)
 
-	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
+	typeAndVersion := cldf.NewTypeAndVersion(contractType, deployment.Version1_0_0)
 	mcmProgram, mcmSeed, err := chainState.GetStateFromType(contractType)
 	if err != nil {
 		return fmt.Errorf("failed to get mcm state: %w", err)

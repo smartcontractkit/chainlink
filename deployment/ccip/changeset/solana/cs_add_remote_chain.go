@@ -17,6 +17,8 @@ import (
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
@@ -104,7 +106,7 @@ func AddRemoteChainToRouter(e deployment.Environment, cfg AddRemoteChainToRouter
 		return deployment.ChangesetOutput{}, err
 	}
 
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToRouter(e, s, cfg, ab)
 	if err != nil {
 		return deployment.ChangesetOutput{AddressBook: ab}, err
@@ -129,7 +131,7 @@ func doAddRemoteChainToRouter(
 	e deployment.Environment,
 	s ccipChangeset.CCIPOnChainState,
 	cfg AddRemoteChainToRouterConfig,
-	ab deployment.AddressBook) ([]mcmsTypes.Transaction, error) {
+	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
@@ -229,7 +231,7 @@ func doAddRemoteChainToRouter(
 				}
 			}
 			// add to address book
-			tv := deployment.NewTypeAndVersion(ccipChangeset.RemoteDest, deployment.Version1_0_0)
+			tv := cldf.NewTypeAndVersion(ccipChangeset.RemoteDest, deployment.Version1_0_0)
 			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
 			tv.AddLabel(remoteChainSelStr)
 			err = ab.Save(chainSel, routerRemoteStatePDA.String(), tv)
@@ -315,7 +317,7 @@ func AddRemoteChainToFeeQuoter(e deployment.Environment, cfg AddRemoteChainToFee
 		return deployment.ChangesetOutput{}, err
 	}
 
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToFeeQuoter(e, s, cfg, ab)
 	if err != nil {
 		return deployment.ChangesetOutput{AddressBook: ab}, err
@@ -340,7 +342,7 @@ func doAddRemoteChainToFeeQuoter(
 	e deployment.Environment,
 	s ccipChangeset.CCIPOnChainState,
 	cfg AddRemoteChainToFeeQuoterConfig,
-	ab deployment.AddressBook) ([]mcmsTypes.Transaction, error) {
+	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
@@ -484,7 +486,7 @@ func AddRemoteChainToOffRamp(e deployment.Environment, cfg AddRemoteChainToOffRa
 		return deployment.ChangesetOutput{}, err
 	}
 
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToOffRamp(e, s, cfg, ab)
 	if err != nil {
 		return deployment.ChangesetOutput{AddressBook: ab}, err
@@ -509,7 +511,7 @@ func doAddRemoteChainToOffRamp(
 	e deployment.Environment,
 	s ccipChangeset.CCIPOnChainState,
 	cfg AddRemoteChainToOffRampConfig,
-	ab deployment.AddressBook) ([]mcmsTypes.Transaction, error) {
+	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
@@ -561,7 +563,7 @@ func doAddRemoteChainToOffRamp(
 			).ValidateAndBuild()
 			e.Logger.Infow("add offramp config for remote chain", "remoteChainSel", remoteChainSel)
 			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
-			tv := deployment.NewTypeAndVersion(ccipChangeset.RemoteSource, deployment.Version1_0_0)
+			tv := cldf.NewTypeAndVersion(ccipChangeset.RemoteSource, deployment.Version1_0_0)
 			tv.AddLabel(remoteChainSelStr)
 			err = ab.Save(chainSel, offRampRemoteStatePDA.String(), tv)
 			if err != nil {

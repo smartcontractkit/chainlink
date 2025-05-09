@@ -28,6 +28,7 @@ import (
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -56,10 +57,10 @@ func deployTokenAndMint(t *testing.T, tenv deployment.Environment, solChain uint
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChain) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
 	tokenAddress := ccipChangeset.FindSolanaAddress(
-		deployment.TypeAndVersion{
+		cldf.TypeAndVersion{
 			Type:    ccipChangeset.SPL2022Tokens,
 			Version: deployment.Version1_0_0,
-			Labels:  deployment.NewLabelSet("TEST_TOKEN"),
+			Labels:  cldf.NewLabelSet("TEST_TOKEN"),
 		},
 		addresses,
 	)

@@ -8,6 +8,8 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -19,7 +21,7 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 	type testCase struct {
 		name      string
 		chain     deployment.Chain
-		addresses map[string]deployment.TypeAndVersion
+		addresses map[string]cldf.TypeAndVersion
 		wantState *MCMSWithTimelockState // Expected state
 		wantErr   string
 	}
@@ -31,12 +33,12 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 		{
 			name:  "OK_load all contracts from address book",
 			chain: defaultChain,
-			addresses: map[string]deployment.TypeAndVersion{
-				"0x123": deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
-				"0x456": deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
-				"0x789": deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0),
-				"0xabc": deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
-				"0xdef": deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
+			addresses: map[string]cldf.TypeAndVersion{
+				"0x123": cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
+				"0x456": cldf.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
+				"0x789": cldf.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0),
+				"0xabc": cldf.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
+				"0xdef": cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
 			},
 			wantState: &MCMSWithTimelockState{
 				MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{
@@ -72,13 +74,13 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 		{
 			name:  "OK_labelled multichain contract is selected if only option",
 			chain: defaultChain,
-			addresses: map[string]deployment.TypeAndVersion{
-				"0x123": deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
-				"0x456": deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
-				"0xabc": deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
-				"0xdef": deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
-				"0xaaa": func() deployment.TypeAndVersion {
-					tv := deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+			addresses: map[string]cldf.TypeAndVersion{
+				"0x123": cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
+				"0x456": cldf.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
+				"0xabc": cldf.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
+				"0xdef": cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
+				"0xaaa": func() cldf.TypeAndVersion {
+					tv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 					tv.Labels.Add(types.ProposerRole.String())
 					return tv
 				}(),
@@ -118,17 +120,17 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 			// over a labeled contract.
 			name:  "OK_labelled multichain contract has lower selection precedence",
 			chain: defaultChain,
-			addresses: map[string]deployment.TypeAndVersion{
-				"0x123": deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
-				"0x456": deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
-				"0xabc": deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
-				"0xdef": deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
+			addresses: map[string]cldf.TypeAndVersion{
+				"0x123": cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
+				"0x456": cldf.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
+				"0xabc": cldf.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
+				"0xdef": cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
 
 				// Two contracts can satisfy the ProposerMcm field.  This test ensures that the typed contract is
 				// returned over the labeled contract.
-				"0x789": deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0),
-				"0xaaa": func() deployment.TypeAndVersion {
-					tv := deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+				"0x789": cldf.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0),
+				"0xaaa": func() cldf.TypeAndVersion {
+					tv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 					tv.Labels.Add(types.ProposerRole.String())
 					return tv
 				}(),
@@ -166,34 +168,34 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 		{
 			name:  "NOK_multiple contracts of same type",
 			chain: defaultChain,
-			addresses: map[string]deployment.TypeAndVersion{
-				"0x123": deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
-				"0x456": deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
-				"0xabc": deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
-				"0xdef": deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
+			addresses: map[string]cldf.TypeAndVersion{
+				"0x123": cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
+				"0x456": cldf.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
+				"0xabc": cldf.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
+				"0xdef": cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
 
-				"0x789": deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0),
-				"0xaaa": deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0), // duplicate
+				"0x789": cldf.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0),
+				"0xaaa": cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0), // duplicate
 			},
 			wantErr: "unable to check MCMS contracts",
 		},
 		{
 			name:  "NOK_multiple generic MCMS contracts with same label",
 			chain: defaultChain,
-			addresses: map[string]deployment.TypeAndVersion{
-				"0x123": deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
-				"0x456": deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
-				"0xabc": deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
-				"0xdef": deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
+			addresses: map[string]cldf.TypeAndVersion{
+				"0x123": cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
+				"0x456": cldf.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
+				"0xabc": cldf.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
+				"0xdef": cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
 
-				"0x789": deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0),
-				"0xaaa": func() deployment.TypeAndVersion {
-					tv := deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+				"0x789": cldf.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0),
+				"0xaaa": func() cldf.TypeAndVersion {
+					tv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 					tv.Labels.Add(types.ProposerRole.String())
 					return tv
 				}(),
-				"0xbbb": func() deployment.TypeAndVersion {
-					tv := deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+				"0xbbb": func() cldf.TypeAndVersion {
+					tv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 					tv.Labels.Add(types.ProposerRole.String())
 					return tv
 				}(),

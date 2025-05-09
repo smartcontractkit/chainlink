@@ -11,6 +11,8 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -99,11 +101,11 @@ func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e deployment.Envi
 			return fmt.Errorf("failed to validate contracts for chain %d: %w", chainSelector, err)
 		}
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
-		timelockID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
+		timelockID, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
 		if err != nil {
 			return fmt.Errorf("timelock not present on the chain %w", err)
 		}
-		proposerID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
+		proposerID, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
 		if err != nil {
 			return fmt.Errorf("mcms proposer not present on the chain %w", err)
 		}

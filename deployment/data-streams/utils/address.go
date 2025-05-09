@@ -5,11 +5,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-func MaybeFindEthAddress(ab deployment.AddressBook, chain uint64, typ deployment.ContractType) (common.Address, error) {
-	addressHex, err := deployment.SearchAddressBook(ab, chain, typ)
+func MaybeFindEthAddress(ab cldf.AddressBook, chain uint64, typ cldf.ContractType) (common.Address, error) {
+	addressHex, err := cldf.SearchAddressBook(ab, chain, typ)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to find contract %s address: %w", typ, err)
 	}

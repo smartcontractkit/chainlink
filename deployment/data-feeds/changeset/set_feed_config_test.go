@@ -10,6 +10,7 @@ import (
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -17,7 +18,6 @@ import (
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -51,7 +51,7 @@ func TestSetFeedConfig(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
+	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
 
 	dataid := "0x01bb0467f50003040000000000000000"
@@ -87,7 +87,7 @@ func TestSetFeedConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	// with MCMS
-	timeLockAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
+	timeLockAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
 	require.NoError(t, err)
 
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,

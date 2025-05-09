@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -59,7 +60,7 @@ func DeployRewardManagerAndLink(
 	require.NoError(t, err, "deploying RewardManager should not fail")
 
 	// Get the RewardManager address
-	rewardManagerAddrHex, err := deployment.SearchAddressBook(env.ExistingAddresses, chainSelector, dsTypes.RewardManager)
+	rewardManagerAddrHex, err := cldf.SearchAddressBook(env.ExistingAddresses, chainSelector, dsTypes.RewardManager)
 	require.NoError(t, err, "unable to find RewardManager address in address book")
 	rewardManagerAddr = common.HexToAddress(rewardManagerAddrHex)
 	require.NotEqual(t, common.Address{}, rewardManagerAddr, "RewardManager should not be zero address")

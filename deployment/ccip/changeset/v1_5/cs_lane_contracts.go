@@ -115,7 +115,7 @@ func DeployLanesChangeset(env deployment.Environment, c DeployLanesConfig) (depl
 			return deployment.ChangesetOutput{}, err
 		}
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 	for _, cfg := range c.Configs {
 		if err := deployLane(env, state, newAddresses, cfg); err != nil {
 			return deployment.ChangesetOutput{
@@ -128,7 +128,7 @@ func DeployLanesChangeset(env deployment.Environment, c DeployLanesConfig) (depl
 	}, nil
 }
 
-func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab deployment.AddressBook, cfg DeployLaneConfig) error {
+func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab cldf.AddressBook, cfg DeployLaneConfig) error {
 	// update prices on the source price registry
 	sourceChainState := state.Chains[cfg.SourceChainSelector]
 	destChainState := state.Chains[cfg.DestinationChainSelector]
@@ -166,7 +166,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 				)
 				return cldf.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp]{
 					Address: onRampAddress, Contract: onRampC, Tx: tx2,
-					Tv: deployment.NewTypeAndVersion(changeset.OnRamp, deployment.Version1_5_0), Err: err2,
+					Tv: cldf.NewTypeAndVersion(changeset.OnRamp, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -197,7 +197,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 				)
 				return cldf.ContractDeploy[*commit_store.CommitStore]{
 					Address: commitStoreAddress, Contract: commitStoreC, Tx: tx2,
-					Tv: deployment.NewTypeAndVersion(changeset.CommitStore, deployment.Version1_5_0), Err: err2,
+					Tv: cldf.NewTypeAndVersion(changeset.CommitStore, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -232,7 +232,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 				)
 				return cldf.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp]{
 					Address: offRampAddress, Contract: offRampC, Tx: tx2,
-					Tv: deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_5_0), Err: err2,
+					Tv: cldf.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {

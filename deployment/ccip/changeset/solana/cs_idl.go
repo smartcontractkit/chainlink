@@ -16,6 +16,9 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -279,7 +282,7 @@ func upgradeIDLIx(e deployment.Environment, programsPath, programID, programName
 		return nil, fmt.Errorf("error generating set buffer ix: %w", err)
 	}
 	if c.MCMS != nil {
-		upgradeTx, err := BuildMCMSTxn(&instruction, programID, deployment.ContractType(programName))
+		upgradeTx, err := BuildMCMSTxn(&instruction, programID, cldf.ContractType(programName))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create upgrade transaction: %w", err)
 		}

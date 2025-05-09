@@ -26,6 +26,7 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeset_v1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -42,7 +43,7 @@ func GetActiveTokenPool(
 	poolType solTestTokenPool.PoolType,
 	selector uint64,
 	metadata string,
-) (solana.PublicKey, deployment.ContractType) {
+) (solana.PublicKey, cldf.ContractType) {
 	state, _ := ccipChangeset.LoadOnchainState(*e)
 	chainState := state.SolChains[selector]
 	switch poolType {
@@ -104,7 +105,7 @@ func validatePoolDeployment(
 }
 
 // append mcms txns generated from solanainstructions
-func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, poolType deployment.ContractType, txns *[]mcmsTypes.Transaction) error {
+func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, poolType cldf.ContractType, txns *[]mcmsTypes.Transaction) error {
 	for _, ixn := range instructions {
 		tx, err := BuildMCMSTxn(ixn, tokenPool.String(), poolType)
 		if err != nil {
@@ -303,7 +304,7 @@ func (cfg RateLimiterConfig) Validate() error {
 
 type EVMRemoteConfig struct {
 	TokenSymbol       ccipChangeset.TokenSymbol
-	PoolType          deployment.ContractType
+	PoolType          cldf.ContractType
 	PoolVersion       semver.Version
 	RateLimiterConfig RateLimiterConfig
 	OverrideConfig    bool
@@ -898,8 +899,8 @@ func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableC
 	if err := solCommonUtil.AwaitSlotChange(ctx, client); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to await slot change while extending lookup table: %w", err)
 	}
-	newAddressBook := deployment.NewMemoryAddressBook()
-	tv := deployment.NewTypeAndVersion(ccipChangeset.TokenPoolLookupTable, deployment.Version1_0_0)
+	newAddressBook := cldf.NewMemoryAddressBook()
+	tv := cldf.NewTypeAndVersion(ccipChangeset.TokenPoolLookupTable, deployment.Version1_0_0)
 	tv.Labels.Add(tokenPubKey.String())
 	tv.Labels.Add(cfg.PoolType.String())
 	metadata := ccipChangeset.CLLMetadata
