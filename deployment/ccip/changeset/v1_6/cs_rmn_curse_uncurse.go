@@ -12,6 +12,9 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -540,7 +543,7 @@ func (c SolanaCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subje
 		curseSubject := solRmnRemote.CurseSubject{
 			Value: subject,
 		}
-		_, err := deployer(func(authority solana.PublicKey) (solana.Instruction, string, deployment.ContractType, error) {
+		_, err := deployer(func(authority solana.PublicKey) (solana.Instruction, string, cldf.ContractType, error) {
 			ix, err := solRmnRemote.NewCurseInstruction(
 				curseSubject,
 				rmnRemoteConfigPDA,
@@ -579,7 +582,7 @@ func (c SolanaCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, sub
 		curseSubject := solRmnRemote.CurseSubject{
 			Value: subject,
 		}
-		_, err := deployer(func(authority solana.PublicKey) (solana.Instruction, string, deployment.ContractType, error) {
+		_, err := deployer(func(authority solana.PublicKey) (solana.Instruction, string, cldf.ContractType, error) {
 			ix, err := solRmnRemote.NewUncurseInstruction(
 				curseSubject,
 				rmnRemoteConfigPDA,

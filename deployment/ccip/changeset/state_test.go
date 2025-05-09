@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -36,8 +37,8 @@ func TestSmokeState(t *testing.T) {
 func TestMCMSState(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-106")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
-	addressbook := deployment.NewMemoryAddressBook()
-	newTv := deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+	addressbook := cldf.NewMemoryAddressBook()
+	newTv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 	newTv.AddLabel(types.BypasserRole.String())
 	newTv.AddLabel(types.CancellerRole.String())
 	newTv.AddLabel(types.ProposerRole.String())
@@ -174,7 +175,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 							utils.RandomAddress(), // We don't need a real contract address here, just a random one to satisfy the constructor.
 						)
 						return cldf.ContractDeploy[*ccip_home.CCIPHome]{
-							Address: address, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.CCIPHome, deployment.Version1_6_0), Err: err2,
+							Address: address, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(changeset.CCIPHome, deployment.Version1_6_0), Err: err2,
 						}
 					})
 				require.NoError(t, err, "failed to deploy CCIP home")
@@ -188,7 +189,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 							chain.Client,
 						)
 						return cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-							Address: address, Contract: contract, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0), Err: err2,
+							Address: address, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0), Err: err2,
 						}
 					})
 				require.NoError(t, err, "failed to deploy capability registry")

@@ -7,10 +7,12 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -107,10 +109,10 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	}
 	// remove feequoter from address book
 	// and deploy again, it should deploy a new feequoter
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	for _, sel := range evmSelectors {
 		require.NoError(t, ab.Save(sel, state.Chains[sel].FeeQuoter.Address().Hex(),
-			deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_6_0)))
+			cldf.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_6_0)))
 	}
 	//nolint:staticcheck //SA1019 ignoring deprecated
 	require.NoError(t, e.ExistingAddresses.Remove(ab))

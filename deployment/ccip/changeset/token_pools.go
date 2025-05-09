@@ -13,6 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -21,13 +24,13 @@ import (
 
 var CurrentTokenPoolVersion semver.Version = deployment.Version1_5_1
 
-var TokenTypes = map[deployment.ContractType]struct{}{
+var TokenTypes = map[cldf.ContractType]struct{}{
 	BurnMintToken: {},
 	ERC20Token:    {},
 	ERC677Token:   {},
 }
 
-var TokenPoolTypes = map[deployment.ContractType]struct{}{
+var TokenPoolTypes = map[cldf.ContractType]struct{}{
 	BurnMintTokenPool:              {},
 	BurnWithFromMintTokenPool:      {},
 	BurnFromMintTokenPool:          {},
@@ -43,7 +46,7 @@ var TokenPoolVersions map[semver.Version]struct{} = map[semver.Version]struct{}{
 // TokenPoolInfo defines the type & version of a token pool, along with an optional external administrator.
 type TokenPoolInfo struct {
 	// Type is the type of the token pool.
-	Type deployment.ContractType
+	Type cldf.ContractType
 	// Version is the version of the token pool.
 	Version semver.Version
 	// ExternalAdmin is the external administrator of the token pool on the registry.
@@ -163,7 +166,7 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 	chainState CCIPChainState,
 	chain deployment.Chain,
 	symbol TokenSymbol,
-	poolType deployment.ContractType,
+	poolType cldf.ContractType,
 	version semver.Version,
 ) (common.Address, bool) {
 	switch poolType {

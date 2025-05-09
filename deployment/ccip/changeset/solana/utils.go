@@ -12,6 +12,8 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -104,7 +106,7 @@ func BuildProposalsForTxns(
 	return proposal, nil
 }
 
-func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType deployment.ContractType) (*mcmsTypes.Transaction, error) {
+func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType cldf.ContractType) (*mcmsTypes.Transaction, error) {
 	data, err := ixn.Data()
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract data: %w", err)
@@ -145,7 +147,7 @@ func GetAuthorityForIxn(
 	e *deployment.Environment,
 	chain deployment.SolChain,
 	mcms *MCMSConfigSolana,
-	contractType deployment.ContractType,
+	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // used for burnmint and lockrelease
 ) (solana.PublicKey, error) {
 	if mcms == nil {

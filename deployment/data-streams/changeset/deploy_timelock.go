@@ -7,7 +7,9 @@ import (
 	"github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
@@ -34,7 +36,7 @@ func deployAndTransferMcmsLogic(e deployment.Environment, cc DeployMCMSConfig) (
 	}
 
 	// CallProxy has no owner, RBACTimelock has an "admin" setting in place of owner
-	transferContracts := []deployment.ContractType{
+	transferContracts := []cldf.ContractType{
 		commontypes.ProposerManyChainMultisig,
 		commontypes.BypasserManyChainMultisig,
 		commontypes.CancellerManyChainMultisig,
@@ -44,7 +46,7 @@ func deployAndTransferMcmsLogic(e deployment.Environment, cc DeployMCMSConfig) (
 	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
 		for _, contractType := range transferContracts {
 			// all MCMS contracts are version 1.0.0 right now
-			contractFilter := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
+			contractFilter := cldf.NewTypeAndVersion(contractType, deployment.Version1_0_0)
 			contractTransfer, err := mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, mcmsOut.AddressBook, contractFilter, *cc.Ownership.MCMSProposalConfig)
 			if err != nil {
 				return deployment.ChangesetOutput{AddressBook: mcmsOut.AddressBook}, fmt.Errorf("failed to transfer %s to MCMS: %w", contractType, err)

@@ -10,6 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -52,7 +55,7 @@ func (c *KeystoneForwarderDeployer) deploy(ctx context.Context, req DeployReques
 	if err != nil {
 		return nil, fmt.Errorf("failed to get type and version: %w", err)
 	}
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}

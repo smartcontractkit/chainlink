@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -43,7 +45,7 @@ func DeployVerifierProxyAndVerifier(
 	require.NoError(t, err, "deploying verifier proxy should not fail")
 
 	// Get the VerifierProxy address
-	verifierProxyAddrHex, err := deployment.SearchAddressBook(env.ExistingAddresses, chainSelector, dsTypes.VerifierProxy)
+	verifierProxyAddrHex, err := cldf.SearchAddressBook(env.ExistingAddresses, chainSelector, dsTypes.VerifierProxy)
 	require.NoError(t, err, "unable to find verifier proxy address in address book")
 	verifierProxyAddr = common.HexToAddress(verifierProxyAddrHex)
 	require.NotEqual(t, common.Address{}, verifierProxyAddr, "verifier proxy should not be zero address")
@@ -65,7 +67,7 @@ func DeployVerifierProxyAndVerifier(
 	require.NoError(t, err, "deploying verifier should not fail")
 
 	// Get the Verifier address
-	verifierAddrHex, err := deployment.SearchAddressBook(env.ExistingAddresses, chainSelector, dsTypes.Verifier)
+	verifierAddrHex, err := cldf.SearchAddressBook(env.ExistingAddresses, chainSelector, dsTypes.Verifier)
 	require.NoError(t, err, "unable to find verifier address in address book")
 	verifierAddr = common.HexToAddress(verifierAddrHex)
 	require.NotEqual(t, common.Address{}, verifierAddr, "verifier should not be zero address")

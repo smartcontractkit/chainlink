@@ -16,7 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -34,7 +35,7 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) 
 	chainSelector := env.AllChainSelectorsSolana()[0]
 	chain := env.SolChains[chainSelector]
 	defaultState := func() *state.MCMSWithTimelockStateSolana {
-		addressBook := deployment.NewMemoryAddressBook()
+		addressBook := cldf.NewMemoryAddressBook()
 		chainState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, chain, addressBook,
 			commontypes.MCMSWithTimelockConfigV2{
 				Proposer: mcmstypes.Config{

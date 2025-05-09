@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
@@ -43,7 +44,7 @@ func (cc DeployFeeManagerConfig) Validate() error {
 }
 
 func deployFeeManagerLogic(e deployment.Environment, cc DeployFeeManagerConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	err := deployFeeManager(e, ab, cc)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy FeeManager", "err", err, "addresses", ab)
@@ -51,7 +52,7 @@ func deployFeeManagerLogic(e deployment.Environment, cc DeployFeeManagerConfig) 
 	}
 
 	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
-		filter := deployment.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0)
+		filter := cldf.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0)
 		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.Ownership.MCMSProposalConfig)
 	}
 
@@ -64,7 +65,7 @@ func deployFeeManagerPrecondition(_ deployment.Environment, cc DeployFeeManagerC
 	return cc.Validate()
 }
 
-func deployFeeManager(e deployment.Environment, ab deployment.AddressBook, cc DeployFeeManagerConfig) error {
+func deployFeeManager(e deployment.Environment, ab cldf.AddressBook, cc DeployFeeManagerConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployFeeManagerConfig: %w", err)
 	}
@@ -119,7 +120,7 @@ func FeeManagerDeployFn(cfg DeployFeeManager) changeset.ContractDeployFn[*fee_ma
 			Address:  ccsAddr,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -35,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -227,7 +230,7 @@ type registerPoRWorkflowInput struct {
 	writeTargetName    string
 	workflowDonID      uint32
 	feedID             string
-	addressBook        deployment.AddressBook
+	addressBook        cldf.AddressBook
 	priceProvider      PriceProvider
 	sethClient         *seth.Client
 	deployerPrivateKey string
@@ -450,7 +453,7 @@ func logTestInfo(l zerolog.Logger, feedID, workflowName, dataFeedsCacheAddr, for
 
 type porSetupOutput struct {
 	priceProvider                   PriceProvider
-	addressBook                     deployment.AddressBook
+	addressBook                     cldf.AddressBook
 	chainSelectorToSethClient       map[uint64]*seth.Client
 	chainSelectorToBlockchainOutput map[uint64]*blockchain.Output
 	donTopology                     *keystonetypes.DonTopology

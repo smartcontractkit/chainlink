@@ -6,6 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -34,7 +36,7 @@ func TestDeployVerifier(t *testing.T) {
 
 	require.NoError(t, err)
 
-	verifierProxyAddrHex, err := deployment.SearchAddressBook(e.ExistingAddresses, testutil.TestChain.Selector, types.VerifierProxy)
+	verifierProxyAddrHex, err := cldf.SearchAddressBook(e.ExistingAddresses, testutil.TestChain.Selector, types.VerifierProxy)
 	require.NoError(t, err)
 	verifierProxyAddr := common.HexToAddress(verifierProxyAddrHex)
 

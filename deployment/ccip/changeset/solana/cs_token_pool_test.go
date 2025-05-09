@@ -25,6 +25,7 @@ import (
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -44,7 +45,7 @@ func TestAddTokenPoolWithMcms(t *testing.T) {
 }
 
 func deployEVMTokenPool(t *testing.T, e deployment.Environment, evmChain uint64) (deployment.Environment, common.Address, error) {
-	addressBook := deployment.NewMemoryAddressBook()
+	addressBook := cldf.NewMemoryAddressBook()
 	evmToken, err := cldf.DeployContract(e.Logger, e.Chains[evmChain], addressBook,
 		func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
@@ -58,7 +59,7 @@ func deployEVMTokenPool(t *testing.T, e deployment.Environment, evmChain uint64)
 			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: token,
-				Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+				Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 				Tx:       tx,
 				Err:      err,
 			}
