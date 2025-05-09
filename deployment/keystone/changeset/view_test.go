@@ -137,7 +137,7 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
-			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook)) //nolint: SA1019 // Temporarily using deprecated AddressBook until migration is complete
+			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook)) //nolint:SA1019 // Temporarily using deprecated AddressBook until migration is complete
 			env.Env.DataStore = resp.DataStore.Seal()
 
 			// Deploy a new workflow registry contract
@@ -145,7 +145,7 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
-			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook)) //nolint: SA1019 // Temporarily using deprecated AddressBook until migration is complete
+			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook)) //nolint:SA1019 // Temporarily using deprecated AddressBook until migration is complete
 			env.Env.DataStore = resp.DataStore.Seal()
 
 			// Deploy a new OCR3 contract
@@ -153,7 +153,7 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
-			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook)) //nolint: SA1019 // Temporarily using deprecated AddressBook until migration is complete
+			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook)) //nolint:SA1019 // Temporarily using deprecated AddressBook until migration is complete
 			env.Env.DataStore = resp.DataStore.Seal()
 
 			var ocr3Addr, forwarderAddr, workflowRegistryAddr, capabilityRegistryAddr string
