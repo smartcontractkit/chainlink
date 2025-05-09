@@ -816,6 +816,29 @@ var forceOptionTestCases = []ForceOptionTestCase{
 	},
 }
 
+func TestGetAllCursableChainsEmptyWhenNoRMNRemote(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(
+		t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1),
+		testhelpers.WithPrerequisiteDeploymentOnly(nil),
+	)
+
+	cursableChains, err := v1_6.GetCursableChains(e.Env)
+	require.NoError(t, err)
+	require.NotNil(t, cursableChains)
+	require.Len(t, cursableChains, 0)
+}
+
+func TestGetAllCursableChainsWithRMNRemote(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(
+		t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1),
+	)
+
+	cursableChains, err := v1_6.GetCursableChains(e.Env)
+	require.NoError(t, err)
+	require.NotNil(t, cursableChains)
+	require.Len(t, cursableChains, 3)
+}
+
 func TestRMNUncurseForceOption(t *testing.T) {
 	for _, tc := range forceOptionTestCases {
 		t.Run(tc.name, func(t *testing.T) {

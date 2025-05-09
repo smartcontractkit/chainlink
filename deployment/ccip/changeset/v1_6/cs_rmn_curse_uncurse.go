@@ -491,6 +491,7 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 type CursableChain interface {
 	Name() string
 	IsConnectedToSourceChain(selector uint64) (bool, error)
+	IsCursable() (bool, error)
 	IsSubjectCursed(subject globals.Subject) (bool, error)
 	Curse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error
 	Uncurse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error
@@ -602,6 +603,10 @@ func (c SolanaCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, sub
 	return nil
 }
 
+func (c SolanaCursableChain) IsCursable() (bool, error) {
+	return c.chain.RMNRemote != solana.PublicKey{}, nil
+}
+
 func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, error) {
 	state, err := changeset.LoadOnchainStateSolana(c.env)
 	if err != nil {
@@ -653,6 +658,10 @@ func (c EvmCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error)
 		return false, fmt.Errorf("failed to check if chain %d is cursed: %w", c.selector, err)
 	}
 	return cursed, nil
+}
+
+func (c EvmCursableChain) IsCursable() (bool, error) {
+	return c.chain.RMNRemote != nil, nil
 }
 
 func (c EvmCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
@@ -713,7 +722,18 @@ func GetCursableChains(env deployment.Environment) (map[uint64]CursableChain, er
 		}
 	}
 
-	return cursableChains, nil
+	activeCursableChains := make(map[uint64]CursableChain)
+	for selector, chain := range cursableChains {
+		cursable, err := chain.IsCursable()
+		if err != nil {
+			return nil, fmt.Errorf("failed to check if chain %d is cursable: %w", selector, err)
+		}
+		if cursable {
+			activeCursableChains[selector] = chain
+		}
+	}
+
+	return activeCursableChains, nil
 }
 
 func GetAllCursableChainsSelector(env deployment.Environment) []uint64 {
