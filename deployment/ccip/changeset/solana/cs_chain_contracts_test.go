@@ -14,6 +14,7 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -72,7 +73,6 @@ func TestAddRemoteChainWithMcms(t *testing.T) {
 }
 
 func TestAddRemoteChainWithoutMcms(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
 	doTestAddRemoteChain(t, false)
 }
@@ -585,7 +585,6 @@ func TestBillingWithMcms(t *testing.T) {
 }
 
 func TestBillingWithoutMcms(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
 	doTestBilling(t, false)
 }
@@ -733,21 +732,20 @@ func TestTokenAdminRegistryWithMcms(t *testing.T) {
 }
 
 func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
 	doTestTokenAdminRegistry(t, false)
 }
 
 // pool lookup table test
-func doTestPoolLookupTable(t *testing.T, mcms bool) {
+func doTestPoolLookupTable(t *testing.T, e deployment.Environment, mcms bool, tokenMetadata string) {
 	ctx := testcontext.Get(t)
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+
+	solChain := e.AllChainSelectorsSolana()[0]
 
 	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
-	newAdmin := tenv.Env.SolChains[solChain].DeployerKey.PublicKey()
+	newAdmin := e.SolChains[solChain].DeployerKey.PublicKey()
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true,
+		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
 				FeeQuoter: true,
@@ -761,13 +759,14 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 			FeeQuoterOwnedByTimelock: true,
 			OffRampOwnedByTimelock:   true,
 		}
-		timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(tenv.Env, solChain)
+		timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 		require.NoError(t, err)
 		newAdmin = timelockSignerPDA
 	}
 
-	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
+	e, tokenAddress, err := deployTokenAndMint(t, e, solChain, []string{})
 	require.NoError(t, err)
+	pool := solTestTokenPool.LockAndRelease_PoolType
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			// add token pool lookup table
@@ -775,13 +774,15 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 			ccipChangesetSolana.TokenPoolLookupTableConfig{
 				ChainSelector: solChain,
 				TokenPubKey:   tokenAddress,
+				PoolType:      &pool,
+				Metadata:      tokenMetadata,
 			},
 		),
 	)
 	require.NoError(t, err)
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	lookupTablePubKey := state.SolChains[solChain].TokenPoolLookupTable[tokenAddress]
+	lookupTablePubKey := state.SolChains[solChain].TokenPoolLookupTable[tokenAddress][pool][tokenMetadata]
 
 	lookupTableEntries0, err := solCommonUtil.GetAddressLookupTable(ctx, e.SolChains[solChain].Client, lookupTablePubKey)
 	require.NoError(t, err)
@@ -815,6 +816,8 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 			ccipChangesetSolana.SetPoolConfig{
 				ChainSelector:   solChain,
 				TokenPubKey:     tokenAddress,
+				PoolType:        &pool,
+				Metadata:        tokenMetadata,
 				WritableIndexes: []uint8{3, 4, 7},
 				MCMSSolana:      mcmsConfig,
 			},
@@ -832,13 +835,14 @@ func doTestPoolLookupTable(t *testing.T, mcms bool) {
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
 	t.Parallel()
-	doTestPoolLookupTable(t, true)
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	doTestPoolLookupTable(t, tenv.Env, true, ccipChangeset.CLLMetadata)
 }
 
 func TestPoolLookupTableWithoutMcms(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
-	doTestPoolLookupTable(t, false)
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	doTestPoolLookupTable(t, tenv.Env, false, ccipChangeset.CLLMetadata)
 }
 
 func TestDeployCCIPContracts(t *testing.T) {

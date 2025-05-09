@@ -34,7 +34,7 @@ func deployMCMProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(log, "mcm", false)
+		deployedProgramID, err := chain.DeployProgram(log, "mcm", false, true)
 		if err != nil {
 			return fmt.Errorf("failed to deploy mcm program: %w", err)
 		}
