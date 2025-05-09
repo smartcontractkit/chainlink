@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -150,18 +151,6 @@ func NewEthTx(fromAddress common.Address) txmgr.Tx {
 	}
 }
 
-func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, gasPrice *big.Int, data []byte) *types.Transaction {
-	tx := types.LegacyTx{
-		Nonce:    nonce,
-		To:       &to,
-		Value:    value,
-		Gas:      uint64(gasLimit),
-		GasPrice: gasPrice,
-		Data:     data,
-	}
-	return types.NewTx(&tx)
-}
-
 func MustInsertUnconfirmedEthTx(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
@@ -190,7 +179,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	ctx := testutils.Context(t)
 
-	tx := NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := evmtestutils.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
@@ -305,18 +294,10 @@ func MustInsertRandomKeyNoChains(t testing.TB, keystore keystore.Eth) (ethkey.Ke
 	return RandomKey{chainIDs: []ubig.Big{}}.MustInsert(t, keystore)
 }
 
-func MustInsertRandomKeyReturningState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
-	return RandomKey{}.MustInsertWithState(t, keystore)
-}
-
 func MustGenerateRandomKey(t testing.TB) ethkey.KeyV2 {
 	key, err := ethkey.NewV2()
 	require.NoError(t, err)
 	return key
-}
-
-func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
-	return ethkey.State{Address: NewEIP55Address()}
 }
 
 func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) *evmtypes.Head {
@@ -326,33 +307,6 @@ func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) *evmtypes
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
 	require.NoError(t, err)
 	return &h
-}
-
-func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Address) job.Job {
-	t.Helper()
-
-	addr, err := evmtypes.NewEIP55Address(transmitterAddress.Hex())
-	require.NoError(t, err)
-
-	pipelineSpec := pipeline.Spec{}
-	err = db.Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
-	require.NoError(t, err)
-
-	oracleSpec := MustInsertOffchainreportingOracleSpec(t, db, addr)
-	jb := job.Job{
-		OCROracleSpec:   &oracleSpec,
-		OCROracleSpecID: &oracleSpec.ID,
-		ExternalJobID:   uuid.New(),
-		Type:            job.OffchainReporting,
-		SchemaVersion:   1,
-		PipelineSpec:    &pipelineSpec,
-		PipelineSpecID:  pipelineSpec.ID,
-	}
-
-	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t))
-	err = jorm.InsertJob(testutils.Context(t), &jb)
-	require.NoError(t, err)
-	return jb
 }
 
 func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress evmtypes.EIP55Address) job.OCROracleSpec {

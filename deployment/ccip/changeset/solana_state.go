@@ -20,6 +20,8 @@ import (
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	viewSolana "github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
@@ -29,18 +31,21 @@ import (
 )
 
 const (
-	TokenPool     deployment.ContractType = "TokenPool"
-	Receiver      deployment.ContractType = "Receiver"
-	SPL2022Tokens deployment.ContractType = "SPL2022Tokens"
-	SPLTokens     deployment.ContractType = "SPLTokens"
-	WSOL          deployment.ContractType = "WSOL"
-	CCIPCommon    deployment.ContractType = "CCIPCommon"
+	TokenPool     cldf.ContractType = "TokenPool"
+	Receiver      cldf.ContractType = "Receiver"
+	SPL2022Tokens cldf.ContractType = "SPL2022Tokens"
+	SPLTokens     cldf.ContractType = "SPLTokens"
+	WSOL          cldf.ContractType = "WSOL"
+	CCIPCommon    cldf.ContractType = "CCIPCommon"
 	// for PDAs from AddRemoteChainToSolana
-	RemoteSource deployment.ContractType = "RemoteSource"
-	RemoteDest   deployment.ContractType = "RemoteDest"
+	RemoteSource cldf.ContractType = "RemoteSource"
+	RemoteDest   cldf.ContractType = "RemoteDest"
 
 	// Tokenpool lookup table
-	TokenPoolLookupTable deployment.ContractType = "TokenPoolLookupTable"
+	TokenPoolLookupTable cldf.ContractType = "TokenPoolLookupTable"
+
+	// CLL Identifier
+	CLLMetadata string = "CLL"
 )
 
 // SolCCIPChainState holds public keys for all the currently deployed CCIP programs
@@ -53,12 +58,12 @@ type SolCCIPChainState struct {
 	SPLTokens     []solana.PublicKey
 
 	// ccip programs
-	Router               solana.PublicKey
-	FeeQuoter            solana.PublicKey
-	OffRamp              solana.PublicKey
-	BurnMintTokenPool    solana.PublicKey
-	LockReleaseTokenPool solana.PublicKey
-	RMNRemote            solana.PublicKey
+	Router                solana.PublicKey
+	FeeQuoter             solana.PublicKey
+	OffRamp               solana.PublicKey
+	RMNRemote             solana.PublicKey
+	BurnMintTokenPools    map[string]solana.PublicKey // metadata id -> BurnMintTokenPool
+	LockReleaseTokenPools map[string]solana.PublicKey // metadata id -> LockReleaseTokenPool
 
 	// test programs
 	Receiver solana.PublicKey
@@ -67,7 +72,7 @@ type SolCCIPChainState struct {
 	RouterConfigPDA      solana.PublicKey
 	SourceChainStatePDAs map[uint64]solana.PublicKey // deprecated
 	DestChainStatePDAs   map[uint64]solana.PublicKey
-	TokenPoolLookupTable map[solana.PublicKey]solana.PublicKey
+	TokenPoolLookupTable map[solana.PublicKey]map[solTestTokenPool.PoolType]map[string]solana.PublicKey // token -> token pool type -> metadata identifier -> lookup table
 	FeeQuoterConfigPDA   solana.PublicKey
 	OffRampConfigPDA     solana.PublicKey
 	OffRampStatePDA      solana.PublicKey
@@ -93,10 +98,10 @@ func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) 
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty
-			if !errors.Is(err, deployment.ErrChainNotFound) {
+			if !errors.Is(err, cldf.ErrChainNotFound) {
 				return state, err
 			}
-			addresses = make(map[string]deployment.TypeAndVersion)
+			addresses = make(map[string]cldf.TypeAndVersion)
 		}
 		chainState, err := LoadChainStateSolana(chain, addresses)
 		if err != nil {
@@ -108,18 +113,20 @@ func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) 
 }
 
 // LoadChainStateSolana Loads all state for a SolChain into state
-func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deployment.TypeAndVersion) (SolCCIPChainState, error) {
+func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]cldf.TypeAndVersion) (SolCCIPChainState, error) {
 	state := SolCCIPChainState{
-		SourceChainStatePDAs: make(map[uint64]solana.PublicKey),
-		DestChainStatePDAs:   make(map[uint64]solana.PublicKey),
-		SPL2022Tokens:        make([]solana.PublicKey, 0),
-		SPLTokens:            make([]solana.PublicKey, 0),
-		WSOL:                 solana.SolMint,
-		TokenPoolLookupTable: make(map[solana.PublicKey]solana.PublicKey),
+		SourceChainStatePDAs:  make(map[uint64]solana.PublicKey),
+		DestChainStatePDAs:    make(map[uint64]solana.PublicKey),
+		BurnMintTokenPools:    make(map[string]solana.PublicKey),
+		LockReleaseTokenPools: make(map[string]solana.PublicKey),
+		SPL2022Tokens:         make([]solana.PublicKey, 0),
+		SPLTokens:             make([]solana.PublicKey, 0),
+		WSOL:                  solana.SolMint,
+		TokenPoolLookupTable:  make(map[solana.PublicKey]map[solTestTokenPool.PoolType]map[string]solana.PublicKey),
 	}
 	// Most programs upgraded in place, but some are not so we always want to
 	// load the latest version
-	versions := make(map[deployment.ContractType]semver.Version)
+	versions := make(map[cldf.ContractType]semver.Version)
 	for address, tvStr := range addresses {
 		switch tvStr.Type {
 		case commontypes.LinkToken:
@@ -173,11 +180,40 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 		case TokenPoolLookupTable:
 			lookupTablePubKey := solana.MustPublicKeyFromBase58(address)
-			// Labels should only have one entry
-			for tokenPubKeyStr := range tvStr.Labels {
-				tokenPubKey := solana.MustPublicKeyFromBase58(tokenPubKeyStr)
-				state.TokenPoolLookupTable[tokenPubKey] = lookupTablePubKey
+			var poolType *solTestTokenPool.PoolType
+			var tokenPubKey solana.PublicKey
+			var poolMetadata string
+			for label := range tvStr.Labels {
+				maybeTokenPubKey, err := solana.PublicKeyFromBase58(label)
+				if err == nil {
+					tokenPubKey = maybeTokenPubKey
+				} else {
+					switch label {
+					case solTestTokenPool.BurnAndMint_PoolType.String():
+						t := solTestTokenPool.BurnAndMint_PoolType
+						poolType = &t
+					case solTestTokenPool.LockAndRelease_PoolType.String():
+						t := solTestTokenPool.LockAndRelease_PoolType
+						poolType = &t
+					default:
+						poolMetadata = label
+					}
+				}
 			}
+			if poolMetadata == "" {
+				poolMetadata = CLLMetadata
+			}
+			if poolType == nil {
+				t := solTestTokenPool.BurnAndMint_PoolType
+				poolType = &t
+			}
+			if state.TokenPoolLookupTable[tokenPubKey] == nil {
+				state.TokenPoolLookupTable[tokenPubKey] = make(map[solTestTokenPool.PoolType]map[string]solana.PublicKey)
+			}
+			if state.TokenPoolLookupTable[tokenPubKey][*poolType] == nil {
+				state.TokenPoolLookupTable[tokenPubKey][*poolType] = make(map[string]solana.PublicKey)
+			}
+			state.TokenPoolLookupTable[tokenPubKey][*poolType][poolMetadata] = lookupTablePubKey
 		case FeeQuoter:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.FeeQuoter = pub
@@ -210,10 +246,22 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			state.OffRampStatePDA = offRampStatePDA
 		case BurnMintTokenPool:
 			pub := solana.MustPublicKeyFromBase58(address)
-			state.BurnMintTokenPool = pub
+			if len(tvStr.Labels) == 0 {
+				state.BurnMintTokenPools[CLLMetadata] = pub
+			}
+			// Labels should only have one entry
+			for metadataStr := range tvStr.Labels {
+				state.BurnMintTokenPools[metadataStr] = pub
+			}
 		case LockReleaseTokenPool:
 			pub := solana.MustPublicKeyFromBase58(address)
-			state.LockReleaseTokenPool = pub
+			if len(tvStr.Labels) == 0 {
+				state.LockReleaseTokenPools[CLLMetadata] = pub
+			}
+			// Labels should only have one entry
+			for metadataStr := range tvStr.Labels {
+				state.LockReleaseTokenPools[metadataStr] = pub
+			}
 		case RMNRemote:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.RMNRemote = pub
@@ -236,10 +284,7 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 }
 
 func (s SolCCIPChainState) TokenToTokenProgram(tokenAddress solana.PublicKey) (solana.PublicKey, error) {
-	if tokenAddress.Equals(s.LinkToken) {
-		return solana.Token2022ProgramID, nil
-	}
-	if tokenAddress.Equals(s.WSOL) {
+	if tokenAddress.Equals(s.LinkToken) || tokenAddress.Equals(s.WSOL) {
 		return solana.TokenProgramID, nil
 	}
 	for _, spl2022Token := range s.SPL2022Tokens {
@@ -255,7 +300,7 @@ func (s SolCCIPChainState) TokenToTokenProgram(tokenAddress solana.PublicKey) (s
 	return solana.PublicKey{}, fmt.Errorf("token program not found for token address %s", tokenAddress.String())
 }
 
-func FindSolanaAddress(tv deployment.TypeAndVersion, addresses map[string]deployment.TypeAndVersion) solana.PublicKey {
+func FindSolanaAddress(tv cldf.TypeAndVersion, addresses map[string]cldf.TypeAndVersion) solana.PublicKey {
 	for address, tvStr := range addresses {
 		if tv.String() == tvStr.String() {
 			pub := solana.MustPublicKeyFromBase58(address)
@@ -270,7 +315,7 @@ func ValidateOwnershipSolana(
 	chain deployment.SolChain,
 	mcms bool,
 	programID solana.PublicKey,
-	contractType deployment.ContractType,
+	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // for token pools only
 ) error {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
@@ -421,19 +466,25 @@ func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolC
 		}
 		chainView.RMNRemote[s.RMNRemote.String()] = rmnRemoteView
 	}
-	if !s.BurnMintTokenPool.IsZero() {
-		tokenPoolView, err := viewSolana.GenerateTokenPoolView(solChain, s.BurnMintTokenPool, remoteChains, allTokens, "BurnMintTokenPool")
-		if err != nil {
-			return chainView, fmt.Errorf("failed to generate burn mint token pool view %s: %w", s.BurnMintTokenPool, err)
+	for metadata, tokenPool := range s.BurnMintTokenPools {
+		if tokenPool.IsZero() {
+			continue
 		}
-		chainView.TokenPool[s.BurnMintTokenPool.String()] = tokenPoolView
+		tokenPoolView, err := viewSolana.GenerateTokenPoolView(solChain, tokenPool, remoteChains, allTokens, solTestTokenPool.BurnAndMint_PoolType.String(), metadata)
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate burn mint token pool view %s: %w", tokenPool, err)
+		}
+		chainView.TokenPool[tokenPool.String()] = tokenPoolView
 	}
-	if !s.LockReleaseTokenPool.IsZero() {
-		tokenPoolView, err := viewSolana.GenerateTokenPoolView(solChain, s.LockReleaseTokenPool, remoteChains, allTokens, "LockReleaseTokenPool")
-		if err != nil {
-			return chainView, fmt.Errorf("failed to generate lock release token pool view %s: %w", s.LockReleaseTokenPool, err)
+	for metadata, tokenPool := range s.LockReleaseTokenPools {
+		if tokenPool.IsZero() {
+			continue
 		}
-		chainView.TokenPool[s.LockReleaseTokenPool.String()] = tokenPoolView
+		tokenPoolView, err := viewSolana.GenerateTokenPoolView(solChain, tokenPool, remoteChains, allTokens, solTestTokenPool.LockAndRelease_PoolType.String(), metadata)
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate lock release token pool view %s: %w", tokenPool, err)
+		}
+		chainView.TokenPool[tokenPool.String()] = tokenPoolView
 	}
 	return chainView, nil
 }

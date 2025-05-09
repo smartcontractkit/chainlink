@@ -7,11 +7,14 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
@@ -50,7 +53,7 @@ func (cfg DeployVerifierProxyConfig) Validate() error {
 }
 
 func (v *verifierProxyDeploy) Apply(e deployment.Environment, cc DeployVerifierProxyConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	err := deploy(e, ab, cc)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy VerifierProxy", "err", err, "addresses", ab)
@@ -58,7 +61,7 @@ func (v *verifierProxyDeploy) Apply(e deployment.Environment, cc DeployVerifierP
 	}
 
 	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
-		filter := deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0)
+		filter := cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0)
 		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.Ownership.MCMSProposalConfig)
 	}
 
@@ -74,7 +77,7 @@ func (v *verifierProxyDeploy) VerifyPreconditions(_ deployment.Environment, cc D
 	return nil
 }
 
-func deploy(e deployment.Environment, ab deployment.AddressBook, cfg DeployVerifierProxyConfig) error {
+func deploy(e deployment.Environment, ab cldf.AddressBook, cfg DeployVerifierProxyConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployVerifierProxyConfig: %w", err)
 	}
@@ -126,7 +129,7 @@ func verifyProxyDeployFn(cfg DeployVerifierProxy) changeset.ContractDeployFn[*ve
 			Address:  addr,
 			Contract: contract,
 			Tx:       tx,
-			Tv:       deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

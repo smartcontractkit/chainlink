@@ -39,15 +39,16 @@ import (
 
 func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	t.Parallel()
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	feeLimit := uint64(10_000)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	rpcBatchSize := uint32(1)
 	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
+	metrics, err := txmgr.NewEVMTxmMetrics(ethClient.ConfiguredChainID().String())
+	require.NoError(t, err)
 
 	h99 := &types.Head{
 		Hash:   utils.NewHash(),
@@ -61,11 +62,11 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	head.Parent.Store(h99)
 
 	t.Run("returns not finalized for tx with receipt newer than finalized block", func(t *testing.T) {
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		servicetest.Run(t, finalizer)
 
 		idempotencyKey := uuid.New().String()
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		nonce := types.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
@@ -91,11 +92,11 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	})
 
 	t.Run("returns not finalized for tx with receipt re-org'd out and deletes stale receipt", func(t *testing.T) {
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		servicetest.Run(t, finalizer)
 
 		idempotencyKey := uuid.New().String()
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		nonce := types.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
@@ -123,11 +124,11 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	})
 
 	t.Run("returns finalized for tx with receipt in a finalized block", func(t *testing.T) {
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		servicetest.Run(t, finalizer)
 
 		idempotencyKey := uuid.New().String()
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		nonce := types.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
@@ -153,11 +154,11 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	})
 
 	t.Run("returns finalized for tx with receipt older than block history depth", func(t *testing.T) {
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		servicetest.Run(t, finalizer)
 
 		idempotencyKey := uuid.New().String()
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		nonce := types.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
@@ -221,7 +222,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	})
 
 	t.Run("returns error if failed to retrieve latest head in headtracker", func(t *testing.T) {
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		servicetest.Run(t, finalizer)
 
 		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, errors.New("failed to get latest head")).Once()
@@ -230,7 +231,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	})
 
 	t.Run("returns error if failed to calculate latest finalized head in headtracker", func(t *testing.T) {
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		servicetest.Run(t, finalizer)
 
 		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
@@ -254,14 +255,15 @@ func insertTxAndAttemptWithIdempotencyKey(tb testing.TB, txStore txmgr.TestEvmTx
 
 func TestFinalizer_ResumePendingRuns(t *testing.T) {
 	t.Parallel()
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	rpcBatchSize := uint32(1)
 	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
+	metrics, err := txmgr.NewEVMTxmMetrics(ethClient.ConfiguredChainID().String())
+	require.NoError(t, err)
 
 	grandParentHead := &types.Head{
 		Number: 8,
@@ -284,8 +286,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 	testutils.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
 	t.Run("doesn't process task runs that are not suspended (possibly already previously resumed)", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		finalizer.SetResumeCallback(func(context.Context, uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
@@ -306,8 +308,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 	})
 
 	t.Run("doesn't process task runs where the receipt is younger than minConfirmations", func(t *testing.T) {
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		finalizer.SetResumeCallback(func(context.Context, uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
@@ -330,8 +332,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		ch := make(chan interface{})
 		nonce := types.Nonce(3)
 		var err error
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		finalizer.SetResumeCallback(func(ctx context.Context, id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
 			ch <- value
@@ -384,8 +386,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		}
 		ch := make(chan data)
 		nonce := types.Nonce(4)
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		finalizer.SetResumeCallback(func(ctx context.Context, id uuid.UUID, value interface{}, err error) error {
 			ch <- data{value, err}
 			return nil
@@ -432,8 +434,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 
 	t.Run("does not mark callback complete if callback fails", func(t *testing.T) {
 		nonce := types.Nonce(5)
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		finalizer.SetResumeCallback(func(ctx context.Context, id uuid.UUID, value interface{}, err error) error {
 			return errors.New("error")
 		})
@@ -458,13 +460,15 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 
 func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Parallel()
-	ctx := tests.Context(t)
+	ctx := t.Context()
 
 	config := configtest.NewChainScopedConfig(t, nil)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	rpcBatchSize := config.EVM().RPCDefaultBatchSize()
 	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
+	metrics, err := txmgr.NewEVMTxmMetrics(ethClient.ConfiguredChainID().String())
+	require.NoError(t, err)
 
 	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),
@@ -480,9 +484,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Run("does nothing if no confirmed transactions without receipts found", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, config.EVM().RPCDefaultBatchSize(), false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, config.EVM().RPCDefaultBatchSize(), false, txStore, txmClient, ht, metrics)
 
 		mustInsertFatalErrorEthTx(t, txStore, fromAddress)
 		mustInsertInProgressEthTx(t, txStore, 0, fromAddress)
@@ -499,9 +502,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Run("fetches receipt for confirmed transaction without a receipt", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		// Transaction not confirmed yet, receipt is nil
@@ -526,9 +528,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Run("saves nothing if returned receipt does not match the attempt", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		txmReceipt := types.Receipt{
@@ -559,9 +560,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Run("saves nothing if query returns error", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		txmReceipt := types.Receipt{
@@ -593,9 +593,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Run("saves valid receipt returned by client", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		// Insert confirmed transaction without receipt
 		etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		// Insert confirmed transaction without receipt
@@ -648,9 +647,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Run("fetches and saves receipts for several attempts in gas price order", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		attempt1 := etx.TxAttempts[0]
@@ -701,9 +699,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Run("ignores receipt missing BlockHash that comes from querying parity too early", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		receipt := types.Receipt{
@@ -733,9 +730,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Run("does not panic if receipt has BlockHash but is missing some other fields somehow", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		// NOTE: This should never happen, but we shouldn't panic regardless
@@ -766,9 +762,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Run("simulate on revert", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		attempt := etx.TxAttempts[0]
@@ -813,9 +808,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Run("find receipt for old transaction, avoid marking as fatal", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, true, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, true, txStore, txmClient, ht, metrics)
 
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, latestFinalizedHead.Number, fromAddress)
@@ -848,9 +842,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Run("old transaction failed to find receipt, marked as fatal", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, true, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, true, txStore, txmClient, ht, metrics)
 
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, latestFinalizedHead.Number, fromAddress)
@@ -875,7 +868,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 
 	t.Run("attempts requiring receipt fetch is not fetched from TxStore every head", func(t *testing.T) {
 		txStore := mocks.NewEvmTxStore(t)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 
 		// Mock finalizer txstore calls that are not needed
 		txStore.On("SaveFetchedReceipts", mock.Anything, mock.Anything).Return(nil).Maybe()
@@ -899,10 +892,12 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 
 func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 	t.Parallel()
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
+	metrics, err := txmgr.NewEVMTxmMetrics(ethClient.ConfiguredChainID().String())
+	require.NoError(t, err)
 
 	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),
@@ -918,10 +913,9 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 	t.Run("fetch and store receipts from multiple batch calls", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		rpcBatchSize := uint32(2)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 
 		// Insert confirmed transaction without receipt
 		etx := mustInsertConfirmedEthTx(t, txStore, 0, fromAddress)
@@ -967,10 +961,9 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 	t.Run("continue to fetch and store receipts after batch call error", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+		fromAddress := testutils.NewAddress()
 		rpcBatchSize := uint32(1)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 
 		// Insert confirmed transactions without receipts
 		etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
@@ -1011,10 +1004,12 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 
 func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *testing.T) {
 	t.Parallel()
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
+	metrics, err := txmgr.NewEVMTxmMetrics(ethClient.ConfiguredChainID().String())
+	require.NoError(t, err)
 
 	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),
@@ -1029,9 +1024,8 @@ func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t
 
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, 1, true, txStore, txmClient, ht)
+	fromAddress := testutils.NewAddress()
+	finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, 1, true, txStore, txmClient, ht, metrics)
 
 	// tx is not forwarded and doesn't have meta set. Confirmer should handle nil meta values
 	etx := mustInsertConfirmedEthTx(t, txStore, 0, fromAddress)
@@ -1068,10 +1062,12 @@ func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t
 
 func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 	t.Parallel()
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
+	metrics, err := txmgr.NewEVMTxmMetrics(ethClient.ConfiguredChainID().String())
+	require.NoError(t, err)
 
 	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),
@@ -1087,16 +1083,15 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 	t.Run("does nothing if no old transactions found", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, 1, true, txStore, txmClient, ht)
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, 1, true, txStore, txmClient, ht, metrics)
 		require.NoError(t, finalizer.ProcessOldTxsWithoutReceipts(ctx, []int64{}, head, latestFinalizedHead))
 	})
 
 	t.Run("marks multiple old transactions as fatal", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, 1, true, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, 1, true, txStore, txmClient, ht, metrics)
 
 		// Insert confirmed transaction without receipt
 		etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, latestFinalizedHead.Number, fromAddress)
@@ -1121,9 +1116,8 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 	t.Run("marks old transaction as fatal, resumes pending task as failed", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, 1, true, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, 1, true, txStore, txmClient, ht, metrics)
 		finalizer.SetResumeCallback(func(context.Context, uuid.UUID, interface{}, error) error { return nil })
 
 		// Insert confirmed transaction with pending task run
@@ -1136,7 +1130,7 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 		etx.InitialBroadcastAt = &now
 		etx.SignalCallback = true
 		etx.PipelineTaskRunID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
-		require.NoError(t, txStore.InsertTx(tests.Context(t), &etx))
+		require.NoError(t, txStore.InsertTx(t.Context(), &etx))
 
 		attempt := newBroadcastLegacyEthTxAttempt(t, etx.ID, 0)
 		attempt.BroadcastBeforeBlockNum = &latestFinalizedHead.Number // set broadcast time to finalized block num
@@ -1156,9 +1150,8 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 	t.Run("transaction stays confirmed if failure to resume pending task", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, 1, true, txStore, txmClient, ht)
+		fromAddress := testutils.NewAddress()
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, 1, true, txStore, txmClient, ht, metrics)
 		finalizer.SetResumeCallback(func(context.Context, uuid.UUID, interface{}, error) error { return errors.New("failure") })
 
 		// Insert confirmed transaction with pending task run
@@ -1171,7 +1164,7 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 		etx.InitialBroadcastAt = &now
 		etx.SignalCallback = true
 		etx.PipelineTaskRunID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
-		require.NoError(t, txStore.InsertTx(tests.Context(t), &etx))
+		require.NoError(t, txStore.InsertTx(t.Context(), &etx))
 
 		attempt := newBroadcastLegacyEthTxAttempt(t, etx.ID, 0)
 		attempt.BroadcastBeforeBlockNum = &latestFinalizedHead.Number // set broadcast time to finalized block num

@@ -8,7 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
@@ -32,7 +34,7 @@ func TestInitializeVerifier(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure the VerifierProxy was deployed
-	verifierProxyAddrHex, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.VerifierProxy)
+	verifierProxyAddrHex, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.VerifierProxy)
 	require.NoError(t, err)
 	verifierProxyAddr := common.HexToAddress(verifierProxyAddrHex)
 
@@ -50,7 +52,7 @@ func TestInitializeVerifier(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure the Verifier was deployed
-	verifierAddrHex, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.Verifier)
+	verifierAddrHex, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.Verifier)
 	require.NoError(t, err)
 	verifierAddr := common.HexToAddress(verifierAddrHex)
 

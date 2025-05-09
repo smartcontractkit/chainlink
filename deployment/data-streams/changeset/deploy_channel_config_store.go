@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
@@ -32,7 +34,7 @@ func (cc DeployChannelConfigStoreConfig) Validate() error {
 }
 
 func (DeployChannelConfigStore) Apply(e deployment.Environment, cc DeployChannelConfigStoreConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	err := performDeployment(e, ab, cc)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy ChannelConfigStore", "err", err, "addresses", ab)
@@ -51,7 +53,7 @@ func (DeployChannelConfigStore) VerifyPreconditions(_ deployment.Environment, cc
 	return nil
 }
 
-func performDeployment(e deployment.Environment, ab deployment.AddressBook, cc DeployChannelConfigStoreConfig) error {
+func performDeployment(e deployment.Environment, ab cldf.AddressBook, cc DeployChannelConfigStoreConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployChannelConfigStoreConfig: %w", err)
 	}
@@ -101,7 +103,7 @@ func channelConfigStoreDeployFn() ContractDeployFn[*channel_config_store.Channel
 			Address:  ccsAddr,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0),
+			Tv:       cldf.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0),
 			Err:      nil,
 		}
 	}

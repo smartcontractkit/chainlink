@@ -478,6 +478,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 			Name:        "Send token to contract",
 			SourceChain: sourceChain,
 			DestChain:   destChain,
+			FeeToken:    wSOL.String(),
 			SolTokens: []ccip_router.SVMTokenAmount{
 				{
 					Token:  srcToken,

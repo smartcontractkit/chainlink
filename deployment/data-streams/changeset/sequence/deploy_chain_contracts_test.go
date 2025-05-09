@@ -6,10 +6,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
@@ -38,7 +39,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 		name                    string
 		hasExistingMcms         bool
 		deployDataStreamsConfig DeployDataStreamsConfig
-		expectedContracts       []deployment.ContractType
+		expectedContracts       []cldf.ContractType
 	}{
 		{
 			name:            "Deploy with billing and MCMS",
@@ -60,7 +61,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					},
 				}},
 			},
-			expectedContracts: []deployment.ContractType{types.VerifierProxy, types.Verifier, types.RewardManager, types.FeeManager,
+			expectedContracts: []cldf.ContractType{types.VerifierProxy, types.Verifier, types.RewardManager, types.FeeManager,
 				commontypes.ProposerManyChainMultisig, commontypes.BypasserManyChainMultisig, commontypes.CancellerManyChainMultisig},
 		},
 		{
@@ -77,7 +78,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					},
 				}},
 			},
-			expectedContracts: []deployment.ContractType{types.VerifierProxy, types.Verifier,
+			expectedContracts: []cldf.ContractType{types.VerifierProxy, types.Verifier,
 				commontypes.ProposerManyChainMultisig, commontypes.BypasserManyChainMultisig, commontypes.CancellerManyChainMultisig},
 		},
 		{
@@ -92,7 +93,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					},
 				}},
 			},
-			expectedContracts: []deployment.ContractType{types.VerifierProxy, types.Verifier},
+			expectedContracts: []cldf.ContractType{types.VerifierProxy, types.Verifier},
 		},
 		{
 			name:            "Deploy but do not propose transfer",
@@ -102,7 +103,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					VerifierConfig: verificationCfg,
 				}},
 			},
-			expectedContracts: []deployment.ContractType{types.VerifierProxy, types.Verifier},
+			expectedContracts: []cldf.ContractType{types.VerifierProxy, types.Verifier},
 		},
 	}
 

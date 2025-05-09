@@ -85,6 +85,7 @@ type TestCase struct {
 	Receiver               []byte
 	MsgData                []byte
 	ExtraArgs              []byte
+	FeeToken               string
 	ExpectedExecutionState int
 	ExtraAssertions        []func(t *testing.T)
 }
@@ -151,18 +152,30 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	var msg any
 	switch family {
 	case chain_selectors.FamilyEVM:
+		feeToken := common.HexToAddress("0x0")
+		if len(tc.FeeToken) > 0 {
+			feeToken = common.HexToAddress(tc.FeeToken)
+		}
+
 		msg = router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
 			Data:         tc.MsgData,
 			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
+			FeeToken:     feeToken,
 			ExtraArgs:    tc.ExtraArgs,
 		}
 	case chain_selectors.FamilySolana:
+		feeToken := solana.PublicKey{}
+		if len(tc.FeeToken) > 0 {
+			feeToken, err = solana.PublicKeyFromBase58(tc.FeeToken)
+			require.NoError(t, err)
+		}
+
 		msg = ccip_router.SVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
 			TokenAmounts: nil,
 			Data:         tc.MsgData,
+			FeeToken:     feeToken,
 			ExtraArgs:    tc.ExtraArgs,
 		}
 

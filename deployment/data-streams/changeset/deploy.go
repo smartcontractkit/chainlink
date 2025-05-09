@@ -5,6 +5,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -26,7 +28,7 @@ type (
 		Address  common.Address
 		Contract C
 		Tx       *types.Transaction
-		Tv       deployment.TypeAndVersion
+		Tv       cldf.TypeAndVersion
 		Err      error
 	}
 )
@@ -38,7 +40,7 @@ var _ deployment.ChangeSetV2[DeployChannelConfigStoreConfig] = DeployChannelConf
 // Note that this function modifies the given address book variable, so it should be passed by reference.
 func DeployContract[C Contract](
 	e deployment.Environment,
-	ab deployment.AddressBook,
+	ab cldf.AddressBook,
 	chain deployment.Chain,
 	deployFn ContractDeployFn[C],
 ) (*ContractDeployment[C], error) {
