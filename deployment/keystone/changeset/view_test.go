@@ -159,6 +159,15 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
 			env.Env.DataStore = resp.DataStore.Seal()
 
+			// Deploy a new capability registry contract
+			resp, err = changeset.DeployCapabilityRegistryV2(env.Env, &changeset.DeployRequestV2{ChainSel: registryChain})
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
+			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
+			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
+			env.Env.DataStore = resp.DataStore.Seal()
+
 			var ocr3Addr, forwarderAddr, workflowRegistryAddr, capabilityRegistryAddr string
 			existingAddrs := env.Env.DataStore.Addresses().Filter(
 				datastore.AddressRefByChainSelector(registryChain),
@@ -246,7 +255,7 @@ func TestKeystoneView(t *testing.T) {
 			require.Len(t, viewChain.WorkflowRegistry, 2)
 			_, ok = viewChain.CapabilityRegistry[capabilityRegistryAddr]
 			require.True(t, ok)
-			require.Len(t, viewChain.CapabilityRegistry, 1)
+			require.Len(t, viewChain.CapabilityRegistry, 2)
 		},
 	)
 
