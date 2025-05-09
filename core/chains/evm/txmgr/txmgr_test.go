@@ -445,7 +445,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
-		payload := cltest.MustRandomBytes(t, 100)
+		payload := []byte("payload")
 
 		evmConfig.MaxQueued = uint64(1)
 		mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, otherAddress)
@@ -469,7 +469,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	require.NoError(t, commonutils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, fromAddress)))
 
 	t.Run("if this key has any transactions with insufficient eth errors, inserts it anyway", func(t *testing.T) {
-		payload := cltest.MustRandomBytes(t, 100)
+		payload := []byte("payload")
 		evmConfig.MaxQueued = uint64(1)
 
 		mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, fromAddress)
@@ -492,7 +492,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	require.NoError(t, commonutils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, fromAddress)))
 
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
-		payload := cltest.MustRandomBytes(t, 100)
+		payload := []byte("payload")
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 42, fromAddress)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
@@ -983,7 +983,7 @@ func newTxStore(t testing.TB, db *sqlx.DB) txmgr.EvmTxStore {
 }
 
 func newEthReceipt(blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.Receipt {
-	transactionIndex := uint(cltest.NewRandomPositiveInt64())
+	transactionIndex := uint(42)
 
 	receipt := evmtypes.Receipt{
 		BlockNumber:       big.NewInt(blockNumber),
