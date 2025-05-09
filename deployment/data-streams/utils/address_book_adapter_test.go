@@ -5,10 +5,9 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 )
@@ -25,28 +24,28 @@ var (
 
 func TestAddressBookToDataStore(t *testing.T) {
 	t.Parallel()
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	// Add addresses to the ethereum
-	err := ab.Save(chainEthereum, LinkTokenEth, deployment.TypeAndVersion{
+	err := ab.Save(chainEthereum, LinkTokenEth, cldf.TypeAndVersion{
 		Type:    "LinkToken",
 		Version: *v1,
-		Labels:  deployment.NewLabelSet("label1", "label2"),
+		Labels:  cldf.NewLabelSet("label1", "label2"),
 	})
 	require.NoError(t, err)
 
-	err = ab.Save(chainEthereum, usdtETH, deployment.TypeAndVersion{
+	err = ab.Save(chainEthereum, usdtETH, cldf.TypeAndVersion{
 		Type:    "USDT",
 		Version: *v2,
-		Labels:  deployment.NewLabelSet("label3"),
+		Labels:  cldf.NewLabelSet("label3"),
 	})
 	require.NoError(t, err)
 
 	// Add address to the solana
-	err = ab.Save(chainSolana, linkTokenSol, deployment.TypeAndVersion{
+	err = ab.Save(chainSolana, linkTokenSol, cldf.TypeAndVersion{
 		Type:    "LinkToken",
 		Version: *v1,
-		Labels:  deployment.NewLabelSet("testnet"),
+		Labels:  cldf.NewLabelSet("testnet"),
 	})
 	require.NoError(t, err)
 
@@ -131,7 +130,7 @@ func TestDataStoreToAddressBook(t *testing.T) {
 
 			tv1, exists := ethereumAddresses[LinkTokenEth]
 			assert.True(t, exists, "Address should exist in ethereum address map")
-			assert.Equal(t, deployment.ContractType("LinkToken"), tv1.Type)
+			assert.Equal(t, cldf.ContractType("LinkToken"), tv1.Type)
 			assert.Equal(t, v1.String(), tv1.Version.String())
 			assert.True(t, tv1.Labels.Contains("mainnet"))
 			assert.True(t, tv1.Labels.Contains("stable"))
@@ -151,7 +150,7 @@ func TestDataStoreToAddressBook(t *testing.T) {
 
 			tv2, exists := chain2Addresses[linkTokenSol]
 			assert.True(t, exists, "Address should exist in solana address map")
-			assert.Equal(t, deployment.ContractType("LinkToken"), tv2.Type)
+			assert.Equal(t, cldf.ContractType("LinkToken"), tv2.Type)
 			assert.Equal(t, v2.String(), tv2.Version.String())
 			assert.True(t, tv2.Labels.Contains("mainnet"))
 		})
@@ -161,12 +160,12 @@ func TestDataStoreToAddressBook(t *testing.T) {
 func TestAddressBookToNewDataStore(t *testing.T) {
 	t.Parallel()
 
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
-	err := ab.Save(chainEthereum, LinkTokenEth, deployment.TypeAndVersion{
+	err := ab.Save(chainEthereum, LinkTokenEth, cldf.TypeAndVersion{
 		Type:    "LinkToken",
 		Version: *v1,
-		Labels:  deployment.NewLabelSet("testLabel"),
+		Labels:  cldf.NewLabelSet("testLabel"),
 	})
 	require.NoError(t, err)
 
