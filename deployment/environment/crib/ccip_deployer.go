@@ -633,6 +633,28 @@ func setupSolEvmLanes(lggr logger.Logger, e *deployment.Environment, state chang
 						},
 					),
 				)
+
+				laneChangesets = append(laneChangesets,
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
+						ccipChangesetSolana.RemoteChainTokenPoolConfig{
+							SolChainSelector: solSelector,
+							SolTokenPubKey:   solChainState.LinkToken,
+							SolPoolType:      solTestTokenPool.BurnAndMint_PoolType,
+							EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
+								evmSelector: {
+									TokenSymbol: changeset.LinkSymbol,
+									PoolType:    changeset.BurnMintTokenPool,
+									PoolVersion: changeset.CurrentTokenPoolVersion,
+									RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
+										Inbound:  solTestTokenPool.RateLimitConfig{},
+										Outbound: solTestTokenPool.RateLimitConfig{},
+									},
+								},
+							},
+						},
+					),
+				)
 				lggr.Infow("Applying evm <> svm lane changesets", "len", len(laneChangesets), "evmSel", evmSelector, "svmSel", solSelector)
 				_, err = commonchangeset.Apply(nil, *e, nil, laneChangesets[0], laneChangesets[1:]...)
 				return err
@@ -644,15 +666,6 @@ func setupSolEvmLanes(lggr logger.Logger, e *deployment.Environment, state chang
 		}
 
 		_, err = commonchangeset.Apply(nil, *e, nil,
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
-				ccipChangesetSolana.RemoteChainTokenPoolConfig{
-					SolChainSelector: solSelector,
-					SolTokenPubKey:   solChainState.LinkToken,
-					SolPoolType:      solTestTokenPool.BurnAndMint_PoolType,
-					EVMRemoteConfigs: poolUpdates,
-				},
-			),
 			commonchangeset.Configure(
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
 				ccipChangesetSolana.BillingTokenConfig{

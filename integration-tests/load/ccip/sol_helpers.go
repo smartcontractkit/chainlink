@@ -387,7 +387,16 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 	tokenProgram := solana.TokenProgramID
 	wSOL := solana.SolMint
 
-	soltestutils.FundAccounts(ctx, []solana.PrivateKey{sourceAccount}, rpcClient, t)
+	// use the account 3x to get more funding
+	soltestutils.FundAccounts(ctx, []solana.PrivateKey{sourceAccount, sourceAccount, sourceAccount}, rpcClient, t)
+
+	// get the account balance
+	balRes, err := rpcClient.GetBalance(ctx, sourceAccount.PublicKey(), solconfig.DefaultCommitment)
+	if err != nil {
+		return fmt.Errorf("failed to get account balance sol: %w", err)
+	}
+	lggr.Infow("sol account balance", "balRes.Val", balRes.Value)
+
 	accountWSOL, _, err := soltokens.FindAssociatedTokenAddress(tokenProgram, wSOL, sourceAccount.PublicKey())
 	if err != nil {
 		return fmt.Errorf("failed to find deployer's wSOL ATA: %w", err)
@@ -399,6 +408,18 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *de
 		return err
 	}
 	_, err = solcommon.SendAndConfirm(ctx, rpcClient, []solana.Instruction{ixSync}, sourceAccount, solconfig.DefaultCommitment)
+	if err != nil {
+		lggr.Errorw("failed to send sync instruction", "error", err)
+		return err
+	}
+
+	// get the wsol account balance
+	dec, val, err := soltokens.TokenBalance(ctx, rpcClient, accountWSOL, solconfig.DefaultCommitment)
+	if err != nil {
+		return fmt.Errorf("failed to get account balance wsol: %w", err)
+	}
+	lggr.Infow("wsol account balance", "decimals", dec, "value", val)
+
 	return err
 }
 
