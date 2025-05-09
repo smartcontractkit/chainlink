@@ -117,6 +117,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         CL_CHAIN_DEFAULTS=/ccip-config
+        CL_SOLANA_CMD=
         COMMIT_SHA=${{ github.sha }}
       docker-build-cache-disabled: "true"
       docker-image-type: ${{ needs.init.outputs.build-type }}

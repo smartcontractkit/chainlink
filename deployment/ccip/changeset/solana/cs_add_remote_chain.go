@@ -2,9 +2,8 @@ package solana
 
 import (
 	"context"
-	"math"
-
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/gagliardetto/solana-go"

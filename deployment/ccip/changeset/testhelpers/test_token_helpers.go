@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -52,7 +53,7 @@ func SetupTwoChainEnvironmentWithTokens(
 	t *testing.T,
 	lggr logger.Logger,
 	transferToTimelock bool,
-) (deployment.Environment, uint64, uint64, map[uint64]*deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677], map[uint64]*proposalutils.TimelockExecutionContracts) {
+) (env deployment.Environment, sel1 uint64, sel2 uint64, ercmap map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677], contractmap map[uint64]*proposalutils.TimelockExecutionContracts) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 2,
 	})
@@ -72,10 +73,10 @@ func SetupTwoChainEnvironmentWithTokens(
 	}
 
 	// Deploy one burn-mint token per chain to use in the tests
-	tokens := make(map[uint64]*deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677])
+	tokens := make(map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677])
 	for _, selector := range selectors {
-		token, err := deployment.DeployContract(e.Logger, e.Chains[selector], addressBook,
-			func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+		token, err := cldf.DeployContract(e.Logger, e.Chains[selector], addressBook,
+			func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 				tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 					e.Chains[selector].DeployerKey,
 					e.Chains[selector].Client,
@@ -84,7 +85,7 @@ func SetupTwoChainEnvironmentWithTokens(
 					LocalTokenDecimals,
 					big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 				)
-				return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+				return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 					Address:  tokenAddress,
 					Contract: token,
 					Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),

@@ -14,24 +14,23 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore) {
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	chainID := big.NewInt(0)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	memKS := keystest.NewMemoryChainStore()
+	addr1 := memKS.MustCreate(t)
+	addr2 := memKS.MustCreate(t)
 	var enabledAddresses []common.Address
-	_, addr1 := cltest.MustInsertRandomKey(t, ethKeyStore, *ubig.NewI(chainID.Int64()))
-	_, addr2 := cltest.MustInsertRandomKey(t, ethKeyStore, *ubig.NewI(chainID.Int64()))
 	enabledAddresses = append(enabledAddresses, addr1, addr2)
 	lggr := logger.Test(t)
-	return txmgr.NewEvmTracker(txStore, keys.NewStore(keystore.NewEthSigner(ethKeyStore, chainID)), chainID, lggr), txStore
+	return txmgr.NewEvmTracker(txStore, keys.NewStore(memKS), chainID, lggr), txStore
 }
 
 func containsID(txes []*txmgr.Tx, id int64) bool {

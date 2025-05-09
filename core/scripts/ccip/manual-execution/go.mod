@@ -7,7 +7,7 @@ toolchain go1.24.2
 require (
 	github.com/ethereum/go-ethereum v1.15.3
 	github.com/pkg/errors v0.9.1
-	github.com/smartcontractkit/chain-selectors v1.0.49
+	github.com/smartcontractkit/chain-selectors v1.0.55
 	golang.org/x/crypto v0.37.0
 )
 
@@ -44,6 +44,7 @@ require (
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250509065326-785ef73a45f7 // indirect
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect

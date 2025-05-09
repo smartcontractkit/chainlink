@@ -58,5 +58,15 @@ type (
 )
 
 var (
-	NewEnvironment = deployment.NewEnvironment
+	NewEnvironment             = deployment.NewEnvironment
+	ConfirmIfNoError           = deployment.ConfirmIfNoError
+	ConfirmIfNoErrorWithABI    = deployment.ConfirmIfNoErrorWithABI
+	DecodedErrFromABIIfDataErr = deployment.DecodedErrFromABIIfDataErr
+)
+
+// helper functions
+var (
+	SimTransactOpts      = deployment.SimTransactOpts
+	DecodeErr            = deployment.DecodeErr
+	IsValidChainSelector = deployment.IsValidChainSelector
 )

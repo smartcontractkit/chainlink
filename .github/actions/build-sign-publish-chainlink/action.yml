@@ -93,12 +93,12 @@ runs:
           SHARED_BUILD_ARGS=$(cat << EOF
         COMMIT_SHA=${GIT_COMMIT_SHA}
         CL_CHAIN_DEFAULTS=/ccip-config
+        CL_SOLANA_CMD=
         EOF
         )
         else
           SHARED_BUILD_ARGS=$(cat << EOF
         COMMIT_SHA=${GIT_COMMIT_SHA}
-        CL_SOLANA_CMD=chainlink-solana
         EOF
         )
         fi
