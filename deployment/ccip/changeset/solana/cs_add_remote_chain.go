@@ -149,21 +149,14 @@ func doAddRemoteChainToRouter(
 	if err != nil {
 		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
+
 	for remoteChainSel, update := range updates {
-		ixns := make([]solana.Instruction, 0)
 		// verified while loading state
 		routerRemoteStatePDA, _ := solState.FindDestChainStatePDA(remoteChainSel, ccipRouterID)
 		allowedOffRampRemotePDA, _ := solState.FindAllowedOfframpPDA(remoteChainSel, offRampID, ccipRouterID)
 
-		if !update.IsUpdate {
-			lookUpTableEntries = append(lookUpTableEntries,
-				routerRemoteStatePDA,
-			)
-		}
-
-		var routerIx solana.Instruction
 		if update.IsUpdate {
-			routerIx, err = solRouter.NewUpdateDestChainConfigInstruction(
+			routerIx, err := solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
 				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
 				// right now, the user will have to send the final version of the config.
@@ -173,9 +166,29 @@ func doAddRemoteChainToRouter(
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate update router config instructions: %w", err)
+			}
 			e.Logger.Infow("update router config for remote chain", "remoteChainSel", remoteChainSel)
+			if routerUsingMCMS {
+				tx, err := BuildMCMSTxn(routerIx, ccipRouterID.String(), ccipChangeset.Router)
+				if err != nil {
+					return txns, fmt.Errorf("failed to create update router config transaction: %w", err)
+				}
+				txns = append(txns, *tx)
+			} else {
+				err = chain.Confirm([]solana.Instruction{routerIx})
+				if err != nil {
+					return txns, fmt.Errorf("failed to confirm update router config instructions: %w", err)
+				}
+			}
 		} else {
-			routerIx, err = solRouter.NewAddChainSelectorInstruction(
+			// new remote chain
+			lookUpTableEntries = append(lookUpTableEntries,
+				routerRemoteStatePDA,
+			)
+			// generate instructions
+			routerIx, err := solRouter.NewAddChainSelectorInstruction(
 				remoteChainSel,
 				update.RouterDestinationConfig,
 				routerRemoteStatePDA,
@@ -183,22 +196,10 @@ func doAddRemoteChainToRouter(
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
-			e.Logger.Infow("add router config for remote chain", "remoteChainSel", remoteChainSel)
-		}
-		if err != nil {
-			return txns, fmt.Errorf("failed to generate instructions: %w", err)
-		}
-		if routerUsingMCMS {
-			tx, err := BuildMCMSTxn(routerIx, ccipRouterID.String(), ccipChangeset.Router)
 			if err != nil {
-				return txns, fmt.Errorf("failed to create transaction: %w", err)
+				return txns, fmt.Errorf("failed to generate add router config instructions: %w", err)
 			}
-			txns = append(txns, *tx)
-		} else {
-			ixns = append(ixns, routerIx)
-		}
-
-		if !update.IsUpdate {
+			e.Logger.Infow("add router config for remote chain", "remoteChainSel", remoteChainSel)
 			routerOfframpIx, err := solRouter.NewAddOfframpInstruction(
 				remoteChainSel,
 				offRampID,
@@ -207,30 +208,27 @@ func doAddRemoteChainToRouter(
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
-			e.Logger.Infow("add offramp to router for remote chain", "remoteChainSel", remoteChainSel)
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate instructions: %w", err)
 			}
+			e.Logger.Infow("add offramp to router for remote chain", "remoteChainSel", remoteChainSel)
 			if routerUsingMCMS {
-				tx, err := BuildMCMSTxn(routerOfframpIx, ccipRouterID.String(), ccipChangeset.Router)
-				if err != nil {
-					return txns, fmt.Errorf("failed to create transaction: %w", err)
+				// build transactions if mcms
+				for _, ix := range []solana.Instruction{routerIx, routerOfframpIx} {
+					tx, err := BuildMCMSTxn(ix, ccipRouterID.String(), ccipChangeset.Router)
+					if err != nil {
+						return txns, fmt.Errorf("failed to create add router config transaction: %w", err)
+					}
+					txns = append(txns, *tx)
 				}
-				txns = append(txns, *tx)
 			} else {
-				ixns = append(ixns, routerOfframpIx)
+				// confirm ixns if not mcms
+				err = chain.Confirm([]solana.Instruction{routerIx, routerOfframpIx})
+				if err != nil {
+					return txns, fmt.Errorf("failed to confirm add router config instructions: %w", err)
+				}
 			}
-		}
-
-		// confirm ixns if any
-		if len(ixns) > 0 {
-			err = chain.Confirm(ixns)
-			if err != nil {
-				return txns, fmt.Errorf("failed to confirm instructions: %w", err)
-			}
-		}
-
-		if !update.IsUpdate {
+			// add to address book
 			tv := deployment.NewTypeAndVersion(ccipChangeset.RemoteDest, deployment.Version1_0_0)
 			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
 			tv.AddLabel(remoteChainSelStr)
@@ -363,15 +361,8 @@ func doAddRemoteChainToFeeQuoter(
 		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	for remoteChainSel, update := range updates {
-		ixns := make([]solana.Instruction, 0)
 		// verified while loading state
 		fqRemoteChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
-		if !update.IsUpdate {
-			lookUpTableEntries = append(lookUpTableEntries,
-				fqRemoteChainPDA,
-			)
-		}
-
 		var feeQuoterIx solana.Instruction
 		if update.IsUpdate {
 			feeQuoterIx, err = solFeeQuoter.NewUpdateDestChainConfigInstruction(
@@ -385,6 +376,9 @@ func doAddRemoteChainToFeeQuoter(
 			).ValidateAndBuild()
 			e.Logger.Infow("update fee quoter config for remote chain", "remoteChainSel", remoteChainSel)
 		} else {
+			lookUpTableEntries = append(lookUpTableEntries,
+				fqRemoteChainPDA,
+			)
 			feeQuoterIx, err = solFeeQuoter.NewAddDestChainInstruction(
 				remoteChainSel,
 				update.FeeQuoterDestinationConfig,
@@ -405,12 +399,7 @@ func doAddRemoteChainToFeeQuoter(
 			}
 			txns = append(txns, *tx)
 		} else {
-			ixns = append(ixns, feeQuoterIx)
-		}
-
-		// confirm ixns if any
-		if len(ixns) > 0 {
-			err = chain.Confirm(ixns)
+			err = chain.Confirm([]solana.Instruction{feeQuoterIx})
 			if err != nil {
 				return txns, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
@@ -496,7 +485,7 @@ func AddRemoteChainToOffRamp(e deployment.Environment, cfg AddRemoteChainToOffRa
 	}
 
 	ab := deployment.NewMemoryAddressBook()
-	txns, err := doAddRemoteChainToSolana(e, s, cfg, ab)
+	txns, err := doAddRemoteChainToOffRamp(e, s, cfg, ab)
 	if err != nil {
 		return deployment.ChangesetOutput{AddressBook: ab}, err
 	}
@@ -516,7 +505,7 @@ func AddRemoteChainToOffRamp(e deployment.Environment, cfg AddRemoteChainToOffRa
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func doAddRemoteChainToSolana(
+func doAddRemoteChainToOffRamp(
 	e deployment.Environment,
 	s ccipChangeset.CCIPOnChainState,
 	cfg AddRemoteChainToOffRampConfig,
@@ -540,15 +529,8 @@ func doAddRemoteChainToSolana(
 	}
 
 	for remoteChainSel, update := range updates {
-		ixns := make([]solana.Instruction, 0)
 		// verified while loading state
 		offRampRemoteStatePDA, _, _ := solState.FindOfframpSourceChainPDA(remoteChainSel, offRampID)
-		if !update.IsUpdate {
-			lookUpTableEntries = append(lookUpTableEntries,
-				offRampRemoteStatePDA,
-			)
-		}
-
 		// offramp setup
 		validSourceChainConfig, err := getSourceChainConfig(s, remoteChainSel, update.EnabledAsSource)
 		if err != nil {
@@ -566,6 +548,9 @@ func doAddRemoteChainToSolana(
 			).ValidateAndBuild()
 			e.Logger.Infow("update offramp config for remote chain", "remoteChainSel", remoteChainSel)
 		} else {
+			lookUpTableEntries = append(lookUpTableEntries,
+				offRampRemoteStatePDA,
+			)
 			offRampIx, err = solOffRamp.NewAddSourceChainInstruction(
 				remoteChainSel,
 				validSourceChainConfig,
@@ -575,6 +560,13 @@ func doAddRemoteChainToSolana(
 				solana.SystemProgramID,
 			).ValidateAndBuild()
 			e.Logger.Infow("add offramp config for remote chain", "remoteChainSel", remoteChainSel)
+			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
+			tv := deployment.NewTypeAndVersion(ccipChangeset.RemoteSource, deployment.Version1_0_0)
+			tv.AddLabel(remoteChainSelStr)
+			err = ab.Save(chainSel, offRampRemoteStatePDA.String(), tv)
+			if err != nil {
+				return txns, fmt.Errorf("failed to save source chain state to address book: %w", err)
+			}
 		}
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
@@ -586,24 +578,9 @@ func doAddRemoteChainToSolana(
 			}
 			txns = append(txns, *tx)
 		} else {
-			ixns = append(ixns, offRampIx)
-		}
-
-		// confirm ixns if any
-		if len(ixns) > 0 {
-			err = chain.Confirm(ixns)
+			err = chain.Confirm([]solana.Instruction{offRampIx})
 			if err != nil {
 				return txns, fmt.Errorf("failed to confirm instructions: %w", err)
-			}
-		}
-
-		if !update.IsUpdate {
-			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
-			tv := deployment.NewTypeAndVersion(ccipChangeset.RemoteSource, deployment.Version1_0_0)
-			tv.AddLabel(remoteChainSelStr)
-			err = ab.Save(chainSel, offRampRemoteStatePDA.String(), tv)
-			if err != nil {
-				return txns, fmt.Errorf("failed to save source chain state to address book: %w", err)
 			}
 		}
 	}

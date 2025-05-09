@@ -544,3 +544,58 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 		AddressBook: ab,
 	}, nil
 }
+
+type SetLinkTokenConfig struct {
+	ChainSelector uint64
+}
+
+func (cfg SetLinkTokenConfig) Validate(e deployment.Environment) error {
+	state, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState, chainExists := state.SolChains[cfg.ChainSelector]
+	if !chainExists {
+		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
+	}
+	chain := e.SolChains[cfg.ChainSelector]
+
+	return validateRouterConfig(chain, chainState)
+}
+
+func SetLinkToken(e deployment.Environment, cfg SetLinkTokenConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	state, _ := ccipChangeset.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
+	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
+	feeQuoterConfigPDA, _, _ := solState.FindConfigPDA(chainState.FeeQuoter)
+
+	solRouter.SetProgramID(chainState.Router)
+	routerIx, err := solRouter.NewSetLinkTokenMintInstruction(
+		chainState.LinkToken,
+		routerConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	feeQuoterIx, err := solFeeQuoter.NewSetLinkTokenMintInstruction(
+		feeQuoterConfigPDA,
+		chainState.LinkToken,
+		chain.DeployerKey.PublicKey(),
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	if err := chain.Confirm([]solana.Instruction{routerIx, feeQuoterIx}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+	return deployment.ChangesetOutput{}, nil
+}

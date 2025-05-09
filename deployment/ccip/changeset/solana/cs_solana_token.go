@@ -289,3 +289,27 @@ func SetTokenAuthority(e deployment.Environment, cfg SetTokenAuthorityConfig) (d
 
 	return deployment.ChangesetOutput{}, nil
 }
+
+type UploadTokenMetadataConfig struct {
+	ChainSelector     uint64
+	TokenPubkey       solana.PublicKey
+	TokenMetaDataFile string
+}
+
+func UploadTokenMetadata(e deployment.Environment, cfg UploadTokenMetadataConfig) (deployment.ChangesetOutput, error) {
+	chain := e.SolChains[cfg.ChainSelector]
+	e.Logger.Infow("Uploading token metadata", "tokenPubkey", cfg.TokenPubkey.String())
+	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
+	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	args := []string{"create", "metadata", "--mint", cfg.TokenPubkey.String(), "--metadata", cfg.TokenMetaDataFile}
+	e.Logger.Info(args)
+	output, err := runCommand("metaboss", args, chain.ProgramsPath)
+	e.Logger.Debugw("metaboss output", "output", output)
+	if err != nil {
+		e.Logger.Debugw("metaboss create error", "error", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
+	}
+	e.Logger.Infow("Token metadata uploaded", "tokenPubkey", cfg.TokenPubkey.String())
+
+	return deployment.ChangesetOutput{}, nil
+}
