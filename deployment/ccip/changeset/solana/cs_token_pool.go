@@ -259,18 +259,17 @@ func AddTokenPoolAndLookupTable(e deployment.Environment, cfg TokenPoolConfig) (
 	}
 	e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
 
-	// csOutput, err := AddTokenPoolLookupTable(e, TokenPoolLookupTableConfig{
-	// 	ChainSelector: cfg.ChainSelector,
-	// 	TokenPubKey:   cfg.TokenPubKey,
-	// 	PoolType:      cfg.PoolType,
-	// 	Metadata:      cfg.Metadata,
-	// })
-	// if err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
-	// }
+	csOutput, err := AddTokenPoolLookupTable(e, TokenPoolLookupTableConfig{
+		ChainSelector: cfg.ChainSelector,
+		TokenPubKey:   cfg.TokenPubKey,
+		PoolType:      cfg.PoolType,
+		Metadata:      cfg.Metadata,
+	})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
+	}
 
-	// return csOutput, nil
-	return deployment.ChangesetOutput{}, nil
+	return csOutput, nil
 }
 
 // SETUP REMOTE CHAIN TOKEN POOL FOR A GIVEN TOKEN
