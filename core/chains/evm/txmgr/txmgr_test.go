@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -983,7 +984,7 @@ func newTxStore(t testing.TB, db *sqlx.DB) txmgr.EvmTxStore {
 }
 
 func newEthReceipt(blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.Receipt {
-	transactionIndex := uint(42)
+	transactionIndex := uint(rand.Int63())
 
 	receipt := evmtypes.Receipt{
 		BlockNumber:       big.NewInt(blockNumber),
