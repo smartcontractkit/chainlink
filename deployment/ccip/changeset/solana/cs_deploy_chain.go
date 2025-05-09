@@ -510,6 +510,7 @@ func deployChainContractsSolana(
 	}
 
 	var lockReleaseTokenPool solana.PublicKey
+	metadata = ccipChangeset.CLLMetadata
 	if config.LockReleaseTokenPoolMetadata != "" {
 		metadata = config.LockReleaseTokenPoolMetadata
 	}
