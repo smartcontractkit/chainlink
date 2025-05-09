@@ -33,24 +33,16 @@ func HashedCapabilityID(capabilityLabelledName, capabilityVersion string) (r [32
 }
 
 type OffChainConfig struct {
-	CommitOffchainConfig *pluginconfig.CommitOffchainConfig
-	ExecOffchainConfig   *pluginconfig.ExecuteOffchainConfig
+	Commit  *pluginconfig.CommitOffchainConfig
+	Execute *pluginconfig.ExecuteOffchainConfig
 }
 
 func (ofc OffChainConfig) CommitEmpty() bool {
-	return ofc.CommitOffchainConfig == nil
+	return ofc.Commit == nil
 }
 
 func (ofc OffChainConfig) ExecEmpty() bool {
-	return ofc.ExecOffchainConfig == nil
-}
-
-func (ofc OffChainConfig) Commit() *pluginconfig.CommitOffchainConfig {
-	return ofc.CommitOffchainConfig
-}
-
-func (ofc OffChainConfig) Exec() *pluginconfig.ExecuteOffchainConfig {
-	return ofc.ExecOffchainConfig
+	return ofc.Execute == nil
 }
 
 // IsValid Exactly one of both plugins should be empty at any given time.

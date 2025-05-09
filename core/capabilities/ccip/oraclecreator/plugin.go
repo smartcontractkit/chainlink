@@ -359,7 +359,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 
 	var execBatchGasLimit uint64
 	if !ofc.ExecEmpty() {
-		execBatchGasLimit = ofc.Exec().BatchGasLimit
+		execBatchGasLimit = ofc.Execute.BatchGasLimit
 	} else {
 		// Set the default here so chain writer config validation doesn't fail.
 		// For commit, this won't be used, so its harmless.
@@ -384,15 +384,15 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
 		}
 
-		cr, err1 := crcw.GetChainReader(ctx, ccipcommon.GetChainReaderParams{
-			Lggr:             i.lggr,
-			Relayer:          relayer,
-			ChainID:          chainID,
-			DestChainID:      destChainID,
-			HomeChainID:      homeChainID,
-			Ofc:              ofc,
-			ChainSelector:    chainSelector,
-			RelayChainFamily: relayChainFamily,
+		cr, err1 := crcw.GetChainReader(ctx, ccipcommon.ChainReaderProviderOpts{
+			Lggr:          i.lggr,
+			Relayer:       relayer,
+			ChainID:       chainID,
+			DestChainID:   destChainID,
+			HomeChainID:   homeChainID,
+			Ofc:           ofc,
+			ChainSelector: chainSelector,
+			ChainFamily:   relayChainFamily,
 		})
 		if err1 != nil {
 			return nil, nil, err1
@@ -415,7 +415,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
 		}
 
-		cw, err1 := crcw.GetChainWriter(ctx, ccipcommon.GetChainWriterParams{
+		cw, err1 := crcw.GetChainWriter(ctx, ccipcommon.ChainWriterProviderOpts{
 			ChainID:               chainID,
 			Relayer:               relayer,
 			Transmitters:          i.transmitters,
@@ -450,7 +450,7 @@ func decodeAndValidateOffchainConfig(
 		if err2 := execOffchainCfg.Validate(); err2 != nil {
 			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to validate execute offchain config: %w", err2)
 		}
-		ofc.ExecOffchainConfig = &execOffchainCfg
+		ofc.Execute = &execOffchainCfg
 	} else if pluginType == cctypes.PluginTypeCCIPCommit {
 		commitOffchainCfg, err1 := pluginconfig.DecodeCommitOffchainConfig(publicConfig.ReportingPluginConfig)
 		if err1 != nil {
@@ -459,7 +459,7 @@ func decodeAndValidateOffchainConfig(
 		if err2 := commitOffchainCfg.ApplyDefaultsAndValidate(); err2 != nil {
 			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to validate commit offchain config: %w", err2)
 		}
-		ofc.CommitOffchainConfig = &commitOffchainCfg
+		ofc.Commit = &commitOffchainCfg
 	}
 
 	if !ofc.IsValid() {

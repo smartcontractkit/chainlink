@@ -12,11 +12,11 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-// GetCRCW is a struct that implements the GetChainReaderWriter interface for EVM chains.
-type GetCRCW struct{}
+// ChainCWProvider is a struct that implements the ChainRWProvider interface for EVM chains.
+type ChainCWProvider struct{}
 
 // GetChainReader returns a new ContractReader for EVM chains.
-func (g GetCRCW) GetChainReader(ctx context.Context, params ccipcommon.GetChainReaderParams) (types.ContractReader, error) {
+func (g ChainCWProvider) GetChainReader(ctx context.Context, params ccipcommon.ChainReaderProviderOpts) (types.ContractReader, error) {
 	var chainReaderConfig evmrelaytypes.ChainReaderConfig
 	if params.ChainID == params.DestChainID {
 		chainReaderConfig = evmconfig.DestReaderConfig
@@ -24,7 +24,7 @@ func (g GetCRCW) GetChainReader(ctx context.Context, params ccipcommon.GetChainR
 		chainReaderConfig = evmconfig.SourceReaderConfig
 	}
 
-	if !params.Ofc.CommitEmpty() && params.Ofc.Commit().PriceFeedChainSelector == params.ChainSelector {
+	if !params.Ofc.CommitEmpty() && params.Ofc.Commit.PriceFeedChainSelector == params.ChainSelector {
 		params.Lggr.Debugw("Adding feed reader config", "chainID", params.ChainID)
 		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.FeedReaderConfig)
 	}
@@ -53,7 +53,7 @@ func (g GetCRCW) GetChainReader(ctx context.Context, params ccipcommon.GetChainR
 }
 
 // GetChainWriter returns a new ContractWriter for EVM chains.
-func (g GetCRCW) GetChainWriter(ctx context.Context, params ccipcommon.GetChainWriterParams) (types.ContractWriter, error) {
+func (g ChainCWProvider) GetChainWriter(ctx context.Context, params ccipcommon.ChainWriterProviderOpts) (types.ContractWriter, error) {
 	var fromAddress common.Address
 	transmitter, ok := params.Transmitters[types.NewRelayID(params.ChainFamily, params.ChainID)]
 	if ok {
@@ -86,5 +86,5 @@ func isUSDCEnabled(ofc ccipcommon.OffChainConfig) bool {
 		return false
 	}
 
-	return ofc.Exec().IsUSDCEnabled()
+	return ofc.Execute.IsUSDCEnabled()
 }

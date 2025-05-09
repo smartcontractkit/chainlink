@@ -13,11 +13,11 @@ import (
 	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
 )
 
-// GetCRCW is a struct that implements the GetChainReaderWriter interface for Solana chains.
-type GetCRCW struct{}
+// ChainRWProvider is a struct that implements the ChainRWProvider interface for Solana chains.
+type ChainRWProvider struct{}
 
-// GetChainWriter returns a new ContractWriter for Solana chains.
-func (g GetCRCW) GetChainWriter(ctx context.Context, pararms ccipcommon.GetChainWriterParams) (types.ContractWriter, error) {
+// GetChainWriter ChainRWProvider returns a new ContractWriter for Solana chains.
+func (g ChainRWProvider) GetChainWriter(ctx context.Context, pararms ccipcommon.ChainWriterProviderOpts) (types.ContractWriter, error) {
 	var offrampProgramAddress solana.PublicKey
 	// NOTE: this function can still be called with EVM inputs, and PublicKeyFromBytes will panic on addresses with len=20
 	// technically we only need the writer to do fee estimation so this doesn't matter and we can use a zero address
@@ -44,7 +44,7 @@ func (g GetCRCW) GetChainWriter(ctx context.Context, pararms ccipcommon.GetChain
 }
 
 // GetChainReader returns a new ContractReader for Solana chains.
-func (g GetCRCW) GetChainReader(ctx context.Context, params ccipcommon.GetChainReaderParams) (types.ContractReader, error) {
+func (g ChainRWProvider) GetChainReader(ctx context.Context, params ccipcommon.ChainReaderProviderOpts) (types.ContractReader, error) {
 	var err error
 	var cfg config.ContractReader
 	if params.ChainID == params.DestChainID {

@@ -12,4 +12,4 @@ var DefaultExtraDataCodec = common.NewExtraDataCodec(ccipevm.ExtraDataCodec{}, c
 // DefaultAddressCodec is the default AddressCodec for CCIP initialized with all supported chain families.
 var DefaultAddressCodec = common.NewAddressCodec(ccipevm.AddressCodec{}, ccipsolana.AddressCodec{})
 
-var DefaultCRCW = common.NewCRCW(ccipevm.GetCRCW{}, ccipsolana.GetCRCW{})
+var DefaultCRCW = common.NewCRCW(ccipevm.ChainCWProvider{}, ccipsolana.ChainRWProvider{})

@@ -16,9 +16,7 @@ type PluginConfig struct {
 
 // NewPluginConfig returns a new PluginConfig.
 func NewPluginConfig(extraDataCodec ccipcommon.ExtraDataCodec) *PluginConfig {
-	return &PluginConfig{
-		extraDataCodec: extraDataCodec,
-	}
+	return &PluginConfig{extraDataCodec: extraDataCodec}
 }
 
 // InitializePluginConfig returns a PluginConfig for Solana chains.
