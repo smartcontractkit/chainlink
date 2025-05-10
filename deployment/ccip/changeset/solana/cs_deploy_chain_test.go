@@ -12,6 +12,7 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -253,7 +254,7 @@ func TestUpgrade(t *testing.T) {
 						BuildLocally:        true,
 						CleanDestinationDir: true,
 						CleanGitDir:         true,
-						UpgradeKeys: map[deployment.ContractType]string{
+						UpgradeKeys: map[cldf.ContractType]string{
 							ccipChangeset.Router:               state.SolChains[solChainSelectors[0]].Router.String(),
 							ccipChangeset.FeeQuoter:            state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
 							ccipChangeset.BurnMintTokenPool:    state.SolChains[solChainSelectors[0]].BurnMintTokenPools[ccipChangeset.CLLMetadata].String(),

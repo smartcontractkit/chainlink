@@ -8,6 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -34,8 +37,8 @@ type OwnedContract[T Ownable] struct {
 
 // NewOwnable creates an OwnedContract instance.
 // It checks if the contract is owned by a timelock contract and loads the MCMS state if necessary.
-func NewOwnable[T Ownable](contract T, ab deployment.AddressBook, chain deployment.Chain) (*OwnedContract[T], error) {
-	var timelockTV = deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+func NewOwnable[T Ownable](contract T, ab cldf.AddressBook, chain deployment.Chain) (*OwnedContract[T], error) {
+	var timelockTV = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
 
 	// Look for MCMS contracts that might be owned by the contract
 	addresses, err := ab.AddressesForChain(chain.Selector)
@@ -72,7 +75,7 @@ func NewOwnable[T Ownable](contract T, ab deployment.AddressBook, chain deployme
 // NewOwnable creates an OwnedContract instance.
 // It checks if the contract is owned by a timelock contract and loads the MCMS state if necessary.
 func NewOwnableV2[T Ownable](contract T, ab datastore.AddressRefStore, chain deployment.Chain) (*OwnedContract[T], error) {
-	var timelockTV = deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+	var timelockTV = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
 
 	// Look for MCMS contracts that might be owned by the contract
 	addresses := ab.Filter(datastore.AddressRefByChainSelector(chain.Selector))
@@ -83,12 +86,12 @@ func NewOwnableV2[T Ownable](contract T, ab datastore.AddressRefStore, chain dep
 	}
 
 	// convert addresses to map[string]deployment.TypeAndVersion
-	addressesMap := make(map[string]deployment.TypeAndVersion)
+	addressesMap := make(map[string]cldf.TypeAndVersion)
 	for _, addr := range addresses {
-		addressesMap[addr.Address] = deployment.TypeAndVersion{
-			Type:    deployment.ContractType(addr.Type),
+		addressesMap[addr.Address] = cldf.TypeAndVersion{
+			Type:    cldf.ContractType(addr.Type),
 			Version: *addr.Version,
-			Labels:  deployment.NewLabelSet(addr.Labels.List()...),
+			Labels:  cldf.NewLabelSet(addr.Labels.List()...),
 		}
 	}
 	// Check if the owner is a timelock contract (owned by MCMS)
@@ -113,7 +116,7 @@ func NewOwnableV2[T Ownable](contract T, ab datastore.AddressRefStore, chain dep
 }
 
 // GetOwnerTypeAndVersion retrieves the owner type and version of a contract.
-func GetOwnerTypeAndVersion[T Ownable](contract T, ab deployment.AddressBook, chain deployment.Chain) (*deployment.TypeAndVersion, error) {
+func GetOwnerTypeAndVersion[T Ownable](contract T, ab cldf.AddressBook, chain deployment.Chain) (*cldf.TypeAndVersion, error) {
 	// Get the contract owner
 	owner, err := contract.Owner(nil)
 	if err != nil {
@@ -144,8 +147,8 @@ func GetOwnerTypeAndVersion[T Ownable](contract T, ab deployment.AddressBook, ch
 	return nil, nil
 }
 
-// GetOwnerTypeAndVersion retrieves the owner type and version of a contract.
-func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStore, chain deployment.Chain) (*deployment.TypeAndVersion, error) {
+// GetOwnerTypeAndVersionV2 retrieves the owner type and version of a contract using the datastore instead of the address book.
+func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStore, chain deployment.Chain) (*cldf.TypeAndVersion, error) {
 	// Get the contract owner
 	owner, err := contract.Owner(nil)
 	if err != nil {
@@ -154,18 +157,15 @@ func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStor
 
 	// Look for owner in address book
 	addresses := ab.Filter(datastore.AddressRefByChainSelector(chain.Selector))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get addresses for chain %d: %w", chain.Selector, err)
-	}
 
 	// Handle case where owner is not in address book
 	// Check for case-insensitive match since some addresses might be stored with different casing
 	for _, addr := range addresses {
 		if common.HexToAddress(addr.Address) == owner {
-			return &deployment.TypeAndVersion{
-				Type:    deployment.ContractType(addr.Type),
+			return &cldf.TypeAndVersion{
+				Type:    cldf.ContractType(addr.Type),
 				Version: *addr.Version,
-				Labels:  deployment.NewLabelSet(addr.Labels.List()...),
+				Labels:  cldf.NewLabelSet(addr.Labels.List()...),
 			}, nil
 		}
 	}
@@ -177,8 +177,8 @@ func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStor
 // GetOwnableContract retrieves a contract instance of type T from the address book.
 // If `targetAddr` is provided, it will look for that specific address.
 // If not, it will default to looking one contract of type T, and if it doesn't find exactly one, it will error.
-func GetOwnableContract[T Ownable](ab deployment.AddressBook, chain deployment.Chain, targetAddr *string) (*T, error) {
-	var contractType deployment.ContractType
+func GetOwnableContract[T Ownable](ab cldf.AddressBook, chain deployment.Chain, targetAddr *string) (*T, error) {
+	var contractType cldf.ContractType
 	// Determine contract type based on T
 	switch any(*new(T)).(type) {
 	case *forwarder.KeystoneForwarder:
@@ -234,7 +234,7 @@ func GetOwnableContract[T Ownable](ab deployment.AddressBook, chain deployment.C
 	return createContractInstance[T](foundAddr, chain)
 }
 
-// GetOwnableContract retrieves a contract instance of type T from the address book.
+// GetOwnableContractV2 retrieves a contract instance of type T from the datastore.
 // If `targetAddr` is provided, it will look for that specific address.
 // If not, it will default to looking one contract of type T, and if it doesn't find exactly one, it will error.
 func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain deployment.Chain, targetAddr string) (*T, error) {
@@ -294,7 +294,7 @@ func createContractInstance[T Ownable](addr string, chain deployment.Chain) (*T,
 }
 
 // GetOwnedContract is a helper function that gets a contract and wraps it in OwnedContract
-func GetOwnedContract[T Ownable](addressBook deployment.AddressBook, chain deployment.Chain, addr string) (*OwnedContract[T], error) {
+func GetOwnedContract[T Ownable](addressBook cldf.AddressBook, chain deployment.Chain, addr string) (*OwnedContract[T], error) {
 	contract, err := GetOwnableContract[T](addressBook, chain, &addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract at %s: %w", addr, err)

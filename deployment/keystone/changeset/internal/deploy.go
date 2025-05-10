@@ -26,7 +26,9 @@ import (
 	kf "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -185,7 +187,7 @@ func (r *ConfigureRegistryRequest) Validate() error {
 
 // ConfigureRegistry configures the registry contract with the given DONS and their capabilities
 // the address book is required to contain the addresses of the deployed registry contract
-func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRegistryRequest, addrBook deployment.AddressBook) (*ConfigureContractsResponse, error) {
+func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRegistryRequest, addrBook cldf.AddressBook) (*ConfigureContractsResponse, error) {
 	donInfos, err := DonInfos(req.Dons, req.Env.Offchain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get don infos: %w", err)

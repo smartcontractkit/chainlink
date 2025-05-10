@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -11,43 +12,82 @@ import (
 
 // https://solana.com/developers/guides/advanced/verified-builds
 type VerifyBuildConfig struct {
-	GitCommitSha               string
-	ChainSelector              uint64
-	VerifyFeeQuoter            bool
-	VerifyRouter               bool
-	VerifyOffRamp              bool
-	VerifyRMNRemote            bool
-	VerifyBurnMintTokenPool    bool
-	BurnMintTokenPoolMetadata  string
-	VerifyLockReleaseTokenPool bool
-	VerifyAccessController     bool
-	VerifyMCM                  bool
-	VerifyTimelock             bool
-	RemoteVerification         bool
-	MCMSSolana                 *MCMSConfigSolana
+	GitCommitSha                 string
+	ChainSelector                uint64
+	VerifyFeeQuoter              bool
+	VerifyRouter                 bool
+	VerifyOffRamp                bool
+	VerifyRMNRemote              bool
+	VerifyBurnMintTokenPool      bool
+	BurnMintTokenPoolMetadata    string
+	LockReleaseTokenPoolMetadata string
+	VerifyLockReleaseTokenPool   bool
+	VerifyAccessController       bool
+	VerifyMCM                    bool
+	VerifyTimelock               bool
+	RemoteVerification           bool
+	MCMSSolana                   *MCMSConfigSolana
 }
 
-func runSolanaVerify(networkURL, programID, libraryName, commitHash, mountPath string, remote bool) error {
+func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHash, mountPath string, remote bool) error {
+	params := map[string]string{
+		"Keypair Path": chain.KeypairPath,
+		"Network URL":  chain.URL,
+		"Program ID":   programID,
+		"Lib Name":     libraryName,
+		"Commit Hash":  commitHash,
+		"Mount Path":   mountPath,
+	}
+	log, err := json.MarshalIndent(params, "", "")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(log))
+
 	cmdArgs := []string{
+		"config",
+		"set",
+		"--keypair", chain.KeypairPath,
+	}
+	output, err := runCommand("solana", cmdArgs, ".")
+	fmt.Println(output)
+	if err != nil {
+		return fmt.Errorf("solana program verification failed: %s %w", output, err)
+	}
+
+	cmdArgs = []string{
 		"verify-from-repo",
-		"-u", networkURL,
+		"--url", chain.URL,
 		"--program-id", programID,
 		"--library-name", libraryName,
 		strings.TrimSuffix(repoURL, ".git"),
 		"--commit-hash", commitHash,
 		"--mount-path", mountPath,
+		"--skip-prompt",
 	}
 
-	// Add --remote flag if remote verification is enabled
-	if remote {
-		cmdArgs = append(cmdArgs, "--remote")
-	}
-
-	output, err := runCommand("solana-verify", cmdArgs, ".")
+	output, err = runCommand("solana-verify", cmdArgs, ".")
 	fmt.Println(output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
 	}
+
+	// Add --remote flag if remote verification is enabled
+	if remote {
+		cmdArgs = []string{
+			"remote",
+			"submit-job",
+			"--url", chain.URL,
+			"--uploader", chain.DeployerKey.PublicKey().String(),
+			"--program-id", programID,
+		}
+		output, err := runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
+		fmt.Println(output)
+		if err != nil {
+			return fmt.Errorf("solana program verification failed: %s %w", output, err)
+		}
+	}
+
 	return nil
 }
 
@@ -64,6 +104,14 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
+	bnmMetadata := ccipChangeset.CLLMetadata
+	lnrMetadata := ccipChangeset.CLLMetadata
+	if cfg.BurnMintTokenPoolMetadata != "" {
+		bnmMetadata = cfg.BurnMintTokenPoolMetadata
+	}
+	if cfg.LockReleaseTokenPoolMetadata != "" {
+		lnrMetadata = cfg.LockReleaseTokenPoolMetadata
+	}
 
 	verifications := []struct {
 		name       string
@@ -75,8 +123,8 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 		{"Router", chainState.Router.String(), deployment.RouterProgramName, cfg.VerifyRouter},
 		{"OffRamp", chainState.OffRamp.String(), deployment.OffRampProgramName, cfg.VerifyOffRamp},
 		{"RMN Remote", chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, cfg.VerifyRMNRemote},
-		{"Burn Mint Token Pool", chainState.BurnMintTokenPools[ccipChangeset.CLLMetadata].String(), deployment.BurnMintTokenPoolProgramName, cfg.VerifyBurnMintTokenPool},
-		{"Lock Release Token Pool", chainState.LockReleaseTokenPools[ccipChangeset.CLLMetadata].String(), deployment.LockReleaseTokenPoolProgramName, cfg.VerifyLockReleaseTokenPool},
+		{"Burn Mint Token Pool", chainState.BurnMintTokenPools[bnmMetadata].String(), deployment.BurnMintTokenPoolProgramName, cfg.VerifyBurnMintTokenPool},
+		{"Lock Release Token Pool", chainState.LockReleaseTokenPools[lnrMetadata].String(), deployment.LockReleaseTokenPoolProgramName, cfg.VerifyLockReleaseTokenPool},
 		{"Access Controller", mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, cfg.VerifyAccessController},
 		{"MCM", mcmState.McmProgram.String(), deployment.McmProgramName, cfg.VerifyMCM},
 		{"Timelock", mcmState.TimelockProgram.String(), deployment.TimelockProgramName, cfg.VerifyTimelock},
@@ -89,7 +137,7 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 
 		e.Logger.Debugw("Verifying program", "name", v.name, "programID", v.programID, "programLib", v.programLib)
 		err := runSolanaVerify(
-			chain.URL,
+			chain,
 			v.programID,
 			v.programLib,
 			cfg.GitCommitSha,

@@ -18,6 +18,8 @@ import (
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -48,8 +50,8 @@ type MCMSConfigSolana struct {
 
 // HELPER FUNCTIONS
 // GetTokenProgramID returns the program ID for the given token program name
-func GetTokenProgramID(programName deployment.ContractType) (solana.PublicKey, error) {
-	tokenPrograms := map[deployment.ContractType]solana.PublicKey{
+func GetTokenProgramID(programName cldf.ContractType) (solana.PublicKey, error) {
+	tokenPrograms := map[cldf.ContractType]solana.PublicKey{
 		ccipChangeset.SPLTokens:     solana.TokenProgramID,
 		ccipChangeset.SPL2022Tokens: solana.Token2022ProgramID,
 	}
@@ -489,7 +491,7 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	var receiverAddress solana.PublicKey
 	var err error

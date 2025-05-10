@@ -1,18 +1,17 @@
 package changeset
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -23,7 +22,7 @@ import (
 
 type GetContractSetsRequest struct {
 	Chains      map[uint64]deployment.Chain
-	AddressBook deployment.AddressBook
+	AddressBook cldf.AddressBook
 
 	// Labels indicates the label set that a contract must include to be considered as a member
 	// of the returned contract set.  By default, an empty label set implies that only contracts without
@@ -74,154 +73,6 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 	return out
 }
 
-// View is a view of the keystone chain
-// It is best-effort, logs errors and generates the views in parallel.
-func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr logger.Logger) (KeystoneChainView, error) {
-	out := NewKeystoneChainView()
-	var outMu sync.Mutex
-	var allErrs error
-	var wg sync.WaitGroup
-	errCh := make(chan error, 4) // We are generating 4 views concurrently
-
-	// Check if context is already done before starting work
-	select {
-	case <-ctx.Done():
-		return out, ctx.Err()
-	default:
-		// Continue processing
-	}
-
-	if cs.CapabilitiesRegistry != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			select {
-			case <-ctx.Done():
-				errCh <- ctx.Err()
-				return
-			default:
-				capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
-				if err != nil {
-					lggr.Warn("failed to generate capability registry view: %w", err)
-					errCh <- err
-				}
-				outMu.Lock()
-				out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
-				outMu.Unlock()
-			}
-		}()
-	}
-
-	if cs.OCR3 != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for addr, ocr3Cap := range cs.OCR3 {
-				select {
-				case <-ctx.Done():
-					errCh <- ctx.Err()
-					return
-				default:
-					oc := *ocr3Cap
-					addrCopy := addr
-					ocrView, err := GenerateOCR3ConfigView(ctx, oc)
-					if err != nil {
-						// don't block view on single OCR3 not being configured
-						if errors.Is(err, ErrOCR3NotConfigured) {
-							lggr.Warnf("ocr3 not configured for address %s", addr)
-						} else {
-							lggr.Errorf("failed to generate OCR3 config view: %v", err)
-							errCh <- err
-						}
-						continue
-					}
-					outMu.Lock()
-					out.OCRContracts[addrCopy.String()] = ocrView
-					outMu.Unlock()
-				}
-			}
-		}()
-	}
-
-	// Process the workflow registry and print if WorkflowRegistryError errors.
-	if cs.WorkflowRegistry != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			select {
-			case <-ctx.Done():
-				errCh <- ctx.Err()
-				return
-			default:
-				wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
-				for _, err := range wrErrs {
-					lggr.Errorf("WorkflowRegistry error: %v", err)
-					errCh <- err
-				}
-				outMu.Lock()
-				out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
-				outMu.Unlock()
-			}
-		}()
-	}
-
-	if cs.Forwarder != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			fwrAddr := cs.Forwarder.Address().String()
-			var prevViews []ForwarderView
-			if prevView.Forwarders != nil {
-				pv, ok := prevView.Forwarders[fwrAddr]
-				if !ok {
-					prevViews = []ForwarderView{}
-				} else {
-					prevViews = pv
-				}
-			} else {
-				prevViews = []ForwarderView{}
-			}
-
-			select {
-			case <-ctx.Done():
-				errCh <- ctx.Err()
-				return
-			default:
-				fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder, prevViews)
-				if fwrErr != nil {
-					// don't block view on single forwarder not being configured
-					switch {
-					case errors.Is(fwrErr, ErrForwarderNotConfigured):
-						lggr.Warnf("forwarder not configured for address %s", cs.Forwarder.Address())
-					case errors.Is(fwrErr, context.Canceled), errors.Is(fwrErr, context.DeadlineExceeded):
-						lggr.Warnf("forwarder view generation cancelled for address %s", cs.Forwarder.Address())
-						errCh <- fwrErr
-					default:
-						lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
-						errCh <- fwrErr
-					}
-				} else {
-					outMu.Lock()
-					out.Forwarders[fwrAddr] = fwrView
-					outMu.Unlock()
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
-	close(errCh)
-
-	var errList []error
-	// Collect all errors
-	for err := range errCh {
-		errList = append(errList, err)
-	}
-	allErrs = errors.Join(errList...)
-
-	return out, allErrs
-}
-
 func (cs ContractSet) GetOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
 	return getOCR3Contract(cs.OCR3, addr)
 }
@@ -238,7 +89,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 
 		// Forwarder addresses now have informative labels, but we don't want them to be ignored if no labels are provided for filtering.
 		// If labels are provided, just filter by those.
-		forwarderAddrs := make(map[string]deployment.TypeAndVersion)
+		forwarderAddrs := make(map[string]cldf.TypeAndVersion)
 		if len(req.Labels) == 0 {
 			for addr, tv := range addrs {
 				if tv.Type == KeystoneForwarder {
@@ -264,7 +115,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 	return resp, nil
 }
 
-func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
+func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
 	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {

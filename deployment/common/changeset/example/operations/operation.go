@@ -10,7 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -29,7 +31,7 @@ var DeployLinkOp = operations.NewOperation(
 					Address:  linkTokenAddr,
 					Contract: linkToken,
 					Tx:       tx,
-					Tv:       deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),
+					Tv:       cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),
 					Err:      err2,
 				}
 			})

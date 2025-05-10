@@ -13,6 +13,8 @@ import (
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanachangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
@@ -60,7 +62,7 @@ func deployMCMS(t *testing.T, env deployment.Environment, selector uint64) *stat
 	t.Helper()
 
 	solanaChain := env.SolChains[selector]
-	addressBook := deployment.NewMemoryAddressBook()
+	addressBook := cldf.NewMemoryAddressBook()
 	mcmsConfig := commontypes.MCMSWithTimelockConfigV2{
 		Canceller:        proposalutils.SingleGroupMCMSV2(t),
 		Bypasser:         proposalutils.SingleGroupMCMSV2(t),
