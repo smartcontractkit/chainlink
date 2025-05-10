@@ -308,7 +308,7 @@ func UploadTokenMetadata(e deployment.Environment, cfg UploadTokenMetadataConfig
 		return deployment.ChangesetOutput{}, fmt.Errorf("solana program verification failed: %s %w", output, err)
 	}
 
-	_, _ = runCommand("solana", []string{"config", "set", "--keypair", strings.TrimPrefix(chain.KeypairPath, "/home/runner/work/chainlink-deployments/chainlink-deployments")}, chain.ProgramsPath)
+	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
 	args := []string{"create", "metadata", "--mint", cfg.TokenPubkey.String(), "--metadata", cfg.TokenMetaDataFile}
 	e.Logger.Info(args)
 	output, err = runCommand("metaboss", args, chain.ProgramsPath)
