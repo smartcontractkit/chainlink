@@ -37,11 +37,11 @@ func runSolanaVerify(keypairPath, networkURL, programID, libraryName, commitHash
 		"Commit Hash":  commitHash,
 		"Mount Path":   mountPath,
 	}
-	if log, err := json.MarshalIndent(params, "", " "); err != nil {
+	log, err := json.MarshalIndent(params, "", "")
+	if err != nil {
 		return err
-	} else {
-		fmt.Println(string(log))
 	}
+	fmt.Println(string(log))
 
 	cmdArgs := []string{
 		"verify-from-repo",
