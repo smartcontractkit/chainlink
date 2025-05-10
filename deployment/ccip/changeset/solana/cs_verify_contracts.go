@@ -44,9 +44,19 @@ func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHa
 	fmt.Println(string(log))
 
 	cmdArgs := []string{
+		"config",
+		"set",
+		"--keypair", chain.KeypairPath,
+	}
+	output, err := runCommand("solana", cmdArgs, chain.ProgramsPath)
+	fmt.Println(output)
+	if err != nil {
+		return fmt.Errorf("solana program verification failed: %s %w", output, err)
+	}
+
+	cmdArgs = []string{
 		"verify-from-repo",
 		"--url", chain.URL,
-		"--keypair", chain.KeypairPath,
 		"--program-id", programID,
 		"--library-name", libraryName,
 		strings.TrimSuffix(repoURL, ".git"),
@@ -55,7 +65,7 @@ func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHa
 		"--skip-prompt",
 	}
 
-	output, err := runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
+	output, err = runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
 	fmt.Println(output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
