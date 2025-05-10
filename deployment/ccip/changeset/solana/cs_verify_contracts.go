@@ -43,13 +43,7 @@ func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHa
 	}
 	fmt.Println(string(log))
 
-	output, err := runCommand("ls", []string{chain.KeypairPath}, ".")
-	fmt.Println(output)
-	if err != nil {
-		return fmt.Errorf("solana program verification failed: %s %w", output, err)
-	}
-
-	output, err = runCommand("ls", []string{strings.TrimPrefix(chain.KeypairPath, "/home/runner/work/chainlink-deployments/chainlink-deployments")}, ".")
+	output, err := runCommand("ls", []string{strings.TrimPrefix(chain.KeypairPath, "/home/runner/work/chainlink-deployments/chainlink-deployments")}, ".")
 	fmt.Println(output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
