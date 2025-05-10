@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -152,8 +153,8 @@ type DeployTokenConfig struct {
 	TokenSymbol            changeset.TokenSymbol
 	TokenDecimals          uint8    // needed for BurnMintToken only
 	MaxSupply              *big.Int // needed for BurnMintToken only
-	Type                   deployment.ContractType
-	PoolType               deployment.ContractType // This is the type of the token pool that will be deployed for this token.
+	Type                   cldf.ContractType
+	PoolType               cldf.ContractType // This is the type of the token pool that will be deployed for this token.
 	PoolAllowList          []common.Address
 	AcceptLiquidity        *bool
 	MintTokenForRecipients map[common.Address]*big.Int // MintTokenForRecipients is a map of recipient address to amount to be transferred or minted and provided minting role after token deployment.
@@ -233,7 +234,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 	// use a clone of env to avoid modifying the original env
 	e := env.Clone()
 	finalCSOut := &deployment.ChangesetOutput{
-		AddressBook: deployment.NewMemoryAddressBook(),
+		AddressBook: cldf.NewMemoryAddressBook(),
 	}
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
@@ -358,8 +359,8 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 	return *finalCSOut, nil
 }
 
-func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployTokenConfig) (map[uint64]common.Address, deployment.AddressBook, error) {
-	ab := deployment.NewMemoryAddressBook()
+func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployTokenConfig) (map[uint64]common.Address, cldf.AddressBook, error) {
+	ab := cldf.NewMemoryAddressBook()
 	tokenAddresses := make(map[uint64]common.Address) // This will hold the token addresses for each chain.
 	for selector, cfg := range tokenDeployCfg {
 		switch cfg.Type {
@@ -377,7 +378,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 					return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 						Address:  tokenAddress,
 						Contract: token,
-						Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+						Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 						Tx:       tx,
 						Err:      err,
 					}
@@ -415,7 +416,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 					return cldf.ContractDeploy[*erc20.ERC20]{
 						Address:  tokenAddress,
 						Contract: token,
-						Tv:       deployment.NewTypeAndVersion(changeset.ERC20Token, deployment.Version1_0_0),
+						Tv:       cldf.NewTypeAndVersion(changeset.ERC20Token, deployment.Version1_0_0),
 						Tx:       tx,
 						Err:      err,
 					}
@@ -438,7 +439,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 					return cldf.ContractDeploy[*erc677.ERC677]{
 						Address:  tokenAddress,
 						Contract: token,
-						Tv:       deployment.NewTypeAndVersion(changeset.ERC677Token, deployment.Version1_0_0),
+						Tv:       cldf.NewTypeAndVersion(changeset.ERC677Token, deployment.Version1_0_0),
 						Tx:       tx,
 						Err:      err,
 					}

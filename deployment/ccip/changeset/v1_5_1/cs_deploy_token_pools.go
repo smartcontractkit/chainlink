@@ -33,7 +33,7 @@ var _ deployment.ChangeSet[DeployTokenPoolContractsConfig] = DeployTokenPoolCont
 // DeployTokenPoolInput defines all information required of the user to deploy a new token pool contract.
 type DeployTokenPoolInput struct {
 	// Type is the type of token pool that must be deployed.
-	Type deployment.ContractType
+	Type cldf.ContractType
 	// TokenAddress is the address of the token for which we are deploying a pool.
 	TokenAddress common.Address
 	// AllowList is the optional list of addresses permitted to initiate a token transfer.
@@ -50,7 +50,7 @@ func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Cha
 	if i.TokenAddress == utils.ZeroAddress {
 		return errors.New("token address must be defined")
 	}
-	if i.Type == deployment.ContractType("") {
+	if i.Type == cldf.ContractType("") {
 		return errors.New("type must be defined")
 	}
 
@@ -156,7 +156,7 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 	if err := c.Validate(env); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployTokenPoolContractsConfig: %w", err)
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
@@ -199,7 +199,7 @@ func deployTokenPool(
 	logger logger.Logger,
 	chain deployment.Chain,
 	chainState changeset.CCIPChainState,
-	addressBook deployment.AddressBook,
+	addressBook cldf.AddressBook,
 	poolConfig DeployTokenPoolInput,
 	isTestRouter bool,
 ) (*cldf.ContractDeploy[*token_pool.TokenPool], error) {
@@ -243,7 +243,7 @@ func deployTokenPool(
 			return cldf.ContractDeploy[*token_pool.TokenPool]{
 				Address:  tpAddr,
 				Contract: tp,
-				Tv:       deployment.NewTypeAndVersion(poolConfig.Type, changeset.CurrentTokenPoolVersion),
+				Tv:       cldf.NewTypeAndVersion(poolConfig.Type, changeset.CurrentTokenPoolVersion),
 				Tx:       tx,
 				Err:      err,
 			}

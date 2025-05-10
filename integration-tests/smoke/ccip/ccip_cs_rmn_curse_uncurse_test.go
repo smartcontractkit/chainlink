@@ -158,6 +158,17 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: true},
 		},
 	},
+	{
+		name: "all chain",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseGloballyAllChains()}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, globalCurse: true, cursed: true},
+			{chainID: Sol1, globalCurse: true, cursed: true},
+		},
+	},
 }
 
 func TestRMNCurse(t *testing.T) {
@@ -814,6 +825,29 @@ var forceOptionTestCases = []ForceOptionTestCase{
 		expectProposal:     true,
 		expectedOperations: 3, // 3 operations for 3 chains
 	},
+}
+
+func TestGetAllCursableChainsEmptyWhenNoRMNRemote(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(
+		t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1),
+		testhelpers.WithPrerequisiteDeploymentOnly(nil),
+	)
+
+	cursableChains, err := v1_6.GetCursableChains(e.Env)
+	require.NoError(t, err)
+	require.NotNil(t, cursableChains)
+	require.Empty(t, cursableChains)
+}
+
+func TestGetAllCursableChainsWithRMNRemote(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(
+		t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1),
+	)
+
+	cursableChains, err := v1_6.GetCursableChains(e.Env)
+	require.NoError(t, err)
+	require.NotNil(t, cursableChains)
+	require.Len(t, cursableChains, 3)
 }
 
 func TestRMNUncurseForceOption(t *testing.T) {

@@ -9,6 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -35,7 +37,7 @@ type SqDeployLinkOutput struct {
 type EthereumDeps struct {
 	Auth  *bind.TransactOpts
 	Chain deployment.Chain
-	AB    deployment.AddressBook
+	AB    cldf.AddressBook
 }
 
 type DeployAndMintExampleChangeset struct{}
@@ -47,7 +49,7 @@ func (l DeployAndMintExampleChangeset) VerifyPreconditions(e deployment.Environm
 
 func (l DeployAndMintExampleChangeset) Apply(e deployment.Environment, config SqDeployLinkInput) (deployment.ChangesetOutput, error) {
 	auth := e.Chains[config.ChainID].DeployerKey
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	// build your custom dependencies needed in the sequence/operation
 	deps := EthereumDeps{

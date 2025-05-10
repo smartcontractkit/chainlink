@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -1456,7 +1457,7 @@ func deployDonIDClaimerChangesetLogic(e deployment.Environment, _ DeployDonIDCla
 		return deployment.ChangesetOutput{}, err
 	}
 
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	homeChainSel, err := state.HomeChainSelector()
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get HomeChainSelector: %w", err)
@@ -1476,7 +1477,7 @@ func deployDonIDClaimerChangesetLogic(e deployment.Environment, _ DeployDonIDCla
 	}, nil
 }
 
-func deployDonIDClaimerContract(e deployment.Environment, ab deployment.AddressBook, state changeset.CCIPOnChainState, chain deployment.Chain) error {
+func deployDonIDClaimerContract(e deployment.Environment, ab cldf.AddressBook, state changeset.CCIPOnChainState, chain deployment.Chain) error {
 	chainState, chainExists := state.Chains[chain.Selector]
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
@@ -1491,7 +1492,7 @@ func deployDonIDClaimerContract(e deployment.Environment, ab deployment.AddressB
 					chainState.CapabilityRegistry.Address(),
 				)
 				return cldf.ContractDeploy[*don_id_claimer.DonIDClaimer]{
-					Address: donIDClaimerAddr, Contract: donIDClaimerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.DonIDClaimer, deployment.Version1_6_1), Err: err2,
+					Address: donIDClaimerAddr, Contract: donIDClaimerC, Tx: tx2, Tv: cldf.NewTypeAndVersion(changeset.DonIDClaimer, deployment.Version1_6_1), Err: err2,
 				}
 			})
 		if err != nil {

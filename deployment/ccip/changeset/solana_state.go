@@ -20,6 +20,8 @@ import (
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	viewSolana "github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
@@ -29,18 +31,18 @@ import (
 )
 
 const (
-	TokenPool     deployment.ContractType = "TokenPool"
-	Receiver      deployment.ContractType = "Receiver"
-	SPL2022Tokens deployment.ContractType = "SPL2022Tokens"
-	SPLTokens     deployment.ContractType = "SPLTokens"
-	WSOL          deployment.ContractType = "WSOL"
-	CCIPCommon    deployment.ContractType = "CCIPCommon"
+	TokenPool     cldf.ContractType = "TokenPool"
+	Receiver      cldf.ContractType = "Receiver"
+	SPL2022Tokens cldf.ContractType = "SPL2022Tokens"
+	SPLTokens     cldf.ContractType = "SPLTokens"
+	WSOL          cldf.ContractType = "WSOL"
+	CCIPCommon    cldf.ContractType = "CCIPCommon"
 	// for PDAs from AddRemoteChainToSolana
-	RemoteSource deployment.ContractType = "RemoteSource"
-	RemoteDest   deployment.ContractType = "RemoteDest"
+	RemoteSource cldf.ContractType = "RemoteSource"
+	RemoteDest   cldf.ContractType = "RemoteDest"
 
 	// Tokenpool lookup table
-	TokenPoolLookupTable deployment.ContractType = "TokenPoolLookupTable"
+	TokenPoolLookupTable cldf.ContractType = "TokenPoolLookupTable"
 
 	// CLL Identifier
 	CLLMetadata string = "CLL"
@@ -96,10 +98,10 @@ func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) 
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty
-			if !errors.Is(err, deployment.ErrChainNotFound) {
+			if !errors.Is(err, cldf.ErrChainNotFound) {
 				return state, err
 			}
-			addresses = make(map[string]deployment.TypeAndVersion)
+			addresses = make(map[string]cldf.TypeAndVersion)
 		}
 		chainState, err := LoadChainStateSolana(chain, addresses)
 		if err != nil {
@@ -111,7 +113,7 @@ func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) 
 }
 
 // LoadChainStateSolana Loads all state for a SolChain into state
-func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deployment.TypeAndVersion) (SolCCIPChainState, error) {
+func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]cldf.TypeAndVersion) (SolCCIPChainState, error) {
 	state := SolCCIPChainState{
 		SourceChainStatePDAs:  make(map[uint64]solana.PublicKey),
 		DestChainStatePDAs:    make(map[uint64]solana.PublicKey),
@@ -124,7 +126,7 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 	}
 	// Most programs upgraded in place, but some are not so we always want to
 	// load the latest version
-	versions := make(map[deployment.ContractType]semver.Version)
+	versions := make(map[cldf.ContractType]semver.Version)
 	for address, tvStr := range addresses {
 		switch tvStr.Type {
 		case commontypes.LinkToken:
@@ -298,7 +300,7 @@ func (s SolCCIPChainState) TokenToTokenProgram(tokenAddress solana.PublicKey) (s
 	return solana.PublicKey{}, fmt.Errorf("token program not found for token address %s", tokenAddress.String())
 }
 
-func FindSolanaAddress(tv deployment.TypeAndVersion, addresses map[string]deployment.TypeAndVersion) solana.PublicKey {
+func FindSolanaAddress(tv cldf.TypeAndVersion, addresses map[string]cldf.TypeAndVersion) solana.PublicKey {
 	for address, tvStr := range addresses {
 		if tv.String() == tvStr.String() {
 			pub := solana.MustPublicKeyFromBase58(address)
@@ -313,7 +315,7 @@ func ValidateOwnershipSolana(
 	chain deployment.SolChain,
 	mcms bool,
 	programID solana.PublicKey,
-	contractType deployment.ContractType,
+	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // for token pools only
 ) error {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)

@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -59,7 +60,7 @@ func SetupTwoChainEnvironmentWithTokens(
 	})
 	selectors := e.AllChainSelectors()
 
-	addressBook := deployment.NewMemoryAddressBook()
+	addressBook := cldf.NewMemoryAddressBook()
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, len(selectors))
 	for i, selector := range selectors {
 		prereqCfg[i] = changeset.DeployPrerequisiteConfigPerChain{
@@ -88,7 +89,7 @@ func SetupTwoChainEnvironmentWithTokens(
 				return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 					Address:  tokenAddress,
 					Contract: token,
-					Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+					Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 					Tx:       tx,
 					Err:      err,
 				}

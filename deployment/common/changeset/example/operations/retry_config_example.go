@@ -7,6 +7,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -25,7 +27,7 @@ func (l DisableRetryExampleChangeset) VerifyPreconditions(e deployment.Environme
 }
 
 func (l DisableRetryExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	operationInput := SuccessFailOperationInput{ShouldFail: true}
 
@@ -50,7 +52,7 @@ func (l UpdateInputExampleChangeset) VerifyPreconditions(e deployment.Environmen
 }
 
 func (l UpdateInputExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	operationInput := SuccessFailOperationInput{ShouldFail: true}
 

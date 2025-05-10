@@ -6,6 +6,9 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -30,7 +33,7 @@ type DeployRequestV2 = struct {
 	Qualifier string
 	Labels    *datastore.LabelSet
 
-	deployFn func(ctx context.Context, chain deployment.Chain, ab deployment.AddressBook) (*kslib.DeployResponse, error)
+	deployFn func(ctx context.Context, chain deployment.Chain, ab cldf.AddressBook) (*kslib.DeployResponse, error)
 }
 
 func deploy(env deployment.Environment, req *DeployRequestV2) (deployment.ChangesetOutput, error) {
@@ -39,7 +42,7 @@ func deploy(env deployment.Environment, req *DeployRequestV2) (deployment.Change
 	if !ok {
 		return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	resp, err := req.deployFn(env.GetContext(), chain, ab)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
