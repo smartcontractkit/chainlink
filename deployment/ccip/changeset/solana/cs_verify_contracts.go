@@ -28,10 +28,10 @@ type VerifyBuildConfig struct {
 	MCMSSolana                 *MCMSConfigSolana
 }
 
-func runSolanaVerify(keypairPath, networkURL, programID, libraryName, commitHash, mountPath string, remote bool) error {
+func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHash, mountPath string, remote bool) error {
 	params := map[string]string{
-		"Keypair Path": keypairPath,
-		"Network URL":  networkURL,
+		"Keypair Path": chain.KeypairPath,
+		"Network URL":  chain.URL,
 		"Program ID":   programID,
 		"Lib Name":     libraryName,
 		"Commit Hash":  commitHash,
@@ -45,8 +45,8 @@ func runSolanaVerify(keypairPath, networkURL, programID, libraryName, commitHash
 
 	cmdArgs := []string{
 		"verify-from-repo",
-		"-u", networkURL,
-		"-k", keypairPath,
+		"-u", chain.URL,
+		"-k", chain.KeypairPath,
 		"--program-id", programID,
 		"--library-name", libraryName,
 		strings.TrimSuffix(repoURL, ".git"),
@@ -60,7 +60,7 @@ func runSolanaVerify(keypairPath, networkURL, programID, libraryName, commitHash
 		cmdArgs = append(cmdArgs, "--remote")
 	}
 
-	output, err := runCommand("solana-verify", cmdArgs, ".")
+	output, err := runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
 	fmt.Println(output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
@@ -106,8 +106,7 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 
 		e.Logger.Debugw("Verifying program", "name", v.name, "programID", v.programID, "programLib", v.programLib)
 		err := runSolanaVerify(
-			chain.KeypairPath,
-			chain.URL,
+			chain,
 			v.programID,
 			v.programLib,
 			cfg.GitCommitSha,
