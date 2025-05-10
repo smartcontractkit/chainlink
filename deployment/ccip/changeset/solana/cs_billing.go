@@ -63,7 +63,7 @@ func (cfg *BillingTokenConfig) Validate(e deployment.Environment) error {
 	var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
 	if err := chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount); err == nil {
 		e.Logger.Infow("Billing token already exists. Configuring as update", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
-		cfg.IsUpdate = true //nolint:revive,staticcheck // we're intentionally mutating the config
+		cfg.IsUpdate = true
 	}
 	return nil
 }
