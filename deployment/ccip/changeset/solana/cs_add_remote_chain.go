@@ -29,7 +29,7 @@ var _ deployment.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFe
 type AddRemoteChainToRouterConfig struct {
 	ChainSelector uint64
 	// UpdatesByChain is a mapping of SVM chain selector -> remote chain selector -> remote chain config update
-	UpdatesByChain map[uint64]RouterConfig
+	UpdatesByChain map[uint64]*RouterConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMSSolana *MCMSConfigSolana
@@ -45,7 +45,7 @@ type RouterConfig struct {
 	IsUpdate bool
 }
 
-func (cfg AddRemoteChainToRouterConfig) Validate(e deployment.Environment) error {
+func (cfg *AddRemoteChainToRouterConfig) Validate(e deployment.Environment) error {
 	state, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -251,7 +251,7 @@ func doAddRemoteChainToRouter(
 type AddRemoteChainToFeeQuoterConfig struct {
 	ChainSelector uint64
 	// UpdatesByChain is a mapping of SVM chain selector -> remote chain selector -> remote chain config update
-	UpdatesByChain map[uint64]FeeQuoterConfig
+	UpdatesByChain map[uint64]*FeeQuoterConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMSSolana *MCMSConfigSolana
@@ -263,7 +263,7 @@ type FeeQuoterConfig struct {
 	IsUpdate bool
 }
 
-func (cfg AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) error {
+func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) error {
 	state, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -417,7 +417,7 @@ func doAddRemoteChainToFeeQuoter(
 type AddRemoteChainToOffRampConfig struct {
 	ChainSelector uint64
 	// UpdatesByChain is a mapping of SVM chain selector -> remote chain selector -> remote chain config update
-	UpdatesByChain map[uint64]OffRampConfig
+	UpdatesByChain map[uint64]*OffRampConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMSSolana *MCMSConfigSolana
@@ -430,7 +430,7 @@ type OffRampConfig struct {
 	IsUpdate bool
 }
 
-func (cfg AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) error {
+func (cfg *AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) error {
 	state, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)

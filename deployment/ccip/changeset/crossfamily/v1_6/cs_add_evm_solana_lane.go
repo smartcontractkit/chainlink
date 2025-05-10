@@ -334,22 +334,22 @@ func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env de
 	input.solanaRouterInput = solana.AddRemoteChainToRouterConfig{
 		ChainSelector: cfg.SolanaChainSelector,
 		MCMSSolana:    cfg.MCMSConfig,
-		UpdatesByChain: map[uint64]solana.RouterConfig{
-			cfg.EVMChainSelector: cfg.SolanaRouterConfig,
+		UpdatesByChain: map[uint64]*solana.RouterConfig{
+			cfg.EVMChainSelector: &cfg.SolanaRouterConfig,
 		},
 	}
 	input.solanaOffRampInput = solana.AddRemoteChainToOffRampConfig{
 		ChainSelector: cfg.SolanaChainSelector,
 		MCMSSolana:    cfg.MCMSConfig,
-		UpdatesByChain: map[uint64]solana.OffRampConfig{
-			cfg.EVMChainSelector: cfg.SolanaOffRampConfig,
+		UpdatesByChain: map[uint64]*solana.OffRampConfig{
+			cfg.EVMChainSelector: &cfg.SolanaOffRampConfig,
 		},
 	}
 	input.solanaFeeQuoterInput = solana.AddRemoteChainToFeeQuoterConfig{
 		ChainSelector: cfg.SolanaChainSelector,
 		MCMSSolana:    cfg.MCMSConfig,
-		UpdatesByChain: map[uint64]solana.FeeQuoterConfig{
-			cfg.EVMChainSelector: cfg.SolanaFeeQuoterConfig,
+		UpdatesByChain: map[uint64]*solana.FeeQuoterConfig{
+			cfg.EVMChainSelector: &cfg.SolanaFeeQuoterConfig,
 		},
 	}
 	if err := input.evmOnRampInput.Validate(env); err != nil {

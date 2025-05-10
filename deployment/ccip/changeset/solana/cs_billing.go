@@ -37,7 +37,7 @@ type BillingTokenConfig struct {
 	MCMSSolana *MCMSConfigSolana
 }
 
-func (cfg BillingTokenConfig) Validate(e deployment.Environment) error {
+func (cfg *BillingTokenConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
