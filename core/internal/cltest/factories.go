@@ -408,12 +408,8 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, registry keeper.Regi
 	return upkeep
 }
 
-func MustInsertPipelineRun(t *testing.T, db *sqlx.DB, statusArgs ...string) (runID int64) {
-	status := "running"
-	if len(statusArgs) > 0 {
-		status = statusArgs[0]
-	}
-	require.NoError(t, db.Get(&runID, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,created_at) VALUES ($1, 0, 0, NOW()) RETURNING id`, status))
+func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (runID int64) {
+	require.NoError(t, db.Get(&runID, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,created_at) VALUES ($1, 0, 0, NOW()) RETURNING id`, "running"))
 	return runID
 }
 

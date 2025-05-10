@@ -589,8 +589,9 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID1, minConfirmations, etx1.ID)
 
 	// Callback to pipeline service completed. Should be ignored
-	runID2 := cltest.MustInsertPipelineRun(t, db, "completed")
+	runID2 := cltest.MustInsertPipelineRun(t, db)
 	trID2 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID2)
+	testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'completed', outputs = '""'::jsonb, finished_at = NOW() WHERE id = $1`, runID2)
 	etx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
 	testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
 	attempt2 := etx2.TxAttempts[0]
