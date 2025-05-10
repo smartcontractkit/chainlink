@@ -3,6 +3,7 @@ package solana
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -300,10 +301,17 @@ func UploadTokenMetadata(e deployment.Environment, cfg UploadTokenMetadataConfig
 	chain := e.SolChains[cfg.ChainSelector]
 	e.Logger.Infow("Uploading token metadata", "tokenPubkey", cfg.TokenPubkey.String())
 	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
+
+	output, err := runCommand("ls", []string{strings.TrimPrefix(chain.KeypairPath, "/home/runner/work/chainlink-deployments/chainlink-deployments")}, ".")
+	fmt.Println(output)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("solana program verification failed: %s %w", output, err)
+	}
+
 	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
 	args := []string{"create", "metadata", "--mint", cfg.TokenPubkey.String(), "--metadata", cfg.TokenMetaDataFile}
 	e.Logger.Info(args)
-	output, err := runCommand("metaboss", args, chain.ProgramsPath)
+	output, err = runCommand("metaboss", args, chain.ProgramsPath)
 	e.Logger.Debugw("metaboss output", "output", output)
 	if err != nil {
 		e.Logger.Debugw("metaboss create error", "error", err)
