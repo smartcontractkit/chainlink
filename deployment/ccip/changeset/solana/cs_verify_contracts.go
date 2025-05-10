@@ -12,20 +12,21 @@ import (
 
 // https://solana.com/developers/guides/advanced/verified-builds
 type VerifyBuildConfig struct {
-	GitCommitSha               string
-	ChainSelector              uint64
-	VerifyFeeQuoter            bool
-	VerifyRouter               bool
-	VerifyOffRamp              bool
-	VerifyRMNRemote            bool
-	VerifyBurnMintTokenPool    bool
-	BurnMintTokenPoolMetadata  string
-	VerifyLockReleaseTokenPool bool
-	VerifyAccessController     bool
-	VerifyMCM                  bool
-	VerifyTimelock             bool
-	RemoteVerification         bool
-	MCMSSolana                 *MCMSConfigSolana
+	GitCommitSha                 string
+	ChainSelector                uint64
+	VerifyFeeQuoter              bool
+	VerifyRouter                 bool
+	VerifyOffRamp                bool
+	VerifyRMNRemote              bool
+	VerifyBurnMintTokenPool      bool
+	BurnMintTokenPoolMetadata    string
+	LockReleaseTokenPoolMetadata string
+	VerifyLockReleaseTokenPool   bool
+	VerifyAccessController       bool
+	VerifyMCM                    bool
+	VerifyTimelock               bool
+	RemoteVerification           bool
+	MCMSSolana                   *MCMSConfigSolana
 }
 
 func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHash, mountPath string, remote bool) error {
@@ -43,18 +44,12 @@ func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHa
 	}
 	fmt.Println(string(log))
 
-	output, err := runCommand("ls", []string{strings.TrimPrefix(chain.KeypairPath, "/home/runner/work/chainlink-deployments/chainlink-deployments")}, ".")
-	fmt.Println(output)
-	if err != nil {
-		return fmt.Errorf("solana program verification failed: %s %w", output, err)
-	}
-
 	cmdArgs := []string{
 		"config",
 		"set",
-		"--keypair", strings.TrimPrefix(chain.KeypairPath, "/home/runner/work/chainlink-deployments/chainlink-deployments"),
+		"--keypair", chain.KeypairPath,
 	}
-	output, err = runCommand("solana", cmdArgs, chain.ProgramsPath)
+	output, err := runCommand("solana", cmdArgs, ".")
 	fmt.Println(output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
@@ -71,7 +66,7 @@ func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHa
 		"--skip-prompt",
 	}
 
-	output, err = runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
+	output, err = runCommand("solana-verify", cmdArgs, ".")
 	fmt.Println(output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
@@ -109,6 +104,14 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
+	bnmMetadata := ccipChangeset.CLLMetadata
+	lnrMetadata := ccipChangeset.CLLMetadata
+	if cfg.BurnMintTokenPoolMetadata != "" {
+		bnmMetadata = cfg.BurnMintTokenPoolMetadata
+	}
+	if cfg.LockReleaseTokenPoolMetadata != "" {
+		lnrMetadata = cfg.LockReleaseTokenPoolMetadata
+	}
 
 	verifications := []struct {
 		name       string
@@ -120,8 +123,8 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 		{"Router", chainState.Router.String(), deployment.RouterProgramName, cfg.VerifyRouter},
 		{"OffRamp", chainState.OffRamp.String(), deployment.OffRampProgramName, cfg.VerifyOffRamp},
 		{"RMN Remote", chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, cfg.VerifyRMNRemote},
-		{"Burn Mint Token Pool", chainState.BurnMintTokenPools[ccipChangeset.CLLMetadata].String(), deployment.BurnMintTokenPoolProgramName, cfg.VerifyBurnMintTokenPool},
-		{"Lock Release Token Pool", chainState.LockReleaseTokenPools[ccipChangeset.CLLMetadata].String(), deployment.LockReleaseTokenPoolProgramName, cfg.VerifyLockReleaseTokenPool},
+		{"Burn Mint Token Pool", chainState.BurnMintTokenPools[bnmMetadata].String(), deployment.BurnMintTokenPoolProgramName, cfg.VerifyBurnMintTokenPool},
+		{"Lock Release Token Pool", chainState.LockReleaseTokenPools[lnrMetadata].String(), deployment.LockReleaseTokenPoolProgramName, cfg.VerifyLockReleaseTokenPool},
 		{"Access Controller", mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, cfg.VerifyAccessController},
 		{"MCM", mcmState.McmProgram.String(), deployment.McmProgramName, cfg.VerifyMCM},
 		{"Timelock", mcmState.TimelockProgram.String(), deployment.TimelockProgramName, cfg.VerifyTimelock},
