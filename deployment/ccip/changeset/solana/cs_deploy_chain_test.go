@@ -31,8 +31,8 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	OldSha = "5e3357dcbaa58c89259c238c4a424e82afac2110"
-	NewSha = "6ff430180f5272baa3a0b11e7e6bbed0276bef91"
+	OldSha = "0ee732e80586c2e9df5e9b0c3b5e9a19ee66b3a1"
+	NewSha = "cb02e90f9d6d1dd65f534c60a77bb1e3384a42cb"
 )
 
 func verifyProgramSizes(t *testing.T, e deployment.Environment) {

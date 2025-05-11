@@ -7,9 +7,10 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
