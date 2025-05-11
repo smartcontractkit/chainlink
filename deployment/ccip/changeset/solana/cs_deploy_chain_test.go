@@ -311,13 +311,8 @@ func TestUpgrade(t *testing.T) {
 			ccipChangesetSolana.SetFeeAggregatorConfig{
 				ChainSelector: solChainSelectors[0],
 				FeeAggregator: feeAggregatorPubKey2.String(),
-				MCMSSolana: &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &proposalutils.TimelockConfig{
-						MinDelay: 1 * time.Second,
-					},
-					RouterOwnedByTimelock:    true,
-					FeeQuoterOwnedByTimelock: true,
-					OffRampOwnedByTimelock:   true,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
 				},
 			},
 		),

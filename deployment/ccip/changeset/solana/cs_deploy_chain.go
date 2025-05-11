@@ -110,7 +110,10 @@ func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64
 	if cfg.UpgradeAuthority.IsZero() {
 		return errors.New("upgrade authority must be set for fee quoter and router upgrades")
 	}
-	return cfg.MCMS.ValidateSolana(e, chainSelector)
+	if cfg.MCMS != nil {
+		return cfg.MCMS.ValidateSolana(e, chainSelector)
+	}
+	return nil
 }
 
 func (c DeployChainContractsConfig) Validate(e deployment.Environment) error {

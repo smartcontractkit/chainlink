@@ -16,7 +16,9 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use this changeset to disable a remote chain on solana
@@ -25,7 +27,7 @@ var _ deployment.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
 type DisableRemoteChainConfig struct {
 	ChainSelector uint64
 	RemoteChains  []uint64
-	MCMSSolana    *MCMSConfigSolana
+	MCMS          *proposalutils.TimelockConfig
 }
 
 func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
@@ -44,7 +46,7 @@ func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, ""); err != nil {
 		return err
 	}
 	var routerConfigAccount solRouter.Config
@@ -93,7 +95,7 @@ func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) 
 	// create proposals for ixns
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to disable remote chains in Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
+			e, cfg.ChainSelector, "proposal to disable remote chains in Solana", cfg.MCMS.MinDelay, txns)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -112,10 +114,25 @@ func doDisableRemoteChain(
 	ixns := make([]solana.Instruction, 0)
 	chainSel := cfg.ChainSelector
 	chain := e.SolChains[chainSel]
+	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
 	offRampID := s.SolChains[chainSel].OffRamp
-	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
-	offRampUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.OffRampOwnedByTimelock
+	feeQuoterUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+		&e,
+		chain,
+		chainState,
+		cfg.MCMS != nil,
+		ccipChangeset.FeeQuoter,
+		solana.PublicKey{},
+		"")
+	offRampUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+		&e,
+		chain,
+		chainState,
+		cfg.MCMS != nil,
+		ccipChangeset.OffRamp,
+		solana.PublicKey{},
+		"")
 
 	for _, remoteChainSel := range cfg.RemoteChains {
 		// verified while loading state
@@ -123,15 +140,15 @@ func doDisableRemoteChain(
 		offRampSourceChainPDA, _, _ := solState.FindOfframpSourceChainPDA(remoteChainSel, s.SolChains[chainSel].OffRamp)
 
 		solFeeQuoter.SetProgramID(feeQuoterID)
-		authority, err := GetAuthorityForIxn(
+		authority := GetAuthorityForIxn(
 			&e,
 			chain,
-			cfg.MCMSSolana,
+			chainState,
+			cfg.MCMS,
 			cs.FeeQuoter,
-			solana.PublicKey{})
-		if err != nil {
-			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
-		}
+			solana.PublicKey{},
+			"",
+		)
 		feeQuoterIx, err := solFeeQuoter.NewDisableDestChainInstruction(
 			remoteChainSel,
 			s.SolChains[chainSel].FeeQuoterConfigPDA,
@@ -152,15 +169,14 @@ func doDisableRemoteChain(
 		}
 
 		solOffRamp.SetProgramID(offRampID)
-		authority, err = GetAuthorityForIxn(
+		authority = GetAuthorityForIxn(
 			&e,
 			chain,
-			cfg.MCMSSolana,
+			chainState,
+			cfg.MCMS,
 			cs.OffRamp,
-			solana.PublicKey{})
-		if err != nil {
-			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
-		}
+			solana.PublicKey{},
+			"")
 		offRampIx, err := solOffRamp.NewDisableSourceChainSelectorInstruction(
 			remoteChainSel,
 			offRampSourceChainPDA,
