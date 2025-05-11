@@ -8,12 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
-
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -22,12 +21,7 @@ import (
 )
 
 // Direct RPC
-func (r *Relayer) CallContract(ctx context.Context, msg *evmtypes.CallMsg, confidenceLevel primitives.ConfidenceLevel) ([]byte, error) {
-	blockNumber, err := blockFromConfidence(ctx, r.chain.HeadTracker(), confidenceLevel)
-	if err != nil {
-		return nil, err
-	}
-
+func (r *Relayer) CallContract(ctx context.Context, msg *evmtypes.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	return r.chain.Client().CallContract(ctx, toEthMsg(msg), blockNumber)
 }
 
@@ -46,16 +40,16 @@ func (r *Relayer) FilterLogs(ctx context.Context, filterQuery evmtypes.FilterQue
 	return ret, nil
 }
 
-func (r *Relayer) BalanceAt(ctx context.Context, account string, blockNumber *big.Int) (*big.Int, error) {
-	return r.chain.Client().BalanceAt(ctx, common.HexToAddress(account), blockNumber)
+func (r *Relayer) BalanceAt(ctx context.Context, account evmtypes.Address, blockNumber *big.Int) (*big.Int, error) {
+	return r.chain.Client().BalanceAt(ctx, account, blockNumber)
 }
 
 func (r *Relayer) EstimateGas(ctx context.Context, call *evmtypes.CallMsg) (uint64, error) {
 	return r.chain.Client().EstimateGas(ctx, toEthMsg(call))
 }
 
-func (r *Relayer) TransactionByHash(ctx context.Context, hash string) (*evmtypes.Transaction, error) {
-	tx, err := r.chain.Client().TransactionByHash(ctx, common.HexToHash(hash))
+func (r *Relayer) TransactionByHash(ctx context.Context, hash evmtypes.Hash) (*evmtypes.Transaction, error) {
+	tx, err := r.chain.Client().TransactionByHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -63,8 +57,8 @@ func (r *Relayer) TransactionByHash(ctx context.Context, hash string) (*evmtypes
 	return convertTransaction(tx), nil
 }
 
-func (r *Relayer) TransactionReceipt(ctx context.Context, txHash string) (*evmtypes.Receipt, error) {
-	receipt, err := r.chain.Client().TransactionReceipt(ctx, common.HexToHash(txHash))
+func (r *Relayer) TransactionReceipt(ctx context.Context, txHash evmtypes.Hash) (*evmtypes.Receipt, error) {
+	receipt, err := r.chain.Client().TransactionReceipt(ctx, txHash)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +67,7 @@ func (r *Relayer) TransactionReceipt(ctx context.Context, txHash string) (*evmty
 }
 
 // ChainService
-func (r *Relayer) GetTransactionFee(ctx context.Context, transactionID string) (*evmtypes.TransactionFee, error) {
+func (r *Relayer) GetTransactionFee(ctx context.Context, transactionID commontypes.IdempotencyKey) (*evmtypes.TransactionFee, error) {
 	return r.chain.TxManager().GetTransactionFee(ctx, transactionID)
 }
 
@@ -86,8 +80,12 @@ func (r *Relayer) LatestAndFinalizedHead(ctx context.Context) (evmtypes.Head, ev
 	return convertHead(latest), convertHead(finalized), nil
 }
 
-func (r *Relayer) QueryLogsFromCache(ctx context.Context, filterQuery []query.Expression,
+func (r *Relayer) QueryTrackedLogs(ctx context.Context, filterQuery []query.Expression,
 	limitAndSort query.LimitAndSort, confidenceLevel primitives.ConfidenceLevel) ([]*evmtypes.Log, error) {
+	// TODO move evm specific expressions to common
+	// TODO check if required filters[event sig and address] are set
+	// TODO specify query name BCFR-1328
+	// BCFR-1328
 	conformations := confidenceToConformations(confidenceLevel)
 	filterQuery = append(filterQuery, logpoller.NewConfirmationsFilter(conformations))
 	logs, err := r.chain.LogPoller().FilteredLogs(ctx, filterQuery, limitAndSort, "")
@@ -122,13 +120,13 @@ func (r *Relayer) UnregisterLogTracking(ctx context.Context, filterName string) 
 	return r.chain.LogPoller().UnregisterFilter(ctx, filterName)
 }
 
-func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
+func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID commontypes.IdempotencyKey) (commontypes.TransactionStatus, error) {
 	status, err := r.chain.TxManager().GetTransactionStatus(ctx, transactionID)
 	if err != nil {
 		return commontypes.Unknown, err
 	}
 
-	return status, nil
+	return commontypes.TransactionStatus(status), nil
 }
 
 func blockFromConfidence(ctx context.Context, ht heads.Tracker, confidence primitives.ConfidenceLevel) (*big.Int, error) {
@@ -146,9 +144,9 @@ func blockFromConfidence(ctx context.Context, ht heads.Tracker, confidence primi
 func convertHead[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable](h H) evmtypes.Head {
 	return evmtypes.Head{
 		Timestamp:  uint64(h.GetTimestamp().Unix()),
-		Hash:       h.BlockHash().String(),
+		Hash:       bytesToHash(h.BlockHash().Bytes()),
 		Number:     big.NewInt(h.BlockNumber()),
-		ParentHash: h.GetParentHash().String(),
+		ParentHash: bytesToHash(h.GetParentHash().Bytes()),
 	}
 }
 
@@ -156,10 +154,10 @@ func convertReceipt(r *gethtypes.Receipt) *evmtypes.Receipt {
 	return &evmtypes.Receipt{
 		Status:            r.Status,
 		Logs:              convertLogs(r.Logs),
-		TxHash:            r.TxHash.Hex(),
-		ContractAddress:   r.ContractAddress.Hex(),
+		TxHash:            r.TxHash,
+		ContractAddress:   r.ContractAddress,
 		GasUsed:           r.GasUsed,
-		BlockHash:         r.BlockHash.Hex(),
+		BlockHash:         r.BlockHash,
 		BlockNumber:       r.BlockNumber,
 		TransactionIndex:  uint64(r.TransactionIndex),
 		EffectiveGasPrice: r.EffectiveGasPrice,
@@ -167,14 +165,11 @@ func convertReceipt(r *gethtypes.Receipt) *evmtypes.Receipt {
 }
 
 func convertEthFilter(q evmtypes.FilterQuery) ethereum.FilterQuery {
-	addresses := stringsToAddresses(q.Addresses)
-	topics := stringsToHashMatrix(q.Topics)
-
 	return ethereum.FilterQuery{
 		FromBlock: q.FromBlock,
 		ToBlock:   q.ToBlock,
-		Addresses: addresses,
-		Topics:    topics,
+		Addresses: arraysToAddresses(q.Addresses),
+		Topics:    arraysToHashMatrix(q.Topics),
 	}
 }
 
@@ -186,11 +181,11 @@ func convertLPFilter(q evmtypes.LPFilterQuery) (logpoller.Filter, error) {
 	}
 	return logpoller.Filter{
 		Name:         q.Name,
-		Addresses:    stringsToAddresses(q.Addresses),
-		EventSigs:    stringsToHashes(q.EventSigs),
-		Topic2:       stringsToHashes(q.Topic2),
-		Topic3:       stringsToHashes(q.Topic3),
-		Topic4:       stringsToHashes(q.Topic4),
+		Addresses:    arraysToAddresses(q.Addresses),
+		EventSigs:    arraysToHashes(q.EventSigs),
+		Topic2:       arraysToHashes(q.Topic2),
+		Topic3:       arraysToHashes(q.Topic3),
+		Topic4:       arraysToHashes(q.Topic4),
 		Retention:    q.Retention,
 		MaxLogsKept:  q.MaxLogsKept,
 		LogsPerBlock: q.LogsPerBlock,
@@ -198,15 +193,15 @@ func convertLPFilter(q evmtypes.LPFilterQuery) (logpoller.Filter, error) {
 }
 
 func convertTransaction(tx *gethtypes.Transaction) *evmtypes.Transaction {
-	var to string
+	var to evm.Address
 	if tx.To() != nil {
-		to = tx.To().Hex()
+		to = *tx.To()
 	}
 
 	return &evmtypes.Transaction{
 		To:       to,
 		Data:     tx.Data(),
-		Hash:     tx.Hash().Hex(),
+		Hash:     tx.Hash(),
 		Nonce:    tx.Nonce(),
 		Gas:      tx.Gas(),
 		GasPrice: tx.GasPrice(),
@@ -214,41 +209,54 @@ func convertTransaction(tx *gethtypes.Transaction) *evmtypes.Transaction {
 	}
 }
 
-func stringsToHashMatrix(input [][]string) [][]common.Hash {
+func arraysToHashMatrix(input [][][32]byte) [][]common.Hash {
 	result := make([][]common.Hash, 0, len(input))
 	for _, row := range input {
-		result = append(result, stringsToHashes(row))
+		result = append(result, arraysToHashes(row))
 	}
 	return result
 }
 
-func stringsToAddresses(input []string) []common.Address {
+func arraysToAddresses(input [][20]byte) []common.Address {
 	res := make([]common.Address, 0, len(input))
 	for _, s := range input {
-		addr := common.HexToAddress(s)
-		res = append(res, addr)
+		res = append(res, s)
 	}
 
 	return res
 }
 
-func stringsToHashes(input []string) []common.Hash {
+func arraysToHashes(input [][32]byte) []common.Hash {
 	res := make([]common.Hash, 0, len(input))
 	for _, s := range input {
-		hash := common.HexToHash(s)
-		res = append(res, hash)
+		res = append(res, s)
 	}
 
 	return res
 }
 
+func hashesToArrays(input []common.Hash) [][32]byte {
+	res := make([][32]byte, 0, len(input))
+	for _, s := range input {
+		res = append(res, s)
+	}
+
+	return res
+}
+
+var empty common.Address
+
 func toEthMsg(msg *evmtypes.CallMsg) ethereum.CallMsg {
-	to := common.HexToAddress(msg.To)
-	from := common.HexToAddress(msg.From)
+	var to *common.Address
+
+	if empty.Cmp(msg.To) != 0 {
+		to = new(common.Address)
+		*to = msg.To
+	}
 
 	return ethereum.CallMsg{
-		From: from,
-		To:   &to,
+		From: msg.From,
+		To:   to,
 		Data: msg.Data,
 	}
 }
@@ -274,24 +282,21 @@ func convertLPLogs(logs []logpoller.Log) []*evmtypes.Log {
 }
 
 func convertLog(log *gethtypes.Log) *evmtypes.Log {
-	topics := make([]string, len(log.Topics))
-	for i, topic := range log.Topics {
-		topics[i] = topic.Hex()
-	}
+	topics := hashesToArrays(log.Topics)
 
-	var eventSig string
+	var eventSig [32]byte
 	if len(log.Topics) > 0 {
-		eventSig = log.Topics[0].Hex()
+		eventSig = log.Topics[0]
 	}
 
 	return &evmtypes.Log{
 		LogIndex:    uint32(log.Index),
-		BlockHash:   log.BlockHash.Hex(),
+		BlockHash:   log.BlockHash,
 		BlockNumber: new(big.Int).SetUint64(log.BlockNumber),
 		Topics:      topics,
 		EventSig:    eventSig,
-		Address:     log.Address.Hex(),
-		TxHash:      log.TxHash.Hex(),
+		Address:     log.Address,
+		TxHash:      log.TxHash,
 		Data:        log.Data,
 		Removed:     log.Removed,
 	}
@@ -303,4 +308,9 @@ func confidenceToConformations(conf primitives.ConfidenceLevel) types.Confirmati
 	}
 
 	return types.Unconfirmed
+}
+
+func bytesToHash(b []byte) (h evm.Hash) {
+	copy(h[:], b)
+	return
 }

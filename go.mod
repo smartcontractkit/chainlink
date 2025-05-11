@@ -1,8 +1,6 @@
 module github.com/smartcontractkit/chainlink/v2
 
-go 1.24.1
-
-toolchain go1.24.2
+go 1.24.2
 
 require (
 	github.com/Depado/ginprom v1.8.0
@@ -74,24 +72,27 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chain-selectors v1.0.52
+	github.com/smartcontractkit/chain-selectors v1.0.55
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250430132510-be8d09930aaa
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250506195202-6a3f20db41c6
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250425163923-16aa375957b7
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250506220350-7b1d024528c9
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250509155341-2b5a5170a351
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250506221024-d737de4ac4ad
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250509162544-26e3267013ca
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
-	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250505015107-d03c54c7fa35
-	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3
+	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250509160340-4f4a9265e657
+	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250502210357-2df484128afa
+	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250502210357-2df484128afa
+	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250501150903-3e93089d9ad5
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250429214959-baa3b4c6812d
+	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250501150903-3e93089d9ad5
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250506153227-c817e421ec21
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.10
 	github.com/smartcontractkit/freeport v0.1.0
 	github.com/smartcontractkit/libocr v0.0.0-20250408131511-c90716988ee0
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
-	github.com/smartcontractkit/wsrpc v0.8.5-0.20250318131857-4568a0f8d12d
+	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
 	github.com/spf13/cast v1.7.1
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
@@ -313,8 +314,6 @@ require (
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
-	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250408161305-721208f43882 // indirect
-	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250421203809-e0f5602c126c // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect

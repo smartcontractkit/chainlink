@@ -4,16 +4,27 @@ import (
 	"errors"
 	"fmt"
 
+	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
 )
 
-var DeployConfiguratorChangeset = deployment.CreateChangeSet(deployConfiguratorLogic, deployConfiguratorPrecondition)
+var DeployConfiguratorChangeset = cldf.CreateChangeSet(deployConfiguratorLogic, deployConfiguratorPrecondition)
 
 type DeployConfiguratorConfig struct {
 	ChainsToDeploy []uint64
+	Ownership      types.OwnershipSettings
+}
+
+func (cc DeployConfiguratorConfig) GetOwnershipConfig() types.OwnershipSettings {
+	return cc.Ownership
 }
 
 func (cc DeployConfiguratorConfig) Validate() error {
@@ -29,14 +40,34 @@ func (cc DeployConfiguratorConfig) Validate() error {
 }
 
 func deployConfiguratorLogic(e deployment.Environment, cc DeployConfiguratorConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
-	err := deploy(e, ab, cc)
+	dataStore := ds.NewMemoryDataStore[
+		metadata.SerializedContractMetadata,
+		ds.DefaultMetadata,
+	]()
+
+	err := deploy(e, dataStore, cc)
 	if err != nil {
-		e.Logger.Errorw("Failed to deploy Configurator", "err", err, "addresses", ab)
-		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
+		e.Logger.Errorw("Failed to deploy Configurator", "err", err)
+		return deployment.ChangesetOutput{}, deployment.MaybeDataErr(err)
 	}
+
+	records, err := dataStore.Addresses().Fetch()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch addresses: %w", err)
+	}
+	proposals, err := mcmsutil.GetTransferOwnershipProposals(e, cc, records)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to MCMS: %w", err)
+	}
+
+	sealedDS, err := ds.ToDefault(dataStore.Seal())
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+	}
+
 	return deployment.ChangesetOutput{
-		AddressBook: ab,
+		DataStore:             sealedDS,
+		MCMSTimelockProposals: proposals,
 	}, nil
 }
 
@@ -48,33 +79,39 @@ func deployConfiguratorPrecondition(_ deployment.Environment, cc DeployConfigura
 	return nil
 }
 
-func deploy(e deployment.Environment, ab deployment.AddressBook, cc DeployConfiguratorConfig) error {
+func deploy(e deployment.Environment, dataStore ds.MutableDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata], cc DeployConfiguratorConfig) error {
 	for _, chainSel := range cc.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain not found for chain selector %d", chainSel)
 		}
-		_, err := changeset.DeployContract(e, ab, chain, DeployFn())
+
+		res, err := changeset.DeployContract(e, dataStore, chain, DeployFn(), nil)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to deploy configurator: %w", err)
 		}
-		chainAddresses, err := ab.AddressesForChain(chain.Selector)
+
+		contractMetadata := metadata.GenericContractMetadata[v0_5.ConfiguratorView]{
+			Metadata: metadata.CommonContractMetadata{
+				DeployBlock: res.Block,
+			},
+		}
+
+		serialized, err := metadata.NewSerializedContractMetadata(contractMetadata)
 		if err != nil {
-			e.Logger.Errorw("Failed to get chain addresses", "err", err)
-			return err
+			return fmt.Errorf("failed to serialize contract metadata: %w", err)
 		}
-		chainState, err := changeset.LoadChainState(e.Logger, chain, chainAddresses)
-		if err != nil {
-			e.Logger.Errorw("Failed to load chain state", "err", err)
-			return err
-		}
-		if len(chainState.Configurators) == 0 {
-			errNoCCS := errors.New("no Configurator on chain")
-			e.Logger.Error(errNoCCS)
-			return errNoCCS
+
+		if err = dataStore.ContractMetadata().Upsert(
+			ds.ContractMetadata[metadata.SerializedContractMetadata]{
+				ChainSelector: chain.Selector,
+				Address:       res.Address.String(),
+				Metadata:      *serialized,
+			},
+		); err != nil {
+			return fmt.Errorf("failed to upser contract metadata: %w", err)
 		}
 	}
-
 	return nil
 }
 
@@ -89,11 +126,20 @@ func DeployFn() changeset.ContractDeployFn[*configurator.Configurator] {
 				Err: err,
 			}
 		}
+
+		bn, err := chain.Confirm(ccsTx)
+		if err != nil {
+			return &changeset.ContractDeployment[*configurator.Configurator]{
+				Err: err,
+			}
+		}
+
 		return &changeset.ContractDeployment[*configurator.Configurator]{
 			Address:  ccsAddr,
+			Block:    bn,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.Configurator, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.Configurator, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

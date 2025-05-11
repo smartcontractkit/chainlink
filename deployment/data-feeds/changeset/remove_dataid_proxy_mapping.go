@@ -6,13 +6,14 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // RemoveFeedProxyMappingChangeset is a changeset that only removes a feed-aggregator proxy mapping from DataFeedsCache contract.
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
-var RemoveFeedProxyMappingChangeset = deployment.CreateChangeSet(removeFeedProxyMappingLogic, removeFeedFeedProxyMappingPrecondition)
+var RemoveFeedProxyMappingChangeset = cldf.CreateChangeSet(removeFeedProxyMappingLogic, removeFeedFeedProxyMappingPrecondition)
 
 func removeFeedProxyMappingLogic(env deployment.Environment, c types.RemoveFeedProxyConfig) (deployment.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)

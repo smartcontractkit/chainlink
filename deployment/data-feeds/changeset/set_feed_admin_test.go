@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -14,7 +16,6 @@ import (
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -40,7 +41,7 @@ func TestSetCacheAdmin(t *testing.T) {
 			},
 		),
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
 				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -48,7 +49,7 @@ func TestSetCacheAdmin(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
+	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
 
 	// without MCMS
@@ -69,7 +70,7 @@ func TestSetCacheAdmin(t *testing.T) {
 	// with MCMS
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
 			commonChangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					chainSelector: {common.HexToAddress(cacheAddress)},

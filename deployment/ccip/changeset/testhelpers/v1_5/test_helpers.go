@@ -16,12 +16,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	config2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -35,15 +38,15 @@ func AddLanes(t *testing.T, e deployment.Environment, state changeset.CCIPOnChai
 	var err error
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
+			cldf.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
 			v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
+			cldf.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
 			v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
+			cldf.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
 			v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
 		),
 	)

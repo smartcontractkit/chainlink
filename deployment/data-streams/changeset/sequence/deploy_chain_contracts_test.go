@@ -6,6 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -16,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verification"
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 var (
@@ -38,7 +42,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 		name                    string
 		hasExistingMcms         bool
 		deployDataStreamsConfig DeployDataStreamsConfig
-		expectedContracts       []deployment.ContractType
+		expectedContracts       []cldf.TypeAndVersion
 	}{
 		{
 			name:            "Deploy with billing and MCMS",
@@ -60,8 +64,15 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					},
 				}},
 			},
-			expectedContracts: []deployment.ContractType{types.VerifierProxy, types.Verifier, types.RewardManager, types.FeeManager,
-				commontypes.ProposerManyChainMultisig, commontypes.BypasserManyChainMultisig, commontypes.CancellerManyChainMultisig},
+			expectedContracts: []cldf.TypeAndVersion{
+				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0),
+				cldf.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0),
+				cldf.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0),
+			},
 		},
 		{
 			name:            "Deploy no billing and MCMS",
@@ -77,8 +88,13 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					},
 				}},
 			},
-			expectedContracts: []deployment.ContractType{types.VerifierProxy, types.Verifier,
-				commontypes.ProposerManyChainMultisig, commontypes.BypasserManyChainMultisig, commontypes.CancellerManyChainMultisig},
+			expectedContracts: []cldf.TypeAndVersion{
+				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0),
+				cldf.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0),
+				cldf.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0),
+			},
 		},
 		{
 			name:            "Deploy no billing with existing MCMS",
@@ -92,7 +108,10 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					},
 				}},
 			},
-			expectedContracts: []deployment.ContractType{types.VerifierProxy, types.Verifier},
+			expectedContracts: []cldf.TypeAndVersion{
+				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
+			},
 		},
 		{
 			name:            "Deploy but do not propose transfer",
@@ -102,36 +121,42 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 					VerifierConfig: verificationCfg,
 				}},
 			},
-			expectedContracts: []deployment.ContractType{types.VerifierProxy, types.Verifier},
+			expectedContracts: []cldf.TypeAndVersion{
+				cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
+				cldf.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0),
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := tt.deployDataStreamsConfig
-			billingEnabled := cfg.ChainsToDeploy[testutil.TestChain.Selector].Billing.Enabled
+			chainSel := testutil.TestChain.Selector
+			billingEnabled := cfg.ChainsToDeploy[chainSel].Billing.Enabled
 
 			testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 				ShouldDeployMCMS:      tt.hasExistingMcms,
 				ShouldDeployLinkToken: billingEnabled,
 			})
 
-			chain := testEnv.Environment.Chains[testutil.TestChain.Selector]
+			chain := testEnv.Environment.Chains[chainSel]
 
-			if cfg.ChainsToDeploy[testutil.TestChain.Selector].Billing.Enabled {
-				cfg.ChainsToDeploy[testutil.TestChain.Selector].Billing.Config.LinkTokenAddress = testEnv.LinkTokenState.LinkToken.Address()
+			if cfg.ChainsToDeploy[chainSel].Billing.Enabled {
+				cfg.ChainsToDeploy[chainSel].Billing.Config.LinkTokenAddress = testEnv.LinkTokenState.LinkToken.Address()
 			}
 
-			resp, _, err := commonChangesets.ApplyChangesetsV2(t, testEnv.Environment, []commonChangesets.ConfiguredChangeSet{
+			env, _, err := commonChangesets.ApplyChangesetsV2(t, testEnv.Environment, []commonChangesets.ConfiguredChangeSet{
 				commonChangesets.Configure(DeployDataStreamsChainContractsChangeset, cfg),
 			})
 			require.NoError(t, err)
 
 			var timelockAddr common.Address
 			if tt.hasExistingMcms {
-				timelockAddr = testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address()
+				// Deployed by test env
+				timelockAddr = testEnv.Timelocks[chainSel].Timelock.Address()
 			} else {
-				addresses, err := resp.ExistingAddresses.AddressesForChain(testutil.TestChain.Selector)
+				// Deployed by changeset
+				addresses, err := dsutil.EnvironmentAddresses(env)
 				require.NoError(t, err)
 				mcmsState, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 				require.NoError(t, err)
@@ -139,15 +164,16 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 			}
 
 			for _, contract := range tt.expectedContracts {
-				contractAddr, err := dsutil.MaybeFindEthAddress(resp.ExistingAddresses, testutil.TestChain.Selector, contract)
-				require.NoError(t, err, "failed to find %s address in address book", contract)
-				require.NotNil(t, "contractAddr", "address for %s was not found", contract)
-
-				owner, _, err := commonChangesets.LoadOwnableContract(contractAddr, chain.Client)
+				record, err := env.DataStore.Addresses().Get(
+					datastore.NewAddressRefKey(testutil.TestChain.Selector, datastore.ContractType(contract.Type), &contract.Version, ""),
+				)
+				require.NoError(t, err)
+				contractAddress := common.HexToAddress(record.Address)
+				owner, _, err := commonChangesets.LoadOwnableContract(contractAddress, chain.Client)
 
 				require.NoError(t, err)
 
-				if cfg.ChainsToDeploy[testutil.TestChain.Selector].Ownership.ShouldTransfer {
+				if cfg.ChainsToDeploy[chainSel].Ownership.ShouldTransfer {
 					require.Equal(t, timelockAddr, owner, "%s contract owner should be the MCMS timelock", contract)
 				} else {
 					require.Equal(t, chain.DeployerKey.From, owner, "%s contract owner should be the deployer", contract)

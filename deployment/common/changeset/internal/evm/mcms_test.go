@@ -9,7 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -24,7 +25,7 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 	chains, _ := memory.NewMemoryChainsWithChainIDs(t, []uint64{
 		chainsel.TEST_90000001.EvmChainID,
 	}, 1)
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	// 1) Test WITHOUT a label
 	mcmNoLabel, err := evminternal.DeployMCMSWithConfigEVM(
@@ -58,7 +59,7 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 		chainsel.TEST_90000001.EvmChainID,
 	}, 1)
 	ctx := testutils.Context(t)
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	_, err := evminternal.DeployMCMSWithTimelockContractsEVM(ctx, lggr,
 		chains[chainsel.TEST_90000001.Selector],
 		ab, proposalutils.SingleGroupTimelockConfigV2(t), nil)

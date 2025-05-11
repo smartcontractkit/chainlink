@@ -7,8 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/metering/pb"
-	workflowpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/events/pb"
+	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 )
 
 type MeteringReportStepRef string
@@ -140,23 +139,23 @@ func (r *MeteringReport) SetStep(ref MeteringReportStepRef, steps []MeteringRepo
 	return nil
 }
 
-func (r *MeteringReport) Message() *pb.MeteringReport {
-	protoReport := &pb.MeteringReport{
-		Steps:    map[string]*pb.MeteringReportStep{},
-		Metadata: &workflowpb.WorkflowMetadata{},
+func (r *MeteringReport) Message() *events.MeteringReport {
+	protoReport := &events.MeteringReport{
+		Steps:    map[string]*events.MeteringReportStep{},
+		Metadata: &events.WorkflowMetadata{},
 	}
 
 	for key, step := range r.steps {
-		nodeDetail := make([]*pb.MeteringReportNodeDetail, len(step))
+		nodeDetail := make([]*events.MeteringReportNodeDetail, len(step))
 
 		for idx, nodeVal := range step {
-			nodeDetail[idx] = &pb.MeteringReportNodeDetail{
+			nodeDetail[idx] = &events.MeteringReportNodeDetail{
 				Peer_2PeerId: nodeVal.Peer2PeerID,
 				SpendUnit:    nodeVal.SpendUnit.String(),
 				SpendValue:   nodeVal.SpendValue.String(),
 			}
 		}
-		protoReport.Steps[key.String()] = &pb.MeteringReportStep{
+		protoReport.Steps[key.String()] = &events.MeteringReportStep{
 			Nodes: nodeDetail,
 		}
 	}

@@ -30,8 +30,7 @@ func NewTestSetupWithDeployedEnv(
 	sourceChain,
 	destChain uint64,
 	sender []byte,
-	testRouter,
-	validateResp bool,
+	testRouter bool,
 ) TestSetup {
 	return TestSetup{
 		T:            t,
@@ -42,7 +41,6 @@ func NewTestSetupWithDeployedEnv(
 		SourceChain:  sourceChain,
 		DestChain:    destChain,
 		TestRouter:   testRouter,
-		ValidateResp: validateResp,
 	}
 }
 
@@ -54,8 +52,7 @@ func NewTestSetup(
 	sourceChain,
 	destChain uint64,
 	sender []byte,
-	testRouter,
-	validateResp bool,
+	testRouter bool,
 ) TestSetup {
 	return TestSetup{
 		T:      t,
@@ -66,7 +63,6 @@ func NewTestSetup(
 		SourceChain:  sourceChain,
 		DestChain:    destChain,
 		TestRouter:   testRouter,
-		ValidateResp: validateResp,
 	}
 }
 
@@ -79,19 +75,28 @@ type TestSetup struct {
 	SourceChain  uint64
 	DestChain    uint64
 	TestRouter   bool
-	ValidateResp bool
 }
 
 type TestCase struct {
 	TestSetup
+	ValidationType         ValidationType
 	Replayed               bool
-	Nonce                  uint64
+	Nonce                  *uint64
 	Receiver               []byte
 	MsgData                []byte
 	ExtraArgs              []byte
+	FeeToken               string
 	ExpectedExecutionState int
 	ExtraAssertions        []func(t *testing.T)
 }
+
+type ValidationType int
+
+const (
+	ValidationTypeNone ValidationType = iota
+	ValidationTypeCommit
+	ValidationTypeExec // will validate both commit and exec
+)
 
 type TestCaseOutput struct {
 	Replayed     bool
@@ -139,12 +144,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// we need to reference the inner testing.T inside a t.Run
 	tc.T = t
 
-	if tc.ValidateResp {
-		// check latest nonce
-		latestNonce := getLatestNonce(tc)
-		require.Equal(tc.T, tc.Nonce, latestNonce)
-	}
-
 	startBlocks := make(map[uint64]*uint64)
 
 	family, err := chain_selectors.GetSelectorFamily(tc.SourceChain)
@@ -153,18 +152,30 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	var msg any
 	switch family {
 	case chain_selectors.FamilyEVM:
+		feeToken := common.HexToAddress("0x0")
+		if len(tc.FeeToken) > 0 {
+			feeToken = common.HexToAddress(tc.FeeToken)
+		}
+
 		msg = router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
 			Data:         tc.MsgData,
 			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
+			FeeToken:     feeToken,
 			ExtraArgs:    tc.ExtraArgs,
 		}
 	case chain_selectors.FamilySolana:
+		feeToken := solana.PublicKey{}
+		if len(tc.FeeToken) > 0 {
+			feeToken, err = solana.PublicKeyFromBase58(tc.FeeToken)
+			require.NoError(t, err)
+		}
+
 		msg = ccip_router.SVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
 			TokenAmounts: nil,
 			Data:         tc.MsgData,
+			FeeToken:     feeToken,
 			ExtraArgs:    tc.ExtraArgs,
 		}
 
@@ -199,10 +210,22 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		out.Replayed = true
 	}
 
-	if tc.ValidateResp {
+	// Perform validation based on ValidationType
+	switch tc.ValidationType {
+	case ValidationTypeCommit:
 		commitStart := time.Now()
 		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
+		// Explicitly log that only commit was validated if only Commit was requested
+		tc.T.Logf("only commit validation was performed")
+
+	case ValidationTypeExec: // will validate both commit and exec
+		// First, validate commit
+		commitStart := time.Now()
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
+		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
+
+		// Then, validate execution
 		execStart := time.Now()
 		execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.T, tc.Env, tc.OnchainState, expectedSeqNumExec, startBlocks)
 		tc.T.Logf("confirmed exec of seq nums %+v in %s", expectedSeqNumExec, time.Since(execStart).String())
@@ -225,15 +248,21 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)
-			require.Equal(tc.T, tc.Nonce+1, latestNonce)
-			out.Nonce = latestNonce
-			tc.T.Logf("confirmed nonce bump for sender %x, latestNonce %d", tc.Sender, latestNonce)
+			// Check if Nonce is non-nil before comparing. Nonce check only makes sense if it was explicitly provided.
+			if tc.Nonce != nil {
+				require.Equal(tc.T, *tc.Nonce+1, latestNonce)
+				out.Nonce = latestNonce
+				tc.T.Logf("confirmed nonce bump for sender %x, expected %d, got latestNonce %d", tc.Sender, *tc.Nonce+1, latestNonce)
+			} else {
+				tc.T.Logf("skipping nonce bump check for sender %x as initial nonce was nil, latestNonce %d", tc.Sender, latestNonce)
+			}
 		}
 
 		for _, assertion := range tc.ExtraAssertions {
 			assertion(tc.T)
 		}
-	} else {
+
+	case ValidationTypeNone:
 		tc.T.Logf("skipping validation of sent message")
 	}
 

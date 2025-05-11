@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -46,7 +47,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	sourceState := state.Chains[source]
 	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
 			v1_6.UpdateOnRampDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 					source: {
@@ -59,7 +60,7 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
 			v1_6.UpdateFeeQuoterPricesConfig{
 				PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
 					source: {
@@ -75,7 +76,7 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
 			v1_6.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					source: {
@@ -85,7 +86,7 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
 			v1_6.UpdateOffRampSourcesConfig{
 				UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
 					dest: {
@@ -98,7 +99,7 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
 			v1_6.UpdateRouterRampsConfig{
 				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// onRamp update on source chain
@@ -130,7 +131,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	// and set new config digest on the offramp.
 	_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			testhelpers.GenTestTransferOwnershipConfig(tenv, allChains, state),
 		),
 	)
@@ -196,7 +197,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	tokenConfig := changeset.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
 	_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 			v1_6.SetCandidateChangesetConfig{
 				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: tenv.HomeChainSel,

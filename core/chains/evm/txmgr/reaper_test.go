@@ -43,9 +43,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-
-	_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
+	fromAddress := testutils.NewAddress()
 	var nonce int64
 	oneDayAgo := time.Now().Add(-24 * time.Hour)
 
@@ -59,7 +57,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 	})
 
 	// Confirmed in block number 5
-	mustInsertConfirmedEthTxWithReceipt(t, txStore, from, nonce, 5)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, nonce, 5)
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
 		tc := &reaperConfig{reaperThreshold: 0 * time.Second}
@@ -101,7 +99,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 		cltest.AssertCount(t, db, "evm.txes", 0)
 	})
 
-	mustInsertFatalErrorEthTx(t, txStore, from)
+	mustInsertFatalErrorEthTx(t, txStore, fromAddress)
 
 	t.Run("deletes errored evm.txes that exceed the age threshold", func(t *testing.T) {
 		tc := &reaperConfig{reaperThreshold: 1 * time.Hour}
@@ -121,7 +119,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 		cltest.AssertCount(t, db, "evm.txes", 0)
 	})
 
-	mustInsertConfirmedEthTxWithReceipt(t, txStore, from, 0, 42)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 0, 42)
 
 	t.Run("deletes confirmed evm.txes that exceed the age threshold", func(t *testing.T) {
 		tc := &reaperConfig{reaperThreshold: 1 * time.Hour}

@@ -7,14 +7,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
-	verifier_v0_5_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 )
 
-var UpdateConfigChangeset = deployment.CreateChangeSet(updateConfigLogic, updateConfigPrecondition)
+var UpdateConfigChangeset = cldf.CreateChangeSet(updateConfigLogic, updateConfigPrecondition)
 
 type UpdateConfigConfig struct {
 	ConfigsByChain map[uint64][]UpdateConfig

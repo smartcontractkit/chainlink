@@ -8,6 +8,8 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -17,7 +19,7 @@ func TestSaveExisting(t *testing.T) {
 	dummyEnv := deployment.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
-		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		Chains: map[uint64]deployment.Chain{
 			chainsel.TEST_90000001.Selector: {},
 			chainsel.TEST_90000002.Selector: {},
@@ -27,7 +29,7 @@ func TestSaveExisting(t *testing.T) {
 		ExistingContracts: []Contract{
 			{
 				Address: common.BigToAddress(big.NewInt(1)).String(),
-				TypeAndVersion: deployment.TypeAndVersion{
+				TypeAndVersion: cldf.TypeAndVersion{
 					Type:    "dummy1",
 					Version: deployment.Version1_5_0,
 				},
@@ -35,7 +37,7 @@ func TestSaveExisting(t *testing.T) {
 			},
 			{
 				Address: common.BigToAddress(big.NewInt(2)).String(),
-				TypeAndVersion: deployment.TypeAndVersion{
+				TypeAndVersion: cldf.TypeAndVersion{
 					Type:    "dummy2",
 					Version: deployment.Version1_1_0,
 				},
@@ -59,13 +61,13 @@ func TestSaveExistingAddressWithLabels(t *testing.T) {
 	dummyEnv := deployment.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
-		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		Chains: map[uint64]deployment.Chain{
 			chainsel.TEST_90000001.Selector: {},
 			chainsel.TEST_90000002.Selector: {},
 		},
 	}
-	dummyType1 := deployment.TypeAndVersion{
+	dummyType1 := cldf.TypeAndVersion{
 		Type:    "dummyType",
 		Version: deployment.Version1_5_0,
 	}
@@ -97,13 +99,13 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 	dummyEnv := deployment.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
-		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		Chains: map[uint64]deployment.Chain{
 			chainsel.TEST_90000001.Selector: {},
 			chainsel.TEST_90000002.Selector: {},
 		},
 	}
-	mcmsContractTV := deployment.TypeAndVersion{
+	mcmsContractTV := cldf.TypeAndVersion{
 		Type:    types.ManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	}

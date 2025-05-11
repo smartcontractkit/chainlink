@@ -10,8 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
-	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
+	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -41,6 +42,7 @@ func TestEngine_Init(t *testing.T) {
 	require.NoError(t, err)
 
 	module.EXPECT().Start().Once()
+	module.EXPECT().SetCapabilityExecutor(mock.Anything).Return(nil).Once()
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything).Return(newTriggerSubs(0), nil).Once()
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(capabilities.Node{}, nil).Once()
 	require.NoError(t, engine.Start(t.Context()))
@@ -61,6 +63,7 @@ func TestEngine_Start_RateLimited(t *testing.T) {
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
+	module.EXPECT().SetCapabilityExecutor(mock.Anything).Return(nil)
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything).Return(newTriggerSubs(0), nil).Times(2)
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -122,6 +125,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
+	module.EXPECT().SetCapabilityExecutor(mock.Anything).Return(nil)
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(capabilities.Node{}, nil)
@@ -198,9 +202,9 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 }
 
 func newTriggerSubs(n int) *wasmpb.ExecutionResult {
-	subs := make([]*wasmpb.TriggerSubscription, 0, n)
+	subs := make([]*sdkpb.TriggerSubscription, 0, n)
 	for i := range n {
-		subs = append(subs, &wasmpb.TriggerSubscription{
+		subs = append(subs, &sdkpb.TriggerSubscription{
 			ExecId: fmt.Sprintf("execId_%d", i),
 			Id:     fmt.Sprintf("id_%d", i),
 			Method: "method",
@@ -208,9 +212,67 @@ func newTriggerSubs(n int) *wasmpb.ExecutionResult {
 	}
 	return &wasmpb.ExecutionResult{
 		Result: &wasmpb.ExecutionResult_TriggerSubscriptions{
-			TriggerSubscriptions: &wasmpb.TriggerSubscriptionRequest{
+			TriggerSubscriptions: &sdkpb.TriggerSubscriptionRequest{
 				Subscriptions: subs,
 			},
 		},
 	}
+}
+
+func TestEngine_Execution(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	module.EXPECT().Start()
+	module.EXPECT().SetCapabilityExecutor(mock.Anything).Return(nil)
+	module.EXPECT().Close()
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(capabilities.Node{}, nil)
+
+	initDoneCh := make(chan error)
+	subscribedToTriggersCh := make(chan []string, 1)
+	executionFinishedCh := make(chan string)
+
+	cfg := defaultTestConfig(t)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+		OnExecutionFinished: func(executionID string) {
+			executionFinishedCh <- executionID
+		},
+	}
+
+	t.Run("successful execution with no capability calls", func(t *testing.T) {
+		engine, err := v2.NewEngine(t.Context(), cfg)
+		require.NoError(t, err)
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+		trigger := capmocks.NewTriggerCapability(t)
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+		eventCh := make(chan capabilities.TriggerResponse)
+		trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+		trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+		require.NoError(t, engine.Start(t.Context()))
+
+		require.NoError(t, <-initDoneCh) // successful trigger registration
+		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything).Return(nil, nil).Once()
+		eventCh <- capabilities.TriggerResponse{
+			Event: capabilities.TriggerEvent{
+				TriggerType: "basic-trigger@1.0.0",
+				ID:          "event_012345",
+				Payload:     nil,
+			},
+		}
+		<-executionFinishedCh
+
+		require.NoError(t, engine.Close())
+	})
 }

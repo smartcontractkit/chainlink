@@ -12,12 +12,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -311,7 +314,7 @@ func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.
 
 func (d *DeployedEnv) SetupJobs(t *testing.T) {
 	_, err := commonchangeset.Apply(t, d.Env, nil,
-		commonchangeset.Configure(deployment.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset), nil))
+		commonchangeset.Configure(cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset), nil))
 	require.NoError(t, err)
 	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks)
 }
@@ -490,10 +493,6 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	evmChains := e.Env.AllChainSelectors()
 	solChains := e.Env.AllChainSelectorsSolana()
 	//nolint:gocritic // we need to segregate EVM and Solana chains
-	allChains := append(evmChains, solChains...)
-	// if len(solChains) > 0 {
-	// 	SavePreloadedSolAddresses(e.Env, solChains[0])
-	// }
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
@@ -521,29 +520,45 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 		})
 	}
 	deployLinkApp := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-		allChains,
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+		evmChains,
 	)
+
 	if tc.IsStaticLink {
 		deployLinkApp = commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployStaticLinkToken),
-			allChains,
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployStaticLinkToken),
+			evmChains,
 		)
 	}
 	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
 		deployLinkApp,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
 			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			mcmsCfg,
 		),
 	)
 	require.NoError(t, err)
+	if len(solChains) > 0 {
+		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
+		deploySolanaLinkApp := commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
+			commonchangeset.DeploySolanaLinkTokenConfig{
+				ChainSelector: solChains[0],
+				TokenPrivKey:  solLinkTokenPrivKey,
+				TokenDecimals: 9,
+			},
+		)
+		e.Env, err = commonchangeset.Apply(t, e.Env, nil,
+			deploySolanaLinkApp,
+		)
+		require.NoError(t, err)
+	}
 	tEnv.UpdateDeployedEnvironment(e)
 	return e
 }
@@ -556,7 +571,7 @@ func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	require.NotEmpty(t, dEnv.FeedChainSel)
 	require.NotEmpty(t, dEnv.HomeChainSel)
 	require.NotEmpty(t, dEnv.Env.Chains)
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
 	tEnv.StartNodes(t, crConfig)
 	dEnv = tEnv.DeployedEnvironment()
@@ -585,7 +600,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	// now we update RMNProxy to point to RMNRemote
 	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: evmChains,
 			},
@@ -610,39 +625,36 @@ func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([
 	if err != nil {
 		return nil, err
 	}
-	value := [28]uint8{}
-	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
-	if !ok {
-		return nil, errors.New("failed to set string to big.Int")
-	}
-	bigNum.FillBytes(value[:])
+	value := [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 51, 74, 153, 67, 41, 73, 55, 39, 96, 0, 0}
 	return []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.DeployChainContractsChangeset),
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.DeployChainContractsChangeset),
 			ccipChangeSetSolana.DeployChainContractsConfig{
 				HomeChainSelector: e.HomeChainSel,
 				ChainSelector:     solChainSelector,
 				ContractParamsPerChain: ccipChangeSetSolana.ChainContractParams{
 					FeeQuoterParams: ccipChangeSetSolana.FeeQuoterParams{
-						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000000000000, Hi: 0, Endianness: nil},
+						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{
+							Lo: 15532559262904483840, Hi: 10, Endianness: nil,
+						},
 						BillingConfig: []solFeeQuoter.BillingTokenConfig{
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].LinkToken,
 								UsdPerToken: solFeeQuoter.TimestampedPackedU224{
 									Value:     value,
-									Timestamp: int64(100),
+									Timestamp: time.Now().Unix(),
 								},
-								PremiumMultiplierWeiPerEth: 100,
+								PremiumMultiplierWeiPerEth: 9e17,
 							},
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].WSOL,
 								UsdPerToken: solFeeQuoter.TimestampedPackedU224{
 									Value:     value,
-									Timestamp: int64(100),
+									Timestamp: time.Now().Unix(),
 								},
-								PremiumMultiplierWeiPerEth: 100,
+								PremiumMultiplierWeiPerEth: 1e18,
 							},
 						},
 					},
@@ -688,7 +700,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	apps = append(apps, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 			v1_6.DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
@@ -700,7 +712,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
 			v1_6.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: evmContractParams,
@@ -836,7 +848,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	apps = []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			// Add the chain configs for the new chains.
-			deployment.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
 			v1_6.UpdateChainConfigConfig{
 				HomeChainSelector: e.HomeChainSel,
 				RemoteChainAdds:   chainConfigs,
@@ -845,7 +857,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 		commonchangeset.Configure(
 			// Add the DONs and candidate commit OCR instances for the chain.
-			deployment.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
 			v1_6.AddDonAndSetCandidateChangesetConfig{
 				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
@@ -861,7 +873,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 		commonchangeset.Configure(
 			// Add the exec OCR instances for the new chains.
-			deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 			v1_6.SetCandidateChangesetConfig{
 				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
@@ -879,7 +891,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 		commonchangeset.Configure(
 			// Promote everything
-			deployment.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
 			v1_6.PromoteCandidateChangesetConfig{
 				HomeChainSelector: e.HomeChainSel,
 				PluginInfo: []v1_6.PromoteCandidatePluginInfo{
@@ -897,7 +909,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 		commonchangeset.Configure(
 			// Enable the OCR config on the remote chains.
-			deployment.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
 			v1_6.SetOCR3OffRampConfig{
 				HomeChainSel:       e.HomeChainSel,
 				RemoteChainSels:    evmChains,
@@ -906,7 +918,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 		commonchangeset.Configure(
 			// Enable the OCR config on the remote chains.
-			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.SetOCR3ConfigSolana),
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.SetOCR3ConfigSolana),
 			v1_6.SetOCR3OffRampConfig{
 				HomeChainSel:       e.HomeChainSel,
 				RemoteChainSels:    solChains,
@@ -914,7 +926,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset),
 			nil, // Changeset ignores any config
 		),
 	}
@@ -958,7 +970,7 @@ func NewEnvironmentWithJobs(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	require.NoError(t, err)
 	// add home chain contracts, otherwise the job approval logic in chainlink fails silently
 	_, err = commonchangeset.Apply(t, e.Env, nil,
-		commonchangeset.Configure(deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+		commonchangeset.Configure(cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 			v1_6.DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),

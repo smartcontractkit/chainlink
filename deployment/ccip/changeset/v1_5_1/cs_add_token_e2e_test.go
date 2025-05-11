@@ -15,6 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -77,7 +80,7 @@ func TestAddTokenE2E(t *testing.T) {
 				err                  error
 			)
 
-			tokens := make(map[uint64]*deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677])
+			tokens := make(map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677])
 			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 			if test.withMCMS {
 				mcmsConfig = &proposalutils.TimelockConfig{
@@ -113,7 +116,7 @@ func TestAddTokenE2E(t *testing.T) {
 				if test.withMCMS {
 					e, err = commonchangeset.Apply(t, e, timelockContracts,
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+							cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 							commonchangeset.TransferToMCMSWithTimelockConfig{
 								ContractsByChain: timelockOwnedContractsByChain,
 								MCMSConfig:       *mcmsConfig,
@@ -200,7 +203,7 @@ func TestAddTokenE2E(t *testing.T) {
 				for chain, chainState := range state.Chains {
 					token, ok := chainState.BurnMintTokens677[testhelpers.TestTokenSymbol]
 					require.True(t, ok)
-					tokens[chain] = &deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+					tokens[chain] = &cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 						Address:  token.Address(),
 						Contract: token,
 					}

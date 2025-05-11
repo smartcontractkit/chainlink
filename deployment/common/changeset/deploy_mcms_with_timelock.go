@@ -16,7 +16,10 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -32,14 +35,14 @@ var (
 	// It creates a proposal if deployer key is not admin of the timelock contract.
 	// otherwise it executes the transactions directly.
 	// If neither timelock, nor the deployer key is the admin of the timelock contract, it returns an error.
-	GrantRoleInTimeLock = deployment.CreateChangeSet(grantRoleLogic, grantRolePreconditions)
+	GrantRoleInTimeLock = cldf.CreateChangeSet(grantRoleLogic, grantRolePreconditions)
 )
 
 // DeployMCMSWithTimelockV2 deploys and initializes the MCM and Timelock contracts
 func DeployMCMSWithTimelockV2(
 	env deployment.Environment, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2,
 ) (deployment.ChangesetOutput, error) {
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 
 	for chainSel, cfg := range cfgByChain {
 		family, err := chain_selectors.GetSelectorFamily(chainSel)
@@ -56,7 +59,7 @@ func DeployMCMSWithTimelockV2(
 			s, err := state.MaybeLoadMCMSWithTimelockState(env, []uint64{chainSel})
 			if err != nil {
 				// if the state is not found for chain, we assume it's a fresh deployment
-				if !strings.Contains(err.Error(), deployment.ErrChainNotFound.Error()) {
+				if !strings.Contains(err.Error(), cldf.ErrChainNotFound.Error()) {
 					return deployment.ChangesetOutput{}, err
 				}
 			}

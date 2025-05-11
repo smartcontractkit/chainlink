@@ -10,7 +10,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -18,7 +21,7 @@ import (
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 )
 
-var SetFeeManagerChangeset = deployment.CreateChangeSet(SetFeeManagerLogic, SetFeeManagerPrecondition)
+var SetFeeManagerChangeset = cldf.CreateChangeSet(SetFeeManagerLogic, SetFeeManagerPrecondition)
 
 type SetFeeManagerConfig struct {
 	ConfigsByChain map[uint64][]SetFeeManager
@@ -55,7 +58,7 @@ func SetFeeManagerPrecondition(e deployment.Environment, sf SetFeeManagerConfig)
 			}
 
 			// Why v0.5.0/RewardManager.sol typeAndVersion returns 1.1.0?
-			allowedVersion := deployment.NewTypeAndVersion(types.RewardManager, deployment.Version1_1_0).String()
+			allowedVersion := cldf.NewTypeAndVersion(types.RewardManager, deployment.Version1_1_0).String()
 
 			if gotVersion != allowedVersion {
 				return fmt.Errorf("invalid RewardManager version: got %s, allowed %s", gotVersion, allowedVersion)

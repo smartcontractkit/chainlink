@@ -9,6 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -35,7 +37,7 @@ type SqDeployLinkOutput struct {
 type EthereumDeps struct {
 	Auth  *bind.TransactOpts
 	Chain deployment.Chain
-	AB    deployment.AddressBook
+	AB    cldf.AddressBook
 }
 
 type DeployAndMintExampleChangeset struct{}
@@ -47,7 +49,7 @@ func (l DeployAndMintExampleChangeset) VerifyPreconditions(e deployment.Environm
 
 func (l DeployAndMintExampleChangeset) Apply(e deployment.Environment, config SqDeployLinkInput) (deployment.ChangesetOutput, error) {
 	auth := e.Chains[config.ChainID].DeployerKey
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	// build your custom dependencies needed in the sequence/operation
 	deps := EthereumDeps{
@@ -77,7 +79,10 @@ var DeployAndMintSequence = operations.NewSequence(
 	semver.MustParse("1.0.0"),
 	"Deploy LINK token contract, grants mint and mints some amount to same address",
 	func(b operations.Bundle, deps EthereumDeps, input SqDeployLinkInput) (SqDeployLinkOutput, error) {
-		linkDeployReport, err := operations.ExecuteOperation(b, DeployLinkOp, deps, operations.EmptyInput{})
+		linkDeployReport, err := operations.ExecuteOperation(
+			b, DeployLinkOp, deps, operations.EmptyInput{},
+			operations.WithRetry[operations.EmptyInput, EthereumDeps](),
+		)
 		if err != nil {
 			return SqDeployLinkOutput{}, err
 		}
@@ -86,7 +91,10 @@ var DeployAndMintSequence = operations.NewSequence(
 			ContractAddress: linkDeployReport.Output,
 			To:              deps.Auth.From,
 		}
-		_, err = operations.ExecuteOperation(b, GrantMintOp, deps, grantMintConfig)
+		_, err = operations.ExecuteOperation(
+			b, GrantMintOp, deps, grantMintConfig,
+			operations.WithRetry[GrantMintRoleConfig, EthereumDeps](),
+		)
 		if err != nil {
 			return SqDeployLinkOutput{}, err
 		}
@@ -96,7 +104,10 @@ var DeployAndMintSequence = operations.NewSequence(
 			Amount:          input.MintAmount,
 			To:              input.To,
 		}
-		_, err = operations.ExecuteOperation(b, MintLinkOp, deps, mintConfig)
+		_, err = operations.ExecuteOperation(
+			b, MintLinkOp, deps, mintConfig,
+			operations.WithRetry[MintLinkConfig, EthereumDeps](),
+		)
 		if err != nil {
 			return SqDeployLinkOutput{}, err
 		}
