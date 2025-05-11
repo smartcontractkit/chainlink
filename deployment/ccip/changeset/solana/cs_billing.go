@@ -515,7 +515,6 @@ type WithdrawBilledFundsConfig struct {
 	TransferAll   bool
 	Amount        uint64
 	TokenPubKey   string
-	Metadata      string
 	MCMS          *proposalutils.TimelockConfig
 }
 

@@ -583,6 +583,20 @@ func deployChainContractsSolana(
 	if err != nil {
 		return batches, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
+	if config.UpgradeConfig.NewMCMVersion != nil {
+		e.Logger.Infow("Generate instruction for upgrading mcms", "chain", chain.String())
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram)
+		if err != nil {
+			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
+		}
+		// create proposals for txns
+		if len(newTxns) > 0 {
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
+				Transactions:  newTxns,
+			})
+		}
+	}
 	if config.UpgradeConfig.NewAccessControllerVersion != nil {
 		e.Logger.Infow("Generating instruction for upgrading access controller", "chain", chain.String())
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram)
@@ -600,20 +614,6 @@ func deployChainContractsSolana(
 	if config.UpgradeConfig.NewTimelockVersion != nil {
 		e.Logger.Infow("Generate instruction for upgrading timelock", "chain", chain.String())
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram)
-		if err != nil {
-			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
-		}
-		// create proposals for txns
-		if len(newTxns) > 0 {
-			batches = append(batches, mcmsTypes.BatchOperation{
-				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
-				Transactions:  newTxns,
-			})
-		}
-	}
-	if config.UpgradeConfig.NewMCMVersion != nil {
-		e.Logger.Infow("Generate instruction for upgrading mcms", "chain", chain.String())
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
