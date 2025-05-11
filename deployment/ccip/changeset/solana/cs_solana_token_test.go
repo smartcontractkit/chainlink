@@ -44,6 +44,23 @@ func TestSolanaTokenOps(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	privKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			// deployer creates token
+			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+			changeset_solana.DeploySolanaTokenConfig{
+				ChainSelector:    solChain1,
+				TokenProgramName: ccipChangeset.SPLTokens,
+				MintPrivateKey:   privKey,
+				TokenDecimals:    9,
+				TokenSymbol:      "SPL_TEST_TOKEN",
+			},
+		),
+	)
+	require.NoError(t, err)
+
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
 	tokenAddress := ccipChangeset.FindSolanaAddress(
@@ -156,26 +173,4 @@ func TestSolanaTokenOps(t *testing.T) {
 
 func TestDeployLinkToken(t *testing.T) {
 	commonchangeset.DeployLinkTokenTest(t, 1)
-}
-
-func TestDeployLinkTokenV2(t *testing.T) {
-	t.Parallel()
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		SolChains: 1,
-	})
-	solChain1 := e.AllChainSelectorsSolana()[0]
-	newPrivKey, err := solana.NewRandomPrivateKey()
-	require.NoError(t, err)
-	_, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
-			commonchangeset.DeploySolanaLinkTokenConfig{
-				ChainSelector: solChain1,
-				TokenPrivKey:  newPrivKey,
-				TokenDecimals: 9,
-			},
-		),
-	)
-	require.NoError(t, err)
 }
