@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -156,7 +155,7 @@ func TestSolanaTokenOps(t *testing.T) {
 }
 
 func TestDeployLinkToken(t *testing.T) {
-	testhelpers.DeployLinkTokenTest(t, 1)
+	commonchangeset.DeployLinkTokenTest(t, 1)
 }
 
 func TestDeployLinkTokenV2(t *testing.T) {
