@@ -62,7 +62,7 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e deployment.Environment) erro
 		return err
 	}
 
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, ""); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
 		return err
 	}
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
@@ -143,7 +143,6 @@ func doAddRemoteChainToRouter(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.Router,
 		solana.PublicKey{},
 		"",
@@ -289,7 +288,7 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) e
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, ""); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true}); err != nil {
 		return err
 	}
 	supportedChains := state.SupportedChains()
@@ -362,7 +361,6 @@ func doAddRemoteChainToFeeQuoter(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.FeeQuoter,
 		solana.PublicKey{},
 		"")
@@ -465,7 +463,7 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) err
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, ""); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.OffRamp: true}); err != nil {
 		return err
 	}
 
@@ -538,7 +536,6 @@ func doAddRemoteChainToOffRamp(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.OffRamp,
 		solana.PublicKey{},
 		"")

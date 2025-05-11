@@ -398,7 +398,6 @@ func IsSolanaProgramOwnedByTimelock(
 	e *deployment.Environment,
 	chain deployment.SolChain,
 	chainState SolCCIPChainState,
-	mcms bool,
 	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // for token pools only
 	tokenPoolMetadata string,

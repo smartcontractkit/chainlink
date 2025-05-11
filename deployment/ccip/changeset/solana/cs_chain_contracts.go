@@ -147,7 +147,7 @@ func (cfg OffRampRefAddressesConfig) Validate(e deployment.Environment) error {
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "")
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.OffRamp: true})
 }
 
 func UpdateOffRampRefAddresses(
@@ -193,15 +193,11 @@ func UpdateOffRampRefAddresses(
 		e.Logger.Infof("setting rmn remote on offramp to %s", config.RMNRemote.String())
 		rmnRemoteToSet = config.RMNRemote
 	}
-	if err := ValidateMCMSConfigSolana(e, config.MCMS, chain, chainState, solana.PublicKey{}, ""); err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
 
 	offRampUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		config.MCMS != nil,
 		ccipChangeset.OffRamp,
 		solana.PublicKey{},
 		"")
@@ -370,7 +366,7 @@ func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, ""); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
 		return err
 	}
 
@@ -405,7 +401,6 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.Router,
 		solana.PublicKey{},
 		"")

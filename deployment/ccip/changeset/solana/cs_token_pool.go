@@ -369,7 +369,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, cfg.SolTokenPubKey, cfg.Metadata); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, cfg.SolTokenPubKey, cfg.Metadata, map[cldf.ContractType]bool{}); err != nil {
 		return err
 	}
 	// validate EVMRemoteConfig
@@ -425,7 +425,6 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 			&e,
 			chain,
 			solChainState,
-			cfg.MCMS != nil,
 			ccipChangeset.BurnMintTokenPool,
 			tokenPubKey,
 			cfg.Metadata,
@@ -455,7 +454,6 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 			&e,
 			chain,
 			solChainState,
-			cfg.MCMS != nil,
 			ccipChangeset.LockReleaseTokenPool,
 			tokenPubKey,
 			cfg.Metadata,
@@ -957,7 +955,7 @@ func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata, map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
 		return err
 	}
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
@@ -995,7 +993,6 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.Router,
 		solana.PublicKey{},
 		"",
@@ -1075,7 +1072,7 @@ func (cfg ConfigureTokenPoolAllowListConfig) Validate(e deployment.Environment) 
 	if err := validatePoolDeployment(&e, *cfg.PoolType, cfg.SolChainSelector, tokenPubKey, true, cfg.Metadata); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata)
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata, map[cldf.ContractType]bool{})
 }
 
 // input only the ones you want to add
@@ -1100,7 +1097,6 @@ func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoo
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		contractType,
 		tokenPubKey,
 		cfg.Metadata,
@@ -1200,7 +1196,7 @@ func (cfg RemoveFromAllowListConfig) Validate(e deployment.Environment) error {
 	}
 	chainState := state.SolChains[cfg.SolChainSelector]
 	chain := e.SolChains[cfg.SolChainSelector]
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata, map[cldf.ContractType]bool{}); err != nil {
 		return err
 	}
 	return validatePoolDeployment(&e, *cfg.PoolType, cfg.SolChainSelector, tokenPubKey, true, cfg.Metadata)
@@ -1226,7 +1222,6 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		contractType,
 		tokenPubKey,
 		cfg.Metadata,
@@ -1341,7 +1336,7 @@ func (cfg LockReleaseLiquidityOpsConfig) Validate(e deployment.Environment) erro
 	}
 	chainState := state.SolChains[cfg.SolChainSelector]
 	chain := e.SolChains[cfg.SolChainSelector]
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata, map[cldf.ContractType]bool{}); err != nil {
 		return err
 	}
 	return validatePoolDeployment(&e, solTestTokenPool.LockAndRelease_PoolType, cfg.SolChainSelector, tokenPubKey, true, cfg.Metadata)
@@ -1365,7 +1360,6 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		contractType,
 		tokenPubKey,
 		cfg.Metadata,
@@ -1561,7 +1555,7 @@ func (cfg TokenPoolOpsCfg) Validate(e deployment.Environment) error {
 			return fmt.Errorf("invalid router address: %s", cfg.SetRouterCfg.Router.String())
 		}
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata)
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata, map[cldf.ContractType]bool{})
 }
 
 func TokenPoolOps(e deployment.Environment, cfg TokenPoolOpsCfg) (deployment.ChangesetOutput, error) {
@@ -1584,7 +1578,6 @@ func TokenPoolOps(e deployment.Environment, cfg TokenPoolOpsCfg) (deployment.Cha
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		contractType,
 		tokenPubKey,
 		cfg.Metadata,

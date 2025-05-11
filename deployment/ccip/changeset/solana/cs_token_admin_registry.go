@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -38,7 +39,6 @@ type RegisterTokenAdminRegistryConfig struct {
 	RegisterType            RegisterTokenAdminRegistryType
 	Override                bool
 	MCMS                    *proposalutils.TimelockConfig
-	Metadata                string
 }
 
 func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
@@ -60,7 +60,7 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) e
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
 		return err
 	}
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
@@ -96,7 +96,6 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.Router,
 		solana.PublicKey{},
 		"")
@@ -191,7 +190,6 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 type TransferAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector             uint64
 	TokenPubKey               string
-	Metadata                  string
 	NewRegistryAdminPublicKey string
 	MCMS                      *proposalutils.TimelockConfig
 }
@@ -227,7 +225,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 		)
 	}
 
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
 		return err
 	}
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
@@ -260,7 +258,6 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.Router,
 		solana.PublicKey{},
 		"")
@@ -308,7 +305,6 @@ type AcceptAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector uint64
 	TokenPubKey   solana.PublicKey
 	MCMS          *proposalutils.TimelockConfig
-	Metadata      string
 }
 
 func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
@@ -322,7 +318,7 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
 		return err
 	}
 
@@ -373,7 +369,6 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.Router,
 		solana.PublicKey{},
 		"")

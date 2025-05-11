@@ -7,6 +7,7 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -32,7 +33,6 @@ var _ deployment.ChangeSet[TokenTransferFeeForRemoteChainConfig] = AddTokenTrans
 type BillingTokenConfig struct {
 	ChainSelector uint64
 	TokenPubKey   string
-	Metadata      string
 	Config        solFeeQuoter.BillingTokenConfig
 	// We have different instructions for add vs update, so we need to know which one to use
 	IsUpdate bool
@@ -54,7 +54,7 @@ func (cfg *BillingTokenConfig) Validate(e deployment.Environment) error {
 	if _, err := chainState.TokenToTokenProgram(tokenPubKey); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true}); err != nil {
 		return err
 	}
 	// check if already setup
@@ -92,7 +92,6 @@ func AddBillingToken(
 		&e,
 		chain,
 		chainState,
-		mcms != nil,
 		ccipChangeset.FeeQuoter,
 		solana.PublicKey{},
 		"")
@@ -190,7 +189,6 @@ type TokenTransferFeeForRemoteChainConfig struct {
 	RemoteChainSelector uint64
 	Config              solFeeQuoter.TokenTransferFeeConfig
 	TokenPubKey         string
-	Metadata            string
 	MCMS                *proposalutils.TimelockConfig
 }
 
@@ -206,7 +204,7 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e deployment.Environmen
 		return fmt.Errorf("fee quoter validation failed: %w", err)
 	}
 
-	return nil
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true})
 }
 
 // TODO: rename this, i dont think this is for billing, this is more for token transfer config/fees
@@ -224,14 +222,9 @@ func AddTokenTransferFeeForRemoteChain(e deployment.Environment, cfg TokenTransf
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.FeeQuoter,
 		solana.PublicKey{},
 		"")
-
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata); err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
 
 	authority := GetAuthorityForIxn(
 		&e,
@@ -302,7 +295,7 @@ func (cfg UpdatePricesConfig) Validate(e deployment.Environment) error {
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, ""); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true}); err != nil {
 		return err
 	}
 	if cfg.PriceUpdater.IsZero() {
@@ -346,7 +339,6 @@ func UpdatePrices(e deployment.Environment, cfg UpdatePricesConfig) (deployment.
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.FeeQuoter,
 		solana.PublicKey{},
 		"")
@@ -429,7 +421,7 @@ func (cfg ModifyPriceUpdaterConfig) Validate(e deployment.Environment) error {
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, ""); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true}); err != nil {
 		return err
 	}
 	if cfg.PriceUpdater.IsZero() {
@@ -456,7 +448,6 @@ func ModifyPriceUpdater(e deployment.Environment, cfg ModifyPriceUpdaterConfig) 
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.FeeQuoter,
 		solana.PublicKey{},
 		"")
@@ -544,7 +535,7 @@ func (cfg WithdrawBilledFundsConfig) Validate(e deployment.Environment) error {
 	if err := validateFeeAggregatorConfig(chain, chainState); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata)
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true})
 }
 
 func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig) (deployment.ChangesetOutput, error) {
@@ -570,7 +561,6 @@ func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.Router,
 		solana.PublicKey{},
 		"")
@@ -645,7 +635,7 @@ func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "")
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true})
 }
 
 func SetMaxFeeJuelsPerMsg(e deployment.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (deployment.ChangesetOutput, error) {
@@ -662,7 +652,6 @@ func SetMaxFeeJuelsPerMsg(e deployment.Environment, cfg SetMaxFeeJuelsPerMsgConf
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.FeeQuoter,
 		solana.PublicKey{},
 		"")

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -46,7 +47,7 @@ func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, ""); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true, ccipChangeset.OffRamp: true}); err != nil {
 		return err
 	}
 	var routerConfigAccount solRouter.Config
@@ -121,7 +122,6 @@ func doDisableRemoteChain(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.FeeQuoter,
 		solana.PublicKey{},
 		"")
@@ -129,7 +129,6 @@ func doDisableRemoteChain(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.OffRamp,
 		solana.PublicKey{},
 		"")

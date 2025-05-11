@@ -6,6 +6,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -56,7 +57,7 @@ func (cfg SetDefaultCodeVersionConfig) Validate(e deployment.Environment) error 
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "")
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true, ccipChangeset.OffRamp: true, ccipChangeset.Router: true})
 }
 
 func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionConfig) (deployment.ChangesetOutput, error) {
@@ -73,7 +74,6 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.Router,
 		solana.PublicKey{},
 		"")
@@ -81,7 +81,6 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.OffRamp,
 		solana.PublicKey{},
 		"")
@@ -89,7 +88,6 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.FeeQuoter,
 		solana.PublicKey{},
 		"")
@@ -219,7 +217,7 @@ func (cfg UpdateSvmChainSelectorConfig) Validate(e deployment.Environment) error
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "")
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true, ccipChangeset.OffRamp: true})
 }
 
 func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelectorConfig) (deployment.ChangesetOutput, error) {
@@ -237,7 +235,6 @@ func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelector
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.Router,
 		solana.PublicKey{},
 		"")
@@ -245,7 +242,6 @@ func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelector
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.OffRamp,
 		solana.PublicKey{},
 		"")
@@ -344,7 +340,7 @@ func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e deployment.Environm
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "")
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.OffRamp: true})
 }
 
 func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnableManualExecutionAfterConfig) (deployment.ChangesetOutput, error) {
@@ -361,7 +357,6 @@ func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnable
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.OffRamp,
 		solana.PublicKey{},
 		"")
@@ -448,7 +443,7 @@ func (cfg ConfigureCCIPVersionConfig) Validate(e deployment.Environment) error {
 	if err != nil {
 		return fmt.Errorf("remote %d is not configured on solana chain %d", cfg.DestChainSelector, cfg.ChainSelector)
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "")
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true})
 }
 
 func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConfig) (deployment.ChangesetOutput, error) {
@@ -465,7 +460,6 @@ func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConf
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.Router,
 		solana.PublicKey{},
 		"")
@@ -550,7 +544,7 @@ func (cfg RemoveOffRampConfig) Validate(e deployment.Environment) error {
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "")
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true})
 }
 
 func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (deployment.ChangesetOutput, error) {
@@ -566,7 +560,6 @@ func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (deploymen
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS != nil,
 		ccipChangeset.Router,
 		solana.PublicKey{},
 		"")
