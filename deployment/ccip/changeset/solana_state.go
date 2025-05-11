@@ -420,6 +420,9 @@ func IsSolanaProgramOwnedByTimelock(
 			return false
 		}
 		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return false
+		}
 		return programData.Owner.Equals(timelockSignerPDA)
 	case OffRamp:
 		programData := ccip_offramp.Config{}
@@ -428,6 +431,9 @@ func IsSolanaProgramOwnedByTimelock(
 			return false
 		}
 		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return false
+		}
 		return programData.Owner.Equals(timelockSignerPDA)
 	case FeeQuoter:
 		programData := fee_quoter.Config{}
@@ -436,6 +442,9 @@ func IsSolanaProgramOwnedByTimelock(
 			return false
 		}
 		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return false
+		}
 		return programData.Owner.Equals(timelockSignerPDA)
 	case BurnMintTokenPool:
 		programData := solTestTokenPool.State{}
@@ -445,6 +454,9 @@ func IsSolanaProgramOwnedByTimelock(
 		}
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, chainState.BurnMintTokenPools[metadata])
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
+		if err != nil {
+			return false
+		}
 		return programData.Config.Owner.Equals(timelockSignerPDA)
 	case LockReleaseTokenPool:
 		programData := solTestTokenPool.State{}
@@ -454,6 +466,9 @@ func IsSolanaProgramOwnedByTimelock(
 		}
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, chainState.LockReleaseTokenPools[metadata])
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
+		if err != nil {
+			return false
+		}
 		return programData.Config.Owner.Equals(timelockSignerPDA)
 	case RMNRemote:
 		programData := rmn_remote.Config{}
@@ -462,6 +477,9 @@ func IsSolanaProgramOwnedByTimelock(
 			return false
 		}
 		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return false
+		}
 		return programData.Owner.Equals(timelockSignerPDA)
 	default:
 		return false
