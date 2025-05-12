@@ -19,7 +19,17 @@ import (
 func TestNode(t *testing.T) {
 	chains, _ := NewMemoryChains(t, 3, 5)
 	ports := freeport.GetN(t, 1)
-	node := NewNode(t, ports[0], chains, nil, nil, zapcore.DebugLevel, false, deployment.CapabilityRegistryConfig{}, nil)
+	c := NewNodeConfig{
+		Port:           ports[0],
+		Chains:         chains,
+		Solchains:      nil,
+		Aptoschains:    nil,
+		LogLevel:       zapcore.DebugLevel,
+		Bootstrap:      false,
+		RegistryConfig: deployment.CapabilityRegistryConfig{},
+		CustomDBSetup:  nil,
+	}
+	node := NewNode(t, c)
 	// We expect 3 transmitter keys
 	keys, err := node.App.GetKeyStore().Eth().GetAll(tests.Context(t))
 	require.NoError(t, err)

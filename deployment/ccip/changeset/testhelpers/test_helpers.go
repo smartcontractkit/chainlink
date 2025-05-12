@@ -32,7 +32,6 @@ import (
 
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -43,7 +42,6 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"go.uber.org/multierr"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -239,7 +237,6 @@ func LatestBlocksByChain(ctx context.Context, env deployment.Environment) (map[u
 			return nil, errors.Wrapf(err, "failed to get latest block for chain %d", selector)
 		}
 		latestBlocks[selector] = block
-
 	}
 	return latestBlocks, nil
 }
@@ -884,7 +881,7 @@ func addLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, rem
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToRouter),
 			ccipChangeSetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector: solChainSelector,
-				UpdatesByChain: map[uint64]ccipChangeSetSolana.RouterConfig{
+				UpdatesByChain: map[uint64]*ccipChangeSetSolana.RouterConfig{
 					remoteChainSelector: {
 						RouterDestinationConfig: solRouter.DestChainConfig{
 							AllowListEnabled: true,
@@ -898,7 +895,7 @@ func addLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, rem
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToFeeQuoter),
 			ccipChangeSetSolana.AddRemoteChainToFeeQuoterConfig{
 				ChainSelector: solChainSelector,
-				UpdatesByChain: map[uint64]ccipChangeSetSolana.FeeQuoterConfig{
+				UpdatesByChain: map[uint64]*ccipChangeSetSolana.FeeQuoterConfig{
 					remoteChainSelector: {
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 							IsEnabled:                   true,
@@ -918,7 +915,7 @@ func addLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, rem
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToOffRamp),
 			ccipChangeSetSolana.AddRemoteChainToOffRampConfig{
 				ChainSelector: solChainSelector,
-				UpdatesByChain: map[uint64]ccipChangeSetSolana.OffRampConfig{
+				UpdatesByChain: map[uint64]*ccipChangeSetSolana.OffRampConfig{
 					remoteChainSelector: {
 						EnabledAsSource: true,
 					},
@@ -2298,45 +2295,6 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	b, err = json.MarshalIndent(solana, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
-}
-
-func DeployLinkTokenTest(t *testing.T, solChains int) {
-	lggr := logger.Test(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains:    1,
-		SolChains: solChains,
-	})
-	chain1 := e.AllChainSelectors()[0]
-	config := []uint64{chain1}
-
-	var err error
-	e, err = commoncs.Apply(t, e, nil,
-		commoncs.Configure(cldf.CreateLegacyChangeSet(commoncs.DeployLinkToken), config),
-	)
-	require.NoError(t, err)
-	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
-	require.NoError(t, err)
-	state, err := commonstate.MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
-	require.NoError(t, err)
-	// View itself already unit tested
-	_, err = state.GenerateLinkView()
-	require.NoError(t, err)
-
-	// solana test
-	if solChains > 0 {
-		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
-		e, err = commoncs.Apply(t, e, nil,
-			commoncs.Configure(cldf.CreateLegacyChangeSet(commoncs.DeploySolanaLinkToken), commoncs.DeploySolanaLinkTokenConfig{
-				ChainSelector: e.AllChainSelectorsSolana()[0],
-				TokenPrivKey:  solLinkTokenPrivKey,
-				TokenDecimals: 9,
-			}),
-		)
-		require.NoError(t, err)
-		addrs, err = e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
-		require.NoError(t, err)
-		require.NotEmpty(t, addrs)
-	}
 }
 
 func TransferToTimelock(

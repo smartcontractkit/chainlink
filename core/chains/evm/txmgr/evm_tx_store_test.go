@@ -579,33 +579,34 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	minConfirmations := int64(2)
 
 	// Suspended run waiting for callback
-	run1 := cltest.MustInsertPipelineRun(t, db)
-	tr1 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run1.ID)
-	testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run1.ID)
+	runID1 := cltest.MustInsertPipelineRun(t, db)
+	trID1 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID1)
+	testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, runID1)
 	etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 	testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 	attempt1 := etx1.TxAttempts[0]
 	etxBlockNum := mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt1.Hash).BlockNumber
-	testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr1.ID, minConfirmations, etx1.ID)
+	testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID1, minConfirmations, etx1.ID)
 
 	// Callback to pipeline service completed. Should be ignored
-	run2 := cltest.MustInsertPipelineRunWithStatus(t, db, 0, "completed", 0)
-	tr2 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run2.ID)
+	runID2 := cltest.MustInsertPipelineRun(t, db)
+	trID2 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID2)
+	testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'completed', outputs = '""'::jsonb, finished_at = NOW() WHERE id = $1`, runID2)
 	etx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
 	testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
 	attempt2 := etx2.TxAttempts[0]
 	mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt2.Hash)
-	testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &tr2.ID, minConfirmations, etx2.ID)
+	testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &trID2, minConfirmations, etx2.ID)
 
 	// Suspended run younger than minConfirmations. Should be ignored
-	run3 := cltest.MustInsertPipelineRun(t, db)
-	tr3 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run3.ID)
-	testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run3.ID)
+	runID3 := cltest.MustInsertPipelineRun(t, db)
+	trID3 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID3)
+	testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, runID3)
 	etx3 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 5, 1, fromAddress)
 	testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
 	attempt3 := etx3.TxAttempts[0]
 	mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt3.Hash)
-	testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr3.ID, minConfirmations, etx3.ID)
+	testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID3, minConfirmations, etx3.ID)
 
 	// Tx not marked for callback. Should be ignore
 	etx4 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 6, 1, fromAddress)
@@ -621,7 +622,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), head.Number, 0, ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 	if assert.Len(t, receiptsPlus, 1) {
-		assert.Equal(t, tr1.ID, receiptsPlus[0].ID)
+		assert.Equal(t, trID1, receiptsPlus[0].ID)
 	}
 
 	// Clear min_confirmations
@@ -636,7 +637,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	receiptsPlus, err = txStore.FindTxesPendingCallback(tests.Context(t), head.Number, etxBlockNum, ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 	if assert.Len(t, receiptsPlus, 1) {
-		assert.Equal(t, tr1.ID, receiptsPlus[0].ID)
+		assert.Equal(t, trID1, receiptsPlus[0].ID)
 	}
 }
 

@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[DeployHomeChainConfig] = DeployHomeChainChangeset
+	_ cldf.ChangeSet[DeployHomeChainConfig] = DeployHomeChainChangeset
 	// RemoveNodesFromCapRegChangeset is a changeset that removes nodes from the CapabilitiesRegistry contract.
 	// It fails validation
 	//  - if the changeset is executed neither by CapabilitiesRegistry contract owner nor by the node operator admin.
@@ -60,22 +60,22 @@ var (
 )
 
 // DeployHomeChainChangeset is a separate changeset because it is a standalone deployment performed once in home chain for the entire CCIP deployment.
-func DeployHomeChainChangeset(env deployment.Environment, cfg DeployHomeChainConfig) (deployment.ChangesetOutput, error) {
+func DeployHomeChainChangeset(env deployment.Environment, cfg DeployHomeChainConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
-		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
+		return cldf.ChangesetOutput{}, errors.Wrapf(cldf.ErrInvalidConfig, "%v", err)
 	}
 	ab := cldf.NewMemoryAddressBook()
 	// Note we also deploy the cap reg.
 	_, err = deployHomeChain(env.Logger, env, ab, env.Chains[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			AddressBook: ab,
 		}, err
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
 }
@@ -500,18 +500,18 @@ func (c RemoveDONsConfig) Validate(homeChain changeset.CCIPChainState) error {
 
 // RemoveDONs removes DONs from the CapabilitiesRegistry contract.
 // TODO: Could likely be moved to common, but needs a common state struct first.
-func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.ChangesetOutput, error) {
+func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	homeChain, ok := e.Chains[cfg.HomeChainSel]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("home chain %d not found", cfg.HomeChainSel)
+		return cldf.ChangesetOutput{}, fmt.Errorf("home chain %d not found", cfg.HomeChainSel)
 	}
 	homeChainState := state.Chains[cfg.HomeChainSel]
 	if err := cfg.Validate(homeChainState); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	txOpts := homeChain.DeployerKey
 	if cfg.MCMS != nil {
@@ -520,29 +520,29 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 
 	tx, err := homeChainState.CapabilityRegistry.RemoveDONs(txOpts, cfg.DonIDs)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
 		_, err = deployment.ConfirmIfNoErrorWithABI(homeChain, tx, capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		e.Logger.Infof("Removed dons using deployer key tx %s", tx.Hash().String())
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	batchOperation, err := proposalutils.BatchOperationForChain(cfg.HomeChainSel,
 		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
 		string(changeset.CapabilitiesRegistry), []string{})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for home chain: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for home chain: %w", err)
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSel: homeChainState.Timelock.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSel: mcmsevmsdk.NewInspector(homeChain.Client)}
 	mcmsContractsByActionPerChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
@@ -554,11 +554,11 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 		*cfg.MCMS,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	e.Logger.Infof("Created proposal to remove dons")
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 type RemoveNodesConfig struct {
@@ -642,10 +642,10 @@ func removeNodesPrecondition(env deployment.Environment, c RemoveNodesConfig) er
 	return nil
 }
 
-func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (deployment.ChangesetOutput, error) {
+func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	homeChainState := state.Chains[c.HomeChainSel]
 	homeChain := env.Chains[c.HomeChainSel]
@@ -657,31 +657,31 @@ func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (deployme
 	if c.MCMSCfg == nil {
 		_, err = deployment.ConfirmIfNoErrorWithABI(homeChain, tx, capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to remove nodes from capreg %s: %w",
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove nodes from capreg %s: %w",
 				homeChainState.CapabilityRegistry.Address().String(), err)
 		}
 		env.Logger.Infof("Removed nodes using deployer key tx %s", tx.Hash().String())
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	batchOperation, err := proposalutils.BatchOperationForChain(c.HomeChainSel,
 		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
 		string(changeset.CapabilitiesRegistry), []string{})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for home chain: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for home chain: %w", err)
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(env, state)
 	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(env, state, c.MCMSCfg)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 	inspectors[c.HomeChainSel], err = proposalutils.McmsInspectorForChain(env, c.HomeChainSel)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		env,
@@ -693,11 +693,11 @@ func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (deployme
 		*c.MCMSCfg,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	env.Logger.Infof("Created proposal to remove nodes")
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 // AddOrUpdateNopsConfig is the configuration for adding, updating or removing node operators
@@ -767,28 +767,28 @@ func addUpdateOrRemoveNopsPrecondition(env deployment.Environment, c AddOrUpdate
 	return nil
 }
 
-func updateNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deployment.ChangesetOutput, error) {
+func updateNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	c.homeChainSel, err = state.HomeChainSelector()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get home chain selector: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get home chain selector: %w", err)
 	}
 	// ensure that all node operators exist
 	homeChainState := state.Chains[c.homeChainSel]
 	homeChain := env.Chains[c.homeChainSel]
 	if len(c.NopUpdates) != len(c.ExistingNops) {
-		return deployment.ChangesetOutput{}, errors.New("number of existing node operators and node operators to update must be same and should follow same order")
+		return cldf.ChangesetOutput{}, errors.New("number of existing node operators and node operators to update must be same and should follow same order")
 	}
 	// fetch all the node operators from the CapabilitiesRegistry contract
 	nopsByID, err := allNodeOperatorsByID(env.GetContext(), homeChainState.CapabilityRegistry)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get node operators from Capreg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get node operators from Capreg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
 	}
 	if len(nopsByID) == 0 {
-		return deployment.ChangesetOutput{}, errors.New("no node operators found in cap reg")
+		return cldf.ChangesetOutput{}, errors.New("no node operators found in cap reg")
 	}
 	// filter the node operators from the CapabilitiesRegistry contract to contain only the provided node operators in ExistingNops
 	// and find their ids by nop name
@@ -796,20 +796,20 @@ func updateNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deplo
 	for _, nop := range c.ExistingNops {
 		id := nodeOperatorIDByNop(nopsByID, nop)
 		if id == 0 {
-			return deployment.ChangesetOutput{}, fmt.Errorf("node operator %s does not exist in cap reg %s", nop.Name, homeChainState.CapabilityRegistry.Address().String())
+			return cldf.ChangesetOutput{}, fmt.Errorf("node operator %s does not exist in cap reg %s", nop.Name, homeChainState.CapabilityRegistry.Address().String())
 		}
 		nopsIDByName[nop.Name] = id
 	}
 	// check if the number of node operators to update is same as the number of existing node operators found in the CapabilitiesRegistry contract
 	if len(nopsIDByName) != len(c.NopUpdates) {
-		return deployment.ChangesetOutput{}, errors.New("number of existing node operators found in cap reg and node operators to update must be same")
+		return cldf.ChangesetOutput{}, errors.New("number of existing node operators found in cap reg and node operators to update must be same")
 	}
 	nops := make([]capabilities_registry.CapabilitiesRegistryNodeOperator, 0, len(c.NopUpdates))
 	nopIDs := make([]uint32, 0, len(c.NopUpdates))
 	for name, nop := range c.NopUpdates {
 		id, ok := nopsIDByName[name]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("node operator %s does not exist in cap reg %s", name, homeChainState.CapabilityRegistry.Address().String())
+			return cldf.ChangesetOutput{}, fmt.Errorf("node operator %s does not exist in cap reg %s", name, homeChainState.CapabilityRegistry.Address().String())
 		}
 		nops = append(nops, nop)
 		nopIDs = append(nopIDs, id)
@@ -817,18 +817,18 @@ func updateNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deplo
 		existingNop := nopsByID[id]
 		err = validateAccess(env.GetContext(), homeChain, homeChainState, homeChainState.CapabilityRegistry, existingNop, c.MCMSConfig != nil, false)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate access for node operator %s: %w", nop.Name, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate access for node operator %s: %w", nop.Name, err)
 		}
 	}
 	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMSConfig).
 		WithDeploymentContext("update nops in cap reg")
 	txOpts, err := deployerGroup.GetDeployer(homeChain.Selector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for home chain %d: %w", homeChain.Selector, err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for home chain %d: %w", homeChain.Selector, err)
 	}
 	_, err = homeChainState.CapabilityRegistry.UpdateNodeOperators(txOpts, nopIDs, nops)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction to update node operators in cap reg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction to update node operators in cap reg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
 	}
 	return deployerGroup.Enact()
 }
@@ -901,24 +901,24 @@ func allNodeOperatorsByID(ctx context.Context, capReg *capabilities_registry.Cap
 	return nopIDByName, nil
 }
 
-func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deployment.ChangesetOutput, error) {
+func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	c.homeChainSel, err = state.HomeChainSelector()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get home chain selector: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get home chain selector: %w", err)
 	}
 	// ensure that all node operators exist
 	homeChainState := state.Chains[c.homeChainSel]
 	homeChain := env.Chains[c.homeChainSel]
 	if len(c.NopUpdates) == 0 {
-		return deployment.ChangesetOutput{}, errors.New("no node operators to add")
+		return cldf.ChangesetOutput{}, errors.New("no node operators to add")
 	}
 	nopsByID, err := allNodeOperatorsByID(env.GetContext(), homeChainState.CapabilityRegistry)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get node operators from Capreg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get node operators from Capreg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
 	}
 	nops := make([]capabilities_registry.CapabilitiesRegistryNodeOperator, 0, len(c.ExistingNops))
 	// verify if node operator already exists
@@ -934,50 +934,50 @@ func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deployme
 		err = validateAccess(env.GetContext(), homeChain, homeChainState, homeChainState.CapabilityRegistry, nop,
 			c.MCMSConfig != nil, true)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate access for node operator %s: %w", nop.Name, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate access for node operator %s: %w", nop.Name, err)
 		}
 		nops = append(nops, nop)
 	}
 	if len(nops) == 0 {
 		env.Logger.Infof("No new node operators to add")
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMSConfig).
 		WithDeploymentContext("add nops in cap reg")
 	txOpts, err := deployerGroup.GetDeployer(homeChain.Selector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for home chain %d: %w", homeChain.Selector, err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for home chain %d: %w", homeChain.Selector, err)
 	}
 	_, err = homeChainState.CapabilityRegistry.AddNodeOperators(txOpts, nops)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction to add node operators in cap reg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction to add node operators in cap reg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
 	}
 	return deployerGroup.Enact()
 }
 
-func removeNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deployment.ChangesetOutput, error) {
+func removeNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	c.homeChainSel, err = state.HomeChainSelector()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get home chain selector: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get home chain selector: %w", err)
 	}
 	homeChainState := state.Chains[c.homeChainSel]
 	homeChain := env.Chains[c.homeChainSel]
 	if len(c.ExistingNops) == 0 {
-		return deployment.ChangesetOutput{}, errors.New("no node operators to remove")
+		return cldf.ChangesetOutput{}, errors.New("no node operators to remove")
 	}
 	nopsByID, err := allNodeOperatorsByID(env.GetContext(), homeChainState.CapabilityRegistry)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get node operators from Capreg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get node operators from Capreg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
 	}
 	// if no node operators exist in the CapabilitiesRegistry contract, there is nothing to remove, skip
 	if len(nopsByID) == 0 {
 		env.Logger.Infof("No node operators found in cap reg %s", homeChainState.CapabilityRegistry.Address().String())
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 	nopIDsToRemove := make([]uint32, 0, len(c.ExistingNops))
 	for _, nop := range c.ExistingNops {
@@ -991,24 +991,24 @@ func removeNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (deplo
 		// validate that the sender is the owner of the CapabilitiesRegistry
 		err = validateAccess(env.GetContext(), homeChain, homeChainState, homeChainState.CapabilityRegistry, nop, c.MCMSConfig != nil, true)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate access for node operator %s: %w", nop.Name, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate access for node operator %s: %w", nop.Name, err)
 		}
 		nopIDsToRemove = append(nopIDsToRemove, id)
 	}
 	// if no node operators to remove matching the name and admin, skip
 	if len(nopIDsToRemove) == 0 {
 		env.Logger.Infof("No node operators found to be removed")
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMSConfig).
 		WithDeploymentContext("remove nops in cap reg")
 	txOpts, err := deployerGroup.GetDeployer(homeChain.Selector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for home chain %d: %w", homeChain.Selector, err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for home chain %d: %w", homeChain.Selector, err)
 	}
 	_, err = homeChainState.CapabilityRegistry.RemoveNodeOperators(txOpts, nopIDsToRemove)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction to remove node operators in cap reg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction to remove node operators in cap reg %s: %w", homeChainState.CapabilityRegistry.Address().String(), err)
 	}
 	return deployerGroup.Enact()
 }

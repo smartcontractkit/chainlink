@@ -49,7 +49,7 @@ func setRewardRecipientsPrecondition(_ deployment.Environment, cc SetRewardRecip
 	return nil
 }
 
-func setRewardRecipientsLogic(e deployment.Environment, cfg SetRewardRecipientsConfig) (deployment.ChangesetOutput, error) {
+func setRewardRecipientsLogic(e deployment.Environment, cfg SetRewardRecipientsConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.RewardManager.String(),
@@ -58,7 +58,7 @@ func setRewardRecipientsLogic(e deployment.Environment, cfg SetRewardRecipientsC
 		doSetRewardRecipients,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building SetRewardRecipients txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building SetRewardRecipients txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "SetRewardRecipients proposal")

@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
@@ -78,6 +78,46 @@ func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors [
 		result[chainSelector] = state
 	}
 	return result, nil
+}
+
+// MaybeLoadMCMSWithTimelockStateDataStore loads the MCMSWithTimelockState state for each chain in the given environment from the DataStore.
+func MaybeLoadMCMSWithTimelockStateDataStore(env deployment.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
+	result := map[uint64]*MCMSWithTimelockState{}
+	for _, chainSelector := range chainSelectors {
+		chain, ok := env.Chains[chainSelector]
+		if !ok {
+			return nil, fmt.Errorf("chain %d not found", chainSelector)
+		}
+
+		addressesChain, err := loadAddressesFromDataStore(env.DataStore, chainSelector)
+		if err != nil {
+			return nil, err
+		}
+
+		state, err := MaybeLoadMCMSWithTimelockChainState(chain, addressesChain)
+		if err != nil {
+			return nil, err
+		}
+		result[chainSelector] = state
+	}
+	return result, nil
+}
+
+// TODO there should be some common utility/adapter for this
+func loadAddressesFromDataStore(ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata], chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
+	addressesChain := make(map[string]cldf.TypeAndVersion)
+	addresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("no addresses found for chain %d", chainSelector)
+	}
+
+	for _, addressRef := range addresses {
+		addressesChain[addressRef.Address] = cldf.TypeAndVersion{
+			Type:    cldf.ContractType(addressRef.Type),
+			Version: *addressRef.Version,
+		}
+	}
+	return addressesChain, nil
 }
 
 // MaybeLoadMCMSWithTimelockChainState looks for the addresses corresponding to
@@ -168,7 +208,6 @@ func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[s
 				state.CancellerMcm = mcms
 			}
 		}
-
 	}
 	return &state, nil
 }

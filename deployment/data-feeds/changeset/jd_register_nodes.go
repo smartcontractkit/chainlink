@@ -34,7 +34,7 @@ type DONConfigSchema struct {
 
 const productLabel = "data-feeds"
 
-func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (deployment.ChangesetOutput, error) {
+func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (cldf.ChangesetOutput, error) {
 	dons, _ := LoadJSON[[]*DONConfigSchema](c.InputFileName, c.InputFS)
 
 	for _, don := range dons {
@@ -98,7 +98,7 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (dep
 		}
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func registerNodesToJDLogicPrecondition(env deployment.Environment, c types.NodeConfig) error {

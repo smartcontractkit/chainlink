@@ -8,6 +8,8 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
@@ -15,7 +17,7 @@ import (
 )
 
 // UpdateSubscriberGlobalDiscountChangeset sets the global discount for a subscriber
-var UpdateSubscriberGlobalDiscountChangeset deployment.ChangeSetV2[UpdateSubscriberGlobalDiscountConfig] = &globalDiscount{}
+var UpdateSubscriberGlobalDiscountChangeset cldf.ChangeSetV2[UpdateSubscriberGlobalDiscountConfig] = &globalDiscount{}
 
 type globalDiscount struct{}
 
@@ -35,7 +37,7 @@ func (a UpdateSubscriberGlobalDiscount) GetContractAddress() common.Address {
 	return a.FeeManagerAddress
 }
 
-func (cs globalDiscount) Apply(e deployment.Environment, cfg UpdateSubscriberGlobalDiscountConfig) (deployment.ChangesetOutput, error) {
+func (cs globalDiscount) Apply(e deployment.Environment, cfg UpdateSubscriberGlobalDiscountConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -44,7 +46,7 @@ func (cs globalDiscount) Apply(e deployment.Environment, cfg UpdateSubscriberGlo
 		doUpdateSubscriberGlobalDiscount,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building UpdateSubscriberGlobalDiscount txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building UpdateSubscriberGlobalDiscount txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "UpdateSubscriberGlobalDiscount proposal")

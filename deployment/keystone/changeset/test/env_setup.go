@@ -473,17 +473,47 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 
 	wfChains := map[uint64]deployment.Chain{}
 	wfChains[registryChainSel] = chains[registryChainSel]
-	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, nil, nil, c.WFDonConfig.N, 0, crConfig, nil)
+	wfConf := memory.NewNodesConfig{
+		LogLevel:       zapcore.InfoLevel,
+		Chains:         wfChains,
+		SolChains:      nil,
+		AptosChains:    nil,
+		NumNodes:       c.WFDonConfig.N,
+		NumBootstraps:  0,
+		RegistryConfig: crConfig,
+		CustomDBSetup:  nil,
+	}
+	wfNodes := memory.NewNodes(t, wfConf)
 	require.Len(t, wfNodes, c.WFDonConfig.N)
 
 	writerChains := map[uint64]deployment.Chain{}
 	maps.Copy(writerChains, chains)
-	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, nil, nil, c.WriterDonConfig.N, 0, crConfig, nil)
+	cwConf := memory.NewNodesConfig{
+		LogLevel:       zapcore.InfoLevel,
+		Chains:         writerChains,
+		SolChains:      nil,
+		AptosChains:    nil,
+		NumNodes:       c.WriterDonConfig.N,
+		NumBootstraps:  0,
+		RegistryConfig: crConfig,
+		CustomDBSetup:  nil,
+	}
+	cwNodes := memory.NewNodes(t, cwConf)
 	require.Len(t, cwNodes, c.WriterDonConfig.N)
 
 	assetChains := map[uint64]deployment.Chain{}
 	assetChains[registryChainSel] = chains[registryChainSel]
-	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, nil, c.AssetDonConfig.N, 0, crConfig, nil)
+	assetCfg := memory.NewNodesConfig{
+		LogLevel:       zapcore.InfoLevel,
+		Chains:         assetChains,
+		SolChains:      nil,
+		AptosChains:    nil,
+		NumNodes:       c.AssetDonConfig.N,
+		NumBootstraps:  0,
+		RegistryConfig: crConfig,
+		CustomDBSetup:  nil,
+	}
+	assetNodes := memory.NewNodes(t, assetCfg)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
 
 	dons := newMemoryDons()

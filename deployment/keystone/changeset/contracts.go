@@ -147,7 +147,7 @@ func GetOwnerTypeAndVersion[T Ownable](contract T, ab cldf.AddressBook, chain de
 	return nil, nil
 }
 
-// GetOwnerTypeAndVersion retrieves the owner type and version of a contract.
+// GetOwnerTypeAndVersionV2 retrieves the owner type and version of a contract using the datastore instead of the address book.
 func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStore, chain deployment.Chain) (*cldf.TypeAndVersion, error) {
 	// Get the contract owner
 	owner, err := contract.Owner(nil)
@@ -157,9 +157,6 @@ func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStor
 
 	// Look for owner in address book
 	addresses := ab.Filter(datastore.AddressRefByChainSelector(chain.Selector))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get addresses for chain %d: %w", chain.Selector, err)
-	}
 
 	// Handle case where owner is not in address book
 	// Check for case-insensitive match since some addresses might be stored with different casing
@@ -237,7 +234,7 @@ func GetOwnableContract[T Ownable](ab cldf.AddressBook, chain deployment.Chain, 
 	return createContractInstance[T](foundAddr, chain)
 }
 
-// GetOwnableContract retrieves a contract instance of type T from the address book.
+// GetOwnableContractV2 retrieves a contract instance of type T from the datastore.
 // If `targetAddr` is provided, it will look for that specific address.
 // If not, it will default to looking one contract of type T, and if it doesn't find exactly one, it will error.
 func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain deployment.Chain, targetAddr string) (*T, error) {

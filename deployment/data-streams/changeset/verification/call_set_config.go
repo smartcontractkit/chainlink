@@ -50,7 +50,7 @@ func setConfigPrecondition(_ deployment.Environment, cc SetConfigConfig) error {
 	return nil
 }
 
-func setConfigLogic(e deployment.Environment, cfg SetConfigConfig) (deployment.ChangesetOutput, error) {
+func setConfigLogic(e deployment.Environment, cfg SetConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.Verifier.String(),
@@ -59,7 +59,7 @@ func setConfigLogic(e deployment.Environment, cfg SetConfigConfig) (deployment.C
 		doSetConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building SetConfig txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building SetConfig txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "SetConfig proposal")

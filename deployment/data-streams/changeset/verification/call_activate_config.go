@@ -43,7 +43,7 @@ func activateConfigPrecondition(_ deployment.Environment, cc ActivateConfigConfi
 	return cc.Validate()
 }
 
-func activateConfigLogic(e deployment.Environment, cfg ActivateConfigConfig) (deployment.ChangesetOutput, error) {
+func activateConfigLogic(e deployment.Environment, cfg ActivateConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.VerifierProxy.String(),
@@ -52,7 +52,7 @@ func activateConfigLogic(e deployment.Environment, cfg ActivateConfigConfig) (de
 		doActivateConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building ActivateConfig txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building ActivateConfig txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "ActivateConfig proposal")

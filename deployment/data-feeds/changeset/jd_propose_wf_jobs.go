@@ -23,7 +23,7 @@ const (
 // ProposeWFJobsToJDChangeset is a changeset that reads a feed state file, creates a workflow job spec from it and proposes it to JD.
 var ProposeWFJobsToJDChangeset = cldf.CreateChangeSet(proposeWFJobsToJDLogic, proposeWFJobsToJDPrecondition)
 
-func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsConfig) (deployment.ChangesetOutput, error) {
+func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(env.GetContext(), timeout)
 	defer cancel()
 
@@ -76,11 +76,6 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 		targetSchedule = "oneAtATime"
 	}
 
-	consensusPartialStaleness := workflowSpecConfig.ConsensusAllowedPartialStaleness
-	if consensusPartialStaleness == "" {
-		consensusPartialStaleness = "0.5"
-	}
-
 	// create the workflow YAML spec
 	workflowSpec, err := offchain.CreateWorkflowSpec(
 		feedState.Feeds,
@@ -91,7 +86,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 		workflowSpecConfig.ConsensusReportID,
 		workflowSpecConfig.ConsensusAggregationMethod,
 		consensusConfigKeyID,
-		consensusPartialStaleness,
+		workflowSpecConfig.ConsensusAllowedPartialStaleness,
 		consensusEncoderAbi,
 		deltaStageSec,
 		workflowSpecConfig.WriteTargetTrigger,
@@ -100,20 +95,20 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 		cacheAddress,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create workflow spec: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create workflow spec: %w", err)
 	}
 
 	// create workflow job spec TOML
 	workflowJobSpec, err := offchain.JobSpecFromWorkflowSpec(workflowSpec, c.WorkflowJobName, workflowState.Owner)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create workflow job spec: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create workflow job spec: %w", err)
 	}
 
 	// propose workflow jobs to JD
 	out, err := offchain.ProposeJobs(ctx, env, workflowJobSpec, &workflowSpecConfig.WorkflowName, c.NodeFilter)
 	if err != nil {
 		env.Logger.Debugf("%s", workflowJobSpec)
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose workflow job spec: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose workflow job spec: %w", err)
 	}
 
 	// write the workflow spec to artifacts/migration_name folder. Do not exit on error as the jobs are already proposed
