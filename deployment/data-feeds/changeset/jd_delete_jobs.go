@@ -18,12 +18,12 @@ const (
 // DeleteJobsJDChangeset is a changeset that deletes jobs from JD either using job ids or workflow name
 var DeleteJobsJDChangeset = cldf.CreateChangeSet(deleteJobsJDLogic, deleteJobsJDPrecondition)
 
-func deleteJobsJDLogic(env deployment.Environment, c types.DeleteJobsConfig) (deployment.ChangesetOutput, error) {
+func deleteJobsJDLogic(env deployment.Environment, c types.DeleteJobsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(env.GetContext(), deleteJobTimeout)
 	defer cancel()
 
 	offchain.DeleteJobs(ctx, env, c.JobIDs, c.WorkflowName)
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func deleteJobsJDPrecondition(_ deployment.Environment, c types.DeleteJobsConfig) error {

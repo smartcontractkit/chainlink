@@ -167,7 +167,7 @@ type WorkflowSpecConfig struct {
 	WriteTargetTrigger               string // Required
 	ConsensusRef                     string // Default "data-feeds"
 	ConsensusConfigKeyID             string // Default "evm"
-	ConsensusAllowedPartialStaleness string // Default "0.5"
+	ConsensusAllowedPartialStaleness string
 	DeltaStageSec                    *int   // Default 45
 	TargetsSchedule                  string // Default "oneAtATime"
 	TriggersMaxFrequencyMs           *int   // Default 5000

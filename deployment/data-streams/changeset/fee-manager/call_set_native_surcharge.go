@@ -10,6 +10,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
@@ -33,7 +34,7 @@ func (a SetNativeSurcharge) GetContractAddress() common.Address {
 	return a.FeeManagerAddress
 }
 
-func setNativeSurchargeLogic(e deployment.Environment, cfg SetNativeSurchargeConfig) (deployment.ChangesetOutput, error) {
+func setNativeSurchargeLogic(e deployment.Environment, cfg SetNativeSurchargeConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -42,7 +43,7 @@ func setNativeSurchargeLogic(e deployment.Environment, cfg SetNativeSurchargeCon
 		doSetNativeSurcharge,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building SetNativeSurcharge txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building SetNativeSurcharge txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "SetNativeSurcharge proposal")

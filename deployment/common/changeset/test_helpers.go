@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -27,11 +27,11 @@ import (
 )
 
 type ConfiguredChangeSet interface {
-	Apply(e deployment.Environment) (deployment.ChangesetOutput, error)
+	Apply(e deployment.Environment) (cldf.ChangesetOutput, error)
 }
 
 func Configure[C any](
-	changeset deployment.ChangeSetV2[C],
+	changeset cldf.ChangeSetV2[C],
 	config C,
 ) ConfiguredChangeSet {
 	return configuredChangeSetImpl[C]{
@@ -41,14 +41,14 @@ func Configure[C any](
 }
 
 type configuredChangeSetImpl[C any] struct {
-	changeset deployment.ChangeSetV2[C]
+	changeset cldf.ChangeSetV2[C]
 	config    C
 }
 
-func (ca configuredChangeSetImpl[C]) Apply(e deployment.Environment) (deployment.ChangesetOutput, error) {
+func (ca configuredChangeSetImpl[C]) Apply(e deployment.Environment) (cldf.ChangesetOutput, error) {
 	err := ca.changeset.VerifyPreconditions(e, ca.config)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	return ca.changeset.Apply(e, ca.config)
 }
@@ -64,7 +64,6 @@ func Apply(t *testing.T, e deployment.Environment, timelockContractsPerChain map
 func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, changesetApplications []ConfiguredChangeSet) (deployment.Environment, error) {
 	currentEnv := e
 	for i, csa := range changesetApplications {
-
 		out, err := csa.Apply(currentEnv)
 		if err != nil {
 			return e, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
@@ -169,9 +168,9 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 }
 
 // ApplyChangesetsV2 applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplications []ConfiguredChangeSet) (deployment.Environment, []deployment.ChangesetOutput, error) {
+func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplications []ConfiguredChangeSet) (deployment.Environment, []cldf.ChangesetOutput, error) {
 	currentEnv := e
-	outputs := make([]deployment.ChangesetOutput, 0, len(changesetApplications))
+	outputs := make([]cldf.ChangesetOutput, 0, len(changesetApplications))
 	for i, csa := range changesetApplications {
 		out, err := csa.Apply(currentEnv)
 		if err != nil {

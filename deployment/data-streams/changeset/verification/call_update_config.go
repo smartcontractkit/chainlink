@@ -49,7 +49,7 @@ func updateConfigPrecondition(_ deployment.Environment, cc UpdateConfigConfig) e
 	return nil
 }
 
-func updateConfigLogic(e deployment.Environment, cfg UpdateConfigConfig) (deployment.ChangesetOutput, error) {
+func updateConfigLogic(e deployment.Environment, cfg UpdateConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.VerifierProxy.String(),
@@ -58,7 +58,7 @@ func updateConfigLogic(e deployment.Environment, cfg UpdateConfigConfig) (deploy
 		doUpdateConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building UpdateConfig txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building UpdateConfig txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "UpdateConfig proposal")

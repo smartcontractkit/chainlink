@@ -9,6 +9,7 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -405,26 +406,26 @@ func addEVMSolanaPreconditions(env deployment.Environment, input AddRemoteChainE
 	return nil
 }
 
-func addEVMAndSolanaLaneLogic(env deployment.Environment, input AddRemoteChainE2EConfig) (deployment.ChangesetOutput, error) {
+func addEVMAndSolanaLaneLogic(env deployment.Environment, input AddRemoteChainE2EConfig) (cldf.ChangesetOutput, error) {
 	evmState, err := ccipchangeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load evm onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load evm onchain state: %w", err)
 	}
 	addresses, err := env.ExistingAddresses.AddressesForChain(input.SolanaChainSelector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get addresses for Solana chain: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses for Solana chain: %w", err)
 	}
 	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[input.SolanaChainSelector], addresses)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load Solana MCMS state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Solana MCMS state: %w", err)
 	}
 	if mcmState == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load Solana MCMS state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Solana MCMS state: %w", err)
 	}
 	// now populate individual inputs from the config
 	changesetInputs, err := input.populateAndValidateIndividualCSConfig(env, evmState)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	env.Logger.Infow("router input", "input", changesetInputs.solanaRouterInput)
 	deps := Dependencies{
@@ -437,7 +438,7 @@ func addEVMAndSolanaLaneLogic(env deployment.Environment, input AddRemoteChainE2
 	}
 	report, err := operations.ExecuteSequence(env.OperationsBundle, addEVMAndSolanaLaneSequence, deps, input)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to execute addEVMAndSolanaLane sequence: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute addEVMAndSolanaLane sequence: %w", err)
 	}
-	return deployment.ChangesetOutput{MCMSTimelockProposals: report.Output}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: report.Output}, nil
 }

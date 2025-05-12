@@ -39,7 +39,7 @@ import (
 )
 
 // use this changeset to deploy the CCIP contracts on solana
-var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
+var _ cldf.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
 func getTypeToProgramDeployName() map[cldf.ContractType]string {
 	return map[cldf.ContractType]string{
@@ -151,21 +151,21 @@ func (c DeployChainContractsConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
+func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
 	existingState, _ := ccipChangeset.LoadOnchainState(e)
 	err := v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	chainSel := c.ChainSelector
 	chain := e.SolChains[chainSel]
 	if existingState.SolChains[chainSel].LinkToken.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
+		return cldf.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
 	}
 
 	// prepare artifacts
@@ -175,14 +175,14 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 		e.Logger.Debugw("Building solana artifacts", "gitCommitSha", c.BuildConfig.GitCommitSha)
 		err = BuildSolana(e, *c.BuildConfig)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
 		}
 	} else {
 		e.Logger.Debugw("Skipping solana build as no build config provided")
 	}
 
 	if err := c.UpgradeConfig.Validate(e, chainSel); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid UpgradeConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid UpgradeConfig: %w", err)
 	}
 	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
 	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
@@ -200,7 +200,7 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 	mcmsTxs, err := deployChainContractsSolana(e, chain, newAddresses, c)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	// create proposals for txns
 	if len(mcmsTxs) > 0 {
@@ -220,15 +220,15 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 			"proposal to upgrade CCIP contracts",
 			*c.UpgradeConfig.MCMS)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           newAddresses,
 		}, nil
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
 }
@@ -1031,11 +1031,11 @@ type CloseBuffersConfig struct {
 	Buffers       []string
 }
 
-func CloseBuffersChangeset(e deployment.Environment, cfg CloseBuffersConfig) (deployment.ChangesetOutput, error) {
+func CloseBuffersChangeset(e deployment.Environment, cfg CloseBuffersConfig) (cldf.ChangesetOutput, error) {
 	for _, buffer := range cfg.Buffers {
 		if err := e.SolChains[cfg.ChainSelector].CloseBuffers(e.Logger, buffer); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to close buffer: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to close buffer: %w", err)
 		}
 	}
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }

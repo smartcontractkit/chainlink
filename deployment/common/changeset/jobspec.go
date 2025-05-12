@@ -40,31 +40,31 @@ func revokeJobsPrecondition(env deployment.Environment, jobIDs []string) error {
 	return nil
 }
 
-func revokeJobsLogic(env deployment.Environment, jobIDs []string) (deployment.ChangesetOutput, error) {
+func revokeJobsLogic(env deployment.Environment, jobIDs []string) (cldf.ChangesetOutput, error) {
 	var successfullyRevoked []string
 	for _, jobID := range jobIDs {
 		res, err := env.Offchain.RevokeJob(env.GetContext(), &jobv1.RevokeJobRequest{
 			IdOneof: &jobv1.RevokeJobRequest_Id{Id: jobID},
 		})
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke job %s: %w", jobID, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to revoke job %s: %w", jobID, err)
 		}
 		if res == nil {
-			return deployment.ChangesetOutput{}, errors.New("revoke job response is nil")
+			return cldf.ChangesetOutput{}, errors.New("revoke job response is nil")
 		}
 		if res.Proposal == nil || res.Proposal.Status != jobv1.ProposalStatus_PROPOSAL_STATUS_REVOKED {
-			return deployment.ChangesetOutput{}, errors.New("revoke job response is not in cancelled state")
+			return cldf.ChangesetOutput{}, errors.New("revoke job response is not in cancelled state")
 		}
 		successfullyRevoked = append(successfullyRevoked, jobID)
 	}
 	if len(successfullyRevoked) == 0 {
-		return deployment.ChangesetOutput{}, errors.New("no jobs were revoked")
+		return cldf.ChangesetOutput{}, errors.New("no jobs were revoked")
 	}
 	if len(successfullyRevoked) != len(jobIDs) {
-		return deployment.ChangesetOutput{}, fmt.Errorf("not all jobs were revoked, successfully revoked %s, expected %s", successfullyRevoked, jobIDs)
+		return cldf.ChangesetOutput{}, fmt.Errorf("not all jobs were revoked, successfully revoked %s, expected %s", successfullyRevoked, jobIDs)
 	}
 	env.Logger.Infof("successfully revoked jobs %s", successfullyRevoked)
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func deleteJobsPrecondition(env deployment.Environment, jobIDs []string) error {
@@ -91,27 +91,27 @@ func deleteJobsPrecondition(env deployment.Environment, jobIDs []string) error {
 
 // DeleteJobChangeset sends the delete job request to nodes for the given jobID.
 // nops needs to cancel the job once the request is sent by JD.
-func deleteJobsLogic(env deployment.Environment, jobIDs []string) (deployment.ChangesetOutput, error) {
+func deleteJobsLogic(env deployment.Environment, jobIDs []string) (cldf.ChangesetOutput, error) {
 	jobIDsToDelete, err := jobsToDelete(env, jobIDs)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get jobIDs to delete: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get jobIDs to delete: %w", err)
 	}
 	for _, jobID := range jobIDsToDelete {
 		res, err := env.Offchain.DeleteJob(env.GetContext(), &jobv1.DeleteJobRequest{
 			IdOneof: &jobv1.DeleteJobRequest_Id{Id: jobID},
 		})
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to delete job %s: %w", jobID, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to delete job %s: %w", jobID, err)
 		}
 		if res == nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("delete job response is nil for job %s", jobID)
+			return cldf.ChangesetOutput{}, fmt.Errorf("delete job response is nil for job %s", jobID)
 		}
 		if res.Job == nil || res.Job.DeletedAt == nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("delete job response is not in deleted state for job %s", jobID)
+			return cldf.ChangesetOutput{}, fmt.Errorf("delete job response is not in deleted state for job %s", jobID)
 		}
 	}
 	env.Logger.Infof("successfully deleted jobs %s", jobIDs)
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func jobsToDelete(env deployment.Environment, jobIDs []string) ([]string, error) {

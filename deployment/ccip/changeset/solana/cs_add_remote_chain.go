@@ -24,9 +24,9 @@ import (
 )
 
 // use these three changesets to add a remote chain to solana
-var _ deployment.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
-var _ deployment.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
-var _ deployment.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
+var _ cldf.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
+var _ cldf.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
+var _ cldf.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
 
 type AddRemoteChainToRouterConfig struct {
 	ChainSelector uint64
@@ -95,20 +95,20 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e deployment.Environment) erro
 }
 
 // Adds new remote chain configurations
-func AddRemoteChainToRouter(e deployment.Environment, cfg AddRemoteChainToRouterConfig) (deployment.ChangesetOutput, error) {
+func AddRemoteChainToRouter(e deployment.Environment, cfg AddRemoteChainToRouterConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	s, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToRouter(e, s, cfg, ab)
 	if err != nil {
-		return deployment.ChangesetOutput{AddressBook: ab}, err
+		return cldf.ChangesetOutput{AddressBook: ab}, err
 	}
 
 	// create proposals for ixns
@@ -116,14 +116,14 @@ func AddRemoteChainToRouter(e deployment.Environment, cfg AddRemoteChainToRouter
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           ab,
 		}, nil
 	}
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
 func doAddRemoteChainToRouter(
@@ -305,20 +305,20 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) e
 }
 
 // Adds new remote chain configurations
-func AddRemoteChainToFeeQuoter(e deployment.Environment, cfg AddRemoteChainToFeeQuoterConfig) (deployment.ChangesetOutput, error) {
+func AddRemoteChainToFeeQuoter(e deployment.Environment, cfg AddRemoteChainToFeeQuoterConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	s, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToFeeQuoter(e, s, cfg, ab)
 	if err != nil {
-		return deployment.ChangesetOutput{AddressBook: ab}, err
+		return cldf.ChangesetOutput{AddressBook: ab}, err
 	}
 
 	// create proposals for ixns
@@ -326,14 +326,14 @@ func AddRemoteChainToFeeQuoter(e deployment.Environment, cfg AddRemoteChainToFee
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           ab,
 		}, nil
 	}
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
 func doAddRemoteChainToFeeQuoter(
@@ -473,20 +473,20 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) err
 }
 
 // Adds new remote chain configurations
-func AddRemoteChainToOffRamp(e deployment.Environment, cfg AddRemoteChainToOffRampConfig) (deployment.ChangesetOutput, error) {
+func AddRemoteChainToOffRamp(e deployment.Environment, cfg AddRemoteChainToOffRampConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	s, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToOffRamp(e, s, cfg, ab)
 	if err != nil {
-		return deployment.ChangesetOutput{AddressBook: ab}, err
+		return cldf.ChangesetOutput{AddressBook: ab}, err
 	}
 
 	// create proposals for ixns
@@ -494,14 +494,14 @@ func AddRemoteChainToOffRamp(e deployment.Environment, cfg AddRemoteChainToOffRa
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           ab,
 		}, nil
 	}
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
 func doAddRemoteChainToOffRamp(

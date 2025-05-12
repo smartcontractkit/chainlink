@@ -192,58 +192,58 @@ func updateBidirectionalLanesPrecondition(e deployment.Environment, c UpdateBidi
 	return nil
 }
 
-func updateBidirectionalLanesLogic(e deployment.Environment, c UpdateBidirectionalLanesConfig) (deployment.ChangesetOutput, error) {
+func updateBidirectionalLanesLogic(e deployment.Environment, c UpdateBidirectionalLanesConfig) (cldf.ChangesetOutput, error) {
 	proposals := make([]mcms.TimelockProposal, 0)
 	configs := c.BuildConfigs()
 
 	out, err := UpdateFeeQuoterDestsChangeset(e, configs.UpdateFeeQuoterDestsConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset: %w", err)
 	}
 	proposals = append(proposals, out.MCMSTimelockProposals...)
 	e.Logger.Info("Destination configs updated on FeeQuoters")
 
 	out, err = UpdateFeeQuoterPricesChangeset(e, configs.UpdateFeeQuoterPricesConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset: %w", err)
 	}
 	proposals = append(proposals, out.MCMSTimelockProposals...)
 	e.Logger.Info("Gas prices updated on FeeQuoters")
 
 	out, err = UpdateOnRampsDestsChangeset(e, configs.UpdateOnRampDestsConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOnRampDestsChangeset: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOnRampDestsChangeset: %w", err)
 	}
 	proposals = append(proposals, out.MCMSTimelockProposals...)
 	e.Logger.Info("Destination configs updated on OnRamps")
 
 	out, err = UpdateOffRampSourcesChangeset(e, configs.UpdateOffRampSourcesConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOffRampSourcesChangeset: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOffRampSourcesChangeset: %w", err)
 	}
 	proposals = append(proposals, out.MCMSTimelockProposals...)
 	e.Logger.Info("Source configs updated on OffRamps")
 
 	out, err = UpdateRouterRampsChangeset(e, configs.UpdateRouterRampsConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateRouterRampsChangeset: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateRouterRampsChangeset: %w", err)
 	}
 	proposals = append(proposals, out.MCMSTimelockProposals...)
 	e.Logger.Info("Ramps updated on Routers")
 
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), nil, proposals, nil, "Update multiple bidirectional lanes", c.MCMSConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 	}
 	if proposal == nil {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 	}, nil
 }

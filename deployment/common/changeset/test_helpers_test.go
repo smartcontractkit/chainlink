@@ -25,9 +25,9 @@ func TestChangeSetLegacyFunction_PassingCase(t *testing.T) {
 	executedValidator := false
 
 	csv2 := cldf.CreateChangeSet(
-		func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
+		func(e deployment.Environment, config uint32) (cldf.ChangesetOutput, error) {
 			executedCs = true
-			return deployment.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
+			return cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
 		},
 		func(e deployment.Environment, config uint32) error {
 			executedValidator = true
@@ -50,9 +50,9 @@ func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 	executedValidator := false
 
 	csv2 := cldf.CreateChangeSet(
-		func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
+		func(e deployment.Environment, config uint32) (cldf.ChangesetOutput, error) {
 			executedCs = true
-			return deployment.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
+			return cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
 		},
 		func(e deployment.Environment, config uint32) error {
 			executedValidator = true
@@ -91,7 +91,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 
 	changesets := []ConfiguredChangeSet{
 		Configure(cldf.CreateChangeSet(
-			func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
+			func(e deployment.Environment, config uint32) (cldf.ChangesetOutput, error) {
 				ds := datastore.NewMemoryDataStore[
 					datastore.DefaultMetadata,
 					datastore.DefaultMetadata,
@@ -107,7 +107,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 						Qualifier:     "qualifier1",
 					},
 				); err != nil {
-					return deployment.ChangesetOutput{}, err
+					return cldf.ChangesetOutput{}, err
 				}
 
 				// Add ContractMetadata
@@ -117,10 +117,10 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					Metadata:      datastore.DefaultMetadata{Data: "test"},
 				})
 				if err != nil {
-					return deployment.ChangesetOutput{}, err
+					return cldf.ChangesetOutput{}, err
 				}
 
-				return deployment.ChangesetOutput{
+				return cldf.ChangesetOutput{
 					AddressBook: cldf.NewMemoryAddressBook(),
 					DataStore:   ds,
 				}, nil

@@ -2,10 +2,11 @@ package solana
 
 import (
 	"context"
-
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -20,7 +21,7 @@ import (
 )
 
 // use this changeset to disable a remote chain on solana
-var _ deployment.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
+var _ cldf.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
 
 type DisableRemoteChainConfig struct {
 	ChainSelector uint64
@@ -75,19 +76,19 @@ func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) (deployment.ChangesetOutput, error) {
+func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	s, err := cs.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	txns, err := doDisableRemoteChain(e, s, cfg)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	// create proposals for ixns
@@ -95,13 +96,13 @@ func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) 
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to disable remote chains in Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func doDisableRemoteChain(

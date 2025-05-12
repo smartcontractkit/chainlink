@@ -72,7 +72,7 @@ func SetFeeManagerPrecondition(e deployment.Environment, sf SetFeeManagerConfig)
 	return nil
 }
 
-func SetFeeManagerLogic(e deployment.Environment, cfg SetFeeManagerConfig) (deployment.ChangesetOutput, error) {
+func SetFeeManagerLogic(e deployment.Environment, cfg SetFeeManagerConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -81,7 +81,7 @@ func SetFeeManagerLogic(e deployment.Environment, cfg SetFeeManagerConfig) (depl
 		doSetFeeManager,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building SetFeeManager txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building SetFeeManager txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "SetFeeManager proposal")

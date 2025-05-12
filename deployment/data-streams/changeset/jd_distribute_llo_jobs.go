@@ -9,11 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
-var _ deployment.ChangeSetV2[CsDistributeLLOJobSpecsConfig] = CsDistributeLLOJobSpecs{}
+var _ cldf.ChangeSetV2[CsDistributeLLOJobSpecsConfig] = CsDistributeLLOJobSpecs{}
 
 const (
 	lloJobMaxTaskDuration             = jobs.TOMLDuration(time.Second)
@@ -53,13 +53,13 @@ type CsDistributeLLOJobSpecsConfig struct {
 
 type CsDistributeLLOJobSpecs struct{}
 
-func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig) (deployment.ChangesetOutput, error) {
+func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(e.GetContext(), defaultJobSpecsTimeout)
 	defer cancel()
 
 	chainID, _, err := chainAndAddresses(e, cfg.ChainSelectorEVM)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	// Add a label to the job spec to identify the related DON
@@ -75,7 +75,7 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 
 	bootstrapProposals, err := generateBootstrapProposals(ctx, e, cfg, chainID, labels)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate bootstrap proposals: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate bootstrap proposals: %w", err)
 	}
 	// These will be empty when we send only oracle jobs. In that case we'll fetch the bootstrappers by the don
 	// identifier label.
@@ -85,20 +85,20 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 	}
 	oracleProposals, err := generateOracleProposals(ctx, e, cfg, chainID, labels, boostrapNodeIDs)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate oracle proposals: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate oracle proposals: %w", err)
 	}
 	allProposals := append(bootstrapProposals, oracleProposals...) //nolint: gocritic // ignore a silly rule
 	proposedJobs, err := proposeAllOrNothing(ctx, e.Offchain, allProposals)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose all jobs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose all jobs: %w", err)
 	}
 
 	err = labelNodesForProposals(e.GetContext(), e.Offchain, allProposals, utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName))
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to label nodes for proposals: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to label nodes for proposals: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		Jobs: proposedJobs,
 	}, nil
 }

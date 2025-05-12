@@ -9,8 +9,10 @@ import (
 	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -210,29 +212,29 @@ func (r *AddNodesRequest) Validate(env deployment.Environment) error {
 	return nil
 }
 
-var _ deployment.ChangeSet[*AddNodesRequest] = AddNodes
+var _ cldf.ChangeSet[*AddNodesRequest] = AddNodes
 
-func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.ChangesetOutput, error) {
+func AddNodes(env deployment.Environment, req *AddNodesRequest) (cldf.ChangesetOutput, error) {
 	err := req.Validate(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
 	}
 
 	capReg, err := loadCapabilityRegistry(env.Chains[req.RegistryChainSel], env, req.RegistryRef)
 
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load capability registry sets: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry sets: %w", err)
 	}
 
 	nodeParams := make(map[string]kcr.CapabilitiesRegistryNodeParams)
 	for nodeName, cr := range req.CreateNodeRequests {
 		params, err := cr.Resolve(capReg.Contract)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to resolve node params for node %s: %w", nodeName, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to resolve node params for node %s: %w", nodeName, err)
 		}
 		p2p := string(params.P2pId[:])
 		if _, exists := nodeParams[p2p]; exists {
-			return deployment.ChangesetOutput{}, fmt.Errorf("duplicate p2pid %s at node %s", p2p, nodeName)
+			return cldf.ChangesetOutput{}, fmt.Errorf("duplicate p2pid %s at node %s", p2p, nodeName)
 		}
 		nodeParams[p2p] = params
 	}
@@ -248,10 +250,10 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 		UseMCMS:              useMCMS,
 	})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to add nodes: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add nodes: %w", err)
 	}
 	// create mcms proposal if needed
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if useMCMS {
 		if resp.Ops == nil || len(resp.Ops.Transactions) == 0 {
 			return out, errors.New("expected MCMS operation to be non-nil")
@@ -264,7 +266,7 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		inspectorPerChain := map[uint64]mcmssdk.Inspector{
 			req.RegistryChainSel: inspector,

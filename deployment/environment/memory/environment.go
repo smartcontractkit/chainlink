@@ -59,6 +59,21 @@ type MemoryEnvironmentConfig struct {
 	CustomDBSetup      []string // SQL queries to run after DB creation
 }
 
+type NewNodesConfig struct {
+	LogLevel zapcore.Level
+	// EVM chains to be configured. Optional.
+	Chains map[uint64]deployment.Chain
+	// Solana chains to be configured. Optional.
+	SolChains map[uint64]deployment.SolChain
+	// Aptos chains to be configured. Optional.
+	AptosChains    map[uint64]deployment.AptosChain
+	NumNodes       int
+	NumBootstraps  int
+	RegistryConfig deployment.CapabilityRegistryConfig
+	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
+	CustomDBSetup []string
+}
+
 // For placeholders like aptos
 func NewMemoryChain(t *testing.T, selector uint64) deployment.Chain {
 	return deployment.Chain{
@@ -170,32 +185,45 @@ func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]deployment
 
 func NewNodes(
 	t *testing.T,
-	logLevel zapcore.Level,
-	chains map[uint64]deployment.Chain,
-	solChains map[uint64]deployment.SolChain,
-	aptosChains map[uint64]deployment.AptosChain,
-	numNodes,
-	numBootstraps int,
-	registryConfig deployment.CapabilityRegistryConfig,
-	customDBSetup []string, // SQL queries to run after DB creation
+	cfg NewNodesConfig,
 	configOpts ...ConfigOpt,
 ) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
-	if numNodes+numBootstraps == 0 {
+	if cfg.NumNodes+cfg.NumBootstraps == 0 {
 		return nodesByPeerID
 	}
-	ports := freeport.GetN(t, numBootstraps+numNodes)
+	ports := freeport.GetN(t, cfg.NumNodes+cfg.NumBootstraps)
 	// bootstrap nodes must be separate nodes from plugin nodes,
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
-	for i := 0; i < numBootstraps; i++ {
-		node := NewNode(t, ports[i], chains, solChains, aptosChains, logLevel, true /* bootstrap */, registryConfig, customDBSetup, configOpts...)
+	for i := 0; i < cfg.NumBootstraps; i++ {
+		c := NewNodeConfig{
+			Port:           ports[i],
+			Chains:         cfg.Chains,
+			Solchains:      cfg.SolChains,
+			Aptoschains:    cfg.AptosChains,
+			LogLevel:       cfg.LogLevel,
+			Bootstrap:      true,
+			RegistryConfig: cfg.RegistryConfig,
+			CustomDBSetup:  cfg.CustomDBSetup,
+		}
+		node := NewNode(t, c, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
-	for i := 0; i < numNodes; i++ {
+	for i := 0; i < cfg.NumNodes; i++ {
+		c := NewNodeConfig{
+			Port:           ports[cfg.NumBootstraps+i],
+			Chains:         cfg.Chains,
+			Solchains:      cfg.SolChains,
+			Aptoschains:    cfg.AptosChains,
+			LogLevel:       cfg.LogLevel,
+			Bootstrap:      false,
+			RegistryConfig: cfg.RegistryConfig,
+			CustomDBSetup:  cfg.CustomDBSetup,
+		}
 		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, ports[numBootstraps+i], chains, solChains, aptosChains, logLevel, false /* bootstrap */, registryConfig, customDBSetup, configOpts...)
+		node := NewNode(t, c, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
@@ -237,7 +265,17 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
 	solChains := NewMemoryChainsSol(t, config.SolChains)
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
-	nodes := NewNodes(t, logLevel, chains, solChains, aptosChains, config.Nodes, config.Bootstraps, config.RegistryConfig, config.CustomDBSetup)
+	c := NewNodesConfig{
+		LogLevel:       logLevel,
+		Chains:         chains,
+		SolChains:      solChains,
+		AptosChains:    aptosChains,
+		NumNodes:       config.Nodes,
+		NumBootstraps:  config.Bootstraps,
+		RegistryConfig: config.RegistryConfig,
+		CustomDBSetup:  config.CustomDBSetup,
+	}
+	nodes := NewNodes(t, c)
 	var nodeIDs []string
 	for id, node := range nodes {
 		require.NoError(t, node.App.Start(t.Context()))

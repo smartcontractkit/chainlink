@@ -16,12 +16,12 @@ import (
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
 var ConfirmAggregatorChangeset = cldf.CreateChangeSet(confirmAggregatorLogic, confirmAggregatorPrecondition)
 
-func confirmAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAggregatorConfig) (deployment.ChangesetOutput, error) {
+func confirmAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAggregatorConfig) (cldf.ChangesetOutput, error) {
 	chain := env.Chains[c.ChainSelector]
 
 	aggregatorProxy, err := proxy.NewAggregatorProxy(c.ProxyAddress, chain.Client)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load AggregatorProxy: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load AggregatorProxy: %w", err)
 	}
 
 	txOpt := chain.DeployerKey
@@ -43,16 +43,16 @@ func confirmAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAg
 
 		proposal, err := BuildMultiChainProposals(env, "proposal to confirm a new aggregator", proposalConfig, c.McmsConfig.MinDelay)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+		return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
 
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func confirmAggregatorPrecondition(env deployment.Environment, c types.ProposeConfirmAggregatorConfig) error {

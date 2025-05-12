@@ -3,8 +3,9 @@ package changeset
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 

@@ -23,20 +23,20 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-var _ deployment.ChangeSet[[]uint64] = DeployLinkToken
+var _ cldf.ChangeSet[[]uint64] = DeployLinkToken
 
 // DeployLinkToken deploys a link token contract to the chain identified by the ChainSelector.
-func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.ChangesetOutput, error) {
+func DeployLinkToken(e deployment.Environment, chains []uint64) (cldf.ChangesetOutput, error) {
 	err := deployment.ValidateSelectorsInEnvironment(e, chains)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
 	deployGrp := errgroup.Group{}
 	for _, chain := range chains {
 		family, err := chainsel.GetSelectorFamily(chain)
 		if err != nil {
-			return deployment.ChangesetOutput{AddressBook: newAddresses}, err
+			return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 		}
 		var deployFn func() error
 		switch family {
@@ -58,20 +58,20 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.Chan
 			return nil
 		})
 	}
-	return deployment.ChangesetOutput{AddressBook: newAddresses}, deployGrp.Wait()
+	return cldf.ChangesetOutput{AddressBook: newAddresses}, deployGrp.Wait()
 }
 
 // DeployStaticLinkToken deploys a static link token contract to the chain identified by the ChainSelector.
-func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (deployment.ChangesetOutput, error) {
+func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (cldf.ChangesetOutput, error) {
 	err := deployment.ValidateSelectorsInEnvironment(e, chains)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
 	for _, chainSel := range chains {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment: %d", chainSel)
+			return cldf.ChangesetOutput{}, fmt.Errorf("chain not found in environment: %d", chainSel)
 		}
 		_, err := cldf.DeployContract[*link_token_interface.LinkToken](e.Logger, chain, newAddresses,
 			func(chain deployment.Chain) cldf.ContractDeploy[*link_token_interface.LinkToken] {
@@ -89,10 +89,10 @@ func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (deploymen
 			})
 		if err != nil {
 			e.Logger.Errorw("Failed to deploy static link token", "chain", chain.String(), "err", err)
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
-	return deployment.ChangesetOutput{AddressBook: newAddresses}, nil
+	return cldf.ChangesetOutput{AddressBook: newAddresses}, nil
 }
 
 func deployLinkTokenContractEVM(
@@ -127,7 +127,7 @@ type DeploySolanaLinkTokenConfig struct {
 	TokenDecimals uint8
 }
 
-func DeploySolanaLinkToken(e deployment.Environment, cfg DeploySolanaLinkTokenConfig) (deployment.ChangesetOutput, error) {
+func DeploySolanaLinkToken(e deployment.Environment, cfg DeploySolanaLinkTokenConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
 	mint := cfg.TokenPrivKey
 	instructions, err := solTokenUtil.CreateToken(
@@ -141,12 +141,12 @@ func DeploySolanaLinkToken(e deployment.Environment, cfg DeploySolanaLinkTokenCo
 	)
 	if err != nil {
 		e.Logger.Errorw("Failed to generate instructions for link token deployment", "chain", chain.String(), "err", err)
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	err = chain.Confirm(instructions, solCommonUtil.AddSigners(mint))
 	if err != nil {
 		e.Logger.Errorw("Failed to confirm instructions for link token deployment", "chain", chain.String(), "err", err)
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	tv := cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
 	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.PublicKey().String(), "chain", chain.String())
@@ -154,9 +154,9 @@ func DeploySolanaLinkToken(e deployment.Environment, cfg DeploySolanaLinkTokenCo
 	err = newAddresses.Save(chain.Selector, mint.PublicKey().String(), tv)
 	if err != nil {
 		e.Logger.Errorw("Failed to save link token", "chain", chain.String(), "err", err)
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
 }
