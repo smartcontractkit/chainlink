@@ -21,6 +21,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -855,7 +857,7 @@ func (cfg UpdateFeeQuoterPricesConfig) Validate(e deployment.Environment) error 
 			if token == (common.Address{}) {
 				return fmt.Errorf("token address for chain %d is empty", chainSel)
 			}
-			contains, err := deployment.AddressBookContains(e.ExistingAddresses, chainSel, token.String())
+			contains, err := cldf.AddressBookContains(e.ExistingAddresses, chainSel, token.String())
 			if err != nil {
 				return fmt.Errorf("error checking address book for token %s: %w", token.String(), err)
 			}

@@ -11,6 +11,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -28,7 +30,7 @@ type DeployForwarderRequest struct {
 // Deprecated: use DeployForwarderV2 instead
 func DeployForwarderX(env deployment.Environment, cfg DeployForwarderRequest) (deployment.ChangesetOutput, error) {
 	lggr := env.Logger
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	selectors := cfg.ChainSelectors
 	if len(selectors) == 0 {
 		selectors = slices.Collect(maps.Keys(env.Chains))
@@ -51,7 +53,7 @@ func DeployForwarderX(env deployment.Environment, cfg DeployForwarderRequest) (d
 
 func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (deployment.ChangesetOutput, error) {
 	var out deployment.ChangesetOutput
-	out.AddressBook = deployment.NewMemoryAddressBook() //nolint:staticcheck // TODO CRE-400
+	out.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // TODO CRE-400
 	out.DataStore = datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
 
 	selectors := cfg.ChainSelectors

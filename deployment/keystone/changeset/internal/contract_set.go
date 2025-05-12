@@ -4,18 +4,20 @@ import (
 	"context"
 	"fmt"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 type deployContractsRequest struct {
 	chain           deployment.Chain
 	isRegistryChain bool
-	ad              deployment.AddressBook
+	ad              cldf.AddressBook
 }
 
 // DeployCapabilitiesRegistry deploys the CapabilitiesRegistry contract to the chain
 // and saves the address in the address book. This mutates the address book.
-func DeployCapabilitiesRegistry(_ context.Context, chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
+func DeployCapabilitiesRegistry(_ context.Context, chain deployment.Chain, ab cldf.AddressBook) (*DeployResponse, error) {
 	capabilitiesRegistryDeployer, err := NewCapabilitiesRegistryDeployer()
 	capabilitiesRegistryResp, err := capabilitiesRegistryDeployer.Deploy(DeployRequest{Chain: chain})
 	if err != nil {
@@ -30,7 +32,7 @@ func DeployCapabilitiesRegistry(_ context.Context, chain deployment.Chain, ab de
 
 // DeployOCR3 deploys the OCR3Capability contract to the chain
 // and saves the address in the address book. This mutates the address book.
-func DeployOCR3(_ context.Context, chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
+func DeployOCR3(_ context.Context, chain deployment.Chain, ab cldf.AddressBook) (*DeployResponse, error) {
 	ocr3Deployer, err := NewOCR3Deployer()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OCR3Deployer: %w", err)
@@ -49,7 +51,7 @@ func DeployOCR3(_ context.Context, chain deployment.Chain, ab deployment.Address
 
 // DeployForwarder deploys the KeystoneForwarder contract to the chain
 // and saves the address in the address book. This mutates the address book.
-func DeployForwarder(ctx context.Context, chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
+func DeployForwarder(ctx context.Context, chain deployment.Chain, ab cldf.AddressBook) (*DeployResponse, error) {
 	forwarderDeployer, err := NewKeystoneForwarderDeployer()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KeystoneForwarderDeployer: %w", err)
@@ -67,7 +69,7 @@ func DeployForwarder(ctx context.Context, chain deployment.Chain, ab deployment.
 
 // DeployFeedsConsumer deploys the KeystoneFeedsConsumer contract to the chain
 // and saves the address in the address book. This mutates the address book.
-func DeployFeedsConsumer(_ context.Context, chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
+func DeployFeedsConsumer(_ context.Context, chain deployment.Chain, ab cldf.AddressBook) (*DeployResponse, error) {
 	consumerDeploy, err := NewKeystoneFeedsConsumerDeployer()
 	if err != nil {
 		return nil, err
@@ -85,7 +87,7 @@ func DeployFeedsConsumer(_ context.Context, chain deployment.Chain, ab deploymen
 
 // DeployForwarder deploys the BalanceReader contract to the chain
 // and saves the address in the address book. This mutates the address book.
-func DeployBalanceReader(_ context.Context, chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
+func DeployBalanceReader(_ context.Context, chain deployment.Chain, ab cldf.AddressBook) (*DeployResponse, error) {
 	balanceReaderDeployer, err := NewBalanceReaderDeployer()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create BalanceReaderDeployer: %w", err)

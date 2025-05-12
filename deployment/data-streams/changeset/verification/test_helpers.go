@@ -5,6 +5,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
+
+	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -43,10 +48,9 @@ func DeployVerifierProxyAndVerifier(
 	require.NoError(t, err, "deploying verifier proxy should not fail")
 
 	// Get the VerifierProxy address
-	verifierProxyAddrHex, err := deployment.SearchAddressBook(env.ExistingAddresses, chainSelector, dsTypes.VerifierProxy)
-	require.NoError(t, err, "unable to find verifier proxy address in address book")
-	verifierProxyAddr = common.HexToAddress(verifierProxyAddrHex)
-	require.NotEqual(t, common.Address{}, verifierProxyAddr, "verifier proxy should not be zero address")
+	record, err := env.DataStore.Addresses().Get(ds.NewAddressRefKey(chainSelector, ds.ContractType(dsTypes.VerifierProxy), &deployment.Version0_5_0, ""))
+	require.NoError(t, err)
+	verifierProxyAddr = common.HexToAddress(record.Address)
 
 	// 2) Deploy Verifier
 	deployVerifierCfg := DeployVerifierConfig{
@@ -65,18 +69,17 @@ func DeployVerifierProxyAndVerifier(
 	require.NoError(t, err, "deploying verifier should not fail")
 
 	// Get the Verifier address
-	verifierAddrHex, err := deployment.SearchAddressBook(env.ExistingAddresses, chainSelector, dsTypes.Verifier)
-	require.NoError(t, err, "unable to find verifier address in address book")
-	verifierAddr = common.HexToAddress(verifierAddrHex)
-	require.NotEqual(t, common.Address{}, verifierAddr, "verifier should not be zero address")
+	record, err = env.DataStore.Addresses().Get(ds.NewAddressRefKey(chainSelector, ds.ContractType(dsTypes.Verifier), &deployment.Version0_5_0, ""))
+	require.NoError(t, err)
+	verifierAddr = common.HexToAddress(record.Address)
 
 	// 3) Initialize the VerifierProxy
 	initCfg := VerifierProxyInitializeVerifierConfig{
 		ConfigPerChain: map[uint64][]InitializeVerifierConfig{
 			chainSelector: {
 				{
-					VerifierAddress: verifierAddr,
-					ContractAddress: verifierProxyAddr,
+					VerifierAddress:      verifierAddr,
+					VerifierProxyAddress: verifierProxyAddr,
 				},
 			},
 		},
@@ -89,8 +92,36 @@ func DeployVerifierProxyAndVerifier(
 	)
 	require.NoError(t, err, "initializing verifier proxy should not fail")
 
-	t.Logf("VerifierProxy deployed at %s, Verifier deployed at %s, and successfully initialized",
-		verifierProxyAddrHex, verifierAddrHex)
-
 	return env, verifierProxyAddr, verifierAddr
+}
+
+func VerifyVerifierState(
+	t *testing.T,
+	inDs ds.MutableDataStore[ds.DefaultMetadata, ds.DefaultMetadata],
+	chainSelector uint64,
+	contractAddress common.Address,
+	expectedConfig SetConfig,
+	shouldConfigBeActive bool,
+) {
+	contractMetadata := testutil.MustGetContractMetaData[v0_5.VerifierView](t, inDs, chainSelector, contractAddress.Hex())
+
+	configDigestString := dsutil.HexEncodeBytes32(expectedConfig.ConfigDigest)
+
+	// Retrieve the config state
+	configState, err := contractMetadata.View.GetVerifierState(configDigestString)
+	require.NoError(t, err, "Failed to get config state")
+
+	// Verify basic configuration properties
+	require.Equal(t, expectedConfig.F, configState.F, "F value mismatch")
+	require.Equal(t, configDigestString, configState.ConfigDigest, "ConfigDigest mismatch")
+	require.Equal(t, shouldConfigBeActive, configState.IsActive, "IsActive mismatch")
+
+	stringSigners := make([]string, len(expectedConfig.Signers))
+	for i, signer := range expectedConfig.Signers {
+		stringSigners[i] = signer.String()
+	}
+
+	require.Equal(t, stringSigners, configState.Signers, "Signers mismatch")
+
+	t.Log("All state verifications passed")
 }

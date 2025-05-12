@@ -18,11 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -51,7 +53,7 @@ func validateMemberOfTokenPoolPair(
 	state changeset.CCIPOnChainState,
 	tokenPool *token_pool.TokenPool,
 	expectedRemotePools []common.Address,
-	tokens map[uint64]*deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677],
+	tokens map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677],
 	tokenSymbol changeset.TokenSymbol,
 	chainSelector uint64,
 	rate *big.Int,
@@ -684,14 +686,14 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	evmSelectors := []uint64{e.AllChainSelectors()[0]}
 	solanaSelectors := e.AllChainSelectorsSolana()
 
-	addressBook := deployment.NewMemoryAddressBook()
+	addressBook := cldf.NewMemoryAddressBook()
 
 	///////////////////////////
 	// DEPLOY EVM TOKEN POOL //
 	///////////////////////////
 	for _, selector := range evmSelectors {
-		token, err := deployment.DeployContract(e.Logger, e.Chains[selector], addressBook,
-			func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+		token, err := cldf.DeployContract(e.Logger, e.Chains[selector], addressBook,
+			func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 				tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 					e.Chains[selector].DeployerKey,
 					e.Chains[selector].Client,
@@ -700,10 +702,10 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 					testhelpers.LocalTokenDecimals,
 					big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 				)
-				return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+				return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 					Address:  tokenAddress,
 					Contract: token,
-					Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+					Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 					Tx:       tx,
 					Err:      err,
 				}
@@ -738,13 +740,14 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		state, err := changeset.LoadOnchainState(e)
 		require.NoError(t, err)
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
+		bnm := solTestTokenPool.BurnAndMint_PoolType
 		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 				changeset_solana.TokenPoolConfig{
 					ChainSelector: selector,
 					TokenPubKey:   tokenAddress,
-					PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+					PoolType:      &bnm,
 				},
 			),
 		})
@@ -843,6 +846,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		require.NoError(t, err)
 		onchainState, err := changeset.LoadOnchainState(e)
 		require.NoError(t, err)
+		bnm := solTestTokenPool.BurnAndMint_PoolType
 		for _, tokenAddress := range onchainState.SolChains[selector].SPL2022Tokens {
 			if slices.Contains(tokensBefore, tokenAddress) {
 				continue
@@ -853,7 +857,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 					changeset_solana.TokenPoolConfig{
 						ChainSelector: selector,
 						TokenPubKey:   tokenAddress,
-						PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+						PoolType:      &bnm,
 					},
 				),
 			})

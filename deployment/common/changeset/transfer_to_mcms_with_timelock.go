@@ -19,6 +19,9 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -55,7 +58,7 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 		for _, contract := range contracts {
 			// Cannot transfer an unknown address.
 			// Note this also assures non-zero addresses.
-			if exists, err := deployment.AddressBookContains(e.ExistingAddresses, chainSelector, contract.String()); err != nil || !exists {
+			if exists, err := cldf.AddressBookContains(e.ExistingAddresses, chainSelector, contract.String()); err != nil || !exists {
 				if err != nil {
 					return fmt.Errorf("failed to check address book: %w", err)
 				}
@@ -70,10 +73,10 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 			}
 		}
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
-		if _, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock); err != nil {
+		if _, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock); err != nil {
 			return fmt.Errorf("timelock not present on the chain %w", err)
 		}
-		if _, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig); err != nil {
+		if _, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig); err != nil {
 			return fmt.Errorf("mcms proposer not present on the chain %w", err)
 		}
 	}
@@ -102,8 +105,8 @@ func TransferToMCMSWithTimelock(
 	proposersByChain := make(map[uint64]*owner_helpers.ManyChainMultiSig)
 	for chainSelector, contracts := range cfg.ContractsByChain {
 		// Already validated that the timelock/proposer exists.
-		timelockAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
-		proposerAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
+		timelockAddr, _ := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
+		proposerAddr, _ := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
 		timelocksByChain[chainSelector] = common.HexToAddress(timelockAddr)
 		proposer, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(proposerAddr), e.Chains[chainSelector].Client)
 		if err != nil {
@@ -166,8 +169,8 @@ func TransferToMCMSWithTimelockV2(
 	proposerAddressByChain := make(map[uint64]string)
 	for chainSelector, contracts := range cfg.ContractsByChain {
 		// Already validated that the timelock/proposer exists.
-		timelockAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
-		proposerAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
+		timelockAddr, _ := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
+		proposerAddr, _ := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
 		timelockAddressByChain[chainSelector] = timelockAddr
 		proposerAddressByChain[chainSelector] = proposerAddr
 		inspectorPerChain[chainSelector] = evm.NewInspector(e.Chains[chainSelector].Client)

@@ -20,6 +20,8 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -55,7 +57,7 @@ func (d EvmDescribedTransaction) ToMCMS(selector uint64) (mcmstypes.Transaction,
 type SolanaDescribedTransaction struct {
 	Tx           solana.Instruction
 	ProgramID    string
-	ContractType deployment.ContractType
+	ContractType cldf.ContractType
 	Description  string
 }
 
@@ -246,7 +248,7 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 	return sim, nil
 }
 
-type DeployerForSVM func(solana.PublicKey) (solana.Instruction, string, deployment.ContractType, error)
+type DeployerForSVM func(solana.PublicKey) (solana.Instruction, string, cldf.ContractType, error)
 
 func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (solana.Instruction, error), error) {
 	var authority solana.PublicKey = d.e.SolChains[chain].DeployerKey.PublicKey()
@@ -525,6 +527,6 @@ func BuildMcmAddressesPerChainByAction(e deployment.Environment, onchainState CC
 	return addressPerChain, nil
 }
 
-func addressForChain(e deployment.Environment, selector uint64) (map[string]deployment.TypeAndVersion, error) {
+func addressForChain(e deployment.Environment, selector uint64) (map[string]cldf.TypeAndVersion, error) {
 	return e.ExistingAddresses.AddressesForChain(selector) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
 }

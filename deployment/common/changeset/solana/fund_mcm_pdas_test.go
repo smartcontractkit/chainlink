@@ -12,11 +12,11 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -40,7 +40,7 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 	err := testhelpers.SavePreloadedSolAddresses(env, chainSelector)
 	require.NoError(t, err)
 	// Initialize the address book with a dummy address to avoid deploy precondition errors.
-	err = env.ExistingAddresses.Save(chainSelector, "dummyAddress", deployment.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
+	err = env.ExistingAddresses.Save(chainSelector, "dummyAddress", cldf.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
 	require.NoError(t, err)
 
 	// Deploy MCMS and Timelock
@@ -83,22 +83,22 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		mcmDummyProgram,
 		[32]byte{'t', 'e', 's', 't', '3'},
 	)
-	err := validEnv.ExistingAddresses.Save(validSolChainSelector, timelockID, deployment.TypeAndVersion{
+	err := validEnv.ExistingAddresses.Save(validSolChainSelector, timelockID, cldf.TypeAndVersion{
 		Type:    types.RBACTimelock,
 		Version: deployment.Version1_0_0,
 	})
 	require.NoError(t, err)
-	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsProposerID, deployment.TypeAndVersion{
+	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsProposerID, cldf.TypeAndVersion{
 		Type:    types.ProposerManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
 	require.NoError(t, err)
-	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsCancellerID, deployment.TypeAndVersion{
+	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsCancellerID, cldf.TypeAndVersion{
 		Type:    types.CancellerManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
 	require.NoError(t, err)
-	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsBypasserID, deployment.TypeAndVersion{
+	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsBypasserID, cldf.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
@@ -116,7 +116,7 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		Nodes:     1,
 	})
 	noMCMSEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
-	err = noMCMSEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, deployment.TypeAndVersion{
+	err = noMCMSEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, cldf.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
@@ -236,8 +236,6 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 }
 
 func TestFundMCMSignersChangeset_Apply(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-403")
-
 	t.Parallel()
 	env := setupFundingTestEnv(t)
 	cfgAmounts := commonSolana.AmountsToTransfer{

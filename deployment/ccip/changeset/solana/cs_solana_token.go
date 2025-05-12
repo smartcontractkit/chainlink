@@ -8,6 +8,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
@@ -67,7 +68,7 @@ func createATAIx(e deployment.Environment, chain deployment.SolChain, tokenprogr
 // might need to take authority private key if it needs to sign that
 type DeploySolanaTokenConfig struct {
 	ChainSelector       uint64
-	TokenProgramName    deployment.ContractType
+	TokenProgramName    cldf.ContractType
 	TokenDecimals       uint8
 	TokenSymbol         string
 	ATAList             []string          // addresses to create ATAs for
@@ -136,8 +137,8 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (d
 		return deployment.ChangesetOutput{}, err
 	}
 
-	newAddresses := deployment.NewMemoryAddressBook()
-	tv := deployment.NewTypeAndVersion(deployment.ContractType(cfg.TokenProgramName), deployment.Version1_0_0)
+	newAddresses := cldf.NewMemoryAddressBook()
+	tv := cldf.NewTypeAndVersion(cldf.ContractType(cfg.TokenProgramName), deployment.Version1_0_0)
 	tv.AddLabel(cfg.TokenSymbol)
 	err = newAddresses.Save(cfg.ChainSelector, mint.String(), tv)
 	if err != nil {
@@ -220,7 +221,7 @@ func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (deplo
 type CreateSolanaTokenATAConfig struct {
 	ChainSelector uint64
 	TokenPubkey   solana.PublicKey
-	TokenProgram  deployment.ContractType
+	TokenProgram  cldf.ContractType
 	ATAList       []string // addresses to create ATAs for
 }
 
@@ -286,6 +287,30 @@ func SetTokenAuthority(e deployment.Environment, cfg SetTokenAuthorityConfig) (d
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infow("Set token authority on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String(), "newAuthority", cfg.NewAuthority.String(), "authorityType", cfg.AuthorityType)
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+type UploadTokenMetadataConfig struct {
+	ChainSelector     uint64
+	TokenPubkey       solana.PublicKey
+	TokenMetaDataFile string
+}
+
+func UploadTokenMetadata(e deployment.Environment, cfg UploadTokenMetadataConfig) (deployment.ChangesetOutput, error) {
+	chain := e.SolChains[cfg.ChainSelector]
+	e.Logger.Infow("Uploading token metadata", "tokenPubkey", cfg.TokenPubkey.String())
+	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
+	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	args := []string{"create", "metadata", "--mint", cfg.TokenPubkey.String(), "--metadata", cfg.TokenMetaDataFile}
+	e.Logger.Info(args)
+	output, err := runCommand("metaboss", args, chain.ProgramsPath)
+	e.Logger.Debugw("metaboss output", "output", output)
+	if err != nil {
+		e.Logger.Debugw("metaboss create error", "error", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
+	}
+	e.Logger.Infow("Token metadata uploaded", "tokenPubkey", cfg.TokenPubkey.String())
 
 	return deployment.ChangesetOutput{}, nil
 }

@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
@@ -20,27 +22,8 @@ func LoadFeeManagerState(
 		return nil, fmt.Errorf("chain %d not found", chainSel)
 	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chainSel)
-	if err != nil {
+	if err := utils.ValidateContract(e, chainSel, contractAddr, types.FeeManager, deployment.Version0_5_0); err != nil {
 		return nil, err
-	}
-
-	tv, found := addresses[contractAddr]
-	if !found {
-		return nil, fmt.Errorf(
-			"unable to find FeeManager contract on chain %s (selector %d)",
-			chain.Name(),
-			chain.Selector,
-		)
-	}
-
-	if tv.Type != types.FeeManager || tv.Version != deployment.Version0_5_0 {
-		return nil, fmt.Errorf(
-			"unexpected contract type %s for Verifier on chain %s (selector %d)",
-			tv,
-			chain.Name(),
-			chain.Selector,
-		)
 	}
 
 	conf, err := fee_manager_v0_5_0.NewFeeManager(common.HexToAddress(contractAddr), chain.Client)

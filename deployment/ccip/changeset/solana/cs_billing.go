@@ -37,7 +37,7 @@ type BillingTokenConfig struct {
 	MCMSSolana *MCMSConfigSolana
 }
 
-func (cfg BillingTokenConfig) Validate(e deployment.Environment) error {
+func (cfg *BillingTokenConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -60,11 +60,10 @@ func (cfg BillingTokenConfig) Validate(e deployment.Environment) error {
 	if err != nil {
 		return fmt.Errorf("failed to find billing token config pda (mint: %s, feeQuoter: %s): %w", tokenPubKey.String(), chainState.FeeQuoter.String(), err)
 	}
-	if !cfg.IsUpdate {
-		var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
-		if err := chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount); err == nil {
-			return fmt.Errorf("billing token config already exists for (mint: %s, feeQuoter: %s)", tokenPubKey.String(), chainState.FeeQuoter.String())
-		}
+	var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
+	if err := chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount); err == nil {
+		e.Logger.Infow("Billing token already exists. Configuring as update", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
+		cfg.IsUpdate = true
 	}
 	return nil
 }
@@ -153,14 +152,12 @@ func AddBillingTokenChangeset(e deployment.Environment, cfg BillingTokenConfig) 
 		return deployment.ChangesetOutput{}, err
 	}
 
-	if !cfg.IsUpdate {
-		tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-		tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
-		if err := extendLookupTable(e, chain, chainState.OffRamp, []solana.PublicKey{tokenBillingPDA}); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table: %w", err)
-		}
-		e.Logger.Infow("Billing token added", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
+	if err := extendLookupTable(e, chain, chainState.OffRamp, []solana.PublicKey{tokenBillingPDA}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table: %w", err)
 	}
+	e.Logger.Infow("Billing token added", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
 
 	// create proposals for ixns
 	if len(txns) > 0 {

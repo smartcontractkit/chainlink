@@ -133,7 +133,7 @@ func Test_Queue(t *testing.T) {
 		}
 
 		tq.Push(testTransmissions[maxSize+3]) // push one more to trigger eviction
-		require.Equal(t, maxSize, tq.(*transmitQueue).pq.Len())
+		require.Equal(t, maxSize, tq.(*transmitQueue).Len())
 		require.Len(t, deleter.hashes, 4) // evicted overfill entries (3 oversize plus 1 more to make room)
 
 		// oldest entries removed
