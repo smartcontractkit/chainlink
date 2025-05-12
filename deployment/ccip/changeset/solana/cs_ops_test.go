@@ -41,7 +41,7 @@ func TestGenericOps(t *testing.T) {
 			solChain := tenv.Env.AllChainSelectorsSolana()[0]
 			e := tenv.Env
 
-			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
+			var mcmsConfig *proposalutils.TimelockConfig
 			if test.Mcms {
 				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 					ccipChangesetSolana.CCIPContractsToTransfer{
@@ -49,13 +49,8 @@ func TestGenericOps(t *testing.T) {
 						FeeQuoter: true,
 						OffRamp:   true,
 					})
-				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &proposalutils.TimelockConfig{
-						MinDelay: 1 * time.Second,
-					},
-					RouterOwnedByTimelock:    true,
-					FeeQuoterOwnedByTimelock: true,
-					OffRampOwnedByTimelock:   true,
+				mcmsConfig = &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
 				}
 			}
 
@@ -65,7 +60,7 @@ func TestGenericOps(t *testing.T) {
 					ccipChangesetSolana.SetDefaultCodeVersionConfig{
 						ChainSelector: solChain,
 						VersionEnum:   1,
-						MCMSSolana:    mcmsConfig,
+						MCMS:          mcmsConfig,
 					},
 				),
 				commonchangeset.Configure(
@@ -73,7 +68,7 @@ func TestGenericOps(t *testing.T) {
 					ccipChangesetSolana.UpdateEnableManualExecutionAfterConfig{
 						ChainSelector:         solChain,
 						EnableManualExecution: 1,
-						MCMSSolana:            mcmsConfig,
+						MCMS:                  mcmsConfig,
 					},
 				),
 				commonchangeset.Configure(
@@ -81,7 +76,7 @@ func TestGenericOps(t *testing.T) {
 					ccipChangesetSolana.UpdateSvmChainSelectorConfig{
 						OldChainSelector: solChain,
 						NewChainSelector: solChain + 1,
-						MCMSSolana:       mcmsConfig,
+						MCMS:             mcmsConfig,
 					},
 				),
 			},

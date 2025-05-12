@@ -8,6 +8,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -280,12 +281,6 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 	})
 	chain1 := e.AllChainSelectors()[0]
 	config := []uint64{chain1}
-	var solChain1 uint64
-	if solChains > 0 {
-		solChain1 = e.AllChainSelectorsSolana()[0]
-		config = append(config, solChain1)
-	}
-
 	e, err := ApplyChangesets(t, e, nil, []ConfiguredChangeSet{
 		Configure(
 			cldf.CreateLegacyChangeSet(DeployLinkToken),
@@ -303,7 +298,16 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 
 	// solana test
 	if solChains > 0 {
-		addrs, err = e.ExistingAddresses.AddressesForChain(solChain1)
+		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
+		e, err = Apply(t, e, nil,
+			Configure(cldf.CreateLegacyChangeSet(DeploySolanaLinkToken), DeploySolanaLinkTokenConfig{
+				ChainSelector: e.AllChainSelectorsSolana()[0],
+				TokenPrivKey:  solLinkTokenPrivKey,
+				TokenDecimals: 9,
+			}),
+		)
+		require.NoError(t, err)
+		addrs, err = e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
 		require.NoError(t, err)
 		require.NotEmpty(t, addrs)
 	}

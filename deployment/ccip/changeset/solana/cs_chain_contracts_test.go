@@ -85,7 +85,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	require.NoError(t, err)
 	evmChains := tenv.Env.AllChainSelectors()
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
-	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
+	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
@@ -93,13 +93,8 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 				FeeQuoter: true,
 				OffRamp:   true,
 			})
-		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-			MCMS: &proposalutils.TimelockConfig{
-				MinDelay: 1 * time.Second,
-			},
-			RouterOwnedByTimelock:    true,
-			FeeQuoterOwnedByTimelock: true,
-			OffRampOwnedByTimelock:   true,
+		mcmsConfig = &proposalutils.TimelockConfig{
+			MinDelay: 1 * time.Second,
 		}
 	}
 	onRampUpdates := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
@@ -151,7 +146,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			ccipChangesetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: routerUpdates,
-				MCMSSolana:     mcmsConfig,
+				MCMS:           mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -159,7 +154,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: feeQuoterUpdates,
-				MCMSSolana:     mcmsConfig,
+				MCMS:           mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -167,7 +162,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: offRampUpdates,
-				MCMSSolana:     mcmsConfig,
+				MCMS:           mcmsConfig,
 			},
 		),
 	},
@@ -209,7 +204,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			ccipChangesetSolana.DisableRemoteChainConfig{
 				ChainSelector: solChain,
 				RemoteChains:  evmChains,
-				MCMSSolana:    mcmsConfig,
+				MCMS:          mcmsConfig,
 			},
 		),
 	},
@@ -269,7 +264,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			ccipChangesetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: routerUpdates,
-				MCMSSolana:     mcmsConfig,
+				MCMS:           mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -277,7 +272,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: feeQuoterUpdates,
-				MCMSSolana:     mcmsConfig,
+				MCMS:           mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -285,7 +280,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
 				ChainSelector:  solChain,
 				UpdatesByChain: offRampUpdates,
-				MCMSSolana:     mcmsConfig,
+				MCMS:           mcmsConfig,
 			},
 		),
 	},
@@ -325,7 +320,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
 	require.True(t, ok)
 	bigNum.FillBytes(value[:])
-	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
+	var mcmsConfig *proposalutils.TimelockConfig
 	testPriceUpdater := e.SolChains[solChain].DeployerKey.PublicKey()
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
@@ -334,13 +329,8 @@ func doTestBilling(t *testing.T, mcms bool) {
 				FeeQuoter: true,
 				OffRamp:   true,
 			})
-		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-			MCMS: &proposalutils.TimelockConfig{
-				MinDelay: 1 * time.Second,
-			},
-			RouterOwnedByTimelock:    true,
-			FeeQuoterOwnedByTimelock: true,
-			OffRampOwnedByTimelock:   true,
+		mcmsConfig = &proposalutils.TimelockConfig{
+			MinDelay: 1 * time.Second,
 		}
 		testPriceUpdater, err = ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 		require.NoError(t, err)
@@ -360,7 +350,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 					},
 					PremiumMultiplierWeiPerEth: 100,
 				},
-				MCMSSolana: mcmsConfig,
+				MCMS: mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -377,7 +367,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 					DestBytesOverhead: 100,
 					IsEnabled:         true,
 				},
-				MCMSSolana: mcmsConfig,
+				MCMS: mcmsConfig,
 			},
 		),
 	},
@@ -415,7 +405,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 					},
 					PremiumMultiplierWeiPerEth: 200,
 				},
-				MCMSSolana: mcmsConfig,
+				MCMS: mcmsConfig,
 			},
 		),
 	})
@@ -438,7 +428,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 						},
 					},
 				},
-				MCMSSolana: mcmsConfig,
+				MCMS: mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -458,7 +448,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 						},
 					},
 				},
-				MCMSSolana: mcmsConfig,
+				MCMS: mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -470,7 +460,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 						EnabledAsSource: true,
 					},
 				},
-				MCMSSolana: mcmsConfig,
+				MCMS: mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -479,7 +469,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 				ChainSelector:      solChain,
 				PriceUpdater:       testPriceUpdater,
 				PriceUpdaterAction: ccipChangesetSolana.AddUpdater,
-				MCMSSolana:         mcmsConfig,
+				MCMS:               mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -499,7 +489,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 					},
 				},
 				PriceUpdater: testPriceUpdater,
-				MCMSSolana:   mcmsConfig,
+				MCMS:         mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -508,7 +498,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 				ChainSelector:      solChain,
 				PriceUpdater:       testPriceUpdater,
 				PriceUpdaterAction: ccipChangesetSolana.RemoveUpdater,
-				MCMSSolana:         mcmsConfig,
+				MCMS:               mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -516,7 +506,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			ccipChangesetSolana.SetFeeAggregatorConfig{
 				ChainSelector: solChain,
 				FeeAggregator: feeAggregator.String(),
-				MCMSSolana:    mcmsConfig,
+				MCMS:          mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -562,7 +552,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 				ChainSelector: solChain,
 				TransferAll:   true,
 				TokenPubKey:   tokenAddress.String(),
-				MCMSSolana:    mcmsConfig,
+				MCMS:          mcmsConfig,
 			},
 		),
 	},
@@ -600,7 +590,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	newAdmin := newAdminNonTimelock.PublicKey()
 	newTokenAdmin := e.SolChains[solChain].DeployerKey.PublicKey()
 
-	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
+	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
@@ -608,13 +598,8 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				FeeQuoter: true,
 				OffRamp:   true,
 			})
-		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-			MCMS: &proposalutils.TimelockConfig{
-				MinDelay: 1 * time.Second,
-			},
-			RouterOwnedByTimelock:    true,
-			FeeQuoterOwnedByTimelock: true,
-			OffRampOwnedByTimelock:   true,
+		mcmsConfig = &proposalutils.TimelockConfig{
+			MinDelay: 1 * time.Second,
 		}
 		timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 		require.NoError(t, err)
@@ -633,7 +618,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				TokenPubKey:             tokenAddress,
 				TokenAdminRegistryAdmin: newAdmin.String(),
 				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-				MCMSSolana:              mcmsConfig,
+				MCMS:                    mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -662,7 +647,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				TokenPubKey:             linkTokenAddress,
 				TokenAdminRegistryAdmin: newAdmin.String(),
 				RegisterType:            ccipChangesetSolana.ViaOwnerInstruction,
-				MCMSSolana:              mcmsConfig,
+				MCMS:                    mcmsConfig,
 			},
 		),
 	},
@@ -692,7 +677,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 					ChainSelector: solChain,
 					TokenPubKey:   tokenAddress,
-					MCMSSolana:    mcmsConfig,
+					MCMS:          mcmsConfig,
 				},
 			),
 		)
@@ -711,7 +696,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 					ChainSelector:             solChain,
 					TokenPubKey:               tokenAddress.String(),
 					NewRegistryAdminPublicKey: newAdminNonTimelock.PublicKey().String(),
-					MCMSSolana:                mcmsConfig,
+					MCMS:                      mcmsConfig,
 				},
 			),
 		},
@@ -739,7 +724,7 @@ func doTestPoolLookupTable(t *testing.T, e deployment.Environment, mcms bool, to
 
 	solChain := e.AllChainSelectorsSolana()[0]
 
-	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
+	var mcmsConfig *proposalutils.TimelockConfig
 	newAdmin := e.SolChains[solChain].DeployerKey.PublicKey()
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
@@ -748,13 +733,8 @@ func doTestPoolLookupTable(t *testing.T, e deployment.Environment, mcms bool, to
 				FeeQuoter: true,
 				OffRamp:   true,
 			})
-		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-			MCMS: &proposalutils.TimelockConfig{
-				MinDelay: 1 * time.Second,
-			},
-			RouterOwnedByTimelock:    true,
-			FeeQuoterOwnedByTimelock: true,
-			OffRampOwnedByTimelock:   true,
+		mcmsConfig = &proposalutils.TimelockConfig{
+			MinDelay: 1 * time.Second,
 		}
 		timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 		require.NoError(t, err)
@@ -795,7 +775,7 @@ func doTestPoolLookupTable(t *testing.T, e deployment.Environment, mcms bool, to
 				TokenPubKey:             tokenAddress,
 				TokenAdminRegistryAdmin: newAdmin.String(),
 				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-				MCMSSolana:              mcmsConfig,
+				MCMS:                    mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -804,7 +784,7 @@ func doTestPoolLookupTable(t *testing.T, e deployment.Environment, mcms bool, to
 			ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 				ChainSelector: solChain,
 				TokenPubKey:   tokenAddress,
-				MCMSSolana:    mcmsConfig,
+				MCMS:          mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -816,7 +796,7 @@ func doTestPoolLookupTable(t *testing.T, e deployment.Environment, mcms bool, to
 				PoolType:        &pool,
 				Metadata:        tokenMetadata,
 				WritableIndexes: []uint8{3, 4, 7},
-				MCMSSolana:      mcmsConfig,
+				MCMS:            mcmsConfig,
 			},
 		),
 	)

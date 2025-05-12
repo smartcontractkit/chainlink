@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use these changesets to register a token admin registry, transfer the admin role, and accept the admin role
@@ -38,7 +39,7 @@ type RegisterTokenAdminRegistryConfig struct {
 	TokenAdminRegistryAdmin string
 	RegisterType            RegisterTokenAdminRegistryType
 	Override                bool
-	MCMSSolana              *MCMSConfigSolana
+	MCMS                    *proposalutils.TimelockConfig
 }
 
 func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
@@ -60,7 +61,7 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) e
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
 		return err
 	}
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
@@ -91,16 +92,22 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 	tokenAdminRegistryAdmin := solana.MustPublicKeyFromBase58(cfg.TokenAdminRegistryAdmin)
 
 	var instruction *solRouter.Instruction
-	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	authority, err := GetAuthorityForIxn(
+	var err error
+	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
-		cfg.MCMSSolana,
+		chainState,
 		ccipChangeset.Router,
-		solana.PublicKey{})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
-	}
+		solana.PublicKey{},
+		"")
+	authority := GetAuthorityForIxn(
+		&e,
+		chain,
+		chainState,
+		cfg.MCMS,
+		ccipChangeset.Router,
+		solana.PublicKey{},
+		"")
 	switch cfg.RegisterType {
 	// the ccip admin signs and makes tokenAdminRegistryAdmin the authority of the tokenAdminRegistry PDA
 	case ViaGetCcipAdminInstruction:
@@ -163,7 +170,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to RegisterTokenAdminRegistry in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+			e, cfg.ChainSelector, "proposal to RegisterTokenAdminRegistry in Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -185,7 +192,7 @@ type TransferAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector             uint64
 	TokenPubKey               string
 	NewRegistryAdminPublicKey string
-	MCMSSolana                *MCMSConfigSolana
+	MCMS                      *proposalutils.TimelockConfig
 }
 
 func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
@@ -199,16 +206,15 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	currentAdmin, err := GetAuthorityForIxn(
+	currentAdmin := GetAuthorityForIxn(
 		&e,
 		chain,
-		cfg.MCMSSolana,
+		chainState,
+		cfg.MCMS,
 		ccipChangeset.Router,
 		solana.PublicKey{},
+		"",
 	)
-	if err != nil {
-		return fmt.Errorf("failed to get authority for ixn: %w", err)
-	}
 
 	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
 
@@ -220,7 +226,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 		)
 	}
 
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
 		return err
 	}
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
@@ -249,16 +255,21 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
 
-	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	authority, err := GetAuthorityForIxn(
+	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
-		cfg.MCMSSolana,
+		chainState,
 		ccipChangeset.Router,
-		solana.PublicKey{})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
-	}
+		solana.PublicKey{},
+		"")
+	authority := GetAuthorityForIxn(
+		&e,
+		chain,
+		chainState,
+		cfg.MCMS,
+		ccipChangeset.Router,
+		solana.PublicKey{},
+		"")
 	ix1, err := solRouter.NewTransferAdminRoleTokenAdminRegistryInstruction(
 		newRegistryAdminPubKey,
 		routerConfigPDA,
@@ -275,7 +286,7 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to TransferAdminRoleTokenAdminRegistry in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+			e, cfg.ChainSelector, "proposal to TransferAdminRoleTokenAdminRegistry in Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -294,7 +305,7 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 type AcceptAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector uint64
 	TokenPubKey   solana.PublicKey
-	MCMSSolana    *MCMSConfigSolana
+	MCMS          *proposalutils.TimelockConfig
 }
 
 func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
@@ -308,20 +319,19 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
 		return err
 	}
 
-	newAdmin, err := GetAuthorityForIxn(
+	newAdmin := GetAuthorityForIxn(
 		&e,
 		chain,
-		cfg.MCMSSolana,
+		chainState,
+		cfg.MCMS,
 		ccipChangeset.Router,
 		solana.PublicKey{},
+		"",
 	)
-	if err != nil {
-		return fmt.Errorf("failed to get authority for ixn: %w", err)
-	}
 
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
@@ -356,16 +366,21 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 	solRouter.SetProgramID(routerProgramAddress)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 
-	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	authority, err := GetAuthorityForIxn(
+	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
-		cfg.MCMSSolana,
+		chainState,
 		ccipChangeset.Router,
-		solana.PublicKey{})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
-	}
+		solana.PublicKey{},
+		"")
+	authority := GetAuthorityForIxn(
+		&e,
+		chain,
+		chainState,
+		cfg.MCMS,
+		ccipChangeset.Router,
+		solana.PublicKey{},
+		"")
 	ix1, err := solRouter.NewAcceptAdminRoleTokenAdminRegistryInstruction(
 		routerConfigPDA,
 		tokenAdminRegistryPDA,
@@ -382,7 +397,7 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to AcceptAdminRoleTokenAdminRegistry in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+			e, cfg.ChainSelector, "proposal to AcceptAdminRoleTokenAdminRegistry in Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

@@ -94,7 +94,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 		newTokenAddress,
 		e.SolChains[solChain].DeployerKey.PublicKey(),
 	)
-	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
+	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
@@ -102,13 +102,8 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 				FeeQuoter: true,
 				OffRamp:   true,
 			})
-		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-			MCMS: &proposalutils.TimelockConfig{
-				MinDelay: 1 * time.Second,
-			},
-			RouterOwnedByTimelock:    true,
-			FeeQuoterOwnedByTimelock: true,
-			OffRampOwnedByTimelock:   true,
+		mcmsConfig = &proposalutils.TimelockConfig{
+			MinDelay: 1 * time.Second,
 		}
 	}
 	require.NoError(t, err)
@@ -135,8 +130,6 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 			poolAddress: state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
 		},
 	}
-	burnAndMintOwnedByTimelock := make(map[solana.PublicKey]bool)
-	lockAndReleaseOwnedByTimelock := make(map[solana.PublicKey]bool)
 
 	// evm deployment
 	e, _, err = deployEVMTokenPool(t, e, evmChain)
@@ -175,7 +168,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 							},
 						},
 					},
-					MCMSSolana: mcmsConfig,
+					MCMS: mcmsConfig,
 				},
 			),
 		})
@@ -218,8 +211,6 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 							poolConfigPDA: tokenAddress,
 						},
 					})
-				burnAndMintOwnedByTimelock[tokenAddress] = true
-				mcmsConfig.BurnMintTokenPoolOwnedByTimelock = burnAndMintOwnedByTimelock
 			} else if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType {
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
@@ -228,8 +219,6 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 							poolConfigPDA: tokenAddress,
 						},
 					})
-				lockAndReleaseOwnedByTimelock[tokenAddress] = true
-				mcmsConfig.LockReleaseTokenPoolOwnedByTimelock = lockAndReleaseOwnedByTimelock
 			}
 			e.Logger.Debugf("MCMS Configured for token pool %v with token address %v", testCase.poolType, tokenAddress)
 		}
@@ -244,7 +233,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 					Metadata:         tokenMetadata,
 					Accounts:         []solana.PublicKey{allowedAccount1.PublicKey(), allowedAccount2.PublicKey()},
 					Enabled:          true,
-					MCMSSolana:       mcmsConfig,
+					MCMS:             mcmsConfig,
 				},
 			),
 			commonchangeset.Configure(
@@ -255,7 +244,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 					PoolType:         typePtr,
 					Metadata:         tokenMetadata,
 					Accounts:         []solana.PublicKey{allowedAccount1.PublicKey(), allowedAccount2.PublicKey()},
-					MCMSSolana:       mcmsConfig,
+					MCMS:             mcmsConfig,
 				},
 			),
 			// test update
@@ -277,7 +266,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 							},
 						},
 					},
-					MCMSSolana: mcmsConfig,
+					MCMS: mcmsConfig,
 				},
 			),
 		})
@@ -299,7 +288,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 						SetCfg: &ccipChangesetSolana.SetLiquidityConfig{
 							Enabled: true,
 						},
-						MCMSSolana: mcmsConfig,
+						MCMS: mcmsConfig,
 					},
 				),
 				commonchangeset.Configure(
@@ -313,7 +302,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 							RemoteTokenAccount: deployerATA,
 							Type:               ccipChangesetSolana.Provide,
 						},
-						MCMSSolana: mcmsConfig,
+						MCMS: mcmsConfig,
 					},
 				),
 				commonchangeset.Configure(
@@ -327,7 +316,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 							RemoteTokenAccount: testUserATA,
 							Type:               ccipChangesetSolana.Withdraw,
 						},
-						MCMSSolana: mcmsConfig,
+						MCMS: mcmsConfig,
 					},
 				),
 			},

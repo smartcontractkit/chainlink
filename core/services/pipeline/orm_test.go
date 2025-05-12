@@ -876,7 +876,7 @@ func Test_Prune(t *testing.T) {
 	// ps1 has:
 	// - 20 completed runs
 	for i := 0; i < 20; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps1.ID, pipeline.RunStatusCompleted, jobID)
+		mustInsertPipelineRunWithStatus(t, db, ps1.ID, pipeline.RunStatusCompleted, jobID)
 	}
 
 	ps2 := cltest.MustInsertPipelineSpec(t, db)
@@ -888,16 +888,16 @@ func Test_Prune(t *testing.T) {
 	// - 3 running runs
 	// - 3 suspended run
 	for i := 0; i < 12; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusCompleted, jobID2)
+		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusCompleted, jobID2)
 	}
 	for i := 0; i < 3; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusErrored, jobID2)
+		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusErrored, jobID2)
 	}
 	for i := 0; i < 3; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusRunning, jobID2)
+		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusRunning, jobID2)
 	}
 	for i := 0; i < 3; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusSuspended, jobID2)
+		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusSuspended, jobID2)
 	}
 
 	porm.Prune(tests.Context(t), jobID2)
@@ -913,4 +913,30 @@ func Test_Prune(t *testing.T) {
 	assert.Equal(t, 3, cnt)
 	cnt = pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps2.ID, pipeline.RunStatusSuspended)
 	assert.Equal(t, 3, cnt)
+}
+
+func mustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus, jobID int32) (runID int64) {
+	var finishedAt *time.Time
+	var outputs jsonserializable.JSONSerializable
+	var allErrors pipeline.RunErrors
+	var fatalErrors pipeline.RunErrors
+	now := time.Now()
+	switch status {
+	case pipeline.RunStatusCompleted:
+		finishedAt = &now
+		outputs = jsonserializable.JSONSerializable{
+			Val:   "foo",
+			Valid: true,
+		}
+	case pipeline.RunStatusErrored:
+		finishedAt = &now
+		allErrors = []null.String{null.StringFrom("oh no!")}
+		fatalErrors = []null.String{null.StringFrom("oh no!")}
+	case pipeline.RunStatusRunning, pipeline.RunStatusSuspended:
+		// leave empty
+	default:
+		t.Fatalf("unknown status: %s", status)
+	}
+	require.NoError(t, db.Get(&runID, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING id`, status, pipelineSpecID, jobID, finishedAt, outputs, allErrors, fatalErrors))
+	return runID
 }
