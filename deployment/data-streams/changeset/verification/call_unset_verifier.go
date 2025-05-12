@@ -5,8 +5,9 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	mcmslib "github.com/smartcontractkit/mcms"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"

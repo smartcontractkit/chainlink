@@ -11,6 +11,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
