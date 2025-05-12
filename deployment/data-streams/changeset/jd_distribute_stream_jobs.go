@@ -11,6 +11,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
@@ -19,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
-var _ deployment.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStreamJobSpecs{}
+var _ cldf.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStreamJobSpecs{}
 
 type CsDistributeStreamJobSpecsConfig struct {
 	Filter  *jd.ListFilter
@@ -47,7 +48,7 @@ type EARequestParams struct {
 
 type CsDistributeStreamJobSpecs struct{}
 
-func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistributeStreamJobSpecsConfig) (deployment.ChangesetOutput, error) {
+func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistributeStreamJobSpecsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(e.GetContext(), defaultJobSpecsTimeout)
 	defer cancel()
 
@@ -60,7 +61,7 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 
 	oracleNodes, err := jd.FetchDONOraclesFromJD(ctx, e.Offchain, cfg.Filter, cfg.NodeNames)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get oracle nodes: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get oracle nodes: %w", err)
 	}
 
 	var proposals []*jobv1.ProposeJobRequest
@@ -86,17 +87,17 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 				},
 			})
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get externalJobID: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get externalJobID: %w", err)
 			}
 
 			spec, err := generateJobSpec(s, externalJobID)
 
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create stream job spec: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create stream job spec: %w", err)
 			}
 			renderedSpec, err := spec.MarshalTOML()
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to marshal stream job spec: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to marshal stream job spec: %w", err)
 			}
 
 			proposals = append(proposals, &jobv1.ProposeJobRequest{
@@ -109,10 +110,10 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 
 	proposedJobs, err := proposeAllOrNothing(ctx, e.Offchain, proposals)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose all oracle jobs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose all oracle jobs: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		Jobs: proposedJobs,
 	}, nil
 }

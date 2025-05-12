@@ -43,7 +43,7 @@ func (cfg SetStagingConfigConfig) Validate() error {
 	return nil
 }
 
-func setStagingConfigLogic(e deployment.Environment, cfg SetStagingConfigConfig) (deployment.ChangesetOutput, error) {
+func setStagingConfigLogic(e deployment.Environment, cfg SetStagingConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.Configurator.String(),
@@ -52,7 +52,7 @@ func setStagingConfigLogic(e deployment.Environment, cfg SetStagingConfigConfig)
 		doSetStagingConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building SetStagingConfig txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building SetStagingConfig txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "SetStagingConfig proposal")

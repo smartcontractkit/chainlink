@@ -17,19 +17,19 @@ import (
 // Once proposal is executed, new owned contracts can be imported into the addressbook.
 var AcceptOwnershipChangeset = cldf.CreateChangeSet(acceptOwnershipLogic, acceptOwnershipPrecondition)
 
-func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipConfig) (deployment.ChangesetOutput, error) {
+func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipConfig) (cldf.ChangesetOutput, error) {
 	chain := env.Chains[c.ChainSelector]
 
 	var mcmsProposals []ProposalData
 	for _, contractAddress := range c.ContractAddresses {
 		_, contract, err := commonChangesets.LoadOwnableContract(contractAddress, chain.Client)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to load the contract %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load the contract %w", err)
 		}
 
 		tx, err := contract.AcceptOwnership(deployment.SimTransactOpts())
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
 		}
 		mcmsProposals = append(mcmsProposals, ProposalData{
 			contract: contract.Address().Hex(),
@@ -40,10 +40,10 @@ func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipCon
 	proposalConfig := MultiChainProposalConfig{c.ChainSelector: mcmsProposals}
 	proposal, err := BuildMultiChainProposals(env, "accept ownership to timelock", proposalConfig, c.McmsConfig.MinDelay)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 func acceptOwnershipPrecondition(env deployment.Environment, c types.AcceptOwnershipConfig) error {

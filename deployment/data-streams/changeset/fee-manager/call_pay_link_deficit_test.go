@@ -43,7 +43,7 @@ func TestPayLinkDeficit(t *testing.T) {
 
 	deployMockCs := []commonChangesets.ConfiguredChangeSet{
 		commonChangesets.Configure(cldf.CreateChangeSet(
-			func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
+			func(e deployment.Environment, config uint32) (cldf.ChangesetOutput, error) {
 				dataStore := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
 				// This uses a MockFeeManager. The subject under test here is the PayLinkDeficit changeset.
 				// This is modeled as a client/server test where the "client" is the PayLinkDeficit changeset
@@ -51,14 +51,14 @@ func TestPayLinkDeficit(t *testing.T) {
 				// the real FeeManager interface. The MockFeeManager will then validate the call and return a response.
 				_, err = changeset.DeployContract[*mock_fee_manager_v0_5_0.MockFeeManager](e, dataStore, chain, MockFeeManagerDeployFn(cc), nil)
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy MockFeeManager: %w", err)
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy MockFeeManager: %w", err)
 				}
 				sealedDS, err := ds.ToDefault(dataStore.Seal())
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
 				}
 
-				return deployment.ChangesetOutput{
+				return cldf.ChangesetOutput{
 					DataStore: sealedDS,
 				}, nil
 			},

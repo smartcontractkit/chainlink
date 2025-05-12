@@ -39,7 +39,7 @@ func setProductionConfigPrecondition(_ deployment.Environment, cfg SetProduction
 	return nil
 }
 
-func setProductionConfigLogic(e deployment.Environment, cfg SetProductionConfigConfig) (deployment.ChangesetOutput, error) {
+func setProductionConfigLogic(e deployment.Environment, cfg SetProductionConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.Configurator.String(),
@@ -48,7 +48,7 @@ func setProductionConfigLogic(e deployment.Environment, cfg SetProductionConfigC
 		doSetProductionConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building SetProductionConfig txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building SetProductionConfig txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "SetProductionConfig proposal")

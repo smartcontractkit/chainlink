@@ -21,7 +21,7 @@ type AddressesSchema struct {
 	Label          string              `json:"label"`
 }
 
-func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddressbookConfig) (deployment.ChangesetOutput, error) {
+func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddressbookConfig) (cldf.ChangesetOutput, error) {
 	ab := cldf.NewMemoryAddressBook()
 
 	addresses, _ := LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
@@ -34,11 +34,11 @@ func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddres
 			address.TypeAndVersion,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address %s: %w", address.Address, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address %s: %w", address.Address, err)
 		}
 	}
 
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
 func importToAddressbookPrecondition(env deployment.Environment, c types.ImportToAddressbookConfig) error {

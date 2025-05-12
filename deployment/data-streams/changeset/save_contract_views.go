@@ -34,18 +34,18 @@ func saveViewsPrecondition(_ deployment.Environment, cc SaveContractViewsConfig)
 	return cc.Validate()
 }
 
-func saveViewsLogic(e deployment.Environment, cfg SaveContractViewsConfig) (deployment.ChangesetOutput, error) {
+func saveViewsLogic(e deployment.Environment, cfg SaveContractViewsConfig) (cldf.ChangesetOutput, error) {
 	updatedDataStore := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
 	records, err := e.DataStore.Addresses().Fetch()
 	if err != nil {
-		return deployment.ChangesetOutput{}, errors.New("failed to fetch addresses")
+		return cldf.ChangesetOutput{}, errors.New("failed to fetch addresses")
 	}
 
 	addressesByChain := utils.AddressRefsToAddressByChain(records)
 
 	envDatastore, err := ds.FromDefault[metadata.SerializedContractMetadata, ds.DefaultMetadata](e.DataStore)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert datastore: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert datastore: %w", err)
 	}
 
 	// Operation to Generate + Save Contract Views PER Chain.
@@ -58,7 +58,7 @@ func saveViewsLogic(e deployment.Environment, cfg SaveContractViewsConfig) (depl
 
 		family, err := chain_selectors.GetSelectorFamily(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get selector family: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get selector family: %w", err)
 		}
 
 		switch family {
@@ -66,27 +66,27 @@ func saveViewsLogic(e deployment.Environment, cfg SaveContractViewsConfig) (depl
 			cmStore := envDatastore.ContractMetadata()
 			chainState, err := dsstate.LoadChainState(e.Logger, chain, chainAddresses, cmStore)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to load chain state: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to load chain state: %w", err)
 			}
 
 			chainView, _ := chainState.GenerateView(e.GetContext())
 
 			err = saveEvmViewsToDataStore(chainView, cmStore, updatedDataStore, chainSelector)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to save views to datastore: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to save views to datastore: %w", err)
 			}
 
 		default:
-			return deployment.ChangesetOutput{}, fmt.Errorf("unsupported chain selector: %d", chainSelector)
+			return cldf.ChangesetOutput{}, fmt.Errorf("unsupported chain selector: %d", chainSelector)
 		}
 	}
 
 	defaultDs, err := ds.ToDefault(updatedDataStore.Seal())
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
 	}
 
-	return deployment.ChangesetOutput{DataStore: defaultDs}, nil
+	return cldf.ChangesetOutput{DataStore: defaultDs}, nil
 }
 
 func saveEvmViewsToDataStore(chainView view.EVMChainView,

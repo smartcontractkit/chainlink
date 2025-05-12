@@ -9,6 +9,8 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
@@ -16,7 +18,7 @@ import (
 )
 
 // WithdrawChangeset will withdraw funds from the FeeManager contract to a recipient
-var WithdrawChangeset deployment.ChangeSetV2[FeeManagerWithdrawConfig] = &withdraw{}
+var WithdrawChangeset cldf.ChangeSetV2[FeeManagerWithdrawConfig] = &withdraw{}
 
 type withdraw struct{}
 
@@ -36,7 +38,7 @@ func (a Withdraw) GetContractAddress() common.Address {
 	return a.FeeManagerAddress
 }
 
-func (cs withdraw) Apply(e deployment.Environment, cfg FeeManagerWithdrawConfig) (deployment.ChangesetOutput, error) {
+func (cs withdraw) Apply(e deployment.Environment, cfg FeeManagerWithdrawConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -45,7 +47,7 @@ func (cs withdraw) Apply(e deployment.Environment, cfg FeeManagerWithdrawConfig)
 		doWithdraw,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building Withdraw txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building Withdraw txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "Withdraw proposal")

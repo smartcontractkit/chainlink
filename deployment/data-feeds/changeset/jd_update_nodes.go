@@ -22,7 +22,7 @@ type NodeConfigSchema struct {
 	AppendLabels bool            `json:"append_labels"` // if true, append new labels to existing labels, otherwise replace
 }
 
-func updatesNodesJDLogic(env deployment.Environment, c types.NodeConfig) (deployment.ChangesetOutput, error) {
+func updatesNodesJDLogic(env deployment.Environment, c types.NodeConfig) (cldf.ChangesetOutput, error) {
 	nodes, _ := LoadJSON[[]*NodeConfigSchema](c.InputFileName, c.InputFS)
 
 	for _, node := range nodes {
@@ -55,7 +55,7 @@ func updatesNodesJDLogic(env deployment.Environment, c types.NodeConfig) (deploy
 		}
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func updatesNodesJDLogicPrecondition(env deployment.Environment, c types.NodeConfig) error {

@@ -114,15 +114,15 @@ type WrappedChangeSet[C any] struct {
 // RunChangeset is used to run a changeset in another changeset
 // It executes VerifyPreconditions internally to handle changeset errors.
 func RunChangeset[C any](
-	operation deployment.ChangeSetV2[C],
+	operation cldf.ChangeSetV2[C],
 	env deployment.Environment,
 	config C,
-) (deployment.ChangesetOutput, error) {
+) (cldf.ChangesetOutput, error) {
 	cs := WrappedChangeSet[C]{operation: operation}
 
 	err := cs.operation.VerifyPreconditions(env, config)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run precondition: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run precondition: %w", err)
 	}
 
 	return cs.operation.Apply(env, config)

@@ -28,24 +28,24 @@ type SetFeeManagerConfig struct {
 	FeeManagerAddress    common.Address
 }
 
-func verifierProxySetFeeManagerLogic(e deployment.Environment, cfg VerifierProxySetFeeManagerConfig) (deployment.ChangesetOutput, error) {
+func verifierProxySetFeeManagerLogic(e deployment.Environment, cfg VerifierProxySetFeeManagerConfig) (cldf.ChangesetOutput, error) {
 	txs, err := GetSetFeeManagerTxs(e, cfg)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	if cfg.MCMSConfig != nil {
 		proposal, err := mcmsutil.CreateMCMSProposal(e, txs, cfg.MCMSConfig.MinDelay, "Set FeeManager proposal")
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 		}, nil
 	}
 
 	_, err = txutil.SignAndExecute(e, txs)
-	return deployment.ChangesetOutput{}, err
+	return cldf.ChangesetOutput{}, err
 }
 
 // GetSetFeeManagerTxs - returns the transactions to set fee manager on the verifier proxy.

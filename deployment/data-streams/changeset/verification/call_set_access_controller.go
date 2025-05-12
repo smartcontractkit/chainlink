@@ -8,6 +8,7 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
@@ -15,7 +16,7 @@ import (
 )
 
 // SetAccessControllerChangeset sets the access controller contract on the proxy contract
-var SetAccessControllerChangeset deployment.ChangeSetV2[VerifierProxySetAccessControllerConfig] = &verifierProxySetAccessController{}
+var SetAccessControllerChangeset cldf.ChangeSetV2[VerifierProxySetAccessControllerConfig] = &verifierProxySetAccessController{}
 
 type verifierProxySetAccessController struct{}
 
@@ -29,24 +30,24 @@ type SetAccessControllerConfig struct {
 	AccessControllerAddress common.Address
 }
 
-func (v verifierProxySetAccessController) Apply(e deployment.Environment, cfg VerifierProxySetAccessControllerConfig) (deployment.ChangesetOutput, error) {
+func (v verifierProxySetAccessController) Apply(e deployment.Environment, cfg VerifierProxySetAccessControllerConfig) (cldf.ChangesetOutput, error) {
 	txs, err := GetSetAccessControllerTxs(e, cfg)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	if cfg.MCMSConfig != nil {
 		proposal, err := mcmsutil.CreateMCMSProposal(e, txs, cfg.MCMSConfig.MinDelay, "Set Access Controller proposal")
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 		}, nil
 	}
 
 	_, err = txutil.SignAndExecute(e, txs)
-	return deployment.ChangesetOutput{}, err
+	return cldf.ChangesetOutput{}, err
 }
 
 // GetSetAccessControllerTxs - returns the transactions to set the access controller on the verifier proxy.

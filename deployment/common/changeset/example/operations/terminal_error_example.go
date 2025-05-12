@@ -5,9 +5,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -18,7 +17,7 @@ By returning an UnrecoverableError, the operation will not be retried by the fra
 This is useful when an operation encounters an error that should not be retried.
 */
 
-var _ deployment.ChangeSetV2[operations.EmptyInput] = TerminalErrorExampleChangeset{}
+var _ cldf.ChangeSetV2[operations.EmptyInput] = TerminalErrorExampleChangeset{}
 
 type TerminalErrorExampleChangeset struct{}
 
@@ -27,15 +26,15 @@ func (l TerminalErrorExampleChangeset) VerifyPreconditions(e deployment.Environm
 	return nil
 }
 
-func (l TerminalErrorExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (deployment.ChangesetOutput, error) {
+func (l TerminalErrorExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (cldf.ChangesetOutput, error) {
 	ab := cldf.NewMemoryAddressBook()
 
 	_, err := operations.ExecuteOperation(e.OperationsBundle, TerminalErrorOperation, nil, operations.EmptyInput{})
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
 }

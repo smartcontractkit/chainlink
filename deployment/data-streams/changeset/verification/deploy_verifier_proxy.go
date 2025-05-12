@@ -10,8 +10,9 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
 
-	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
+
+	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
@@ -55,29 +56,29 @@ func (cfg DeployVerifierProxyConfig) Validate() error {
 	return nil
 }
 
-func verifierProxyDeployLogic(e deployment.Environment, cc DeployVerifierProxyConfig) (deployment.ChangesetOutput, error) {
+func verifierProxyDeployLogic(e deployment.Environment, cc DeployVerifierProxyConfig) (cldf.ChangesetOutput, error) {
 	dataStore := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
 	err := deploy(e, dataStore, cc)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy VerifierProxy", "err", err)
-		return deployment.ChangesetOutput{}, deployment.MaybeDataErr(err)
+		return cldf.ChangesetOutput{}, deployment.MaybeDataErr(err)
 	}
 
 	records, err := dataStore.Addresses().Fetch()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch addresses: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch addresses: %w", err)
 	}
 	proposals, err := mcmsutil.GetTransferOwnershipProposals(e, cc, records)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to MCMS: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to MCMS: %w", err)
 	}
 
 	sealedDS, err := ds.ToDefault(dataStore.Seal())
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		DataStore:             sealedDS,
 		MCMSTimelockProposals: proposals,
 	}, nil

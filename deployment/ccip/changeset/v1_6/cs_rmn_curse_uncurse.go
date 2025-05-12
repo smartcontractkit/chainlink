@@ -23,8 +23,8 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[RMNCurseConfig] = RMNCurseChangeset
-	_ deployment.ChangeSet[RMNCurseConfig] = RMNUncurseChangeset
+	_ cldf.ChangeSet[RMNCurseConfig] = RMNCurseChangeset
+	_ cldf.ChangeSet[RMNCurseConfig] = RMNUncurseChangeset
 )
 
 // RMNCurseAction represent a curse action to be applied on a chain (ChainSelector) with a specific subject (SubjectToCurse)
@@ -346,15 +346,15 @@ func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf bo
 // This changeset is following an anti-pattern of supporting multiple chain families. Most changeset should be family specific.
 // The decision to support multiple chain families here is due to the fact that curse changesets are emergency actions
 // we want to keep a simple unified interface for all chain families to streamline emergency procedures.
-func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment.ChangesetOutput, error) {
+func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	deployerGroup := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to curse RMNs: " + cfg.Reason)
@@ -364,7 +364,7 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 	for _, curseAction := range cfg.CurseActions {
 		actions, err := curseAction(e)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate curse actions: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate curse actions: %w", err)
 		}
 
 		curseActions = append(curseActions, actions...)
@@ -373,19 +373,19 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 	if !cfg.IncludeNotConnectedLanes {
 		curseActions, err = FilterOutNotConnectedLanes(e, curseActions)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to filter out not connected lanes: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to filter out not connected lanes: %w", err)
 		}
 	}
 
 	// Group curse actions by chain selector
 	grouped, err := groupRMNSubjectBySelector(curseActions, true, true)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to group curse actions: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to group curse actions: %w", err)
 	}
 	// For each chain in the environment get the RMNRemote contract and call curse
 	cursableChains, err := GetCursableChains(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
 	}
 	for selector, chain := range cursableChains {
 		if curseSubjects, ok := grouped[selector]; ok {
@@ -394,7 +394,7 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 			for _, subject := range curseSubjects {
 				cursed, err := chain.IsSubjectCursed(subject)
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
 				}
 
 				if !cursed || cfg.Force {
@@ -411,7 +411,7 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 
 			err := chain.Curse(deployerGroup, notAlreadyCursedSubjects)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to curse chain %d: %w", selector, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to curse chain %d: %w", selector, err)
 			}
 			e.Logger.Infof("Cursed chain %d with subjects %v", selector, notAlreadyCursedSubjects)
 		}
@@ -436,15 +436,15 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 // This changeset is following an anti-pattern of supporting multiple chain families. Most changeset should be family specific.
 // The decision to support multiple chain families here is due to the fact that curse changesets are emergency actions
 // we want to keep a simple unified interface for all chain families to streamline emergency procedures.
-func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment.ChangesetOutput, error) {
+func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	deployerGroup := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to uncurse RMNs: " + cfg.Reason)
@@ -454,7 +454,7 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 	for _, curseAction := range cfg.CurseActions {
 		actions, err := curseAction(e)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate curse actions: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate curse actions: %w", err)
 		}
 
 		curseActions = append(curseActions, actions...)
@@ -462,13 +462,13 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 	// Group curse actions by chain selector
 	grouped, err := groupRMNSubjectBySelector(curseActions, false, false)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to group curse actions: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to group curse actions: %w", err)
 	}
 
 	// For each chain in the environement get the RMNRemote contract and call uncurse
 	cursableChains, err := GetCursableChains(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
 	}
 	for selector, chain := range cursableChains {
 		if curseSubjects, ok := grouped[selector]; ok {
@@ -477,7 +477,7 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 			for _, subject := range curseSubjects {
 				cursed, err := chain.IsSubjectCursed(subject)
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
 				}
 
 				if cursed || cfg.Force {
@@ -494,7 +494,7 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 
 			err := chain.Uncurse(deployerGroup, actuallyCursedSubjects)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to uncurse chain %d: %w", selector, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to uncurse chain %d: %w", selector, err)
 			}
 			e.Logger.Infof("Uncursed chain %d with subjects %v", selector, actuallyCursedSubjects)
 		}

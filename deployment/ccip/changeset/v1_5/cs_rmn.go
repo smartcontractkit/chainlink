@@ -7,6 +7,9 @@ import (
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -19,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-var _ deployment.ChangeSet[PermaBlessCommitStoreConfig] = PermaBlessCommitStoreChangeset
+var _ cldf.ChangeSet[PermaBlessCommitStoreConfig] = PermaBlessCommitStoreChangeset
 
 type PermaBlessConfigPerSourceChain struct {
 	SourceChainSelector uint64
@@ -101,14 +104,14 @@ func (c PermaBlessCommitStoreConfig) Validate(env deployment.Environment) error 
 // PermaBlessCommitStoreChangeset permablesses the commit stores on the RMN contract
 // If commit store addresses are added to the permaBlessed list, those will be considered automatically blessed.
 // This changeset can add to or remove from the existing permaBlessed list.
-func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessCommitStoreConfig) (deployment.ChangesetOutput, error) {
+func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessCommitStoreConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid PermaBlessCommitStoreConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid PermaBlessCommitStoreConfig: %w", err)
 	}
 
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	ops := make([]mcmstypes.BatchOperation, 0)
@@ -139,36 +142,36 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 		if c.MCMSConfig == nil {
 			_, err = deployment.ConfirmIfNoErrorWithABI(env.Chains[destChain], tx, rmn_contract.RMNContractABI, err)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 			env.Logger.Infof("PermaBlessed commit stores on chain %d removed %v, added %v", destChain, removes, adds)
 			continue
 		} else if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 
 		timelocks[destChain] = destState.Timelock.Address().Hex()
 
 		inspectors[destChain], err = proposalutils.McmsInspectorForChain(env, destChain)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", destChain, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", destChain, err)
 		}
 
 		batchOperation, err := proposalutils.BatchOperationForChain(destChain, RMN.Address().Hex(), tx.Data(), big.NewInt(0),
 			string(changeset.RMN), []string{})
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %d: %w", destChain, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %d: %w", destChain, err)
 		}
 
 		ops = append(ops, batchOperation)
 	}
 	if c.MCMSConfig == nil {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(env, state, c.MCMSConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
 	timelockProposal, err := proposalutils.BuildProposalFromBatchesV2(
 		env,
@@ -180,11 +183,11 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 		*c.MCMSConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	env.Logger.Infof("perma bless commit stores proposal created with %d operations", len(ops))
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{
 		*timelockProposal,
 	}}, nil
 }

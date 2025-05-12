@@ -6,6 +6,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -22,19 +24,19 @@ import (
 )
 
 // use these changesets to set the default code version
-var _ deployment.ChangeSet[SetDefaultCodeVersionConfig] = SetDefaultCodeVersion
+var _ cldf.ChangeSet[SetDefaultCodeVersionConfig] = SetDefaultCodeVersion
 
 // use these changesets to update the SVM chain selector
-var _ deployment.ChangeSet[UpdateSvmChainSelectorConfig] = UpdateSvmChainSelector
+var _ cldf.ChangeSet[UpdateSvmChainSelectorConfig] = UpdateSvmChainSelector
 
 // use these changesets to update the enable manual execution after
-var _ deployment.ChangeSet[UpdateEnableManualExecutionAfterConfig] = UpdateEnableManualExecutionAfter
+var _ cldf.ChangeSet[UpdateEnableManualExecutionAfterConfig] = UpdateEnableManualExecutionAfter
 
 // use these changesets to configure the CCIP version
-var _ deployment.ChangeSet[ConfigureCCIPVersionConfig] = ConfigureCCIPVersion
+var _ cldf.ChangeSet[ConfigureCCIPVersionConfig] = ConfigureCCIPVersion
 
 // use these changesets to remove the offramp
-var _ deployment.ChangeSet[RemoveOffRampConfig] = RemoveOffRamp
+var _ cldf.ChangeSet[RemoveOffRampConfig] = RemoveOffRamp
 
 type SetDefaultCodeVersionConfig struct {
 	ChainSelector uint64
@@ -61,10 +63,10 @@ func (cfg SetDefaultCodeVersionConfig) Validate(e deployment.Environment) error 
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true, ccipChangeset.OffRamp: true, ccipChangeset.Router: true})
 }
 
-func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionConfig) (deployment.ChangesetOutput, error) {
+func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Setting default code version", "chain_selector", cfg.ChainSelector, "new_code_version", cfg.VersionEnum)
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
@@ -110,13 +112,13 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
 
 	if routerUsingMCMS {
 		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), ccipChangeset.Router)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		txns = append(txns, *tx)
 	} else {
@@ -138,13 +140,13 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 		authority,
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
 
 	if offRampUsingMCMS {
 		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), ccipChangeset.OffRamp)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		txns = append(txns, *tx)
 	} else {
@@ -166,13 +168,13 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 		authority,
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
 
 	if feeQuoterUsingMCMS {
 		tx, err := BuildMCMSTxn(ixn3, chainState.FeeQuoter.String(), ccipChangeset.FeeQuoter)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		txns = append(txns, *tx)
 	} else {
@@ -181,7 +183,7 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 
 	if len(ixns) > 0 {
 		if err = chain.Confirm(ixns); err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
 
@@ -189,14 +191,14 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to SetDefaultCodeVersion in Solana", cfg.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 type UpdateSvmChainSelectorConfig struct {
@@ -221,10 +223,10 @@ func (cfg UpdateSvmChainSelectorConfig) Validate(e deployment.Environment) error
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true, ccipChangeset.OffRamp: true})
 }
 
-func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelectorConfig) (deployment.ChangesetOutput, error) {
+func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelectorConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Updating SVM chain selector", "old_chain_selector", cfg.OldChainSelector, "new_chain_selector", cfg.NewChainSelector)
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.OldChainSelector]
@@ -264,13 +266,13 @@ func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelector
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
 
 	if routerUsingMCMS {
 		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), ccipChangeset.Router)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		txns = append(txns, *tx)
 	} else {
@@ -292,13 +294,13 @@ func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelector
 		authority,
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
 
 	if offRampUsingMCMS {
 		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), ccipChangeset.OffRamp)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		txns = append(txns, *tx)
 	} else {
@@ -307,7 +309,7 @@ func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelector
 
 	if len(ixns) > 0 {
 		if err = chain.Confirm(ixns); err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
 
@@ -315,14 +317,14 @@ func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelector
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.OldChainSelector, "proposal to UpdateSvmChainSelector in Solana", cfg.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 type UpdateEnableManualExecutionAfterConfig struct {
@@ -344,10 +346,10 @@ func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e deployment.Environm
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.OffRamp: true})
 }
 
-func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnableManualExecutionAfterConfig) (deployment.ChangesetOutput, error) {
+func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnableManualExecutionAfterConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Updating enable manual execution after", "chain_selector", cfg.ChainSelector, "enable_manual_execution_after", cfg.EnableManualExecution)
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
@@ -378,13 +380,13 @@ func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnable
 		authority,
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
 
 	if offRampUsingMCMS {
 		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), ccipChangeset.OffRamp)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		txns = append(txns, *tx)
 	} else {
@@ -393,7 +395,7 @@ func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnable
 
 	if len(ixns) > 0 {
 		if err = chain.Confirm(ixns); err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
 
@@ -401,14 +403,14 @@ func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnable
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to UpdateEnableManualExecutionAfter in Solana", cfg.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 type CCIPVersionOp int
@@ -447,9 +449,9 @@ func (cfg ConfigureCCIPVersionConfig) Validate(e deployment.Environment) error {
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true})
 }
 
-func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConfig) (deployment.ChangesetOutput, error) {
+func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
@@ -485,7 +487,7 @@ func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConf
 			authority,
 		).ValidateAndBuild()
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 		}
 	} else if cfg.Operation == Rollback {
 		ixn, err = solRouter.NewRollbackCcipVersionForDestChainInstruction(
@@ -495,14 +497,14 @@ func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConf
 			authority,
 		).ValidateAndBuild()
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 		}
 	}
 
 	if routerUsingMCMS {
 		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), ccipChangeset.Router)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		txns = append(txns, *tx)
 	} else {
@@ -511,7 +513,7 @@ func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConf
 
 	if len(ixns) > 0 {
 		if err = chain.Confirm(ixns); err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
 
@@ -519,14 +521,14 @@ func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConf
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to ConfigureCCIPVersion in Solana", cfg.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 type RemoveOffRampConfig struct {
@@ -548,9 +550,9 @@ func (cfg RemoveOffRampConfig) Validate(e deployment.Environment) error {
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true})
 }
 
-func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (deployment.ChangesetOutput, error) {
+func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
@@ -584,13 +586,13 @@ func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (deploymen
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
 
 	if routerUsingMCMS {
 		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), ccipChangeset.Router)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		txns = append(txns, *tx)
 	} else {
@@ -599,7 +601,7 @@ func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (deploymen
 
 	if len(ixns) > 0 {
 		if err = chain.Confirm(ixns); err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
 
@@ -607,12 +609,12 @@ func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (deploymen
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to RemoveOffRamp in Solana", cfg.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }

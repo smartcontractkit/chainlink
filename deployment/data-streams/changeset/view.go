@@ -3,7 +3,7 @@ package changeset
 import (
 	"encoding/json"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	dsstate "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/state"
 	dsView "github.com/smartcontractkit/chainlink/deployment/data-streams/view"
 )

@@ -49,7 +49,7 @@ func PayRecipientsPrecondition(_ deployment.Environment, cc PayRecipientsConfig)
 	return nil
 }
 
-func PayRecipientsLogic(e deployment.Environment, cfg PayRecipientsConfig) (deployment.ChangesetOutput, error) {
+func PayRecipientsLogic(e deployment.Environment, cfg PayRecipientsConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.RewardManager.String(),
@@ -58,7 +58,7 @@ func PayRecipientsLogic(e deployment.Environment, cfg PayRecipientsConfig) (depl
 		doPayRecipients,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building PayRecipients txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building PayRecipients txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "PayRecipients proposal")
