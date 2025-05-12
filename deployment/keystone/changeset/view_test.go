@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -170,7 +171,6 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, localAddrsBook.Merge(resp.AddressBook))
 
 			env.Env.DataStore = resp.DataStore.Seal()
-			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
 			env.Env.ExistingAddresses = localAddrsBook
 
 			var ocr3Addr, forwarderAddr, workflowRegistryAddr, capabilityRegistryAddr string
@@ -329,7 +329,6 @@ func TestKeystoneView(t *testing.T) {
 	})
 
 	t.Run("fails to generate a view of the keystone state with a bad OracleConfig", func(t *testing.T) {
-		//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
 		env.Env.ExistingAddresses = originalAddressBook
 		oracleConfigCopy := oracleConfig
 		oracleConfigCopy.DeltaRoundMillis = 0
