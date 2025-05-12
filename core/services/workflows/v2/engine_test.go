@@ -1,6 +1,7 @@
 package v2_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -263,13 +264,27 @@ func TestEngine_Execution(t *testing.T) {
 		require.NoError(t, <-initDoneCh) // successful trigger registration
 		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 
-		module.EXPECT().Execute(matches.AnyContext, mock.Anything).Return(nil, nil).Once()
+		mockTriggerEvent := capabilities.TriggerEvent{
+			TriggerType: "basic-trigger@1.0.0",
+			ID:          "event_012345",
+			Payload:     nil,
+		}
+
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Run(
+				func(_ context.Context, request *wasmpb.ExecuteRequest) {
+					wantExecId, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+					require.NoError(t, err)
+					require.Equal(t, wantExecId, request.Id)
+
+					require.Equal(t, request.Request.(*wasmpb.ExecuteRequest_Trigger).Trigger.Id, uint64(0))
+				},
+			).
+			Return(nil, nil).
+			Once()
+
 		eventCh <- capabilities.TriggerResponse{
-			Event: capabilities.TriggerEvent{
-				TriggerType: "basic-trigger@1.0.0",
-				ID:          "event_012345",
-				Payload:     nil,
-			},
+			Event: mockTriggerEvent,
 		}
 		<-executionFinishedCh
 
