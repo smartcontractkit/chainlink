@@ -64,6 +64,7 @@ type master struct {
 	starknet *starknet
 	aptos    *aptos
 	tron     *tron
+	ton      *ton
 	vrf      *vrf
 	workflow *workflow
 }
@@ -137,6 +138,10 @@ func (ks *master) Aptos() Aptos {
 
 func (ks *master) Tron() Tron {
 	return ks.tron
+}
+
+func (ks *master) Ton() Ton {
+	return ks.ton
 }
 
 func (ks *master) VRF() VRF {
