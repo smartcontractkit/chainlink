@@ -17,7 +17,9 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -61,7 +63,7 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) e
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true}); err != nil {
 		return err
 	}
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
@@ -93,11 +95,11 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 
 	var instruction *solRouter.Instruction
 	var err error
-	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	authority := GetAuthorityForIxn(
@@ -105,7 +107,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	switch cfg.RegisterType {
@@ -165,7 +167,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 		}
 	}
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), ccipChangeset.Router)
+		tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -211,7 +213,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"",
 	)
@@ -226,7 +228,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 		)
 	}
 
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true}); err != nil {
 		return err
 	}
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
@@ -255,11 +257,11 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
 
-	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	authority := GetAuthorityForIxn(
@@ -267,7 +269,7 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	ix1, err := solRouter.NewTransferAdminRoleTokenAdminRegistryInstruction(
@@ -281,7 +283,7 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ix1, routerProgramAddress.String(), ccipChangeset.Router)
+		tx, err := BuildMCMSTxn(ix1, routerProgramAddress.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -319,7 +321,7 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true}); err != nil {
 		return err
 	}
 
@@ -328,7 +330,7 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"",
 	)
@@ -366,11 +368,11 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 	solRouter.SetProgramID(routerProgramAddress)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 
-	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	authority := GetAuthorityForIxn(
@@ -378,7 +380,7 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	ix1, err := solRouter.NewAcceptAdminRoleTokenAdminRegistryInstruction(
@@ -392,7 +394,7 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 	}
 	if routerUsingMCMS {
 		// We will only be able to accept the admin role if the pending admin is the timelock signer
-		tx, err := BuildMCMSTxn(ix1, routerProgramAddress.String(), ccipChangeset.Router)
+		tx, err := BuildMCMSTxn(ix1, routerProgramAddress.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}

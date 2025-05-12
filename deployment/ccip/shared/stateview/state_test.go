@@ -1,4 +1,4 @@
-package changeset_test
+package stateview_test
 
 import (
 	"testing"
@@ -16,9 +16,9 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -28,7 +28,7 @@ import (
 
 func TestSmokeState(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
-	state, err := changeset.LoadOnchainState(tenv.Env)
+	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	_, _, err = state.View(&tenv.Env, tenv.Env.AllChainSelectors())
 	require.NoError(t, err)
@@ -45,7 +45,7 @@ func TestMCMSState(t *testing.T) {
 	addr := utils.RandomAddress()
 	require.NoError(t, addressbook.Save(tenv.HomeChainSel, addr.String(), newTv))
 	require.NoError(t, tenv.Env.ExistingAddresses.Merge(addressbook))
-	state, err := changeset.LoadOnchainState(tenv.Env)
+	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].BypasserMcm.Address().String())
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].ProposerMcm.Address().String())
@@ -175,7 +175,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 							utils.RandomAddress(), // We don't need a real contract address here, just a random one to satisfy the constructor.
 						)
 						return cldf.ContractDeploy[*ccip_home.CCIPHome]{
-							Address: address, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(changeset.CCIPHome, deployment.Version1_6_0), Err: err2,
+							Address: address, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.CCIPHome, deployment.Version1_6_0), Err: err2,
 						}
 					})
 				require.NoError(t, err, "failed to deploy CCIP home")
@@ -189,7 +189,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 							chain.Client,
 						)
 						return cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-							Address: address, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0), Err: err2,
+							Address: address, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0), Err: err2,
 						}
 					})
 				require.NoError(t, err, "failed to deploy capability registry")
@@ -202,7 +202,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 					}),
 				)
 				require.NoError(t, err, "failed to deploy MCMS")
-				state, err := changeset.LoadOnchainState(e)
+				state, err := stateview.LoadOnchainState(e)
 				require.NoError(t, err, "failed to load onchain state")
 
 				addrs := make([]common.Address, 0, 2)
@@ -236,7 +236,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 				}
 			}
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err, "failed to load onchain state")
 
 			err = state.EnforceMCMSUsageIfProd(e.GetContext(), test.MCMSConfig)

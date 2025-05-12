@@ -16,11 +16,12 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	crossfamily "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/crossfamily/v1_6"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -117,7 +118,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			evmState, err = ccipchangeset.LoadOnchainState(e)
 			require.NoError(t, err)
 
-			solanaState, err := ccipchangeset.LoadOnchainStateSolana(e)
+			solanaState, err := solana2.LoadOnchainStateSolana(e)
 			require.NoError(t, err)
 
 			// evm changes

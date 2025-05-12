@@ -16,8 +16,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
@@ -123,7 +123,7 @@ func transferOwnershipRouter(
 		routerConfigPDA,   // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
-		state2.Router,
+		shared.Router,
 	)
 
 	if err != nil {
@@ -183,7 +183,7 @@ func transferOwnershipFeeQuoter(
 		feeQuoterConfigPDA, // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
-		state2.FeeQuoter,
+		shared.FeeQuoter,
 	)
 
 	if err != nil {
@@ -243,7 +243,7 @@ func transferOwnershipOffRamp(
 		offRampConfigPDA,  // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
-		state2.OffRamp,
+		shared.OffRamp,
 	)
 
 	if err != nil {
@@ -271,13 +271,13 @@ func transferOwnershipBurnMintTokenPools(
 
 	// Build specialized closures
 	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
-		burnmint.SetProgramID(state.BurnMintTokenPools[ccipChangeset.CLLMetadata])
+		burnmint.SetProgramID(state.BurnMintTokenPools[shared.CLLMetadata])
 		return burnmint.NewTransferOwnershipInstruction(
 			proposedOwner, config, tokenMint, authority,
 		).ValidateAndBuild()
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
-		burnmint.SetProgramID(state.BurnMintTokenPools[ccipChangeset.CLLMetadata])
+		burnmint.SetProgramID(state.BurnMintTokenPools[shared.CLLMetadata])
 		// If the router has its own accept function, use that
 		ix, err := burnmint.NewAcceptOwnershipInstruction(
 			config, tokenMint, newOwnerAuthority,
@@ -296,12 +296,12 @@ func transferOwnershipBurnMintTokenPools(
 	tx, err := transferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
-		state.BurnMintTokenPools[ccipChangeset.CLLMetadata],
+		state.BurnMintTokenPools[shared.CLLMetadata],
 		timelockSignerPDA,  // timelock PDA
 		tokenPoolConfigPDA, // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
-		state2.BurnMintTokenPool,
+		shared.BurnMintTokenPool,
 	)
 
 	if err != nil {
@@ -329,13 +329,13 @@ func transferOwnershipLockReleaseTokenPools(
 
 	// Build specialized closures
 	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
-		lockrelease.SetProgramID(state.LockReleaseTokenPools[ccipChangeset.CLLMetadata])
+		lockrelease.SetProgramID(state.LockReleaseTokenPools[shared.CLLMetadata])
 		return lockrelease.NewTransferOwnershipInstruction(
 			proposedOwner, config, tokenMint, authority,
 		).ValidateAndBuild()
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
-		lockrelease.SetProgramID(state.LockReleaseTokenPools[ccipChangeset.CLLMetadata])
+		lockrelease.SetProgramID(state.LockReleaseTokenPools[shared.CLLMetadata])
 		// If the router has its own accept function, use that
 		ix, err := lockrelease.NewAcceptOwnershipInstruction(
 			config, tokenMint, newOwnerAuthority,
@@ -354,12 +354,12 @@ func transferOwnershipLockReleaseTokenPools(
 	tx, err := transferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
-		state.LockReleaseTokenPools[ccipChangeset.CLLMetadata],
+		state.LockReleaseTokenPools[shared.CLLMetadata],
 		timelockSignerPDA,  // timelock PDA
 		tokenPoolConfigPDA, // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
-		state2.LockReleaseTokenPool,
+		shared.LockReleaseTokenPool,
 	)
 
 	if err != nil {
@@ -416,7 +416,7 @@ func transferOwnershipRMNRemote(
 	proposedOwner := timelockSignerPDA
 	configPDA := rmnRemoteConfigPDA
 	deployer := solChain.DeployerKey.PublicKey()
-	label := state2.RMNRemote
+	label := shared.RMNRemote
 
 	// We can't reuse the generic transferAndWrapAcceptOwnership function here
 	// because the RMNRemote has an additional cursesConfig account that needs to be transferred.

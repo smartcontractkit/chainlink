@@ -10,7 +10,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 

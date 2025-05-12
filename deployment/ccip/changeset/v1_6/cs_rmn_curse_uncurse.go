@@ -16,8 +16,12 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployer"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -49,7 +53,7 @@ type RMNCurseConfig struct {
 }
 
 func (c RMNCurseConfig) Validate(e deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	err = state.EnforceMCMSUsageIfProd(e.GetContext(), c.MCMS)
 	if err != nil {
 		return err
@@ -122,7 +126,7 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 				if !ok {
 					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
 				}
-				if err := changeset.ValidateOwnershipSolana(&e, targetChain, c.MCMS != nil, targetChainState.RMNRemote, changeset.RMNRemote, solana.PublicKey{}); err != nil {
+				if err := solana2.ValidateOwnershipSolana(&e, targetChain, c.MCMS != nil, targetChainState.RMNRemote, shared.RMNRemote, solana.PublicKey{}); err != nil {
 					return fmt.Errorf("chain %s: %w", targetChain.String(), err)
 				}
 			}
@@ -352,12 +356,12 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (cldf.Chang
 		return cldf.ChangesetOutput{}, err
 	}
 
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to curse RMNs: " + cfg.Reason)
+	deployerGroup := deployer.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to curse RMNs: " + cfg.Reason)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction
@@ -442,12 +446,12 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (cldf.Cha
 		return cldf.ChangesetOutput{}, err
 	}
 
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to uncurse RMNs: " + cfg.Reason)
+	deployerGroup := deployer.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to uncurse RMNs: " + cfg.Reason)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction
@@ -508,14 +512,14 @@ type CursableChain interface {
 	IsConnectedToSourceChain(selector uint64) (bool, error)
 	IsCursable() (bool, error)
 	IsSubjectCursed(subject globals.Subject) (bool, error)
-	Curse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error
-	Uncurse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error
+	Curse(deployerGroup *deployer.DeployerGroup, subjects []globals.Subject) error
+	Uncurse(deployerGroup *deployer.DeployerGroup, subjects []globals.Subject) error
 }
 
 type SolanaCursableChain struct {
 	selector uint64
 	env      deployment.Environment
-	chain    changeset.SolCCIPChainState
+	chain    solana2.SolCCIPChainState
 }
 
 func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
@@ -542,7 +546,7 @@ func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, err
 	return false, nil
 }
 
-func (c SolanaCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+func (c SolanaCursableChain) Curse(deployerGroup *deployer.DeployerGroup, subjects []globals.Subject) error {
 	err := assertEndianness(subjects, chain_selectors.FamilySolana)
 	if err != nil {
 		return fmt.Errorf("failed to assert subject endianness: %w", err)
@@ -572,7 +576,7 @@ func (c SolanaCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subje
 				return nil, "", "", fmt.Errorf("failed to generate instructions: %w", err)
 			}
 
-			return ix, c.chain.RMNRemote.String(), changeset.RMNRemote, nil
+			return ix, c.chain.RMNRemote.String(), shared.RMNRemote, nil
 		})
 		if err != nil {
 			return fmt.Errorf("failed to build curse instruction for subject %x on chain %d: %w", subject, c.selector, err)
@@ -581,7 +585,7 @@ func (c SolanaCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subje
 	return nil
 }
 
-func (c SolanaCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+func (c SolanaCursableChain) Uncurse(deployerGroup *deployer.DeployerGroup, subjects []globals.Subject) error {
 	err := assertEndianness(subjects, chain_selectors.FamilySolana)
 	if err != nil {
 		return fmt.Errorf("failed to assert subject endianness: %w", err)
@@ -609,7 +613,7 @@ func (c SolanaCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, sub
 			if err != nil {
 				return nil, "", "", fmt.Errorf("failed to generate instructions: %w", err)
 			}
-			return ix, c.chain.RMNRemote.String(), changeset.RMNRemote, nil
+			return ix, c.chain.RMNRemote.String(), shared.RMNRemote, nil
 		})
 		if err != nil {
 			return fmt.Errorf("failed to build uncurse instruction for subject %x on chain %d: %w", subject, c.selector, err)
@@ -623,7 +627,7 @@ func (c SolanaCursableChain) IsCursable() (bool, error) {
 }
 
 func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, error) {
-	state, err := changeset.LoadOnchainStateSolana(c.env)
+	state, err := solana2.LoadOnchainStateSolana(c.env)
 	if err != nil {
 		return false, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -648,7 +652,7 @@ func (c SolanaCursableChain) Name() string {
 type EvmCursableChain struct {
 	selector uint64
 	env      deployment.Environment
-	chain    changeset.CCIPChainState
+	chain    evm.CCIPChainState
 }
 
 func (c EvmCursableChain) Name() string {
@@ -679,7 +683,7 @@ func (c EvmCursableChain) IsCursable() (bool, error) {
 	return c.chain.RMNRemote != nil, nil
 }
 
-func (c EvmCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+func (c EvmCursableChain) Curse(deployerGroup *deployer.DeployerGroup, subjects []globals.Subject) error {
 	err := assertEndianness(subjects, chain_selectors.FamilyEVM)
 	if err != nil {
 		return fmt.Errorf("failed to assert subject endianness: %w", err)
@@ -697,7 +701,7 @@ func (c EvmCursableChain) Curse(deployerGroup *changeset.DeployerGroup, subjects
 	return nil
 }
 
-func (c EvmCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, subjects []globals.Subject) error {
+func (c EvmCursableChain) Uncurse(deployerGroup *deployer.DeployerGroup, subjects []globals.Subject) error {
 	err := assertEndianness(subjects, chain_selectors.FamilyEVM)
 	if err != nil {
 		return fmt.Errorf("failed to assert subject endianness: %w", err)
@@ -716,7 +720,7 @@ func (c EvmCursableChain) Uncurse(deployerGroup *changeset.DeployerGroup, subjec
 }
 
 func GetCursableChains(env deployment.Environment) (map[uint64]CursableChain, error) {
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}

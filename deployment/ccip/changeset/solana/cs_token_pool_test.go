@@ -20,11 +20,11 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -35,13 +35,13 @@ import (
 func TestAddTokenPoolWithoutMcms(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-	doTestTokenPool(t, tenv.Env, false, ccipChangeset.CLLMetadata)
+	doTestTokenPool(t, tenv.Env, false, shared.CLLMetadata)
 }
 
 func TestAddTokenPoolWithMcms(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-	doTestTokenPool(t, tenv.Env, true, ccipChangeset.CLLMetadata)
+	doTestTokenPool(t, tenv.Env, true, shared.CLLMetadata)
 }
 
 func deployEVMTokenPool(t *testing.T, e deployment.Environment, evmChain uint64) (deployment.Environment, common.Address, error) {
@@ -59,7 +59,7 @@ func deployEVMTokenPool(t *testing.T, e deployment.Environment, evmChain uint64)
 			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: token,
-				Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+				Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -68,7 +68,7 @@ func deployEVMTokenPool(t *testing.T, e deployment.Environment, evmChain uint64)
 	require.NoError(t, err)
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 		evmChain: {
-			Type:               changeset.BurnMintTokenPool,
+			Type:               shared.BurnMintTokenPool,
 			TokenAddress:       evmToken.Address,
 			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 		},
@@ -85,7 +85,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 	testUserPubKey := testUser.PublicKey()
 	e, newTokenAddress, err := deployTokenAndMint(t, e, solChain, []string{deployerKey.String(), testUserPubKey.String()})
 	require.NoError(t, err)
-	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	state, err := solana2.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	testUserATA, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, newTokenAddress, testUserPubKey)
 	require.NoError(t, err)
@@ -160,8 +160,8 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 					EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 						evmChain: {
 							TokenSymbol: testhelpers.TestTokenSymbol,
-							PoolType:    changeset.BurnMintTokenPool, // EVM test tokens are always burn and mint
-							PoolVersion: changeset.CurrentTokenPoolVersion,
+							PoolType:    shared.BurnMintTokenPool, // EVM test tokens are always burn and mint
+							PoolVersion: shared.CurrentTokenPoolVersion,
 							RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
 								Inbound:  rateLimitConfig,
 								Outbound: rateLimitConfig,
@@ -258,8 +258,8 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 					EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 						evmChain: {
 							TokenSymbol: testhelpers.TestTokenSymbol,
-							PoolType:    changeset.BurnMintTokenPool, // EVM test tokens are always burn and mint
-							PoolVersion: changeset.CurrentTokenPoolVersion,
+							PoolType:    shared.BurnMintTokenPool, // EVM test tokens are always burn and mint
+							PoolVersion: shared.CurrentTokenPoolVersion,
 							RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
 								Inbound:  newInboundConfig,
 								Outbound: newOutboundConfig,
