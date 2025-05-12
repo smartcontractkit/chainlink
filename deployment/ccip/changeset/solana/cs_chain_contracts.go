@@ -344,6 +344,7 @@ func setUpgradeAuthority(
 	newUpgradeAuthority solana.PublicKey,
 	isBuffer bool,
 ) solana.Instruction {
+	e.Logger.Infow("Setting upgrade authority", "programID", programID.String(), "currentUpgradeAuthority", currentUpgradeAuthority.String(), "newUpgradeAuthority", newUpgradeAuthority.String())
 	// Buffers use the program account as the program data account
 	programDataSlice := solana.NewAccountMeta(programID, true, false)
 	if !isBuffer {

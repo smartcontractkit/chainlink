@@ -315,6 +315,18 @@ func TestUpgrade(t *testing.T) {
 				},
 			},
 		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
+			ccipChangesetSolana.SetUpgradeAuthorityConfig{
+				ChainSelector:         solChainSelectors[0],
+				NewUpgradeAuthority:   e.SolChains[solChainSelectors[0]].DeployerKey.PublicKey(),
+				SetAfterInitialDeploy: true,
+				SetOffRamp:            true,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
 	})
 	require.NoError(t, err)
 	// verify the offramp address is different
