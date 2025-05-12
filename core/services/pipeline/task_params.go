@@ -556,6 +556,19 @@ func (s SliceParam) FilterErrors() (SliceParam, int) {
 	return s2, errs
 }
 
+func (s SliceParam) FilterNils() (SliceParam, int) {
+	var s2 SliceParam
+	var nils int
+	for _, x := range s {
+		if x == nil {
+			nils++
+		} else {
+			s2 = append(s2, x)
+		}
+	}
+	return s2, nils
+}
+
 type DecimalSliceParam []decimal.Decimal
 
 func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}) error {

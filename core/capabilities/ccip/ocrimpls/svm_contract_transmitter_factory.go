@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
@@ -148,12 +149,14 @@ func decodeExecData(report ccipocr3.ExecuteReportInfo, codec ccipcommon.ExtraDat
 
 // NewCommitTransmitter constructs an SVM commit transmitter.
 func (f *SVMContractTransmitterFactory) NewCommitTransmitter(
+	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 	defaultMethod, priceOnlyMethod string,
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
+		lggr:           lggr,
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
@@ -164,11 +167,13 @@ func (f *SVMContractTransmitterFactory) NewCommitTransmitter(
 
 // NewExecTransmitter constructs an SVM execute transmitter.
 func (f *SVMContractTransmitterFactory) NewExecTransmitter(
+	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
+		lggr:           lggr,
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,

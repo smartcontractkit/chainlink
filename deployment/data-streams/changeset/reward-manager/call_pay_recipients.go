@@ -9,13 +9,15 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 )
 
-var PayRecipientsChangeset = deployment.CreateChangeSet(PayRecipientsLogic, PayRecipientsPrecondition)
+var PayRecipientsChangeset = cldf.CreateChangeSet(PayRecipientsLogic, PayRecipientsPrecondition)
 
 type PayRecipientsConfig struct {
 	ConfigsByChain map[uint64][]PayRecipients
@@ -47,7 +49,7 @@ func PayRecipientsPrecondition(_ deployment.Environment, cc PayRecipientsConfig)
 	return nil
 }
 
-func PayRecipientsLogic(e deployment.Environment, cfg PayRecipientsConfig) (deployment.ChangesetOutput, error) {
+func PayRecipientsLogic(e deployment.Environment, cfg PayRecipientsConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.RewardManager.String(),
@@ -56,7 +58,7 @@ func PayRecipientsLogic(e deployment.Environment, cfg PayRecipientsConfig) (depl
 		doPayRecipients,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building PayRecipients txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building PayRecipients txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "PayRecipients proposal")

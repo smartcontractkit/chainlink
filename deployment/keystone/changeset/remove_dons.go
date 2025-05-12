@@ -9,12 +9,15 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ deployment.ChangeSet[*RemoveDONsRequest] = RemoveDONs
+var _ cldf.ChangeSet[*RemoveDONsRequest] = RemoveDONs
 
 type RemoveDONsRequest struct {
 	RegistryChainSel uint64
@@ -22,6 +25,8 @@ type RemoveDONsRequest struct {
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *MCMSConfig
+
+	RegistryRef datastore.AddressRefKey
 }
 
 func (r *RemoveDONsRequest) Validate(e deployment.Environment) error {
@@ -38,7 +43,9 @@ func (r *RemoveDONsRequest) Validate(e deployment.Environment) error {
 	if !exists {
 		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", r.RegistryChainSel)
 	}
-
+	if err := shouldUseDatastore(e, r.RegistryRef); err != nil {
+		return fmt.Errorf("invalid registry reference: %w", err)
+	}
 	return nil
 }
 
@@ -47,52 +54,45 @@ func (r RemoveDONsRequest) UseMCMS() bool {
 }
 
 // RemoveDONs removes a DON from the capabilities registry
-func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (deployment.ChangesetOutput, error) {
+func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	// extract the registry contract and chain from the environment
 	registryChain, ok := env.Chains[req.RegistryChainSel]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
+		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	cresp, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	})
+	capReg, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract sets: %w", err)
-	}
-	contracts, exists := cresp.ContractSets[req.RegistryChainSel]
-	if !exists {
-		return deployment.ChangesetOutput{}, fmt.Errorf("contract set not found for chain %d", req.RegistryChainSel)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 
 	resp, err := internal.RemoveDONs(env.Logger, &internal.RemoveDONsRequest{
 		Chain:                registryChain,
-		CapabilitiesRegistry: contracts.CapabilitiesRegistry.Contract,
+		CapabilitiesRegistry: capReg.Contract,
 		DONs:                 req.DONs,
 		UseMCMS:              req.UseMCMS(),
 	})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to remove don: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove don: %w", err)
 	}
 
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if req.UseMCMS() {
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 
 		timelocksPerChain := map[uint64]string{
-			req.RegistryChainSel: contracts.CapabilitiesRegistry.McmsContracts.Timelock.Address().Hex(),
+			req.RegistryChainSel: capReg.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			req.RegistryChainSel: contracts.CapabilitiesRegistry.McmsContracts.ProposerMcm.Address().Hex(),
+			req.RegistryChainSel: capReg.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		inspectorPerChain := map[uint64]sdk.Inspector{
 			req.RegistryChainSel: inspector,

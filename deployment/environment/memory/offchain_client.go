@@ -10,7 +10,8 @@ import (
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
 
@@ -62,6 +63,14 @@ func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) 
 	if len(filter.Ids) > 0 {
 		idx := slices.IndexFunc(filter.Ids, func(id string) bool {
 			return node.Id == id
+		})
+		if idx < 0 {
+			return false
+		}
+	}
+	if len(filter.PublicKeys) > 0 {
+		idx := slices.IndexFunc(filter.PublicKeys, func(pk string) bool {
+			return node.PublicKey == pk
 		})
 		if idx < 0 {
 			return false

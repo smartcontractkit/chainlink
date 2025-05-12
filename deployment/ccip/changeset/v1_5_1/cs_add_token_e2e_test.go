@@ -15,6 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -77,7 +80,7 @@ func TestAddTokenE2E(t *testing.T) {
 				err                  error
 			)
 
-			tokens := make(map[uint64]*deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677])
+			tokens := make(map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677])
 			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 			if test.withMCMS {
 				mcmsConfig = &proposalutils.TimelockConfig{
@@ -113,7 +116,7 @@ func TestAddTokenE2E(t *testing.T) {
 				if test.withMCMS {
 					e, err = commonchangeset.Apply(t, e, timelockContracts,
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+							cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 							commonchangeset.TransferToMCMSWithTimelockConfig{
 								ContractsByChain: timelockOwnedContractsByChain,
 								MCMSConfig:       *mcmsConfig,
@@ -134,6 +137,8 @@ func TestAddTokenE2E(t *testing.T) {
 			addTokenE2EConfig := v1_5_1.AddTokensE2EConfig{
 				MCMS: mcmsConfig,
 			}
+			recipientAddress := utils.RandomAddress()
+			topupAmount := big.NewInt(1000)
 			// form the changeset input config
 			for _, chain := range e.AllChainSelectors() {
 				if addTokenE2EConfig.Tokens == nil {
@@ -164,6 +169,9 @@ func TestAddTokenE2E(t *testing.T) {
 						MaxSupply:     big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 						Type:          changeset.BurnMintToken,
 						PoolType:      changeset.BurnMintTokenPool,
+						MintTokenForRecipients: map[common.Address]*big.Int{
+							recipientAddress: topupAmount,
+						},
 					}
 				} else {
 					token := tokens[chain]
@@ -195,10 +203,18 @@ func TestAddTokenE2E(t *testing.T) {
 				for chain, chainState := range state.Chains {
 					token, ok := chainState.BurnMintTokens677[testhelpers.TestTokenSymbol]
 					require.True(t, ok)
-					tokens[chain] = &deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+					tokens[chain] = &cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 						Address:  token.Address(),
 						Contract: token,
 					}
+					// check token balance
+					balance, err := token.BalanceOf(&bind.CallOpts{Context: ctx}, recipientAddress)
+					require.NoError(t, err)
+					require.Equal(t, balance, topupAmount)
+					// check minter role
+					minterCheck, err := token.IsMinter(&bind.CallOpts{Context: ctx}, recipientAddress)
+					require.NoError(t, err)
+					require.True(t, minterCheck)
 				}
 			}
 			registryOnA := state.Chains[selectorA].TokenAdminRegistry
@@ -240,7 +256,17 @@ func TestAddTokenE2E(t *testing.T) {
 					rateLimiterConfig.Inbound.Capacity,
 					e.Chains[chain].DeployerKey.From, // the pools are still owned by the deployer
 				)
+				if test.withNewToken {
+					// check token pool is added as minter
+					minterCheck, err := token.Contract.IsMinter(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
+					require.NoError(t, err)
+					require.True(t, minterCheck)
 
+					// check token pool is added as burner
+					burnerCheck, err := token.Contract.IsBurner(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
+					require.NoError(t, err)
+					require.True(t, burnerCheck)
+				}
 				// check if admin and set pool is set correctly
 				regConfig, err := registry.GetTokenConfig(&bind.CallOpts{Context: ctx}, token.Address)
 				require.NoError(t, err)

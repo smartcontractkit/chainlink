@@ -6,13 +6,14 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/stretchr/testify/assert"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -23,22 +24,22 @@ func TestChangeSetLegacyFunction_PassingCase(t *testing.T) {
 	executedCs := false
 	executedValidator := false
 
-	csv2 := deployment.CreateChangeSet(
-		func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
+	csv2 := cldf.CreateChangeSet(
+		func(e deployment.Environment, config uint32) (cldf.ChangesetOutput, error) {
 			executedCs = true
-			return deployment.ChangesetOutput{AddressBook: deployment.NewMemoryAddressBook()}, nil
+			return cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
 		},
 		func(e deployment.Environment, config uint32) error {
 			executedValidator = true
 			return nil
 		},
 	)
-	assert.False(t, executedCs, "Not expected to have executed the changeset yet")
-	assert.False(t, executedValidator, "Not expected to have executed the validator yet")
+	require.False(t, executedCs, "Not expected to have executed the changeset yet")
+	require.False(t, executedValidator, "Not expected to have executed the validator yet")
 	_, err := Apply(t, e, nil, Configure(csv2, 1))
-	assert.True(t, executedCs, "Validator should have returned nil, allowing changeset execution")
-	assert.True(t, executedValidator, "Not expected to have executed the validator yet")
-	assert.NoError(t, err)
+	require.True(t, executedCs, "Validator should have returned nil, allowing changeset execution")
+	require.True(t, executedValidator, "Not expected to have executed the validator yet")
+	require.NoError(t, err)
 }
 
 func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
@@ -48,29 +49,29 @@ func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 	executedCs := false
 	executedValidator := false
 
-	csv2 := deployment.CreateChangeSet(
-		func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
+	csv2 := cldf.CreateChangeSet(
+		func(e deployment.Environment, config uint32) (cldf.ChangesetOutput, error) {
 			executedCs = true
-			return deployment.ChangesetOutput{AddressBook: deployment.NewMemoryAddressBook()}, nil
+			return cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
 		},
 		func(e deployment.Environment, config uint32) error {
 			executedValidator = true
 			return errors.New("you shall not pass")
 		},
 	)
-	assert.False(t, executedCs, "Not expected to have executed the changeset yet")
-	assert.False(t, executedValidator, "Not expected to have executed the validator yet")
+	require.False(t, executedCs, "Not expected to have executed the changeset yet")
+	require.False(t, executedValidator, "Not expected to have executed the validator yet")
 	_, err := Apply(t, e, nil, Configure(csv2, 1))
-	assert.False(t, executedCs, "Validator should have fired, preventing changeset execution")
-	assert.True(t, executedValidator, "Not expected to have executed the validator yet")
-	assert.Equal(t, "failed to apply changeset at index 0: you shall not pass", err.Error())
+	require.False(t, executedCs, "Validator should have fired, preventing changeset execution")
+	require.True(t, executedValidator, "Not expected to have executed the validator yet")
+	require.Equal(t, "failed to apply changeset at index 0: you shall not pass", err.Error())
 }
 
 func NewNoopEnvironment(t *testing.T) deployment.Environment {
 	return *deployment.NewEnvironment(
 		"noop",
 		logger.TestLogger(t),
-		deployment.NewMemoryAddressBook(),
+		cldf.NewMemoryAddressBook(),
 		datastore.NewMemoryDataStore[
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
@@ -81,7 +82,7 @@ func NewNoopEnvironment(t *testing.T) deployment.Environment {
 		[]string{},
 		nil,
 		func() context.Context { return tests.Context(t) },
-		deployment.XXXGenerateTestOCRSecrets(),
+		cldf.XXXGenerateTestOCRSecrets(),
 	)
 }
 
@@ -89,8 +90,8 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 	t.Parallel()
 
 	changesets := []ConfiguredChangeSet{
-		Configure(deployment.CreateChangeSet(
-			func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
+		Configure(cldf.CreateChangeSet(
+			func(e deployment.Environment, config uint32) (cldf.ChangesetOutput, error) {
 				ds := datastore.NewMemoryDataStore[
 					datastore.DefaultMetadata,
 					datastore.DefaultMetadata,
@@ -106,7 +107,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 						Qualifier:     "qualifier1",
 					},
 				); err != nil {
-					return deployment.ChangesetOutput{}, err
+					return cldf.ChangesetOutput{}, err
 				}
 
 				// Add ContractMetadata
@@ -116,11 +117,11 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					Metadata:      datastore.DefaultMetadata{Data: "test"},
 				})
 				if err != nil {
-					return deployment.ChangesetOutput{}, err
+					return cldf.ChangesetOutput{}, err
 				}
 
-				return deployment.ChangesetOutput{
-					AddressBook: deployment.NewMemoryAddressBook(),
+				return cldf.ChangesetOutput{
+					AddressBook: cldf.NewMemoryAddressBook(),
 					DataStore:   ds,
 				}, nil
 			},
@@ -152,14 +153,14 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					),
 				)
 				require.NoError(t, err)
-				assert.Equal(t, "0x1234567890abcdef", record.Address)
+				require.Equal(t, "0x1234567890abcdef", record.Address)
 
 				// Check metadata was stored correctly
 				metadata, err := e.DataStore.ContractMetadata().Get(
 					datastore.NewContractMetadataKey(1, "0x1234567890abcdef"),
 				)
 				require.NoError(t, err)
-				assert.Equal(t, "test", metadata.Metadata.Data)
+				require.Equal(t, "test", metadata.Metadata.Data)
 			},
 			wantError: false,
 		},
@@ -178,14 +179,14 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					),
 				)
 				require.NoError(t, err)
-				assert.Equal(t, "0x1234567890abcdef", record.Address)
+				require.Equal(t, "0x1234567890abcdef", record.Address)
 
 				// Check metadata was stored correctly
 				metadata, err := e.DataStore.ContractMetadata().Get(
 					datastore.NewContractMetadataKey(1, "0x1234567890abcdef"),
 				)
 				require.NoError(t, err)
-				assert.Equal(t, "test", metadata.Metadata.Data)
+				require.Equal(t, "test", metadata.Metadata.Data)
 			},
 			wantError: false,
 		},

@@ -5,7 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
@@ -14,12 +15,12 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[ExistingContractsConfig] = SaveExistingContractsChangeset
+	_ cldf.ChangeSet[ExistingContractsConfig] = SaveExistingContractsChangeset
 )
 
 type Contract struct {
 	Address        string
-	TypeAndVersion deployment.TypeAndVersion
+	TypeAndVersion cldf.TypeAndVersion
 	ChainSelector  uint64
 }
 
@@ -68,22 +69,20 @@ func (cfg ExistingContractsConfig) Validate() error {
 
 // SaveExistingContractsChangeset saves the existing contracts to the address book.
 // Caller should update the environment's address book with the returned addresses.
-func SaveExistingContractsChangeset(env deployment.Environment, cfg ExistingContractsConfig) (deployment.ChangesetOutput, error) {
+func SaveExistingContractsChangeset(env deployment.Environment, cfg ExistingContractsConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
-		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
+		return cldf.ChangesetOutput{}, errors.Wrapf(cldf.ErrInvalidConfig, "%v", err)
 	}
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	for _, ec := range cfg.ExistingContracts {
 		err = ab.Save(ec.ChainSelector, ec.Address, ec.TypeAndVersion)
 		if err != nil {
 			env.Logger.Errorw("Failed to save existing contract", "err", err, "addressBook", ab)
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save existing contract: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save existing contract: %w", err)
 		}
 	}
-	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
+	return cldf.ChangesetOutput{
 		AddressBook: ab,
-		Jobs:        nil,
 	}, nil
 }

@@ -15,6 +15,9 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/solana"
@@ -49,8 +52,8 @@ type MCMSConfigV2 struct {
 	ProposalConfig  *proposalutils.TimelockConfig
 }
 
-var _ deployment.ChangeSet[MCMSConfig] = SetConfigMCMS
-var _ deployment.ChangeSet[MCMSConfigV2] = SetConfigMCMSV2
+var _ cldf.ChangeSet[MCMSConfig] = SetConfigMCMS
+var _ cldf.ChangeSet[MCMSConfigV2] = SetConfigMCMSV2
 
 // Validate checks that the MCMSConfig is valid
 func (cfg MCMSConfig) Validate(e deployment.Environment, selectors []uint64) error {
@@ -281,7 +284,7 @@ func addTxsToProposalBatch(setConfigTxsChain setConfigTxs, chainSelector uint64,
 
 // SetConfigMCMS sets the configuration of the MCMS contract on the chain identified by the chainSelector.
 // Deprecated: Use SetConfigMCMSV2 instead.
-func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (deployment.ChangesetOutput, error) {
+func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (cldf.ChangesetOutput, error) {
 	selectors := []uint64{}
 	lggr := e.Logger
 	ctx := e.GetContext()
@@ -291,7 +294,7 @@ func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (deployment.Changes
 	useMCMS := cfg.ProposalConfig != nil
 	err := cfg.Validate(e, selectors)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	batches := []timelock.BatchChainOperation{}
@@ -300,7 +303,7 @@ func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (deployment.Changes
 
 	mcmsStatePerChain, err := MaybeLoadMCMSWithTimelockState(e, selectors)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	for chainSelector, c := range cfg.ConfigsPerChain {
@@ -310,7 +313,7 @@ func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (deployment.Changes
 		proposerMcmsPerChain[chainSelector] = state.ProposerMcm
 		setConfigTxsChain, err := setConfigPerRole(ctx, lggr, chain, c, state, useMCMS)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		if useMCMS {
 			batch := addTxsToProposalBatch(setConfigTxsChain, chainSelector, *state)
@@ -322,17 +325,17 @@ func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (deployment.Changes
 		// Create MCMS with timelock proposal
 		proposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMcmsPerChain, batches, "Set config proposal", cfg.ProposalConfig.MinDelay)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
 		}
 		lggr.Infow("SetConfigMCMS proposal created", "proposal", proposal)
-		return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
+		return cldf.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 // SetConfigMCMSV2 is a reimplementation of SetConfigMCMS that uses the new MCMS library.
-func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.ChangesetOutput, error) {
+func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput, error) {
 	selectors := []uint64{}
 	lggr := e.Logger
 	ctx := e.GetContext()
@@ -342,7 +345,7 @@ func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.Cha
 	useMCMS := cfg.ProposalConfig != nil
 	err := cfg.Validate(e, selectors)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	var batches []mcmstypes.BatchOperation
@@ -350,13 +353,13 @@ func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.Cha
 	proposerMcmsPerChain := map[uint64]string{}
 	inspectorPerChain, err := proposalutils.McmsInspectors(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	for chainSelector, c := range cfg.ConfigsPerChain {
 		family, err := chain_selectors.GetSelectorFamily(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 
 		switch family {
@@ -364,20 +367,20 @@ func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.Cha
 			chain := e.Chains[chainSelector]
 			mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 			state := mcmsStatePerChain[chainSelector]
 			timelockAddressesPerChain[chainSelector] = state.Timelock.Address().Hex()
 			if cfg.ProposalConfig != nil {
 				mcmsContract, err := cfg.ProposalConfig.MCMBasedOnAction(*state)
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contract: %w", err)
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contract: %w", err)
 				}
 				proposerMcmsPerChain[chainSelector] = mcmsContract.Address().Hex()
 			}
 			setConfigTxsChain, err := setConfigPerRoleV2(ctx, lggr, chain, c, state, useMCMS)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 			if useMCMS {
 				batch := addTxsToProposalBatchV2(setConfigTxsChain, chainSelector, *state)
@@ -386,7 +389,7 @@ func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.Cha
 		case chain_selectors.FamilySolana:
 			batch, err := setConfigSolana(e, chainSelector, c, timelockAddressesPerChain, proposerMcmsPerChain, useMCMS)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 
 			if useMCMS {
@@ -399,13 +402,13 @@ func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.Cha
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(e, timelockAddressesPerChain,
 			proposerMcmsPerChain, inspectorPerChain, batches, "Set config proposal", *cfg.ProposalConfig)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
 		}
 		lggr.Infow("SetConfigMCMS proposal created", "proposal", proposal)
-		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+		return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func addTxsToProposalBatchV2(setConfigTxsChain setConfigTxs, chainSelector uint64, state commonState.MCMSWithTimelockState) mcmstypes.BatchOperation {

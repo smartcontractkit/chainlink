@@ -20,10 +20,8 @@ import (
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
@@ -32,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -150,18 +149,6 @@ func NewEthTx(fromAddress common.Address) txmgr.Tx {
 	}
 }
 
-func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, gasPrice *big.Int, data []byte) *types.Transaction {
-	tx := types.LegacyTx{
-		Nonce:    nonce,
-		To:       &to,
-		Value:    value,
-		Gas:      uint64(gasLimit),
-		GasPrice: gasPrice,
-		Data:     data,
-	}
-	return types.NewTx(&tx)
-}
-
 func MustInsertUnconfirmedEthTx(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
@@ -190,7 +177,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	ctx := testutils.Context(t)
 
-	tx := NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := evmtestutils.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
@@ -305,18 +292,10 @@ func MustInsertRandomKeyNoChains(t testing.TB, keystore keystore.Eth) (ethkey.Ke
 	return RandomKey{chainIDs: []ubig.Big{}}.MustInsert(t, keystore)
 }
 
-func MustInsertRandomKeyReturningState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
-	return RandomKey{}.MustInsertWithState(t, keystore)
-}
-
 func MustGenerateRandomKey(t testing.TB) ethkey.KeyV2 {
 	key, err := ethkey.NewV2()
 	require.NoError(t, err)
 	return key
-}
-
-func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
-	return ethkey.State{Address: NewEIP55Address()}
 }
 
 func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) *evmtypes.Head {
@@ -326,33 +305,6 @@ func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) *evmtypes
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
 	require.NoError(t, err)
 	return &h
-}
-
-func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Address) job.Job {
-	t.Helper()
-
-	addr, err := evmtypes.NewEIP55Address(transmitterAddress.Hex())
-	require.NoError(t, err)
-
-	pipelineSpec := pipeline.Spec{}
-	err = db.Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
-	require.NoError(t, err)
-
-	oracleSpec := MustInsertOffchainreportingOracleSpec(t, db, addr)
-	jb := job.Job{
-		OCROracleSpec:   &oracleSpec,
-		OCROracleSpecID: &oracleSpec.ID,
-		ExternalJobID:   uuid.New(),
-		Type:            job.OffchainReporting,
-		SchemaVersion:   1,
-		PipelineSpec:    &pipelineSpec,
-		PipelineSpecID:  pipelineSpec.ID,
-	}
-
-	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t))
-	err = jorm.InsertJob(testutils.Context(t), &jb)
-	require.NoError(t, err)
-	return jb
 }
 
 func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress evmtypes.EIP55Address) job.OCROracleSpec {
@@ -456,35 +408,9 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, registry keeper.Regi
 	return upkeep
 }
 
-func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (run pipeline.Run) {
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,created_at) VALUES ($1, 0, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
-	return run
-}
-
-func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus, jobID int32) (run pipeline.Run) {
-	var finishedAt *time.Time
-	var outputs jsonserializable.JSONSerializable
-	var allErrors pipeline.RunErrors
-	var fatalErrors pipeline.RunErrors
-	now := time.Now()
-	switch status {
-	case pipeline.RunStatusCompleted:
-		finishedAt = &now
-		outputs = jsonserializable.JSONSerializable{
-			Val:   "foo",
-			Valid: true,
-		}
-	case pipeline.RunStatusErrored:
-		finishedAt = &now
-		allErrors = []null.String{null.StringFrom("oh no!")}
-		fatalErrors = []null.String{null.StringFrom("oh no!")}
-	case pipeline.RunStatusRunning, pipeline.RunStatusSuspended:
-		// leave empty
-	default:
-		t.Fatalf("unknown status: %s", status)
-	}
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`, status, pipelineSpecID, jobID, finishedAt, outputs, allErrors, fatalErrors))
-	return run
+func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (runID int64) {
+	require.NoError(t, db.Get(&runID, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,created_at) VALUES ($1, 0, 0, NOW()) RETURNING id`, "running"))
+	return runID
 }
 
 func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
@@ -493,10 +419,10 @@ func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
 	return
 }
 
-func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunID int64) (tr pipeline.TaskRun) {
+func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunID int64) (trID uuid.UUID) {
 	/* #nosec G404 */
-	require.NoError(t, db.Get(&tr, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING *`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.New()))
-	return tr
+	require.NoError(t, db.Get(&trID, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING id`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.New()))
+	return trID
 }
 
 func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {

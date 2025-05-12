@@ -37,3 +37,36 @@ var (
 	RPCDefaultDialRetryAttempts = deployment.RPCDefaultDialRetryAttempts
 	RPCDefaultDialRetryDelay    = deployment.RPCDefaultDialRetryDelay
 )
+
+// Chain
+
+type (
+	AptosChain = deployment.AptosChain
+	Chain      = deployment.Chain
+	SolChain   = deployment.SolChain
+)
+
+var (
+	ChainInfo             = deployment.ChainInfo
+	GetSolanaProgramBytes = deployment.GetSolanaProgramBytes
+)
+
+// Environment
+
+type (
+	Environment = deployment.Environment
+)
+
+var (
+	NewEnvironment             = deployment.NewEnvironment
+	ConfirmIfNoError           = deployment.ConfirmIfNoError
+	ConfirmIfNoErrorWithABI    = deployment.ConfirmIfNoErrorWithABI
+	DecodedErrFromABIIfDataErr = deployment.DecodedErrFromABIIfDataErr
+)
+
+// helper functions
+var (
+	SimTransactOpts      = deployment.SimTransactOpts
+	DecodeErr            = deployment.DecodeErr
+	IsValidChainSelector = deployment.IsValidChainSelector
+)

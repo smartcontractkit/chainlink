@@ -32,14 +32,22 @@ type srMetrics struct {
 }
 
 func (s *srMetrics) recordExecutionDuration(ctx context.Context, d time.Duration, success bool) {
+	successStr := "false"
+	if success {
+		successStr = "true"
+	}
 	s.executeDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
-		attribute.Bool("success", success), attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID),
+		attribute.String("success", successStr), attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID),
 	))
 }
 
 func (s *srMetrics) countExecution(ctx context.Context, success bool) {
+	successStr := "false"
+	if success {
+		successStr = "true"
+	}
 	s.executeCount.Add(ctx, 1, metric.WithAttributes(
-		attribute.Bool("success", success), attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID),
+		attribute.String("success", successStr), attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID),
 	))
 }
 
@@ -124,8 +132,6 @@ type ServerRequest struct {
 
 	metrics *srMetrics
 }
-
-var errExternalErrorMsg = errors.New("failed to execute capability")
 
 func NewServerRequest(capability capabilities.ExecutableCapability, method string, capabilityID string, capabilityDonID uint32,
 	capabilityPeerID p2ptypes.PeerID,
@@ -320,7 +326,9 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 	capabilityRequest, err := pb.UnmarshalCapabilityRequest(payload)
 	if err != nil {
 		lggr.Errorw("failed to unmarshal capability request", "err", err)
-		return nil, errExternalErrorMsg
+
+		// Do not include the unmarshal error in the response as it may contain sensitive information
+		return nil, errors.New("failed to unmarshal capability request")
 	}
 
 	lggr = lggr.With("metadata", capabilityRequest.Metadata)
@@ -329,13 +337,21 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 	capResponse, err := capability.Execute(ctx, capabilityRequest)
 	if err != nil {
 		lggr.Errorw("received execution error", "error", err)
-		return nil, errExternalErrorMsg
+
+		// If an error is a RemoteReportableError then the information it contains is considered to be safe to report back to the calling nodes
+		var reportableError *capabilities.RemoteReportableError
+		if errors.As(err, &reportableError) {
+			return nil, fmt.Errorf("failed to execute capability: %w", reportableError)
+		}
+		return nil, errors.New("failed to execute capability")
 	}
 
 	responsePayload, err := pb.MarshalCapabilityResponse(capResponse)
 	if err != nil {
 		lggr.Errorw("failed to marshal capability request", "error", err)
-		return nil, errExternalErrorMsg
+
+		// Do not include the marshal error in the response as it may contain sensitive information
+		return nil, errors.New("failed to marshal capability request")
 	}
 
 	lggr.Debug("received execution results")

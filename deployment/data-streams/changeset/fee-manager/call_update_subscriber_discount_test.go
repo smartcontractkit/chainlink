@@ -1,18 +1,21 @@
 package fee_manager
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
+	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 )
 
 func TestUpdateSubscriberDiscount(t *testing.T) {
-	res, err := NewDataStreamsEnvironment(t, NewDefaultOptions())
+	res, err := DeployTestEnvironment(t, NewDefaultOptions())
 	require.NoError(t, err)
 
 	linkTokenAddress := res.LinkTokenAddress
@@ -44,12 +47,28 @@ func TestUpdateSubscriberDiscount(t *testing.T) {
 		))
 	require.NoError(t, err)
 
-	feeManager, err := LoadFeeManagerState(e, testutil.TestChain.Selector, feeManagerAddress.String())
-	require.NoError(t, err)
-	require.NotNil(t, feeManager)
+	t.Run("VerifyMetadata", func(t *testing.T) {
+		// Use View To Confirm Data
+		_, outputs, err := commonChangesets.ApplyChangesetsV2(t, e,
+			[]commonChangesets.ConfiguredChangeSet{
+				commonChangesets.Configure(
+					changeset.SaveContractViews,
+					changeset.SaveContractViewsConfig{
+						Chains: []uint64{testutil.TestChain.Selector},
+					},
+				),
+			},
+		)
+		require.NoError(t, err)
+		require.Len(t, outputs, 1)
+		output := outputs[0]
 
-	actualDiscount, err := feeManager.SSubscriberDiscounts(nil, subscriber, feedID, linkTokenAddress)
-
-	require.NoError(t, err)
-	require.Equal(t, actualDiscount, big.NewInt(1000))
+		contractMetadata := testutil.MustGetContractMetaData[v0_5.FeeManagerView](t, output.DataStore, testutil.TestChain.Selector, feeManagerAddress.Hex())
+		require.NotNil(t, contractMetadata)
+		feedIDHex := dsutil.HexEncodeBytes32(feedID)
+		discountRecord, ok := contractMetadata.View.SubscriberDiscounts[subscriber.String()][feedIDHex]
+		require.True(t, ok)
+		require.Equal(t, "1000", discountRecord.Link)
+		require.False(t, discountRecord.IsGlobal)
+	})
 }

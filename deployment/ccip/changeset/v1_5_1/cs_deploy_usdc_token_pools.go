@@ -13,11 +13,14 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
-var _ deployment.ChangeSet[DeployUSDCTokenPoolContractsConfig] = DeployUSDCTokenPoolContractsChangeset
+var _ cldf.ChangeSet[DeployUSDCTokenPoolContractsConfig] = DeployUSDCTokenPoolContractsChangeset
 
 // DeployUSDCTokenPoolInput defines all information required of the user to deploy a new USDC token pool contract.
 type DeployUSDCTokenPoolInput struct {
@@ -120,15 +123,15 @@ func (c DeployUSDCTokenPoolContractsConfig) Validate(env deployment.Environment)
 }
 
 // DeployUSDCTokenPoolContractsChangeset deploys new USDC pools across multiple chains.
-func DeployUSDCTokenPoolContractsChangeset(env deployment.Environment, c DeployUSDCTokenPoolContractsConfig) (deployment.ChangesetOutput, error) {
+func DeployUSDCTokenPoolContractsChangeset(env deployment.Environment, c DeployUSDCTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployUSDCTokenPoolContractsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployUSDCTokenPoolContractsConfig: %w", err)
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	for chainSelector, poolConfig := range c.USDCPools {
@@ -138,27 +141,27 @@ func DeployUSDCTokenPoolContractsChangeset(env deployment.Environment, c DeployU
 		if c.IsTestRouter {
 			router = chainState.TestRouter
 		}
-		_, err := deployment.DeployContract(env.Logger, chain, newAddresses,
-			func(chain deployment.Chain) deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
+		_, err := cldf.DeployContract(env.Logger, chain, newAddresses,
+			func(chain deployment.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 				poolAddress, tx, usdcTokenPool, err := usdc_token_pool.DeployUSDCTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenMessenger, poolConfig.TokenAddress,
 					poolConfig.AllowList, chainState.RMNProxy.Address(), router.Address(),
 				)
-				return deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
+				return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
 					Address:  poolAddress,
 					Contract: usdcTokenPool,
-					Tv:       deployment.NewTypeAndVersion(changeset.USDCTokenPool, deployment.Version1_5_1),
+					Tv:       cldf.NewTypeAndVersion(changeset.USDCTokenPool, deployment.Version1_5_1),
 					Tx:       tx,
 					Err:      err,
 				}
 			},
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy USDC token pool on %s: %w", chain, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy USDC token pool on %s: %w", chain, err)
 		}
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
 }

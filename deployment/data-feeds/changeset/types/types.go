@@ -6,11 +6,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
+	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 type MCMSConfig struct {
@@ -22,7 +24,7 @@ type AddressType string
 type DeployCacheResponse struct {
 	Address  common.Address
 	Tx       common.Hash
-	Tv       deployment.TypeAndVersion
+	Tv       cldf.TypeAndVersion
 	Contract *cache.DataFeedsCache
 }
 
@@ -38,15 +40,23 @@ type DeployAggregatorProxyConfig struct {
 }
 
 type DeployBundleAggregatorProxyConfig struct {
-	ChainsToDeploy    []uint64 // Chain Selectors
-	MCMSAddressesPath string   // Path to the MCMS addresses JSON file, per chain
-	InputFS           embed.FS // Filesystem to read MCMS addresses JSON file
+	ChainsToDeploy []uint64 // Chain Selectors
+	Owners         map[uint64]common.Address
+	Labels         []string // Labels for the BundleAggregatorProxy, applies to all chains
+	CacheLabel     string   // Label to find the DataFeedsCache contract address in addressbook
+}
+
+type DeployBundleAggregatorProxyResponse struct {
+	Address  common.Address
+	Tx       common.Hash
+	Tv       cldf.TypeAndVersion
+	Contract *bundleproxy.BundleAggregatorProxy
 }
 
 type DeployProxyResponse struct {
 	Address  common.Address
 	Tx       common.Hash
-	Tv       deployment.TypeAndVersion
+	Tv       cldf.TypeAndVersion
 	Contract *proxy.AggregatorProxy
 }
 
@@ -70,6 +80,16 @@ type SetFeedDecimalConfig struct {
 	CacheAddress     common.Address
 	DataIDs          []string
 	Descriptions     []string
+	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
+	McmsConfig       *MCMSConfig
+}
+
+type SetFeedBundleConfig struct {
+	ChainSelector    uint64
+	CacheAddress     common.Address
+	DataIDs          []string
+	Descriptions     []string
+	DecimalsMatrix   [][]uint8
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 	McmsConfig       *MCMSConfig
 }
@@ -147,7 +167,7 @@ type WorkflowSpecConfig struct {
 	WriteTargetTrigger               string // Required
 	ConsensusRef                     string // Default "data-feeds"
 	ConsensusConfigKeyID             string // Default "evm"
-	ConsensusAllowedPartialStaleness string // Default "0.5"
+	ConsensusAllowedPartialStaleness string
 	DeltaStageSec                    *int   // Default 45
 	TargetsSchedule                  string // Default "oneAtATime"
 	TriggersMaxFrequencyMs           *int   // Default 5000
@@ -156,6 +176,8 @@ type WorkflowSpecConfig struct {
 
 type ProposeWFJobsConfig struct {
 	ChainSelector      uint64
+	CacheLabel         string   // Label for the DataFeedsCache contract in AB
+	MigrationName      string   // Name of the migration in CLD
 	InputFS            embed.FS // filesystem to read the feeds json mapping
 	WorkflowJobName    string   // Required
 	WorkflowSpecConfig WorkflowSpecConfig

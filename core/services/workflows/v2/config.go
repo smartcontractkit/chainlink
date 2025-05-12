@@ -4,10 +4,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -16,29 +20,58 @@ type EngineConfig struct {
 	Module          host.ModuleV2
 	CapRegistry     core.CapabilitiesRegistry
 	ExecutionsStore store.Store
+	Clock           clockwork.Clock
 
 	WorkflowID    string // hex-encoded [32]byte, no "0x" prefix
 	WorkflowOwner string // hex-encoded [20]byte, no "0x" prefix
 	WorkflowName  types.WorkflowName
 
-	Limits EngineLimits
-	Hooks  LifecycleHooks
+	LocalLimits          EngineLimits             // local to a single workflow
+	GlobalLimits         *syncerlimiter.Limits    // global to all workflows
+	ExecutionRateLimiter *ratelimiter.RateLimiter // global + per owner
+
+	Hooks LifecycleHooks
 }
 
 const (
 	defaultMaxCapRegistryAccessRetries      = 0 // infinity
 	defaultCapRegistryAccessRetryIntervalMs = 5000
-	defaultMaxTotalTriggerSubscriptions     = 10
-	defaultMaxConcurrentCapabilityCalls     = 10
+
+	defaultModuleExecuteMaxResponseSizeBytes   = 100000
+	defaultTriggerSubscriptionRequestTimeoutMs = 500
+	defaultMaxTriggerSubscriptions             = 10
+	defaultTriggerEventQueueSize               = 1000
+
+	defaultMaxConcurrentWorkflowExecutions         = 100
+	defaultMaxConcurrentCapabilityCallsPerWorkflow = 10
+	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
+	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
+
+	defaultShutdownTimeoutMs = 5000
 )
 
 type EngineLimits struct {
-	MaxCapRegistryAccessRetries      int
-	CapRegistryAccessRetryIntervalMs int
+	MaxCapRegistryAccessRetries      uint16
+	CapRegistryAccessRetryIntervalMs uint32
 
-	MaxTotalTriggerSubscriptions int
+	ModuleExecuteMaxResponseSizeBytes   uint32
+	TriggerSubscriptionRequestTimeoutMs uint32
+	MaxTriggerSubscriptions             uint16
+	TriggerEventQueueSize               uint16
 
-	MaxConcurrentCapabilityCalls int
+	MaxConcurrentWorkflowExecutions         uint16
+	MaxConcurrentCapabilityCallsPerWorkflow uint16
+	WorkflowExecutionTimeoutMs              uint32
+	CapabilityCallTimeoutMs                 uint32
+
+	ShutdownTimeoutMs uint32
+}
+
+type LifecycleHooks struct {
+	OnInitialized          func(err error)
+	OnSubscribedToTriggers func(triggerIDs []string)
+	OnExecutionFinished    func(executionID string)
+	OnRateLimited          func(executionID string)
 }
 
 func (c *EngineConfig) Validate() error {
@@ -54,6 +87,9 @@ func (c *EngineConfig) Validate() error {
 	if c.ExecutionsStore == nil {
 		return errors.New("executions store not set")
 	}
+	if c.Clock == nil {
+		c.Clock = clockwork.NewRealClock()
+	}
 
 	_, err := types.WorkflowIDFromHex(c.WorkflowID)
 	if err != nil {
@@ -67,35 +103,66 @@ func (c *EngineConfig) Validate() error {
 		return errors.New("workflowName not set")
 	}
 
-	c.setDefaultLimits()
-	c.setDefaultHooks()
+	c.LocalLimits.setDefaultLimits()
+	if c.GlobalLimits == nil {
+		return errors.New("global limits not set")
+	}
+	if c.ExecutionRateLimiter == nil {
+		return errors.New("execution rate limiter not set")
+	}
+
+	c.Hooks.setDefaultHooks()
 	return nil
 }
 
-func (c *EngineConfig) setDefaultLimits() {
-	if c.Limits.MaxCapRegistryAccessRetries == 0 {
-		c.Limits.MaxCapRegistryAccessRetries = defaultMaxCapRegistryAccessRetries
+func (l *EngineLimits) setDefaultLimits() {
+	if l.MaxCapRegistryAccessRetries == 0 {
+		l.MaxCapRegistryAccessRetries = defaultMaxCapRegistryAccessRetries
 	}
-	if c.Limits.CapRegistryAccessRetryIntervalMs == 0 {
-		c.Limits.CapRegistryAccessRetryIntervalMs = defaultCapRegistryAccessRetryIntervalMs
+	if l.CapRegistryAccessRetryIntervalMs == 0 {
+		l.CapRegistryAccessRetryIntervalMs = defaultCapRegistryAccessRetryIntervalMs
 	}
-	if c.Limits.MaxTotalTriggerSubscriptions == 0 {
-		c.Limits.MaxTotalTriggerSubscriptions = defaultMaxTotalTriggerSubscriptions
+	if l.ModuleExecuteMaxResponseSizeBytes == 0 {
+		l.ModuleExecuteMaxResponseSizeBytes = defaultModuleExecuteMaxResponseSizeBytes
 	}
-	if c.Limits.MaxConcurrentCapabilityCalls == 0 {
-		c.Limits.MaxConcurrentCapabilityCalls = defaultMaxConcurrentCapabilityCalls
+	if l.TriggerSubscriptionRequestTimeoutMs == 0 {
+		l.TriggerSubscriptionRequestTimeoutMs = defaultTriggerSubscriptionRequestTimeoutMs
+	}
+	if l.MaxTriggerSubscriptions == 0 {
+		l.MaxTriggerSubscriptions = defaultMaxTriggerSubscriptions
+	}
+	if l.TriggerEventQueueSize == 0 {
+		l.TriggerEventQueueSize = defaultTriggerEventQueueSize
+	}
+	if l.MaxConcurrentWorkflowExecutions == 0 {
+		l.MaxConcurrentWorkflowExecutions = defaultMaxConcurrentWorkflowExecutions
+	}
+	if l.MaxConcurrentCapabilityCallsPerWorkflow == 0 {
+		l.MaxConcurrentCapabilityCallsPerWorkflow = defaultMaxConcurrentCapabilityCallsPerWorkflow
+	}
+	if l.WorkflowExecutionTimeoutMs == 0 {
+		l.WorkflowExecutionTimeoutMs = defaultWorkflowExecutionTimeoutMs
+	}
+	if l.CapabilityCallTimeoutMs == 0 {
+		l.CapabilityCallTimeoutMs = defaultCapabilityCallTimeoutMs
+	}
+	if l.ShutdownTimeoutMs == 0 {
+		l.ShutdownTimeoutMs = defaultShutdownTimeoutMs
 	}
 }
 
 // set all to non-nil so the Engine doesn't have to check before each call
-func (c *EngineConfig) setDefaultHooks() {
-	if c.Hooks.OnInitialized == nil {
-		c.Hooks.OnInitialized = func(err error) {}
+func (h *LifecycleHooks) setDefaultHooks() {
+	if h.OnInitialized == nil {
+		h.OnInitialized = func(err error) {}
 	}
-	if c.Hooks.OnExecutionFinished == nil {
-		c.Hooks.OnExecutionFinished = func(executionID string) {}
+	if h.OnSubscribedToTriggers == nil {
+		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
 	}
-	if c.Hooks.OnRateLimited == nil {
-		c.Hooks.OnRateLimited = func(executionID string) {}
+	if h.OnExecutionFinished == nil {
+		h.OnExecutionFinished = func(executionID string) {}
+	}
+	if h.OnRateLimited == nil {
+		h.OnRateLimited = func(executionID string) {}
 	}
 }

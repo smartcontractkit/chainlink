@@ -12,10 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -27,12 +28,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 )
 
-var _ deployment.ChangeSet[DeployTokenPoolContractsConfig] = DeployTokenPoolContractsChangeset
+var _ cldf.ChangeSet[DeployTokenPoolContractsConfig] = DeployTokenPoolContractsChangeset
 
 // DeployTokenPoolInput defines all information required of the user to deploy a new token pool contract.
 type DeployTokenPoolInput struct {
 	// Type is the type of token pool that must be deployed.
-	Type deployment.ContractType
+	Type cldf.ContractType
 	// TokenAddress is the address of the token for which we are deploying a pool.
 	TokenAddress common.Address
 	// AllowList is the optional list of addresses permitted to initiate a token transfer.
@@ -49,7 +50,7 @@ func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Cha
 	if i.TokenAddress == utils.ZeroAddress {
 		return errors.New("token address must be defined")
 	}
-	if i.Type == deployment.ContractType("") {
+	if i.Type == cldf.ContractType("") {
 		return errors.New("type must be defined")
 	}
 
@@ -151,15 +152,15 @@ func (c DeployTokenPoolContractsConfig) Validate(env deployment.Environment) err
 }
 
 // DeployTokenPoolContractsChangeset deploys new pools for a given token across multiple chains.
-func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployTokenPoolContractsConfig) (deployment.ChangesetOutput, error) {
+func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployTokenPoolContractsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployTokenPoolContractsConfig: %w", err)
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	deployGrp := errgroup.Group{}
@@ -169,17 +170,26 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 		deployGrp.Go(func() error {
 			chain := env.Chains[chainSelector]
 			chainState := state.Chains[chainSelector]
-			_, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
-			return err
+			contract, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
+			if err != nil {
+				return fmt.Errorf("failed to deploy token pool contract: %w", err)
+			}
+			if poolConfig.Type == changeset.BurnMintTokenPool {
+				err := grantAccessToPool(env.GetContext(), chain, contract.Address, poolConfig.TokenAddress)
+				if err != nil {
+					return fmt.Errorf("failed to grant token pool access to token: %s %w", poolConfig.TokenAddress, err)
+				}
+			}
+			return nil
 		})
 	}
 
 	if err := deployGrp.Wait(); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %w",
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %w",
 			c.TokenSymbol, err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
 }
@@ -189,18 +199,18 @@ func deployTokenPool(
 	logger logger.Logger,
 	chain deployment.Chain,
 	chainState changeset.CCIPChainState,
-	addressBook deployment.AddressBook,
+	addressBook cldf.AddressBook,
 	poolConfig DeployTokenPoolInput,
 	isTestRouter bool,
-) (*deployment.ContractDeploy[*token_pool.TokenPool], error) {
+) (*cldf.ContractDeploy[*token_pool.TokenPool], error) {
 	router := chainState.Router
 	if isTestRouter {
 		router = chainState.TestRouter
 	}
 	rmnProxy := chainState.RMNProxy
 
-	return deployment.DeployContract(logger, chain, addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*token_pool.TokenPool] {
+	return cldf.DeployContract(logger, chain, addressBook,
+		func(chain deployment.Chain) cldf.ContractDeploy[*token_pool.TokenPool] {
 			var tpAddr common.Address
 			var tx *types.Transaction
 			var err error
@@ -230,10 +240,10 @@ func deployTokenPool(
 			if err == nil { // prevents overwriting the error (also, if there were an error with deployment, converting to an abstract token pool wouldn't be useful)
 				tp, err = token_pool.NewTokenPool(tpAddr, chain.Client)
 			}
-			return deployment.ContractDeploy[*token_pool.TokenPool]{
+			return cldf.ContractDeploy[*token_pool.TokenPool]{
 				Address:  tpAddr,
 				Contract: tp,
-				Tv:       deployment.NewTypeAndVersion(poolConfig.Type, changeset.CurrentTokenPoolVersion),
+				Tv:       cldf.NewTypeAndVersion(poolConfig.Type, changeset.CurrentTokenPoolVersion),
 				Tx:       tx,
 				Err:      err,
 			}

@@ -80,9 +80,9 @@ func GenerateChainsZk(t *testing.T, numChains int) map[uint64]deployment.Chain {
 				}
 				return receipt.Status, nil
 			},
-			IsZk:          true,
-			ClientZk:      clientZk,
-			DeployerKeyZk: deployerZk,
+			IsZkSyncVM:          true,
+			ClientZkSyncVM:      clientZk,
+			DeployerKeyZkSyncVM: deployerZk,
 		}
 
 		chains[sel] = chain

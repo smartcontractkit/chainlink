@@ -7,7 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
+	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -28,7 +32,7 @@ func DeployCache(chain deployment.Chain, labels []string) (*types.DeployCacheRes
 		return nil, fmt.Errorf("failed to get type and version: %w", err)
 	}
 
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
@@ -59,7 +63,7 @@ func DeployAggregatorProxy(chain deployment.Chain, aggregator common.Address, ac
 
 	// AggregatorProxy contract doesn't implement typeAndVersion interface, so we have to set it manually
 	tvStr := "AggregatorProxy 1.0.0"
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
@@ -69,6 +73,39 @@ func DeployAggregatorProxy(chain deployment.Chain, aggregator common.Address, ac
 	}
 
 	resp := &types.DeployProxyResponse{
+		Address:  proxyAddr,
+		Tx:       tx.Hash(),
+		Tv:       tv,
+		Contract: proxyContract,
+	}
+	return resp, nil
+}
+
+func DeployBundleAggregatorProxy(chain deployment.Chain, aggregator common.Address, owner common.Address, labels []string) (*types.DeployBundleAggregatorProxyResponse, error) {
+	proxyAddr, tx, proxyContract, err := bundleproxy.DeployBundleAggregatorProxy(chain.DeployerKey, chain.Client, aggregator, owner)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deploy BundleAggregatorProxy: %w", err)
+	}
+
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to confirm BundleAggregatorProxy: %w", err)
+	}
+
+	tvStr, err := proxyContract.TypeAndVersion(&bind.CallOpts{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get type and version: %w", err)
+	}
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
+	}
+
+	for _, label := range labels {
+		tv.Labels.Add(label)
+	}
+
+	resp := &types.DeployBundleAggregatorProxyResponse{
 		Address:  proxyAddr,
 		Tx:       tx.Hash(),
 		Tv:       tv,
