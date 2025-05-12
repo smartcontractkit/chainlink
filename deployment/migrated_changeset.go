@@ -22,12 +22,6 @@ var (
 	MergeChangesetOutput = deployment.MergeChangesetOutput
 )
 
-// ViewState
-
-type (
-	ViewStateV2 = deployment.ViewStateV2
-)
-
 type WrappedChangeSet[C any] struct {
 	operation deployment.ChangeSetV2[C]
 }
