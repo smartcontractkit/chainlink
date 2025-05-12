@@ -302,24 +302,25 @@ func TestEngine_Execution(t *testing.T) {
 	})
 }
 
-func TestEngine_WithCustomModule(t *testing.T) {
+func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd"
 	log := logger.TestLogger(t)
-	initDoneCh := make(chan error, 1)
-	subscribedToTriggersCh := make(chan []string, 1)
-	resultReceivedCh := make(chan *wasmpb.ExecutionResult, 1)
-	executionFinishedCh := make(chan string, 1)
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
 	module, err := host.NewModule(&host.ModuleConfig{
 		Logger:         log,
 		IsUncompressed: true,
 	}, binaryB)
 	require.NoError(t, err)
+
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 
 	cfg := defaultTestConfig(t)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
+	initDoneCh := make(chan error, 1)
+	subscribedToTriggersCh := make(chan []string, 1)
+	resultReceivedCh := make(chan *wasmpb.ExecutionResult, 1)
+	executionFinishedCh := make(chan string, 1)
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -343,44 +344,53 @@ func TestEngine_WithCustomModule(t *testing.T) {
 		Capability: basicActionMock,
 	}
 
-	engine, err := v2.NewEngine(t.Context(), cfg)
-	require.NoError(t, err)
-	capreg.EXPECT().LocalNode(matches.AnyContext).Return(capabilities.Node{}, nil).Once()
-
-	capreg.EXPECT().
-		GetTrigger(matches.AnyContext, wrappedTriggerMock.ID()).
-		Return(wrappedTriggerMock, nil).
-		Once()
-
-	capreg.EXPECT().
-		GetExecutable(matches.AnyContext, wrappedActionMock.ID()).
-		Return(wrappedActionMock, nil).
-		Twice()
-
-	execID, err := types.GenerateExecutionID(cfg.WorkflowID, "")
-	require.NoError(t, err)
-
-	require.NoError(t, engine.Start(t.Context()))
-	require.NoError(t, <-initDoneCh)
-	require.Equal(t, []string{wrappedTriggerMock.ID()}, <-subscribedToTriggersCh)
-
-	res := <-resultReceivedCh
-	switch output := res.Result.(type) {
-	case *wasmpb.ExecutionResult_Value:
-		valuePb := output.Value
-		value, err := values.FromProto(valuePb)
+	t.Run("OK happy path", func(t *testing.T) {
+		wantResponse := "Hello, world!"
+		engine, err := v2.NewEngine(t.Context(), cfg)
 		require.NoError(t, err)
-		unwrapped, err := value.Unwrap()
-		require.NoError(t, err)
-		require.Equal(t, "Hello, world!", unwrapped)
-	default:
-		t.Fatalf("unexpected response type %T", output)
-	}
 
-	require.Equal(t, execID, <-executionFinishedCh)
-	require.NoError(t, engine.Close())
+		capreg.EXPECT().
+			LocalNode(matches.AnyContext).
+			Return(capabilities.Node{}, nil).
+			Once()
+
+		capreg.EXPECT().
+			GetTrigger(matches.AnyContext, wrappedTriggerMock.ID()).
+			Return(wrappedTriggerMock, nil).
+			Once()
+
+		capreg.EXPECT().
+			GetExecutable(matches.AnyContext, wrappedActionMock.ID()).
+			Return(wrappedActionMock, nil).
+			Twice()
+
+		require.NoError(t, engine.Start(t.Context()))
+		require.NoError(t, <-initDoneCh)
+		require.Equal(t, []string{wrappedTriggerMock.ID()}, <-subscribedToTriggersCh)
+
+		res := <-resultReceivedCh
+		switch output := res.Result.(type) {
+		case *wasmpb.ExecutionResult_Value:
+			valuePb := output.Value
+			value, err := values.FromProto(valuePb)
+			require.NoError(t, err)
+			unwrapped, err := value.Unwrap()
+			require.NoError(t, err)
+			require.Equal(t, wantResponse, unwrapped)
+		default:
+			t.Fatalf("unexpected response type %T", output)
+		}
+
+		execID, err := types.GenerateExecutionID(cfg.WorkflowID, "")
+		require.NoError(t, err)
+
+		require.Equal(t, execID, <-executionFinishedCh)
+		require.NoError(t, engine.Close())
+	})
 }
 
+// setupExpectedCalls mocks single call to trigger and two calls to the basic action
+// mock capability
 func setupExpectedCalls(t *testing.T) (*basictriggermock.BasicCapability, *basicactionmock.BasicActionCapability) {
 	triggerMock := &basictriggermock.BasicCapability{}
 	triggerMock.Trigger = func(ctx context.Context, input *basictrigger.Config) (*basictrigger.Outputs, error) {
@@ -398,9 +408,8 @@ func setupExpectedCalls(t *testing.T) (*basictriggermock.BasicCapability, *basic
 		firstCall = false
 		if input.InputThing {
 			return &basicaction.Outputs{AdaptedThing: "!"}, nil
-		} else {
-			return &basicaction.Outputs{AdaptedThing: "world"}, nil
 		}
+		return &basicaction.Outputs{AdaptedThing: "world"}, nil
 	}
 	return triggerMock, basicAction
 }
