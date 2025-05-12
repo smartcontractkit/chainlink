@@ -14,7 +14,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -37,7 +37,7 @@ const (
 )
 
 func verifyProgramSizes(t *testing.T, e deployment.Environment) {
-	state, err := solana2.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	addresses, err := e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
 	require.NoError(t, err)
@@ -207,7 +207,7 @@ func TestUpgrade(t *testing.T) {
 		})
 	upgradeAuthority := timelockSignerPDA
 	// upgradeAuthority := e.SolChains[solChainSelectors[0]].DeployerKey.PublicKey()
-	state, err := solana2.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	verifyProgramSizes(t, e)
 	addresses, err := e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
@@ -288,7 +288,7 @@ func TestUpgrade(t *testing.T) {
 	})
 	require.NoError(t, err)
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-	state, err = solana2.LoadOnchainStateSolana(e)
+	state, err = stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	oldOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
 	// add a second offramp address
@@ -319,7 +319,7 @@ func TestUpgrade(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// verify the offramp address is different
-	state, err = solana2.LoadOnchainStateSolana(e)
+	state, err = stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	newOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
 	require.NotEqual(t, oldOffRampAddress, newOffRampAddress)

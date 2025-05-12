@@ -627,7 +627,7 @@ func (c SolanaCursableChain) IsCursable() (bool, error) {
 }
 
 func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, error) {
-	state, err := solana2.LoadOnchainStateSolana(c.env)
+	state, err := stateview.LoadOnchainStateSolana(c.env)
 	if err != nil {
 		return false, fmt.Errorf("failed to load onchain state: %w", err)
 	}

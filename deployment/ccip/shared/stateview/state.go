@@ -612,7 +612,7 @@ func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType cldf.Contr
 }
 
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
-	solanaState, err := solana.LoadOnchainStateSolana(e)
+	solanaState, err := LoadOnchainStateSolana(e)
 	if err != nil {
 		return CCIPOnChainState{}, err
 	}
@@ -1070,4 +1070,26 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 		}
 	}
 	return nil
+}
+
+func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
+	state := CCIPOnChainState{
+		SolChains: make(map[uint64]solana.SolCCIPChainState),
+	}
+	for chainSelector, chain := range e.SolChains {
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		if err != nil {
+			// Chain not found in address book, initialize empty
+			if !std_errors.Is(err, cldf.ErrChainNotFound) {
+				return state, err
+			}
+			addresses = make(map[string]cldf.TypeAndVersion)
+		}
+		chainState, err := solana.LoadChainStateSolana(chain, addresses)
+		if err != nil {
+			return state, err
+		}
+		state.SolChains[chainSelector] = chainState
+	}
+	return state, nil
 }

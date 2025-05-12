@@ -156,7 +156,7 @@ func UpdateOffRampRefAddresses(
 	e deployment.Environment,
 	config OffRampRefAddressesConfig,
 ) (cldf.ChangesetOutput, error) {
-	state, err := solana2.LoadOnchainStateSolana(e)
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	chain := e.SolChains[config.ChainSelector]
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -261,7 +261,7 @@ func SetUpgradeAuthorityChangeset(
 	config SetUpgradeAuthorityConfig,
 ) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[config.ChainSelector]
-	state, err := solana2.LoadOnchainStateSolana(e)
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return cldf.ChangesetOutput{}, err

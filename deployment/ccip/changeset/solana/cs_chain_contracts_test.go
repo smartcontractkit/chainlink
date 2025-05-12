@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -82,7 +83,7 @@ func TestAddRemoteChainWithoutMcms(t *testing.T) {
 func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	e := tenv.Env
-	_, err := solana2.LoadOnchainStateSolana(tenv.Env)
+	_, err := stateview.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
 	evmChains := tenv.Env.AllChainSelectors()
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
@@ -170,7 +171,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	)
 	require.NoError(t, err)
 
-	state, err := solana2.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 
 	var offRampSourceChain solOffRamp.SourceChain
@@ -213,7 +214,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 
 	require.NoError(t, err)
 
-	state, err = solana2.LoadOnchainStateSolana(e)
+	state, err = stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 
 	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
@@ -289,7 +290,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 
 	require.NoError(t, err)
 
-	state, err = solana2.LoadOnchainStateSolana(e)
+	state, err = stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 
 	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
@@ -314,7 +315,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 
 	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
 	require.NoError(t, err)
-	state, err := solana2.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	validTimestamp := int64(100)
 	value := [28]uint8{}
@@ -584,7 +585,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
 	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
 	require.NoError(t, err)
-	state, err := solana2.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	linkTokenAddress := state.SolChains[solChain].LinkToken
 	newAdminNonTimelock, _ := solana.NewRandomPrivateKey()
@@ -758,7 +759,7 @@ func doTestPoolLookupTable(t *testing.T, e deployment.Environment, mcms bool, to
 		),
 	)
 	require.NoError(t, err)
-	state, err := solana2.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	lookupTablePubKey := state.SolChains[solChain].TokenPoolLookupTable[tokenAddress][pool][tokenMetadata]
 

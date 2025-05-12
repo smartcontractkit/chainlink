@@ -285,7 +285,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-	state, err := solana2.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	tokenAddressLockRelease := state.SolChains[solChain1].SPL2022Tokens[0]
 	tokenAddressBurnMint := state.SolChains[solChain1].SPL2022Tokens[1]

@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -397,7 +396,7 @@ func addEVMSolanaPreconditions(env deployment.Environment, input AddRemoteChainE
 	if _, ok := env.SolChains[input.SolanaChainSelector]; !ok {
 		return fmt.Errorf("failed to find Solana chain in env %d", input.SolanaChainSelector)
 	}
-	solanaState, err := solana2.LoadOnchainStateSolana(env)
+	solanaState, err := ccipchangeset.LoadOnchainStateSolana(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain solana state: %w", err)
 	}

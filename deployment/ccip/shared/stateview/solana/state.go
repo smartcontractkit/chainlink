@@ -20,7 +20,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	solanaview "github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -185,28 +184,6 @@ func FetchOfframpLookupTable(ctx context.Context, chain deployment.SolChain, off
 		return solana.PublicKey{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
 	}
 	return referenceAddressesAccount.OfframpLookupTable, nil
-}
-
-func LoadOnchainStateSolana(e deployment.Environment) (stateview.CCIPOnChainState, error) {
-	state := stateview.CCIPOnChainState{
-		SolChains: make(map[uint64]SolCCIPChainState),
-	}
-	for chainSelector, chain := range e.SolChains {
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			// Chain not found in address book, initialize empty
-			if !errors.Is(err, cldf.ErrChainNotFound) {
-				return state, err
-			}
-			addresses = make(map[string]cldf.TypeAndVersion)
-		}
-		chainState, err := LoadChainStateSolana(chain, addresses)
-		if err != nil {
-			return state, err
-		}
-		state.SolChains[chainSelector] = chainState
-	}
-	return state, nil
 }
 
 // LoadChainStateSolana Loads all state for a SolChain into state

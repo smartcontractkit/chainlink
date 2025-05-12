@@ -2118,7 +2118,7 @@ func SavePreloadedSolAddresses(e deployment.Environment, solChainSelector uint64
 }
 
 func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelectors []uint64) {
-	state, err := solana2.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err, "Failed to load Solana state")
 
 	for _, sel := range solChainSelectors {
@@ -2166,7 +2166,7 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 }
 
 func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
-	state, err := solana2.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	for solSelector, chainState := range state.SolChains {
 		solTestReceiver.SetProgramID(chainState.Receiver)

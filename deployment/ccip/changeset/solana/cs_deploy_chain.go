@@ -276,7 +276,7 @@ func deployChainContractsSolana(
 ) ([]mcmsTypes.BatchOperation, error) {
 	// we may need to gather instructions and submit them as part of MCMS
 	batches := make([]mcmsTypes.BatchOperation, 0)
-	s, err := solana2.LoadOnchainStateSolana(e)
+	s, err := ccipChangeset.LoadOnchainStateSolana(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return batches, err
