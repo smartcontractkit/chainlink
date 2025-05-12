@@ -83,7 +83,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/apache/arrow-go/v18 v18.0.0 // indirect
-	github.com/aptos-labs/aptos-go-sdk v1.6.3-0.20250331001805-0680b714db6d // indirect
+	github.com/aptos-labs/aptos-go-sdk v1.7.0 // indirect
 	github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/avast/retry-go/v4 v4.6.1 // indirect
@@ -381,7 +381,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.55 // indirect
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250414155853-651b4e583ee9 // indirect
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250512152539-826d731ba4fa // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250508225633-13a092427990 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250509160340-4f4a9265e657 // indirect
