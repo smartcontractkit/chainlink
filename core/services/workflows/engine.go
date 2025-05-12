@@ -154,9 +154,6 @@ func (e *Engine) Start(_ context.Context) error {
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, _ := e.stopCh.NewCtx()
 
-		// workflowID and owner does not change, set as label for all metrics
-		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner)
-
 		// validate if adding another workflow would exceed either the global or per owner engine count limit
 		ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
 		if !globalAllow {
