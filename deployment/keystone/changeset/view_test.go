@@ -262,6 +262,7 @@ func TestKeystoneView(t *testing.T) {
 	)
 
 	t.Run("generates a partial view of the keystone state with OCR3 not configured", func(t *testing.T) {
+		tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-756")
 		// Deploy a new OCR3 contract
 		resp, err := changeset.DeployOCR3(env.Env, registryChain)
 		require.NoError(t, err)
@@ -292,6 +293,7 @@ func TestKeystoneView(t *testing.T) {
 	})
 
 	t.Run("fails to generate a view of the keystone state with a bad OracleConfig", func(t *testing.T) {
+		tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-756")
 		oracleConfigCopy := oracleConfig
 		oracleConfigCopy.DeltaRoundMillis = 0
 		oracleConfigCopy.DeltaProgressMillis = 0
