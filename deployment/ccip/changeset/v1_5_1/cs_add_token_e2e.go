@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
@@ -271,7 +270,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy token pool for token %s: %w", token, err)
 		}
-		if err := deployment.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 		}
 		newAddresses, err := output.AddressBook.Addresses()
@@ -292,7 +291,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to configure token pool for token %s: %w", token, err)
 		}
-		if err := deployment.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after configuring token pool for token %s: %w", token, err)
 		}
 		e.Logger.Infow("configured token pool", "token", token)
@@ -301,7 +300,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose admin role for token %s: %w", token, err)
 		}
-		if err := deployment.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to changeset output after configuring token admin reg for token %s: %w",
 				token, err)
 		}
@@ -333,7 +332,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to accept admin role for token %s: %w", token, err)
 		}
-		if err := deployment.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 		}
 		e.Logger.Infow("accepted admin role", "token", token, "config", updatedConfigureTokenAdminReg)
@@ -341,7 +340,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set pool for token %s: %w", token, err)
 		}
-		if err := deployment.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 		}
 		e.Logger.Infow("set pool", "token", token, "config", updatedConfigureTokenAdminReg)

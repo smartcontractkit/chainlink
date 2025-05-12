@@ -18,10 +18,6 @@ type (
 	ChangesetOutput = deployment.ChangesetOutput
 )
 
-var (
-	MergeChangesetOutput = deployment.MergeChangesetOutput
-)
-
 type WrappedChangeSet[C any] struct {
 	operation deployment.ChangeSetV2[C]
 }
