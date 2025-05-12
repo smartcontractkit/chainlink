@@ -7,10 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
+	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 )
 
 func TestCallSetProductionConfig(t *testing.T) {
@@ -29,12 +32,10 @@ func TestCallSetProductionConfig(t *testing.T) {
 
 	require.NoError(t, err)
 
-	ab, err := e.ExistingAddresses.Addresses()
+	configuratorAddrHex, err := dsutil.GetContractAddress(e.DataStore.Addresses(), types.Configurator)
 	require.NoError(t, err)
-	require.Len(t, ab, 1)
 
-	configuratorAddr, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.Configurator)
-	require.NoError(t, err)
+	configuratorAddr := common.HexToAddress(configuratorAddrHex)
 
 	onchainConfigHex := "0000000000000000000000000000000000000000000000000000000000000001" +
 		"0000000000000000000000000000000000000000000000000000000000000000"
@@ -42,8 +43,8 @@ func TestCallSetProductionConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, onchainConfig, 64)
 
-	prodCfg := SetProductionConfig{
-		ConfiguratorAddress: common.HexToAddress(configuratorAddr),
+	prodCfg := ConfiguratorConfig{
+		ConfiguratorAddress: configuratorAddr,
 		ConfigID:            [32]byte{},
 		Signers: [][]byte{
 			{0x01}, {0x02}, {0x03}, {0x04},
@@ -58,7 +59,7 @@ func TestCallSetProductionConfig(t *testing.T) {
 	}
 
 	callConf := SetProductionConfigConfig{
-		ConfigurationsByChain: map[uint64][]SetProductionConfig{
+		ConfigurationsByChain: map[uint64][]ConfiguratorConfig{
 			chainSelector: {prodCfg},
 		},
 		MCMSConfig: nil,
@@ -72,4 +73,43 @@ func TestCallSetProductionConfig(t *testing.T) {
 	)
 
 	require.NoError(t, err)
+
+	t.Run("VerifyMetadata", func(t *testing.T) {
+		// Use View To Confirm Data
+		_, outputs, err := commonChangesets.ApplyChangesetsV2(t, e,
+			[]commonChangesets.ConfiguredChangeSet{
+				commonChangesets.Configure(
+					changeset.SaveContractViews,
+					changeset.SaveContractViewsConfig{
+						Chains: []uint64{testutil.TestChain.Selector},
+					},
+				),
+			},
+		)
+		require.NoError(t, err)
+		require.Len(t, outputs, 1)
+		output := outputs[0]
+
+		client := e.Chains[testutil.TestChain.Selector].Client
+		contract, err := configurator.NewConfigurator(configuratorAddr, client)
+		require.NoError(t, err)
+
+		stagingIter, err := contract.FilterProductionConfigSet(nil, nil)
+		require.NoError(t, err)
+		defer stagingIter.Close()
+
+		var digest [32]byte
+		for stagingIter.Next() {
+			event := stagingIter.Event
+			digest = event.ConfigDigest
+		}
+
+		VerifyConfiguratorState(t,
+			output.DataStore,
+			testutil.TestChain.Selector,
+			configuratorAddr,
+			digest,
+			prodCfg,
+			1)
+	})
 }

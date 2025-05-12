@@ -7,6 +7,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -25,16 +27,12 @@ func (l DisableRetryExampleChangeset) VerifyPreconditions(e deployment.Environme
 }
 
 func (l DisableRetryExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	operationInput := SuccessFailOperationInput{ShouldFail: true}
 
-	// Disable retry for this operation
-	// If retry was not disable, the operation would be retried for 10 times with exponential backoff.
-	_, err := operations.ExecuteOperation(e.OperationsBundle, SuccessFailOperation, nil, operationInput,
-		operations.WithRetryConfig[SuccessFailOperationInput, any](operations.RetryConfig[SuccessFailOperationInput, any]{
-			DisableRetry: true,
-		}))
+	// Retry is disabled by default for this operation
+	_, err := operations.ExecuteOperation(e.OperationsBundle, SuccessFailOperation, nil, operationInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -54,20 +52,19 @@ func (l UpdateInputExampleChangeset) VerifyPreconditions(e deployment.Environmen
 }
 
 func (l UpdateInputExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	operationInput := SuccessFailOperationInput{ShouldFail: true}
 
 	// Retry operation with updated input
 	// This operation will fail once and then succeed because the input was updated
 	_, err := operations.ExecuteOperation(e.OperationsBundle, SuccessFailOperation, nil, operationInput,
-		operations.WithRetryConfig[SuccessFailOperationInput, any](operations.RetryConfig[SuccessFailOperationInput, any]{
-			InputHook: func(input SuccessFailOperationInput, _ any) SuccessFailOperationInput {
-				// Update input to false, so it stops failing
-				input.ShouldFail = false
-				return input
-			},
-		}))
+		operations.WithRetryInput(func(input SuccessFailOperationInput, _ any) SuccessFailOperationInput {
+			// Update input to false, so it stops failing
+			input.ShouldFail = false
+			return input
+		}),
+	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

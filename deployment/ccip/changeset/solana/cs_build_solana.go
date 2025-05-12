@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strings"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -27,7 +29,7 @@ const (
 
 // Map program names to their Rust file paths (relative to the Anchor project root)
 // Needed for upgrades in place
-var programToFileMap = map[deployment.ContractType]string{
+var programToFileMap = map[cldf.ContractType]string{
 	cs.Router:                      "programs/ccip-router/src/lib.rs",
 	cs.CCIPCommon:                  "programs/ccip-common/src/lib.rs",
 	cs.FeeQuoter:                   "programs/fee-quoter/src/lib.rs",
@@ -40,7 +42,7 @@ var programToFileMap = map[deployment.ContractType]string{
 	types.RBACTimelockProgram:      "programs/timelock/src/lib.rs",
 }
 
-var programToVanityKey = map[deployment.ContractType]string{
+var programToVanityKey = map[cldf.ContractType]string{
 	cs.Router:    "Ccip",
 	cs.FeeQuoter: "FeeQ",
 	cs.OffRamp:   "off",
@@ -55,7 +57,7 @@ type LocalBuildConfig struct {
 	CleanGitDir bool
 	// When building locally, this will be used to replace the keys in the Rust files
 	GenerateVanityKeys bool
-	UpgradeKeys        map[deployment.ContractType]string
+	UpgradeKeys        map[cldf.ContractType]string
 }
 
 type BuildSolanaConfig struct {
@@ -131,7 +133,7 @@ func replaceKeys(e deployment.Environment) error {
 	return nil
 }
 
-func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.ContractType]string) error {
+func replaceKeysForUpgrade(e deployment.Environment, keys map[cldf.ContractType]string) error {
 	e.Logger.Debug("Replacing keys in Rust files...")
 	for program, key := range keys {
 		programStr := string(program)
@@ -194,7 +196,7 @@ func syncRouterAndCommon() error {
 	return os.WriteFile(commonFile, []byte(updatedContent), 0600)
 }
 
-func generateVanityKeys(e deployment.Environment, keys map[deployment.ContractType]string) error {
+func generateVanityKeys(e deployment.Environment, keys map[cldf.ContractType]string) error {
 	e.Logger.Debug("Generating vanity keys...")
 	for program, prefix := range programToVanityKey {
 		_, exists := keys[program]
@@ -283,7 +285,7 @@ func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
 
 	if config.LocalBuild.GenerateVanityKeys {
 		if len(config.LocalBuild.UpgradeKeys) == 0 {
-			config.LocalBuild.UpgradeKeys = make(map[deployment.ContractType]string)
+			config.LocalBuild.UpgradeKeys = make(map[cldf.ContractType]string)
 		}
 		if err := generateVanityKeys(e, config.LocalBuild.UpgradeKeys); err != nil {
 			return fmt.Errorf("error generating vanity keys: %w", err)

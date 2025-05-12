@@ -122,20 +122,24 @@ func getCommitRootAcceptedEvent(
 	msgSeqNr uint64,
 	lookbackDuration,
 	stepDuration time.Duration,
-) (offramp.InternalMerkleRoot, error) {
+	cachedBlockNumber uint64,
+) (offramp.InternalMerkleRoot, uint64, error) {
 	hdr, err := env.Chains[destChainSel].Client.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return offramp.InternalMerkleRoot{}, fmt.Errorf("failed to get header: %w", err)
+		return offramp.InternalMerkleRoot{}, 0, fmt.Errorf("failed to get header: %w", err)
 	}
 
-	// TODO: CCIP-5700
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
+	if cachedBlockNumber != 0 {
+		lggr.Infow("using cached block number to start search for root", "cachedBlockNumber", cachedBlockNumber)
+		start = cachedBlockNumber
+	}
 	step := durationToBlocks(destChainSel, stepDuration)
 
-	lggr.Debugw("Getting commit root accepted event", "startBlock", start, "step", step)
+	lggr.Infow("Getting commit root accepted event", "startBlock", start, "step", step)
 	for start <= hdr.Number.Uint64() {
 		end := min(start+step, hdr.Number.Uint64())
-		lggr.Debugw("Querying with", "startBlock", start, "endBlock", end, "step", step)
+		lggr.Infow("Querying with", "startBlock", start, "endBlock", end, "step", step)
 
 		iter, err := state.Chains[destChainSel].OffRamp.FilterCommitReportAccepted(
 			&bind.FilterOpts{
@@ -144,7 +148,7 @@ func getCommitRootAcceptedEvent(
 			},
 		)
 		if err != nil {
-			return offramp.InternalMerkleRoot{}, fmt.Errorf("failed to filter commit report accepted: %w", err)
+			return offramp.InternalMerkleRoot{}, 0, fmt.Errorf("failed to filter commit report accepted: %w", err)
 		}
 
 		for iter.Next() {
@@ -160,16 +164,16 @@ func getCommitRootAcceptedEvent(
 				msgSeqNr,
 				iter.Event.Raw.TxHash,
 			); found {
-				return root, nil
+				return root, iter.Event.Raw.BlockNumber, nil
 			}
 		}
 
 		start = end + 1
 	}
 
-	lggr.Debugw("didn't find commit root, maybe increase lookback duration")
+	lggr.Infow("didn't find commit root, maybe increase lookback duration")
 
-	return offramp.InternalMerkleRoot{}, errors.New("commit root not found")
+	return offramp.InternalMerkleRoot{}, 0, errors.New("commit root not found")
 }
 
 // Helper function to find a commit root in a list of merkle roots
@@ -182,13 +186,13 @@ func findCommitRoot(
 ) (offramp.InternalMerkleRoot, bool) {
 	for _, root := range roots {
 		if root.SourceChainSelector == srcChainSel {
-			lggr.Debugw("checking commit root",
+			lggr.Infow("checking commit root",
 				"minSeqNr", root.MinSeqNr,
 				"maxSeqNr", root.MaxSeqNr,
 				"txHash", txHash.Hex(),
 			)
 			if msgSeqNr >= root.MinSeqNr && msgSeqNr <= root.MaxSeqNr {
-				lggr.Debugw("found commit root",
+				lggr.Infow("found commit root",
 					"root", root,
 					"txHash", txHash.Hex(),
 				)
@@ -212,14 +216,18 @@ func getCCIPMessageSentEvents(
 	merkleRoot offramp.InternalMerkleRoot,
 	lookbackDuration,
 	stepDuration time.Duration,
-) ([]onramp.OnRampCCIPMessageSent, error) {
+	cachedBlockNumber uint64,
+) ([]onramp.OnRampCCIPMessageSent, []uint64, error) {
 	hdr, err := env.Chains[srcChainSel].Client.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get header: %w", err)
+		return nil, nil, fmt.Errorf("failed to get header: %w", err)
 	}
 
-	// TODO: CCIP-5700
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
+	if cachedBlockNumber != 0 {
+		lggr.Infow("using cached block number to start search for messages", "cachedBlockNumber", cachedBlockNumber)
+		start = cachedBlockNumber
+	}
 	step := durationToBlocks(srcChainSel, stepDuration)
 
 	var seqNrs []uint64
@@ -227,7 +235,7 @@ func getCCIPMessageSentEvents(
 		seqNrs = append(seqNrs, i)
 	}
 
-	lggr.Debugw("would query with",
+	lggr.Infow("would query with",
 		"seqNrs", seqNrs,
 		"minSeqNr", merkleRoot.MinSeqNr,
 		"maxSeqNr", merkleRoot.MaxSeqNr,
@@ -244,9 +252,10 @@ func getCCIPMessageSentEvents(
 	// 1. we find all the messages in the merkle root.
 	// 2. we reach the current head block.
 	// Usually (1) is completed before (2) but (2) is still needed to terminate the loop.
+	var blockNumbers []uint64
 	for uint64(len(ret)) < merkleRootSize && start <= hdr.Number.Uint64() {
 		end := min(start+step, hdr.Number.Uint64())
-		lggr.Debugw("Querying for messages with", "startBlock", start, "endBlock", end, "stepBlocks", step)
+		lggr.Infow("Querying for messages with", "startBlock", start, "endBlock", end, "stepBlocks", step)
 		iter, err := state.Chains[srcChainSel].OnRamp.FilterCCIPMessageSent(
 			&bind.FilterOpts{
 				Start: start,
@@ -256,18 +265,19 @@ func getCCIPMessageSentEvents(
 			seqNrs,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to filter ccip message sent: %w", err)
+			return nil, nil, fmt.Errorf("failed to filter ccip message sent: %w", err)
 		}
 
 		for iter.Next() {
 			if iter.Event.DestChainSelector == destChainSel {
-				lggr.Debugw("checking message",
+				lggr.Infow("checking message",
 					"seqNr", iter.Event.SequenceNumber,
 					"destChain", iter.Event.DestChainSelector,
 					"txHash", iter.Event.Raw.TxHash.String())
 				if iter.Event.SequenceNumber >= merkleRoot.MinSeqNr &&
 					iter.Event.SequenceNumber <= merkleRoot.MaxSeqNr {
 					ret = append(ret, *iter.Event)
+					blockNumbers = append(blockNumbers, iter.Event.Raw.BlockNumber)
 				}
 			}
 		}
@@ -276,12 +286,15 @@ func getCCIPMessageSentEvents(
 	}
 
 	if len(ret) != len(seqNrs) {
-		return nil, fmt.Errorf("not all messages found, got: %d, expected: %d", len(ret), len(seqNrs))
+		return nil, nil, fmt.Errorf("not all messages found, got: %d, expected: %d", len(ret), len(seqNrs))
+	}
+	if len(blockNumbers) != len(seqNrs) {
+		return nil, nil, fmt.Errorf("not all block numbers found, got: %d, expected: %d", len(blockNumbers), len(seqNrs))
 	}
 
-	lggr.Debugw("found all messages for root", "merkleRoot", merkleRoot, "messages", len(ret))
+	lggr.Infow("found all messages for root", "merkleRoot", merkleRoot, "messages", len(ret))
 
-	return ret, nil
+	return ret, blockNumbers, nil
 }
 
 // manuallyExecuteSingle manually executes a single message on the destination chain.
@@ -298,7 +311,7 @@ func manuallyExecuteSingle(
 	stepDuration time.Duration,
 	reExecuteIfFailed bool,
 	extraDataCodec ccipcommon.ExtraDataCodec,
-	messageSentCache map[uint64]onramp.OnRampCCIPMessageSent,
+	messageSentCache *MessageSentCache,
 	commitRootCache *RootCache,
 ) error {
 	onRampAddress := state.Chains[srcChainSel].OnRamp.Address()
@@ -312,11 +325,11 @@ func manuallyExecuteSingle(
 
 	if execState == testhelpers.EXECUTION_STATE_SUCCESS ||
 		(execState == testhelpers.EXECUTION_STATE_FAILURE && !reExecuteIfFailed) {
-		lggr.Debugw("message already executed", "execState", execState)
+		lggr.Infow("message already executed", "execState", execState, "msgSeqNr", msgSeqNr)
 		return nil
 	}
 
-	lggr.Debugw("contract addresses",
+	lggr.Infow("contract addresses",
 		"offRampAddress", state.Chains[destChainSel].OffRamp.Address(),
 		"onRampAddress", onRampAddress,
 		"execState", execState,
@@ -324,9 +337,14 @@ func manuallyExecuteSingle(
 
 	merkleRoot, inCache := commitRootCache.Get(msgSeqNr)
 	if !inCache {
-		lggr.Debugw("merkle root not found in cache, fetching from the chain", "msgSeqNr", msgSeqNr)
+		latestBlockNumber := commitRootCache.GetLatestBlockNumber()
+		lggr.Infow("merkle root not found in cache, fetching from the chain",
+			"msgSeqNr", msgSeqNr,
+			"latestBlockNumber", latestBlockNumber,
+		)
 		var err error
-		merkleRoot, err = getCommitRootAcceptedEvent(
+		var blockNumber uint64
+		merkleRoot, blockNumber, err = getCommitRootAcceptedEvent(
 			ctx,
 			lggr,
 			env,
@@ -336,19 +354,23 @@ func manuallyExecuteSingle(
 			msgSeqNr,
 			lookbackDurationCommitReport,
 			stepDuration,
+			latestBlockNumber,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to get merkle root: %w", err)
 		}
 
 		// add to the cache for faster fetching.
-		commitRootCache.Add(merkleRoot)
+		commitRootCache.Add(RootCacheEntry{
+			Root:        merkleRoot,
+			BlockNumber: blockNumber,
+		})
 		commitRootCache.Build()
 	} else {
-		lggr.Debugw("found merkle root in cache", "msgSeqNr", msgSeqNr, "merkleRoot", merkleRoot)
+		lggr.Infow("found merkle root in cache", "msgSeqNr", msgSeqNr, "merkleRoot", merkleRoot)
 	}
 
-	lggr.Debugw("merkle root",
+	lggr.Infow("merkle root",
 		"merkleRoot", hexutil.Encode(merkleRoot.MerkleRoot[:]),
 		"minSeqNr", merkleRoot.MinSeqNr,
 		"maxSeqNr", merkleRoot.MaxSeqNr,
@@ -357,16 +379,23 @@ func manuallyExecuteSingle(
 
 	merkleRootSize := merkleRoot.MaxSeqNr - merkleRoot.MinSeqNr + 1
 	var ccipMessageSentEvents []onramp.OnRampCCIPMessageSent
-	if _, ok := messageSentCache[msgSeqNr]; ok {
-		lggr.Debugw("found message in cache, fetching the rest", "msgSeqNr", msgSeqNr)
+	if _, ok := messageSentCache.Get(msgSeqNr); ok {
+		lggr.Infow("found message in cache, fetching the rest", "msgSeqNr", msgSeqNr)
 		for start := merkleRoot.MinSeqNr; start <= merkleRoot.MaxSeqNr; start++ {
-			ccipMessageSentEvents = append(ccipMessageSentEvents, messageSentCache[start])
+			message, ok := messageSentCache.Get(start)
+			if !ok {
+				lggr.Infow("message not found in cache, fetching from the chain", "msgSeqNr", start)
+				break
+			}
+			ccipMessageSentEvents = append(ccipMessageSentEvents, message)
 		}
 
 		if uint64(len(ccipMessageSentEvents)) != merkleRootSize {
-			lggr.Debugw("not all messages found in cache, fetching from the chain", "msgSeqNr", msgSeqNr)
+			latestBlockNumber := messageSentCache.GetLatestBlockNumber()
+			lggr.Infow("not all messages found in cache, fetching from the chain", "msgSeqNr", msgSeqNr, "latestBlockNumber", latestBlockNumber)
 			var err error
-			ccipMessageSentEvents, err = getCCIPMessageSentEvents(
+			var blockNumbers []uint64
+			ccipMessageSentEvents, blockNumbers, err = getCCIPMessageSentEvents(
 				ctx,
 				lggr,
 				env,
@@ -376,15 +405,28 @@ func manuallyExecuteSingle(
 				merkleRoot,
 				lookbackDuration,
 				stepDuration,
+				latestBlockNumber,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to get ccip message sent event: %w", err)
 			}
+
+			if len(ccipMessageSentEvents) != len(blockNumbers) {
+				return fmt.Errorf("unexpected mismatch in message count (%d) and block number count (%d), msgSeqNr: %d",
+					len(ccipMessageSentEvents), len(blockNumbers), msgSeqNr)
+			}
+
+			// add to the cache
+			for i, event := range ccipMessageSentEvents {
+				messageSentCache.Add(event, blockNumbers[i])
+			}
 		}
 	} else {
-		lggr.Debugw("not found in cache, fetching from the chain", "msgSeqNr", msgSeqNr)
+		latestBlockNumber := messageSentCache.GetLatestBlockNumber()
+		lggr.Infow("not found in cache, fetching from the chain", "msgSeqNr", msgSeqNr, "latestBlockNumber", latestBlockNumber)
 		var err error
-		ccipMessageSentEvents, err = getCCIPMessageSentEvents(
+		var blockNumbers []uint64
+		ccipMessageSentEvents, blockNumbers, err = getCCIPMessageSentEvents(
 			ctx,
 			lggr,
 			env,
@@ -394,14 +436,20 @@ func manuallyExecuteSingle(
 			merkleRoot,
 			lookbackDuration,
 			stepDuration,
+			latestBlockNumber,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to get ccip message sent event: %w", err)
 		}
 
+		if len(ccipMessageSentEvents) != len(blockNumbers) {
+			return fmt.Errorf("unexpected mismatch in message count (%d) and block number count (%d), msgSeqNr: %d",
+				len(ccipMessageSentEvents), len(blockNumbers), msgSeqNr)
+		}
+
 		// add to the cache
-		for _, event := range ccipMessageSentEvents {
-			messageSentCache[event.Message.Header.SequenceNumber] = event
+		for i, event := range ccipMessageSentEvents {
+			messageSentCache.Add(event, blockNumbers[i])
 		}
 	}
 
@@ -426,7 +474,7 @@ func manuallyExecuteSingle(
 		return fmt.Errorf("failed to get merkle proof: %w", err)
 	}
 
-	lggr.Debugw("got hashes and flags", "hashes", hashes, "flags", flags)
+	lggr.Infow("got hashes and flags", "hashes", hashes, "flags", flags)
 
 	// since we're only executing one message, we need to only include that message
 	// in the report.
@@ -482,7 +530,7 @@ func manuallyExecuteSingle(
 		return fmt.Errorf("failed to execute message: %w", err)
 	}
 
-	lggr.Debugw("successfully manually executed msg", "msgSeqNr", msgSeqNr)
+	lggr.Infow("successfully manually executed msg", "msgSeqNr", msgSeqNr)
 
 	return nil
 }
@@ -507,7 +555,7 @@ func ManuallyExecuteAll(
 
 	// for large backfills, these caches can speed things up because we don't need to query
 	// the chain multiple times for the same root/messages.
-	messageSentCache := make(map[uint64]onramp.OnRampCCIPMessageSent)
+	messageSentCache := NewMessageSentCache()
 	commitRootCache := NewRootCache()
 	for _, seqNr := range msgSeqNrs {
 		err := manuallyExecuteSingle(
@@ -554,13 +602,18 @@ func CheckAlreadyExecuted(
 		}
 
 		if execState == testhelpers.EXECUTION_STATE_SUCCESS || execState == testhelpers.EXECUTION_STATE_FAILURE {
-			lggr.Debugw("message already executed", "execState", execState, "msgSeqNr", seqNr)
+			lggr.Infow("message already executed", "execState", execState, "msgSeqNr", seqNr)
 		} else {
-			lggr.Debugw("message not executed", "execState", execState, "msgSeqNr", seqNr)
+			lggr.Infow("message not executed", "execState", execState, "msgSeqNr", seqNr)
 		}
 	}
 
 	return nil
+}
+
+type RootCacheEntry struct {
+	Root        offramp.InternalMerkleRoot
+	BlockNumber uint64
 }
 
 // RootCache caches merkle roots for fast lookups via a single sequence number.
@@ -570,26 +623,26 @@ func CheckAlreadyExecuted(
 // Get(25) = (20, 30)
 // Get(35) = nil
 type RootCache struct {
-	roots []offramp.InternalMerkleRoot
+	roots []RootCacheEntry
 }
 
 // NewRootCache creates a new RootCache
 // with an empty list of ranges.
 func NewRootCache() *RootCache {
 	return &RootCache{
-		roots: []offramp.InternalMerkleRoot{},
+		roots: []RootCacheEntry{},
 	}
 }
 
 // Add a root to the RootCache
-func (rm *RootCache) Add(root offramp.InternalMerkleRoot) {
-	rm.roots = append(rm.roots, root)
+func (rm *RootCache) Add(entry RootCacheEntry) {
+	rm.roots = append(rm.roots, entry)
 }
 
 // Build prepares the RootCache for fast lookups (sorts by MinSeqNr)
 func (rm *RootCache) Build() {
 	sort.Slice(rm.roots, func(i, j int) bool {
-		return rm.roots[i].MinSeqNr < rm.roots[j].MinSeqNr
+		return rm.roots[i].Root.MinSeqNr < rm.roots[j].Root.MinSeqNr
 	})
 }
 
@@ -598,11 +651,44 @@ func (rm *RootCache) Build() {
 func (rm *RootCache) Get(seqNr uint64) (offramp.InternalMerkleRoot, bool) {
 	// Use binary search to find the range
 	idx := sort.Search(len(rm.roots), func(i int) bool {
-		return rm.roots[i].MinSeqNr > seqNr
+		return rm.roots[i].Root.MinSeqNr > seqNr
 	}) - 1
 
-	if idx >= 0 && idx < len(rm.roots) && seqNr >= rm.roots[idx].MinSeqNr && seqNr <= rm.roots[idx].MaxSeqNr {
-		return rm.roots[idx], true
+	if idx >= 0 && idx < len(rm.roots) && seqNr >= rm.roots[idx].Root.MinSeqNr && seqNr <= rm.roots[idx].Root.MaxSeqNr {
+		return rm.roots[idx].Root, true
 	}
 	return offramp.InternalMerkleRoot{}, false
+}
+
+func (rm *RootCache) GetLatestBlockNumber() uint64 {
+	if len(rm.roots) == 0 {
+		return 0
+	}
+
+	return rm.roots[len(rm.roots)-1].BlockNumber
+}
+
+type MessageSentCache struct {
+	messageSentCache  map[uint64]onramp.OnRampCCIPMessageSent
+	latestBlockNumber uint64
+}
+
+func NewMessageSentCache() *MessageSentCache {
+	return &MessageSentCache{messageSentCache: make(map[uint64]onramp.OnRampCCIPMessageSent)}
+}
+
+func (msc *MessageSentCache) Add(entry onramp.OnRampCCIPMessageSent, blockNumber uint64) {
+	msc.messageSentCache[entry.Message.Header.SequenceNumber] = entry
+	if blockNumber > msc.latestBlockNumber {
+		msc.latestBlockNumber = blockNumber
+	}
+}
+
+func (msc *MessageSentCache) GetLatestBlockNumber() uint64 {
+	return msc.latestBlockNumber
+}
+
+func (msc *MessageSentCache) Get(seqNr uint64) (onramp.OnRampCCIPMessageSent, bool) {
+	entry, ok := msc.messageSentCache[seqNr]
+	return entry, ok
 }

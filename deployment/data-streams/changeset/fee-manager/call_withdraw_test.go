@@ -13,7 +13,7 @@ import (
 )
 
 func TestWithdraw(t *testing.T) {
-	res, err := NewDataStreamsEnvironment(t, NewDefaultOptions())
+	res, err := DeployTestEnvironment(t, NewDefaultOptions())
 	require.NoError(t, err)
 
 	linkTokenAddress := res.LinkTokenAddress

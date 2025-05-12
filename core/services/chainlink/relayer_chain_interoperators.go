@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -244,7 +245,7 @@ func (rs *CoreRelayerChainInteroperators) Get(id types.RelayID) (loop.Relayer, e
 	return lr, nil
 }
 
-func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
+func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	result := make(map[types.RelayID]loop.Relayer)
@@ -252,7 +253,7 @@ func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() (map[types.RelayID
 		result[id] = relayer
 	}
 
-	return result, nil
+	return result
 }
 
 // LegacyEVMChains returns a container with all the evm chains
@@ -384,7 +385,7 @@ func FilterRelayersByType(network string) func(id types.RelayID) bool {
 }
 
 // List returns all the [RelayerChainInteroperators] that match the [FilterFn].
-// A typical usage pattern to use [List] with [FilterByType] to obtain a set of [RelayerChainInteroperators]
+// A typical usage pattern to use [List] with [FilterRelayersByType] to obtain a set of [RelayerChainInteroperators]
 // for a given chain
 func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInteroperators {
 	matches := make(map[types.RelayID]loop.Relayer)

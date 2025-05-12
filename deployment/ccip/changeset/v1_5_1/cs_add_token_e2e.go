@@ -17,8 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -51,7 +55,7 @@ import (
 // If the token admin is not an external address -
 // 5. Accepts admin rights for the token on the token admin registry
 // 6. Sets the pool for the token on the token admin registry
-var AddTokensE2E = deployment.CreateChangeSet(addTokenE2ELogic, addTokenE2EPreconditionValidation)
+var AddTokensE2E = cldf.CreateChangeSet(addTokenE2ELogic, addTokenE2EPreconditionValidation)
 
 type E2ETokenAndPoolConfig struct {
 	TokenDeploymentConfig *DeployTokenConfig    // TokenDeploymentConfig is optional. If provided, it will be used to deploy the token and populate the pool deployment configuration.
@@ -149,8 +153,8 @@ type DeployTokenConfig struct {
 	TokenSymbol            changeset.TokenSymbol
 	TokenDecimals          uint8    // needed for BurnMintToken only
 	MaxSupply              *big.Int // needed for BurnMintToken only
-	Type                   deployment.ContractType
-	PoolType               deployment.ContractType // This is the type of the token pool that will be deployed for this token.
+	Type                   cldf.ContractType
+	PoolType               cldf.ContractType // This is the type of the token pool that will be deployed for this token.
 	PoolAllowList          []common.Address
 	AcceptLiquidity        *bool
 	MintTokenForRecipients map[common.Address]*big.Int // MintTokenForRecipients is a map of recipient address to amount to be transferred or minted and provided minting role after token deployment.
@@ -230,7 +234,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 	// use a clone of env to avoid modifying the original env
 	e := env.Clone()
 	finalCSOut := &deployment.ChangesetOutput{
-		AddressBook: deployment.NewMemoryAddressBook(),
+		AddressBook: cldf.NewMemoryAddressBook(),
 	}
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
@@ -345,7 +349,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
 	if len(finalCSOut.MCMSTimelockProposals) > 1 {
 		aggregatedProposals, err := proposalutils.AggregateProposals(
-			e, state.EVMMCMSStateByChain(), finalCSOut.MCMSTimelockProposals, nil,
+			e, state.EVMMCMSStateByChain(), nil, finalCSOut.MCMSTimelockProposals, nil,
 			"Add Tokens E2E", config.MCMS)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
@@ -355,14 +359,14 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 	return *finalCSOut, nil
 }
 
-func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployTokenConfig) (map[uint64]common.Address, deployment.AddressBook, error) {
-	ab := deployment.NewMemoryAddressBook()
+func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployTokenConfig) (map[uint64]common.Address, cldf.AddressBook, error) {
+	ab := cldf.NewMemoryAddressBook()
 	tokenAddresses := make(map[uint64]common.Address) // This will hold the token addresses for each chain.
 	for selector, cfg := range tokenDeployCfg {
 		switch cfg.Type {
 		case changeset.BurnMintToken:
-			token, err := deployment.DeployContract(e.Logger, e.Chains[selector], ab,
-				func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
+				func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 						e.Chains[selector].DeployerKey,
 						e.Chains[selector].Client,
@@ -371,10 +375,10 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 						cfg.TokenDecimals,
 						cfg.MaxSupply,
 					)
-					return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+					return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 						Address:  tokenAddress,
 						Contract: token,
-						Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+						Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 						Tx:       tx,
 						Err:      err,
 					}
@@ -401,18 +405,18 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 
 			tokenAddresses[selector] = token.Address
 		case changeset.ERC20Token:
-			token, err := deployment.DeployContract(e.Logger, e.Chains[selector], ab,
-				func(chain deployment.Chain) deployment.ContractDeploy[*erc20.ERC20] {
+			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
+				func(chain deployment.Chain) cldf.ContractDeploy[*erc20.ERC20] {
 					tokenAddress, tx, token, err := erc20.DeployERC20(
 						e.Chains[selector].DeployerKey,
 						e.Chains[selector].Client,
 						cfg.TokenName,
 						string(cfg.TokenSymbol),
 					)
-					return deployment.ContractDeploy[*erc20.ERC20]{
+					return cldf.ContractDeploy[*erc20.ERC20]{
 						Address:  tokenAddress,
 						Contract: token,
-						Tv:       deployment.NewTypeAndVersion(changeset.ERC20Token, deployment.Version1_0_0),
+						Tv:       cldf.NewTypeAndVersion(changeset.ERC20Token, deployment.Version1_0_0),
 						Tx:       tx,
 						Err:      err,
 					}
@@ -424,18 +428,18 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 			}
 			tokenAddresses[selector] = token.Address
 		case changeset.ERC677Token:
-			token, err := deployment.DeployContract(e.Logger, e.Chains[selector], ab,
-				func(chain deployment.Chain) deployment.ContractDeploy[*erc677.ERC677] {
+			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
+				func(chain deployment.Chain) cldf.ContractDeploy[*erc677.ERC677] {
 					tokenAddress, tx, token, err := erc677.DeployERC677(
 						e.Chains[selector].DeployerKey,
 						e.Chains[selector].Client,
 						cfg.TokenName,
 						string(cfg.TokenSymbol),
 					)
-					return deployment.ContractDeploy[*erc677.ERC677]{
+					return cldf.ContractDeploy[*erc677.ERC677]{
 						Address:  tokenAddress,
 						Contract: token,
-						Tv:       deployment.NewTypeAndVersion(changeset.ERC677Token, deployment.Version1_0_0),
+						Tv:       cldf.NewTypeAndVersion(changeset.ERC677Token, deployment.Version1_0_0),
 						Tx:       tx,
 						Err:      err,
 					}

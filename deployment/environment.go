@@ -8,16 +8,17 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/hashicorp/go-multierror"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/grpc"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -25,42 +26,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
-
-func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {
-	if err != nil {
-		//revive:disable
-		var d rpc.DataError
-		ok := errors.As(err, &d)
-		if ok {
-			return 0, fmt.Errorf("transaction reverted on chain %s: Error %s ErrorData %v", chain.String(), d.Error(), d.ErrorData())
-		}
-		return 0, err
-	}
-	return chain.Confirm(tx)
-}
-
-// ConfirmIfNoErrorWithABI confirms the transaction if no error occurred.
-// if the error is a DataError, it will return the decoded error message and data.
-func ConfirmIfNoErrorWithABI(chain Chain, tx *types.Transaction, abi string, err error) (uint64, error) {
-	if err != nil {
-		return 0, fmt.Errorf("transaction reverted on chain %s: Error %w",
-			chain.String(), DecodedErrFromABIIfDataErr(err, abi))
-	}
-	return chain.Confirm(tx)
-}
-
-func DecodedErrFromABIIfDataErr(err error, abi string) error {
-	var d rpc.DataError
-	ok := errors.As(err, &d)
-	if ok {
-		errReason, err := parseErrorFromABI(fmt.Sprintf("%s", d.ErrorData()), abi)
-		if err != nil {
-			return fmt.Errorf("%s: %v", d.Error(), d.ErrorData())
-		}
-		return fmt.Errorf("%s due to %s: %v", d.Error(), errReason, d.ErrorData())
-	}
-	return err
-}
 
 func UBigInt(i uint64) *big.Int {
 	return new(big.Int).SetUint64(i)
@@ -144,6 +109,20 @@ func (n Nodes) BootstrapLocators() []string {
 		locators = append(locators, b)
 	}
 	return locators
+}
+
+// P2PIDsPresentInJD - For a given p2pIDs, check if the nodes are present in JD.
+func (n Nodes) P2PIDsPresentInJD(p2pIDs [][32]byte) error {
+	var allErrs error
+	for _, p2pID := range p2pIDs {
+		p2pIDString := "p2p_" + libocrtypes.PeerID(p2pID).String()
+		if !slices.ContainsFunc(n, func(n Node) bool {
+			return p2pIDString == n.PeerID.String()
+		}) {
+			allErrs = multierror.Append(allErrs, fmt.Errorf("node with p2pID %s not found in JD", p2pIDString))
+		}
+	}
+	return allErrs
 }
 
 func isValidMultiAddr(s string) bool {

@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -21,7 +22,7 @@ const (
 	defaultJobSpecsTimeout = 120 * time.Second
 )
 
-func chainAndAddresses(e deployment.Environment, chainSel uint64) (chainID string, addresses map[string]deployment.TypeAndVersion, err error) {
+func chainAndAddresses(e deployment.Environment, chainSel uint64) (chainID string, addresses map[string]cldf.TypeAndVersion, err error) {
 	chainID, err = chainsel.GetChainIDFromSelector(chainSel)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to get chain ID from selector: %w", err)

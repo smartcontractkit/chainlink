@@ -2,8 +2,6 @@ package workflows
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -12,28 +10,24 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	billing "github.com/smartcontractkit/chainlink-common/pkg/billing/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	meteringpb "github.com/smartcontractkit/chainlink-common/pkg/metering/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	workflowpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/events/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -498,26 +492,11 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 	}
 }
 
-func generateExecutionID(workflowID, eventID string) (string, error) {
-	s := sha256.New()
-	_, err := s.Write([]byte(workflowID))
-	if err != nil {
-		return "", err
-	}
-
-	_, err = s.Write([]byte(eventID))
-	if err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(s.Sum(nil)), nil
-}
-
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
 	e.meterReports.Add(executionID, NewMeteringReport())
 
-	err := emitExecutionStartedEvent(ctx, e.cma, triggerID, executionID)
+	err := events.EmitExecutionStartedEvent(ctx, e.cma, triggerID, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution started event: %+v", err)
 	}
@@ -669,7 +648,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 	report, exists := e.meterReports.Get(executionID)
 	if exists {
 		// send metering report to beholder
-		if err = emitMeteringReport(ctx, cma, report); err != nil {
+		if err = events.EmitMeteringReport(ctx, cma, report.Message()); err != nil {
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID).incrementWorkflowMissingMeteringReport(ctx)
 			l.Warn(fmt.Sprintf("metering report send to beholder error %s", err))
 		}
@@ -706,7 +685,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 
 	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d (seconds)", executionDuration), l)
 	l.Infof("execution duration: %d (seconds)", executionDuration)
-	err = emitExecutionFinishedEvent(ctx, cma, status, executionID)
+	err = events.EmitExecutionFinishedEvent(ctx, cma, status, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution finished event: %+v", err)
 	}
@@ -745,7 +724,7 @@ func (e *Engine) worker(ctx context.Context) {
 				continue
 			}
 
-			executionID, err := generateExecutionID(e.workflow.id, te.ID)
+			executionID, err := types.GenerateExecutionID(e.workflow.id, te.ID)
 			if err != nil {
 				e.logger.With(platform.KeyTriggerID, te.ID).Errorf("could not generate execution ID: %v", err)
 				continue
@@ -1038,7 +1017,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	defer cancel()
 
 	e.metrics.with(platform.KeyCapabilityID, curStep.ID).incrementCapabilityInvocationCounter(ctx)
-	err = emitCapabilityStartedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef)
+	err = events.EmitCapabilityStartedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef)
 	if err != nil {
 		e.logger.Errorf("failed to emit capability event: %v", err)
 	}
@@ -1053,7 +1032,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	}
 
 	defer func() {
-		if err := emitCapabilityFinishedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef, status); err != nil {
+		if err := events.EmitCapabilityFinishedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef, status); err != nil {
 			e.logger.Errorf("failed to emit capability event: %v", err)
 		}
 	}()
@@ -1546,176 +1525,4 @@ func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log
 	if err != nil {
 		log.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 	}
-}
-
-// buildWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).
-func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
-	m := &pb.WorkflowMetadata{}
-
-	m.WorkflowOwner = kvs[platform.KeyWorkflowOwner]
-	m.WorkflowName = kvs[platform.KeyWorkflowName]
-	m.Version = kvs[platform.KeyWorkflowVersion]
-	m.WorkflowID = kvs[platform.KeyWorkflowID]
-	m.WorkflowExecutionID = kvs[platform.KeyWorkflowExecutionID]
-
-	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
-		if id, err := strconv.ParseInt(donIDStr, 10, 32); err == nil {
-			m.DonID = int32(id)
-		}
-	}
-
-	m.P2PID = kvs[platform.KeyP2PID]
-
-	if donFStr, ok := kvs[platform.KeyDonF]; ok {
-		if id, err := strconv.ParseInt(donFStr, 10, 32); err == nil {
-			m.DonF = int32(id)
-		}
-	}
-	if donNStr, ok := kvs[platform.KeyDonN]; ok {
-		if id, err := strconv.ParseInt(donNStr, 10, 32); err == nil {
-			m.DonN = int32(id)
-		}
-	}
-	if donQStr, ok := kvs[platform.KeyDonQ]; ok {
-		if id, err := strconv.ParseInt(donQStr, 10, 32); err == nil {
-			m.DonQ = int32(id)
-		}
-	}
-
-	return m
-}
-
-// buildCommonWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).
-func buildCommonWorkflowMetadata(kvs map[string]string) *workflowpb.WorkflowMetadata {
-	m := &workflowpb.WorkflowMetadata{}
-
-	m.WorkflowName = kvs[platform.KeyWorkflowName]
-	m.Version = kvs[platform.KeyWorkflowVersion]
-	m.WorkflowID = kvs[platform.KeyWorkflowID]
-	m.WorkflowExecutionID = kvs[platform.KeyWorkflowExecutionID]
-	m.Owner = kvs[platform.KeyWorkflowOwner]
-
-	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
-		if id, err := strconv.ParseInt(donIDStr, 10, 32); err == nil {
-			m.DonID = int32(id)
-		}
-	}
-
-	m.P2PID = kvs[platform.KeyP2PID]
-
-	if donFStr, ok := kvs[platform.KeyDonF]; ok {
-		if id, err := strconv.ParseInt(donFStr, 10, 32); err == nil {
-			m.DonF = int32(id)
-		}
-	}
-	if donNStr, ok := kvs[platform.KeyDonN]; ok {
-		if id, err := strconv.ParseInt(donNStr, 10, 32); err == nil {
-			m.DonN = int32(id)
-		}
-	}
-	if donQStr, ok := kvs[platform.KeyDonQ]; ok {
-		if id, err := strconv.ParseInt(donQStr, 10, 32); err == nil {
-			m.DonQ = int32(id)
-		}
-	}
-
-	return m
-}
-
-// emitProtoMessage marshals a proto.Message and emits it via beholder.
-func emitProtoMessage(ctx context.Context, msg proto.Message) error {
-	b, err := proto.Marshal(msg)
-	if err != nil {
-		return err
-	}
-
-	// Determine the schema and entity based on the message type
-	// entity must be prefixed with the proto package name
-	var schema, entity string
-	switch msg.(type) {
-	case *pb.WorkflowExecutionStarted:
-		schema = SchemaWorkflowStarted
-		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionStarted)
-	case *pb.WorkflowExecutionFinished:
-		schema = SchemaWorkflowFinished
-		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionFinished)
-	case *pb.CapabilityExecutionStarted:
-		schema = SchemaCapabilityStarted
-		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionStarted)
-	case *pb.CapabilityExecutionFinished:
-		schema = SchemaCapabilityFinished
-		entity = fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionFinished)
-	case *meteringpb.MeteringReport:
-		schema = MeteringReportSchema
-		entity = fmt.Sprintf("%s.%s", MeteringProtoPkg, MeteringReportEntity)
-	default:
-		return fmt.Errorf("unknown message type: %T", msg)
-	}
-
-	return beholder.GetEmitter().Emit(ctx, b,
-		"beholder_data_schema", schema, // required
-		"beholder_domain", "platform", // required
-		"beholder_entity", entity) // required
-}
-
-func emitMeteringReport(ctx context.Context, cma custmsg.MessageEmitter, report *MeteringReport) error {
-	rpt := report.Message()
-	rpt.Metadata = buildCommonWorkflowMetadata(cma.Labels())
-
-	return emitProtoMessage(ctx, rpt)
-}
-
-func emitExecutionStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, triggerID string, executionID string) error {
-	cma = cma.With(platform.KeyWorkflowExecutionID, executionID)
-	metadata := buildWorkflowMetadata(cma.Labels())
-
-	event := &pb.WorkflowExecutionStarted{
-		M:         metadata,
-		Timestamp: time.Now().Format(time.RFC3339Nano),
-		TriggerID: triggerID,
-	}
-
-	return emitProtoMessage(ctx, event)
-}
-
-func emitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, status string, executionID string) error {
-	cma = cma.With(platform.KeyWorkflowExecutionID, executionID)
-	metadata := buildWorkflowMetadata(cma.Labels())
-
-	event := &pb.WorkflowExecutionFinished{
-		M:         metadata,
-		Timestamp: time.Now().Format(time.RFC3339Nano),
-		Status:    status,
-	}
-
-	return emitProtoMessage(ctx, event)
-}
-
-func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, workflowExecutionID, capabilityID, stepRef string) error {
-	cma = cma.With(platform.KeyWorkflowExecutionID, workflowExecutionID)
-	metadata := buildWorkflowMetadata(cma.Labels())
-
-	event := &pb.CapabilityExecutionStarted{
-		M:            metadata,
-		Timestamp:    time.Now().Format(time.RFC3339Nano),
-		CapabilityID: capabilityID,
-		StepRef:      stepRef,
-	}
-
-	return emitProtoMessage(ctx, event)
-}
-
-func emitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, workflowExecutionID, capabilityID, stepRef, status string) error {
-	cma = cma.With(platform.KeyWorkflowExecutionID, workflowExecutionID)
-	metadata := buildWorkflowMetadata(cma.Labels())
-
-	event := &pb.CapabilityExecutionFinished{
-		M:            metadata,
-		Timestamp:    time.Now().Format(time.RFC3339Nano),
-		CapabilityID: capabilityID,
-		StepRef:      stepRef,
-		Status:       status,
-	}
-
-	return emitProtoMessage(ctx, event)
 }

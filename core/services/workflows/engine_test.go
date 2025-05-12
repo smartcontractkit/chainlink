@@ -11,22 +11,22 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	billing "github.com/smartcontractkit/chainlink-common/pkg/billing/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	meteringpb "github.com/smartcontractkit/chainlink-common/pkg/metering/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
+	eventspb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -40,7 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -395,27 +395,27 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
 
-	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, MeteringReportEntity)))
-	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionStarted)))
-	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionFinished)))
-	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionStarted)))
-	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionFinished)))
+	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity)))
+	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.WorkflowExecutionStarted)))
+	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.WorkflowExecutionFinished)))
+	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.CapabilityExecutionStarted)))
+	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.CapabilityExecutionFinished)))
 
 	// Verify the contents of each message type
 	messages := beholderTester.Messages(t)
 	for _, msg := range messages {
 		entity := msg.Attrs["beholder_entity"]
 		switch entity {
-		case fmt.Sprintf("%s.%s", EventsProtoPkg, MeteringReportEntity):
-			var report meteringpb.MeteringReport
+		case fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity):
+			var report eventspb.MeteringReport
 			require.NoError(t, proto.Unmarshal(msg.Body, &report))
 			assert.Equal(t, testWorkflowName, report.Metadata.WorkflowName)
 			assert.Equal(t, testWorkflowID, report.Metadata.WorkflowID)
 			assert.NotEmpty(t, report.Metadata.WorkflowExecutionID)
-			assert.Equal(t, testWorkflowOwner, report.Metadata.Owner)
+			assert.Equal(t, testWorkflowOwner, report.Metadata.WorkflowOwner)
 
-		case fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionStarted):
-			var started pb.WorkflowExecutionStarted
+		case fmt.Sprintf("%s.%s", events.ProtoPkg, events.WorkflowExecutionStarted):
+			var started eventspb.WorkflowExecutionStarted
 			require.NoError(t, proto.Unmarshal(msg.Body, &started))
 			assert.Equal(t, testWorkflowName, started.M.WorkflowName)
 			assert.Equal(t, testWorkflowID, started.M.WorkflowID)
@@ -424,8 +424,8 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			assert.NotEmpty(t, started.Timestamp)
 			assert.NotEmpty(t, started.TriggerID)
 
-		case fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionFinished):
-			var finished pb.WorkflowExecutionFinished
+		case fmt.Sprintf("%s.%s", events.ProtoPkg, events.WorkflowExecutionFinished):
+			var finished eventspb.WorkflowExecutionFinished
 			require.NoError(t, proto.Unmarshal(msg.Body, &finished))
 			assert.Equal(t, testWorkflowName, finished.M.WorkflowName)
 			assert.Equal(t, testWorkflowID, finished.M.WorkflowID)
@@ -434,8 +434,8 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			assert.NotEmpty(t, finished.Timestamp)
 			assert.Equal(t, store.StatusCompleted, finished.Status)
 
-		case fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionStarted):
-			var capStarted pb.CapabilityExecutionStarted
+		case fmt.Sprintf("%s.%s", events.ProtoPkg, events.CapabilityExecutionStarted):
+			var capStarted eventspb.CapabilityExecutionStarted
 			require.NoError(t, proto.Unmarshal(msg.Body, &capStarted))
 			assert.Equal(t, testWorkflowName, capStarted.M.WorkflowName)
 			assert.Equal(t, testWorkflowID, capStarted.M.WorkflowID)
@@ -445,8 +445,8 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			assert.NotEmpty(t, capStarted.CapabilityID)
 			assert.NotEmpty(t, capStarted.StepRef)
 
-		case fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionFinished):
-			var capFinished pb.CapabilityExecutionFinished
+		case fmt.Sprintf("%s.%s", events.ProtoPkg, events.CapabilityExecutionFinished):
+			var capFinished eventspb.CapabilityExecutionFinished
 			require.NoError(t, proto.Unmarshal(msg.Body, &capFinished))
 			assert.Equal(t, testWorkflowName, capFinished.M.WorkflowName)
 			assert.Equal(t, testWorkflowID, capFinished.M.WorkflowID)
@@ -1826,7 +1826,7 @@ func basicTestTrigger(t *testing.T) *mockTriggerCapability {
 }
 
 func TestEngine_WithCustomComputeStep(t *testing.T) {
-	cmd := "core/services/workflows/test/wasm/cmd"
+	cmd := "core/services/workflows/test/wasm/legacy/cmd"
 
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
@@ -2413,7 +2413,7 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 	eid2 := getExecutionID(t, eng, testHooks)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
-	assert.Equal(t, 2, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, MeteringReportEntity)))
+	assert.Equal(t, 2, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity)))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid2))
 }
