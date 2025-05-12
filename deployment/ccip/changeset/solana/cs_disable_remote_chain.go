@@ -18,7 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	cs "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -33,7 +33,7 @@ type DisableRemoteChainConfig struct {
 }
 
 func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
-	state, err := cs.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -84,7 +84,7 @@ func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) 
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := cs.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -110,7 +110,7 @@ func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) 
 
 func doDisableRemoteChain(
 	e deployment.Environment,
-	s cs.CCIPOnChainState,
+	s stateview.CCIPOnChainState,
 	cfg DisableRemoteChainConfig) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	ixns := make([]solana.Instruction, 0)

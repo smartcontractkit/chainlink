@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
@@ -76,7 +76,7 @@ func transferAndWrapAcceptOwnership(
 
 // transferOwnershipRouter transfers ownership of the router to the timelock.
 func transferOwnershipRouter(
-	ccipState state2.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
 	solChain deployment.SolChain,
 	timelockProgramID solana.PublicKey,
@@ -136,7 +136,7 @@ func transferOwnershipRouter(
 
 // transferOwnershipFeeQuoter transfers ownership of the fee quoter to the timelock.
 func transferOwnershipFeeQuoter(
-	ccipState state2.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
 	solChain deployment.SolChain,
 	timelockProgramID solana.PublicKey,
@@ -196,7 +196,7 @@ func transferOwnershipFeeQuoter(
 
 // transferOwnershipOffRamp transfers ownership of the offRamp to the timelock.
 func transferOwnershipOffRamp(
-	ccipState state2.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
 	solChain deployment.SolChain,
 	timelockProgramID solana.PublicKey,
@@ -256,7 +256,7 @@ func transferOwnershipOffRamp(
 
 // transferOwnershipLockMintTokenPools transfers ownership of the lock mint token pools.
 func transferOwnershipBurnMintTokenPools(
-	ccipState state2.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainState,
 	tokenPoolConfigPDA solana.PublicKey,
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
@@ -314,7 +314,7 @@ func transferOwnershipBurnMintTokenPools(
 
 // transferOwnershipLockReleaseTokenPools transfers ownership of the lock mint token pools.
 func transferOwnershipLockReleaseTokenPools(
-	ccipState state2.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainState,
 	tokenPoolConfigPDA solana.PublicKey,
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
@@ -372,7 +372,7 @@ func transferOwnershipLockReleaseTokenPools(
 
 // transferOwnershipRMNRemote transfers ownership of the RMNRemote to the timelock.
 func transferOwnershipRMNRemote(
-	ccipState state2.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
 	solChain deployment.SolChain,
 	timelockProgramID solana.PublicKey,

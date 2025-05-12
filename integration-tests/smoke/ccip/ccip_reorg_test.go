@@ -29,7 +29,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -318,7 +318,7 @@ func setupReorgTest(t *testing.T, testOpts ...testhelpers.TestOps) (
 	logging.Logger,
 	*testsetups.DeployedLocalDevEnvironment,
 	[]string,
-	ccipcs.CCIPOnChainState,
+	stateview.CCIPOnChainState,
 	devenv.RMNCluster,
 ) {
 	require.Equal(t, os.Getenv(testhelpers.ENVTESTTYPE), string(testhelpers.Docker),
@@ -332,7 +332,7 @@ func setupReorgTest(t *testing.T, testOpts ...testhelpers.TestOps) (
 	require.NoError(t, err)
 	nonBootstrapP2PIDs := getNonBootstrapP2PIDs(nodeInfos)
 
-	state, err := ccipcs.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	return e, l, dockerEnv, nonBootstrapP2PIDs, state, rmnCluster
@@ -379,7 +379,7 @@ func getHeadTrackerService(t *testing.T, chainSelector uint64) string {
 func sendCCIPMessage(
 	t *testing.T,
 	env deployment.Environment,
-	state ccipcs.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	sourceSelector, destSelector uint64,
 	l logging.Logger,
 ) *onramp.OnRampCCIPMessageSent {

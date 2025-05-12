@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -118,7 +118,7 @@ func getCommitRootAcceptedEvent(
 	ctx context.Context,
 	lggr logger.Logger,
 	env deployment.Environment,
-	state ccipchangeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	srcChainSel uint64,
 	destChainSel uint64,
 	msgSeqNr uint64,
@@ -212,7 +212,7 @@ func getCCIPMessageSentEvents(
 	ctx context.Context,
 	lggr logger.Logger,
 	env deployment.Environment,
-	state ccipchangeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	srcChainSel uint64,
 	destChainSel uint64,
 	merkleRoot offramp.InternalMerkleRoot,
@@ -303,7 +303,7 @@ func getCCIPMessageSentEvents(
 func manuallyExecuteSingle(
 	ctx context.Context,
 	lggr logger.Logger,
-	state ccipchangeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	env deployment.Environment,
 	srcChainSel uint64,
 	destChainSel uint64,
@@ -543,7 +543,7 @@ func manuallyExecuteSingle(
 func ManuallyExecuteAll(
 	ctx context.Context,
 	lggr logger.Logger,
-	state ccipchangeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	env deployment.Environment,
 	srcChainSel uint64,
 	destChainSel uint64,
@@ -588,7 +588,7 @@ func ManuallyExecuteAll(
 func CheckAlreadyExecuted(
 	ctx context.Context,
 	lggr logger.Logger,
-	state ccipchangeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	srcChainSel uint64,
 	destChainSel uint64,
 	msgSeqNrs []int64,

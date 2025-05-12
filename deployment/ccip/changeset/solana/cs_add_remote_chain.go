@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -51,7 +51,7 @@ type RouterConfig struct {
 }
 
 func (cfg *AddRemoteChainToRouterConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -103,7 +103,7 @@ func AddRemoteChainToRouter(e deployment.Environment, cfg AddRemoteChainToRouter
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := ccipChangeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -131,7 +131,7 @@ func AddRemoteChainToRouter(e deployment.Environment, cfg AddRemoteChainToRouter
 
 func doAddRemoteChainToRouter(
 	e deployment.Environment,
-	s ccipChangeset.CCIPOnChainState,
+	s stateview.CCIPOnChainState,
 	cfg AddRemoteChainToRouterConfig,
 	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
@@ -277,7 +277,7 @@ type FeeQuoterConfig struct {
 }
 
 func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -321,7 +321,7 @@ func AddRemoteChainToFeeQuoter(e deployment.Environment, cfg AddRemoteChainToFee
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := ccipChangeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -349,7 +349,7 @@ func AddRemoteChainToFeeQuoter(e deployment.Environment, cfg AddRemoteChainToFee
 
 func doAddRemoteChainToFeeQuoter(
 	e deployment.Environment,
-	s ccipChangeset.CCIPOnChainState,
+	s stateview.CCIPOnChainState,
 	cfg AddRemoteChainToFeeQuoterConfig,
 	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
@@ -452,7 +452,7 @@ type OffRampConfig struct {
 }
 
 func (cfg *AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -497,7 +497,7 @@ func AddRemoteChainToOffRamp(e deployment.Environment, cfg AddRemoteChainToOffRa
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := ccipChangeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -525,7 +525,7 @@ func AddRemoteChainToOffRamp(e deployment.Environment, cfg AddRemoteChainToOffRa
 
 func doAddRemoteChainToOffRamp(
 	e deployment.Environment,
-	s ccipChangeset.CCIPOnChainState,
+	s stateview.CCIPOnChainState,
 	cfg AddRemoteChainToOffRampConfig,
 	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
@@ -620,7 +620,7 @@ func doAddRemoteChainToOffRamp(
 	return txns, nil
 }
 
-func getSourceChainConfig(s ccipChangeset.CCIPOnChainState, remoteChainSel uint64, enabledAsSource bool) (solOffRamp.SourceChainConfig, error) {
+func getSourceChainConfig(s stateview.CCIPOnChainState, remoteChainSel uint64, enabledAsSource bool) (solOffRamp.SourceChainConfig, error) {
 	var onRampAddress solOffRamp.OnRampAddress
 	// already verified, skipping errcheck
 	addressBytes, _ := s.GetOnRampAddressBytes(remoteChainSel)

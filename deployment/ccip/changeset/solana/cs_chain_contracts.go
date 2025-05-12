@@ -22,7 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -57,7 +57,7 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	if !ok {
 		return fmt.Errorf("chain selector %d not found in environment", selector)
 	}
-	state, err := ccipChangeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -141,7 +141,7 @@ type OffRampRefAddressesConfig struct {
 
 func (cfg OffRampRefAddressesConfig) Validate(e deployment.Environment) error {
 	chain := e.SolChains[cfg.ChainSelector]
-	state, err := ccipChangeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -156,7 +156,7 @@ func UpdateOffRampRefAddresses(
 	e deployment.Environment,
 	config OffRampRefAddressesConfig,
 ) (cldf.ChangesetOutput, error) {
-	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	chain := e.SolChains[config.ChainSelector]
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -261,7 +261,7 @@ func SetUpgradeAuthorityChangeset(
 	config SetUpgradeAuthorityConfig,
 ) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[config.ChainSelector]
-	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return cldf.ChangesetOutput{}, err
@@ -354,7 +354,7 @@ type SetFeeAggregatorConfig struct {
 }
 
 func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -393,7 +393,7 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (cld
 		return cldf.ChangesetOutput{}, err
 	}
 
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
 
@@ -458,7 +458,7 @@ type DeployForTestConfig struct {
 }
 
 func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -486,7 +486,7 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (c
 		e.Logger.Debugw("Skipping solana build as no build config provided")
 	}
 
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
 	ab := cldf.NewMemoryAddressBook()
@@ -550,7 +550,7 @@ type SetLinkTokenConfig struct {
 }
 
 func (cfg SetLinkTokenConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -567,7 +567,7 @@ func SetLinkToken(e deployment.Environment, cfg SetLinkTokenConfig) (cldf.Change
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)

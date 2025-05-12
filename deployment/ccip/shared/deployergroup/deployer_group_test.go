@@ -140,7 +140,7 @@ func dummyDeployerGroupMintMultiDeploymentContextChangeset(e deployment.Environm
 		token := state.Chains[selector].LinkToken
 
 		if group == nil {
-			group = deployer.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
+			group = deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
 		} else {
 			group = group.WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
 		}
