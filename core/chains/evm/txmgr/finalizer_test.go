@@ -294,8 +294,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		runID := cltest.MustInsertPipelineRun(t, db)
-		trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
+		runID := testutils.MustInsertPipelineRun(t, db)
+		trID := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 1, fromAddress)
 		mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
@@ -316,8 +316,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		runID := cltest.MustInsertPipelineRun(t, db)
-		trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
+		runID := testutils.MustInsertPipelineRun(t, db)
+		trID := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
 		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
@@ -341,8 +341,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		runID := cltest.MustInsertPipelineRun(t, db)
-		trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
+		runID := testutils.MustInsertPipelineRun(t, db)
+		trID := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 		testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
@@ -394,8 +394,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		runID := cltest.MustInsertPipelineRun(t, db)
-		trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
+		runID := testutils.MustInsertPipelineRun(t, db)
+		trID := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 		testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
@@ -441,8 +441,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		runID := cltest.MustInsertPipelineRun(t, db)
-		trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
+		runID := testutils.MustInsertPipelineRun(t, db)
+		trID := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
