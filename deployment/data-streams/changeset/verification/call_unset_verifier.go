@@ -11,10 +11,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
+	"github.com/smartcontractkit/chainlink/deployment/koko"
 )
 
 // UnsetVerifierChangeset unsets a registered verifier on the proxy contract
-var UnsetVerifierChangeset deployment.ChangeSetV2[VerifierProxyUnsetVerifierConfig] = &verifierProxyUnsetVerifier{}
+var UnsetVerifierChangeset cldf.ChangeSetV2[VerifierProxyUnsetVerifierConfig] = &verifierProxyUnsetVerifier{}
 
 type verifierProxyUnsetVerifier struct{}
 

@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -31,7 +31,7 @@ type ConfiguredChangeSet interface {
 }
 
 func Configure[C any](
-	changeset deployment.ChangeSetV2[C],
+	changeset cldf.ChangeSetV2[C],
 	config C,
 ) ConfiguredChangeSet {
 	return configuredChangeSetImpl[C]{
@@ -41,7 +41,7 @@ func Configure[C any](
 }
 
 type configuredChangeSetImpl[C any] struct {
-	changeset deployment.ChangeSetV2[C]
+	changeset cldf.ChangeSetV2[C]
 	config    C
 }
 

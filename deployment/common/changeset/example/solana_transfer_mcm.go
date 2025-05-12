@@ -10,13 +10,14 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	solanachangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-var _ deployment.ChangeSetV2[TransferFromTimelockConfig] = TransferFromTimelock{}
+var _ cldf.ChangeSetV2[TransferFromTimelockConfig] = TransferFromTimelock{}
 
 type TransferData struct {
 	To     solana.PublicKey

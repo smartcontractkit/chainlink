@@ -9,6 +9,7 @@ import (
 	workflowUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/koko"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
@@ -114,7 +115,7 @@ type WrappedChangeSet[C any] struct {
 // RunChangeset is used to run a changeset in another changeset
 // It executes VerifyPreconditions internally to handle changeset errors.
 func RunChangeset[C any](
-	operation deployment.ChangeSetV2[C],
+	operation cldf.ChangeSetV2[C],
 	env deployment.Environment,
 	config C,
 ) (deployment.ChangesetOutput, error) {

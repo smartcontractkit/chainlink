@@ -11,6 +11,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
@@ -19,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
-var _ deployment.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStreamJobSpecs{}
+var _ cldf.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStreamJobSpecs{}
 
 type CsDistributeStreamJobSpecsConfig struct {
 	Filter  *jd.ListFilter

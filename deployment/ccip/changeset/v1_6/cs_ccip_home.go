@@ -321,7 +321,7 @@ func PromoteCandidateChangeset(
 ) (deployment.ChangesetOutput, error) {
 	donIDs, err := cfg.Validate(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
@@ -567,7 +567,7 @@ func AddDonAndSetCandidateChangeset(
 
 	err = cfg.Validate(e, state)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -776,7 +776,7 @@ func SetCandidateChangeset(
 
 	chainToDonIDs, err := cfg.Validate(e, state)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -1111,7 +1111,7 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 
 	donID, err := cfg.Validate(e, state)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -1294,7 +1294,7 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 
 func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {

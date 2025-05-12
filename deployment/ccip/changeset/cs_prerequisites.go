@@ -45,7 +45,7 @@ var (
 func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequisiteConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
-		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
+		return deployment.ChangesetOutput{}, errors.Wrapf(cldf.ErrInvalidConfig, "%v", err)
 	}
 	ab := cldf.NewMemoryAddressBook()
 	err = deployPrerequisiteChainContracts(env, ab, cfg)

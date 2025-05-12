@@ -8,6 +8,7 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
@@ -15,7 +16,7 @@ import (
 )
 
 // SetAccessControllerChangeset sets the access controller contract on the proxy contract
-var SetAccessControllerChangeset deployment.ChangeSetV2[VerifierProxySetAccessControllerConfig] = &verifierProxySetAccessController{}
+var SetAccessControllerChangeset cldf.ChangeSetV2[VerifierProxySetAccessControllerConfig] = &verifierProxySetAccessController{}
 
 type verifierProxySetAccessController struct{}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
@@ -21,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
-var _ deployment.ChangeSetV2[CsDistributeLLOJobSpecsConfig] = CsDistributeLLOJobSpecs{}
+var _ cldf.ChangeSetV2[CsDistributeLLOJobSpecsConfig] = CsDistributeLLOJobSpecs{}
 
 const (
 	lloJobMaxTaskDuration             = jobs.TOMLDuration(time.Second)

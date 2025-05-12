@@ -8,6 +8,8 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
@@ -15,7 +17,7 @@ import (
 )
 
 // UpdateSubscriberGlobalDiscountChangeset sets the global discount for a subscriber
-var UpdateSubscriberGlobalDiscountChangeset deployment.ChangeSetV2[UpdateSubscriberGlobalDiscountConfig] = &globalDiscount{}
+var UpdateSubscriberGlobalDiscountChangeset cldf.ChangeSetV2[UpdateSubscriberGlobalDiscountConfig] = &globalDiscount{}
 
 type globalDiscount struct{}
 

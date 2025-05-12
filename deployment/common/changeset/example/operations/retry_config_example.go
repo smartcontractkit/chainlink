@@ -5,9 +5,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -17,7 +16,7 @@ DisableRetryExampleChangeset demonstrates how to use Operations API to disable r
 UpdateInputExampleChangeset demonstrates how to use Operations API to update input for an operation (eg for changing gas limit)
 */
 
-var _ deployment.ChangeSetV2[operations.EmptyInput] = DisableRetryExampleChangeset{}
+var _ cldf.ChangeSetV2[operations.EmptyInput] = DisableRetryExampleChangeset{}
 
 type DisableRetryExampleChangeset struct{}
 
@@ -42,7 +41,7 @@ func (l DisableRetryExampleChangeset) Apply(e deployment.Environment, config ope
 	}, nil
 }
 
-var _ deployment.ChangeSetV2[operations.EmptyInput] = UpdateInputExampleChangeset{}
+var _ cldf.ChangeSetV2[operations.EmptyInput] = UpdateInputExampleChangeset{}
 
 type UpdateInputExampleChangeset struct{}
 

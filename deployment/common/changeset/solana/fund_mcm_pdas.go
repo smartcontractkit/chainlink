@@ -9,9 +9,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/koko"
 )
 
-var _ deployment.ChangeSetV2[FundMCMSignerConfig] = FundMCMSignersChangeset{}
+var _ cldf.ChangeSetV2[FundMCMSignerConfig] = FundMCMSignersChangeset{}
 
 type AmountsToTransfer struct {
 	ProposeMCM   uint64

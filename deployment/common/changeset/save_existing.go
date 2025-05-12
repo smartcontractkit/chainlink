@@ -72,7 +72,7 @@ func (cfg ExistingContractsConfig) Validate() error {
 func SaveExistingContractsChangeset(env deployment.Environment, cfg ExistingContractsConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
-		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
+		return deployment.ChangesetOutput{}, errors.Wrapf(cldf.ErrInvalidConfig, "%v", err)
 	}
 	ab := cldf.NewMemoryAddressBook()
 	for _, ec := range cfg.ExistingContracts {

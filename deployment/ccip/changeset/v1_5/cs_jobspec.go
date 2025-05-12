@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/koko"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
@@ -72,10 +73,10 @@ func JobSpecsForLanesChangeset(env deployment.Environment, c JobSpecsForLanesCon
 		return deployment.ChangesetOutput{}, err
 	}
 	// Now we propose the job specs to the offchain system.
-	var Jobs []deployment.ProposedJob
+	var Jobs []cldf.ProposedJob
 	for nodeID, jobs := range nodesToJobSpecs {
 		for _, job := range jobs {
-			Jobs = append(Jobs, deployment.ProposedJob{
+			Jobs = append(Jobs, cldf.ProposedJob{
 				Node: nodeID,
 				Spec: job,
 			})
