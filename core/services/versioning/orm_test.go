@@ -63,7 +63,7 @@ func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 	t.Run("Without App Version Check", func(t *testing.T) {
 		orm := NewORM(db, logger.TestLogger(t))
 		// Set the environment variable to skip the app version check
-		t.Setenv("SKIP_APP_VERSION_CHECK", "true")
+		t.Setenv("CL_SKIP_APP_VERSION_CHECK", "true")
 
 		err := orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.8"))
 		require.NoError(t, err)
