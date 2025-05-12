@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -83,7 +83,7 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	return nil
 }
 
-func validateRouterConfig(chain deployment.SolChain, chainState solana2.SolCCIPChainState) error {
+func validateRouterConfig(chain deployment.SolChain, chainState solanastateview.SolCCIPChainState) error {
 	_, routerConfigPDA, err := chainState.GetRouterInfo()
 	if err != nil {
 		return err
@@ -96,14 +96,14 @@ func validateRouterConfig(chain deployment.SolChain, chainState solana2.SolCCIPC
 	return nil
 }
 
-func validateFeeAggregatorConfig(chain deployment.SolChain, chainState solana2.SolCCIPChainState) error {
+func validateFeeAggregatorConfig(chain deployment.SolChain, chainState solanastateview.SolCCIPChainState) error {
 	if chainState.GetFeeAggregator(chain).IsZero() {
 		return fmt.Errorf("fee aggregator not found in existing state, set the fee aggregator first for chain %d", chain.Selector)
 	}
 	return nil
 }
 
-func validateFeeQuoterConfig(chain deployment.SolChain, chainState solana2.SolCCIPChainState) error {
+func validateFeeQuoterConfig(chain deployment.SolChain, chainState solanastateview.SolCCIPChainState) error {
 	if chainState.FeeQuoter.IsZero() {
 		return fmt.Errorf("fee quoter not found in existing state, deploy the fee quoter first for chain %d", chain.Selector)
 	}
@@ -116,7 +116,7 @@ func validateFeeQuoterConfig(chain deployment.SolChain, chainState solana2.SolCC
 	return nil
 }
 
-func validateOffRampConfig(chain deployment.SolChain, chainState solana2.SolCCIPChainState) error {
+func validateOffRampConfig(chain deployment.SolChain, chainState solanastateview.SolCCIPChainState) error {
 	if chainState.OffRamp.IsZero() {
 		return fmt.Errorf("offramp not found in existing state, deploy the offramp first for chain %d", chain.Selector)
 	}
@@ -196,7 +196,7 @@ func UpdateOffRampRefAddresses(
 		rmnRemoteToSet = config.RMNRemote
 	}
 
-	offRampUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -399,7 +399,7 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (cld
 
 	feeAggregatorPubKey := solana.MustPublicKeyFromBase58(cfg.FeeAggregator)
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
-	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -514,7 +514,7 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (c
 		externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
 		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
 			chainState.Router,
-			solana2.FindReceiverTargetAccount(receiverAddress),
+			solanastateview.FindReceiverTargetAccount(receiverAddress),
 			externalExecutionConfigPDA,
 			chain.DeployerKey.PublicKey(),
 			solana.SystemProgramID,

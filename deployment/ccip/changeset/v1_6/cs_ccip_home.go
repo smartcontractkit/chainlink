@@ -29,7 +29,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployer"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -372,7 +372,7 @@ func PromoteCandidateChangeset(
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: mcmsTxs}}
 
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
@@ -642,7 +642,7 @@ func AddDonAndSetCandidateChangeset(
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: donMcmsTxs}}
 
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
@@ -844,7 +844,7 @@ func SetCandidateChangeset(
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: setCandidateMcmsTxs}}
 
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
@@ -1147,7 +1147,7 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: ops}}
 
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
@@ -1352,7 +1352,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation: %w", err)
 	}
 
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}

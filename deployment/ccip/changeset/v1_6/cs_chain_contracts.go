@@ -24,7 +24,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployer"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -252,7 +252,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -403,7 +403,7 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -519,7 +519,7 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -678,7 +678,7 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, onchain, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, onchain, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -781,7 +781,7 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -949,7 +949,7 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1071,7 +1071,7 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1218,7 +1218,7 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1426,7 +1426,7 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1572,7 +1572,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1687,7 +1687,7 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1908,7 +1908,7 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 	if cfg.MCMSConfig == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -2063,7 +2063,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg Updat
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -2189,7 +2189,7 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Envir
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -2371,7 +2371,7 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e deployment.Environme
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}

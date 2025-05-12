@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -119,14 +119,14 @@ func doDisableRemoteChain(
 	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
 	offRampID := s.SolChains[chainSel].OffRamp
-	feeQuoterUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
 		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
-	offRampUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,

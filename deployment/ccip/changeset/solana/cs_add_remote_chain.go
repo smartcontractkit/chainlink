@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -141,7 +141,7 @@ func doAddRemoteChainToRouter(
 	chainState := s.SolChains[chainSel]
 	ccipRouterID, routerConfigPDA, _ := s.SolChains[chainSel].GetRouterInfo()
 	offRampID := s.SolChains[chainSel].OffRamp
-	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -359,7 +359,7 @@ func doAddRemoteChainToFeeQuoter(
 	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
 	offRampID := s.SolChains[chainSel].OffRamp
-	feeQuoterUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -534,7 +534,7 @@ func doAddRemoteChainToOffRamp(
 	chain := e.SolChains[chainSel]
 	chainState := s.SolChains[chainSel]
 	offRampID := s.SolChains[chainSel].OffRamp
-	offRampUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -638,7 +638,7 @@ func getSourceChainConfig(s ccipChangeset.CCIPOnChainState, remoteChainSel uint6
 }
 
 func extendLookupTable(e deployment.Environment, chain deployment.SolChain, offRampID solana.PublicKey, lookUpTableEntries []solana.PublicKey) error {
-	addressLookupTable, err := solana2.FetchOfframpLookupTable(e.GetContext(), chain, offRampID)
+	addressLookupTable, err := solanastateview.FetchOfframpLookupTable(e.GetContext(), chain, offRampID)
 	if err != nil {
 		return fmt.Errorf("failed to get offramp reference addresses: %w", err)
 	}

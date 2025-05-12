@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -64,7 +64,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 			return cldf.ChangesetOutput{}, fmt.Errorf("chain %d is not a solana chain", remote)
 		}
 		chain := e.SolChains[remote]
-		if err := solana2.ValidateOwnershipSolana(&e, chain, cfg.MCMS != nil, state.SolChains[remote].OffRamp, shared.OffRamp, solana.PublicKey{}); err != nil {
+		if err := solanastateview.ValidateOwnershipSolana(&e, chain, cfg.MCMS != nil, state.SolChains[remote].OffRamp, shared.OffRamp, solana.PublicKey{}); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate ownership: %w", err)
 		}
 	}
@@ -181,7 +181,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 func isOCR3ConfigSetOnOffRampSolana(
 	e deployment.Environment,
 	chain deployment.SolChain,
-	chainState solana2.SolCCIPChainState,
+	chainState solanastateview.SolCCIPChainState,
 	args []internal.MultiOCR3BaseOCRConfigArgsSolana,
 ) (bool, error) {
 	var configAccount solOffRamp.Config

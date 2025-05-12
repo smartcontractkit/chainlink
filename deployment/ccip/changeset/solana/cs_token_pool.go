@@ -31,7 +31,7 @@ import (
 	ccipChangeset_v1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -423,7 +423,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 	var txns []mcmsTypes.Transaction
 	switch *cfg.SolPoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
-		useMcms := solana2.IsSolanaProgramOwnedByTimelock(
+		useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
 			&e,
 			chain,
 			solChainState,
@@ -452,7 +452,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 
 	case solTestTokenPool.LockAndRelease_PoolType:
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
-		useMcms := solana2.IsSolanaProgramOwnedByTimelock(
+		useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
 			&e,
 			chain,
 			solChainState,
@@ -514,7 +514,7 @@ func isSupportedChain(chain deployment.SolChain, solTokenPubKey solana.PublicKey
 func getNewSetuptInstructionsForBurnMint(
 	e deployment.Environment,
 	chain deployment.SolChain,
-	chainState solana2.SolCCIPChainState,
+	chainState solanastateview.SolCCIPChainState,
 	cfg RemoteChainTokenPoolConfig,
 	evmChainSelector uint64,
 	rateLimiterConfig RateLimiterConfig,
@@ -589,7 +589,7 @@ func getInstructionsForBurnMint(
 	e deployment.Environment,
 	chain deployment.SolChain,
 	envState stateview.CCIPOnChainState,
-	solChainState solana2.SolCCIPChainState,
+	solChainState solanastateview.SolCCIPChainState,
 	cfg RemoteChainTokenPoolConfig,
 	evmChainSelector uint64,
 	evmRemoteConfig EVMRemoteConfig,
@@ -685,7 +685,7 @@ func getInstructionsForBurnMint(
 func getNewSetuptInstructionsForLockRelease(
 	e deployment.Environment,
 	chain deployment.SolChain,
-	chainState solana2.SolCCIPChainState,
+	chainState solanastateview.SolCCIPChainState,
 	cfg RemoteChainTokenPoolConfig,
 	evmChainSelector uint64,
 	rateLimiterConfig RateLimiterConfig,
@@ -761,7 +761,7 @@ func getInstructionsForLockRelease(
 	e deployment.Environment,
 	chain deployment.SolChain,
 	envState stateview.CCIPOnChainState,
-	solChainState solana2.SolCCIPChainState,
+	solChainState solanastateview.SolCCIPChainState,
 	cfg RemoteChainTokenPoolConfig,
 	evmChainSelector uint64,
 	evmRemoteConfig EVMRemoteConfig,
@@ -991,7 +991,7 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput,
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][cfg.Metadata]
 
-	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -1095,7 +1095,7 @@ func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoo
 
 	var ix solana.Instruction
 	tokenPool, contractType := GetActiveTokenPool(&e, *cfg.PoolType, cfg.SolChainSelector, cfg.Metadata)
-	tokenPoolUsingMcms := solana2.IsSolanaProgramOwnedByTimelock(
+	tokenPoolUsingMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -1220,7 +1220,7 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 	tokenPool, contractType := GetActiveTokenPool(&e, *cfg.PoolType, cfg.SolChainSelector, cfg.Metadata)
 
 	var ix solana.Instruction
-	tokenPoolUsingMcms := solana2.IsSolanaProgramOwnedByTimelock(
+	tokenPoolUsingMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -1358,7 +1358,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 	solLockReleaseTokenPool.SetProgramID(tokenPool)
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
-	tokenPoolUsingMcms := solana2.IsSolanaProgramOwnedByTimelock(
+	tokenPoolUsingMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -1576,7 +1576,7 @@ func TokenPoolOps(e deployment.Environment, cfg TokenPoolOpsCfg) (cldf.Changeset
 	var ix solana.Instruction
 	ixns := make([]solana.Instruction, 0)
 	tokenPool, contractType := GetActiveTokenPool(&e, *cfg.PoolType, cfg.SolChainSelector, cfg.Metadata)
-	tokenPoolUsingMcms := solana2.IsSolanaProgramOwnedByTimelock(
+	tokenPoolUsingMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,

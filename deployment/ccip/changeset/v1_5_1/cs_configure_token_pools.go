@@ -16,10 +16,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployer"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -93,7 +93,7 @@ type SolChainUpdate struct {
 	Metadata string
 }
 
-func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solana2.SolCCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
+func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.SolCCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
 	metadata := shared.CLLMetadata
 	if c.Metadata != "" {
 		metadata = c.Metadata
@@ -124,7 +124,7 @@ func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solana2.SolCCIPChainSta
 	return
 }
 
-func (c SolChainUpdate) Validate(state solana2.SolCCIPChainState) error {
+func (c SolChainUpdate) Validate(state solanastateview.SolCCIPChainState) error {
 	if err := validateRateLimiterConfig(c.RateLimiterConfig.Inbound); err != nil {
 		return fmt.Errorf("validation of inbound rate limiter config for solana chain failed: %w", err)
 	}
@@ -279,7 +279,7 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := deployer.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
 
 	for chainSelector := range c.PoolUpdates {
 		chain := env.Chains[chainSelector]

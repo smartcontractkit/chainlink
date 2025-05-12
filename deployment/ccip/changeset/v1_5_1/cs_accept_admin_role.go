@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployer"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
@@ -41,7 +41,7 @@ func AcceptAdminRoleChangeset(env deployment.Environment, c TokenAdminRegistryCh
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := deployer.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("accept admin role for tokens on token admin registries")
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("accept admin role for tokens on token admin registries")
 
 	for chainSelector, tokenSymbolToPoolInfo := range c.Pools {
 		chain := env.Chains[chainSelector]

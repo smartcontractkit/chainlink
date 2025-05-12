@@ -25,7 +25,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployer"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 
@@ -542,7 +542,7 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (cldf.ChangesetO
 
 	timelocks := map[uint64]string{cfg.HomeChainSel: homeChainState.Timelock.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSel: mcmsevmsdk.NewInspector(homeChain.Client)}
-	mcmsContractsByActionPerChain, err := deployer.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractsByActionPerChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -675,8 +675,8 @@ func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (cldf.Cha
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for home chain: %w", err)
 	}
 
-	timelocks := deployer.BuildTimelockAddressPerChain(env, state)
-	mcmContract, err := deployer.BuildMcmAddressesPerChainByAction(env, state, c.MCMSCfg)
+	timelocks := deployergroup.BuildTimelockAddressPerChain(env, state)
+	mcmContract, err := deployergroup.BuildMcmAddressesPerChainByAction(env, state, c.MCMSCfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -822,7 +822,7 @@ func updateNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate access for node operator %s: %w", nop.Name, err)
 		}
 	}
-	deployerGroup := deployer.NewDeployerGroup(env, state, c.MCMSConfig).
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMSConfig).
 		WithDeploymentContext("update nops in cap reg")
 	txOpts, err := deployerGroup.GetDeployer(homeChain.Selector)
 	if err != nil {
@@ -945,7 +945,7 @@ func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.Cha
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	deployerGroup := deployer.NewDeployerGroup(env, state, c.MCMSConfig).
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMSConfig).
 		WithDeploymentContext("add nops in cap reg")
 	txOpts, err := deployerGroup.GetDeployer(homeChain.Selector)
 	if err != nil {
@@ -1002,7 +1002,7 @@ func removeNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.
 		env.Logger.Infof("No node operators found to be removed")
 		return cldf.ChangesetOutput{}, nil
 	}
-	deployerGroup := deployer.NewDeployerGroup(env, state, c.MCMSConfig).
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMSConfig).
 		WithDeploymentContext("remove nops in cap reg")
 	txOpts, err := deployerGroup.GetDeployer(homeChain.Selector)
 	if err != nil {

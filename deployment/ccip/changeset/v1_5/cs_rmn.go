@@ -18,7 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployer"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -171,7 +171,7 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	mcmsContractByChain, err := deployer.BuildMcmAddressesPerChainByAction(env, state, c.MCMSConfig)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(env, state, c.MCMSConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}

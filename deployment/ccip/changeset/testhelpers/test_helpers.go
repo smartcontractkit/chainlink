@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -2153,7 +2153,7 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
 		require.NoError(t, err, "Failed to deserialize rmn remote config for chain %d", sel)
 
-		addressLookupTable, err := solana2.FetchOfframpLookupTable(e.GetContext(), e.SolChains[sel], chainState.OffRamp)
+		addressLookupTable, err := solanastateview.FetchOfframpLookupTable(e.GetContext(), e.SolChains[sel], chainState.OffRamp)
 		require.NoError(t, err, "Failed to get offramp lookup table for chain %d", sel)
 
 		addresses, err := solCommonUtil.GetAddressLookupTable(
@@ -2173,7 +2173,7 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 		externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, chainState.Receiver)
 		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
 			chainState.Router,
-			solana2.FindReceiverTargetAccount(chainState.Receiver),
+			solanastateview.FindReceiverTargetAccount(chainState.Receiver),
 			externalExecutionConfigPDA,
 			e.SolChains[solSelector].DeployerKey.PublicKey(),
 			solana.SystemProgramID,

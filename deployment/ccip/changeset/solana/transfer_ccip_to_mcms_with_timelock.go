@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -43,7 +43,7 @@ type TransferCCIPToMCMSWithTimelockSolanaConfig struct {
 }
 
 // ValidateContracts checks if the required contracts are present on the chain
-func ValidateContracts(state solana2.SolCCIPChainState, chainSelector uint64, contracts CCIPContractsToTransfer) error {
+func ValidateContracts(state solanastateview.SolCCIPChainState, chainSelector uint64, contracts CCIPContractsToTransfer) error {
 	contractChecks := []struct {
 		enabled bool
 		value   solana.PublicKey

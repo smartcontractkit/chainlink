@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -24,7 +24,7 @@ func ValidateMCMSConfigSolana(
 	e deployment.Environment,
 	mcms *proposalutils.TimelockConfig,
 	chain deployment.SolChain,
-	chainState solana2.SolCCIPChainState,
+	chainState solanastateview.SolCCIPChainState,
 	tokenAddress solana.PublicKey,
 	tokenPoolMetadata string,
 	contractsToValidate map[cldf.ContractType]bool) error {
@@ -34,22 +34,22 @@ func ValidateMCMSConfigSolana(
 		}
 	}
 	if contractsToValidate[shared.FeeQuoter] {
-		if err := solana2.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.FeeQuoter, shared.FeeQuoter, tokenAddress); err != nil {
+		if err := solanastateview.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.FeeQuoter, shared.FeeQuoter, tokenAddress); err != nil {
 			return fmt.Errorf("failed to validate ownership for fee quoter: %w", err)
 		}
 	}
 	if contractsToValidate[shared.Router] {
-		if err := solana2.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.Router, shared.Router, tokenAddress); err != nil {
+		if err := solanastateview.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.Router, shared.Router, tokenAddress); err != nil {
 			return fmt.Errorf("failed to validate ownership for router: %w", err)
 		}
 	}
 	if contractsToValidate[shared.OffRamp] {
-		if err := solana2.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.OffRamp, shared.OffRamp, tokenAddress); err != nil {
+		if err := solanastateview.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.OffRamp, shared.OffRamp, tokenAddress); err != nil {
 			return fmt.Errorf("failed to validate ownership for off ramp: %w", err)
 		}
 	}
 	if contractsToValidate[shared.RMNRemote] {
-		if err := solana2.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.RMNRemote, shared.RMNRemote, tokenAddress); err != nil {
+		if err := solanastateview.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.RMNRemote, shared.RMNRemote, tokenAddress); err != nil {
 			return fmt.Errorf("failed to validate ownership for rmnremote: %w", err)
 		}
 	}
@@ -58,10 +58,10 @@ func ValidateMCMSConfigSolana(
 		if tokenPoolMetadata != "" {
 			metadata = tokenPoolMetadata
 		}
-		if err := solana2.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool, tokenAddress); contractsToValidate[shared.BurnMintTokenPool] && err != nil {
+		if err := solanastateview.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool, tokenAddress); contractsToValidate[shared.BurnMintTokenPool] && err != nil {
 			return fmt.Errorf("failed to validate ownership for burnmint: %w", err)
 		}
-		if err := solana2.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool, tokenAddress); contractsToValidate[shared.LockReleaseTokenPool] && err != nil {
+		if err := solanastateview.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool, tokenAddress); contractsToValidate[shared.LockReleaseTokenPool] && err != nil {
 			return fmt.Errorf("failed to validate ownership for lockrelease: %w", err)
 		}
 	}
@@ -147,7 +147,7 @@ func FetchTimelockSigner(e deployment.Environment, chainSelector uint64) (solana
 func GetAuthorityForIxn(
 	e *deployment.Environment,
 	chain deployment.SolChain,
-	chainState solana2.SolCCIPChainState,
+	chainState solanastateview.SolCCIPChainState,
 	mcms *proposalutils.TimelockConfig,
 	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // used for burnmint and lockrelease
@@ -157,7 +157,7 @@ func GetAuthorityForIxn(
 	if err != nil {
 		return chain.DeployerKey.PublicKey()
 	}
-	if solana2.IsSolanaProgramOwnedByTimelock(e, chain, chainState, contractType, tokenAddress, tokenMetadata) {
+	if solanastateview.IsSolanaProgramOwnedByTimelock(e, chain, chainState, contractType, tokenAddress, tokenMetadata) {
 		return timelockSigner
 	}
 	return chain.DeployerKey.PublicKey()

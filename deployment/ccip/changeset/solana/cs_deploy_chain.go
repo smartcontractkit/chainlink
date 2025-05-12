@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -363,7 +363,7 @@ func deployChainContractsSolana(
 		if err != nil {
 			return batches, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		offRampAddress = solana2.FindSolanaAddress(tv, existingAddresses)
+		offRampAddress = solanastateview.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
 			// deploy offramp, not upgraded in place so upgrade is false
 			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false, "")

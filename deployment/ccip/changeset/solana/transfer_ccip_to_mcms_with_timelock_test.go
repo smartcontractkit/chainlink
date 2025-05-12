@@ -34,7 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -52,8 +52,8 @@ func TestValidateContracts(t *testing.T) {
 
 	zeroPubkey := solana.PublicKey{} // Zero public key
 
-	makeState := func(router, feeQuoter solana.PublicKey) solana2.SolCCIPChainState {
-		return solana2.SolCCIPChainState{
+	makeState := func(router, feeQuoter solana.PublicKey) solanastateview.SolCCIPChainState {
+		return solanastateview.SolCCIPChainState{
 			Router:    router,
 			FeeQuoter: feeQuoter,
 		}
@@ -61,7 +61,7 @@ func TestValidateContracts(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		state         solana2.SolCCIPChainState
+		state         solanastateview.SolCCIPChainState
 		contracts     solanachangesets.CCIPContractsToTransfer
 		chainSelector uint64
 		expectedError string

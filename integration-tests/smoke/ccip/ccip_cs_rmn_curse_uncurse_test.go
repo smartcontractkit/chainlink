@@ -18,7 +18,7 @@ import (
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployer"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
@@ -496,7 +496,7 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 	}
 
 	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
-	timelocksPerChain := deployer.BuildTimelockPerChain(e.Env, state)
+	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 	// This is required because RMN Contracts is initially owned by the deployer
 	_, err := commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(

@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -64,7 +64,7 @@ func TestSolanaTokenOps(t *testing.T) {
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
-	tokenAddress := solana2.FindSolanaAddress(
+	tokenAddress := solanastateview.FindSolanaAddress(
 		cldf.TypeAndVersion{
 			Type:    shared.SPL2022Tokens,
 			Version: deployment.Version1_0_0,
@@ -144,7 +144,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	require.NoError(t, err)
 	addresses, err = e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
-	tokenAddress2 := solana2.FindSolanaAddress(
+	tokenAddress2 := solanastateview.FindSolanaAddress(
 		cldf.TypeAndVersion{
 			Type:    shared.SPL2022Tokens,
 			Version: deployment.Version1_0_0,

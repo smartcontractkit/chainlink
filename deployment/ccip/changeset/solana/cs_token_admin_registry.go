@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -95,7 +95,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 
 	var instruction *solRouter.Instruction
 	var err error
-	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -257,7 +257,7 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
 
-	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -368,7 +368,7 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 	solRouter.SetProgramID(routerProgramAddress)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 
-	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,

@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -76,7 +76,7 @@ func (cfg *BillingTokenConfig) Validate(e deployment.Environment) error {
 func AddBillingToken(
 	e deployment.Environment,
 	chain deployment.SolChain,
-	chainState solana2.SolCCIPChainState,
+	chainState solanastateview.SolCCIPChainState,
 	billingTokenConfig solFeeQuoter.BillingTokenConfig,
 	mcms *proposalutils.TimelockConfig,
 	isUpdate bool,
@@ -91,7 +91,7 @@ func AddBillingToken(
 	tokenProgramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
 	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
-	feeQuoterUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -221,7 +221,7 @@ func AddTokenTransferFeeForRemoteChain(e deployment.Environment, cfg TokenTransf
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	remoteBillingPDA, _, _ := solState.FindFqPerChainPerTokenConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.FeeQuoter)
-	feeQuoterUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -338,7 +338,7 @@ func UpdatePrices(e deployment.Environment, cfg UpdatePricesConfig) (cldf.Change
 	chain := e.SolChains[chainSel]
 	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
-	feeQuoterUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -447,7 +447,7 @@ func ModifyPriceUpdater(e deployment.Environment, cfg ModifyPriceUpdaterConfig) 
 	chain := e.SolChains[chainSel]
 	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
-	feeQuoterUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -559,7 +559,7 @@ func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig
 	tokenReceiverPDA, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
 	feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, chainState.GetFeeAggregator(chain))
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
-	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -650,7 +650,7 @@ func SetMaxFeeJuelsPerMsg(e deployment.Environment, cfg SetMaxFeeJuelsPerMsgConf
 	chain := e.SolChains[cfg.ChainSelector]
 
 	fqConfig, _, _ := solState.FindConfigPDA(chainState.FeeQuoter)
-	fqUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	fqUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,

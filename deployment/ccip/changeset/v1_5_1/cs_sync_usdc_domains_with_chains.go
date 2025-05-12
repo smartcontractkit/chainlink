@@ -13,7 +13,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployer"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -105,7 +105,7 @@ func SyncUSDCDomainsWithChainsChangeset(env deployment.Environment, c SyncUSDCDo
 	}
 	readOpts := &bind.CallOpts{Context: env.GetContext()}
 
-	deployerGroup := deployer.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("sync domain support with chain support on USDC token pools")
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("sync domain support with chain support on USDC token pools")
 
 	for chainSelector, version := range c.USDCVersionByChain {
 		chain := env.Chains[chainSelector]

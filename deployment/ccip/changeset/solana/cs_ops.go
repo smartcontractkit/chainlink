@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -73,21 +73,21 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
-	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
 		"")
-	offRampUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
 		shared.OffRamp,
 		solana.PublicKey{},
 		"")
-	feeQuoterUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -234,14 +234,14 @@ func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelector
 	chainState := state.SolChains[cfg.OldChainSelector]
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 
-	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
 		"")
-	offRampUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -356,7 +356,7 @@ func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnable
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
-	offRampUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -459,7 +459,7 @@ func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConf
 	chainState := state.SolChains[cfg.ChainSelector]
 	destChainStatePDA, _ := solState.FindDestChainStatePDA(cfg.DestChainSelector, chainState.Router)
 
-	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
@@ -559,7 +559,7 @@ func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (cldf.Chan
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
-	routerUsingMCMS := solana2.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,

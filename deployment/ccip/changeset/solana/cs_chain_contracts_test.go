@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	solana2 "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -58,7 +58,7 @@ func deployTokenAndMint(t *testing.T, tenv deployment.Environment, solChain uint
 	)
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChain) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
-	tokenAddress := solana2.FindSolanaAddress(
+	tokenAddress := solanastateview.FindSolanaAddress(
 		cldf.TypeAndVersion{
 			Type:    shared.SPL2022Tokens,
 			Version: deployment.Version1_0_0,

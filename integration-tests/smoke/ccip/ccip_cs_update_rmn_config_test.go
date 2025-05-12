@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployer"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -196,7 +196,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 
 	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
 
-	timelocksPerChain := deployer.BuildTimelockPerChain(e.Env, state)
+	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 	if tc.useMCMS {
 		// This is required because RMNHome is initially owned by the deployer
 		_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
