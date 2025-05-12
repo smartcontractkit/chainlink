@@ -13,6 +13,9 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/evm"
@@ -37,7 +40,7 @@ type LinkTransferConfig struct {
 	McmsConfig *proposalutils.TimelockConfig
 }
 
-var _ deployment.ChangeSet[*LinkTransferConfig] = LinkTransfer
+var _ cldf.ChangeSet[*LinkTransferConfig] = LinkTransfer
 
 func getDeployer(e deployment.Environment, chain uint64, mcmConfig *proposalutils.TimelockConfig) *bind.TransactOpts {
 	if mcmConfig == nil {
@@ -163,10 +166,10 @@ func transferOrBuildTx(
 }
 
 // LinkTransfer takes the given link transfers and executes them or creates an MCMS proposal for them.
-func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment.ChangesetOutput, error) {
+func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferConfig: %w", err)
 	}
 
 	mcmsPerChain := map[uint64]*owner_helpers.ManyChainMultiSig{}
@@ -175,7 +178,7 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 	// Initialize state for each chain
 	linkStatePerChain, mcmsStatePerChain, err := initStatePerChain(cfg, e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	allBatches := []timelock.BatchChainOperation{}
@@ -201,7 +204,7 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 		for _, transfer := range cfg.Transfers[chainSelector] {
 			tx, err := transferOrBuildTx(e, linkState, transfer, opts, chain, cfg.McmsConfig)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 			op := mcms.Operation{
 				To:           linkAddress,
@@ -225,22 +228,22 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 			cfg.McmsConfig.MinDelay,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
 		}, nil
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 // LinkTransferV2 is an reimplementation of LinkTransfer that uses the new MCMS SDK.
-func LinkTransferV2(e deployment.Environment, cfg *LinkTransferConfig) (deployment.ChangesetOutput, error) {
+func LinkTransferV2(e deployment.Environment, cfg *LinkTransferConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferConfig: %w", err)
 	}
 
 	proposerAddressPerChain := map[uint64]string{}
@@ -248,7 +251,7 @@ func LinkTransferV2(e deployment.Environment, cfg *LinkTransferConfig) (deployme
 	timelockAddressesPerChain := map[uint64]string{}
 	linkStatePerChain, mcmsStatePerChain, err := initStatePerChain(cfg, e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	allBatches := []mcmstypes.BatchOperation{}
@@ -274,7 +277,7 @@ func LinkTransferV2(e deployment.Environment, cfg *LinkTransferConfig) (deployme
 		for _, transfer := range cfg.Transfers[chainSelector] {
 			tx, err := transferOrBuildTx(e, linkState, transfer, opts, chain, cfg.McmsConfig)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 			op := evm.NewTransaction(linkAddress, tx.Data(), big.NewInt(0), string(types.LinkToken), []string{})
 			batch.Transactions = append(batch.Transactions, op)
@@ -295,13 +298,13 @@ func LinkTransferV2(e deployment.Environment, cfg *LinkTransferConfig) (deployme
 			*cfg.McmsConfig,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 		}, nil
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }

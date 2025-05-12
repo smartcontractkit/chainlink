@@ -35,27 +35,27 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
+	_ cldf.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
 )
 
 // DeployPrerequisitesChangeset deploys the pre-requisite contracts for CCIP
 // pre-requisite contracts are the contracts which can be reused from previous versions of CCIP
 // Or the contracts which are already deployed on the chain ( for example, tokens, feeds, etc)
 // Caller should update the environment's address book with the returned addresses.
-func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequisiteConfig) (deployment.ChangesetOutput, error) {
+func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequisiteConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
-		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
+		return cldf.ChangesetOutput{}, errors.Wrapf(cldf.ErrInvalidConfig, "%v", err)
 	}
 	ab := cldf.NewMemoryAddressBook()
 	err = deployPrerequisiteChainContracts(env, ab, cfg)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			AddressBook: ab,
 		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
 }

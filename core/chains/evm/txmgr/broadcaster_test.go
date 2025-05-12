@@ -1151,8 +1151,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})
 
 		t.Run("with callback", func(t *testing.T) {
-			run := cltest.MustInsertPipelineRun(t, db)
-			tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
+			runID := cltest.MustInsertPipelineRun(t, db)
+			trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 			etx := txmgr.Tx{
 				FromAddress:       fromAddress,
 				ToAddress:         toAddress,
@@ -1160,7 +1160,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 				Value:             value,
 				FeeLimit:          gasLimit,
 				State:             txmgrcommon.TxUnstarted,
-				PipelineTaskRunID: uuid.NullUUID{UUID: tr.ID, Valid: true},
+				PipelineTaskRunID: uuid.NullUUID{UUID: trID, Valid: true},
 				SignalCallback:    true,
 			}
 
@@ -1184,7 +1184,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 			t.Run("calls resume with error", func(t *testing.T) {
 				fn := func(ctx context.Context, id uuid.UUID, result interface{}, err error) error {
-					require.Equal(t, id, tr.ID)
+					require.Equal(t, id, trID)
 					require.Nil(t, result)
 					require.Error(t, err)
 					require.Contains(t, err.Error(), "fatal error while sending transaction: exceeds block gas limit")

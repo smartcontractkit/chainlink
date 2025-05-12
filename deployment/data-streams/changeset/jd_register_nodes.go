@@ -72,7 +72,7 @@ func registerNodesForDON(e deployment.Environment, donName string, donID uint64,
 	}
 }
 
-func registerNodesWithJDLogic(e deployment.Environment, cfg RegisterNodesInput) (deployment.ChangesetOutput, error) {
+func registerNodesWithJDLogic(e deployment.Environment, cfg RegisterNodesInput) (cldf.ChangesetOutput, error) {
 	baseLabels := []*ptypes.Label{
 		{
 			Key:   devenv.LabelProductKey,
@@ -95,7 +95,7 @@ func registerNodesWithJDLogic(e deployment.Environment, cfg RegisterNodesInput) 
 		registerNodesForDON(e, don.Name, don.ID, don.BootstrapNodes, baseLabels, devenv.LabelNodeTypeValueBootstrap)
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func (cfg RegisterNodesInput) Validate() error {

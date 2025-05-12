@@ -60,7 +60,7 @@ func (r ConfigureContractsRequest) Validate() error {
 }
 
 type ConfigureContractsResponse struct {
-	Changeset *deployment.ChangesetOutput
+	Changeset *cldf.ChangesetOutput
 	DonInfos  map[string]capabilities_registry.CapabilitiesRegistryDONInfo
 }
 
@@ -111,7 +111,7 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 	}
 
 	return &ConfigureContractsResponse{
-		Changeset: &deployment.ChangesetOutput{}, // no new addresses, proposals etc
+		Changeset: &cldf.ChangesetOutput{}, // no new addresses, proposals etc
 		DonInfos:  cfgRegistryResp.DonInfos,
 	}, nil
 }
@@ -287,7 +287,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRe
 	lggr.Infow("registered DONs", "dons", len(donsResp.DonInfos))
 
 	return &ConfigureContractsResponse{
-		Changeset: &deployment.ChangesetOutput{}, // no new addresses, proposals etc
+		Changeset: &cldf.ChangesetOutput{}, // no new addresses, proposals etc
 		DonInfos:  donsResp.DonInfos,
 	}, nil
 }

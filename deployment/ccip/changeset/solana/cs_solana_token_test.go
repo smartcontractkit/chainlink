@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -40,6 +39,23 @@ func TestSolanaTokenOps(t *testing.T) {
 				TokenProgramName: ccipChangeset.SPL2022Tokens,
 				TokenDecimals:    9,
 				TokenSymbol:      "TEST_TOKEN",
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	privKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			// deployer creates token
+			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+			changeset_solana.DeploySolanaTokenConfig{
+				ChainSelector:    solChain1,
+				TokenProgramName: ccipChangeset.SPLTokens,
+				MintPrivateKey:   privKey,
+				TokenDecimals:    9,
+				TokenSymbol:      "SPL_TEST_TOKEN",
 			},
 		),
 	)
@@ -156,27 +172,5 @@ func TestSolanaTokenOps(t *testing.T) {
 }
 
 func TestDeployLinkToken(t *testing.T) {
-	testhelpers.DeployLinkTokenTest(t, 1)
-}
-
-func TestDeployLinkTokenV2(t *testing.T) {
-	t.Parallel()
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		SolChains: 1,
-	})
-	solChain1 := e.AllChainSelectorsSolana()[0]
-	newPrivKey, err := solana.NewRandomPrivateKey()
-	require.NoError(t, err)
-	_, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
-			commonchangeset.DeploySolanaLinkTokenConfig{
-				ChainSelector: solChain1,
-				TokenPrivKey:  newPrivKey,
-				TokenDecimals: 9,
-			},
-		),
-	)
-	require.NoError(t, err)
+	commonchangeset.DeployLinkTokenTest(t, 1)
 }

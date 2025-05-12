@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 )
 
-var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
+var _ cldf.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
 // DeployChainContracts deploys all new CCIP v1.6 or later contracts for the given chains.
 // It returns the new addresses for the contracts.
@@ -41,17 +41,17 @@ var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsCha
 // In case of migrating from legacy ccip to 1.6, the previous RMN address should be set while deploying RMNRemote.
 // if there is no existing RMN address found, RMNRemote will be deployed with 0x0 address for previous RMN address
 // which will set RMN to 0x0 address immutably in RMNRemote.
-func DeployChainContractsChangeset(env deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
+func DeployChainContractsChangeset(env deployment.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
 	err := deployChainContractsForChains(env, newAddresses, c.HomeChainSelector, c.ContractParamsPerChain)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
-		return deployment.ChangesetOutput{AddressBook: newAddresses}, deployment.MaybeDataErr(err)
+		return cldf.ChangesetOutput{AddressBook: newAddresses}, deployment.MaybeDataErr(err)
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
 }

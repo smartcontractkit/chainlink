@@ -9,6 +9,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -25,12 +28,12 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[SetRMNRemoteOnRMNProxyConfig]  = SetRMNRemoteOnRMNProxyChangeset
-	_ deployment.ChangeSet[SetRMNHomeCandidateConfig]     = SetRMNHomeCandidateConfigChangeset
-	_ deployment.ChangeSet[PromoteRMNHomeCandidateConfig] = PromoteRMNHomeCandidateConfigChangeset
-	_ deployment.ChangeSet[SetRMNRemoteConfig]            = SetRMNRemoteConfigChangeset
-	_ deployment.ChangeSet[SetRMNHomeDynamicConfigConfig] = SetRMNHomeDynamicConfigChangeset
-	_ deployment.ChangeSet[RevokeCandidateConfig]         = RevokeRMNHomeCandidateConfigChangeset
+	_ cldf.ChangeSet[SetRMNRemoteOnRMNProxyConfig]  = SetRMNRemoteOnRMNProxyChangeset
+	_ cldf.ChangeSet[SetRMNHomeCandidateConfig]     = SetRMNHomeCandidateConfigChangeset
+	_ cldf.ChangeSet[PromoteRMNHomeCandidateConfig] = PromoteRMNHomeCandidateConfigChangeset
+	_ cldf.ChangeSet[SetRMNRemoteConfig]            = SetRMNRemoteConfigChangeset
+	_ cldf.ChangeSet[SetRMNHomeDynamicConfigConfig] = SetRMNHomeDynamicConfigChangeset
+	_ cldf.ChangeSet[RevokeCandidateConfig]         = RevokeRMNHomeCandidateConfigChangeset
 )
 
 type SetRMNRemoteOnRMNProxyConfig struct {
@@ -63,13 +66,13 @@ func (c SetRMNRemoteOnRMNProxyConfig) Validate(e deployment.Environment, state c
 	return nil
 }
 
-func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteOnRMNProxyConfig) (deployment.ChangesetOutput, error) {
+func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteOnRMNProxyConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	if err := cfg.Validate(e, state); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
@@ -79,12 +82,12 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 	for _, sel := range cfg.ChainSelectors {
 		chain, exists := e.Chains[sel]
 		if !exists {
-			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", sel)
+			return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found", sel)
 		}
 
 		inspectors[sel], err = proposalutils.McmsInspectorForChain(e, sel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
 		}
 
 		txOpts := chain.DeployerKey
@@ -93,7 +96,7 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 		}
 		batchOperation, err := setRMNRemoteOnRMNProxyOp(txOpts, chain, state.Chains[sel], cfg.MCMSConfig != nil)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
 		}
 
 		if cfg.MCMSConfig != nil {
@@ -102,11 +105,11 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 	}
 	// If we're not using MCMS, we can just return now as we've already confirmed the transactions
 	if len(timelockBatch) == 0 {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
@@ -118,9 +121,9 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 		*cfg.MCMSConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: []mcmslib.TimelockProposal{
 			*prop,
 		},
@@ -338,57 +341,57 @@ func (c PromoteRMNHomeCandidateConfig) Validate(state changeset.CCIPOnChainState
 // StaticConfig contains the list of nodes with their peerIDs (found in their rageproxy keystore) and offchain public keys (found in the RMN keystore)
 // DynamicConfig contains the list of source chains with their chain selectors, f value and the bitmap of the nodes that are oberver for each source chain
 // The bitmap is a 256 bit array where each bit represents a node. If the bit matching the index of the node in the static config is set it means that the node is an observer
-func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNHomeCandidateConfig) (deployment.ChangesetOutput, error) {
+func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNHomeCandidateConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	err = config.Validate(state)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	homeChain, ok := e.Chains[config.HomeChainSelector]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
 	}
 
 	rmnHome := state.Chains[config.HomeChainSelector].RMNHome
 	if rmnHome == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", homeChain.String())
+		return cldf.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", homeChain.String())
 	}
 
 	deployer := getDeployer(e, config.HomeChainSelector, config.MCMSConfig)
 	setCandidateTx, err := rmnHome.SetCandidate(deployer, config.RMNStaticConfig, config.RMNDynamicConfig, config.DigestToOverride)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("build RMNHome set candidate calldata for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("build RMNHome set candidate calldata for chain %s: %w", homeChain.String(), err)
 	}
 
 	if config.MCMSConfig == nil {
 		chain := e.Chains[config.HomeChainSelector]
 		_, err := chain.Confirm(setCandidateTx)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), deployment.MaybeDataErr(err))
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), deployment.MaybeDataErr(err))
 		}
 
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	operation, err := proposalutils.BatchOperationForChain(homeChain.Selector, rmnHome.Address().Hex(),
 		setCandidateTx.Data(), big.NewInt(0), string(changeset.RMN), []string{})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
 	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	inspectors, err := proposalutils.McmsInspectors(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
@@ -401,76 +404,76 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 		*config.MCMSConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
 	}
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
-func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config PromoteRMNHomeCandidateConfig) (deployment.ChangesetOutput, error) {
+func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config PromoteRMNHomeCandidateConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	err = config.Validate(state)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	homeChain, ok := e.Chains[config.HomeChainSelector]
 
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
 	}
 
 	rmnHome := state.Chains[config.HomeChainSelector].RMNHome
 	if rmnHome == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", homeChain.String())
+		return cldf.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", homeChain.String())
 	}
 
 	currentCandidateDigest, err := rmnHome.GetCandidateDigest(nil)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get RMNHome candidate digest for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get RMNHome candidate digest for chain %s: %w", homeChain.String(), err)
 	}
 
 	currentActiveDigest, err := rmnHome.GetActiveDigest(nil)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get RMNHome active digest for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get RMNHome active digest for chain %s: %w", homeChain.String(), err)
 	}
 
 	deployer := getDeployer(e, config.HomeChainSelector, config.MCMSConfig)
 	promoteCandidateTx, err := rmnHome.PromoteCandidateAndRevokeActive(deployer, currentCandidateDigest, currentActiveDigest)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("get call data to promote RMNHome candidate digest for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("get call data to promote RMNHome candidate digest for chain %s: %w", homeChain.String(), err)
 	}
 
 	if config.MCMSConfig == nil {
 		chain := e.Chains[config.HomeChainSelector]
 		_, err := chain.Confirm(promoteCandidateTx)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), deployment.MaybeDataErr(err))
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), deployment.MaybeDataErr(err))
 		}
 
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	operation, err := proposalutils.BatchOperationForChain(homeChain.Selector, rmnHome.Address().Hex(),
 		promoteCandidateTx.Data(), big.NewInt(0), string(changeset.RMN), []string{})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
 	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	inspectors := map[uint64]mcmssdk.Inspector{}
 	inspectors[config.HomeChainSelector], err = proposalutils.McmsInspectorForChain(e, config.HomeChainSelector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
@@ -483,10 +486,10 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 		*config.MCMSConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 	}, nil
 }
@@ -575,38 +578,38 @@ func (c SetRMNHomeDynamicConfigConfig) Validate(e deployment.Environment) error 
 	return nil
 }
 
-func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDynamicConfigConfig) (deployment.ChangesetOutput, error) {
+func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDynamicConfigConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	deployerGroup := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("set RMNHome dynamic config")
 
 	chain, exists := e.Chains[cfg.HomeChainSelector]
 	if !exists {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", cfg.HomeChainSelector)
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found", cfg.HomeChainSelector)
 	}
 
 	rmnHome := state.Chains[cfg.HomeChainSelector].RMNHome
 	if rmnHome == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", chain.String())
+		return cldf.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", chain.String())
 	}
 
 	deployer, err := deployerGroup.GetDeployer(cfg.HomeChainSelector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	_, err = rmnHome.SetDynamicConfig(deployer, cfg.RMNDynamicConfig, cfg.ActiveDigest)
 
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNHome dynamic config for chain %s: %w", chain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set RMNHome dynamic config for chain %s: %w", chain.String(), err)
 	}
 
 	return deployerGroup.Enact()
@@ -646,69 +649,69 @@ func (c RevokeCandidateConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeCandidateConfig) (deployment.ChangesetOutput, error) {
+func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeCandidateConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	deployerGroup := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("revoke candidate config")
 
 	chain, exists := e.Chains[cfg.HomeChainSelector]
 	if !exists {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", cfg.HomeChainSelector)
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found", cfg.HomeChainSelector)
 	}
 
 	rmnHome := state.Chains[cfg.HomeChainSelector].RMNHome
 	if rmnHome == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", chain.String())
+		return cldf.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", chain.String())
 	}
 
 	deployer, err := deployerGroup.GetDeployer(cfg.HomeChainSelector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	_, err = rmnHome.RevokeCandidate(deployer, cfg.CandidateDigest)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke candidate config for chain %s: %w", chain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to revoke candidate config for chain %s: %w", chain.String(), err)
 	}
 
 	return deployerGroup.Enact()
 }
 
-func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteConfig) (deployment.ChangesetOutput, error) {
+func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	lggr := e.Logger
 
 	err = config.Validate()
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	homeChain, ok := e.Chains[config.HomeChainSelector]
 
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
 	}
 
 	rmnHome := state.Chains[config.HomeChainSelector].RMNHome
 	if rmnHome == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", homeChain.String())
+		return cldf.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", homeChain.String())
 	}
 
 	activeConfig, err := rmnHome.GetActiveDigest(nil)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get RMNHome active digest for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get RMNHome active digest for chain %s: %w", homeChain.String(), err)
 	}
 
 	rmnRemotePerChain := BuildRMNRemotePerChain(e, state)
@@ -719,16 +722,16 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 	for chain, remoteConfig := range config.RMNRemoteConfigs {
 		remote, ok := rmnRemotePerChain[chain]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
+			return cldf.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
 		}
 
 		if remote == nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
+			return cldf.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
 		}
 
 		currentVersionConfig, err := remote.GetVersionedConfig(nil)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get RMNRemote config for chain %s: %w", e.Chains[chain].String(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get RMNRemote config for chain %s: %w", e.Chains[chain].String(), err)
 		}
 
 		newConfig := rmn_remote.RMNRemoteConfig{
@@ -746,38 +749,38 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 		tx, err := remote.SetConfig(deployer, newConfig)
 
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("build call data to set RMNRemote config for chain %s: %w", e.Chains[chain].String(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("build call data to set RMNRemote config for chain %s: %w", e.Chains[chain].String(), err)
 		}
 
 		if config.MCMSConfig == nil {
 			_, err := e.Chains[chain].Confirm(tx)
 
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", e.Chains[chain].String(), deployment.MaybeDataErr(err))
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", e.Chains[chain].String(), deployment.MaybeDataErr(err))
 			}
 		}
 
 		operation, err := proposalutils.BatchOperationForChain(e.Chains[chain].Selector, remote.Address().Hex(),
 			tx.Data(), big.NewInt(0), string(changeset.RMN), []string{})
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
 		}
 
 		batches = append(batches, operation)
 	}
 
 	if config.MCMSConfig == nil {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	timelocks := changeset.BuildTimelockAddressPerChain(e, state)
 	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	inspectors, err := proposalutils.McmsInspectors(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
@@ -791,8 +794,8 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 	)
 
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
 	}
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }

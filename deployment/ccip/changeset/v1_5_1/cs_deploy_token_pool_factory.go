@@ -79,11 +79,11 @@ func deployTokenPoolFactoryPrecondition(e deployment.Environment, config DeployT
 	return nil
 }
 
-func deployTokenPoolFactoryLogic(e deployment.Environment, config DeployTokenPoolFactoryConfig) (deployment.ChangesetOutput, error) {
+func deployTokenPoolFactoryLogic(e deployment.Environment, config DeployTokenPoolFactoryConfig) (cldf.ChangesetOutput, error) {
 	addressBook := cldf.NewMemoryAddressBook()
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	for _, chainSel := range config.Chains {
@@ -116,10 +116,10 @@ func deployTokenPoolFactoryLogic(e deployment.Environment, config DeployTokenPoo
 			},
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy token pool factory: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy token pool factory: %w", err)
 		}
 		e.Logger.Infof("Successfully deployed token pool factory %s on %s", tokenPoolFactory.Address.String(), chain.String())
 	}
 
-	return deployment.ChangesetOutput{AddressBook: addressBook}, nil
+	return cldf.ChangesetOutput{AddressBook: addressBook}, nil
 }

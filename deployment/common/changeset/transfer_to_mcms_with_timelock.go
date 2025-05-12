@@ -84,7 +84,7 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 	return nil
 }
 
-var _ deployment.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelock
+var _ cldf.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelock
 
 // TransferToMCMSWithTimelock creates a changeset that transfers ownership of all the
 // contracts in the provided configuration to the timelock on the chain and generates
@@ -96,9 +96,9 @@ var _ deployment.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWit
 func TransferToMCMSWithTimelock(
 	e deployment.Environment,
 	cfg TransferToMCMSWithTimelockConfig,
-) (deployment.ChangesetOutput, error) {
+) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	var batches []timelock.BatchChainOperation
 	timelocksByChain := make(map[uint64]common.Address)
@@ -110,7 +110,7 @@ func TransferToMCMSWithTimelock(
 		timelocksByChain[chainSelector] = common.HexToAddress(timelockAddr)
 		proposer, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(proposerAddr), e.Chains[chainSelector].Client)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create proposer mcms: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create proposer mcms: %w", err)
 		}
 		proposersByChain[chainSelector] = proposer
 
@@ -127,11 +127,11 @@ func TransferToMCMSWithTimelock(
 			tx, err := c.TransferOwnership(e.Chains[chainSelector].DeployerKey, common.HexToAddress(timelockAddr))
 			_, err = deployment.ConfirmIfNoError(e.Chains[chainSelector], tx, err)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %w", contract, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %w", contract, err)
 			}
 			tx, err = c.AcceptOwnership(deployment.SimTransactOpts())
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate accept ownership calldata of %s: %w", contract, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate accept ownership calldata of %s: %w", contract, err)
 			}
 			ops = append(ops, mcms.Operation{
 				To:    contract,
@@ -147,21 +147,21 @@ func TransferToMCMSWithTimelock(
 	proposal, err := proposalutils.BuildProposalFromBatches(
 		timelocksByChain, proposersByChain, batches, "Transfer ownership to timelock", cfg.MCMSConfig.MinDelay)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
 	}
 
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
 }
 
-var _ deployment.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelockV2
+var _ cldf.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelockV2
 
 // TransferToMCMSWithTimelockV2 is a reimplementation of TransferToMCMSWithTimelock which uses the new MCMS library.
 func TransferToMCMSWithTimelockV2(
 	e deployment.Environment,
 	cfg TransferToMCMSWithTimelockConfig,
-) (deployment.ChangesetOutput, error) {
+) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	batches := []mcmstypes.BatchOperation{}
 	timelockAddressByChain := make(map[uint64]string)
@@ -188,11 +188,11 @@ func TransferToMCMSWithTimelockV2(
 			tx, err := c.TransferOwnership(e.Chains[chainSelector].DeployerKey, common.HexToAddress(timelockAddr))
 			_, err = deployment.ConfirmIfNoError(e.Chains[chainSelector], tx, err)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %w", contract, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %w", contract, err)
 			}
 			tx, err = c.AcceptOwnership(deployment.SimTransactOpts())
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate accept ownership calldata of %s: %w", contract, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate accept ownership calldata of %s: %w", contract, err)
 			}
 			ops = append(ops, mcmstypes.Transaction{
 				To:               contract.Hex(),
@@ -210,13 +210,13 @@ func TransferToMCMSWithTimelockV2(
 		timelockAddressByChain, proposerAddressByChain, inspectorPerChain,
 		batches, "Transfer ownership to timelock", cfg.MCMSConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
 	}
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
-var _ deployment.ChangeSet[TransferToDeployerConfig] = TransferToDeployer
+var _ cldf.ChangeSet[TransferToDeployerConfig] = TransferToDeployer
 
 type TransferToDeployerConfig struct {
 	ContractAddress common.Address
@@ -227,26 +227,26 @@ type TransferToDeployerConfig struct {
 // still being a timelock admin and transfers the ownership of a contract
 // back to the deployer key. It's effectively the rollback function of transferring
 // to the timelock.
-func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) (deployment.ChangesetOutput, error) {
+func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) (cldf.ChangesetOutput, error) {
 	owner, ownable, err := LoadOwnableContract(cfg.ContractAddress, e.Chains[cfg.ChainSel].Client)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	if owner == e.Chains[cfg.ChainSel].DeployerKey.From {
 		e.Logger.Infof("Contract %s already owned by deployer", cfg.ContractAddress)
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 	tx, err := ownable.TransferOwnership(deployment.SimTransactOpts(), e.Chains[cfg.ChainSel].DeployerKey.From)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	addrs, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSel)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	tls, err := MaybeLoadMCMSWithTimelockChainState(e.Chains[cfg.ChainSel], addrs)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	calls := []owner_helpers.RBACTimelockCall{
 		{
@@ -259,34 +259,34 @@ func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) 
 	binary.BigEndian.PutUint32(salt[:], uint32(time.Now().Unix()))
 	tx, err = tls.Timelock.ScheduleBatch(e.Chains[cfg.ChainSel].DeployerKey, calls, [32]byte{}, salt, big.NewInt(0))
 	if _, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.ChainSel], tx, owner_helpers.RBACTimelockABI, err); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	e.Logger.Infof("scheduled transfer ownership batch with tx %s", tx.Hash().Hex())
 	timelockExecutorProxy, err := owner_helpers.NewRBACTimelock(tls.CallProxy.Address(), e.Chains[cfg.ChainSel].Client)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error creating timelock executor proxy: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("error creating timelock executor proxy: %w", err)
 	}
 
 	tx, err = timelockExecutorProxy.ExecuteBatch(
 		e.Chains[cfg.ChainSel].DeployerKey, calls, [32]byte{}, salt)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error executing batch: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("error executing batch: %w", err)
 	}
 	if _, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.ChainSel], tx, owner_helpers.RBACTimelockABI, err); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	e.Logger.Infof("executed transfer ownership to deployer key with tx %s", tx.Hash().Hex())
 
 	tx, err = ownable.AcceptOwnership(e.Chains[cfg.ChainSel].DeployerKey)
 	if _, err = deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	e.Logger.Infof("deployer key accepted ownership tx %s", tx.Hash().Hex())
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
-var _ deployment.ChangeSet[RenounceTimelockDeployerConfig] = RenounceTimelockDeployer
+var _ cldf.ChangeSet[RenounceTimelockDeployerConfig] = RenounceTimelockDeployer
 
 type RenounceTimelockDeployerConfig struct {
 	ChainSel uint64
@@ -320,29 +320,29 @@ func (cfg RenounceTimelockDeployerConfig) Validate(e deployment.Environment) err
 }
 
 // RenounceTimelockDeployer revokes the deployer key from administering the contract.
-func RenounceTimelockDeployer(e deployment.Environment, cfg RenounceTimelockDeployerConfig) (deployment.ChangesetOutput, error) {
+func RenounceTimelockDeployer(e deployment.Environment, cfg RenounceTimelockDeployerConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	contracts, err := MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	tl := contracts[cfg.ChainSel].Timelock
 	admin, err := tl.ADMINROLE(&bind.CallOpts{Context: e.GetContext()})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get admin role: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get admin role: %w", err)
 	}
 
 	chain := e.Chains[cfg.ChainSel]
 	tx, err := tl.RenounceRole(chain.DeployerKey, admin, chain.DeployerKey.From)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke deployer key: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to revoke deployer key: %w", err)
 	}
 	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, owner_helpers.RBACTimelockABI, err); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	e.Logger.Infof("revoked deployer key from owning contract %s", tl.Address().Hex())
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }

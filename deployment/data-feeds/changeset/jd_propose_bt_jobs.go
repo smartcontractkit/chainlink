@@ -19,13 +19,13 @@ const (
 // ProposeBtJobsToJDChangeset is a changeset that reads a boostrap spec from a file and proposes jobs to JD
 var ProposeBtJobsToJDChangeset = cldf.CreateChangeSet(proposeBtJobsToJDLogic, proposeBtJobsToJDPrecondition)
 
-func proposeBtJobsToJDLogic(env deployment.Environment, c types.ProposeBtJobsConfig) (deployment.ChangesetOutput, error) {
+func proposeBtJobsToJDLogic(env deployment.Environment, c types.ProposeBtJobsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(env.GetContext(), btTimeout)
 	defer cancel()
 
 	bootstrapJobSpec, err := offchain.JobSpecFromBootstrap(c.NodeFilter.DONID, c.ChainSelector, c.BootstrapJobName, c.Contract)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create job spec from bootstrap: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create job spec from bootstrap: %w", err)
 	}
 
 	return offchain.ProposeJobs(ctx, env, bootstrapJobSpec, nil, c.NodeFilter)

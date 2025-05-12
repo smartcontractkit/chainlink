@@ -3,16 +3,30 @@ package utils
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
-
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-func MaybeFindEthAddress(ab cldf.AddressBook, chain uint64, typ cldf.ContractType) (common.Address, error) {
-	addressHex, err := cldf.SearchAddressBook(ab, chain, typ)
+func EnvironmentAddresses(e cldf.Environment) (addresses map[string]cldf.TypeAndVersion, err error) {
+	addresses = make(map[string]cldf.TypeAndVersion)
+	records, err := e.DataStore.Addresses().Fetch()
 	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to find contract %s address: %w", typ, err)
+		return nil, fmt.Errorf("failed to fetch addresses from datastore: %w", err)
 	}
-	address := common.HexToAddress(addressHex)
-	return address, nil
+	for _, record := range records {
+		addresses[record.Address] = cldf.TypeAndVersion{
+			Type:    cldf.ContractType(record.Type),
+			Version: *record.Version,
+		}
+	}
+	return addresses, nil
+}
+
+// GetContractAddress returns the address for a specific contract type. Used when expecting only one contract
+func GetContractAddress(addresses datastore.AddressRefStore, contractType cldf.ContractType) (string, error) {
+	records := addresses.Filter(datastore.AddressRefByType(datastore.ContractType(contractType)))
+	if len(records) != 1 {
+		return "", fmt.Errorf("expected 1 %s address, found %d", contractType, len(records))
+	}
+	return records[0].Address, nil
 }

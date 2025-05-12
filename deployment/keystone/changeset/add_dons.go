@@ -15,13 +15,14 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-var _ deployment.ChangeSet[*AddDonsRequest] = AddDons
+var _ cldf.ChangeSet[*AddDonsRequest] = AddDons
 
 type RegisterableDon struct {
 	Name              string             // the name of the DON
@@ -138,23 +139,23 @@ func (r AddDonsRequest) convertInternal(registry *kcr.CapabilitiesRegistry) (don
 // See [AddNodes] and [AddCapabilities] for more detail
 // If the DON already exists, it will do nothing. The DON is identified by the P2P addresses of the nodes.
 // If you need to update the DON, use [UpdateDon].
-func AddDons(env deployment.Environment, req *AddDonsRequest) (deployment.ChangesetOutput, error) {
+func AddDons(env deployment.Environment, req *AddDonsRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	// extract the registry contract and chain from the environment
 	registryChain, ok := env.Chains[req.RegistryChainSel]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
+		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
 	capReg, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 	donsToRegister, nodeIDToP2PID, donToCapabilities, err := req.convertInternal(capReg.Contract)
 
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert DON to register: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert DON to register: %w", err)
 	}
 	resp, err := internal.RegisterDons(env.Logger, internal.RegisterDonsRequest{
 		RegistryChainSelector: req.RegistryChainSel,
@@ -166,10 +167,10 @@ func AddDons(env deployment.Environment, req *AddDonsRequest) (deployment.Change
 		UseMCMS:               req.UseMCMS(),
 	})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to add dons: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add dons: %w", err)
 	}
 
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if req.UseMCMS() {
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
@@ -183,7 +184,7 @@ func AddDons(env deployment.Environment, req *AddDonsRequest) (deployment.Change
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		inspectorPerChain := map[uint64]sdk.Inspector{
 			req.RegistryChainSel: inspector,

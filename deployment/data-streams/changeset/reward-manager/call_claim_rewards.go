@@ -48,7 +48,7 @@ func claimRewardsPrecondition(_ deployment.Environment, cc ClaimRewardsConfig) e
 	return nil
 }
 
-func claimRewardsLogic(e deployment.Environment, cfg ClaimRewardsConfig) (deployment.ChangesetOutput, error) {
+func claimRewardsLogic(e deployment.Environment, cfg ClaimRewardsConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.RewardManager.String(),
@@ -57,7 +57,7 @@ func claimRewardsLogic(e deployment.Environment, cfg ClaimRewardsConfig) (deploy
 		doClaimRewards,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building ClaimRewards txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building ClaimRewards txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "ClaimRewards proposal")

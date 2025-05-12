@@ -11,29 +11,30 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ deployment.ChangeSet[*AppendNodeCapabilitiesRequest] = AppendNodeCapabilities
+var _ cldf.ChangeSet[*AppendNodeCapabilitiesRequest] = AppendNodeCapabilities
 
 // AppendNodeCapabilitiesRequest is a request to add capabilities to the existing capabilities of nodes in the registry
 type AppendNodeCapabilitiesRequest = MutateNodeCapabilitiesRequest
 
 // AppendNodeCapabilities adds any new capabilities to the registry, merges the new capabilities with the existing capabilities
 // of the node, and updates the nodes in the registry host the union of the new and existing capabilities.
-func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
+func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilitiesRequest) (cldf.ChangesetOutput, error) {
 	c, capReg, err := req.convert(env, req.RegistryRef)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	r, err := internal.AppendNodeCapabilitiesImpl(env.Logger, c)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if req.UseMCMS() {
 		if r.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
@@ -46,7 +47,7 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		inspectorPerChain := map[uint64]sdk.Inspector{
 			req.RegistryChainSel: inspector,

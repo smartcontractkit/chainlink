@@ -20,10 +20,8 @@ import (
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
@@ -410,35 +408,9 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, registry keeper.Regi
 	return upkeep
 }
 
-func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (run pipeline.Run) {
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,created_at) VALUES ($1, 0, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
-	return run
-}
-
-func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus, jobID int32) (run pipeline.Run) {
-	var finishedAt *time.Time
-	var outputs jsonserializable.JSONSerializable
-	var allErrors pipeline.RunErrors
-	var fatalErrors pipeline.RunErrors
-	now := time.Now()
-	switch status {
-	case pipeline.RunStatusCompleted:
-		finishedAt = &now
-		outputs = jsonserializable.JSONSerializable{
-			Val:   "foo",
-			Valid: true,
-		}
-	case pipeline.RunStatusErrored:
-		finishedAt = &now
-		allErrors = []null.String{null.StringFrom("oh no!")}
-		fatalErrors = []null.String{null.StringFrom("oh no!")}
-	case pipeline.RunStatusRunning, pipeline.RunStatusSuspended:
-		// leave empty
-	default:
-		t.Fatalf("unknown status: %s", status)
-	}
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`, status, pipelineSpecID, jobID, finishedAt, outputs, allErrors, fatalErrors))
-	return run
+func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (runID int64) {
+	require.NoError(t, db.Get(&runID, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,created_at) VALUES ($1, 0, 0, NOW()) RETURNING id`, "running"))
+	return runID
 }
 
 func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
@@ -447,10 +419,10 @@ func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
 	return
 }
 
-func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunID int64) (tr pipeline.TaskRun) {
+func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunID int64) (trID uuid.UUID) {
 	/* #nosec G404 */
-	require.NoError(t, db.Get(&tr, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING *`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.New()))
-	return tr
+	require.NoError(t, db.Get(&trID, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING id`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.New()))
+	return trID
 }
 
 func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {
