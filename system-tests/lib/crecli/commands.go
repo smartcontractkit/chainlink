@@ -160,7 +160,7 @@ func SetFeedAdmin(creCLICommandPath string, chainID int, adminAddress common.Add
 	waitErr := setFeedAdminCmd.Wait()
 	fmt.Println("Set Feed Admin output:\n", outputBuffer.String())
 	if waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for compile command")
+		return errors.Wrap(waitErr, "failed to wait for set feed admin command")
 	}
 
 	return nil
@@ -213,7 +213,7 @@ func SetFeedConfig(creCLICommandPath, feedID, feedDecimals, feedDescription stri
 	waitErr := setFeedConfigCmd.Wait()
 	fmt.Println("Set Feed Config output:\n", outputBuffer.String())
 	if waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for compile command")
+		return errors.Wrap(waitErr, "failed to wait for set feed config command")
 	}
 
 	return nil

@@ -177,8 +177,6 @@ type DependenciesConfig struct {
 }
 
 const (
-	CRECLIProfile = "test"
-
 	AuthorizationKeySecretName = "AUTH_KEY"
 	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
 	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
@@ -236,7 +234,7 @@ type registerPoRWorkflowInput struct {
 	creCLIAbsPath      string
 	creCLIsettingsFile *os.File
 	authKey            string
-	creCLIProfile           string
+	creCLIProfile      string
 }
 
 type configureDataFeedsCacheInput struct {
@@ -274,7 +272,7 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 		if err != nil {
 			return errors.Wrap(err, "failed to set CRE_ETH_PRIVATE_KEY")
 		}
-		err = os.Setenv("CRE_PROFILE", CRECLIProfile)
+		err = os.Setenv("CRE_PROFILE", libcrecli.CRECLIProfile)
 		if err != nil {
 			return errors.Wrap(err, "failed to set CRE_PROFILE")
 		}
@@ -572,7 +570,7 @@ func setupPoRTestEnvironment(
 			// create CRE CLI settings file
 			var settingsErr error
 			creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(
-				CRECLIProfile,
+				libcrecli.CRECLIProfile,
 				bo.SethClient.MustGetRootKeyAddress(),
 				universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				universalSetupOutput.DonTopology.WorkflowDonID,
@@ -615,8 +613,8 @@ func setupPoRTestEnvironment(
 			creCLIAbsPath:      creCLIAbsPath,
 			creCLIsettingsFile: creCLISettingsFile,
 			writeTargetName:    corevm.GenerateWriteTargetName(bo.ChainID),
-		creCLIProfile:           CRECLIProfile,
-	}
+			creCLIProfile:      libcrecli.CRECLIProfile,
+		}
 
 		workflowErr := registerPoRWorkflow(registerInput)
 		require.NoError(t, workflowErr, "failed to register PoR workflow")

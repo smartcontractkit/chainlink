@@ -174,7 +174,7 @@ var startCmd = &cobra.Command{
 				rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
 			}
 			creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
-				"test",
+				crecli.CRECLIProfile,
 				homeChainOut.SethClient.MustGetRootKeyAddress(),
 				output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				output.DonTopology.WorkflowDonID,

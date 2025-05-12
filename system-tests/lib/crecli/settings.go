@@ -17,6 +17,7 @@ import (
 const (
 	CRECLISettingsFileName     = "cre.yaml"
 	CRECLIWorkflowSettingsFile = "workflow.yaml"
+	CRECLIProfile              = "test"
 )
 
 type Profiles struct {
@@ -107,7 +108,7 @@ func setProfile(profile string, settings Settings) (Profiles, error) {
 
 // rpcs: chainSelector -> url
 func PrepareCRECLISettingsFile(profile string, workflowOwner common.Address, addressBook cldf.AddressBook, donID uint32, homeChainSelector uint64, rpcs map[uint64]string) (*os.File, error) {
-	settingsFile, err := os.CreateTemp("", CRECLISettingsFileName)
+	settingsFile, err := os.Create(CRECLISettingsFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create CRE CLI settings file")
 	}
@@ -188,19 +189,19 @@ func PrepareCRECLISettingsFile(profile string, workflowOwner common.Address, add
 		// it is okay if there's no keystone forwarder address for a chain
 	}
 
-	settings, err := setProfile(profile, profileSettings)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to set profile")
+	settings, settingsErr := setProfile(profile, profileSettings)
+	if settingsErr != nil {
+		return nil, errors.Wrap(settingsErr, "failed to set profile")
 	}
 
-	settingsMarshalled, err := yaml.Marshal(settings)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal CRE CLI settings")
+	settingsMarshalled, settingsMarshalledErr := yaml.Marshal(settings)
+	if settingsMarshalledErr != nil {
+		return nil, errors.Wrap(settingsMarshalledErr, "failed to marshal CRE CLI settings")
 	}
 
-	_, err = settingsFile.Write(settingsMarshalled)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to write %s settings file", CRECLISettingsFileName)
+	_, writeErr := settingsFile.Write(settingsMarshalled)
+	if writeErr != nil {
+		return nil, errors.Wrapf(writeErr, "failed to write %s settings file", CRECLISettingsFileName)
 	}
 
 	return settingsFile, nil
@@ -219,19 +220,19 @@ func PrepareCRECLIWorkflowSettingsFile(profile string, workflowOwner common.Addr
 		},
 	}
 
-	settings, err := setProfile(profile, profileSettings)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to set profile")
+	settings, settingsErr := setProfile(profile, profileSettings)
+	if settingsErr != nil {
+		return nil, errors.Wrap(settingsErr, "failed to set profile")
 	}
 
-	settingsMarshalled, err := yaml.Marshal(settings)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal CRE CLI settings")
+	settingsMarshalled, marshallErr := yaml.Marshal(settings)
+	if marshallErr != nil {
+		return nil, errors.Wrap(marshallErr, "failed to marshal CRE CLI settings")
 	}
 
-	_, err = settingsFile.Write(settingsMarshalled)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to write %s settings file", CRECLIWorkflowSettingsFile)
+	_, writeErr := settingsFile.Write(settingsMarshalled)
+	if writeErr != nil {
+		return nil, errors.Wrapf(writeErr, "failed to write %s settings file", CRECLIWorkflowSettingsFile)
 	}
 
 	return settingsFile, nil
