@@ -13,7 +13,7 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	ccipchangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
 type ApproveTokenEVMConfig struct {
@@ -78,7 +78,7 @@ func ApproveTokenTransferSolChangeset(e deployment.Environment, cfg ApproveToken
 
 	chainState := state.SolChains[cfg.ChainSelector]
 
-	tokenPool, _ := ccipchangesetSolana.GetActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, cfg.ChainSelector, "")
+	tokenPool, _ := getActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, cfg.ChainSelector, "")
 
 	tokenProgram, err := chainState.TokenToTokenProgram(cfg.SolTokenPubKey)
 	if err != nil {
@@ -112,4 +112,28 @@ func ApproveTokenTransferSolChangeset(e deployment.Environment, cfg ApproveToken
 	}
 
 	return cldf.ChangesetOutput{}, nil
+}
+
+func getActiveTokenPool(
+	e *deployment.Environment,
+	poolType solTestTokenPool.PoolType,
+	selector uint64,
+	metadata string,
+) (solana.PublicKey, cldf.ContractType) {
+	state, _ := ccipChangeset.LoadOnchainState(*e)
+	chainState := state.SolChains[selector]
+	switch poolType {
+	case solTestTokenPool.BurnAndMint_PoolType:
+		if metadata == "" {
+			return chainState.BurnMintTokenPools[ccipChangeset.CLLMetadata], ccipChangeset.BurnMintTokenPool
+		}
+		return chainState.BurnMintTokenPools[metadata], ccipChangeset.BurnMintTokenPool
+	case solTestTokenPool.LockAndRelease_PoolType:
+		if metadata == "" {
+			return chainState.LockReleaseTokenPools[ccipChangeset.CLLMetadata], ccipChangeset.LockReleaseTokenPool
+		}
+		return chainState.LockReleaseTokenPools[metadata], ccipChangeset.LockReleaseTokenPool
+	default:
+		return solana.PublicKey{}, ""
+	}
 }
