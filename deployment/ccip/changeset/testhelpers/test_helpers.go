@@ -83,7 +83,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -1681,26 +1680,6 @@ func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.Transact
 	return MintTokenInfo{auth: auth, sender: sender, tokens: tokens}
 }
 
-// ApproveToken approves the router to spend the given amount of tokens
-func ApproveToken(env deployment.Environment, src uint64, tokenAddress common.Address, routerAddress common.Address, amount *big.Int) error {
-	token, err := erc20.NewERC20(tokenAddress, env.Chains[src].Client)
-	if err != nil {
-		return err
-	}
-
-	tx, err := token.Approve(env.Chains[src].DeployerKey, routerAddress, amount)
-	if err != nil {
-		return err
-	}
-
-	_, err = env.Chains[src].Confirm(tx)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // MintAndAllow mints tokens for deployers and allow router to spend them
 func MintAndAllow(
 	t *testing.T,
@@ -1872,7 +1851,7 @@ func TransferMultiple(
 				// Approve router to spend tokens
 				if tt.RouterAddress != (common.Address{}) {
 					for _, ta := range tt.Tokens {
-						err := ApproveToken(env, tt.SourceChain, ta.Token, tt.RouterAddress, new(big.Int).Mul(ta.Amount, big.NewInt(10)))
+						err := v1_6.ApproveToken(env, tt.SourceChain, ta.Token, tt.RouterAddress, new(big.Int).Mul(ta.Amount, big.NewInt(10)))
 						require.NoError(t, err)
 					}
 				}
