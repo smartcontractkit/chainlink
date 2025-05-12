@@ -87,7 +87,7 @@ func AddBillingToken(
 	// we dont need to handle test router here because we explicitly create this and token2022Receiver for test router
 	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(routerAddress)
 	tokenProgramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
-	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
+	tokenReceiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 	feeQuoterUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
 		&e,
@@ -122,7 +122,7 @@ func AddBillingToken(
 			tokenBillingPDA,
 			tokenProgramID,
 			tokenPubKey,
-			token2022Receiver,
+			tokenReceiver,
 			authority, // ccip admin
 			billingSignerPDA,
 			ata.ProgramID,

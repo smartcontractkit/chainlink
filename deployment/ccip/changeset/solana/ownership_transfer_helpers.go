@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 type TransferOwnershipFn func(
@@ -44,14 +43,25 @@ func transferAndWrapAcceptOwnership(
 	programID solana.PublicKey, // e.g. token_pool program or router program
 	proposedOwner solana.PublicKey, // e.g. usually, the timelock signer PDA
 	configPDA solana.PublicKey, // e.g. for routerConfigPDA or a token-pool config
-	deployer solana.PublicKey, // the “from” authority
+	oldOwner solana.PublicKey, // the “from” authority
 	solChain deployment.SolChain, // used for solChain.Confirm
 	label cldf.ContractType, // e.g. "Router" or "TokenPool"
+	timelockSigner solana.PublicKey, // the timelock signer PDA
 ) (mcmsTypes.Transaction, error) {
 	// 1. Build the instruction that transfers ownership to the timelock
-	ixTransfer, err := buildTransfer(proposedOwner, configPDA, deployer)
+	ixTransfer, err := buildTransfer(proposedOwner, configPDA, oldOwner)
 	if err != nil {
 		return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create transfer ownership instruction: %w", label, err)
+	}
+
+	// if the old owner is the timelock signer, we can skip the on-chain confirmation
+	// We can't perform the accept ownership step here because the timelock signer is not a signer of the transaction
+	if oldOwner.Equals(timelockSigner) {
+		mcmsTx, err := BuildMCMSTxn(ixTransfer, programID.String(), label)
+		if err != nil {
+			return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
+		}
+		return *mcmsTx, nil
 	}
 
 	// 2. Confirm on-chain
@@ -65,13 +75,16 @@ func transferAndWrapAcceptOwnership(
 		return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create accept ownership instruction: %w", label, err)
 	}
 
-	// 4. Wrap in MCMS transaction
-	mcmsTx, err := BuildMCMSTxn(ixAccept, programID.String(), label)
-	if err != nil {
-		return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
-	}
+	if proposedOwner.Equals(timelockSigner) {
+		// 4. Wrap in MCMS transaction
+		mcmsTx, err := BuildMCMSTxn(ixAccept, programID.String(), label)
+		if err != nil {
+			return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
+		}
 
-	return *mcmsTx, nil
+		return *mcmsTx, nil
+	}
+	return mcmsTypes.Transaction{}, nil
 }
 
 // transferOwnershipRouter transfers ownership of the router to the timelock.
@@ -79,12 +92,12 @@ func transferOwnershipRouter(
 	ccipState state2.CCIPOnChainState,
 	chainSelector uint64,
 	solChain deployment.SolChain,
-	timelockProgramID solana.PublicKey,
-	timelockInstanceSeed state.PDASeed,
+	currentOwner solana.PublicKey,
+	proposedOwner solana.PublicKey,
+	timelockSigner solana.PublicKey,
 ) ([]mcmsTypes.Transaction, error) {
 	var result []mcmsTypes.Transaction
 
-	timelockSignerPDA := state.GetTimelockSignerPDA(timelockProgramID, timelockInstanceSeed)
 	state := ccipState.SolChains[chainSelector]
 
 	// The relevant on-chain addresses
@@ -119,11 +132,12 @@ func transferOwnershipRouter(
 		buildTransfer,
 		buildAccept,
 		routerProgramID,
-		timelockSignerPDA, // timelock PDA
-		routerConfigPDA,   // config PDA
+		timelockSigner,  // timelock PDA
+		routerConfigPDA, // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
 		state2.Router,
+		timelockSigner, // the timelock signer PDA
 	)
 
 	if err != nil {
@@ -139,12 +153,12 @@ func transferOwnershipFeeQuoter(
 	ccipState state2.CCIPOnChainState,
 	chainSelector uint64,
 	solChain deployment.SolChain,
-	timelockProgramID solana.PublicKey,
-	timelockInstanceSeed state.PDASeed,
+	currentOwner solana.PublicKey,
+	proposedOwner solana.PublicKey,
+	timelockSigner solana.PublicKey,
 ) ([]mcmsTypes.Transaction, error) {
 	var result []mcmsTypes.Transaction
 
-	timelockSignerPDA := state.GetTimelockSignerPDA(timelockProgramID, timelockInstanceSeed)
 	state := ccipState.SolChains[chainSelector]
 
 	// The relevant on-chain addresses
@@ -179,11 +193,12 @@ func transferOwnershipFeeQuoter(
 		buildTransfer,
 		buildAccept,
 		feeQuoterProgramID,
-		timelockSignerPDA,  // timelock PDA
+		timelockSigner,     // timelock PDA
 		feeQuoterConfigPDA, // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
 		state2.FeeQuoter,
+		timelockSigner, // the timelock signer PDA
 	)
 
 	if err != nil {
@@ -199,12 +214,12 @@ func transferOwnershipOffRamp(
 	ccipState state2.CCIPOnChainState,
 	chainSelector uint64,
 	solChain deployment.SolChain,
-	timelockProgramID solana.PublicKey,
-	timelockInstanceSeed state.PDASeed,
+	currentOwner solana.PublicKey,
+	proposedOwner solana.PublicKey,
+	timelockSigner solana.PublicKey,
 ) ([]mcmsTypes.Transaction, error) {
 	var result []mcmsTypes.Transaction
 
-	timelockSignerPDA := state.GetTimelockSignerPDA(timelockProgramID, timelockInstanceSeed)
 	state := ccipState.SolChains[chainSelector]
 
 	// The relevant on-chain addresses
@@ -239,11 +254,12 @@ func transferOwnershipOffRamp(
 		buildTransfer,
 		buildAccept,
 		offRampProgramID,
-		timelockSignerPDA, // timelock PDA
-		offRampConfigPDA,  // config PDA
+		timelockSigner,   // timelock PDA
+		offRampConfigPDA, // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
 		state2.OffRamp,
+		timelockSigner, // the timelock signer PDA
 	)
 
 	if err != nil {
@@ -261,20 +277,30 @@ func transferOwnershipBurnMintTokenPools(
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
 	solChain deployment.SolChain,
-	timelockProgramID solana.PublicKey,
-	timelockInstanceSeed state.PDASeed,
+	tokenPoolMetadata string,
+	currentOwner solana.PublicKey,
+	proposedOwner solana.PublicKey,
+	timelockSigner solana.PublicKey,
 ) ([]mcmsTypes.Transaction, error) {
 	var result []mcmsTypes.Transaction
 
-	timelockSignerPDA := state.GetTimelockSignerPDA(timelockProgramID, timelockInstanceSeed)
 	state := ccipState.SolChains[chainSelector]
 
 	// Build specialized closures
 	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
 		burnmint.SetProgramID(state.BurnMintTokenPools[ccipChangeset.CLLMetadata])
-		return burnmint.NewTransferOwnershipInstruction(
+		ix, err := burnmint.NewTransferOwnershipInstruction(
 			proposedOwner, config, tokenMint, authority,
 		).ValidateAndBuild()
+		if err != nil {
+			return nil, err
+		}
+		for _, acc := range ix.Accounts() {
+			if acc.PublicKey == timelockSigner {
+				acc.IsSigner = false
+			}
+		}
+		return ix, nil
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
 		burnmint.SetProgramID(state.BurnMintTokenPools[ccipChangeset.CLLMetadata])
@@ -286,7 +312,7 @@ func transferOwnershipBurnMintTokenPools(
 			return nil, err
 		}
 		for _, acc := range ix.Accounts() {
-			if acc.PublicKey == newOwnerAuthority {
+			if acc.PublicKey == timelockSigner {
 				acc.IsSigner = false
 			}
 		}
@@ -296,12 +322,13 @@ func transferOwnershipBurnMintTokenPools(
 	tx, err := transferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
-		state.BurnMintTokenPools[ccipChangeset.CLLMetadata],
-		timelockSignerPDA,  // timelock PDA
-		tokenPoolConfigPDA, // config PDA
-		solChain.DeployerKey.PublicKey(),
+		state.BurnMintTokenPools[tokenPoolMetadata],
+		proposedOwner,  // timelock PDA
+		timelockSigner, // config PDA
+		currentOwner,
 		solChain,
 		state2.BurnMintTokenPool,
+		timelockSigner, // the timelock signer PDA
 	)
 
 	if err != nil {
@@ -319,20 +346,30 @@ func transferOwnershipLockReleaseTokenPools(
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
 	solChain deployment.SolChain,
-	timelockProgramID solana.PublicKey,
-	timelockInstanceSeed state.PDASeed,
+	tokenPoolMetadata string,
+	currentOwner solana.PublicKey,
+	proposedOwner solana.PublicKey,
+	timelockSigner solana.PublicKey,
 ) ([]mcmsTypes.Transaction, error) {
 	var result []mcmsTypes.Transaction
 
-	timelockSignerPDA := state.GetTimelockSignerPDA(timelockProgramID, timelockInstanceSeed)
 	state := ccipState.SolChains[chainSelector]
 
 	// Build specialized closures
 	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
 		lockrelease.SetProgramID(state.LockReleaseTokenPools[ccipChangeset.CLLMetadata])
-		return lockrelease.NewTransferOwnershipInstruction(
+		ix, err := lockrelease.NewTransferOwnershipInstruction(
 			proposedOwner, config, tokenMint, authority,
 		).ValidateAndBuild()
+		if err != nil {
+			return nil, err
+		}
+		for _, acc := range ix.Accounts() {
+			if acc.PublicKey == timelockSigner {
+				acc.IsSigner = false
+			}
+		}
+		return ix, nil
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
 		lockrelease.SetProgramID(state.LockReleaseTokenPools[ccipChangeset.CLLMetadata])
@@ -344,7 +381,7 @@ func transferOwnershipLockReleaseTokenPools(
 			return nil, err
 		}
 		for _, acc := range ix.Accounts() {
-			if acc.PublicKey == newOwnerAuthority {
+			if acc.PublicKey == timelockSigner {
 				acc.IsSigner = false
 			}
 		}
@@ -355,11 +392,12 @@ func transferOwnershipLockReleaseTokenPools(
 		buildTransfer,
 		buildAccept,
 		state.LockReleaseTokenPools[ccipChangeset.CLLMetadata],
-		timelockSignerPDA,  // timelock PDA
+		proposedOwner,      // timelock PDA
 		tokenPoolConfigPDA, // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
 		state2.LockReleaseTokenPool,
+		timelockSigner, // the timelock signer PDA
 	)
 
 	if err != nil {
@@ -375,12 +413,12 @@ func transferOwnershipRMNRemote(
 	ccipState state2.CCIPOnChainState,
 	chainSelector uint64,
 	solChain deployment.SolChain,
-	timelockProgramID solana.PublicKey,
-	timelockInstanceSeed state.PDASeed,
+	currentOwner solana.PublicKey,
+	proposedOwner solana.PublicKey,
+	timelockSigner solana.PublicKey,
 ) ([]mcmsTypes.Transaction, error) {
 	var result []mcmsTypes.Transaction
 
-	timelockSignerPDA := state.GetTimelockSignerPDA(timelockProgramID, timelockInstanceSeed)
 	state := ccipState.SolChains[chainSelector]
 
 	// The relevant on-chain addresses
@@ -413,7 +451,6 @@ func transferOwnershipRMNRemote(
 	}
 
 	programID := rmnRemoteProgramID
-	proposedOwner := timelockSignerPDA
 	configPDA := rmnRemoteConfigPDA
 	deployer := solChain.DeployerKey.PublicKey()
 	label := state2.RMNRemote
