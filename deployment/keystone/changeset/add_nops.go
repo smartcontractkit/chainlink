@@ -40,7 +40,7 @@ func (req *AddNopsRequest) Validate(env deployment.Environment) error {
 	return nil
 }
 
-var _ deployment.ChangeSet[*AddNopsRequest] = AddNops
+var _ cldf.ChangeSet[*AddNopsRequest] = AddNops
 
 func AddNops(env deployment.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {

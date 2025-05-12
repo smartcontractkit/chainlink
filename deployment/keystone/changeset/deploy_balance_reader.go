@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ deployment.ChangeSet[DeployBalanceReaderRequest] = DeployBalanceReader
+var _ cldf.ChangeSet[DeployBalanceReaderRequest] = DeployBalanceReader
 
 type DeployBalanceReaderRequest struct {
 	ChainSelectors []uint64 // filter to only deploy to these chains; if empty, deploy to all chains

@@ -7,7 +7,9 @@ import (
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -20,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-var _ deployment.ChangeSet[PermaBlessCommitStoreConfig] = PermaBlessCommitStoreChangeset
+var _ cldf.ChangeSet[PermaBlessCommitStoreConfig] = PermaBlessCommitStoreChangeset
 
 type PermaBlessConfigPerSourceChain struct {
 	SourceChainSelector uint64

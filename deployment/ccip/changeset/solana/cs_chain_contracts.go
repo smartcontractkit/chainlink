@@ -27,13 +27,13 @@ import (
 )
 
 // use this to set the fee aggregator
-var _ deployment.ChangeSet[SetFeeAggregatorConfig] = SetFeeAggregator
+var _ cldf.ChangeSet[SetFeeAggregatorConfig] = SetFeeAggregator
 
 // use this to update the offramp reference addresseses
-var _ deployment.ChangeSet[OffRampRefAddressesConfig] = UpdateOffRampRefAddresses
+var _ cldf.ChangeSet[OffRampRefAddressesConfig] = UpdateOffRampRefAddresses
 
 // use this to set the upgrade authority of a contract
-var _ deployment.ChangeSet[SetUpgradeAuthorityConfig] = SetUpgradeAuthorityChangeset
+var _ cldf.ChangeSet[SetUpgradeAuthorityConfig] = SetUpgradeAuthorityChangeset
 
 type MCMSConfigSolana struct {
 	MCMS *proposalutils.TimelockConfig

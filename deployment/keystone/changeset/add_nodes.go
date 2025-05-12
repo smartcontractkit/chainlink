@@ -212,7 +212,7 @@ func (r *AddNodesRequest) Validate(env deployment.Environment) error {
 	return nil
 }
 
-var _ deployment.ChangeSet[*AddNodesRequest] = AddNodes
+var _ cldf.ChangeSet[*AddNodesRequest] = AddNodes
 
 func AddNodes(env deployment.Environment, req *AddNodesRequest) (cldf.ChangesetOutput, error) {
 	err := req.Validate(env)

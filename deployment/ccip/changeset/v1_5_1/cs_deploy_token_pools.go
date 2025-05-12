@@ -28,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 )
 
-var _ deployment.ChangeSet[DeployTokenPoolContractsConfig] = DeployTokenPoolContractsChangeset
+var _ cldf.ChangeSet[DeployTokenPoolContractsConfig] = DeployTokenPoolContractsChangeset
 
 // DeployTokenPoolInput defines all information required of the user to deploy a new token pool contract.
 type DeployTokenPoolInput struct {

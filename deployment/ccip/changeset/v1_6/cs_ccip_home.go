@@ -42,11 +42,11 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[AddDonAndSetCandidateChangesetConfig] = AddDonAndSetCandidateChangeset
-	_ deployment.ChangeSet[PromoteCandidateChangesetConfig]      = PromoteCandidateChangeset
-	_ deployment.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
-	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
-	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
+	_ cldf.ChangeSet[AddDonAndSetCandidateChangesetConfig] = AddDonAndSetCandidateChangeset
+	_ cldf.ChangeSet[PromoteCandidateChangesetConfig]      = PromoteCandidateChangeset
+	_ cldf.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
+	_ cldf.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
+	_ cldf.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
 
 	DeployDonIDClaimerChangeset = cldf.CreateChangeSet(deployDonIDClaimerChangesetLogic, deployDonIDClaimerPrecondition)
 	DonIDClaimerOffSetChangeset = cldf.CreateChangeSet(donIDClaimerOffSetChangesetLogic, donIDClaimerOffSetChangesetPrecondition)

@@ -23,8 +23,8 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[RMNCurseConfig] = RMNCurseChangeset
-	_ deployment.ChangeSet[RMNCurseConfig] = RMNUncurseChangeset
+	_ cldf.ChangeSet[RMNCurseConfig] = RMNCurseChangeset
+	_ cldf.ChangeSet[RMNCurseConfig] = RMNUncurseChangeset
 )
 
 // RMNCurseAction represent a curse action to be applied on a chain (ChainSelector) with a specific subject (SubjectToCurse)

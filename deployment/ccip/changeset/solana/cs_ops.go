@@ -7,6 +7,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -20,19 +21,19 @@ import (
 )
 
 // use these changesets to set the default code version
-var _ deployment.ChangeSet[SetDefaultCodeVersionConfig] = SetDefaultCodeVersion
+var _ cldf.ChangeSet[SetDefaultCodeVersionConfig] = SetDefaultCodeVersion
 
 // use these changesets to update the SVM chain selector
-var _ deployment.ChangeSet[UpdateSvmChainSelectorConfig] = UpdateSvmChainSelector
+var _ cldf.ChangeSet[UpdateSvmChainSelectorConfig] = UpdateSvmChainSelector
 
 // use these changesets to update the enable manual execution after
-var _ deployment.ChangeSet[UpdateEnableManualExecutionAfterConfig] = UpdateEnableManualExecutionAfter
+var _ cldf.ChangeSet[UpdateEnableManualExecutionAfterConfig] = UpdateEnableManualExecutionAfter
 
 // use these changesets to configure the CCIP version
-var _ deployment.ChangeSet[ConfigureCCIPVersionConfig] = ConfigureCCIPVersion
+var _ cldf.ChangeSet[ConfigureCCIPVersionConfig] = ConfigureCCIPVersion
 
 // use these changesets to remove the offramp
-var _ deployment.ChangeSet[RemoveOffRampConfig] = RemoveOffRamp
+var _ cldf.ChangeSet[RemoveOffRampConfig] = RemoveOffRamp
 
 type SetDefaultCodeVersionConfig struct {
 	ChainSelector uint64

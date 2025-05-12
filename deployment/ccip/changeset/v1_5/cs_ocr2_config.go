@@ -6,7 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -19,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
-var _ deployment.ChangeSet[OCR2Config] = SetOCR2ConfigForTestChangeset
+var _ cldf.ChangeSet[OCR2Config] = SetOCR2ConfigForTestChangeset
 
 type FinalOCR2Config struct {
 	Signers               []common.Address

@@ -8,6 +8,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -23,10 +24,10 @@ import (
 )
 
 // use this changeset to add a billing token to solana
-var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
+var _ cldf.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
 
 // use this changeset to add a token transfer fee for a remote chain to solana
-var _ deployment.ChangeSet[TokenTransferFeeForRemoteChainConfig] = AddTokenTransferFeeForRemoteChain
+var _ cldf.ChangeSet[TokenTransferFeeForRemoteChainConfig] = AddTokenTransferFeeForRemoteChain
 
 // ADD BILLING TOKEN
 type BillingTokenConfig struct {

@@ -33,10 +33,10 @@ import (
 )
 
 // use this changeset to add a token pool and lookup table
-var _ deployment.ChangeSet[TokenPoolConfig] = AddTokenPoolAndLookupTable
+var _ cldf.ChangeSet[TokenPoolConfig] = AddTokenPoolAndLookupTable
 
 // use this changeset to setup a token pool for a remote chain
-var _ deployment.ChangeSet[RemoteChainTokenPoolConfig] = SetupTokenPoolForRemoteChain
+var _ cldf.ChangeSet[RemoteChainTokenPoolConfig] = SetupTokenPoolForRemoteChain
 
 func GetActiveTokenPool(
 	e *deployment.Environment,

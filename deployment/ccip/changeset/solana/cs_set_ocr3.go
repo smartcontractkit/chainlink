@@ -6,7 +6,9 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
@@ -29,7 +31,7 @@ const (
 )
 
 // use this changeset to set the OCR3 config on solana
-var _ deployment.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
+var _ cldf.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
 
 // SET OCR3 CONFIG
 func btoi(b bool) uint8 {

@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-var _ deployment.ChangeSet[[]uint64] = DeployLinkToken
+var _ cldf.ChangeSet[[]uint64] = DeployLinkToken
 
 // DeployLinkToken deploys a link token contract to the chain identified by the ChainSelector.
 func DeployLinkToken(e deployment.Environment, chains []uint64) (cldf.ChangesetOutput, error) {

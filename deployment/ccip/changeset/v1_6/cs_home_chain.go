@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[DeployHomeChainConfig] = DeployHomeChainChangeset
+	_ cldf.ChangeSet[DeployHomeChainConfig] = DeployHomeChainChangeset
 	// RemoveNodesFromCapRegChangeset is a changeset that removes nodes from the CapabilitiesRegistry contract.
 	// It fails validation
 	//  - if the changeset is executed neither by CapabilitiesRegistry contract owner nor by the node operator admin.

@@ -19,16 +19,16 @@ import (
 )
 
 // use this changest to deploy a token, create ATAs and mint the token to those ATAs
-var _ deployment.ChangeSet[DeploySolanaTokenConfig] = DeploySolanaToken
+var _ cldf.ChangeSet[DeploySolanaTokenConfig] = DeploySolanaToken
 
 // use this changeset to mint the token to an address
-var _ deployment.ChangeSet[MintSolanaTokenConfig] = MintSolanaToken
+var _ cldf.ChangeSet[MintSolanaTokenConfig] = MintSolanaToken
 
 // use this changeset to create ATAs for a token
-var _ deployment.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
+var _ cldf.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
 
 // use this changeset to set the authority of a token
-var _ deployment.ChangeSet[SetTokenAuthorityConfig] = SetTokenAuthority
+var _ cldf.ChangeSet[SetTokenAuthorityConfig] = SetTokenAuthority
 
 func getMintIxs(e deployment.Environment, chain deployment.SolChain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) ([]solana.Instruction, error) {
 	instructions := []solana.Instruction{}

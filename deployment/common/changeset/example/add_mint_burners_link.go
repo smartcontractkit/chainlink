@@ -15,7 +15,7 @@ type AddMintersBurnersLinkConfig struct {
 	Burners       []common.Address
 }
 
-var _ deployment.ChangeSet[*AddMintersBurnersLinkConfig] = AddMintersBurnersLink
+var _ cldf.ChangeSet[*AddMintersBurnersLinkConfig] = AddMintersBurnersLink
 
 // AddMintersBurnersLink grants the minter / burner role to the provided addresses.
 func AddMintersBurnersLink(e deployment.Environment, cfg *AddMintersBurnersLinkConfig) (cldf.ChangesetOutput, error) {

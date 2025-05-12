@@ -58,7 +58,7 @@ type AddCapabilitiesRequestV2 = struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-var _ deployment.ChangeSet[*AddCapabilitiesRequest] = AddCapabilities
+var _ cldf.ChangeSet[*AddCapabilitiesRequest] = AddCapabilities
 
 // AddCapabilities is a deployment.ChangeSet that adds capabilities to the capabilities registry
 //

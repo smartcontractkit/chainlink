@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-var _ deployment.ChangeSet[*UpdateDonRequest] = UpdateDon
+var _ cldf.ChangeSet[*UpdateDonRequest] = UpdateDon
 
 // CapabilityConfig is a struct that holds a capability and its configuration
 type CapabilityConfig = internal.CapabilityConfig

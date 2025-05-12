@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ deployment.ChangeSet[DeployForwarderRequest] = DeployForwarder
+var _ cldf.ChangeSet[DeployForwarderRequest] = DeployForwarder
 
 type DeployForwarderRequest struct {
 	ChainSelectors []uint64 // filter to only deploy to these chains; if empty, deploy to all chains
@@ -87,7 +87,7 @@ func DeployForwarderV2(env deployment.Environment, req *DeployRequestV2) (cldf.C
 	return deploy(env, req)
 }
 
-var _ deployment.ChangeSet[ConfigureForwardContractsRequest] = ConfigureForwardContracts
+var _ cldf.ChangeSet[ConfigureForwardContractsRequest] = ConfigureForwardContracts
 
 type ConfigureForwardContractsRequest struct {
 	WFDonName string

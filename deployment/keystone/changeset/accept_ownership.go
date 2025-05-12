@@ -16,7 +16,7 @@ type AcceptAllOwnershipRequest struct {
 	MinDelay      time.Duration
 }
 
-var _ deployment.ChangeSet[*AcceptAllOwnershipRequest] = AcceptAllOwnershipsProposal
+var _ cldf.ChangeSet[*AcceptAllOwnershipRequest] = AcceptAllOwnershipsProposal
 
 // AcceptAllOwnershipsProposal creates a MCMS proposal to call accept ownership on all the Keystone contracts in the address book.
 func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnershipRequest) (cldf.ChangesetOutput, error) {

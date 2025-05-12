@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
-var _ deployment.ChangeSet[DeployUSDCTokenPoolContractsConfig] = DeployUSDCTokenPoolContractsChangeset
+var _ cldf.ChangeSet[DeployUSDCTokenPoolContractsConfig] = DeployUSDCTokenPoolContractsChangeset
 
 // DeployUSDCTokenPoolInput defines all information required of the user to deploy a new USDC token pool contract.
 type DeployUSDCTokenPoolInput struct {

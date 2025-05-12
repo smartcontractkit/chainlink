@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 )
 
-var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
+var _ cldf.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
 // DeployChainContracts deploys all new CCIP v1.6 or later contracts for the given chains.
 // It returns the new addresses for the contracts.

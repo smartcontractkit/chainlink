@@ -15,7 +15,9 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/solana"
@@ -50,8 +52,8 @@ type MCMSConfigV2 struct {
 	ProposalConfig  *proposalutils.TimelockConfig
 }
 
-var _ deployment.ChangeSet[MCMSConfig] = SetConfigMCMS
-var _ deployment.ChangeSet[MCMSConfigV2] = SetConfigMCMSV2
+var _ cldf.ChangeSet[MCMSConfig] = SetConfigMCMS
+var _ cldf.ChangeSet[MCMSConfigV2] = SetConfigMCMSV2
 
 // Validate checks that the MCMSConfig is valid
 func (cfg MCMSConfig) Validate(e deployment.Environment, selectors []uint64) error {

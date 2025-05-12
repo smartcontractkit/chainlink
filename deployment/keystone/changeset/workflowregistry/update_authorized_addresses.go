@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-var _ deployment.ChangeSet[*UpdateAuthorizedAddressesRequest] = UpdateAuthorizedAddresses
+var _ cldf.ChangeSet[*UpdateAuthorizedAddressesRequest] = UpdateAuthorizedAddresses
 
 type UpdateAuthorizedAddressesRequest struct {
 	RegistryChainSel uint64

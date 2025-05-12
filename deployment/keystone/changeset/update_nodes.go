@@ -24,7 +24,7 @@ type MCMSConfig struct {
 	MinDuration time.Duration
 }
 
-var _ deployment.ChangeSet[*UpdateNodesRequest] = UpdateNodes
+var _ cldf.ChangeSet[*UpdateNodesRequest] = UpdateNodes
 
 type UpdateNodesRequest struct {
 	RegistryChainSel uint64

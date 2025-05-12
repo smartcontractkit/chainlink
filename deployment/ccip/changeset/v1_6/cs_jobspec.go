@@ -17,7 +17,7 @@ import (
 	corejob "github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-var _ deployment.ChangeSet[any] = CCIPCapabilityJobspecChangeset
+var _ cldf.ChangeSet[any] = CCIPCapabilityJobspecChangeset
 
 // CCIPCapabilityJobspecChangeset returns the job specs for the CCIP capability.
 // The caller needs to propose these job specs to the offchain system.

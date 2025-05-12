@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
@@ -17,7 +18,7 @@ import (
 // ProposeAdminRoleChangeset is a changeset that proposes admin rights for tokens on the token admin registry.
 // To be able to propose admin rights, the caller must own the token admin registry and the token must not already have an administrator.
 // If you want to propose admin role for an external address, you can set the ExternalAdmin field in the TokenPoolInfo within TokenAdminRegistryChangesetConfig.
-var _ deployment.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = ProposeAdminRoleChangeset
+var _ cldf.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = ProposeAdminRoleChangeset
 
 func validateProposeAdminRole(
 	config token_admin_registry.TokenAdminRegistryTokenConfig,

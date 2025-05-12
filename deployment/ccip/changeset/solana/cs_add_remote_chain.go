@@ -24,9 +24,9 @@ import (
 )
 
 // use these three changesets to add a remote chain to solana
-var _ deployment.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
-var _ deployment.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
-var _ deployment.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
+var _ cldf.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
+var _ cldf.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
+var _ cldf.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
 
 type AddRemoteChainToRouterConfig struct {
 	ChainSelector uint64

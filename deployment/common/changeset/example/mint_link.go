@@ -16,7 +16,7 @@ type MintLinkConfig struct {
 	To            common.Address
 }
 
-var _ deployment.ChangeSet[*MintLinkConfig] = MintLink
+var _ cldf.ChangeSet[*MintLinkConfig] = MintLink
 
 // MintLink mints LINK to the provided contract.
 func MintLink(e deployment.Environment, cfg *MintLinkConfig) (cldf.ChangesetOutput, error) {

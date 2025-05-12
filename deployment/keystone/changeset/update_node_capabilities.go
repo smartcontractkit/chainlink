@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-var _ deployment.ChangeSet[*MutateNodeCapabilitiesRequest] = UpdateNodeCapabilities
+var _ cldf.ChangeSet[*MutateNodeCapabilitiesRequest] = UpdateNodeCapabilities
 
 type P2PSignerEnc = internal.P2PSignerEnc
 

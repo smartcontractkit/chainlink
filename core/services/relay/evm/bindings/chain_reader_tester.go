@@ -4,10 +4,9 @@ package bindings
 
 import (
 	"context"
-	"math/big"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"math/big"
 )
 
 // CodeDetails methods inputs and outputs structs

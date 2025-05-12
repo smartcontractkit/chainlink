@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ deployment.ChangeSet[*RemoveDONsRequest] = RemoveDONs
+var _ cldf.ChangeSet[*RemoveDONsRequest] = RemoveDONs
 
 type RemoveDONsRequest struct {
 	RegistryChainSel uint64

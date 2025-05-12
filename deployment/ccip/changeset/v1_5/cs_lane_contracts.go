@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
-var _ deployment.ChangeSet[DeployLanesConfig] = DeployLanesChangeset
+var _ cldf.ChangeSet[DeployLanesConfig] = DeployLanesChangeset
 
 type DeployLanesConfig struct {
 	Configs []DeployLaneConfig

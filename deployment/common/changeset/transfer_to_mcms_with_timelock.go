@@ -84,7 +84,7 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 	return nil
 }
 
-var _ deployment.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelock
+var _ cldf.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelock
 
 // TransferToMCMSWithTimelock creates a changeset that transfers ownership of all the
 // contracts in the provided configuration to the timelock on the chain and generates
@@ -153,7 +153,7 @@ func TransferToMCMSWithTimelock(
 	return cldf.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
 }
 
-var _ deployment.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelockV2
+var _ cldf.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelockV2
 
 // TransferToMCMSWithTimelockV2 is a reimplementation of TransferToMCMSWithTimelock which uses the new MCMS library.
 func TransferToMCMSWithTimelockV2(
@@ -216,7 +216,7 @@ func TransferToMCMSWithTimelockV2(
 	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
-var _ deployment.ChangeSet[TransferToDeployerConfig] = TransferToDeployer
+var _ cldf.ChangeSet[TransferToDeployerConfig] = TransferToDeployer
 
 type TransferToDeployerConfig struct {
 	ContractAddress common.Address
@@ -286,7 +286,7 @@ func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) 
 	return cldf.ChangesetOutput{}, nil
 }
 
-var _ deployment.ChangeSet[RenounceTimelockDeployerConfig] = RenounceTimelockDeployer
+var _ cldf.ChangeSet[RenounceTimelockDeployerConfig] = RenounceTimelockDeployer
 
 type RenounceTimelockDeployerConfig struct {
 	ChainSel uint64

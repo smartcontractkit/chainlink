@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-var _ deployment.ChangeSet[TransferCCIPToMCMSWithTimelockSolanaConfig] = TransferCCIPToMCMSWithTimelockSolana
+var _ cldf.ChangeSet[TransferCCIPToMCMSWithTimelockSolanaConfig] = TransferCCIPToMCMSWithTimelockSolana
 
 // CCIPContractsToTransfer is a struct that represents the contracts we want to transfer. Each contract set to true will be transferred.
 type CCIPContractsToTransfer struct {

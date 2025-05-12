@@ -6,14 +6,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-// ChangeSets
-
-type (
-	ChangeSet[C any] = deployment.ChangeSet[C]
-)
-
-// Changeset Output
-
 type WrappedChangeSet[C any] struct {
 	operation deployment.ChangeSetV2[C]
 }

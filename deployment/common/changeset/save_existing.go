@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[ExistingContractsConfig] = SaveExistingContractsChangeset
+	_ cldf.ChangeSet[ExistingContractsConfig] = SaveExistingContractsChangeset
 )
 
 type Contract struct {

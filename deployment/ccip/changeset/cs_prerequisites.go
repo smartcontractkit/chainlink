@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
+	_ cldf.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
 )
 
 // DeployPrerequisitesChangeset deploys the pre-requisite contracts for CCIP

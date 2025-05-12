@@ -55,21 +55,21 @@ const (
 )
 
 var (
-	_ deployment.ChangeSet[UpdateOnRampDestsConfig]                  = UpdateOnRampsDestsChangeset
-	_ deployment.ChangeSet[UpdateOnRampDynamicConfig]                = UpdateOnRampDynamicConfigChangeset
-	_ deployment.ChangeSet[UpdateOnRampAllowListConfig]              = UpdateOnRampAllowListChangeset
-	_ deployment.ChangeSet[WithdrawOnRampFeeTokensConfig]            = WithdrawOnRampFeeTokensChangeset
-	_ deployment.ChangeSet[UpdateOffRampSourcesConfig]               = UpdateOffRampSourcesChangeset
-	_ deployment.ChangeSet[UpdateRouterRampsConfig]                  = UpdateRouterRampsChangeset
-	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig]               = UpdateFeeQuoterDestsChangeset
-	_ deployment.ChangeSet[SetOCR3OffRampConfig]                     = SetOCR3OffRampChangeset
-	_ deployment.ChangeSet[UpdateDynamicConfigOffRampConfig]         = UpdateDynamicConfigOffRampChangeset
-	_ deployment.ChangeSet[UpdateFeeQuoterPricesConfig]              = UpdateFeeQuoterPricesChangeset
-	_ deployment.ChangeSet[UpdateNonceManagerConfig]                 = UpdateNonceManagersChangeset
-	_ deployment.ChangeSet[ApplyFeeTokensUpdatesConfig]              = ApplyFeeTokensUpdatesFeeQuoterChangeset
-	_ deployment.ChangeSet[UpdateTokenPriceFeedsConfig]              = UpdateTokenPriceFeedsFeeQuoterChangeset
-	_ deployment.ChangeSet[PremiumMultiplierWeiPerEthUpdatesConfig]  = ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset
-	_ deployment.ChangeSet[ApplyTokenTransferFeeConfigUpdatesConfig] = ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset
+	_ cldf.ChangeSet[UpdateOnRampDestsConfig]                  = UpdateOnRampsDestsChangeset
+	_ cldf.ChangeSet[UpdateOnRampDynamicConfig]                = UpdateOnRampDynamicConfigChangeset
+	_ cldf.ChangeSet[UpdateOnRampAllowListConfig]              = UpdateOnRampAllowListChangeset
+	_ cldf.ChangeSet[WithdrawOnRampFeeTokensConfig]            = WithdrawOnRampFeeTokensChangeset
+	_ cldf.ChangeSet[UpdateOffRampSourcesConfig]               = UpdateOffRampSourcesChangeset
+	_ cldf.ChangeSet[UpdateRouterRampsConfig]                  = UpdateRouterRampsChangeset
+	_ cldf.ChangeSet[UpdateFeeQuoterDestsConfig]               = UpdateFeeQuoterDestsChangeset
+	_ cldf.ChangeSet[SetOCR3OffRampConfig]                     = SetOCR3OffRampChangeset
+	_ cldf.ChangeSet[UpdateDynamicConfigOffRampConfig]         = UpdateDynamicConfigOffRampChangeset
+	_ cldf.ChangeSet[UpdateFeeQuoterPricesConfig]              = UpdateFeeQuoterPricesChangeset
+	_ cldf.ChangeSet[UpdateNonceManagerConfig]                 = UpdateNonceManagersChangeset
+	_ cldf.ChangeSet[ApplyFeeTokensUpdatesConfig]              = ApplyFeeTokensUpdatesFeeQuoterChangeset
+	_ cldf.ChangeSet[UpdateTokenPriceFeedsConfig]              = UpdateTokenPriceFeedsFeeQuoterChangeset
+	_ cldf.ChangeSet[PremiumMultiplierWeiPerEthUpdatesConfig]  = ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset
+	_ cldf.ChangeSet[ApplyTokenTransferFeeConfigUpdatesConfig] = ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset
 )
 
 type UpdateNonceManagerConfig struct {

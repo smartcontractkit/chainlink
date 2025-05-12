@@ -5,13 +5,14 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ deployment.ChangeSet[InitialContractsCfg] = ConfigureInitialContractsChangeset
+var _ cldf.ChangeSet[InitialContractsCfg] = ConfigureInitialContractsChangeset
 
 type InitialContractsCfg struct {
 	RegistryChainSel uint64

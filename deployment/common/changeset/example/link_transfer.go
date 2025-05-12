@@ -13,7 +13,9 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/evm"
@@ -38,7 +40,7 @@ type LinkTransferConfig struct {
 	McmsConfig *proposalutils.TimelockConfig
 }
 
-var _ deployment.ChangeSet[*LinkTransferConfig] = LinkTransfer
+var _ cldf.ChangeSet[*LinkTransferConfig] = LinkTransfer
 
 func getDeployer(e deployment.Environment, chain uint64, mcmConfig *proposalutils.TimelockConfig) *bind.TransactOpts {
 	if mcmConfig == nil {

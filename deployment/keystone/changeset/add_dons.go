@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-var _ deployment.ChangeSet[*AddDonsRequest] = AddDons
+var _ cldf.ChangeSet[*AddDonsRequest] = AddDons
 
 type RegisterableDon struct {
 	Name              string             // the name of the DON

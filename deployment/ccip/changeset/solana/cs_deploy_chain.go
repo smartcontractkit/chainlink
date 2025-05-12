@@ -39,7 +39,7 @@ import (
 )
 
 // use this changeset to deploy the CCIP contracts on solana
-var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
+var _ cldf.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
 func getTypeToProgramDeployName() map[cldf.ContractType]string {
 	return map[cldf.ContractType]string{

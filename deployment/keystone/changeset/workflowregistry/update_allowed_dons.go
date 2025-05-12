@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-var _ deployment.ChangeSet[*UpdateAllowedDonsRequest] = UpdateAllowedDons
+var _ cldf.ChangeSet[*UpdateAllowedDonsRequest] = UpdateAllowedDons
 
 type UpdateAllowedDonsRequest struct {
 	RegistryChainSel uint64

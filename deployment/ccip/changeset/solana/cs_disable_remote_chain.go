@@ -7,6 +7,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -20,7 +21,7 @@ import (
 )
 
 // use this changeset to disable a remote chain on solana
-var _ deployment.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
+var _ cldf.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
 
 type DisableRemoteChainConfig struct {
 	ChainSelector uint64

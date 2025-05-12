@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
@@ -15,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
-var _ deployment.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = TransferAdminRoleChangeset
+var _ cldf.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = TransferAdminRoleChangeset
 
 func validateTransferAdminRole(
 	config token_admin_registry.TokenAdminRegistryTokenConfig,

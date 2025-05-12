@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-var _ deployment.ChangeSet[uint64] = Deploy
+var _ cldf.ChangeSet[uint64] = Deploy
 
 func Deploy(env deployment.Environment, registrySelector uint64) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
