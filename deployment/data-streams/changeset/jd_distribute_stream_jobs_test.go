@@ -3,9 +3,10 @@ package changeset
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	jdJob "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 

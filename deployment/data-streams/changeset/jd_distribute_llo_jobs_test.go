@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	jdJob "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/stretchr/testify/require"
+
+	jdJob "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
