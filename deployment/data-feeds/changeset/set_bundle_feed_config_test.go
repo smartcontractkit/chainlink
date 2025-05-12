@@ -9,7 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -38,7 +40,7 @@ func TestSetBundleFeedConfig(t *testing.T) {
 			},
 		),
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
 				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -46,7 +48,7 @@ func TestSetBundleFeedConfig(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache") //nolint:staticcheck // TODO: replace with DataStore when ready
+	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache") //nolint:staticcheck // TODO: replace with DataStore when ready
 	require.NoError(t, err)
 
 	dataid := "0x01bb0467f50003040000000000000000"
@@ -83,7 +85,7 @@ func TestSetBundleFeedConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	// with MCMS
-	timeLockAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock") //nolint:staticcheck // TODO: replace with DataStore when ready
+	timeLockAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock") //nolint:staticcheck // TODO: replace with DataStore when ready
 	require.NoError(t, err)
 
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
@@ -99,7 +101,7 @@ func TestSetBundleFeedConfig(t *testing.T) {
 		),
 		// Transfer cache ownership to MCMS
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
 			commonChangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					chainSelector: {common.HexToAddress(cacheAddress)},

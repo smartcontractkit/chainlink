@@ -10,11 +10,14 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
-var _ deployment.ChangeSet[DeployLanesConfig] = DeployLanesChangeset
+var _ cldf.ChangeSet[DeployLanesConfig] = DeployLanesChangeset
 
 type DeployLanesConfig struct {
 	Configs []DeployLaneConfig
@@ -98,34 +101,34 @@ func (c *DeployLaneConfig) populateAddresses(state changeset.CCIPOnChainState) e
 	return nil
 }
 
-func DeployLanesChangeset(env deployment.Environment, c DeployLanesConfig) (deployment.ChangesetOutput, error) {
+func DeployLanesChangeset(env deployment.Environment, c DeployLanesConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
 	}
 	if err := c.Validate(env, state); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	// populate addresses from the state
 	for i := range c.Configs {
 		if err := c.Configs[i].populateAddresses(state); err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 	for _, cfg := range c.Configs {
 		if err := deployLane(env, state, newAddresses, cfg); err != nil {
-			return deployment.ChangesetOutput{
+			return cldf.ChangesetOutput{
 				AddressBook: newAddresses,
 			}, err
 		}
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
 }
 
-func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab deployment.AddressBook, cfg DeployLaneConfig) error {
+func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab cldf.AddressBook, cfg DeployLaneConfig) error {
 	// update prices on the source price registry
 	sourceChainState := state.Chains[cfg.SourceChainSelector]
 	destChainState := state.Chains[cfg.DestinationChainSelector]
@@ -149,8 +152,8 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 	// Deploy onRamp on source chain
 	onRamp, onRampExists := sourceChainState.EVM2EVMOnRamp[cfg.DestinationChainSelector]
 	if !onRampExists {
-		onRampC, err := deployment.DeployContract(e.Logger, sourceChain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp] {
+		onRampC, err := cldf.DeployContract(e.Logger, sourceChain, ab,
+			func(chain deployment.Chain) cldf.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp] {
 				onRampAddress, tx2, onRampC, err2 := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
 					sourceChain.DeployerKey,
 					sourceChain.Client,
@@ -161,9 +164,9 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 					cfg.OnRampTransferTokenCfgs,
 					cfg.OnRampNopsAndWeight,
 				)
-				return deployment.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp]{
+				return cldf.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp]{
 					Address: onRampAddress, Contract: onRampC, Tx: tx2,
-					Tv: deployment.NewTypeAndVersion(changeset.OnRamp, deployment.Version1_5_0), Err: err2,
+					Tv: cldf.NewTypeAndVersion(changeset.OnRamp, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -180,8 +183,8 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 	// Deploy commit store on source chain
 	commitStore, commitStoreExists := destChainState.CommitStore[cfg.SourceChainSelector]
 	if !commitStoreExists {
-		commitStoreC, err := deployment.DeployContract(e.Logger, destChain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*commit_store.CommitStore] {
+		commitStoreC, err := cldf.DeployContract(e.Logger, destChain, ab,
+			func(chain deployment.Chain) cldf.ContractDeploy[*commit_store.CommitStore] {
 				commitStoreAddress, tx2, commitStoreC, err2 := commit_store.DeployCommitStore(
 					destChain.DeployerKey,
 					destChain.Client,
@@ -192,9 +195,9 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 						RmnProxy:            destChainState.RMNProxy.Address(),
 					},
 				)
-				return deployment.ContractDeploy[*commit_store.CommitStore]{
+				return cldf.ContractDeploy[*commit_store.CommitStore]{
 					Address: commitStoreAddress, Contract: commitStoreC, Tx: tx2,
-					Tv: deployment.NewTypeAndVersion(changeset.CommitStore, deployment.Version1_5_0), Err: err2,
+					Tv: cldf.NewTypeAndVersion(changeset.CommitStore, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -211,8 +214,8 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 	// Deploy offRamp on destination chain
 	offRamp, offRampExists := destChainState.EVM2EVMOffRamp[cfg.SourceChainSelector]
 	if !offRampExists {
-		offRampC, err := deployment.DeployContract(e.Logger, destChain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
+		offRampC, err := cldf.DeployContract(e.Logger, destChain, ab,
+			func(chain deployment.Chain) cldf.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
 				offRampAddress, tx2, offRampC, err2 := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
 					destChain.DeployerKey,
 					destChain.Client,
@@ -227,9 +230,9 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 					},
 					cfg.OffRampRateLimiterCfg,
 				)
-				return deployment.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp]{
+				return cldf.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp]{
 					Address: offRampAddress, Contract: offRampC, Tx: tx2,
-					Tv: deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_5_0), Err: err2,
+					Tv: cldf.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {

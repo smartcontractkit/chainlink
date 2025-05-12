@@ -7,13 +7,14 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
-var RegisterNodesWithJDChangeset = deployment.CreateChangeSet(registerNodesWithJDLogic, registerNodesWithJDPrecondition)
+var RegisterNodesWithJDChangeset = cldf.CreateChangeSet(registerNodesWithJDLogic, registerNodesWithJDPrecondition)
 
 type RegisterNodesInput struct {
 	BaseLabels map[string]string
@@ -71,7 +72,7 @@ func registerNodesForDON(e deployment.Environment, donName string, donID uint64,
 	}
 }
 
-func registerNodesWithJDLogic(e deployment.Environment, cfg RegisterNodesInput) (deployment.ChangesetOutput, error) {
+func registerNodesWithJDLogic(e deployment.Environment, cfg RegisterNodesInput) (cldf.ChangesetOutput, error) {
 	baseLabels := []*ptypes.Label{
 		{
 			Key:   devenv.LabelProductKey,
@@ -94,7 +95,7 @@ func registerNodesWithJDLogic(e deployment.Environment, cfg RegisterNodesInput) 
 		registerNodesForDON(e, don.Name, don.ID, don.BootstrapNodes, baseLabels, devenv.LabelNodeTypeValueBootstrap)
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func (cfg RegisterNodesInput) Validate() error {

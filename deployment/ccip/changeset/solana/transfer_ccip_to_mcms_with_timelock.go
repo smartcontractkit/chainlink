@@ -11,6 +11,8 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -18,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-var _ deployment.ChangeSet[TransferCCIPToMCMSWithTimelockSolanaConfig] = TransferCCIPToMCMSWithTimelockSolana
+var _ cldf.ChangeSet[TransferCCIPToMCMSWithTimelockSolanaConfig] = TransferCCIPToMCMSWithTimelockSolana
 
 // CCIPContractsToTransfer is a struct that represents the contracts we want to transfer. Each contract set to true will be transferred.
 type CCIPContractsToTransfer struct {
@@ -99,11 +101,11 @@ func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e deployment.Envi
 			return fmt.Errorf("failed to validate contracts for chain %d: %w", chainSelector, err)
 		}
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
-		timelockID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
+		timelockID, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
 		if err != nil {
 			return fmt.Errorf("timelock not present on the chain %w", err)
 		}
-		proposerID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
+		proposerID, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
 		if err != nil {
 			return fmt.Errorf("mcms proposer not present on the chain %w", err)
 		}
@@ -129,15 +131,15 @@ func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e deployment.Envi
 func TransferCCIPToMCMSWithTimelockSolana(
 	e deployment.Environment,
 	cfg TransferCCIPToMCMSWithTimelockSolanaConfig,
-) (deployment.ChangesetOutput, error) {
+) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	var batches []mcmsTypes.BatchOperation
 
 	ccipState, err := state2.LoadOnchainStateSolana(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	timelocks := map[uint64]string{}
@@ -163,7 +165,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				mcmState.TimelockSeed,
 			)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of router: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of router: %w", err)
 			}
 			batches = append(batches, mcmsTypes.BatchOperation{
 				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
@@ -180,7 +182,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				mcmState.TimelockSeed,
 			)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of fee quoter: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of fee quoter: %w", err)
 			}
 			batches = append(batches, mcmsTypes.BatchOperation{
 				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
@@ -197,7 +199,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				mcmState.TimelockSeed,
 			)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of offRamp: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of offRamp: %w", err)
 			}
 			batches = append(batches, mcmsTypes.BatchOperation{
 				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
@@ -215,7 +217,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				mcmState.TimelockSeed,
 			)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of lock-release token pools: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of lock-release token pools: %w", err)
 			}
 			batches = append(batches, mcmsTypes.BatchOperation{
 				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
@@ -234,7 +236,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				mcmState.TimelockSeed,
 			)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of burn-mint token pools: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of burn-mint token pools: %w", err)
 			}
 			batches = append(batches, mcmsTypes.BatchOperation{
 				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
@@ -251,7 +253,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				mcmState.TimelockSeed,
 			)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of rmnremote: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of rmnremote: %w", err)
 			}
 			batches = append(batches, mcmsTypes.BatchOperation{
 				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
@@ -269,8 +271,8 @@ func TransferCCIPToMCMSWithTimelockSolana(
 		"proposal to transfer ownership of CCIP contracts to timelock",
 		cfg.MCMSCfg)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcms.TimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcms.TimelockProposal{*proposal}}, nil
 }

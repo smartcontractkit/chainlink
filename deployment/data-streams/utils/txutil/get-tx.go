@@ -42,6 +42,7 @@ func GetTxs[S any, T HasContractAddress](
 	configsByChain map[uint64][]T,
 	loader ContractLoader[S],
 	method ContractMethod[S, T],
+	tags ...string,
 ) ([]*PreparedTx, error) {
 	var preparedTxs []*PreparedTx
 
@@ -63,6 +64,7 @@ func GetTxs[S any, T HasContractAddress](
 				Tx:            tx,
 				ChainSelector: chainSelector,
 				ContractType:  contractType,
+				Tags:          tags,
 			})
 		}
 	}

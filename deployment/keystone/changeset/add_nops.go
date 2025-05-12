@@ -9,8 +9,10 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -38,22 +40,22 @@ func (req *AddNopsRequest) Validate(env deployment.Environment) error {
 	return nil
 }
 
-var _ deployment.ChangeSet[*AddNopsRequest] = AddNops
+var _ cldf.ChangeSet[*AddNopsRequest] = AddNops
 
-func AddNops(env deployment.Environment, req *AddNopsRequest) (deployment.ChangesetOutput, error) {
+func AddNops(env deployment.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
 	}
 	for _, nop := range req.Nops {
 		env.Logger.Infow("input NOP", "address", nop.Admin, "name", nop.Name)
 	}
 	registryChain, ok := env.Chains[req.RegistryChainSel]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
+		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
 	capReg, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 
 	useMCMS := req.MCMSConfig != nil
@@ -66,10 +68,10 @@ func AddNops(env deployment.Environment, req *AddNopsRequest) (deployment.Change
 	resp, err := internal.RegisterNOPS(env.GetContext(), env.Logger, req2)
 
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	env.Logger.Infow("registered NOPs", "nops", resp.Nops)
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if useMCMS {
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
@@ -82,7 +84,7 @@ func AddNops(env deployment.Environment, req *AddNopsRequest) (deployment.Change
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		inspectorPerChain := map[uint64]mcmssdk.Inspector{
 			req.RegistryChainSel: inspector,

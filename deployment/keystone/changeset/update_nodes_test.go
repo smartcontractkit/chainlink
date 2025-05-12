@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -87,7 +87,7 @@ func TestUpdateNodes(t *testing.T) {
 		require.Nil(t, csOut.AddressBook)
 
 		err = applyProposal(t, te, commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateNodes),
+			cldf.CreateLegacyChangeSet(changeset.UpdateNodes),
 			&changeset.UpdateNodesRequest{
 				RegistryChainSel: te.RegistrySelector,
 				P2pToUpdates:     updates,

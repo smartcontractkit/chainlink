@@ -21,7 +21,7 @@ const (
 	defaultJobSpecsTimeout = 120 * time.Second
 )
 
-func chainAndAddresses(e deployment.Environment, chainSel uint64) (chainID string, addresses map[string]deployment.TypeAndVersion, err error) {
+func chainAndAddresses(e deployment.Environment, chainSel uint64) (chainID string, addresses map[string]cldf.TypeAndVersion, err error) {
 	chainID, err = chainsel.GetChainIDFromSelector(chainSel)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to get chain ID from selector: %w", err)
@@ -35,7 +35,7 @@ func chainAndAddresses(e deployment.Environment, chainSel uint64) (chainID strin
 }
 
 // proposeAllOrNothing proposes all jobs in the list and if any of them fail, it will revoke all already made proposals.
-func proposeAllOrNothing(ctx context.Context, oc cldf.OffchainClient, prs []*job.ProposeJobRequest) (proposedJobs []deployment.ProposedJob, err error) {
+func proposeAllOrNothing(ctx context.Context, oc cldf.OffchainClient, prs []*job.ProposeJobRequest) (proposedJobs []cldf.ProposedJob, err error) {
 	var proposals []*job.ProposeJobResponse
 	var p *job.ProposeJobResponse
 	for _, pr := range prs {
@@ -43,7 +43,7 @@ func proposeAllOrNothing(ctx context.Context, oc cldf.OffchainClient, prs []*job
 		if err != nil {
 			break
 		}
-		proposedJobs = append(proposedJobs, deployment.ProposedJob{
+		proposedJobs = append(proposedJobs, cldf.ProposedJob{
 			JobID: p.Proposal.JobId,
 			Node:  pr.NodeId,
 			Spec:  pr.Spec,

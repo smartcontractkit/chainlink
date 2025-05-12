@@ -7,6 +7,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -16,7 +19,7 @@ type SetupTestWorkflowRegistryResponse struct {
 	Registry         *workflow_registry.WorkflowRegistry
 	Chain            deployment.Chain
 	RegistrySelector uint64
-	AddressBook      deployment.AddressBook
+	AddressBook      cldf.AddressBook
 }
 
 func SetupTestWorkflowRegistry(t *testing.T, lggr logger.Logger, chainSel uint64) *SetupTestWorkflowRegistryResponse {
@@ -27,9 +30,9 @@ func SetupTestWorkflowRegistry(t *testing.T, lggr logger.Logger, chainSel uint64
 	resp, err := deployer.Deploy(changeset.DeployRequest{Chain: chain})
 	require.NoError(t, err)
 
-	addressBook := deployment.NewMemoryAddressBookFromMap(
-		map[uint64]map[string]deployment.TypeAndVersion{
-			chainSel: map[string]deployment.TypeAndVersion{
+	addressBook := cldf.NewMemoryAddressBookFromMap(
+		map[uint64]map[string]cldf.TypeAndVersion{
+			chainSel: map[string]cldf.TypeAndVersion{
 				resp.Address.Hex(): resp.Tv,
 			},
 		},

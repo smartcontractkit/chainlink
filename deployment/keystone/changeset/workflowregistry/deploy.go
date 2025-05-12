@@ -5,38 +5,41 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-var _ deployment.ChangeSet[uint64] = Deploy
+var _ cldf.ChangeSet[uint64] = Deploy
 
-func Deploy(env deployment.Environment, registrySelector uint64) (deployment.ChangesetOutput, error) {
+func Deploy(env deployment.Environment, registrySelector uint64) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	chain, ok := env.Chains[registrySelector]
 	if !ok {
-		return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
+		return cldf.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	wrResp, err := deployWorkflowRegistry(chain, ab)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy WorkflowRegistry: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy WorkflowRegistry: %w", err)
 	}
 	lggr.Infof("Deployed %s chain selector %d addr %s", wrResp.Tv.String(), chain.Selector, wrResp.Address.String())
 
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func DeployV2(env deployment.Environment, req *changeset.DeployRequestV2) (deployment.ChangesetOutput, error) {
+func DeployV2(env deployment.Environment, req *changeset.DeployRequestV2) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	chain, ok := env.Chains[req.ChainSel]
 	if !ok {
-		return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
+		return cldf.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	wrResp, err := deployWorkflowRegistry(chain, ab)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy WorkflowRegistry: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy WorkflowRegistry: %w", err)
 	}
 	lggr.Infof("Deployed %s chain selector %d addr %s", wrResp.Tv.String(), chain.Selector, wrResp.Address.String())
 
@@ -56,8 +59,8 @@ func DeployV2(env deployment.Environment, req *changeset.DeployRequestV2) (deplo
 	}
 
 	if err = ds.Addresses().Add(r); err != nil {
-		return deployment.ChangesetOutput{DataStore: ds},
+		return cldf.ChangesetOutput{DataStore: ds},
 			fmt.Errorf("failed to save address ref in datastore: %w", err)
 	}
-	return deployment.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
 }

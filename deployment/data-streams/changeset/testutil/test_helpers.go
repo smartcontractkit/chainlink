@@ -10,9 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	dsCs "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/mcms"
+
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
@@ -62,7 +65,7 @@ func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deploy
 		// Deploy MCMS and Timelock
 		_, err := commonChangesets.Apply(t, env, nil,
 			commonChangesets.Configure(
-				deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 				map[uint64]types.MCMSWithTimelockConfigV2{
 					chainSelector: config,
 				},
@@ -133,7 +136,7 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 	if cfg.ShouldDeployLinkToken {
 		updatedEnv, err := commonChangesets.Apply(t, env, nil,
 			commonChangesets.Configure(
-				deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
 				[]uint64{chainSelector},
 			),
 		)
@@ -153,17 +156,17 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 		// Deploy MCMS and Timelock
 		updatedEnv, err := commonChangesets.Apply(t, env, nil,
 			commonChangesets.Configure(
-				deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
-				map[uint64]types.MCMSWithTimelockConfigV2{
-					chainSelector: config,
+				dsCs.DeployAndTransferMCMSChangeset,
+				dsCs.DeployMCMSConfig{
+					ChainsToDeploy: []uint64{chainSelector},
+					Config:         config,
 				},
 			),
 		)
 		require.NoError(t, err)
 
-		addresses, err := updatedEnv.ExistingAddresses.AddressesForChain(TestChain.Selector)
+		addresses, err := utils.EnvironmentAddresses(updatedEnv)
 		require.NoError(t, err)
-
 		mcmsState, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		require.NoError(t, err)
 
@@ -196,7 +199,7 @@ func DeployMCMS(
 
 	env, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
 				chainSelector: {
 					Canceller:        config,
@@ -229,7 +232,7 @@ func DeployMCMS(
 		env, err = commonChangesets.Apply(
 			t, env, timelocks,
 			commonChangesets.Configure(
-				deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
 				commonChangesets.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: addressesToTransfer[0],
 					MCMSConfig:       proposalutils.TimelockConfig{MinDelay: 0},

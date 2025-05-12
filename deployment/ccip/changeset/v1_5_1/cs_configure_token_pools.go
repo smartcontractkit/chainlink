@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -32,7 +34,7 @@ import (
 //  1. it adds chain support with the desired rate limits
 //  2. it adds the desired remote pool addresses to the token pool on the chain
 //  3. if there used to be an existing token pool on tokenadmin_registry, it adds the remote pool addresses of that token pool to ensure 0 downtime
-var _ deployment.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
+var _ cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
 type RateLimiterConfig struct {
@@ -80,16 +82,25 @@ type SolChainUpdate struct {
 	// TokenAddress is the address of the token on the Solana chain.
 	TokenAddress string
 	// Type is the type of the token pool.
-	Type deployment.ContractType
+	Type cldf.ContractType
+	// Metadata is an identifier for which instance of the token pool this is.
+	// This is used to differentiate between multiple token pools on the same chain.
+	// e.g. "CLL" for the CLL token pool, "Partner1" for the partner token pool, etc.
+	Metadata string
 }
 
 func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state changeset.SolCCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
+	metadata := changeset.CLLMetadata
+	if c.Metadata != "" {
+		metadata = c.Metadata
+	}
+
 	var tokenPoolProgram solana.PublicKey
 	switch c.Type {
 	case changeset.BurnMintTokenPool:
-		tokenPoolProgram = state.BurnMintTokenPool
+		tokenPoolProgram = state.BurnMintTokenPools[metadata]
 	case changeset.LockReleaseTokenPool:
-		tokenPoolProgram = state.LockReleaseTokenPool
+		tokenPoolProgram = state.LockReleaseTokenPools[metadata]
 	default:
 		err = fmt.Errorf("unknown solana token pool type %s", c.Type)
 		return
@@ -131,7 +142,7 @@ type TokenPoolConfig struct {
 	// SolChainUpdates defines the Solana chains and corresponding rate limits that should be defined on the token pool.
 	SolChainUpdates map[uint64]SolChainUpdate
 	// Type is the type of the token pool.
-	Type deployment.ContractType
+	Type cldf.ContractType
 	// Version is the version of the token pool.
 	Version semver.Version
 	// OverrideTokenSymbol is the token symbol to use to override against main symbol (ex: override to clCCIP-LnM when the main token symbol is CCIP-LnM)
@@ -255,13 +266,13 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) 
 // ConfigureTokenPoolContractsChangeset configures pools for a given token across multiple chains.
 // The outputted MCMS proposal will update chain configurations on each pool, encompassing new chain additions and rate limit changes.
 // Removing chain support is not in scope for this changeset.
-func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c ConfigureTokenPoolContractsConfig) (deployment.ChangesetOutput, error) {
+func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c ConfigureTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid ConfigureTokenPoolContractsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid ConfigureTokenPoolContractsConfig: %w", err)
 	}
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
@@ -271,11 +282,11 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 
 		opts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
 		}
 		err = configureTokenPool(env.GetContext(), opts, env.Chains, state, c, chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to make operations to configure %s token pool on %s: %w", c.TokenSymbol, chain.String(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to make operations to configure %s token pool on %s: %w", c.TokenSymbol, chain.String(), err)
 		}
 	}
 
@@ -450,7 +461,7 @@ func configureTokenPool(
 func GetTokenStateFromPoolEVM(
 	ctx context.Context,
 	symbol changeset.TokenSymbol,
-	poolType deployment.ContractType,
+	poolType cldf.ContractType,
 	version semver.Version,
 	chain deployment.Chain,
 	state changeset.CCIPChainState,

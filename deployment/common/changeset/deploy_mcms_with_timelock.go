@@ -16,7 +16,10 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -25,26 +28,26 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[map[uint64]types.MCMSWithTimelockConfigV2] = DeployMCMSWithTimelockV2
+	_ cldf.ChangeSet[map[uint64]types.MCMSWithTimelockConfigV2] = DeployMCMSWithTimelockV2
 
 	// GrantRoleInTimeLock grants proposer, canceller, bypasser, executor, admin roles to the timelock contract with corresponding addresses if the
 	// roles are not already set with the same addresses.
 	// It creates a proposal if deployer key is not admin of the timelock contract.
 	// otherwise it executes the transactions directly.
 	// If neither timelock, nor the deployer key is the admin of the timelock contract, it returns an error.
-	GrantRoleInTimeLock = deployment.CreateChangeSet(grantRoleLogic, grantRolePreconditions)
+	GrantRoleInTimeLock = cldf.CreateChangeSet(grantRoleLogic, grantRolePreconditions)
 )
 
 // DeployMCMSWithTimelockV2 deploys and initializes the MCM and Timelock contracts
 func DeployMCMSWithTimelockV2(
 	env deployment.Environment, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2,
-) (deployment.ChangesetOutput, error) {
-	newAddresses := deployment.NewMemoryAddressBook()
+) (cldf.ChangesetOutput, error) {
+	newAddresses := cldf.NewMemoryAddressBook()
 
 	for chainSel, cfg := range cfgByChain {
 		family, err := chain_selectors.GetSelectorFamily(chainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{AddressBook: newAddresses}, err
+			return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 		}
 
 		switch family {
@@ -56,8 +59,8 @@ func DeployMCMSWithTimelockV2(
 			s, err := state.MaybeLoadMCMSWithTimelockState(env, []uint64{chainSel})
 			if err != nil {
 				// if the state is not found for chain, we assume it's a fresh deployment
-				if !strings.Contains(err.Error(), deployment.ErrChainNotFound.Error()) {
-					return deployment.ChangesetOutput{}, err
+				if !strings.Contains(err.Error(), cldf.ErrChainNotFound.Error()) {
+					return cldf.ChangesetOutput{}, err
 				}
 			}
 			if s != nil {
@@ -65,7 +68,7 @@ func DeployMCMSWithTimelockV2(
 			}
 			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.Chains[chainSel], newAddresses, cfg, chainstate)
 			if err != nil {
-				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
+				return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 			}
 
 		case chain_selectors.FamilySolana:
@@ -74,19 +77,19 @@ func DeployMCMSWithTimelockV2(
 			// for in memory tests, programs and state are pre-loaded, so we use this function via testhelpers.TransferOwnershipSolana
 			_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[chainSel], newAddresses, cfg)
 			if err != nil {
-				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
+				return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 			}
 
 		default:
 			err = fmt.Errorf("unsupported chain family: %s", family)
-			return deployment.ChangesetOutput{AddressBook: newAddresses}, err
+			return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 		}
 	}
 	ds, err := deployment.MigrateAddressBook(newAddresses)
 	if err != nil {
-		return deployment.ChangesetOutput{AddressBook: newAddresses}, fmt.Errorf("failed to migrate address book to data store: %w", err)
+		return cldf.ChangesetOutput{AddressBook: newAddresses}, fmt.Errorf("failed to migrate address book to data store: %w", err)
 	}
-	return deployment.ChangesetOutput{AddressBook: newAddresses, DataStore: ds}, nil
+	return cldf.ChangesetOutput{AddressBook: newAddresses, DataStore: ds}, nil
 }
 
 type GrantRoleInput struct {
@@ -130,10 +133,10 @@ func grantRolePreconditions(e deployment.Environment, cfg GrantRoleInput) error 
 	return nil
 }
 
-func grantRoleLogic(e deployment.Environment, cfg GrantRoleInput) (deployment.ChangesetOutput, error) {
+func grantRoleLogic(e deployment.Environment, cfg GrantRoleInput) (cldf.ChangesetOutput, error) {
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockState(e, maps.Keys(cfg.ExistingProposerByChain))
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	timelocks := make(map[uint64]string)
 	proposers := make(map[uint64]string)
@@ -151,7 +154,7 @@ func grantRoleLogic(e deployment.Environment, cfg GrantRoleInput) (deployment.Ch
 				CallProxy:    stateForChain.CallProxy,
 			}, false)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		if len(mcmsTxs) == 0 {
 			continue
@@ -167,10 +170,10 @@ func grantRoleLogic(e deployment.Environment, cfg GrantRoleInput) (deployment.Ch
 	// If there are no batches, it means that deployerkey is the admin of timelock, and it has already performed the role grant
 	// as part of the deployment. In this case, we don't need to create a proposal.
 	if len(batches) == 0 {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 	if cfg.MCMS == nil {
-		return deployment.ChangesetOutput{}, errors.New("MCMS config is nil, but the deployer key is not the admin of the timelock")
+		return cldf.ChangesetOutput{}, errors.New("MCMS config is nil, but the deployer key is not the admin of the timelock")
 	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
@@ -181,7 +184,7 @@ func grantRoleLogic(e deployment.Environment, cfg GrantRoleInput) (deployment.Ch
 		"Grant roles to timelock contracts",
 		*cfg.MCMS,
 	)
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop},
 	}, err
 }

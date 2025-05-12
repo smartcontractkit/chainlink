@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -42,20 +43,20 @@ type dummyEmptyBatchChangesetConfig struct {
 	MCMS *proposalutils.TimelockConfig
 }
 
-func dummyEmptyBatchChangeset(e deployment.Environment, cfg dummyEmptyBatchChangesetConfig) (deployment.ChangesetOutput, error) {
+func dummyEmptyBatchChangeset(e deployment.Environment, cfg dummyEmptyBatchChangesetConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("empty batch")
 	return group.Enact()
 }
 
-func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDeployerGroupChangesetConfig) (deployment.ChangesetOutput, error) {
+func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	token := state.Chains[cfg.selector].LinkToken
@@ -63,21 +64,21 @@ func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDep
 	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
 	deployer, err := group.GetDeployer(cfg.selector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	_, err = token.GrantMintRole(deployer, deployer.From)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	return group.Enact()
 }
 
-func dummyDeployerGroupMintChangeset(e deployment.Environment, cfg dummyDeployerGroupChangesetConfig) (deployment.ChangesetOutput, error) {
+func dummyDeployerGroupMintChangeset(e deployment.Environment, cfg dummyDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	token := state.Chains[cfg.selector].LinkToken
@@ -85,23 +86,23 @@ func dummyDeployerGroupMintChangeset(e deployment.Environment, cfg dummyDeployer
 	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("mint tokens")
 	deployer, err := group.GetDeployer(cfg.selector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	for _, mint := range cfg.mints {
 		_, err = token.Mint(deployer, cfg.address, mint)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
 
 	return group.Enact()
 }
 
-func dummyDeployerGroupGrantMintMultiChainChangeset(e deployment.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (deployment.ChangesetOutput, error) {
+func dummyDeployerGroupGrantMintMultiChainChangeset(e deployment.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
@@ -111,22 +112,22 @@ func dummyDeployerGroupGrantMintMultiChainChangeset(e deployment.Environment, cf
 
 		deployer, err := group.GetDeployer(selector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 
 		_, err = token.GrantMintRole(deployer, deployer.From)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
 
 	return group.Enact()
 }
 
-func dummyDeployerGroupMintMultiDeploymentContextChangeset(e deployment.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (deployment.ChangesetOutput, error) {
+func dummyDeployerGroupMintMultiDeploymentContextChangeset(e deployment.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	var group *changeset.DeployerGroup
@@ -143,12 +144,12 @@ func dummyDeployerGroupMintMultiDeploymentContextChangeset(e deployment.Environm
 		}
 		deployer, err = group.GetDeployer(selector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 
 		_, err = token.Mint(deployer, cfg.address, mint.amount)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
 
@@ -241,7 +242,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+					cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 					commonchangeset.TransferToMCMSWithTimelockConfig{
 						ContractsByChain: contractsByChain,
 						MCMSConfig: proposalutils.TimelockConfig{
@@ -254,7 +255,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(dummyDeployerGroupGrantMintChangeset),
+					cldf.CreateLegacyChangeSet(dummyDeployerGroupGrantMintChangeset),
 					tc.cfg,
 				),
 			)
@@ -262,7 +263,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(dummyDeployerGroupMintChangeset),
+					cldf.CreateLegacyChangeSet(dummyDeployerGroupMintChangeset),
 					tc.cfg,
 				),
 			)
@@ -320,7 +321,7 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{
@@ -333,7 +334,7 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(dummyDeployerGroupGrantMintMultiChainChangeset),
+			cldf.CreateLegacyChangeSet(dummyDeployerGroupGrantMintMultiChainChangeset),
 			tc,
 		),
 	)
@@ -386,7 +387,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{
@@ -399,7 +400,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(dummyDeployerGroupGrantMintMultiChainChangeset),
+			cldf.CreateLegacyChangeSet(dummyDeployerGroupGrantMintMultiChainChangeset),
 			cfg,
 		),
 	)
@@ -407,7 +408,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(dummyDeployerGroupMintMultiDeploymentContextChangeset),
+			cldf.CreateLegacyChangeSet(dummyDeployerGroupMintMultiDeploymentContextChangeset),
 			cfg,
 		),
 	)

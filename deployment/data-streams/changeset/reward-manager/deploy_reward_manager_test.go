@@ -3,14 +3,19 @@ package reward_manager
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
-
 	"github.com/smartcontractkit/chainlink/deployment"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
@@ -20,7 +25,7 @@ func TestDeployRewardManager(t *testing.T) {
 
 	e, err := commonChangesets.Apply(t, testEnv.Environment, nil,
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
+			cldf.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
 			[]uint64{testutil.TestChain.Selector},
 		),
 	)
@@ -50,13 +55,25 @@ func TestDeployRewardManager(t *testing.T) {
 			},
 		),
 	)
-
 	require.NoError(t, err)
 
-	rmAddr, err := dsutil.MaybeFindEthAddress(e.ExistingAddresses, testutil.TestChain.Selector, types.RewardManager)
+	envDatastore, err := datastore.FromDefault[
+		metadata.SerializedContractMetadata,
+		datastore.DefaultMetadata,
+	](e.DataStore)
 	require.NoError(t, err)
 
-	owner, _, err := commonChangesets.LoadOwnableContract(rmAddr, chain.Client)
+	// Verify Contract Is Deployed
+	record, err := envDatastore.Addresses().Get(
+		datastore.NewAddressRefKey(testutil.TestChain.Selector, datastore.ContractType(types.RewardManager), &deployment.Version0_5_0, ""),
+	)
 	require.NoError(t, err)
-	require.Equal(t, testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address(), owner)
+	require.NotNil(t, record)
+
+	t.Run("VerifyOwnershipTransferred", func(t *testing.T) {
+		chain := e.Chains[testutil.TestChain.Selector]
+		owner, _, err := commonChangesets.LoadOwnableContract(common.HexToAddress(record.Address), chain.Client)
+		require.NoError(t, err)
+		assert.Equal(t, testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address(), owner)
+	})
 }

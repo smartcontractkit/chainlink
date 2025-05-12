@@ -20,6 +20,8 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -55,7 +57,7 @@ func (d EvmDescribedTransaction) ToMCMS(selector uint64) (mcmstypes.Transaction,
 type SolanaDescribedTransaction struct {
 	Tx           solana.Instruction
 	ProgramID    string
-	ContractType deployment.ContractType
+	ContractType cldf.ContractType
 	Description  string
 }
 
@@ -246,7 +248,7 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 	return sim, nil
 }
 
-type DeployerForSVM func(solana.PublicKey) (solana.Instruction, string, deployment.ContractType, error)
+type DeployerForSVM func(solana.PublicKey) (solana.Instruction, string, cldf.ContractType, error)
 
 func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (solana.Instruction, error), error) {
 	var authority solana.PublicKey = d.e.SolChains[chain].DeployerKey.PublicKey()
@@ -303,7 +305,7 @@ func (d *DeployerGroup) getTransactionCount(chain uint64) (*big.Int, error) {
 	return big.NewInt(int64(len(txs[chain]))), nil
 }
 
-func (d *DeployerGroup) Enact() (deployment.ChangesetOutput, error) {
+func (d *DeployerGroup) Enact() (cldf.ChangesetOutput, error) {
 	if d.mcmConfig != nil {
 		return d.enactMcms()
 	}
@@ -340,7 +342,7 @@ func ValidateMCMS(env deployment.Environment, selector uint64, mcmConfig *propos
 	return nil
 }
 
-func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
+func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 	contexts := d.getContextChainInOrder()
 	proposals := make([]mcmslib.TimelockProposal, 0, len(contexts))
 	describedProposals := make([]string, 0, len(contexts))
@@ -350,7 +352,7 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		for selector, txs := range dc.transactions {
 			err := ValidateMCMS(d.e, selector, d.mcmConfig)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate mcms state: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate mcms state: %w", err)
 			}
 			mcmTransactions := make([]mcmstypes.Transaction, len(txs))
 			describedTxs := make([]string, len(txs))
@@ -358,7 +360,7 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 				var err error
 				mcmTransactions[i], err = tx.ToMCMS(selector)
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcms transaction: %w", err)
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcms transaction: %w", err)
 				}
 				describedTxs[i] = tx.Describe()
 			}
@@ -378,11 +380,11 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		timelocks := BuildTimelockAddressPerChain(d.e, d.state)
 		mcmContractByAction, err := BuildMcmAddressesPerChainByAction(d.e, d.state, d.mcmConfig)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get proposer mcms for chain: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get proposer mcms for chain: %w", err)
 		}
 		inspectors, err := proposalutils.McmsInspectors(d.e)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain: %w", err)
 		}
 
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
@@ -395,7 +397,7 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 			*d.mcmConfig,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)
 		}
 		describedProposal := proposalutils.DescribeTimelockProposal(proposal, describedBatches)
 
@@ -416,7 +418,7 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		describedProposals = append(describedProposals, describedProposal)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		MCMSTimelockProposals:      proposals,
 		DescribedTimelockProposals: describedProposals,
 	}, nil
@@ -433,7 +435,7 @@ func getBatchCountForChain(chain mcmstypes.ChainSelector, timelockProposal *mcms
 	return uint64(len(batches))
 }
 
-func (d *DeployerGroup) enactDeployer() (deployment.ChangesetOutput, error) {
+func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
 	contexts := d.getContextChainInOrder()
 	for _, c := range contexts {
 		g := errgroup.Group{}
@@ -465,10 +467,10 @@ func (d *DeployerGroup) enactDeployer() (deployment.ChangesetOutput, error) {
 			})
 		}
 		if err := g.Wait(); err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func BuildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*proposalutils.TimelockExecutionContracts {
@@ -529,6 +531,6 @@ func BuildMcmAddressesPerChainByAction(e deployment.Environment, onchainState CC
 	return addressPerChain, nil
 }
 
-func addressForChain(e deployment.Environment, selector uint64) (map[string]deployment.TypeAndVersion, error) {
+func addressForChain(e deployment.Environment, selector uint64) (map[string]cldf.TypeAndVersion, error) {
 	return e.ExistingAddresses.AddressesForChain(selector) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
 }

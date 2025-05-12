@@ -19,24 +19,6 @@ type TopLevelConfigSource = internal.TopLevelConfigSource
 // GenerateOCR3Config generates an OCR3 config
 var GenerateOCR3Config = internal.GenerateOCR3Config
 
-// RegisteredCapability is a wrapper of a capability and its ID
-type RegisteredCapability = internal.RegisteredCapability
-
-// FromCapabilitiesRegistryCapability converts a capabilities registry capability to a registered capability
-var FromCapabilitiesRegistryCapability = internal.FromCapabilitiesRegistryCapability
-
-// RegisterDonsRequest is a request to register Dons with the capabilities registry
-type RegisterDonsRequest = internal.RegisterDonsRequest
-
-// RegisterDonsResponse is a response to register Dons with the capabilities registry
-type RegisterDonsResponse = internal.RegisterDonsResponse
-
-// RegisterDons registers Dons with the capabilities registry
-var RegisterDons = internal.RegisterDons
-
-// DONToRegister is the minimal information needed to register a DON with the capabilities registry
-type DONToRegister = internal.DONToRegister
-
 // NOP is a node operator profile, required to register a node with the capabilities registry
 type NOP = internal.NOP
 

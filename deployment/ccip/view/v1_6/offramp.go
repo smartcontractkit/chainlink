@@ -15,10 +15,11 @@ import (
 
 type OffRampView struct {
 	types.ContractMetaData
-	DynamicConfig             offramp.OffRampDynamicConfig        `json:"dynamicConfig"`
-	LatestPriceSequenceNumber uint64                              `json:"latestPriceSequenceNumber"`
-	SourceChainConfigs        map[uint64]OffRampSourceChainConfig `json:"sourceChainConfigs"`
-	StaticConfig              offramp.OffRampStaticConfig         `json:"staticConfig"`
+	DynamicConfig                       offramp.OffRampDynamicConfig        `json:"dynamicConfig"`
+	LatestPriceSequenceNumber           uint64                              `json:"latestPriceSequenceNumber"`
+	SourceChainConfigs                  map[uint64]OffRampSourceChainConfig `json:"sourceChainConfigs"`
+	SourceChainConfigsBasedOnTestRouter map[uint64]OffRampSourceChainConfig `json:"sourceChainConfigsBasedOnTestRouter"`
+	StaticConfig                        offramp.OffRampStaticConfig         `json:"staticConfig"`
 }
 
 type OffRampSourceChainConfig struct {
@@ -31,7 +32,7 @@ type OffRampSourceChainConfig struct {
 
 func GenerateOffRampView(
 	offRampContract offramp.OffRampInterface,
-	routerContract *router1_2.Router,
+	routerContract, testRouterContract *router1_2.Router,
 ) (OffRampView, error) {
 	tv, err := types.NewContractMetaData(offRampContract, offRampContract.Address())
 	if err != nil {
@@ -48,15 +49,41 @@ func GenerateOffRampView(
 		return OffRampView{}, fmt.Errorf("failed to get latest price sequence number: %w", err)
 	}
 
+	staticConfig, err := offRampContract.GetStaticConfig(nil)
+	if err != nil {
+		return OffRampView{}, fmt.Errorf("failed to get static config: %w", err)
+	}
+	sourceChainConfigs, err := generateSourceChainConfigs(offRampContract, routerContract)
+	if err != nil {
+		return OffRampView{}, fmt.Errorf("failed to get source chain configs: %w", err)
+	}
+	var testSourceChainConfigs map[uint64]OffRampSourceChainConfig
+	if testRouterContract != nil {
+		testSourceChainConfigs, err = generateSourceChainConfigs(offRampContract, testRouterContract)
+		if err != nil {
+			return OffRampView{}, fmt.Errorf("failed to get test source chain configs: %w", err)
+		}
+	}
+	return OffRampView{
+		ContractMetaData:                    tv,
+		DynamicConfig:                       dynamicConfig,
+		LatestPriceSequenceNumber:           latestPriceSequenceNumber,
+		SourceChainConfigs:                  sourceChainConfigs,
+		SourceChainConfigsBasedOnTestRouter: testSourceChainConfigs,
+		StaticConfig:                        staticConfig,
+	}, nil
+}
+
+func generateSourceChainConfigs(offRampContract offramp.OffRampInterface, routerContract *router1_2.Router) (map[uint64]OffRampSourceChainConfig, error) {
 	sourceChainSelectors, err := v1_2.GetRemoteChainSelectors(routerContract)
 	if err != nil {
-		return OffRampView{}, fmt.Errorf("failed to get source chain selectors: %w", err)
+		return nil, fmt.Errorf("failed to get source chain selectors: %w", err)
 	}
 	sourceChainConfigs := make(map[uint64]OffRampSourceChainConfig)
 	for _, sourceChainSelector := range sourceChainSelectors {
 		sourceChainConfig, err := offRampContract.GetSourceChainConfig(nil, sourceChainSelector)
 		if err != nil {
-			return OffRampView{}, fmt.Errorf("failed to get source chain config: %w", err)
+			return nil, fmt.Errorf("failed to get source chain config: %w", err)
 		}
 		sourceChainConfigs[sourceChainSelector] = OffRampSourceChainConfig{
 			Router:                    sourceChainConfig.Router,
@@ -66,17 +93,5 @@ func GenerateOffRampView(
 			OnRamp:                    shared.GetAddressFromBytes(sourceChainSelector, sourceChainConfig.OnRamp),
 		}
 	}
-
-	staticConfig, err := offRampContract.GetStaticConfig(nil)
-	if err != nil {
-		return OffRampView{}, fmt.Errorf("failed to get static config: %w", err)
-	}
-
-	return OffRampView{
-		ContractMetaData:          tv,
-		DynamicConfig:             dynamicConfig,
-		LatestPriceSequenceNumber: latestPriceSequenceNumber,
-		SourceChainConfigs:        sourceChainConfigs,
-		StaticConfig:              staticConfig,
-	}, nil
+	return sourceChainConfigs, nil
 }

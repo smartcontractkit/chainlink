@@ -7,6 +7,9 @@ import (
 	"github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -14,7 +17,7 @@ import (
 
 // UpdateBidirectionalLanesChangeset enables or disables multiple bidirectional lanes on CCIP.
 // It batches all lane updates into a single MCMS proposal.
-var UpdateBidirectionalLanesChangeset = deployment.CreateChangeSet(updateBidirectionalLanesLogic, updateBidirectionalLanesPrecondition)
+var UpdateBidirectionalLanesChangeset = cldf.CreateChangeSet(updateBidirectionalLanesLogic, updateBidirectionalLanesPrecondition)
 
 // BidirectionalLaneDefinition indicates two chains that we want to connect.
 type BidirectionalLaneDefinition struct {
@@ -156,11 +159,6 @@ func (c UpdateBidirectionalLanesConfig) BuildConfigs() UpdateBidirectionalLanesC
 
 func updateBidirectionalLanesPrecondition(e deployment.Environment, c UpdateBidirectionalLanesConfig) error {
 	configs := c.BuildConfigs()
-
-	return UpdateLanesPrecondition(e, configs)
-}
-
-func UpdateLanesPrecondition(e deployment.Environment, configs UpdateBidirectionalLanesChangesetConfigs) error {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -194,66 +192,58 @@ func UpdateLanesPrecondition(e deployment.Environment, configs UpdateBidirection
 	return nil
 }
 
-func updateBidirectionalLanesLogic(e deployment.Environment, c UpdateBidirectionalLanesConfig) (deployment.ChangesetOutput, error) {
-	configs := c.BuildConfigs()
-
-	return UpdateLanesLogic(e, c.MCMSConfig, configs)
-}
-
-// UpdateLanesLogic is the main logic for updating lanes. Configs provided can be unidirectional
-// TODO: this should be refactored as a sequence once EVM changesets move to Operations API
-// TODO: UpdateBidirectionalLanesChangesetConfigs name is misleading, it also accepts unidirectional lane updates
-func UpdateLanesLogic(e deployment.Environment, mcmsConfig *proposalutils.TimelockConfig, configs UpdateBidirectionalLanesChangesetConfigs) (deployment.ChangesetOutput, error) {
+func updateBidirectionalLanesLogic(e deployment.Environment, c UpdateBidirectionalLanesConfig) (cldf.ChangesetOutput, error) {
 	proposals := make([]mcms.TimelockProposal, 0)
+	configs := c.BuildConfigs()
 
 	out, err := UpdateFeeQuoterDestsChangeset(e, configs.UpdateFeeQuoterDestsConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset: %w", err)
 	}
 	proposals = append(proposals, out.MCMSTimelockProposals...)
 	e.Logger.Info("Destination configs updated on FeeQuoters")
 
 	out, err = UpdateFeeQuoterPricesChangeset(e, configs.UpdateFeeQuoterPricesConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset: %w", err)
 	}
 	proposals = append(proposals, out.MCMSTimelockProposals...)
 	e.Logger.Info("Gas prices updated on FeeQuoters")
 
 	out, err = UpdateOnRampsDestsChangeset(e, configs.UpdateOnRampDestsConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOnRampDestsChangeset: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOnRampDestsChangeset: %w", err)
 	}
 	proposals = append(proposals, out.MCMSTimelockProposals...)
 	e.Logger.Info("Destination configs updated on OnRamps")
 
 	out, err = UpdateOffRampSourcesChangeset(e, configs.UpdateOffRampSourcesConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOffRampSourcesChangeset: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOffRampSourcesChangeset: %w", err)
 	}
 	proposals = append(proposals, out.MCMSTimelockProposals...)
 	e.Logger.Info("Source configs updated on OffRamps")
 
 	out, err = UpdateRouterRampsChangeset(e, configs.UpdateRouterRampsConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateRouterRampsChangeset: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateRouterRampsChangeset: %w", err)
 	}
 	proposals = append(proposals, out.MCMSTimelockProposals...)
 	e.Logger.Info("Ramps updated on Routers")
 
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), proposals, nil, "Update multiple bidirectional lanes", mcmsConfig)
+	proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), nil, proposals, nil, "Update multiple bidirectional lanes", c.MCMSConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 	}
 	if proposal == nil {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 	}, nil
 }

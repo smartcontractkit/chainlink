@@ -15,7 +15,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -198,7 +200,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 		GetContext:        t.Context,
 		Logger:            logger.Test(t),
 		Chains:            chains,
-		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		DataStore:         datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]().Seal(),
 	}
 
@@ -206,7 +208,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 	i := 0
 	for _, c := range chains {
 		forwarderChangesets[i] = commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployForwarderV2),
+			cldf.CreateLegacyChangeSet(changeset.DeployForwarderV2),
 			&changeset.DeployRequestV2{
 				ChainSel:  c.Selector,
 				Qualifier: forwarderQualifier,
@@ -217,7 +219,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 
 	changes := []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2),
+			cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2),
 			&changeset.DeployRequestV2{
 				ChainSel:  registryChainSel,
 				Qualifier: registryQualifier,
@@ -225,7 +227,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployOCR3V2),
+			cldf.CreateLegacyChangeSet(changeset.DeployOCR3V2),
 			&changeset.DeployRequestV2{
 				ChainSel:  registryChainSel,
 				Qualifier: ocr3Qualifier,
@@ -233,7 +235,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(workflowregistry.DeployV2),
+			cldf.CreateLegacyChangeSet(workflowregistry.DeployV2),
 			&changeset.DeployRequestV2{
 				ChainSel:  registryChainSel,
 				Qualifier: workflowRegistryQualifier,
@@ -372,7 +374,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 		}
 		env, err = commonchangeset.Apply(t, env, nil,
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 				timelockCfgs,
 			),
 		)
@@ -395,7 +397,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 					sel: {Timelock: mcms.Timelock, CallProxy: mcms.CallProxy},
 				},
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.AcceptAllOwnershipsProposal),
+					cldf.CreateLegacyChangeSet(changeset.AcceptAllOwnershipsProposal),
 					&changeset.AcceptAllOwnershipRequest{
 						ChainSelector: sel,
 						MinDelay:      0,
@@ -443,7 +445,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 	env := deployment.NewEnvironment(
 		"view only nodes",
 		logger.Test(t),
-		deployment.NewMemoryAddressBook(),
+		cldf.NewMemoryAddressBook(),
 		datastore.NewMemoryDataStore[
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
@@ -471,17 +473,47 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 
 	wfChains := map[uint64]deployment.Chain{}
 	wfChains[registryChainSel] = chains[registryChainSel]
-	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, nil, nil, c.WFDonConfig.N, 0, crConfig, nil)
+	wfConf := memory.NewNodesConfig{
+		LogLevel:       zapcore.InfoLevel,
+		Chains:         wfChains,
+		SolChains:      nil,
+		AptosChains:    nil,
+		NumNodes:       c.WFDonConfig.N,
+		NumBootstraps:  0,
+		RegistryConfig: crConfig,
+		CustomDBSetup:  nil,
+	}
+	wfNodes := memory.NewNodes(t, wfConf)
 	require.Len(t, wfNodes, c.WFDonConfig.N)
 
 	writerChains := map[uint64]deployment.Chain{}
 	maps.Copy(writerChains, chains)
-	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, nil, nil, c.WriterDonConfig.N, 0, crConfig, nil)
+	cwConf := memory.NewNodesConfig{
+		LogLevel:       zapcore.InfoLevel,
+		Chains:         writerChains,
+		SolChains:      nil,
+		AptosChains:    nil,
+		NumNodes:       c.WriterDonConfig.N,
+		NumBootstraps:  0,
+		RegistryConfig: crConfig,
+		CustomDBSetup:  nil,
+	}
+	cwNodes := memory.NewNodes(t, cwConf)
 	require.Len(t, cwNodes, c.WriterDonConfig.N)
 
 	assetChains := map[uint64]deployment.Chain{}
 	assetChains[registryChainSel] = chains[registryChainSel]
-	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, nil, c.AssetDonConfig.N, 0, crConfig, nil)
+	assetCfg := memory.NewNodesConfig{
+		LogLevel:       zapcore.InfoLevel,
+		Chains:         assetChains,
+		SolChains:      nil,
+		AptosChains:    nil,
+		NumNodes:       c.AssetDonConfig.N,
+		NumBootstraps:  0,
+		RegistryConfig: crConfig,
+		CustomDBSetup:  nil,
+	}
+	assetNodes := memory.NewNodes(t, assetCfg)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
 
 	dons := newMemoryDons()

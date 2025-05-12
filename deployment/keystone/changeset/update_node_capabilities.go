@@ -11,16 +11,18 @@ import (
 	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-var _ deployment.ChangeSet[*MutateNodeCapabilitiesRequest] = UpdateNodeCapabilities
+var _ cldf.ChangeSet[*MutateNodeCapabilitiesRequest] = UpdateNodeCapabilities
 
 type P2PSignerEnc = internal.P2PSignerEnc
 
@@ -107,18 +109,18 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 }
 
 // UpdateNodeCapabilities updates the capabilities of nodes in the registry
-func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
+func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilitiesRequest) (cldf.ChangesetOutput, error) {
 	c, capReg, err := req.updateNodeCapabilitiesImplRequest(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert request: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert request: %w", err)
 	}
 
 	r, err := internal.UpdateNodeCapabilitiesImpl(env.Logger, c)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update nodes: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to update nodes: %w", err)
 	}
 
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if req.UseMCMS() {
 		if r.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
@@ -131,7 +133,7 @@ func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilit
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		inspectorPerChain := map[uint64]mcmssdk.Inspector{
 			req.RegistryChainSel: inspector,

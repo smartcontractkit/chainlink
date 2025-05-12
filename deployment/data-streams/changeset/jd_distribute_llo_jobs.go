@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
@@ -21,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
-var _ deployment.ChangeSetV2[CsDistributeLLOJobSpecsConfig] = CsDistributeLLOJobSpecs{}
+var _ cldf.ChangeSetV2[CsDistributeLLOJobSpecsConfig] = CsDistributeLLOJobSpecs{}
 
 const (
 	lloJobMaxTaskDuration             = jobs.TOMLDuration(time.Second)
@@ -51,13 +52,13 @@ type CsDistributeLLOJobSpecsConfig struct {
 
 type CsDistributeLLOJobSpecs struct{}
 
-func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig) (deployment.ChangesetOutput, error) {
+func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(e.GetContext(), defaultJobSpecsTimeout)
 	defer cancel()
 
 	chainID, _, err := chainAndAddresses(e, cfg.ChainSelectorEVM)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	// Add a label to the job spec to identify the related DON
@@ -73,19 +74,19 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 
 	bootstrapProposals, err := generateBootstrapProposals(ctx, e, cfg, chainID, labels)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate bootstrap proposals: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate bootstrap proposals: %w", err)
 	}
 	oracleProposals, err := generateOracleProposals(ctx, e, cfg, chainID, labels)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate oracle proposals: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate oracle proposals: %w", err)
 	}
 
 	proposedJobs, err := proposeAllOrNothing(ctx, e.Offchain, append(bootstrapProposals, oracleProposals...))
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose all jobs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose all jobs: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		Jobs: proposedJobs,
 	}, nil
 }
@@ -116,6 +117,10 @@ func generateBootstrapProposals(ctx context.Context, e deployment.Environment, c
 				Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
 				Op:    ptypes.SelectorOp_EQ,
 			},
+			{
+				Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
+				Op:  ptypes.SelectorOp_EXIST,
+			},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to get externalJobID: %w", err)
@@ -124,6 +129,7 @@ func generateBootstrapProposals(ctx context.Context, e deployment.Environment, c
 		bootstrapSpec := jobs.NewBootstrapSpec(
 			cfg.ConfiguratorAddress,
 			cfg.Filter.DONID,
+			cfg.Filter.DONName,
 			jobs.RelayTypeEVM,
 			jobs.RelayConfig{
 				ChainID: chainID,
@@ -210,6 +216,10 @@ func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg 
 				Key:   devenv.LabelNodeTypeKey,
 				Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 				Op:    ptypes.SelectorOp_EQ,
+			},
+			{
+				Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
+				Op:  ptypes.SelectorOp_EXIST,
 			},
 		})
 		if err != nil {

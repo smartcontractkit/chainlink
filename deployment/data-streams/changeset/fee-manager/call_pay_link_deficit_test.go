@@ -1,12 +1,19 @@
 package fee_manager
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/mock_fee_manager_v0_5_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
@@ -21,11 +28,10 @@ func TestPayLinkDeficit(t *testing.T) {
 		DeployFeeManager: false, // we override this below with a MockFeeManager
 	}
 
-	res, err := NewDataStreamsEnvironment(t, testOptions)
+	res, err := DeployTestEnvironment(t, testOptions)
 	require.NoError(t, err)
 
 	e := res.Env
-	ab := e.ExistingAddresses
 	chain := e.Chains[testutil.TestChain.Selector]
 
 	cc := DeployFeeManager{
@@ -35,16 +41,40 @@ func TestPayLinkDeficit(t *testing.T) {
 		RewardManagerAddress: common.HexToAddress("0x0fd8b81e3d1143ec7f1ce474827ab93c43523ea2"),
 	}
 
-	// This uses a MockFeeManager. The subject under test here is the PayLinkDeficit changeset.
-	// This is modeled as a client/server test where the "client" is the PayLinkDeficit changeset
-	// and the "server" is the MockFeeManager. The PayLinkDeficit changeset will call the MockFeeManager using
-	// the real FeeManager interface. The MockFeeManager will then validate the call and return a response.
-	_, err = changeset.DeployContract[*mock_fee_manager_v0_5_0.MockFeeManager](e, ab, chain, MockFeeManagerDeployFn(cc))
+	deployMockCs := []commonChangesets.ConfiguredChangeSet{
+		commonChangesets.Configure(cldf.CreateChangeSet(
+			func(e deployment.Environment, config uint32) (cldf.ChangesetOutput, error) {
+				dataStore := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
+				// This uses a MockFeeManager. The subject under test here is the PayLinkDeficit changeset.
+				// This is modeled as a client/server test where the "client" is the PayLinkDeficit changeset
+				// and the "server" is the MockFeeManager. The PayLinkDeficit changeset will call the MockFeeManager using
+				// the real FeeManager interface. The MockFeeManager will then validate the call and return a response.
+				_, err = changeset.DeployContract[*mock_fee_manager_v0_5_0.MockFeeManager](e, dataStore, chain, MockFeeManagerDeployFn(cc), nil)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy MockFeeManager: %w", err)
+				}
+				sealedDS, err := ds.ToDefault(dataStore.Seal())
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+				}
+
+				return cldf.ChangesetOutput{
+					DataStore: sealedDS,
+				}, nil
+			},
+			func(e deployment.Environment, config uint32) error {
+				return nil
+			},
+		), 1),
+	}
+
+	e, _, err = commonChangesets.ApplyChangesetsV2(t, e, deployMockCs)
 	require.NoError(t, err)
 
-	feeManagerAddressHex, err := deployment.SearchAddressBook(e.ExistingAddresses, chain.Selector, types.FeeManager)
+	record, err := e.DataStore.Addresses().Get(ds.NewAddressRefKey(testutil.TestChain.Selector, ds.ContractType(types.FeeManager), &deployment.Version0_5_0, ""))
 	require.NoError(t, err)
-	feeManagerAddress := common.HexToAddress(feeManagerAddressHex)
+
+	feeManagerAddress := common.HexToAddress(record.Address)
 
 	configDigest := [32]byte{1}
 
@@ -105,7 +135,7 @@ func MockFeeManagerDeployFn(cfg DeployFeeManager) changeset.ContractDeployFn[*mo
 			Address:  ccsAddr,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

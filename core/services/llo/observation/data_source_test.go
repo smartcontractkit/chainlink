@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	gocache "github.com/patrickmn/go-cache"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,9 +23,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
@@ -121,17 +121,17 @@ func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size i
 	m.ch = make(chan interface{}, size)
 	return m.ch
 }
-func (m *mockTelemeter) GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry {
+func (m *mockTelemeter) GetOutcomeTelemetryCh() chan<- *llo.LLOOutcomeTelemetry {
 	return nil
 }
-func (m *mockTelemeter) GetReportTelemetryCh() chan<- *datastreamsllo.LLOReportTelemetry { return nil }
-func (m *mockTelemeter) CaptureEATelemetry() bool                                        { return true }
-func (m *mockTelemeter) CaptureObservationTelemetry() bool                               { return true }
+func (m *mockTelemeter) GetReportTelemetryCh() chan<- *llo.LLOReportTelemetry { return nil }
+func (m *mockTelemeter) CaptureEATelemetry() bool                             { return true }
+func (m *mockTelemeter) CaptureObservationTelemetry() bool                    { return true }
 
 func Test_DataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
-	ds := newDataSource(lggr, reg, telem.NullTelemeter)
+	ds := newDataSource(lggr, reg, telem.NullTelemeter, false)
 	ctx := testutils.Context(t)
 	opts := &mockOpts{}
 
@@ -168,8 +168,8 @@ func Test_DataSource(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{
-				2: llo.ToDecimal(decimal.NewFromInt(40602)),
 				1: nil,
+				2: llo.ToDecimal(decimal.NewFromInt(40602)),
 				3: nil,
 			}, vals)
 		})
@@ -258,6 +258,122 @@ func Test_DataSource(t *testing.T) {
 			assert.Nil(t, pkt.val)
 			assert.Error(t, pkt.err)
 		})
+
+		t.Run("uses cached values when available", func(t *testing.T) {
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
+
+			// First observation to populate cache
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
+			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
+
+			vals := makeStreamValues()
+			err := ds.Observe(ctx, vals, opts)
+			require.NoError(t, err)
+
+			// Verify initial values
+			assert.Equal(t, llo.StreamValues{
+				1: llo.ToDecimal(decimal.NewFromInt(2181)),
+				2: llo.ToDecimal(decimal.NewFromInt(40602)),
+				3: nil,
+			}, vals)
+
+			// Change pipeline results
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(9999), nil)
+			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(8888), nil)
+
+			// Second observation should use cached values
+			vals = makeStreamValues()
+			err = ds.Observe(ctx, vals, opts)
+			require.NoError(t, err)
+
+			// Should still have original values from cache
+			assert.Equal(t, llo.StreamValues{
+				1: llo.ToDecimal(decimal.NewFromInt(2181)),
+				2: llo.ToDecimal(decimal.NewFromInt(40602)),
+				3: nil,
+			}, vals)
+
+			// Verify cache metrics
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheHitCount.WithLabelValues("1")), 0.0001)
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheHitCount.WithLabelValues("2")), 0.0001)
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheMissCount.WithLabelValues("1")), 0.0001)
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheMissCount.WithLabelValues("2")), 0.0001)
+		})
+
+		t.Run("refreshes cache after expiration", func(t *testing.T) {
+			// Create a new data source with a very short cache TTL
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
+			ds.cache = gocache.New(10*time.Millisecond, 1*time.Minute)
+
+			// First observation
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
+			vals := llo.StreamValues{1: nil}
+
+			err := ds.Observe(ctx, vals, opts)
+			require.NoError(t, err)
+
+			// Wait for cache to expire
+			time.Sleep(20 * time.Millisecond)
+
+			// Change pipeline result
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(200), nil)
+
+			// Second observation should use new value
+			vals = llo.StreamValues{1: nil}
+			err = ds.Observe(ctx, vals, opts)
+			require.NoError(t, err)
+
+			assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(200))}, vals)
+		})
+
+		t.Run("handles concurrent cache access", func(t *testing.T) {
+			// Create a new data source
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
+
+			// Set up pipeline to return different values
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
+
+			// First observation to cache
+			vals := llo.StreamValues{1: nil}
+			err := ds.Observe(ctx, vals, opts)
+			require.NoError(t, err)
+
+			// Run multiple observations concurrently
+			var wg sync.WaitGroup
+			for i := 0; i < 10; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					vals := llo.StreamValues{1: nil}
+					err := ds.Observe(ctx, vals, opts)
+					assert.NoError(t, err)
+					assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(100))}, vals)
+				}()
+			}
+			wg.Wait()
+
+			// Verify pipeline was only called once
+			assert.Equal(t, 1, reg.pipelines[1].runCount)
+		})
+
+		t.Run("handles cache errors gracefully", func(t *testing.T) {
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
+			ds.cache = gocache.New(100*time.Millisecond, 1*time.Minute)
+
+			// First observation with error
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, nil, errors.New("pipeline error"))
+			vals := makeStreamValues()
+			err := ds.Observe(ctx, vals, opts)
+			require.NoError(t, err) // Observe returns nil error even if some streams fail
+
+			// Second observation should try again (not use cache for error case)
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
+			vals = llo.StreamValues{1: nil}
+			err = ds.Observe(ctx, vals, opts)
+			require.NoError(t, err)
+
+			assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(100))}, vals)
+		})
 	})
 }
 
@@ -317,7 +433,7 @@ multiply3 	  	 [type=multiply times=1 streamID=%d index=2]; // force conversion 
 
 result1 -> multiply2;
 result2 -> result2_parse;
-result3 -> result3_parse -> multiply3; 
+result3 -> result3_parse -> multiply3;
 `, i+n, i+2*n, i+3*n),
 			},
 		}
@@ -325,7 +441,7 @@ result3 -> result3_parse -> multiply3;
 		require.NoError(b, err)
 	}
 
-	ds := newDataSource(lggr, r, telem.NullTelemeter)
+	ds := newDataSource(lggr, r, telem.NullTelemeter, false)
 	vals := make(map[llotypes.StreamID]llo.StreamValue)
 	for i := uint32(0); i < 4*n; i++ {
 		vals[i] = nil

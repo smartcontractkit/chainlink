@@ -11,11 +11,14 @@ import (
 
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -30,7 +33,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	e, err := commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			// deployer creates token
-			deployment.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: ccipChangeset.SPL2022Tokens,
@@ -41,13 +44,30 @@ func TestSolanaTokenOps(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	privKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			// deployer creates token
+			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+			changeset_solana.DeploySolanaTokenConfig{
+				ChainSelector:    solChain1,
+				TokenProgramName: ccipChangeset.SPLTokens,
+				MintPrivateKey:   privKey,
+				TokenDecimals:    9,
+				TokenSymbol:      "SPL_TEST_TOKEN",
+			},
+		),
+	)
+	require.NoError(t, err)
+
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
 	tokenAddress := ccipChangeset.FindSolanaAddress(
-		deployment.TypeAndVersion{
+		cldf.TypeAndVersion{
 			Type:    ccipChangeset.SPL2022Tokens,
 			Version: deployment.Version1_0_0,
-			Labels:  deployment.NewLabelSet("TEST_TOKEN"),
+			Labels:  cldf.NewLabelSet("TEST_TOKEN"),
 		},
 		addresses,
 	)
@@ -60,7 +80,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			// deployer creates ATA for itself and testUser
-			deployment.CreateLegacyChangeSet(changeset_solana.CreateSolanaTokenATA),
+			cldf.CreateLegacyChangeSet(changeset_solana.CreateSolanaTokenATA),
 			changeset_solana.CreateSolanaTokenATAConfig{
 				ChainSelector: solChain1,
 				TokenPubkey:   tokenAddress,
@@ -69,7 +89,7 @@ func TestSolanaTokenOps(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			// deployer mints token to itself and testUser
-			deployment.CreateLegacyChangeSet(changeset_solana.MintSolanaToken),
+			cldf.CreateLegacyChangeSet(changeset_solana.MintSolanaToken),
 			changeset_solana.MintSolanaTokenConfig{
 				ChainSelector: solChain1,
 				TokenPubkey:   tokenAddress.String(),
@@ -106,7 +126,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			// deployer creates token
-			deployment.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: ccipChangeset.SPL2022Tokens,
@@ -124,10 +144,10 @@ func TestSolanaTokenOps(t *testing.T) {
 	addresses, err = e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
 	tokenAddress2 := ccipChangeset.FindSolanaAddress(
-		deployment.TypeAndVersion{
+		cldf.TypeAndVersion{
 			Type:    ccipChangeset.SPL2022Tokens,
 			Version: deployment.Version1_0_0,
-			Labels:  deployment.NewLabelSet("TEST_TOKEN_2"),
+			Labels:  cldf.NewLabelSet("TEST_TOKEN_2"),
 		},
 		addresses,
 	)
@@ -152,5 +172,5 @@ func TestSolanaTokenOps(t *testing.T) {
 }
 
 func TestDeployLinkToken(t *testing.T) {
-	testhelpers.DeployLinkTokenTest(t, 1)
+	commonchangeset.DeployLinkTokenTest(t, 1)
 }
