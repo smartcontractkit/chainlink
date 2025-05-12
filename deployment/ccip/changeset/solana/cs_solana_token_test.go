@@ -102,10 +102,10 @@ func TestSolanaTokenOps(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	testUserATA, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, tokenAddress, testUserPubKey)
+	testUserATA, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, testUserPubKey)
 	require.NoError(t, err)
 	deployerATA, _, err := solTokenUtil.FindAssociatedTokenAddress(
-		solana.TokenProgramID,
+		solana.Token2022ProgramID,
 		tokenAddress,
 		e.SolChains[solChain1].DeployerKey.PublicKey(),
 	)
@@ -129,7 +129,7 @@ func TestSolanaTokenOps(t *testing.T) {
 			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: ccipChangeset.SPL2022Tokens,
+				TokenProgramName: ccipChangeset.SPLTokens,
 				TokenDecimals:    9,
 				TokenSymbol:      "TEST_TOKEN_2",
 				ATAList:          []string{deployerKey.String(), testUserPubKey.String()},
@@ -145,7 +145,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	require.NoError(t, err)
 	tokenAddress2 := ccipChangeset.FindSolanaAddress(
 		cldf.TypeAndVersion{
-			Type:    ccipChangeset.SPL2022Tokens,
+			Type:    ccipChangeset.SPLTokens,
 			Version: deployment.Version1_0_0,
 			Labels:  cldf.NewLabelSet("TEST_TOKEN_2"),
 		},
