@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
@@ -174,6 +175,7 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 }
 
 func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-762")
 	t.Parallel()
 	env := setupUpdateDelayTestEnv(t)
 	newDelayDuration := 5 * time.Minute

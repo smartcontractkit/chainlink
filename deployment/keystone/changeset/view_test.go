@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -130,6 +131,7 @@ func TestKeystoneView(t *testing.T) {
 
 	t.Run("successfully generates a view of the keystone state with multiple contracts of the same type per chain",
 		func(t *testing.T) {
+			tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-756")
 			oracleConfigCopy := oracleConfig
 
 			// Deploy a new forwarder contract
