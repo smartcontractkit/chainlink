@@ -5,17 +5,24 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	ccipchangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 )
 
 type ApproveTokenEVMConfig struct {
 	ChainSelector uint64
+
 	TokenAddress  string
 	RouterAddress string
-	Amount        *big.Int
+
+	Amount *big.Int
 }
 
 // ApproveToken approves the router to spend the given amount of tokens
@@ -53,17 +60,56 @@ func ApproveTokenTransferEVMChangeset(e deployment.Environment, cfg ApproveToken
 
 type ApproveTokenSolConfig struct {
 	ChainSelector uint64
-	TokenAddress  string
-	RouterAddress string
-	Amount        *big.Int
+	SolChain      cldf.SolChain
+
+	SolTokenPubKey     solana.PublicKey
+	RemoteTokenAccount solana.PublicKey
+	TokenPubKey        solana.PublicKey
+
+	Amount   uint64
+	Decimals uint8
 }
 
-// func ApproveTokenTransferSolChangeset(e deployment.Environment, cfg ApproveTokenEVMConfig) (cldf.ChangesetOutput, error) {
-// 	ixApprove, err := soltokens.TokenApproveChecked(1e9, 9, tokenProgram, deployerWSOL, wSOL, billingSignerPDA, deployer.PublicKey(), []solana.PublicKey{})
+func ApproveTokenTransferSolChangeset(e deployment.Environment, cfg ApproveTokenSolConfig) (cldf.ChangesetOutput, error) {
+	state, err := changeset.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
 
-// 	if err != nil {
-// 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create approve instruction: %w", err)
-// 	}
+	chainState := state.SolChains[cfg.ChainSelector]
 
-// 	return cldf.ChangesetOutput{}, nil
-// }
+	tokenPool, _ := ccipchangesetSolana.GetActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, cfg.ChainSelector, "")
+
+	tokenProgram, err := chainState.TokenToTokenProgram(cfg.SolTokenPubKey)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token program: %w", err)
+	}
+	poolSigner, err := solTokenUtil.TokenPoolSignerAddress(cfg.SolTokenPubKey, tokenPool)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token pool signer address: %w", err)
+	}
+
+	ix1, err := solTokenUtil.TokenApproveChecked(
+		cfg.Amount,
+		cfg.Decimals,
+		tokenProgram,
+		cfg.RemoteTokenAccount,
+		cfg.TokenPubKey,
+		poolSigner,
+		cfg.SolChain.DeployerKey.PublicKey(),
+		solana.PublicKeySlice{},
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to TokenApproveChecked: %w", err)
+	}
+	if err = cfg.SolChain.Confirm([]solana.Instruction{ix1}); err != nil {
+		e.Logger.Errorw("Failed to confirm instructions for TokenApproveChecked", "chain", cfg.SolChain.String(), "err", err)
+		return cldf.ChangesetOutput{}, err
+	}
+
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create approve instruction: %w", err)
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
