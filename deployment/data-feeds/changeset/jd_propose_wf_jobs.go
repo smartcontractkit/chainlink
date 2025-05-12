@@ -76,11 +76,6 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 		targetSchedule = "oneAtATime"
 	}
 
-	consensusPartialStaleness := workflowSpecConfig.ConsensusAllowedPartialStaleness
-	if consensusPartialStaleness == "" {
-		consensusPartialStaleness = "0.5"
-	}
-
 	// create the workflow YAML spec
 	workflowSpec, err := offchain.CreateWorkflowSpec(
 		feedState.Feeds,
@@ -91,7 +86,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 		workflowSpecConfig.ConsensusReportID,
 		workflowSpecConfig.ConsensusAggregationMethod,
 		consensusConfigKeyID,
-		consensusPartialStaleness,
+		workflowSpecConfig.ConsensusAllowedPartialStaleness,
 		consensusEncoderAbi,
 		deltaStageSec,
 		workflowSpecConfig.WriteTargetTrigger,
