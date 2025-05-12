@@ -12,6 +12,8 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -53,16 +55,16 @@ func TestKeystoneView(t *testing.T) {
 		WriterDonConfig: test.DonConfig{N: 4, Name: "writerDon"},
 		NumChains:       1,
 	})
-	registryChain := env.Env.AllChainSelectors()[0]
+	originalAddressBook := env.Env.ExistingAddresses
 	oracleConfig.TransmissionSchedule = []int{len(env.Env.NodeIDs)}
 
 	addrs := env.Env.DataStore.Addresses().Filter(
-		datastore.AddressRefByChainSelector(registryChain),
+		datastore.AddressRefByChainSelector(env.RegistrySelector),
 	)
 
 	var newOCR3Addr, newForwarderAddr, newWorkflowRegistryAddr, newCapabilityRegistryAddr string
 	for _, addr := range addrs {
-		if newForwarderAddr != "" && newOCR3Addr != "" {
+		if newForwarderAddr != "" && newOCR3Addr != "" && newWorkflowRegistryAddr != "" && newCapabilityRegistryAddr != "" {
 			break
 		}
 		switch addr.Type {
@@ -108,7 +110,7 @@ func TestKeystoneView(t *testing.T) {
 		var outView changeset.KeystoneView
 		require.NoError(t, json.Unmarshal(b, &outView))
 
-		chainID, err := chain_selectors.ChainIdFromSelector(registryChain)
+		chainID, err := chain_selectors.ChainIdFromSelector(env.RegistrySelector)
 		require.NoError(t, err)
 		chainName, err := chain_selectors.NameFromChainId(chainID)
 		require.NoError(t, err)
@@ -131,48 +133,54 @@ func TestKeystoneView(t *testing.T) {
 	t.Run("successfully generates a view of the keystone state with multiple contracts of the same type per chain",
 		func(t *testing.T) {
 			oracleConfigCopy := oracleConfig
+			var localAddrsBook deployment.AddressBook
 
 			// Deploy a new forwarder contract
-			resp, err := changeset.DeployForwarderV2(env.Env, &changeset.DeployRequestV2{ChainSel: registryChain})
+			resp, err := changeset.DeployForwarderV2(env.Env, &changeset.DeployRequestV2{ChainSel: env.RegistrySelector})
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
 			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
-			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
+			localAddrsBook = resp.AddressBook
 			env.Env.DataStore = resp.DataStore.Seal()
 
 			// Deploy a new workflow registry contract
-			resp, err = workflowregistry.DeployV2(env.Env, &changeset.DeployRequestV2{ChainSel: registryChain})
+			resp, err = workflowregistry.DeployV2(env.Env, &changeset.DeployRequestV2{ChainSel: env.RegistrySelector})
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
 			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
-			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
+			require.NoError(t, localAddrsBook.Merge(resp.AddressBook))
 			env.Env.DataStore = resp.DataStore.Seal()
 
 			// Deploy a new OCR3 contract
-			resp, err = changeset.DeployOCR3V2(env.Env, &changeset.DeployRequestV2{ChainSel: registryChain})
+			resp, err = changeset.DeployOCR3V2(env.Env, &changeset.DeployRequestV2{ChainSel: env.RegistrySelector})
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
 			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
-			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
+			require.NoError(t, localAddrsBook.Merge(resp.AddressBook))
 			env.Env.DataStore = resp.DataStore.Seal()
 
 			// Deploy a new capability registry contract
-			resp, err = changeset.DeployCapabilityRegistryV2(env.Env, &changeset.DeployRequestV2{ChainSel: registryChain})
+			resp, err = changeset.DeployCapabilityRegistryV2(env.Env, &changeset.DeployRequestV2{ChainSel: env.RegistrySelector})
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
 			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
-			require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
+			require.NoError(t, localAddrsBook.Merge(resp.AddressBook))
+
 			env.Env.DataStore = resp.DataStore.Seal()
+			env.Env.ExistingAddresses = localAddrsBook
 
 			var ocr3Addr, forwarderAddr, workflowRegistryAddr, capabilityRegistryAddr string
 			existingAddrs := env.Env.DataStore.Addresses().Filter(
-				datastore.AddressRefByChainSelector(registryChain),
+				datastore.AddressRefByChainSelector(env.RegistrySelector),
 			)
 			for _, addr := range existingAddrs {
+				if ocr3Addr != "" && forwarderAddr != "" && workflowRegistryAddr != "" && capabilityRegistryAddr != "" {
+					break
+				}
 				switch addr.Type {
 				case datastore.ContractType(internal.OCR3Capability):
 					if addr.Address != newOCR3Addr {
@@ -211,12 +219,43 @@ func TestKeystoneView(t *testing.T) {
 			_, err = changeset.ConfigureOCR3Contract(env.Env, cfg)
 			require.NoError(t, err)
 
+			ocr3CapCfg := test.GetDefaultCapConfig(t, internal.OCR3Cap)
+
 			var wfNodes []string
 			for _, id := range env.GetP2PIDs("wfDon") {
 				wfNodes = append(wfNodes, id.String())
 			}
+
+			wfDonCapabilities := internal.DonCapabilities{
+				Name: "wfDon",
+				Nops: []internal.NOP{
+					{
+						Name:  "nop 1",
+						Nodes: wfNodes,
+					},
+				},
+				Capabilities: []internal.DONCapabilityWithConfig{
+					{Capability: internal.OCR3Cap, Config: ocr3CapCfg},
+				},
+			}
+			var allDons = []internal.DonCapabilities{wfDonCapabilities}
+			cr, err := changeset.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](
+				env.Env.DataStore.Addresses(), env.Env.Chains[env.RegistrySelector], capabilityRegistryAddr,
+			)
+			require.NoError(t, err)
+
+			_, err = internal.ConfigureRegistry(t.Context(), env.Env.Logger, &internal.ConfigureRegistryRequest{
+				ConfigureContractsRequest: internal.ConfigureContractsRequest{
+					RegistryChainSel: env.RegistrySelector,
+					Env:              &env.Env,
+					Dons:             allDons,
+				},
+				CapabilitiesRegistry: cr.Contract,
+			}, nil)
+			require.NoError(t, err)
+
 			_, err = changeset.ConfigureForwardContracts(env.Env, changeset.ConfigureForwardContractsRequest{
-				WFDonName:        "test-wf-don",
+				WFDonName:        "wfDon",
 				WFNodeIDs:        wfNodes,
 				RegistryChainSel: env.RegistrySelector,
 			})
@@ -232,7 +271,7 @@ func TestKeystoneView(t *testing.T) {
 			var outView changeset.KeystoneView
 			require.NoError(t, json.Unmarshal(b, &outView))
 
-			chainID, err := chain_selectors.ChainIdFromSelector(registryChain)
+			chainID, err := chain_selectors.ChainIdFromSelector(env.RegistrySelector)
 			require.NoError(t, err)
 			chainName, err := chain_selectors.NameFromChainId(chainID)
 			require.NoError(t, err)
@@ -261,7 +300,7 @@ func TestKeystoneView(t *testing.T) {
 
 	t.Run("generates a partial view of the keystone state with OCR3 not configured", func(t *testing.T) {
 		// Deploy a new OCR3 contract
-		resp, err := changeset.DeployOCR3(env.Env, registryChain)
+		resp, err := changeset.DeployOCR3(env.Env, env.RegistrySelector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
@@ -275,7 +314,7 @@ func TestKeystoneView(t *testing.T) {
 
 		var outView changeset.KeystoneView
 		require.NoError(t, json.Unmarshal(b, &outView))
-		chainID, err := chain_selectors.ChainIdFromSelector(registryChain)
+		chainID, err := chain_selectors.ChainIdFromSelector(env.RegistrySelector)
 		require.NoError(t, err)
 		chainName, err := chain_selectors.NameFromChainId(chainID)
 		require.NoError(t, err)
@@ -290,6 +329,7 @@ func TestKeystoneView(t *testing.T) {
 	})
 
 	t.Run("fails to generate a view of the keystone state with a bad OracleConfig", func(t *testing.T) {
+		env.Env.ExistingAddresses = originalAddressBook
 		oracleConfigCopy := oracleConfig
 		oracleConfigCopy.DeltaRoundMillis = 0
 		oracleConfigCopy.DeltaProgressMillis = 0
