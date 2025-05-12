@@ -7,13 +7,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
+
 	verifier "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 )
 
 func TestCallActivateConfig(t *testing.T) {
-	e := testutil.NewMemoryEnv(t, true)
+	t.Parallel()
+	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
+		ShouldDeployMCMS: true,
+	})
+	e := testEnv.Environment
 	chainSelector := testutil.TestChain.Selector
 
 	e, _, verifierAddr := DeployVerifierProxyAndVerifier(t, e)
@@ -73,21 +79,27 @@ func TestCallActivateConfig(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chain := e.Chains[chainSelector]
-	vp, err := verifier.NewVerifier(verifierAddr, chain.Client)
-	require.NoError(t, err)
-	logIterator, err := vp.FilterConfigActivated(nil, [][32]byte{configDigest})
-	require.NoError(t, err)
-	defer logIterator.Close()
-	require.NoError(t, err)
-	foundExpected := false
+	t.Run("VerifyMetadata", func(t *testing.T) {
+		// Use View To Confirm Data
+		_, outputs, err := commonChangesets.ApplyChangesetsV2(t, e,
+			[]commonChangesets.ConfiguredChangeSet{
+				commonChangesets.Configure(
+					changeset.SaveContractViews,
+					changeset.SaveContractViewsConfig{
+						Chains: []uint64{testutil.TestChain.Selector},
+					},
+				),
+			},
+		)
+		require.NoError(t, err)
+		require.Len(t, outputs, 1)
+		output := outputs[0]
 
-	for logIterator.Next() {
-		event := logIterator.Event
-		if configDigest == event.ConfigDigest {
-			foundExpected = true
-			break
-		}
-	}
-	require.True(t, foundExpected)
+		VerifyVerifierState(t,
+			output.DataStore,
+			testutil.TestChain.Selector,
+			verifierAddr,
+			setConfigPayload,
+			true)
+	})
 }

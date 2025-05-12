@@ -13,16 +13,16 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ deployment.ChangeSet[uint64] = DeployCapabilityRegistry
+var _ cldf.ChangeSet[uint64] = DeployCapabilityRegistry
 
 // Depreciated: use DeployCapabilityRegistryV2 instead
-func DeployCapabilityRegistry(env deployment.Environment, registrySelector uint64) (deployment.ChangesetOutput, error) {
+func DeployCapabilityRegistry(env deployment.Environment, registrySelector uint64) (cldf.ChangesetOutput, error) {
 	return DeployCapabilityRegistryV2(env, &DeployRequestV2{
 		ChainSel: registrySelector,
 	})
 }
 
-func DeployCapabilityRegistryV2(env deployment.Environment, req *DeployRequestV2) (deployment.ChangesetOutput, error) {
+func DeployCapabilityRegistryV2(env deployment.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
 	req.deployFn = kslib.DeployCapabilitiesRegistry
 	return deploy(env, req)
 }
@@ -36,16 +36,16 @@ type DeployRequestV2 = struct {
 	deployFn func(ctx context.Context, chain deployment.Chain, ab cldf.AddressBook) (*kslib.DeployResponse, error)
 }
 
-func deploy(env deployment.Environment, req *DeployRequestV2) (deployment.ChangesetOutput, error) {
+func deploy(env deployment.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	chain, ok := env.Chains[req.ChainSel]
 	if !ok {
-		return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
+		return cldf.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
 	ab := cldf.NewMemoryAddressBook()
 	resp, err := req.deployFn(env.GetContext(), chain, ab)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
 	}
 	lggr.Infof("Deployed %s chain selector %d addr %s", resp.Tv.String(), chain.Selector, resp.Address.String())
 
@@ -70,8 +70,8 @@ func deploy(env deployment.Environment, req *DeployRequestV2) (deployment.Change
 	}
 
 	if err = ds.Addresses().Add(r); err != nil {
-		return deployment.ChangesetOutput{DataStore: ds},
+		return cldf.ChangesetOutput{DataStore: ds},
 			fmt.Errorf("failed to save address ref in datastore: %w", err)
 	}
-	return deployment.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
 }

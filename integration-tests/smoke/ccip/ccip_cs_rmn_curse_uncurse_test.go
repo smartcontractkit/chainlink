@@ -418,7 +418,7 @@ func TestRMNCurseOneConnectedLanesSolana(t *testing.T) {
 
 	_, err := ccipChangesetSolana.AddRemoteChainToOffRamp(e.Env, ccipChangesetSolana.AddRemoteChainToOffRampConfig{
 		ChainSelector: mapIDToSelector(Sol1),
-		UpdatesByChain: map[uint64]ccipChangesetSolana.OffRampConfig{
+		UpdatesByChain: map[uint64]*ccipChangesetSolana.OffRampConfig{
 			mapIDToSelector(Evm1): {
 				EnabledAsSource: true,
 				IsUpdate:        false,

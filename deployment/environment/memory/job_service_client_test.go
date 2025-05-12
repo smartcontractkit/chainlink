@@ -13,17 +13,27 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 func TestJobClientProposeJob(t *testing.T) {
-
 	t.Parallel()
 	ctx := testutils.Context(t)
 	chains, _ := memory.NewMemoryChains(t, 1, 1)
 	ports := freeport.GetN(t, 1)
-	testNode := memory.NewNode(t, ports[0], chains, nil, nil, zapcore.DebugLevel, false, deployment.CapabilityRegistryConfig{}, nil)
+	c := memory.NewNodeConfig{
+		Port:           ports[0],
+		Chains:         chains,
+		Solchains:      nil,
+		Aptoschains:    nil,
+		LogLevel:       zapcore.DebugLevel,
+		Bootstrap:      false,
+		RegistryConfig: deployment.CapabilityRegistryConfig{},
+		CustomDBSetup:  nil,
+	}
+	testNode := memory.NewNode(t, c)
 
 	// Set up the JobClient with a mock node
 	nodeID := "node-1"
@@ -112,12 +122,21 @@ func TestJobClientProposeJob(t *testing.T) {
 }
 
 func TestJobClientJobAPI(t *testing.T) {
-
 	t.Parallel()
 	ctx := testutils.Context(t)
 	chains, _ := memory.NewMemoryChains(t, 1, 1)
 	ports := freeport.GetN(t, 1)
-	testNode := memory.NewNode(t, ports[0], chains, nil, nil, zapcore.DebugLevel, false, deployment.CapabilityRegistryConfig{}, nil)
+	c := memory.NewNodeConfig{
+		Port:           ports[0],
+		Chains:         chains,
+		Solchains:      nil,
+		Aptoschains:    nil,
+		LogLevel:       zapcore.DebugLevel,
+		Bootstrap:      false,
+		RegistryConfig: deployment.CapabilityRegistryConfig{},
+		CustomDBSetup:  nil,
+	}
+	testNode := memory.NewNode(t, c)
 
 	// Set up the JobClient with a mock node
 	nodeID := "node-1"

@@ -183,7 +183,6 @@ func MaybeLoadMCMSWithTimelockChainState(
 				state.CancellerMcm = mcms
 			}
 		}
-
 	}
 	return &state, nil
 }

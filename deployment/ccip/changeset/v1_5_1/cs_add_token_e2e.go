@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
@@ -227,18 +226,18 @@ func addTokenE2EPreconditionValidation(e deployment.Environment, config AddToken
 	return nil
 }
 
-func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (deployment.ChangesetOutput, error) {
+func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (cldf.ChangesetOutput, error) {
 	if len(config.Tokens) == 0 {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 	// use a clone of env to avoid modifying the original env
 	e := env.Clone()
-	finalCSOut := &deployment.ChangesetOutput{
+	finalCSOut := &cldf.ChangesetOutput{
 		AddressBook: cldf.NewMemoryAddressBook(),
 	}
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for token, cfg := range config.Tokens {
 		e.Logger.Infow("starting token addition operations for", "token", token, "chains", maps.Keys(cfg.PoolConfig))
@@ -252,57 +251,57 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 		if len(tokenDeployCfg) > 0 {
 			deployedTokens, ab, err := deployTokens(e, tokenDeployCfg)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 			if err := cfg.newDeployTokenPoolConfigAfterTokenDeployment(deployedTokens); err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to populate pool deployment configuration: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate pool deployment configuration: %w", err)
 			}
 			e.Logger.Infow("deployed token and created pool deployment config", "token", token)
 			if err := finalCSOut.AddressBook.Merge(ab); err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 			}
 			// populate the configuration for deploying and configuring token pools and token admin registry
 			if err := cfg.newConfigurePoolAndTokenAdminRegConfig(e, token, config.MCMS); err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to populate configuration for "+
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate configuration for "+
 					"deploying and configuring token pools and token admin registry: %w", err)
 			}
 		}
 		output, err := DeployTokenPoolContractsChangeset(e, cfg.deployPool)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy token pool for token %s: %w", token, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy token pool for token %s: %w", token, err)
 		}
-		if err := deployment.MergeChangesetOutput(e, finalCSOut, output); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
+		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 		}
 		newAddresses, err := output.AddressBook.Addresses()
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get addresses from address book: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses from address book: %w", err)
 		}
 		e.Logger.Infow("deployed token pool", "token", token, "addresses", newAddresses)
 		if err := cfg.configurePools.Validate(e); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate configure pool config: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate configure pool config: %w", err)
 		}
 		// Validate the configure token admin reg config.
 		// As we will perform proposing admin, accepting admin and setting pool on same changeset
 		// we are only validating the propose admin role.
 		if err := cfg.configureTokenAdminReg.Validate(e, true, validateProposeAdminRole); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate configure token admin reg config: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate configure token admin reg config: %w", err)
 		}
 		output, err = ConfigureTokenPoolContractsChangeset(e, cfg.configurePools)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to configure token pool for token %s: %w", token, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool for token %s: %w", token, err)
 		}
-		if err := deployment.MergeChangesetOutput(e, finalCSOut, output); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after configuring token pool for token %s: %w", token, err)
+		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after configuring token pool for token %s: %w", token, err)
 		}
 		e.Logger.Infow("configured token pool", "token", token)
 
 		output, err = ProposeAdminRoleChangeset(e, cfg.configureTokenAdminReg)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose admin role for token %s: %w", token, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose admin role for token %s: %w", token, err)
 		}
-		if err := deployment.MergeChangesetOutput(e, finalCSOut, output); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to changeset output after configuring token admin reg for token %s: %w",
+		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to changeset output after configuring token admin reg for token %s: %w",
 				token, err)
 		}
 		e.Logger.Infow("proposed admin role", "token", token, "config", cfg.configureTokenAdminReg)
@@ -331,18 +330,18 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 		}
 		output, err = AcceptAdminRoleChangeset(e, updatedConfigureTokenAdminReg)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to accept admin role for token %s: %w", token, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept admin role for token %s: %w", token, err)
 		}
-		if err := deployment.MergeChangesetOutput(e, finalCSOut, output); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
+		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 		}
 		e.Logger.Infow("accepted admin role", "token", token, "config", updatedConfigureTokenAdminReg)
 		output, err = SetPoolChangeset(e, updatedConfigureTokenAdminReg)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set pool for token %s: %w", token, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set pool for token %s: %w", token, err)
 		}
-		if err := deployment.MergeChangesetOutput(e, finalCSOut, output); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
+		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 		}
 		e.Logger.Infow("set pool", "token", token, "config", updatedConfigureTokenAdminReg)
 	}
@@ -352,7 +351,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 			e, state.EVMMCMSStateByChain(), nil, finalCSOut.MCMSTimelockProposals, nil,
 			"Add Tokens E2E", config.MCMS)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 		}
 		finalCSOut.MCMSTimelockProposals = []mcms.TimelockProposal{*aggregatedProposals}
 	}

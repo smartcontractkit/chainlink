@@ -394,6 +394,97 @@ func ValidateOwnershipSolana(
 	return nil
 }
 
+func IsSolanaProgramOwnedByTimelock(
+	e *deployment.Environment,
+	chain deployment.SolChain,
+	chainState SolCCIPChainState,
+	contractType cldf.ContractType,
+	tokenAddress solana.PublicKey, // for token pools only
+	tokenPoolMetadata string,
+) bool {
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	if err != nil {
+		return false
+	}
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return false
+	}
+	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	switch contractType {
+	case Router:
+		programData := solRouter.Config{}
+		config, _, err := solState.FindConfigPDA(chainState.Router)
+		if err != nil {
+			return false
+		}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return false
+		}
+		return programData.Owner.Equals(timelockSignerPDA)
+	case OffRamp:
+		programData := ccip_offramp.Config{}
+		config, _, err := solState.FindConfigPDA(chainState.OffRamp)
+		if err != nil {
+			return false
+		}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return false
+		}
+		return programData.Owner.Equals(timelockSignerPDA)
+	case FeeQuoter:
+		programData := fee_quoter.Config{}
+		config, _, err := solState.FindConfigPDA(chainState.FeeQuoter)
+		if err != nil {
+			return false
+		}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return false
+		}
+		return programData.Owner.Equals(timelockSignerPDA)
+	case BurnMintTokenPool:
+		programData := solTestTokenPool.State{}
+		metadata := CLLMetadata
+		if tokenPoolMetadata != "" {
+			metadata = tokenPoolMetadata
+		}
+		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, chainState.BurnMintTokenPools[metadata])
+		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
+		if err != nil {
+			return false
+		}
+		return programData.Config.Owner.Equals(timelockSignerPDA)
+	case LockReleaseTokenPool:
+		programData := solTestTokenPool.State{}
+		metadata := CLLMetadata
+		if tokenPoolMetadata != "" {
+			metadata = tokenPoolMetadata
+		}
+		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, chainState.LockReleaseTokenPools[metadata])
+		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
+		if err != nil {
+			return false
+		}
+		return programData.Config.Owner.Equals(timelockSignerPDA)
+	case RMNRemote:
+		programData := rmn_remote.Config{}
+		config, _, err := solState.FindConfigPDA(chainState.RMNRemote)
+		if err != nil {
+			return false
+		}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return false
+		}
+		return programData.Owner.Equals(timelockSignerPDA)
+	default:
+		return false
+	}
+}
+
 func (s SolCCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.PublicKey, err error) {
 	if s.Router.IsZero() {
 		return solana.PublicKey{}, solana.PublicKey{}, errors.New("router not found in existing state, deploy the router first")

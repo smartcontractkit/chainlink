@@ -31,8 +31,8 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	OldSha = "5e3357dcbaa58c89259c238c4a424e82afac2110"
-	NewSha = "6ff430180f5272baa3a0b11e7e6bbed0276bef91"
+	OldSha = "0ee732e80586c2e9df5e9b0c3b5e9a19ee66b3a1"
+	NewSha = "cb02e90f9d6d1dd65f534c60a77bb1e3384a42cb"
 )
 
 func verifyProgramSizes(t *testing.T, e deployment.Environment) {
@@ -238,10 +238,15 @@ func TestUpgrade(t *testing.T) {
 					NewFeeQuoterVersion: &deployment.Version1_1_0,
 					NewRouterVersion:    &deployment.Version1_1_0,
 					// test offramp upgrade in place
-					NewOffRampVersion: &deployment.Version1_0_0,
-					NewMCMVersion:     &deployment.Version1_1_0,
-					UpgradeAuthority:  upgradeAuthority,
-					SpillAddress:      upgradeAuthority,
+					NewOffRampVersion:              &deployment.Version1_0_0,
+					NewMCMVersion:                  &deployment.Version1_1_0,
+					NewBurnMintTokenPoolVersion:    &deployment.Version1_1_0,
+					NewLockReleaseTokenPoolVersion: &deployment.Version1_1_0,
+					NewRMNRemoteVersion:            &deployment.Version1_1_0,
+					NewAccessControllerVersion:     &deployment.Version1_1_0,
+					NewTimelockVersion:             &deployment.Version1_1_0,
+					UpgradeAuthority:               upgradeAuthority,
+					SpillAddress:                   upgradeAuthority,
 					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
@@ -269,55 +274,13 @@ func TestUpgrade(t *testing.T) {
 				},
 			},
 		),
-		// Split the upgrade to avoid txn size limits. No need to build again.
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
-			ccipChangesetSolana.DeployChainContractsConfig{
-				HomeChainSelector:      homeChainSel,
-				ChainSelector:          solChainSelectors[0],
-				ContractParamsPerChain: contractParamsPerChain,
-				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
-					NewBurnMintTokenPoolVersion:    &deployment.Version1_1_0,
-					NewLockReleaseTokenPoolVersion: &deployment.Version1_1_0,
-					NewRMNRemoteVersion:            &deployment.Version1_1_0,
-					UpgradeAuthority:               upgradeAuthority,
-					SpillAddress:                   upgradeAuthority,
-					MCMS: &proposalutils.TimelockConfig{
-						MinDelay: 1 * time.Second,
-					},
-				},
-			},
-		),
-		// Split the upgrade to avoid txn size limits. No need to build again.
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
-			ccipChangesetSolana.DeployChainContractsConfig{
-				HomeChainSelector:      homeChainSel,
-				ChainSelector:          solChainSelectors[0],
-				ContractParamsPerChain: contractParamsPerChain,
-				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
-					NewAccessControllerVersion: &deployment.Version1_1_0,
-					NewTimelockVersion:         &deployment.Version1_1_0,
-					UpgradeAuthority:           upgradeAuthority,
-					SpillAddress:               upgradeAuthority,
-					MCMS: &proposalutils.TimelockConfig{
-						MinDelay: 1 * time.Second,
-					},
-				},
-			},
-		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetFeeAggregator),
 			ccipChangesetSolana.SetFeeAggregatorConfig{
 				ChainSelector: solChainSelectors[0],
 				FeeAggregator: feeAggregatorPubKey2.String(),
-				MCMSSolana: &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &proposalutils.TimelockConfig{
-						MinDelay: 1 * time.Second,
-					},
-					RouterOwnedByTimelock:    true,
-					FeeQuoterOwnedByTimelock: true,
-					OffRampOwnedByTimelock:   true,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
 				},
 			},
 		),

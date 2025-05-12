@@ -15,7 +15,7 @@ import (
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
 var RemoveFeedConfigChangeset = cldf.CreateChangeSet(removeFeedConfigLogic, removeFeedConfigPrecondition)
 
-func removeFeedConfigLogic(env deployment.Environment, c types.RemoveFeedConfigCSConfig) (deployment.ChangesetOutput, error) {
+func removeFeedConfigLogic(env deployment.Environment, c types.RemoveFeedConfigCSConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
@@ -41,16 +41,16 @@ func removeFeedConfigLogic(env deployment.Environment, c types.RemoveFeedConfigC
 
 		proposal, err := BuildMultiChainProposals(env, "proposal to remove a feed config from cache", proposalConfig, c.McmsConfig.MinDelay)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+		return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
 
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func removeFeedConfigPrecondition(env deployment.Environment, c types.RemoveFeedConfigCSConfig) error {

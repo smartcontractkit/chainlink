@@ -5,14 +5,16 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-var _ deployment.ChangeSet[*UpdateDonRequest] = UpdateDon
+var _ cldf.ChangeSet[*UpdateDonRequest] = UpdateDon
 
 // CapabilityConfig is a struct that holds a capability and its configuration
 type CapabilityConfig = internal.CapabilityConfig
@@ -52,25 +54,25 @@ type UpdateDonResponse struct {
 // UpdateDon updates the capabilities of a Don
 // This a complex action in practice that involves registering missing capabilities, adding the nodes, and updating
 // the capabilities of the DON
-func UpdateDon(env deployment.Environment, req *UpdateDonRequest) (deployment.ChangesetOutput, error) {
+func UpdateDon(env deployment.Environment, req *UpdateDonRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
 	}
 	appendResult, err := AppendNodeCapabilities(env, appendRequest(req))
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to append node capabilities: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to append node capabilities: %w", err)
 	}
 
 	ur, err := updateDonRequest(env, req)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create update don request: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create update don request: %w", err)
 	}
 	updateResult, err := internal.UpdateDon(env.Logger, ur)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update don: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to update don: %w", err)
 	}
 
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if req.UseMCMS() {
 		if updateResult.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")

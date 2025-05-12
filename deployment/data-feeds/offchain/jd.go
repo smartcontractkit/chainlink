@@ -9,6 +9,8 @@ import (
 	nodeapiv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	jdtypesv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -74,14 +76,14 @@ func fetchNodesFromJD(ctx context.Context, env deployment.Environment, nodeFilte
 	return resp.Nodes, nil
 }
 
-func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpec string, workflowName *string, nodeFilters *NodesFilter) (deployment.ChangesetOutput, error) {
-	out := deployment.ChangesetOutput{
-		Jobs: []deployment.ProposedJob{},
+func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpec string, workflowName *string, nodeFilters *NodesFilter) (cldf.ChangesetOutput, error) {
+	out := cldf.ChangesetOutput{
+		Jobs: []cldf.ProposedJob{},
 	}
 	// Fetch nodes
 	nodes, err := fetchNodesFromJD(ctx, env, nodeFilters)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get nodes: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get nodes: %w", err)
 	}
 	// Propose jobs
 	jobLabels := []*ptypes.Label{
@@ -105,10 +107,10 @@ func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpe
 			Labels: jobLabels,
 		})
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose job: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose job: %w", err)
 		}
 		env.Logger.Debugf("Job proposed %s", resp.Proposal.JobId)
-		out.Jobs = append(out.Jobs, deployment.ProposedJob{
+		out.Jobs = append(out.Jobs, cldf.ProposedJob{
 			JobID: resp.Proposal.JobId,
 			Node:  node.Id,
 			Spec:  resp.Proposal.Spec,

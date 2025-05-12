@@ -294,14 +294,14 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		run := cltest.MustInsertPipelineRun(t, db)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
+		runID := cltest.MustInsertPipelineRun(t, db)
+		trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 1, fromAddress)
 		mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 		// Setting both signal_callback and callback_completed to TRUE to simulate a completed pipeline task
 		// It would only be in a state past suspended if the resume callback was called and callback_completed was set to TRUE
-		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &trID, minConfirmations, etx.ID)
 
 		err := finalizer.ResumePendingTaskRuns(ctx, head.BlockNumber(), 0)
 		require.NoError(t, err)
@@ -316,13 +316,13 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		run := cltest.MustInsertPipelineRun(t, db)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
+		runID := cltest.MustInsertPipelineRun(t, db)
+		trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
 		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
-		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID, minConfirmations, etx.ID)
 
 		err := finalizer.ResumePendingTaskRuns(ctx, head.BlockNumber(), 0)
 		require.NoError(t, err)
@@ -341,15 +341,15 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		run := cltest.MustInsertPipelineRun(t, db)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
-		testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
+		runID := cltest.MustInsertPipelineRun(t, db)
+		trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
+		testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 		receipt := mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 
-		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID, minConfirmations, etx.ID)
 
 		done := make(chan struct{})
 		t.Cleanup(func() { <-done })
@@ -394,9 +394,9 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		run := cltest.MustInsertPipelineRun(t, db)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
-		testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
+		runID := cltest.MustInsertPipelineRun(t, db)
+		trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
+		testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
@@ -404,7 +404,7 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		// receipt is not passed through as a value since it reverted and caused an error
 		mustInsertRevertedEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 
-		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID, minConfirmations, etx.ID)
 
 		done := make(chan struct{})
 		t.Cleanup(func() { <-done })
@@ -441,12 +441,12 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		run := cltest.MustInsertPipelineRun(t, db)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
+		runID := cltest.MustInsertPipelineRun(t, db)
+		trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
-		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID, minConfirmations, etx.ID)
 
 		err := finalizer.ResumePendingTaskRuns(ctx, head.BlockNumber(), 0)
 		require.Error(t, err)
