@@ -117,6 +117,10 @@ func generateBootstrapProposals(ctx context.Context, e deployment.Environment, c
 				Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
 				Op:    ptypes.SelectorOp_EQ,
 			},
+			{
+				Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
+				Op:  ptypes.SelectorOp_EXIST,
+			},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to get externalJobID: %w", err)
@@ -125,6 +129,7 @@ func generateBootstrapProposals(ctx context.Context, e deployment.Environment, c
 		bootstrapSpec := jobs.NewBootstrapSpec(
 			cfg.ConfiguratorAddress,
 			cfg.Filter.DONID,
+			cfg.Filter.DONName,
 			jobs.RelayTypeEVM,
 			jobs.RelayConfig{
 				ChainID: chainID,
@@ -211,6 +216,10 @@ func generateOracleProposals(ctx context.Context, e deployment.Environment, cfg 
 				Key:   devenv.LabelNodeTypeKey,
 				Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 				Op:    ptypes.SelectorOp_EQ,
+			},
+			{
+				Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
+				Op:  ptypes.SelectorOp_EXIST,
 			},
 		})
 		if err != nil {

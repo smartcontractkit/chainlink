@@ -13,7 +13,10 @@ import (
 	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
@@ -43,7 +46,7 @@ func transferAndWrapAcceptOwnership(
 	configPDA solana.PublicKey, // e.g. for routerConfigPDA or a token-pool config
 	deployer solana.PublicKey, // the “from” authority
 	solChain deployment.SolChain, // used for solChain.Confirm
-	label deployment.ContractType, // e.g. "Router" or "TokenPool"
+	label cldf.ContractType, // e.g. "Router" or "TokenPool"
 ) (mcmsTypes.Transaction, error) {
 	// 1. Build the instruction that transfers ownership to the timelock
 	ixTransfer, err := buildTransfer(proposedOwner, configPDA, deployer)
@@ -268,13 +271,13 @@ func transferOwnershipBurnMintTokenPools(
 
 	// Build specialized closures
 	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
-		burnmint.SetProgramID(state.BurnMintTokenPool)
+		burnmint.SetProgramID(state.BurnMintTokenPools[ccipChangeset.CLLMetadata])
 		return burnmint.NewTransferOwnershipInstruction(
 			proposedOwner, config, tokenMint, authority,
 		).ValidateAndBuild()
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
-		burnmint.SetProgramID(state.BurnMintTokenPool)
+		burnmint.SetProgramID(state.BurnMintTokenPools[ccipChangeset.CLLMetadata])
 		// If the router has its own accept function, use that
 		ix, err := burnmint.NewAcceptOwnershipInstruction(
 			config, tokenMint, newOwnerAuthority,
@@ -293,7 +296,7 @@ func transferOwnershipBurnMintTokenPools(
 	tx, err := transferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
-		state.BurnMintTokenPool,
+		state.BurnMintTokenPools[ccipChangeset.CLLMetadata],
 		timelockSignerPDA,  // timelock PDA
 		tokenPoolConfigPDA, // config PDA
 		solChain.DeployerKey.PublicKey(),
@@ -326,13 +329,13 @@ func transferOwnershipLockReleaseTokenPools(
 
 	// Build specialized closures
 	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
-		lockrelease.SetProgramID(state.LockReleaseTokenPool)
+		lockrelease.SetProgramID(state.LockReleaseTokenPools[ccipChangeset.CLLMetadata])
 		return lockrelease.NewTransferOwnershipInstruction(
 			proposedOwner, config, tokenMint, authority,
 		).ValidateAndBuild()
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
-		lockrelease.SetProgramID(state.LockReleaseTokenPool)
+		lockrelease.SetProgramID(state.LockReleaseTokenPools[ccipChangeset.CLLMetadata])
 		// If the router has its own accept function, use that
 		ix, err := lockrelease.NewAcceptOwnershipInstruction(
 			config, tokenMint, newOwnerAuthority,
@@ -351,7 +354,7 @@ func transferOwnershipLockReleaseTokenPools(
 	tx, err := transferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
-		state.LockReleaseTokenPool,
+		state.LockReleaseTokenPools[ccipChangeset.CLLMetadata],
 		timelockSignerPDA,  // timelock PDA
 		tokenPoolConfigPDA, // config PDA
 		solChain.DeployerKey.PublicKey(),

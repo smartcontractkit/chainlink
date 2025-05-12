@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -55,7 +56,7 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 	return deployment.NewEnvironment(
 		DevEnv,
 		lggr,
-		deployment.NewMemoryAddressBook(),
+		cldf.NewMemoryAddressBook(),
 		datastore.NewMemoryDataStore[
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,

@@ -18,6 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -226,9 +229,9 @@ func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 		Chains: map[uint64]deployment.Chain{
 			chain.Selector: chain,
 		},
-		ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
+		ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 			chain.Selector: {
-				registry.Address().String(): deployment.TypeAndVersion{
+				registry.Address().String(): cldf.TypeAndVersion{
 					Type:    internal.CapabilitiesRegistry,
 					Version: deployment.Version1_0_0,
 				},

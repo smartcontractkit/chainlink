@@ -35,7 +35,7 @@ func Test_PrometheusReporter(t *testing.T) {
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
 		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(0)).Return()
 
-		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db))
+		reporter := headreporter.NewLegacyEVMPrometheusReporter(db, newLegacyChainContainer(t, db))
 		reporter.SetBackend(backend)
 
 		head := headreporter.NewHead()
@@ -52,7 +52,7 @@ func Test_PrometheusReporter(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		backend := headreporter.NewMockPrometheusBackend(t)
 
-		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainerWithNullTxm(t))
+		reporter := headreporter.NewLegacyEVMPrometheusReporter(db, newLegacyChainContainerWithNullTxm(t))
 		reporter.SetBackend(backend)
 
 		head := headreporter.NewHead()
@@ -78,7 +78,7 @@ func Test_PrometheusReporter(t *testing.T) {
 		})).Return()
 		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(35)).Return()
 
-		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db))
+		reporter := headreporter.NewLegacyEVMPrometheusReporter(db, newLegacyChainContainer(t, db))
 		reporter.SetBackend(backend)
 
 		head := headreporter.NewHead()
@@ -105,7 +105,7 @@ func Test_PrometheusReporter(t *testing.T) {
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
 		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(0)).Return()
 
-		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db))
+		reporter := headreporter.NewLegacyEVMPrometheusReporter(db, newLegacyChainContainer(t, db))
 		reporter.SetBackend(backend)
 
 		head := headreporter.NewHead()

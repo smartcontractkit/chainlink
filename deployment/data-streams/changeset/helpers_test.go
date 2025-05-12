@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -27,10 +28,10 @@ func sendTestLLOJobs(t *testing.T, e deployment.Environment, numOracles, numBoot
 	chainSel := e.AllChainSelectors()[0]
 	configurator := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
 	err := e.ExistingAddresses.Save(chainSel, configurator,
-		deployment.TypeAndVersion{
+		cldf.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
-			Labels:  deployment.NewLabelSet("don-1"),
+			Labels:  cldf.NewLabelSet("don-1"),
 		})
 	require.NoError(t, err)
 

@@ -18,6 +18,8 @@ import (
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -48,8 +50,8 @@ type MCMSConfigSolana struct {
 
 // HELPER FUNCTIONS
 // GetTokenProgramID returns the program ID for the given token program name
-func GetTokenProgramID(programName deployment.ContractType) (solana.PublicKey, error) {
-	tokenPrograms := map[deployment.ContractType]solana.PublicKey{
+func GetTokenProgramID(programName cldf.ContractType) (solana.PublicKey, error) {
+	tokenPrograms := map[cldf.ContractType]solana.PublicKey{
 		ccipChangeset.SPLTokens:     solana.TokenProgramID,
 		ccipChangeset.SPL2022Tokens: solana.Token2022ProgramID,
 	}
@@ -256,9 +258,10 @@ func UpdateOffRampRefAddresses(
 type SetUpgradeAuthorityConfig struct {
 	ChainSelector         uint64
 	NewUpgradeAuthority   solana.PublicKey
-	SetAfterInitialDeploy bool // set all of the programs after the initial deploy
-	SetOffRamp            bool // offramp not upgraded in place, so may need to set separately
-	SetMCMSPrograms       bool // these all deploy at once so just set them all
+	SetAfterInitialDeploy bool               // set all of the programs after the initial deploy
+	SetOffRamp            bool               // offramp not upgraded in place, so may need to set separately
+	SetMCMSPrograms       bool               // these all deploy at once so just set them all
+	TransferKeys          []solana.PublicKey // any keys not covered by the above e.g. partner programs
 }
 
 func SetUpgradeAuthorityChangeset(
@@ -277,7 +280,7 @@ func SetUpgradeAuthorityChangeset(
 	}
 	programs := make([]solana.PublicKey, 0)
 	if config.SetAfterInitialDeploy {
-		programs = append(programs, chainState.Router, chainState.FeeQuoter, chainState.RMNRemote, chainState.BurnMintTokenPool, chainState.LockReleaseTokenPool)
+		programs = append(programs, chainState.Router, chainState.FeeQuoter, chainState.RMNRemote, chainState.BurnMintTokenPools[ccipChangeset.CLLMetadata], chainState.LockReleaseTokenPools[ccipChangeset.CLLMetadata])
 	}
 	if config.SetOffRamp {
 		programs = append(programs, chainState.OffRamp)
@@ -292,6 +295,12 @@ func SetUpgradeAuthorityChangeset(
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 		}
 		programs = append(programs, mcmState.AccessControllerProgram, mcmState.TimelockProgram, mcmState.McmProgram)
+	}
+	for _, transfer := range config.TransferKeys {
+		if transfer.IsZero() {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get program address for chain %s", chain.String())
+		}
+		programs = append(programs, transfer)
 	}
 	// We do two loops here just to catch any errors before we get partway through the process
 	for _, program := range programs {
@@ -482,20 +491,20 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	var receiverAddress solana.PublicKey
 	var err error
 	if !cfg.IsUpgrade {
 		//nolint:gocritic // this is a false positive, we need to check if the address is zero
 		if chainState.Receiver.IsZero() {
-			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
+			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false, "")
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
 		} else if cfg.ReceiverVersion != nil {
 			// this block is for re-deploying with a new version
-			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, *cfg.ReceiverVersion, false)
+			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, *cfg.ReceiverVersion, false, "")
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
@@ -536,4 +545,59 @@ func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (d
 	return deployment.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
+}
+
+type SetLinkTokenConfig struct {
+	ChainSelector uint64
+}
+
+func (cfg SetLinkTokenConfig) Validate(e deployment.Environment) error {
+	state, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState, chainExists := state.SolChains[cfg.ChainSelector]
+	if !chainExists {
+		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
+	}
+	chain := e.SolChains[cfg.ChainSelector]
+
+	return validateRouterConfig(chain, chainState)
+}
+
+func SetLinkToken(e deployment.Environment, cfg SetLinkTokenConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	state, _ := ccipChangeset.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
+	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
+	feeQuoterConfigPDA, _, _ := solState.FindConfigPDA(chainState.FeeQuoter)
+
+	solRouter.SetProgramID(chainState.Router)
+	routerIx, err := solRouter.NewSetLinkTokenMintInstruction(
+		chainState.LinkToken,
+		routerConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	feeQuoterIx, err := solFeeQuoter.NewSetLinkTokenMintInstruction(
+		feeQuoterConfigPDA,
+		chainState.LinkToken,
+		chain.DeployerKey.PublicKey(),
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	if err := chain.Confirm([]solana.Instruction{routerIx, feeQuoterIx}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+	return deployment.ChangesetOutput{}, nil
 }

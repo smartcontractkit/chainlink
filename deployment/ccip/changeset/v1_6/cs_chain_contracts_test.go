@@ -20,11 +20,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -64,7 +66,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -140,7 +142,7 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -208,7 +210,7 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -287,7 +289,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -398,7 +400,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -474,7 +476,7 @@ func TestUpdateFQDests(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -567,7 +569,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 					chains = []uint64{source, dest}
 				}
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, chains)
+				testhelpers.TransferToTimelock(t, tenv, state, chains)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -646,7 +648,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -706,7 +708,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -954,10 +956,10 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
 			allChains := maps.Keys(tenv.Env.Chains)
 			// deploy a new token
-			ab := deployment.NewMemoryAddressBook()
+			ab := cldf.NewMemoryAddressBook()
 			for _, selector := range allChains {
-				_, err := deployment.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
-					func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
+					func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 							tenv.Env.Chains[selector].DeployerKey,
 							tenv.Env.Chains[selector].Client,
@@ -966,10 +968,10 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 							testhelpers.LocalTokenDecimals,
 							big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 						)
-						return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+						return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 							Address:  tokenAddress,
 							Contract: token,
-							Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+							Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 							Tx:       tx,
 							Err:      err,
 						}
@@ -985,7 +987,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -1044,7 +1046,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			require.NoError(t, err)
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -1073,10 +1075,10 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "token TEST not found in state for chain")
 			// deploy test new token
-			ab := deployment.NewMemoryAddressBook()
+			ab := cldf.NewMemoryAddressBook()
 			for _, selector := range allChains {
-				_, err := deployment.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
-					func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
+					func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 							tenv.Env.Chains[selector].DeployerKey,
 							tenv.Env.Chains[selector].Client,
@@ -1085,10 +1087,10 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 							testhelpers.LocalTokenDecimals,
 							big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 						)
-						return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+						return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 							Address:  tokenAddress,
 							Contract: token,
-							Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+							Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 							Tx:       tx,
 							Err:      err,
 						}
@@ -1153,9 +1155,9 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 			source := allChains[0]
 			dest := allChains[1]
 			// deploy a new token
-			ab := deployment.NewMemoryAddressBook()
-			_, err := deployment.DeployContract(tenv.Env.Logger, tenv.Env.Chains[source], ab,
-				func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+			ab := cldf.NewMemoryAddressBook()
+			_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[source], ab,
+				func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 						tenv.Env.Chains[source].DeployerKey,
 						tenv.Env.Chains[source].Client,
@@ -1164,10 +1166,10 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 						testhelpers.LocalTokenDecimals,
 						big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 					)
-					return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+					return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 						Address:  tokenAddress,
 						Contract: token,
-						Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+						Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
 						Tx:       tx,
 						Err:      err,
 					}
@@ -1180,7 +1182,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -1273,7 +1275,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 			require.NoError(t, err)
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig

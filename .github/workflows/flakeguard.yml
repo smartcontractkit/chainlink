@@ -79,7 +79,6 @@ env:
   ALL_TESTS_RUNNER: ${{ fromJSON(inputs.extraArgs)['all_tests_runner'] || 'ubuntu22.04-32cores-128GB' }} # The runner to use for running all tests.
   DEFAULT_RUNNER: ${{ fromJSON(inputs.extraArgs)['default_tests_runner'] || 'ubuntu-latest' }} # The runner to use for running custom tests (e.g. in PRs).
   UPLOAD_ALL_TEST_RESULTS: ${{ fromJSON(inputs.extraArgs)['upload_all_test_results'] || 'false' }} # Whether to upload all test results as artifacts.
-  OMIT_TEST_OUTPUTS_ON_SUCCESS: ${{ fromJSON(inputs.extraArgs)['omit_test_outputs_on_success'] || 'true' }}
 
 jobs:
   get-tests:
@@ -136,7 +135,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7f8fa09251be87f51357ffc517fd93cd408f5723 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -325,7 +324,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7f8fa09251be87f51357ffc517fd93cd408f5723 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -351,7 +350,6 @@ jobs:
             --shuffle-seed=${{ env.SHUFFLE_SEED }} \
             --skip-tests=${{ env.SKIPPED_TESTS }} \
             --main-results-path=test-result.json \
-            --omit-test-outputs-on-success=${{ env.OMIT_TEST_OUTPUTS_ON_SUCCESS }}
 
           # Output the status of the flakeguard run to files so that the next step can aggregate them and act accordingly
           EXIT_CODE=$?
@@ -436,7 +434,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7f8fa09251be87f51357ffc517fd93cd408f5723 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
 
       - name: Aggregate Flakeguard Results
         id: results

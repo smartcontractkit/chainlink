@@ -6,31 +6,30 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 )
 
 // InitializeVerifierChangeset sets registers an expected Verifier contract on the proxy contract
-var InitializeVerifierChangeset deployment.ChangeSetV2[VerifierProxyInitializeVerifierConfig] = &verifierProxyInitializeVerifier{}
-
-type verifierProxyInitializeVerifier struct{}
+var InitializeVerifierChangeset = cldf.CreateChangeSet(verifierProxyInitializeVerifierLogic, verifierProxyInitializeVerifierPrecondition)
 
 type VerifierProxyInitializeVerifierConfig struct {
 	ConfigPerChain map[uint64][]InitializeVerifierConfig
-	MCMSConfig     *changeset.MCMSConfig
+	MCMSConfig     *types.MCMSConfig
 }
 
 type InitializeVerifierConfig struct {
-	ContractAddress common.Address
-	VerifierAddress common.Address
+	VerifierProxyAddress common.Address
+	VerifierAddress      common.Address
 }
 
-func (v verifierProxyInitializeVerifier) Apply(e deployment.Environment, cfg VerifierProxyInitializeVerifierConfig) (deployment.ChangesetOutput, error) {
+func verifierProxyInitializeVerifierLogic(e deployment.Environment, cfg VerifierProxyInitializeVerifierConfig) (deployment.ChangesetOutput, error) {
 	txs, err := GetInitializeVerifierTxs(e, cfg)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -56,7 +55,7 @@ func GetInitializeVerifierTxs(e deployment.Environment, cfg VerifierProxyInitial
 	var preparedTxs []*txutil.PreparedTx
 	for chainSelector, configs := range cfg.ConfigPerChain {
 		for _, config := range configs {
-			state, err := maybeLoadVerifierProxyState(e, chainSelector, config.ContractAddress.String())
+			state, err := maybeLoadVerifierProxyState(e, chainSelector, config.VerifierProxyAddress.String())
 			if err != nil {
 				return nil, fmt.Errorf("failed to load verifier proxy state: %w", err)
 			}
@@ -75,7 +74,7 @@ func GetInitializeVerifierTxs(e deployment.Environment, cfg VerifierProxyInitial
 	return preparedTxs, nil
 }
 
-func (v verifierProxyInitializeVerifier) VerifyPreconditions(e deployment.Environment, cfg VerifierProxyInitializeVerifierConfig) error {
+func verifierProxyInitializeVerifierPrecondition(e deployment.Environment, cfg VerifierProxyInitializeVerifierConfig) error {
 	if len(cfg.ConfigPerChain) == 0 {
 		return errors.New("ConfigPerChain is empty")
 	}

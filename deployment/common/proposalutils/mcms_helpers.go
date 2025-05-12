@@ -21,6 +21,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -229,18 +231,18 @@ func (state MCMSWithTimelockContracts) Validate() error {
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
-func MaybeLoadMCMSWithTimelockContracts(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*MCMSWithTimelockContracts, error) {
+func MaybeLoadMCMSWithTimelockContracts(chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockContracts, error) {
 	state := MCMSWithTimelockContracts{}
 	// We expect one of each contract on the chain.
-	timelock := deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
-	callProxy := deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
-	proposer := deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
-	canceller := deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
-	bypasser := deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
+	timelock := cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+	callProxy := cldf.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
+	proposer := cldf.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
+	canceller := cldf.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
+	bypasser := cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
 
 	// Convert map keys to a slice
-	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
-	_, err := deployment.EnsureDeduped(addresses, wantTypes)
+	wantTypes := []cldf.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
+	_, err := cldf.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}

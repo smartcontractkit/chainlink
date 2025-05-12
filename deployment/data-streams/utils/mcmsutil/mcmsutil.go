@@ -11,6 +11,10 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+
+	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -26,7 +30,8 @@ func CreateMCMSProposal(e deployment.Environment, preparedTxs []*txutil.Prepared
 	for _, tx := range preparedTxs {
 		chainSelectors = append(chainSelectors, tx.ChainSelector)
 	}
-	mcmsStatePerChain, err := commonchangeset.MaybeLoadMCMSWithTimelockState(e, chainSelectors)
+
+	mcmsStatePerChain, err := commonstate.MaybeLoadMCMSWithTimelockStateDataStore(e, chainSelectors)
 	if err != nil {
 		return nil, err
 	}
@@ -97,40 +102,41 @@ func ExecuteOrPropose(
 	return deployment.ChangesetOutput{}, err
 }
 
-// TransferToMCMSWithTimelockForTypeAndVersion transfers ownership of the contracts of a specific type and version to the
-// MCMS timelock on that chain. The output will contain an MCMS timelock proposal for "AcceptOwnership" of those contracts
-// The address book should be recently deployed addresses that are being transferred to MCMS and should not be in e.ExistingAddresses
-func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab deployment.AddressBook,
-	filter deployment.TypeAndVersion, mcmsConfig proposalutils.TimelockConfig) (deployment.ChangesetOutput, error) {
-	contractAddresses := make(map[uint64][]common.Address)
-	addresses, err := ab.Addresses()
+// TransferToMCMSWithTimelock transfers ownership of specified addresses to MCMS timelock contracts.
+// The output will contain an MCMS timelock proposal for "AcceptOwnership" of those contracts
+// The newAddresses should be recently deployed addresses that are being transferred to MCMS and
+// should not be in `e` Environment
+func TransferToMCMSWithTimelock(e deployment.Environment, newAddresses []ds.AddressRef,
+	mcmsConfig proposalutils.TimelockConfig) (deployment.ChangesetOutput, error) {
+	// Map: chainselector -> List[Address]
+	contractAddressesToTransfer := make(map[uint64][]common.Address)
+
+	for _, addressRef := range newAddresses {
+		chainSelector := addressRef.ChainSelector
+		contractAddressesToTransfer[chainSelector] = append(contractAddressesToTransfer[chainSelector], common.HexToAddress(addressRef.Address))
+	}
+
+	// Adapter: Convert from DataStore primitives -> AddressBook is needed for TransferToMCMSWithTimelockV2 changeset
+	// This should be removed once TransferToMCMSWithTimelockV2 is updated to use the DataStore or there is a new changeset which does
+	newAndExistingAddresses, err := utils.AddressRefsToAddressBook(newAddresses)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get addresses from address book: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert new addresses to address book: %w", err)
 	}
-
-	for chainSelector, addressToTypeAndVersion := range addresses {
-		for address, typeAndVersion := range addressToTypeAndVersion {
-			if typeAndVersion.Type == filter.Type && typeAndVersion.Version == filter.Version {
-				contractAddresses[chainSelector] = append(contractAddresses[chainSelector], common.HexToAddress(address))
-			}
-		}
-	}
-
 	// create a merged addressbook with the existing + new addresses. Sub-changesets will need all addresses
 	// This is required when chaining together changesets
-	abTemp := deployment.NewMemoryAddressBook()
-	if err = abTemp.Merge(ab); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging new addresses into temp addresses: %w", err)
+	// i.e. the MCMS timelock addresses
+	existingAddrs, err := utils.DataStoreToAddressBook(e.DataStore)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert existing address book: %w", err)
 	}
-	if err = abTemp.Merge(e.ExistingAddresses); err != nil {
+	if err := newAndExistingAddresses.Merge(existingAddrs); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging existing addresses into temp addresses: %w", err)
 	}
-
-	e.ExistingAddresses = abTemp
+	e.ExistingAddresses = newAndExistingAddresses
 
 	transferCs := cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2)
 	transferCfg := commonchangeset.TransferToMCMSWithTimelockConfig{
-		ContractsByChain: contractAddresses,
+		ContractsByChain: contractAddressesToTransfer,
 		MCMSConfig:       mcmsConfig,
 	}
 
@@ -140,7 +146,6 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab de
 	}
 
 	return deployment.ChangesetOutput{
-		AddressBook:           ab,
 		MCMSTimelockProposals: transferOut.MCMSTimelockProposals,
 	}, nil
 }
@@ -224,4 +229,21 @@ func proposalsEqualForMerge(p1, p2 mcms.TimelockProposal) (bool, error) {
 	}
 
 	return true, nil
+}
+
+type HasOwnershipConfig interface {
+	GetOwnershipConfig() dsTypes.OwnershipSettings
+}
+
+func GetTransferOwnershipProposals[T HasOwnershipConfig](
+	e deployment.Environment, cfg T, addresses []ds.AddressRef) ([]mcms.TimelockProposal, error) {
+	var proposals []mcms.TimelockProposal
+	if cfg.GetOwnershipConfig().ShouldTransfer && cfg.GetOwnershipConfig().MCMSProposalConfig != nil {
+		res, err := TransferToMCMSWithTimelock(e, addresses, *cfg.GetOwnershipConfig().MCMSProposalConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transfer ownership to MCMS: %w", err)
+		}
+		proposals = res.MCMSTimelockProposals
+	}
+	return proposals, nil
 }

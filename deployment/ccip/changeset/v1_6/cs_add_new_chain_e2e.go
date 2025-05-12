@@ -11,13 +11,16 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -98,6 +101,10 @@ type AddCandidatesForNewChainConfig struct {
 	MCMSDeploymentConfig *commontypes.MCMSWithTimelockConfigV2 `json:"mcmsDeploymentConfig,omitempty"`
 	// MCMSConfig defines the MCMS configuration for the changeset.
 	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
+	// The offset to adjust the donID in DonIDClaimer (useful when certain DON IDs are dropped)
+	// This is a pointer to distinguish between an explicitly set value (including 0) and an unset value (nil).
+	// We can OffSet by 0 as well sync nextDonID with CapReg.
+	DonIDOffSet *uint32 `json:"donIDOffset,omitempty"`
 }
 
 func (c AddCandidatesForNewChainConfig) prerequisiteConfigForNewChain() changeset.DeployPrerequisiteConfig {
@@ -158,6 +165,9 @@ func addCandidatesForNewChainPrecondition(e deployment.Environment, c AddCandida
 	if homeChainState.CapabilityRegistry == nil {
 		return fmt.Errorf("home chain with selector %d does not have a CapabilitiesRegistry", c.HomeChainSelector)
 	}
+	if homeChainState.DonIDClaimer == nil {
+		return fmt.Errorf("home chain with selector %d does not have a DonIDClaimer", c.HomeChainSelector)
+	}
 
 	// We pre-validate any changesets that do not rely on contracts being deployed.
 	// The following can't be easily pre-validated:
@@ -180,11 +190,24 @@ func addCandidatesForNewChainPrecondition(e deployment.Environment, c AddCandida
 		return fmt.Errorf("failed to validate update chain config: %w", err)
 	}
 
+	txOpts := e.Chains[c.HomeChainSelector].DeployerKey
+	// ensure deployer key is authorized as precondition
+	isAuthorizedDeployer, err := state.Chains[c.HomeChainSelector].DonIDClaimer.IsAuthorizedDeployer(&bind.CallOpts{
+		Context: e.GetContext(),
+	}, txOpts.From)
+	if err != nil {
+		return fmt.Errorf("failed to run IsAuthorizedDeployed on home chain for donIDClaimer: %w", err)
+	}
+
+	if !isAuthorizedDeployer {
+		return fmt.Errorf("deployerKey %v is not authorized deployer on donIDClaimer. ", txOpts.From.String())
+	}
+
 	return nil
 }
 
 func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForNewChainConfig) (deployment.ChangesetOutput, error) {
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 	var allProposals []mcmslib.TimelockProposal
 
 	// Save existing contracts
@@ -291,7 +314,19 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	donID, err := state.Chains[c.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
+
+	if c.DonIDOffSet != nil {
+		_, err = deployment.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
+			OffSet: *c.DonIDOffSet,
+		})
+
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run DonIDClaimerOffSetChangeset on home chain: %w", err)
+		}
+	}
+
+	// get the nextDonID from donID claim to be claimed
+	donID, err := state.Chains[c.HomeChainSelector].DonIDClaimer.GetNextDONId(&bind.CallOpts{
 		Context: e.GetContext(),
 	})
 	if err != nil {
@@ -319,6 +354,8 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 			},
 			SkipChainConfigValidation: true,
 		},
+
+		DonIDOverride: donID,
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run AddDonAndSetCandidateChangeset on home chain: %w", err)
@@ -341,11 +378,21 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 				SkipChainConfigValidation: true,
 			},
 		},
+		// use currentDonId here
 		DonIDOverrides: map[uint64]uint32{c.NewChain.Selector: donID},
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetCandidateChangeset on home chain: %w", err)
 	}
+
+	// Claim donID using donIDClaimer at the end of the changeset run
+	txOpts := e.Chains[c.HomeChainSelector].DeployerKey
+
+	tx, err := state.Chains[c.HomeChainSelector].DonIDClaimer.ClaimNextDONId(txOpts)
+	if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[c.HomeChainSelector], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
 	// Reset existing addresses
@@ -359,6 +406,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	proposal, err := proposalutils.AggregateProposals(
 		e,
 		state.EVMMCMSStateByChain(),
+		nil,
 		allProposals,
 		nil,
 		fmt.Sprintf("Deploy and set candidates for chain with selector %d", c.NewChain.Selector),
@@ -538,6 +586,7 @@ func promoteNewChainForConfigLogic(e deployment.Environment, c PromoteNewChainFo
 	proposal, err := proposalutils.AggregateProposals(
 		e,
 		state.EVMMCMSStateByChain(),
+		nil,
 		allProposals,
 		nil,
 		fmt.Sprintf("Promote chain with selector %d for testing", c.NewChain.Selector),
@@ -756,6 +805,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 	proposal, err := proposalutils.AggregateProposals(
 		env,
 		state.EVMMCMSStateByChain(),
+		nil,
 		allEnablementProposals,
 		ownershipTransferProposals,
 		fmt.Sprintf("Connect chain with selector %d to other chains", c.NewChainSelector),
@@ -858,7 +908,7 @@ func connectRampsAndRouters(
 // END ConnectNewChainChangeset
 ///////////////////////////////////
 
-func runAndSaveAddresses(fn func() (deployment.ChangesetOutput, error), newAddresses deployment.AddressBook, existingAddresses deployment.AddressBook) error {
+func runAndSaveAddresses(fn func() (deployment.ChangesetOutput, error), newAddresses cldf.AddressBook, existingAddresses cldf.AddressBook) error {
 	output, err := fn()
 	if err != nil {
 		return fmt.Errorf("failed to run changeset: %w", err)
