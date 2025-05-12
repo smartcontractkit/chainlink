@@ -14,6 +14,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -224,13 +225,17 @@ func TransferCCIPToMCMSWithTimelockSolana(
 			})
 		}
 		for tokenPoolConfigPDA, tokenMint := range contractsToTransfer.LockReleaseTokenPools {
+			metadata := ccipChangeset.CLLMetadata
+			if contractsToTransfer.LockReleaseTokenPoolMetadata != "" {
+				metadata = contractsToTransfer.LockReleaseTokenPoolMetadata
+			}
 			mcmsTxs, err := transferOwnershipLockReleaseTokenPools(
 				ccipState,
 				tokenPoolConfigPDA,
 				tokenMint,
 				chainSelector,
 				solChain,
-				contractsToTransfer.LockReleaseTokenPoolMetadata,
+				metadata,
 				currentOwner,
 				proposedOwner,
 				timelockSigner,
@@ -245,13 +250,17 @@ func TransferCCIPToMCMSWithTimelockSolana(
 		}
 
 		for tokenPoolConfigPDA, tokenMint := range contractsToTransfer.BurnMintTokenPools {
+			metadata := ccipChangeset.CLLMetadata
+			if contractsToTransfer.BurnMintTokenPoolMetadata != "" {
+				metadata = contractsToTransfer.BurnMintTokenPoolMetadata
+			}
 			mcmsTxs, err := transferOwnershipBurnMintTokenPools(
 				ccipState,
 				tokenPoolConfigPDA,
 				tokenMint,
 				chainSelector,
 				solChain,
-				contractsToTransfer.BurnMintTokenPoolMetadata,
+				metadata,
 				currentOwner,
 				proposedOwner,
 				timelockSigner,

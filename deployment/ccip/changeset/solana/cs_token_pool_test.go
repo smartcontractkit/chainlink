@@ -87,10 +87,10 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 	require.NoError(t, err)
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	testUserATA, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, newTokenAddress, testUserPubKey)
+	testUserATA, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, newTokenAddress, testUserPubKey)
 	require.NoError(t, err)
 	deployerATA, _, err := solTokenUtil.FindAssociatedTokenAddress(
-		solana.Token2022ProgramID,
+		solana.TokenProgramID,
 		newTokenAddress,
 		e.SolChains[solChain].DeployerKey.PublicKey(),
 	)

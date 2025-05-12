@@ -102,10 +102,10 @@ func TestSolanaTokenOps(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	testUserATA, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, testUserPubKey)
+	testUserATA, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, tokenAddress, testUserPubKey)
 	require.NoError(t, err)
 	deployerATA, _, err := solTokenUtil.FindAssociatedTokenAddress(
-		solana.Token2022ProgramID,
+		solana.TokenProgramID,
 		tokenAddress,
 		e.SolChains[solChain1].DeployerKey.PublicKey(),
 	)
@@ -151,10 +151,10 @@ func TestSolanaTokenOps(t *testing.T) {
 		},
 		addresses,
 	)
-	testUserATA2, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress2, testUserPubKey)
+	testUserATA2, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, tokenAddress2, testUserPubKey)
 	require.NoError(t, err)
 	deployerATA2, _, err := solTokenUtil.FindAssociatedTokenAddress(
-		solana.Token2022ProgramID,
+		solana.TokenProgramID,
 		tokenAddress2,
 		e.SolChains[solChain1].DeployerKey.PublicKey(),
 	)

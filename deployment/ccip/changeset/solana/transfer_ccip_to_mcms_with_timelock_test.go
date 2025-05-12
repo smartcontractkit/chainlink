@@ -264,7 +264,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			cldf.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
 			solanachangesets.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: changeset.SPL2022Tokens,
+				TokenProgramName: changeset.SPLTokens,
 				TokenDecimals:    9,
 			},
 		),
@@ -287,7 +287,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 	state, err := changeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	tokenAddressLockRelease := state.SolChains[solChain1].SPL2022Tokens[0]
-	tokenAddressBurnMint := state.SolChains[solChain1].SPL2022Tokens[1]
+	tokenAddressBurnMint := state.SolChains[solChain1].SPLTokens[0]
 
 	lnr := test_token_pool.LockAndRelease_PoolType
 	bnm := test_token_pool.BurnAndMint_PoolType
@@ -319,8 +319,8 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 	solChain := e.SolChains[solChain1]
 
 	tokenAddressLockRelease := state.SolChains[solChain1].SPL2022Tokens[0]
+	tokenAddressBurnMint := state.SolChains[solChain1].SPLTokens[0]
 
-	tokenAddressBurnMint := state.SolChains[solChain1].SPL2022Tokens[1]
 	burnMintPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressBurnMint, state.SolChains[solChain1].BurnMintTokenPools[ccipChangeset.CLLMetadata])
 	lockReleasePoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressLockRelease, state.SolChains[solChain1].LockReleaseTokenPools[ccipChangeset.CLLMetadata])
 	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(
