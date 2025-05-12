@@ -38,7 +38,7 @@ func (a UpdateSubscriberDiscount) GetContractAddress() common.Address {
 	return a.FeeManagerAddress
 }
 
-func (cs discount) Apply(e deployment.Environment, cfg UpdateSubscriberDiscountConfig) (deployment.ChangesetOutput, error) {
+func (cs discount) Apply(e deployment.Environment, cfg UpdateSubscriberDiscountConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -47,7 +47,7 @@ func (cs discount) Apply(e deployment.Environment, cfg UpdateSubscriberDiscountC
 		doUpdateSubscriberDiscount,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building UpdateSubscriberDiscount txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building UpdateSubscriberDiscount txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "UpdateSubscriberDiscount proposal")

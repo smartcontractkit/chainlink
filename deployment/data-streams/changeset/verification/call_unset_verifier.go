@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
-	"github.com/smartcontractkit/chainlink/deployment/koko"
 )
 
 // UnsetVerifierChangeset unsets a registered verifier on the proxy contract
@@ -29,24 +29,24 @@ type UnsetVerifierConfig struct {
 	ConfigDigest    [32]byte
 }
 
-func (v verifierProxyUnsetVerifier) Apply(e deployment.Environment, cfg VerifierProxyUnsetVerifierConfig) (deployment.ChangesetOutput, error) {
+func (v verifierProxyUnsetVerifier) Apply(e deployment.Environment, cfg VerifierProxyUnsetVerifierConfig) (cldf.ChangesetOutput, error) {
 	txs, err := GetUnsetVerifierTxs(e, cfg)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	if cfg.MCMSConfig != nil {
 		proposal, err := mcmsutil.CreateMCMSProposal(e, txs, cfg.MCMSConfig.MinDelay, "UnsetVerifier proposal")
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 		}, nil
 	}
 
 	_, err = txutil.SignAndExecute(e, txs)
-	return deployment.ChangesetOutput{}, err
+	return cldf.ChangesetOutput{}, err
 }
 
 // GetUnsetVerifierTxs - returns the transactions to run the operation on the verifier proxy.

@@ -35,7 +35,7 @@ func (a PayLinkDeficit) GetContractAddress() common.Address {
 	return a.FeeManagerAddress
 }
 
-func (cs payLinkDeficit) Apply(e deployment.Environment, cfg PayLinkDeficitConfig) (deployment.ChangesetOutput, error) {
+func (cs payLinkDeficit) Apply(e deployment.Environment, cfg PayLinkDeficitConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -44,7 +44,7 @@ func (cs payLinkDeficit) Apply(e deployment.Environment, cfg PayLinkDeficitConfi
 		doPayLinkDeficit,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building Withdraw txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building Withdraw txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "Withdraw proposal")

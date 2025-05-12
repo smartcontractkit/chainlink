@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -18,7 +19,7 @@ type AcceptAllOwnershipRequest struct {
 var _ deployment.ChangeSet[*AcceptAllOwnershipRequest] = AcceptAllOwnershipsProposal
 
 // AcceptAllOwnershipsProposal creates a MCMS proposal to call accept ownership on all the Keystone contracts in the address book.
-func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnershipRequest) (deployment.ChangesetOutput, error) {
+func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnershipRequest) (cldf.ChangesetOutput, error) {
 	chainSelector := req.ChainSelector
 	minDelay := req.MinDelay
 	chain := e.Chains[chainSelector]
@@ -31,7 +32,7 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnersh
 		AddressBook: addrBook,
 	})
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	contracts := r.ContractSets[chainSelector]
 

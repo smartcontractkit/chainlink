@@ -52,13 +52,13 @@ type CsDistributeLLOJobSpecsConfig struct {
 
 type CsDistributeLLOJobSpecs struct{}
 
-func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig) (deployment.ChangesetOutput, error) {
+func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(e.GetContext(), defaultJobSpecsTimeout)
 	defer cancel()
 
 	chainID, _, err := chainAndAddresses(e, cfg.ChainSelectorEVM)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	// Add a label to the job spec to identify the related DON
@@ -74,19 +74,19 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 
 	bootstrapProposals, err := generateBootstrapProposals(ctx, e, cfg, chainID, labels)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate bootstrap proposals: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate bootstrap proposals: %w", err)
 	}
 	oracleProposals, err := generateOracleProposals(ctx, e, cfg, chainID, labels)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate oracle proposals: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate oracle proposals: %w", err)
 	}
 
 	proposedJobs, err := proposeAllOrNothing(ctx, e.Offchain, append(bootstrapProposals, oracleProposals...))
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose all jobs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose all jobs: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		Jobs: proposedJobs,
 	}, nil
 }

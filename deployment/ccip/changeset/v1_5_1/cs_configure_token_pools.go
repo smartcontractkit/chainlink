@@ -266,13 +266,13 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) 
 // ConfigureTokenPoolContractsChangeset configures pools for a given token across multiple chains.
 // The outputted MCMS proposal will update chain configurations on each pool, encompassing new chain additions and rate limit changes.
 // Removing chain support is not in scope for this changeset.
-func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c ConfigureTokenPoolContractsConfig) (deployment.ChangesetOutput, error) {
+func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c ConfigureTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid ConfigureTokenPoolContractsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid ConfigureTokenPoolContractsConfig: %w", err)
 	}
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
@@ -282,11 +282,11 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 
 		opts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
 		}
 		err = configureTokenPool(env.GetContext(), opts, env.Chains, state, c, chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to make operations to configure %s token pool on %s: %w", c.TokenSymbol, chain.String(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to make operations to configure %s token pool on %s: %w", c.TokenSymbol, chain.String(), err)
 		}
 	}
 

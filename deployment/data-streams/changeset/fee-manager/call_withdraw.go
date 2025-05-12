@@ -38,7 +38,7 @@ func (a Withdraw) GetContractAddress() common.Address {
 	return a.FeeManagerAddress
 }
 
-func (cs withdraw) Apply(e deployment.Environment, cfg FeeManagerWithdrawConfig) (deployment.ChangesetOutput, error) {
+func (cs withdraw) Apply(e deployment.Environment, cfg FeeManagerWithdrawConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -47,7 +47,7 @@ func (cs withdraw) Apply(e deployment.Environment, cfg FeeManagerWithdrawConfig)
 		doWithdraw,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building Withdraw txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building Withdraw txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "Withdraw proposal")

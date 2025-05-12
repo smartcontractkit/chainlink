@@ -152,15 +152,15 @@ func (c DeployTokenPoolContractsConfig) Validate(env deployment.Environment) err
 }
 
 // DeployTokenPoolContractsChangeset deploys new pools for a given token across multiple chains.
-func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployTokenPoolContractsConfig) (deployment.ChangesetOutput, error) {
+func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployTokenPoolContractsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployTokenPoolContractsConfig: %w", err)
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
 
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	deployGrp := errgroup.Group{}
@@ -185,11 +185,11 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 	}
 
 	if err := deployGrp.Wait(); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %w",
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %w",
 			c.TokenSymbol, err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
 }

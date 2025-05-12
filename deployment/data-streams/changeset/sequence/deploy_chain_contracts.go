@@ -32,7 +32,7 @@ type DeployDataStreams struct {
 	Ownership      types.OwnershipFeature
 }
 
-func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig) (deployment.ChangesetOutput, error) {
+func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig) (cldf.ChangesetOutput, error) {
 	deployedAddresses := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
 
 	// Prevents mutating environment state - injected environment is not expected to be updated during changeset Apply
@@ -43,39 +43,39 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 	for chainSel, cfg := range cc.ChainsToDeploy {
 		family, err := chainselectors.GetSelectorFamily(chainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get family for chain %d: %w", chainSel, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get family for chain %d: %w", chainSel, err)
 		}
 		switch family {
 		case chainselectors.FamilyEVM:
 			chainProposals, err := deployChainComponentsEVM(&cloneEnv, chainSel, cfg, deployedAddresses)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy components for chain %d: %w", chainSel, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy components for chain %d: %w", chainSel, err)
 			}
 			timelockProposals = append(timelockProposals, chainProposals...)
 		default:
-			return deployment.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s for chain %d", family, chainSel)
+			return cldf.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s for chain %d", family, chainSel)
 		}
 	}
 
 	if len(timelockProposals) > 0 {
 		mergedTimelockProposal, err := mcmsutil.MergeSimilarTimelockProposals(timelockProposals)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge timelock proposals: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge timelock proposals: %w", err)
 		}
 		timelockProposals = []mcms.TimelockProposal{mergedTimelockProposal}
 	}
 
 	sealedDS, err := ds.ToDefault(deployedAddresses.Seal())
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
 	}
 
 	ab, err := utils.DataStoreToAddressBook(sealedDS.Seal())
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to address book: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to address book: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook:           ab, // backwards compatibility. This will be removed in the future.
 		DataStore:             sealedDS,
 		MCMSTimelockProposals: timelockProposals,

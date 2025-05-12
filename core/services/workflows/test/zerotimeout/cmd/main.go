@@ -3,9 +3,9 @@
 package main
 
 import (
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/targets/chainwriter"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/ocr3cap"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/targets/chainwriter"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/cli/cmd/testdata/fixtures/capabilities/basictrigger"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
@@ -27,10 +27,10 @@ func BuildWorkflow(config []byte) *sdk.WorkflowSpecFactory {
 		SignedReport: consensus,
 	}
 	chainwriter.TargetConfig{
-		Address: "0x0",
+		Address:        "0x0",
 		CreStepTimeout: 0,
-		DeltaStage: "30s",
-		Schedule: "oneAtATime",
+		DeltaStage:     "30s",
+		Schedule:       "oneAtATime",
 	}.New(workflow, "write_ethereum-testnet-sepolia@1.0.0", input)
 
 	return workflow

@@ -76,14 +76,14 @@ func fetchNodesFromJD(ctx context.Context, env deployment.Environment, nodeFilte
 	return resp.Nodes, nil
 }
 
-func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpec string, workflowName *string, nodeFilters *NodesFilter) (deployment.ChangesetOutput, error) {
-	out := deployment.ChangesetOutput{
+func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpec string, workflowName *string, nodeFilters *NodesFilter) (cldf.ChangesetOutput, error) {
+	out := cldf.ChangesetOutput{
 		Jobs: []cldf.ProposedJob{},
 	}
 	// Fetch nodes
 	nodes, err := fetchNodesFromJD(ctx, env, nodeFilters)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get nodes: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get nodes: %w", err)
 	}
 	// Propose jobs
 	jobLabels := []*ptypes.Label{
@@ -107,7 +107,7 @@ func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpe
 			Labels: jobLabels,
 		})
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose job: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose job: %w", err)
 		}
 		env.Logger.Debugf("Job proposed %s", resp.Proposal.JobId)
 		out.Jobs = append(out.Jobs, cldf.ProposedJob{

@@ -46,7 +46,7 @@ func (l DeployAndMintExampleChangeset) VerifyPreconditions(e deployment.Environm
 	return nil
 }
 
-func (l DeployAndMintExampleChangeset) Apply(e deployment.Environment, config SqDeployLinkInput) (deployment.ChangesetOutput, error) {
+func (l DeployAndMintExampleChangeset) Apply(e deployment.Environment, config SqDeployLinkInput) (cldf.ChangesetOutput, error) {
 	auth := e.Chains[config.ChainID].DeployerKey
 	ab := cldf.NewMemoryAddressBook()
 
@@ -59,10 +59,10 @@ func (l DeployAndMintExampleChangeset) Apply(e deployment.Environment, config Sq
 
 	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, DeployAndMintSequence, deps, config)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: ab,
 		Reports:     seqReport.ExecutionReports,
 	}, nil

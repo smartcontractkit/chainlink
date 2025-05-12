@@ -7,10 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -47,7 +50,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    deployment.ChangesetOutput
+		want    cldf.ChangesetOutput
 		wantErr bool
 	}{
 		{
@@ -86,7 +89,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 					},
 				},
 			},
-			want:    deployment.ChangesetOutput{},
+			want:    cldf.ChangesetOutput{},
 			wantErr: false,
 		},
 	}

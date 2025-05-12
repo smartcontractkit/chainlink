@@ -9,14 +9,10 @@ import (
 // ChangeSets
 
 type (
-	ChangeSet[C any]            = deployment.ChangeSet[C]
+	ChangeSet[C any] = deployment.ChangeSet[C]
 )
 
 // Changeset Output
-
-type (
-	ChangesetOutput = deployment.ChangesetOutput
-)
 
 type WrappedChangeSet[C any] struct {
 	operation deployment.ChangeSetV2[C]

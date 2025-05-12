@@ -26,15 +26,15 @@ func (l TerminalErrorExampleChangeset) VerifyPreconditions(e deployment.Environm
 	return nil
 }
 
-func (l TerminalErrorExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (deployment.ChangesetOutput, error) {
+func (l TerminalErrorExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (cldf.ChangesetOutput, error) {
 	ab := cldf.NewMemoryAddressBook()
 
 	_, err := operations.ExecuteOperation(e.OperationsBundle, TerminalErrorOperation, nil, operations.EmptyInput{})
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
 }

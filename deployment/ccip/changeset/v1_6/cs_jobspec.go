@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip"
-	"github.com/smartcontractkit/chainlink/deployment/koko"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	corejob "github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -22,15 +21,15 @@ var _ deployment.ChangeSet[any] = CCIPCapabilityJobspecChangeset
 
 // CCIPCapabilityJobspecChangeset returns the job specs for the CCIP capability.
 // The caller needs to propose these job specs to the offchain system.
-func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployment.ChangesetOutput, error) {
+func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (cldf.ChangesetOutput, error) {
 	nodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	// find existing jobs
 	existingSpecs, err := acceptedOrPendingAcceptedJobSpecs(env, nodes)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	// We first generate the job specs for the CCIP capability. so that if
 	// there are any errors in the job specs, we can fail early.
@@ -52,7 +51,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			_, exists := keyBundles[family]
 			if exists {
 				if keyBundles[family] != config.KeyBundleID {
-					return deployment.ChangesetOutput{}, fmt.Errorf("multiple different %v OCR keys found for node %v", family, node.PeerID)
+					return cldf.ChangesetOutput{}, fmt.Errorf("multiple different %v OCR keys found for node %v", family, node.PeerID)
 				}
 				continue
 			}
@@ -83,7 +82,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			})
 		}
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		// If the spec already exists, don't propose it again
 		specExists := false
@@ -91,7 +90,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			for _, existingSpec := range existingSpecs[node.NodeID] {
 				specExists, err = areCCIPSpecsEqual(existingSpec, spec)
 				if err != nil {
-					return deployment.ChangesetOutput{}, err
+					return cldf.ChangesetOutput{}, err
 				}
 			}
 		}
@@ -123,13 +122,13 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 						Labels: labels,
 					})
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose job: %w", err)
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose job: %w", err)
 				}
 				Jobs[len(Jobs)-1].JobID = res.Proposal.JobId
 			}
 		}
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		Jobs: Jobs,
 	}, nil
 }

@@ -27,7 +27,7 @@ import (
 )
 
 type ConfiguredChangeSet interface {
-	Apply(e deployment.Environment) (deployment.ChangesetOutput, error)
+	Apply(e deployment.Environment) (cldf.ChangesetOutput, error)
 }
 
 func Configure[C any](
@@ -45,10 +45,10 @@ type configuredChangeSetImpl[C any] struct {
 	config    C
 }
 
-func (ca configuredChangeSetImpl[C]) Apply(e deployment.Environment) (deployment.ChangesetOutput, error) {
+func (ca configuredChangeSetImpl[C]) Apply(e deployment.Environment) (cldf.ChangesetOutput, error) {
 	err := ca.changeset.VerifyPreconditions(e, ca.config)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	return ca.changeset.Apply(e, ca.config)
 }
@@ -169,9 +169,9 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 }
 
 // ApplyChangesetsV2 applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplications []ConfiguredChangeSet) (deployment.Environment, []deployment.ChangesetOutput, error) {
+func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplications []ConfiguredChangeSet) (deployment.Environment, []cldf.ChangesetOutput, error) {
 	currentEnv := e
-	outputs := make([]deployment.ChangesetOutput, 0, len(changesetApplications))
+	outputs := make([]cldf.ChangesetOutput, 0, len(changesetApplications))
 	for i, csa := range changesetApplications {
 		out, err := csa.Apply(currentEnv)
 		if err != nil {

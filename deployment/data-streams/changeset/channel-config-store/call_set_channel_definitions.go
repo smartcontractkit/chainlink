@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
@@ -64,7 +65,7 @@ func callSetChannelDefinitionsPrecondition(e deployment.Environment, cfg SetChan
 	return nil
 }
 
-func callSetChannelDefinitions(e deployment.Environment, cfg SetChannelDefinitionsConfig) (deployment.ChangesetOutput, error) {
+func callSetChannelDefinitions(e deployment.Environment, cfg SetChannelDefinitionsConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.ChannelConfigStore.String(),
@@ -73,7 +74,7 @@ func callSetChannelDefinitions(e deployment.Environment, cfg SetChannelDefinitio
 		doSetChannelDefinitions,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building SetNativeSurcharge txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building SetNativeSurcharge txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "SetNativeSurcharge proposal")

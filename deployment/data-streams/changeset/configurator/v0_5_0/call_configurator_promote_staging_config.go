@@ -53,7 +53,7 @@ func promoteStagingConfigPrecondition(_ deployment.Environment, cc PromoteStagin
 	return nil
 }
 
-func promoteStagingConfigLogic(e deployment.Environment, cfg PromoteStagingConfigConfig) (deployment.ChangesetOutput, error) {
+func promoteStagingConfigLogic(e deployment.Environment, cfg PromoteStagingConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.Configurator.String(),
@@ -62,7 +62,7 @@ func promoteStagingConfigLogic(e deployment.Environment, cfg PromoteStagingConfi
 		doPromoteStagingConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building SetProductionConfig txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building SetProductionConfig txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "SetProductionConfig proposal")

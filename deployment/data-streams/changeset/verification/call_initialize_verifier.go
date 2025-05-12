@@ -29,24 +29,24 @@ type InitializeVerifierConfig struct {
 	VerifierAddress      common.Address
 }
 
-func verifierProxyInitializeVerifierLogic(e deployment.Environment, cfg VerifierProxyInitializeVerifierConfig) (deployment.ChangesetOutput, error) {
+func verifierProxyInitializeVerifierLogic(e deployment.Environment, cfg VerifierProxyInitializeVerifierConfig) (cldf.ChangesetOutput, error) {
 	txs, err := GetInitializeVerifierTxs(e, cfg)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	if cfg.MCMSConfig != nil {
 		proposal, err := mcmsutil.CreateMCMSProposal(e, txs, cfg.MCMSConfig.MinDelay, "InitializeVerifier proposal")
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 		}, nil
 	}
 
 	_, err = txutil.SignAndExecute(e, txs)
-	return deployment.ChangesetOutput{}, err
+	return cldf.ChangesetOutput{}, err
 }
 
 // GetInitializeVerifierTxs - returns the transactions to set a verifier on the verifier proxy.

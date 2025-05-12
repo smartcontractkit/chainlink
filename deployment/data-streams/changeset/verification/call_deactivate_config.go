@@ -47,7 +47,7 @@ func deactivateConfigPrecondition(_ deployment.Environment, cc DeactivateConfigC
 	return nil
 }
 
-func deactivateConfigLogic(e deployment.Environment, cfg DeactivateConfigConfig) (deployment.ChangesetOutput, error) {
+func deactivateConfigLogic(e deployment.Environment, cfg DeactivateConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.VerifierProxy.String(),
@@ -56,7 +56,7 @@ func deactivateConfigLogic(e deployment.Environment, cfg DeactivateConfigConfig)
 		doDeactivateConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building DeactivateConfig txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building DeactivateConfig txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "ActivateConfig proposal")

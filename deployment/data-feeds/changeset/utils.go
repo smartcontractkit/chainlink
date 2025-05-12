@@ -9,7 +9,6 @@ import (
 	workflowUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/koko"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
@@ -118,12 +117,12 @@ func RunChangeset[C any](
 	operation cldf.ChangeSetV2[C],
 	env deployment.Environment,
 	config C,
-) (deployment.ChangesetOutput, error) {
+) (cldf.ChangesetOutput, error) {
 	cs := WrappedChangeSet[C]{operation: operation}
 
 	err := cs.operation.VerifyPreconditions(env, config)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run precondition: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run precondition: %w", err)
 	}
 
 	return cs.operation.Apply(env, config)

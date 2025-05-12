@@ -1252,4 +1252,3 @@ func file_proxy_proto_init() {
 	file_proxy_proto_goTypes = nil
 	file_proxy_proto_depIdxs = nil
 }
-
