@@ -35,19 +35,6 @@ var _ cldf.ChangeSet[OffRampRefAddressesConfig] = UpdateOffRampRefAddresses
 // use this to set the upgrade authority of a contract
 var _ cldf.ChangeSet[SetUpgradeAuthorityConfig] = SetUpgradeAuthorityChangeset
 
-type MCMSConfigSolana struct {
-	MCMS *proposalutils.TimelockConfig
-	// Public key of program authorities. Depending on when this changeset is called, some may be under
-	// the control of the deployer, and some may be under the control of the timelock. (e.g. during new offramp deploy)
-	RouterOwnedByTimelock    bool
-	FeeQuoterOwnedByTimelock bool
-	OffRampOwnedByTimelock   bool
-	RMNRemoteOwnedByTimelock bool
-	// Operates as a set. Token Pool configs will owned by timelock per token (the key)
-	BurnMintTokenPoolOwnedByTimelock    map[solana.PublicKey]bool
-	LockReleaseTokenPoolOwnedByTimelock map[solana.PublicKey]bool
-}
-
 // HELPER FUNCTIONS
 // GetTokenProgramID returns the program ID for the given token program name
 func GetTokenProgramID(programName cldf.ContractType) (solana.PublicKey, error) {
@@ -147,7 +134,7 @@ type OffRampRefAddressesConfig struct {
 	FeeQuoter          solana.PublicKey
 	AddressLookupTable solana.PublicKey
 	RMNRemote          solana.PublicKey
-	MCMSSolana         *MCMSConfigSolana
+	MCMS               *proposalutils.TimelockConfig
 }
 
 func (cfg OffRampRefAddressesConfig) Validate(e deployment.Environment) error {
@@ -160,7 +147,7 @@ func (cfg OffRampRefAddressesConfig) Validate(e deployment.Environment) error {
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{})
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.OffRamp: true})
 }
 
 func UpdateOffRampRefAddresses(
@@ -206,20 +193,23 @@ func UpdateOffRampRefAddresses(
 		e.Logger.Infof("setting rmn remote on offramp to %s", config.RMNRemote.String())
 		rmnRemoteToSet = config.RMNRemote
 	}
-	if err := ValidateMCMSConfigSolana(e, config.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
 
-	offRampUsingMCMS := config.MCMSSolana != nil && config.MCMSSolana.OffRampOwnedByTimelock
-	authority, err := GetAuthorityForIxn(
+	offRampUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
-		config.MCMSSolana,
+		chainState,
 		ccipChangeset.OffRamp,
-		solana.PublicKey{})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
-	}
+		solana.PublicKey{},
+		"")
+	authority := GetAuthorityForIxn(
+		&e,
+		chain,
+		chainState,
+		config.MCMS,
+		ccipChangeset.OffRamp,
+		solana.PublicKey{},
+		"",
+	)
 	solOffRamp.SetProgramID(chainState.OffRamp)
 	ix, err := solOffRamp.NewUpdateReferenceAddressesInstruction(
 		routerToSet,
@@ -240,7 +230,7 @@ func UpdateOffRampRefAddresses(
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxns(
-			e, config.ChainSelector, "proposal to UpdateOffRampRefAddresses in Solana", config.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+			e, config.ChainSelector, "proposal to UpdateOffRampRefAddresses in Solana", config.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -358,7 +348,7 @@ func setUpgradeAuthority(
 type SetFeeAggregatorConfig struct {
 	ChainSelector uint64
 	FeeAggregator string
-	MCMSSolana    *MCMSConfigSolana
+	MCMS          *proposalutils.TimelockConfig
 }
 
 func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
@@ -376,7 +366,7 @@ func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true}); err != nil {
 		return err
 	}
 
@@ -407,18 +397,24 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (cld
 
 	feeAggregatorPubKey := solana.MustPublicKeyFromBase58(cfg.FeeAggregator)
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
-	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-
-	solRouter.SetProgramID(chainState.Router)
-	authority, err := GetAuthorityForIxn(
+	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
-		cfg.MCMSSolana,
+		chainState,
 		ccipChangeset.Router,
-		solana.PublicKey{})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
-	}
+		solana.PublicKey{},
+		"")
+
+	solRouter.SetProgramID(chainState.Router)
+	authority := GetAuthorityForIxn(
+		&e,
+		chain,
+		chainState,
+		cfg.MCMS,
+		ccipChangeset.Router,
+		solana.PublicKey{},
+		"",
+	)
 	instruction, err := solRouter.NewUpdateFeeAggregatorInstruction(
 		feeAggregatorPubKey,
 		routerConfigPDA,
@@ -435,7 +431,7 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (cld
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to SetFeeAggregator in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+			e, cfg.ChainSelector, "proposal to SetFeeAggregator in Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

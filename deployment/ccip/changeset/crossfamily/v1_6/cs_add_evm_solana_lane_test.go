@@ -52,7 +52,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			evmChain := evmChains[0]
 			evmState, err := ccipchangeset.LoadOnchainState(e)
 			require.NoError(t, err)
-			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
 				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 					ccipChangesetSolana.CCIPContractsToTransfer{
@@ -60,13 +60,8 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 						FeeQuoter: true,
 						OffRamp:   true,
 					})
-				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &proposalutils.TimelockConfig{
-						MinDelay: 1 * time.Second,
-					},
-					RouterOwnedByTimelock:    true,
-					FeeQuoterOwnedByTimelock: true,
-					OffRampOwnedByTimelock:   true,
+				mcmsConfig = &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
 				}
 				testhelpers.TransferToTimelock(t, tenv, evmState, []uint64{evmChain})
 			}

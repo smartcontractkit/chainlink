@@ -110,7 +110,10 @@ func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64
 	if cfg.UpgradeAuthority.IsZero() {
 		return errors.New("upgrade authority must be set for fee quoter and router upgrades")
 	}
-	return cfg.MCMS.ValidateSolana(e, chainSelector)
+	if cfg.MCMS != nil {
+		return cfg.MCMS.ValidateSolana(e, chainSelector)
+	}
+	return nil
 }
 
 func (c DeployChainContractsConfig) Validate(e deployment.Environment) error {
@@ -189,7 +192,6 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]sdk.Inspector{}
-	var batches []mcmsTypes.BatchOperation
 	timelocks[chainSel] = mcmsSolana.ContractAddress(
 		mcmState.TimelockProgram,
 		mcmsSolana.PDASeed(mcmState.TimelockSeed),
@@ -197,17 +199,10 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 	proposers[chainSel] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
 	inspectors[chainSel] = mcmsSolana.NewInspector(chain.Client)
 
-	mcmsTxs, err := deployChainContractsSolana(e, chain, newAddresses, c)
+	batches, err := deployChainContractsSolana(e, chain, newAddresses, c)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
 		return cldf.ChangesetOutput{}, err
-	}
-	// create proposals for txns
-	if len(mcmsTxs) > 0 {
-		batches = append(batches, mcmsTypes.BatchOperation{
-			ChainSelector: mcmsTypes.ChainSelector(chainSel),
-			Transactions:  mcmsTxs,
-		})
 	}
 
 	if len(batches) > 0 {
@@ -276,20 +271,20 @@ func deployChainContractsSolana(
 	chain deployment.SolChain,
 	ab cldf.AddressBook,
 	config DeployChainContractsConfig,
-) ([]mcmsTypes.Transaction, error) {
+) ([]mcmsTypes.BatchOperation, error) {
 	// we may need to gather instructions and submit them as part of MCMS
-	txns := make([]mcmsTypes.Transaction, 0)
+	batches := make([]mcmsTypes.BatchOperation, 0)
 	s, err := ccipChangeset.LoadOnchainStateSolana(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return txns, err
+		return batches, err
 	}
 	chainState, chainExists := s.SolChains[chain.Selector]
 	if !chainExists {
-		return txns, fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
+		return batches, fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
 	}
 	if chainState.LinkToken.IsZero() {
-		return txns, fmt.Errorf("failed to get link token address for chain %s", chain.String())
+		return batches, fmt.Errorf("failed to get link token address for chain %s", chain.String())
 	}
 
 	params := config.ContractParamsPerChain
@@ -300,16 +295,22 @@ func deployChainContractsSolana(
 	if chainState.FeeQuoter.IsZero() {
 		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.FeeQuoter, deployment.Version1_0_0, false, "")
 		if err != nil {
-			return txns, fmt.Errorf("failed to deploy program: %w", err)
+			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
 		feeQuoterAddress = chainState.FeeQuoter
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewFeeQuoterVersion, chainState.FeeQuoter, ccipChangeset.FeeQuoter)
 		if err != nil {
-			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		txns = append(txns, newTxns...)
+		// create proposals for txns
+		if len(newTxns) > 0 {
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
+				Transactions:  newTxns,
+			})
+		}
 	} else {
 		e.Logger.Infow("Using existing fee quoter", "addr", chainState.FeeQuoter.String())
 		feeQuoterAddress = chainState.FeeQuoter
@@ -323,16 +324,22 @@ func deployChainContractsSolana(
 		// deploy router
 		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Router, deployment.Version1_0_0, false, "")
 		if err != nil {
-			return txns, fmt.Errorf("failed to deploy program: %w", err)
+			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewRouterVersion != nil {
 		// router updated in place
 		ccipRouterProgram = chainState.Router
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRouterVersion, chainState.Router, ccipChangeset.Router)
 		if err != nil {
-			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		txns = append(txns, newTxns...)
+		// create proposals for txns
+		if len(newTxns) > 0 {
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
+				Transactions:  newTxns,
+			})
+		}
 	} else {
 		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
 		ccipRouterProgram = chainState.Router
@@ -346,20 +353,20 @@ func deployChainContractsSolana(
 		// deploy offramp
 		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, deployment.Version1_0_0, false, "")
 		if err != nil {
-			return txns, fmt.Errorf("failed to deploy program: %w", err)
+			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewOffRampVersion != nil {
 		tv := cldf.NewTypeAndVersion(ccipChangeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
 		existingAddresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 		if err != nil {
-			return txns, fmt.Errorf("failed to get existing addresses: %w", err)
+			return batches, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
 		offRampAddress = ccipChangeset.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
 			// deploy offramp, not upgraded in place so upgrade is false
 			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false, "")
 			if err != nil {
-				return txns, fmt.Errorf("failed to deploy program: %w", err)
+				return batches, fmt.Errorf("failed to deploy program: %w", err)
 			}
 			offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
 			fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
@@ -373,25 +380,34 @@ func deployChainContractsSolana(
 				solana.SystemProgramID,
 			).ValidateAndBuild()
 			if err != nil {
-				return txns, fmt.Errorf("failed to build instruction: %w", err)
+				return batches, fmt.Errorf("failed to build instruction: %w", err)
 			}
 			if config.UpgradeConfig.MCMS != nil {
 				priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), ccipChangeset.FeeQuoter)
 				if err != nil {
-					return txns, fmt.Errorf("failed to create price updater transaction: %w", err)
+					return batches, fmt.Errorf("failed to create price updater transaction: %w", err)
 				}
-				txns = append(txns, *priceUpdaterTx)
+				batches = append(batches, mcmsTypes.BatchOperation{
+					ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
+					Transactions:  []mcmsTypes.Transaction{*priceUpdaterTx},
+				})
 			} else {
 				if err := chain.Confirm([]solana.Instruction{priceUpdaterix}); err != nil {
-					return txns, fmt.Errorf("failed to confirm initializeFeeQuoter: %w", err)
+					return batches, fmt.Errorf("failed to confirm initializeFeeQuoter: %w", err)
 				}
 			}
 		} else {
 			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewOffRampVersion, chainState.OffRamp, ccipChangeset.OffRamp)
 			if err != nil {
-				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+				return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 			}
-			txns = append(txns, newTxns...)
+			// create proposals for txns
+			if len(newTxns) > 0 {
+				batches = append(batches, mcmsTypes.BatchOperation{
+					ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
+					Transactions:  newTxns,
+				})
+			}
 		}
 	} else {
 		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
@@ -404,15 +420,21 @@ func deployChainContractsSolana(
 	if chainState.RMNRemote.IsZero() {
 		rmnRemoteAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.RMNRemote, deployment.Version1_0_0, false, "")
 		if err != nil {
-			return txns, fmt.Errorf("failed to deploy program: %w", err)
+			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewRMNRemoteVersion != nil {
 		rmnRemoteAddress = chainState.RMNRemote
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRMNRemoteVersion, chainState.RMNRemote, ccipChangeset.RMNRemote)
 		if err != nil {
-			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		txns = append(txns, newTxns...)
+		// create proposals for txns
+		if len(newTxns) > 0 {
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
+				Transactions:  newTxns,
+			})
+		}
 	} else {
 		e.Logger.Infow("Using existing rmn remote", "addr", chainState.RMNRemote.String())
 		rmnRemoteAddress = chainState.RMNRemote
@@ -425,7 +447,7 @@ func deployChainContractsSolana(
 	err = chain.GetAccountDataBorshInto(e.GetContext(), feeQuoterConfigPDA, &fqConfig)
 	if err != nil {
 		if err2 := initializeFeeQuoter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress, offRampAddress, params.FeeQuoterParams); err2 != nil {
-			return txns, err2
+			return batches, err2
 		}
 	} else {
 		e.Logger.Infow("Fee quoter already initialized, skipping initialization", "chain", chain.String())
@@ -438,7 +460,7 @@ func deployChainContractsSolana(
 	err = chain.GetAccountDataBorshInto(e.GetContext(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
 		if err2 := initializeRouter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress, rmnRemoteAddress); err2 != nil {
-			return txns, err2
+			return batches, err2
 		}
 	} else {
 		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
@@ -464,10 +486,10 @@ func deployChainContractsSolana(
 				solana.SPLAssociatedTokenAccountProgramID,
 			})
 		if err2 != nil {
-			return txns, fmt.Errorf("failed to create address lookup table: %w", err)
+			return batches, fmt.Errorf("failed to create address lookup table: %w", err)
 		}
 		if err2 := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, rmnRemoteAddress, offRampAddress, table, params.OffRampParams); err2 != nil {
-			return txns, err2
+			return batches, err2
 		}
 	} else {
 		e.Logger.Infow("Offramp already initialized, skipping initialization", "chain", chain.String())
@@ -479,7 +501,7 @@ func deployChainContractsSolana(
 	err = chain.GetAccountDataBorshInto(e.GetContext(), rmnRemoteConfigPDA, &rmnRemoteConfigAccount)
 	if err != nil {
 		if err2 := initializeRMNRemote(e, chain, rmnRemoteAddress); err2 != nil {
-			return txns, err2
+			return batches, err2
 		}
 	} else {
 		e.Logger.Infow("RMN remote already initialized, skipping initialization", "chain", chain.String())
@@ -495,15 +517,21 @@ func deployChainContractsSolana(
 	if chainState.BurnMintTokenPools[metadata].IsZero() {
 		burnMintTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.BurnMintTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
-			return txns, fmt.Errorf("failed to deploy program: %w", err)
+			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil {
 		burnMintTokenPool = chainState.BurnMintTokenPools[metadata]
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPools[metadata], ccipChangeset.BurnMintTokenPool)
 		if err != nil {
-			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		txns = append(txns, newTxns...)
+		// create proposals for txns
+		if len(newTxns) > 0 {
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
+				Transactions:  newTxns,
+			})
+		}
 	} else {
 		e.Logger.Infow("Using existing burn mint token pool", "addr", chainState.BurnMintTokenPools[metadata].String())
 		burnMintTokenPool = chainState.BurnMintTokenPools[metadata]
@@ -518,15 +546,21 @@ func deployChainContractsSolana(
 	if chainState.LockReleaseTokenPools[metadata].IsZero() {
 		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.LockReleaseTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
-			return txns, fmt.Errorf("failed to deploy program: %w", err)
+			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil {
 		lockReleaseTokenPool = chainState.LockReleaseTokenPools[metadata]
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPools[metadata], ccipChangeset.LockReleaseTokenPool)
 		if err != nil {
-			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		txns = append(txns, newTxns...)
+		// create proposals for txns
+		if len(newTxns) > 0 {
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
+				Transactions:  newTxns,
+			})
+		}
 	} else {
 		e.Logger.Infow("Using existing lock release token pool", "addr", chainState.LockReleaseTokenPools[metadata].String())
 		lockReleaseTokenPool = chainState.LockReleaseTokenPools[metadata]
@@ -537,41 +571,59 @@ func deployChainContractsSolana(
 	if config.MCMSWithTimelockConfig != nil {
 		_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, *config.MCMSWithTimelockConfig)
 		if err != nil {
-			return txns, fmt.Errorf("failed to deploy MCMS with timelock programs: %w", err)
+			return batches, fmt.Errorf("failed to deploy MCMS with timelock programs: %w", err)
 		}
 	}
 	// MCMS Upgrade
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
-		return txns, fmt.Errorf("failed to get existing addresses: %w", err)
+		return batches, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
 	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 	if err != nil {
-		return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
-	}
-	if config.UpgradeConfig.NewAccessControllerVersion != nil {
-		e.Logger.Infow("Generating instruction for upgrading access controller", "chain", chain.String())
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram)
-		if err != nil {
-			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
-		}
-		txns = append(txns, newTxns...)
-	}
-	if config.UpgradeConfig.NewTimelockVersion != nil {
-		e.Logger.Infow("Generate instruction for upgrading timelock", "chain", chain.String())
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram)
-		if err != nil {
-			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
-		}
-		txns = append(txns, newTxns...)
+		return batches, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
 	if config.UpgradeConfig.NewMCMVersion != nil {
 		e.Logger.Infow("Generate instruction for upgrading mcms", "chain", chain.String())
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram)
 		if err != nil {
-			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		txns = append(txns, newTxns...)
+		// create proposals for txns
+		if len(newTxns) > 0 {
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
+				Transactions:  newTxns,
+			})
+		}
+	}
+	if config.UpgradeConfig.NewAccessControllerVersion != nil {
+		e.Logger.Infow("Generating instruction for upgrading access controller", "chain", chain.String())
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram)
+		if err != nil {
+			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
+		}
+		// create proposals for txns
+		if len(newTxns) > 0 {
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
+				Transactions:  newTxns,
+			})
+		}
+	}
+	if config.UpgradeConfig.NewTimelockVersion != nil {
+		e.Logger.Infow("Generate instruction for upgrading timelock", "chain", chain.String())
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram)
+		if err != nil {
+			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
+		}
+		// create proposals for txns
+		if len(newTxns) > 0 {
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
+				Transactions:  newTxns,
+			})
+		}
 	}
 
 	// BILLING
@@ -579,7 +631,7 @@ func deployChainContractsSolana(
 		if _, err := AddBillingToken(
 			e, chain, chainState, billingConfig, nil, false, feeQuoterAddress, ccipRouterProgram,
 		); err != nil {
-			return txns, err
+			return batches, err
 		}
 	}
 
@@ -619,10 +671,10 @@ func deployChainContractsSolana(
 	}
 
 	if err := extendLookupTable(e, chain, offRampAddress, lookupTableKeys); err != nil {
-		return txns, fmt.Errorf("failed to extend lookup table: %w", err)
+		return batches, fmt.Errorf("failed to extend lookup table: %w", err)
 	}
 
-	return txns, nil
+	return batches, nil
 }
 
 // INITIALIZE FUNCTIONS

@@ -48,6 +48,8 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (cldf.ChangesetO
 				)
 				return err
 			}
+		default:
+			return cldf.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s", family)
 		}
 		deployGrp.Go(func() error {
 			err := deployFn()

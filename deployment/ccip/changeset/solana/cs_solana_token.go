@@ -71,6 +71,7 @@ type DeploySolanaTokenConfig struct {
 	TokenProgramName    cldf.ContractType
 	TokenDecimals       uint8
 	TokenSymbol         string
+	MintPrivateKey      solana.PrivateKey // optional, if not provided, a new key will be generated
 	ATAList             []string          // addresses to create ATAs for
 	MintAmountToAddress map[string]uint64 // address -> amount
 }
@@ -83,8 +84,19 @@ func NewTokenInstruction(chain deployment.SolChain, cfg DeploySolanaTokenConfig)
 	// token mint authority
 	// can accept a private key in config and pass in pub key here and private key as signer
 	tokenAdminPubKey := chain.DeployerKey.PublicKey()
-	mintPrivKey, _ := solana.NewRandomPrivateKey()
-	mint := mintPrivKey.PublicKey() // this is the token address
+	var mint solana.PublicKey
+	var mintPrivKey solana.PrivateKey
+	privKey := cfg.MintPrivateKey
+	if privKey.IsValid() {
+		mint = privKey.PublicKey()
+		mintPrivKey = privKey
+	} else {
+		mintPrivKey, err = solana.NewRandomPrivateKey()
+		if err != nil {
+			return nil, nil, err
+		}
+		mint = mintPrivKey.PublicKey()
+	}
 	instructions, err := solTokenUtil.CreateToken(
 		context.Background(),
 		tokenprogramID,

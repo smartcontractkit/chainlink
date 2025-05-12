@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // https://solana.com/developers/guides/advanced/verified-builds
@@ -27,7 +28,7 @@ type VerifyBuildConfig struct {
 	VerifyMCM                    bool
 	VerifyTimelock               bool
 	RemoteVerification           bool
-	MCMSSolana                   *MCMSConfigSolana
+	MCMS                         *proposalutils.TimelockConfig
 }
 
 func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHash, mountPath string, remote bool) error {

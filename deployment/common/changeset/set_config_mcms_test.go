@@ -48,7 +48,7 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			[]uint64{chainSelector, chainSelectorSolana},
+			[]uint64{chainSelector},
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),

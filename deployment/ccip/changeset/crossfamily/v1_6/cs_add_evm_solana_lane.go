@@ -212,7 +212,7 @@ var (
 			}
 			var mcmsCfg *proposalutils.TimelockConfig
 			if input.MCMSConfig != nil {
-				mcmsCfg = input.MCMSConfig.MCMS
+				mcmsCfg = input.MCMSConfig
 			}
 			// post ops where we merge all the proposals into one
 			postOpsReport, err := operations.ExecuteOperation(b, postOps, deps, postOpsInput{
@@ -266,13 +266,13 @@ type AddRemoteChainE2EConfig struct {
 	SolanaOffRampConfig                  solana.OffRampConfig
 	SolanaFeeQuoterConfig                solana.FeeQuoterConfig
 
-	MCMSConfig *solana.MCMSConfigSolana
+	MCMSConfig *proposalutils.TimelockConfig
 }
 
 func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env deployment.Environment, evmState ccipchangeset.CCIPOnChainState) (csInputs, error) {
 	var timelockConfig *proposalutils.TimelockConfig
 	if cfg.MCMSConfig != nil {
-		timelockConfig = cfg.MCMSConfig.MCMS
+		timelockConfig = cfg.MCMSConfig
 	}
 	var input csInputs
 	input.evmOnRampInput = v1_6.UpdateOnRampDestsConfig{
@@ -334,21 +334,21 @@ func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env de
 	}
 	input.solanaRouterInput = solana.AddRemoteChainToRouterConfig{
 		ChainSelector: cfg.SolanaChainSelector,
-		MCMSSolana:    cfg.MCMSConfig,
+		MCMS:          cfg.MCMSConfig,
 		UpdatesByChain: map[uint64]*solana.RouterConfig{
 			cfg.EVMChainSelector: &cfg.SolanaRouterConfig,
 		},
 	}
 	input.solanaOffRampInput = solana.AddRemoteChainToOffRampConfig{
 		ChainSelector: cfg.SolanaChainSelector,
-		MCMSSolana:    cfg.MCMSConfig,
+		MCMS:          cfg.MCMSConfig,
 		UpdatesByChain: map[uint64]*solana.OffRampConfig{
 			cfg.EVMChainSelector: &cfg.SolanaOffRampConfig,
 		},
 	}
 	input.solanaFeeQuoterInput = solana.AddRemoteChainToFeeQuoterConfig{
 		ChainSelector: cfg.SolanaChainSelector,
-		MCMSSolana:    cfg.MCMSConfig,
+		MCMS:          cfg.MCMSConfig,
 		UpdatesByChain: map[uint64]*solana.FeeQuoterConfig{
 			cfg.EVMChainSelector: &cfg.SolanaFeeQuoterConfig,
 		},
@@ -387,7 +387,7 @@ func addEVMSolanaPreconditions(env deployment.Environment, input AddRemoteChainE
 	}
 	var timelockConfig *proposalutils.TimelockConfig
 	if input.MCMSConfig != nil {
-		timelockConfig = input.MCMSConfig.MCMS
+		timelockConfig = input.MCMSConfig
 	}
 	// Verify evm Chain
 	if err := ccipchangeset.ValidateChain(env, evmState, input.EVMChainSelector, timelockConfig); err != nil {
