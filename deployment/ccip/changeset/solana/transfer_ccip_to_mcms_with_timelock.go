@@ -43,7 +43,7 @@ type TransferCCIPToMCMSWithTimelockSolanaConfig struct {
 }
 
 // ValidateContracts checks if the required contracts are present on the chain
-func ValidateContracts(state solanastateview.SolCCIPChainState, chainSelector uint64, contracts CCIPContractsToTransfer) error {
+func ValidateContracts(state solanastateview.CCIPChainState, chainSelector uint64, contracts CCIPContractsToTransfer) error {
 	contractChecks := []struct {
 		enabled bool
 		value   solana.PublicKey

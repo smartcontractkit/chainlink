@@ -54,6 +54,9 @@ type RMNCurseConfig struct {
 
 func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
 	err = state.EnforceMCMSUsageIfProd(e.GetContext(), c.MCMS)
 	if err != nil {
 		return err
@@ -519,7 +522,7 @@ type CursableChain interface {
 type SolanaCursableChain struct {
 	selector uint64
 	env      deployment.Environment
-	chain    solanastateview.SolCCIPChainState
+	chain    solanastateview.CCIPChainState
 }
 
 func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {

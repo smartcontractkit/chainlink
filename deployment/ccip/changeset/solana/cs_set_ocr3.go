@@ -181,7 +181,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 func isOCR3ConfigSetOnOffRampSolana(
 	e deployment.Environment,
 	chain deployment.SolChain,
-	chainState solanastateview.SolCCIPChainState,
+	chainState solanastateview.CCIPChainState,
 	args []internal.MultiOCR3BaseOCRConfigArgsSolana,
 ) (bool, error) {
 	var configAccount solOffRamp.Config

@@ -43,8 +43,8 @@ type tokenPool interface {
 	TypeAndVersion(*bind.CallOpts) (string, error)
 }
 
-// tokenPoolMetadata defines the token pool version version and symbol of the corresponding token.
-type tokenPoolMetadata struct {
+// TokenPoolMetadata defines the token pool version version and symbol of the corresponding token.
+type TokenPoolMetadata struct {
 	Version semver.Version
 	Symbol  TokenSymbol
 }
@@ -55,36 +55,36 @@ func NewTokenPoolWithMetadata[P tokenPool](
 	newTokenPool func(address common.Address, backend bind.ContractBackend) (P, error),
 	poolAddress common.Address,
 	chainClient deployment.OnchainClient,
-) (P, tokenPoolMetadata, error) {
+) (P, TokenPoolMetadata, error) {
 	pool, err := newTokenPool(poolAddress, chainClient)
 	if err != nil {
-		return pool, tokenPoolMetadata{}, fmt.Errorf("failed to connect address %s with token pool bindings: %w", poolAddress, err)
+		return pool, TokenPoolMetadata{}, fmt.Errorf("failed to connect address %s with token pool bindings: %w", poolAddress, err)
 	}
 	tokenAddress, err := pool.GetToken(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return pool, tokenPoolMetadata{}, fmt.Errorf("failed to get token address from pool with address %s: %w", poolAddress, err)
+		return pool, TokenPoolMetadata{}, fmt.Errorf("failed to get token address from pool with address %s: %w", poolAddress, err)
 	}
 	typeAndVersionStr, err := pool.TypeAndVersion(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return pool, tokenPoolMetadata{}, fmt.Errorf("failed to get type and version from pool with address %s: %w", poolAddress, err)
+		return pool, TokenPoolMetadata{}, fmt.Errorf("failed to get type and version from pool with address %s: %w", poolAddress, err)
 	}
 	_, versionStr, err := ccipconfig.ParseTypeAndVersion(typeAndVersionStr)
 	if err != nil {
-		return pool, tokenPoolMetadata{}, fmt.Errorf("failed to parse type and version of pool with address %s: %w", poolAddress, err)
+		return pool, TokenPoolMetadata{}, fmt.Errorf("failed to parse type and version of pool with address %s: %w", poolAddress, err)
 	}
 	version, err := semver.NewVersion(versionStr)
 	if err != nil {
-		return pool, tokenPoolMetadata{}, fmt.Errorf("failed parsing version %s of pool with address %s: %w", versionStr, poolAddress, err)
+		return pool, TokenPoolMetadata{}, fmt.Errorf("failed parsing version %s of pool with address %s: %w", versionStr, poolAddress, err)
 	}
 	token, err := erc20.NewERC20(tokenAddress, chainClient)
 	if err != nil {
-		return pool, tokenPoolMetadata{}, fmt.Errorf("failed to connect address %s with ERC20 bindings: %w", tokenAddress, err)
+		return pool, TokenPoolMetadata{}, fmt.Errorf("failed to connect address %s with ERC20 bindings: %w", tokenAddress, err)
 	}
 	symbol, err := token.Symbol(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return pool, tokenPoolMetadata{}, fmt.Errorf("failed to fetch symbol from token with address %s: %w", tokenAddress, err)
+		return pool, TokenPoolMetadata{}, fmt.Errorf("failed to fetch symbol from token with address %s: %w", tokenAddress, err)
 	}
-	return pool, tokenPoolMetadata{
+	return pool, TokenPoolMetadata{
 		Symbol:  TokenSymbol(symbol),
 		Version: *version,
 	}, nil

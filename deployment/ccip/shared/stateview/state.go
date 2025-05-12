@@ -92,8 +92,8 @@ type CCIPOnChainState struct {
 	// We would hold 2 versions of each contract here. Once we upgrade we can phase out the old one.
 	// When generating bindings, make sure the package name corresponds to the version.
 	Chains      map[uint64]evm.CCIPChainState
-	SolChains   map[uint64]solana.SolCCIPChainState
-	AptosChains map[uint64]aptosstate.AptosCCIPChainState
+	SolChains   map[uint64]solana.CCIPChainState
+	AptosChains map[uint64]aptosstate.CCIPChainState
 }
 
 // ValidatePostDeploymentState should be called after the deployment and configuration for all contracts
@@ -628,12 +628,11 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
-			// Chain not found in address book, initialize empty
-			if errors.Is(err, cldf.ErrChainNotFound) {
-				addresses = make(map[string]cldf.TypeAndVersion)
-			} else {
+			if !errors.Is(err, cldf.ErrChainNotFound) {
 				return state, err
 			}
+			// Chain not found in address book, initialize empty
+			addresses = make(map[string]cldf.TypeAndVersion)
 		}
 		chainState, err := LoadChainState(e.GetContext(), chain, addresses)
 		if err != nil {
@@ -1074,7 +1073,7 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 
 func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
-		SolChains: make(map[uint64]solana.SolCCIPChainState),
+		SolChains: make(map[uint64]solana.CCIPChainState),
 	}
 	for chainSelector, chain := range e.SolChains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)

@@ -93,7 +93,7 @@ type SolChainUpdate struct {
 	Metadata string
 }
 
-func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.SolCCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
+func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
 	metadata := shared.CLLMetadata
 	if c.Metadata != "" {
 		metadata = c.Metadata
@@ -124,7 +124,7 @@ func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.SolCCIP
 	return
 }
 
-func (c SolChainUpdate) Validate(state solanastateview.SolCCIPChainState) error {
+func (c SolChainUpdate) Validate(state solanastateview.CCIPChainState) error {
 	if err := validateRateLimiterConfig(c.RateLimiterConfig.Inbound); err != nil {
 		return fmt.Errorf("validation of inbound rate limiter config for solana chain failed: %w", err)
 	}

@@ -66,7 +66,7 @@ var (
 	RemoteDest           deployment.ContractType = "RemoteDest"
 	TokenPoolLookupTable deployment.ContractType = "TokenPoolLookupTable"
 	// CLL Identifier
-	CLLMetadata string = "CLL"
+	CLLMetadata = "CLL"
 
 	// Aptos
 	AptosMCMSType     deployment.ContractType = "AptosManyChainMultisig"

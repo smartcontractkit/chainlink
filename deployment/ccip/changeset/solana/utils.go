@@ -24,7 +24,7 @@ func ValidateMCMSConfigSolana(
 	e deployment.Environment,
 	mcms *proposalutils.TimelockConfig,
 	chain deployment.SolChain,
-	chainState solanastateview.SolCCIPChainState,
+	chainState solanastateview.CCIPChainState,
 	tokenAddress solana.PublicKey,
 	tokenPoolMetadata string,
 	contractsToValidate map[cldf.ContractType]bool) error {
@@ -147,7 +147,7 @@ func FetchTimelockSigner(e deployment.Environment, chainSelector uint64) (solana
 func GetAuthorityForIxn(
 	e *deployment.Environment,
 	chain deployment.SolChain,
-	chainState solanastateview.SolCCIPChainState,
+	chainState solanastateview.CCIPChainState,
 	mcms *proposalutils.TimelockConfig,
 	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // used for burnmint and lockrelease

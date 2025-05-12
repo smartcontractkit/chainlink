@@ -9,6 +9,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
@@ -27,9 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-// SolCCIPChainState holds public keys for all the currently deployed CCIP programs
+// CCIPChainState holds public keys for all the currently deployed CCIP programs
 // on a chain. If a key has zero value, it means the program does not exist on the chain.
-type SolCCIPChainState struct {
+type CCIPChainState struct {
 	// tokens
 	LinkToken     solana.PublicKey
 	WSOL          solana.PublicKey
@@ -59,7 +60,7 @@ type SolCCIPChainState struct {
 	RMNRemoteCursesPDA   solana.PublicKey
 }
 
-func (s SolCCIPChainState) TokenToTokenProgram(tokenAddress solana.PublicKey) (solana.PublicKey, error) {
+func (s CCIPChainState) TokenToTokenProgram(tokenAddress solana.PublicKey) (solana.PublicKey, error) {
 	if tokenAddress.Equals(s.LinkToken) || tokenAddress.Equals(s.WSOL) {
 		return solana.TokenProgramID, nil
 	}
@@ -76,7 +77,7 @@ func (s SolCCIPChainState) TokenToTokenProgram(tokenAddress solana.PublicKey) (s
 	return solana.PublicKey{}, fmt.Errorf("token program not found for token address %s", tokenAddress.String())
 }
 
-func (s SolCCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.PublicKey, err error) {
+func (s CCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.PublicKey, err error) {
 	if s.Router.IsZero() {
 		return solana.PublicKey{}, solana.PublicKey{}, errors.New("router not found in existing state, deploy the router first")
 	}
@@ -87,7 +88,7 @@ func (s SolCCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.Publi
 	return s.Router, routerConfigPDA, nil
 }
 
-func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolChainView, error) {
+func (s CCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolChainView, error) {
 	chainView := view.NewSolChain()
 	var remoteChains []uint64
 	for selector := range s.DestChainStatePDAs {
@@ -166,7 +167,7 @@ func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolC
 	return chainView, nil
 }
 
-func (s SolCCIPChainState) GetFeeAggregator(chain deployment.SolChain) solana.PublicKey {
+func (s CCIPChainState) GetFeeAggregator(chain deployment.SolChain) solana.PublicKey {
 	var config ccip_router.Config
 	configPDA, _, _ := state.FindConfigPDA(s.Router)
 	err := chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)
@@ -187,8 +188,8 @@ func FetchOfframpLookupTable(ctx context.Context, chain deployment.SolChain, off
 }
 
 // LoadChainStateSolana Loads all state for a SolChain into state
-func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]cldf.TypeAndVersion) (SolCCIPChainState, error) {
-	solState := SolCCIPChainState{
+func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
+	solState := CCIPChainState{
 		SourceChainStatePDAs:  make(map[uint64]solana.PublicKey),
 		DestChainStatePDAs:    make(map[uint64]solana.PublicKey),
 		BurnMintTokenPools:    make(map[string]solana.PublicKey),
@@ -454,7 +455,7 @@ func ValidateOwnershipSolana(
 func IsSolanaProgramOwnedByTimelock(
 	e *deployment.Environment,
 	chain deployment.SolChain,
-	chainState SolCCIPChainState,
+	chainState CCIPChainState,
 	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // for token pools only
 	tokenPoolMetadata string,

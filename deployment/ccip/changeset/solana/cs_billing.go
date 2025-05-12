@@ -76,7 +76,7 @@ func (cfg *BillingTokenConfig) Validate(e deployment.Environment) error {
 func AddBillingToken(
 	e deployment.Environment,
 	chain deployment.SolChain,
-	chainState solanastateview.SolCCIPChainState,
+	chainState solanastateview.CCIPChainState,
 	billingTokenConfig solFeeQuoter.BillingTokenConfig,
 	mcms *proposalutils.TimelockConfig,
 	isUpdate bool,

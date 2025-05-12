@@ -63,9 +63,9 @@ func WithEnv(env deployment.Environment) TestSetupOpts {
 type TestSetup struct {
 	T                           *testing.T
 	Env                         deployment.Environment
-	DeployedEnv  *testhelpers.DeployedEnv
-	OnchainState stateview.CCIPOnChainState
-	SrcChain     uint64
+	DeployedEnv                 *testhelpers.DeployedEnv
+	OnchainState                stateview.CCIPOnChainState
+	SrcChain                    uint64
 	DestChain                   uint64
 	SrcToken                    common.Address
 	SrcFeeQuoterDestChainConfig fee_quoter.FeeQuoterDestChainConfig

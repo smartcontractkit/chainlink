@@ -83,7 +83,7 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	return nil
 }
 
-func validateRouterConfig(chain deployment.SolChain, chainState solanastateview.SolCCIPChainState) error {
+func validateRouterConfig(chain deployment.SolChain, chainState solanastateview.CCIPChainState) error {
 	_, routerConfigPDA, err := chainState.GetRouterInfo()
 	if err != nil {
 		return err
@@ -96,14 +96,14 @@ func validateRouterConfig(chain deployment.SolChain, chainState solanastateview.
 	return nil
 }
 
-func validateFeeAggregatorConfig(chain deployment.SolChain, chainState solanastateview.SolCCIPChainState) error {
+func validateFeeAggregatorConfig(chain deployment.SolChain, chainState solanastateview.CCIPChainState) error {
 	if chainState.GetFeeAggregator(chain).IsZero() {
 		return fmt.Errorf("fee aggregator not found in existing state, set the fee aggregator first for chain %d", chain.Selector)
 	}
 	return nil
 }
 
-func validateFeeQuoterConfig(chain deployment.SolChain, chainState solanastateview.SolCCIPChainState) error {
+func validateFeeQuoterConfig(chain deployment.SolChain, chainState solanastateview.CCIPChainState) error {
 	if chainState.FeeQuoter.IsZero() {
 		return fmt.Errorf("fee quoter not found in existing state, deploy the fee quoter first for chain %d", chain.Selector)
 	}
@@ -116,7 +116,7 @@ func validateFeeQuoterConfig(chain deployment.SolChain, chainState solanastatevi
 	return nil
 }
 
-func validateOffRampConfig(chain deployment.SolChain, chainState solanastateview.SolCCIPChainState) error {
+func validateOffRampConfig(chain deployment.SolChain, chainState solanastateview.CCIPChainState) error {
 	if chainState.OffRamp.IsZero() {
 		return fmt.Errorf("offramp not found in existing state, deploy the offramp first for chain %d", chain.Selector)
 	}

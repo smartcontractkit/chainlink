@@ -52,8 +52,8 @@ func TestValidateContracts(t *testing.T) {
 
 	zeroPubkey := solana.PublicKey{} // Zero public key
 
-	makeState := func(router, feeQuoter solana.PublicKey) solanastateview.SolCCIPChainState {
-		return solanastateview.SolCCIPChainState{
+	makeState := func(router, feeQuoter solana.PublicKey) solanastateview.CCIPChainState {
+		return solanastateview.CCIPChainState{
 			Router:    router,
 			FeeQuoter: feeQuoter,
 		}
@@ -61,7 +61,7 @@ func TestValidateContracts(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		state         solanastateview.SolCCIPChainState
+		state         solanastateview.CCIPChainState
 		contracts     solanachangesets.CCIPContractsToTransfer
 		chainSelector uint64
 		expectedError string
