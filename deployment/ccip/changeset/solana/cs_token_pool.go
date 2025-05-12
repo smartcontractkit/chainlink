@@ -996,7 +996,6 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput,
 		metadata = cfg.Metadata
 	}
 	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][metadata]
-
 	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
