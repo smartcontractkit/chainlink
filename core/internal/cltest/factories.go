@@ -407,12 +407,6 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, registry keeper.Regi
 	return upkeep
 }
 
-func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
-	err := db.Get(&spec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
-	require.NoError(t, err)
-	return
-}
-
 func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {
 	t.Helper()
 	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
