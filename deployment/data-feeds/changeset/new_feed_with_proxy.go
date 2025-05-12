@@ -52,7 +52,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 			AccessController: []common.Address{c.AccessController},
 			Labels:           append([]string{c.Descriptions[index]}, c.Labels...),
 		}
-		newEnv, err := RunChangeset(DeployAggregatorProxyChangeset, env, proxyConfig)
+		newEnv, err := changeset.RunChangeset(DeployAggregatorProxyChangeset, env, proxyConfig)
 
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute DeployAggregatorProxyChangeset: %w", err)

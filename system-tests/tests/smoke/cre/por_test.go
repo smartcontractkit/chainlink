@@ -20,6 +20,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -545,7 +546,7 @@ func setupPoRTestEnvironment(
 			Labels:         []string{"data-feeds"}, // label required by the changeset
 		}
 
-		dfOutput, dfErr := df_changeset.RunChangeset(df_changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
+		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
 		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
 		mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
