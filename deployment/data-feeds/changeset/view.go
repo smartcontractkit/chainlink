@@ -3,7 +3,7 @@ package changeset
 import (
 	"encoding/json"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonview "github.com/smartcontractkit/chainlink/deployment/common/view"
 	dfView "github.com/smartcontractkit/chainlink/deployment/data-feeds/view"
 )

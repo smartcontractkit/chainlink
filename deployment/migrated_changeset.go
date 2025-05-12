@@ -25,7 +25,6 @@ var (
 // ViewState
 
 type (
-	ViewState   = deployment.ViewState
 	ViewStateV2 = deployment.ViewStateV2
 )
 
