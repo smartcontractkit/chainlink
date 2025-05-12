@@ -85,8 +85,13 @@ func DeployWorkflow(creCLICommandPath, workflowName, workflowURL string, configU
 	deployCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
 	deployCmd.Stdout = os.Stdout
 	deployCmd.Stderr = os.Stderr
-	if err := deployCmd.Start(); err != nil {
-		return errors.Wrap(err, "failed to start register command")
+	if startErr := deployCmd.Start(); startErr != nil {
+		return errors.Wrap(startErr, "failed to start deploy command")
+	}
+
+	waitErr := deployCmd.Wait()
+	if waitErr != nil {
+		return errors.Wrap(waitErr, "failed to wait for deploy command")
 	}
 
 	return nil
