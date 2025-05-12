@@ -11,6 +11,8 @@ FROM ${BASE_IMAGE} AS final
 ARG PKG_PATH=./build
 
 # Copy/override any (optional) additional shared libraries.
+# Square brackets in "li[b]" make this path optional - Docker build won't fail
+# if the directory doesn't exist.
 COPY ${PKG_PATH}/li[b] /usr/lib/
 # Copy/override plugins.
 COPY ${PKG_PATH}/bin /usr/local/bin
