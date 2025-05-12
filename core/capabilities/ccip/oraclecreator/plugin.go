@@ -372,7 +372,6 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	}
 
 	crcw := defaults.DefaultCRCW
-	crcw.Lggr = i.lggr
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for relayID, relayer := range i.relayers {

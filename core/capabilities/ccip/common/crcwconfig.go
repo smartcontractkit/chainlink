@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -42,39 +40,32 @@ type ChainRWProvider interface {
 
 // MultiChainRW is a struct that implements the ChainRWProvider interface for all chains.
 type MultiChainRW struct {
-	EVM    ChainRWProvider
-	Solana ChainRWProvider
-	Lggr   logger.Logger
+	cwProviderMap map[string]ChainRWProvider
 }
 
 // NewCRCW is a constructor for MultiChainRW.
-func NewCRCW(evmCRCW, solanaCRCW ChainRWProvider) *MultiChainRW {
+func NewCRCW(cwProviderMap map[string]ChainRWProvider) *MultiChainRW {
 	return &MultiChainRW{
-		EVM:    evmCRCW,
-		Solana: solanaCRCW,
+		cwProviderMap: cwProviderMap,
 	}
 }
 
 // GetChainReader returns a new ContractReader base on relay chain family.
 func (c *MultiChainRW) GetChainReader(ctx context.Context, params ChainReaderProviderOpts) (types.ContractReader, error) {
-	switch params.ChainFamily {
-	case chainsel.FamilyEVM:
-		return c.EVM.GetChainReader(ctx, params)
-	case chainsel.FamilySolana:
-		return c.Solana.GetChainReader(ctx, params)
-	default:
+	provider, exist := c.cwProviderMap[params.ChainFamily]
+	if !exist {
 		return nil, fmt.Errorf("unsupported chain family %s", params.ChainFamily)
 	}
+
+	return provider.GetChainReader(ctx, params)
 }
 
 // GetChainWriter returns a new ContractWriter based on relay chain family.
 func (c *MultiChainRW) GetChainWriter(ctx context.Context, params ChainWriterProviderOpts) (types.ContractWriter, error) {
-	switch params.ChainFamily {
-	case chainsel.FamilyEVM:
-		return c.EVM.GetChainWriter(ctx, params)
-	case chainsel.FamilySolana:
-		return c.Solana.GetChainWriter(ctx, params)
-	default:
+	provider, exist := c.cwProviderMap[params.ChainFamily]
+	if !exist {
 		return nil, fmt.Errorf("unsupported chain family %s", params.ChainFamily)
 	}
+
+	return provider.GetChainWriter(ctx, params)
 }
