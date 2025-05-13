@@ -36,13 +36,13 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250512155317-4615e5659ce4
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250512155317-4615e5659ce4
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250509155341-2b5a5170a351
-	github.com/smartcontractkit/chainlink-deployments-framework v0.0.15-0.20250508081139-ee24199564bd
+	github.com/smartcontractkit/chainlink-deployments-framework v0.1.1-0.20250513145550-8e845f1272ca
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250509162544-26e3267013ca
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250502210357-2df484128afa
-	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
+	github.com/smartcontractkit/chainlink-protos/job-distributor v0.10.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250506153227-c817e421ec21
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.4
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.8
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/freeport v0.1.0
 	github.com/smartcontractkit/libocr v0.0.0-20250408131511-c90716988ee0
@@ -485,7 +485,3 @@ require (
 
 // gotron-sdk is not longer maintained
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250422175525-b7575d96bd4d
-
-replace github.com/smartcontractkit/chainlink-deployments-framework => ../../chainlink-deployments-framework
-
-replace github.com/smartcontractkit/chainlink-testing-framework/framework => ../../chainlink-testing-framework/framework

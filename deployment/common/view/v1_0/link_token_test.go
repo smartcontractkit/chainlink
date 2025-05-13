@@ -32,7 +32,7 @@ func TestLinkTokenViewZk(t *testing.T) {
 		ZkChains: 1,
 	})
 	chain := e.Chains[e.AllChainSelectors()[0]]
-	_, _, lt, err := link_token.DeployLinkTokenZk(nil, chain.ClientZk, chain.DeployerKeyZk, chain.Client)
+	_, _, lt, err := link_token.DeployLinkTokenZk(nil, chain.ClientZkSyncVM, chain.DeployerKeyZkSyncVM, chain.Client)
 	require.NoError(t, err)
 
 	testLinkTokenViewWithChain(t, chain, lt)
