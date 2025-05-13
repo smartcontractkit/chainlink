@@ -345,7 +345,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 			if mcms && tokenMetadata != "" && tokenMetadata != ccipChangeset.CLLMetadata {
 				timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 				require.NoError(t, err)
-				e.Logger.Debugf("Configuring MCMS for token pool %v", testCase.poolType)
+				e.Logger.Debugf("Transfering away from MCMS for token pool %v", testCase.poolType)
 				if testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
 					e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 						commonchangeset.Configure(
@@ -388,6 +388,35 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 					require.NoError(t, err)
 				}
 				e.Logger.Debugf("MCMS Configured for token pool %v with token address %v", testCase.poolType, tokenAddress)
+				e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+					// upgrade authority
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
+						ccipChangesetSolana.SetUpgradeAuthorityConfig{
+							ChainSelector:       solChain,
+							NewUpgradeAuthority: timelockSignerPDA,
+							TransferKeys: []solana.PublicKey{
+								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
+								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
+							},
+						},
+					),
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
+						ccipChangesetSolana.SetUpgradeAuthorityConfig{
+							ChainSelector:       solChain,
+							NewUpgradeAuthority: e.SolChains[solChain].DeployerKey.PublicKey(),
+							TransferKeys: []solana.PublicKey{
+								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
+								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
+							},
+							MCMS: &proposalutils.TimelockConfig{
+								MinDelay: 1 * time.Second,
+							},
+						},
+					),
+				})
+				require.NoError(t, err)
 			}
 		}
 	}
@@ -398,7 +427,6 @@ func TestPartnerTokenPools(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	e := tenv.Env
 	solChainSelectors := e.AllChainSelectorsSolana()
-	// mcmsConfig := proposalutils.SingleGroupTimelockConfigV2(t)
 	metadata := "partner_testing"
 	e, _, err := commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
@@ -421,35 +449,4 @@ func TestPartnerTokenPools(t *testing.T) {
 	doTestTokenPool(t, e, false, metadata)
 	doTestPoolLookupTable(t, e, false, metadata)
 	doTestTokenPool(t, e, true, metadata)
-	doTestPoolLookupTable(t, e, true, metadata)
-	timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChainSelectors[0])
-	require.NoError(t, err)
-	state, err := ccipChangeset.LoadOnchainStateSolana(e)
-	require.NoError(t, err)
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-		// upgrade authority
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
-			ccipChangesetSolana.SetUpgradeAuthorityConfig{
-				ChainSelector:       solChainSelectors[0],
-				NewUpgradeAuthority: timelockSignerPDA,
-				TransferKeys: []solana.PublicKey{
-					state.SolChains[solChainSelectors[0]].BurnMintTokenPools[metadata],
-					state.SolChains[solChainSelectors[0]].LockReleaseTokenPools[metadata],
-				},
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
-			ccipChangesetSolana.SetUpgradeAuthorityConfig{
-				ChainSelector:       solChainSelectors[0],
-				NewUpgradeAuthority: e.SolChains[solChainSelectors[0]].DeployerKey.PublicKey(),
-				TransferKeys: []solana.PublicKey{
-					state.SolChains[solChainSelectors[0]].BurnMintTokenPools[metadata],
-					state.SolChains[solChainSelectors[0]].LockReleaseTokenPools[metadata],
-				},
-			},
-		),
-	})
-	require.NoError(t, err)
 }

@@ -315,7 +315,10 @@ func SetUpgradeAuthorityChangeset(
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
 		} else {
-			tx, err := BuildMCMSTxn(ixn, programID.String(), ccipChangeset.Router)
+			tx, err := BuildMCMSTxn(
+				ixn,
+				solana.BPFLoaderUpgradeableProgramID.String(),
+				cldf.ContractType(solana.BPFLoaderUpgradeableProgramID.String()))
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 			}

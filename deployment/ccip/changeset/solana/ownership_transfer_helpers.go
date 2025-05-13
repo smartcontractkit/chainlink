@@ -46,6 +46,7 @@ func transferAndWrapAcceptOwnership(
 	solChain deployment.SolChain, // used for solChain.Confirm
 	label cldf.ContractType, // e.g. "Router" or "TokenPool"
 	timelockSigner solana.PublicKey, // the timelock signer PDA
+	deployerKey solana.PublicKey, // the deployer key, the only other signer
 ) (mcmsTypes.Transaction, error) {
 	// 1. Build the instruction that transfers ownership to the timelock
 	ixTransfer, err := buildTransfer(proposedOwner, configPDA, currentOwner)
@@ -82,6 +83,11 @@ func transferAndWrapAcceptOwnership(
 		}
 
 		return *mcmsTx, nil
+	} else if proposedOwner.Equals(deployerKey) {
+		// 4. Confirm on-chain
+		if err := solChain.Confirm([]solana.Instruction{ixAccept}); err != nil {
+			return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to confirm transfer on-chain: %w", label, err)
+		}
 	}
 	return mcmsTypes.Transaction{}, nil
 }
@@ -145,7 +151,8 @@ func transferOwnershipRouter(
 		currentOwner,
 		solChain,
 		state2.Router,
-		timelockSigner, // the timelock signer PDA
+		timelockSigner,                   // the timelock signer PDA
+		solChain.DeployerKey.PublicKey(), // the deployer key, the only other signer
 	)
 
 	if err != nil {
@@ -215,7 +222,8 @@ func transferOwnershipFeeQuoter(
 		currentOwner,
 		solChain,
 		state2.FeeQuoter,
-		timelockSigner, // the timelock signer PDA
+		timelockSigner,                   // the timelock signer PDA
+		solChain.DeployerKey.PublicKey(), // the deployer key, the only other signer
 	)
 
 	if err != nil {
@@ -285,7 +293,8 @@ func transferOwnershipOffRamp(
 		currentOwner,
 		solChain,
 		state2.OffRamp,
-		timelockSigner, // the timelock signer PDA
+		timelockSigner,                   // the timelock signer PDA
+		solChain.DeployerKey.PublicKey(), // the deployer key, the only other signer
 	)
 
 	if err != nil {
@@ -354,7 +363,8 @@ func transferOwnershipBurnMintTokenPools(
 		currentOwner,
 		solChain,
 		state2.BurnMintTokenPool,
-		timelockSigner, // the timelock signer PDA
+		timelockSigner,                   // the timelock signer PDA
+		solChain.DeployerKey.PublicKey(), // the deployer key, the only other signer
 	)
 
 	if err != nil {
@@ -423,7 +433,8 @@ func transferOwnershipLockReleaseTokenPools(
 		currentOwner,
 		solChain,
 		state2.LockReleaseTokenPool,
-		timelockSigner, // the timelock signer PDA
+		timelockSigner,                   // the timelock signer PDA
+		solChain.DeployerKey.PublicKey(), // the deployer key, the only other signer
 	)
 
 	if err != nil {
@@ -488,6 +499,7 @@ func transferOwnershipRMNRemote(
 	programID := rmnRemoteProgramID
 	configPDA := rmnRemoteConfigPDA
 	label := state2.RMNRemote
+	deployerKey := solChain.DeployerKey.PublicKey()
 
 	// We can't reuse the generic transferAndWrapAcceptOwnership function here
 	// because the RMNRemote has an additional cursesConfig account that needs to be transferred.
@@ -520,12 +532,20 @@ func transferOwnershipRMNRemote(
 		return nil, fmt.Errorf("%s: failed to create accept ownership instruction: %w", label, err)
 	}
 
-	// 4. Wrap in MCMS transaction
-	mcmsTx, err := BuildMCMSTxn(ixAccept, programID.String(), label)
-	if err != nil {
-		return nil, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
+	if proposedOwner.Equals(timelockSigner) {
+		// 4. Wrap in MCMS transaction
+		mcmsTx, err := BuildMCMSTxn(ixAccept, programID.String(), label)
+		if err != nil {
+			return nil, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
+		}
+
+		result = append(result, *mcmsTx)
+	} else if proposedOwner.Equals(deployerKey) {
+		// 4. Confirm on-chain
+		if err := solChain.Confirm([]solana.Instruction{ixAccept}); err != nil {
+			return nil, fmt.Errorf("%s: failed to confirm transfer on-chain: %w", label, err)
+		}
 	}
 
-	result = append(result, *mcmsTx)
 	return result, nil
 }
