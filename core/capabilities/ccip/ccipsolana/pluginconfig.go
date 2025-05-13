@@ -24,8 +24,20 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 
 func init() {
 	// Register the EVM plugin config factory
-	ccipcommon.RegisterPluginConfig(chainsel.FamilySolana, InitializePluginConfig)
-	ccipcommon.RegisterCRCW(chainsel.FamilySolana, ChainRWProvider{})
-	ccipcommon.RegisterExtraDataCodec(chainsel.FamilySolana, ExtraDataCodec{})
-	ccipcommon.RegisterAddressCodec(chainsel.FamilySolana, AddressCodec{})
+	err := ccipcommon.RegisterPluginConfig(chainsel.FamilySolana, InitializePluginConfig)
+	if err != nil {
+		return
+	}
+	err = ccipcommon.RegisterCRCW(chainsel.FamilySolana, ChainRWProvider{})
+	if err != nil {
+		return
+	}
+	err = ccipcommon.RegisterExtraDataCodec(chainsel.FamilySolana, ExtraDataCodec{})
+	if err != nil {
+		return
+	}
+	err = ccipcommon.RegisterAddressCodec(chainsel.FamilySolana, AddressCodec{})
+	if err != nil {
+		return
+	}
 }
