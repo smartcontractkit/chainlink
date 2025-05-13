@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -34,7 +35,7 @@ func TestDeployPrerequisites(t *testing.T) {
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[newChain].Weth9)
 	require.NotNil(t, state.Chains[newChain].TokenAdminRegistry)

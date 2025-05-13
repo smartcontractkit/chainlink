@@ -31,18 +31,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 func ConfirmGasPriceUpdatedForAll(
 	t *testing.T,
 	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	gasPrice *big.Int,
 ) {
@@ -95,7 +96,7 @@ func ConfirmGasPriceUpdated(
 func ConfirmTokenPriceUpdatedForAll(
 	t *testing.T,
 	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
@@ -180,7 +181,7 @@ type SourceDestPair struct {
 func ConfirmCommitForAllWithExpectedSeqNums(
 	t *testing.T,
 	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	expectedSeqNums map[SourceDestPair]uint64,
 	startBlocks map[uint64]*uint64,
 ) {
@@ -296,7 +297,7 @@ func (c *CommitReportTracker) allCommited(sourceChainSelector uint64) bool {
 func ConfirmMultipleCommits(
 	t *testing.T,
 	env deployment.Environment,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	enforceSingleCommit bool,
 	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
@@ -597,7 +598,7 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 func ConfirmExecWithSeqNrsForAll(
 	t *testing.T,
 	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	expectedSeqNums map[SourceDestPair][]uint64,
 	startBlocks map[uint64]*uint64,
 ) (executionStates map[SourceDestPair]map[uint64]int) {
@@ -906,7 +907,7 @@ func AssertTimelockOwnership(
 	t *testing.T,
 	e DeployedEnv,
 	chains []uint64,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 ) {
 	// check that the ownership has been transferred correctly
 	for _, chain := range chains {

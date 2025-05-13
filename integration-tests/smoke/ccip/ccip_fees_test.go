@@ -13,10 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/feestest"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -26,7 +27,7 @@ func setupNewFeeToken(
 	tenv testhelpers.DeployedEnv,
 	deployer *bind.TransactOpts,
 	chainSelector uint64,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	tokenSymbol string,
 	tokenDecimals uint8,
 ) (feeToken *burn_mint_erc677.BurnMintERC677) {
@@ -88,7 +89,7 @@ func setupNewFeeToken(
 // approves the router to spend the tokens
 func setupTokens(
 	t *testing.T,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	tenv testhelpers.DeployedEnv,
 	src, dest uint64,
 	transferTokenMintAmount,
@@ -175,7 +176,7 @@ func Test_CCIPFees(t *testing.T) {
 	destChain := allChains[1]
 
 	// Get new state after migration.
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	srcToken, dstToken := setupTokens(

@@ -19,8 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -64,7 +66,7 @@ type E2ETokenAndPoolConfig struct {
 	RateLimiterConfig     RateLimiterPerChain
 	// OverrideTokenSymbol is the token symbol to use to override against main symbol (ex: override to clCCIP-LnM when the main token symbol is CCIP-LnM)
 	// WARNING: This should only be used in exceptional cases where the token symbol on a particular chain differs from the main tokenSymbol
-	OverrideTokenSymbol changeset.TokenSymbol
+	OverrideTokenSymbol shared.TokenSymbol
 }
 
 type AddTokenE2EConfig struct {
@@ -75,13 +77,13 @@ type AddTokenE2EConfig struct {
 	// User do not need to populate these fields.
 	deployPool             DeployTokenPoolContractsConfig
 	configurePools         ConfigureTokenPoolContractsConfig
-	configureTokenAdminReg changeset.TokenAdminRegistryChangesetConfig
+	configureTokenAdminReg TokenAdminRegistryChangesetConfig
 }
 
 // newConfigurePoolAndTokenAdminRegConfig populated internal fields in AddTokenE2EConfig.
 // It creates the configuration for deploying and configuring token pools and token admin registry.
 // It then validates the configuration.
-func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e deployment.Environment, symbol changeset.TokenSymbol, timelockCfg *proposalutils.TimelockConfig) error {
+func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e deployment.Environment, symbol shared.TokenSymbol, timelockCfg *proposalutils.TimelockConfig) error {
 	c.deployPool = DeployTokenPoolContractsConfig{
 		TokenSymbol:  symbol,
 		NewPools:     make(map[uint64]DeployTokenPoolInput),
@@ -92,9 +94,9 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e deployment.
 		MCMS:        nil, // as token pools are deployed as part of the changeset, the pools will still be owned by the deployer key
 		PoolUpdates: make(map[uint64]TokenPoolConfig),
 	}
-	c.configureTokenAdminReg = changeset.TokenAdminRegistryChangesetConfig{
+	c.configureTokenAdminReg = TokenAdminRegistryChangesetConfig{
 		MCMS:  timelockCfg,
-		Pools: make(map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo),
+		Pools: make(map[uint64]map[shared.TokenSymbol]TokenPoolInfo),
 	}
 	for chain, poolCfg := range c.PoolConfig {
 		c.deployPool.NewPools[chain] = *poolCfg.DeployPoolConfig
@@ -107,9 +109,9 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e deployment.
 
 		// Populate the TokenAdminRegistryChangesetConfig for each chain.
 		if _, ok := c.configureTokenAdminReg.Pools[chain]; !ok {
-			c.configureTokenAdminReg.Pools[chain] = make(map[changeset.TokenSymbol]changeset.TokenPoolInfo)
+			c.configureTokenAdminReg.Pools[chain] = make(map[shared.TokenSymbol]TokenPoolInfo)
 		}
-		c.configureTokenAdminReg.Pools[chain][symbol] = changeset.TokenPoolInfo{
+		c.configureTokenAdminReg.Pools[chain][symbol] = TokenPoolInfo{
 			Version:       poolCfg.PoolVersion,
 			ExternalAdmin: poolCfg.ExternalAdmin,
 			Type:          poolCfg.DeployPoolConfig.Type,
@@ -149,7 +151,7 @@ func (c *AddTokenE2EConfig) newDeployTokenPoolConfigAfterTokenDeployment(tokenAd
 
 type DeployTokenConfig struct {
 	TokenName              string
-	TokenSymbol            changeset.TokenSymbol
+	TokenSymbol            shared.TokenSymbol
 	TokenDecimals          uint8    // needed for BurnMintToken only
 	MaxSupply              *big.Int // needed for BurnMintToken only
 	Type                   cldf.ContractType
@@ -163,23 +165,23 @@ func (c *DeployTokenConfig) Validate() error {
 	if c.TokenName == "" {
 		return errors.New("token name must be defined")
 	}
-	if c.TokenDecimals == 0 && c.Type == changeset.BurnMintToken {
+	if c.TokenDecimals == 0 && c.Type == shared.BurnMintToken {
 		return errors.New("token decimals must be defined for BurnMintToken type")
 	}
-	if c.MaxSupply == nil && c.Type == changeset.BurnMintToken {
+	if c.MaxSupply == nil && c.Type == shared.BurnMintToken {
 		return errors.New("max supply must be defined for BurnMintToken type")
 	}
-	if _, ok := changeset.TokenPoolTypes[c.PoolType]; !ok {
+	if _, ok := shared.TokenPoolTypes[c.PoolType]; !ok {
 		return fmt.Errorf("token pool type not supported %s", c.PoolType)
 	}
-	if _, ok := changeset.TokenTypes[c.Type]; !ok {
+	if _, ok := shared.TokenTypes[c.Type]; !ok {
 		return fmt.Errorf("token type not supported %s", c.Type)
 	}
 	return nil
 }
 
 type AddTokensE2EConfig struct {
-	Tokens map[changeset.TokenSymbol]AddTokenE2EConfig
+	Tokens map[shared.TokenSymbol]AddTokenE2EConfig
 	MCMS   *proposalutils.TimelockConfig
 }
 
@@ -187,13 +189,13 @@ func addTokenE2EPreconditionValidation(e deployment.Environment, config AddToken
 	if len(config.Tokens) == 0 {
 		return nil
 	}
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for token, cfg := range config.Tokens {
 		for chain, poolCfg := range cfg.PoolConfig {
-			if err := changeset.ValidateChain(e, state, chain, config.MCMS); err != nil {
+			if err := stateview.ValidateChain(e, state, chain, config.MCMS); err != nil {
 				return fmt.Errorf("failed to validate chain %d: %w", chain, err)
 			}
 			if (poolCfg.DeployPoolConfig != nil) == (poolCfg.TokenDeploymentConfig != nil) {
@@ -235,7 +237,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (cl
 	finalCSOut := &cldf.ChangesetOutput{
 		AddressBook: cldf.NewMemoryAddressBook(),
 	}
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -308,9 +310,9 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (cl
 
 		// find all tokens for which there is no external admin
 		// for those tokens, accept the admin role and set the pool
-		updatedConfigureTokenAdminReg := changeset.TokenAdminRegistryChangesetConfig{
+		updatedConfigureTokenAdminReg := TokenAdminRegistryChangesetConfig{
 			MCMS:  config.MCMS,
-			Pools: make(map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo),
+			Pools: make(map[uint64]map[shared.TokenSymbol]TokenPoolInfo),
 			// SkipOwnershipValidation is set to true as we are accepting admin role and setting token pool as part of one changeset
 			SkipOwnershipValidation: true,
 		}
@@ -318,7 +320,7 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (cl
 			for symbol, info := range poolInfo {
 				if info.ExternalAdmin == utils.ZeroAddress {
 					if updatedConfigureTokenAdminReg.Pools[chain] == nil {
-						updatedConfigureTokenAdminReg.Pools[chain] = make(map[changeset.TokenSymbol]changeset.TokenPoolInfo)
+						updatedConfigureTokenAdminReg.Pools[chain] = make(map[shared.TokenSymbol]TokenPoolInfo)
 					}
 					updatedConfigureTokenAdminReg.Pools[chain][symbol] = info
 				}
@@ -363,7 +365,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 	tokenAddresses := make(map[uint64]common.Address) // This will hold the token addresses for each chain.
 	for selector, cfg := range tokenDeployCfg {
 		switch cfg.Type {
-		case changeset.BurnMintToken:
+		case shared.BurnMintToken:
 			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
 				func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
@@ -377,7 +379,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 					return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 						Address:  tokenAddress,
 						Contract: token,
-						Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+						Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0),
 						Tx:       tx,
 						Err:      err,
 					}
@@ -403,7 +405,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 			}
 
 			tokenAddresses[selector] = token.Address
-		case changeset.ERC20Token:
+		case shared.ERC20Token:
 			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
 				func(chain deployment.Chain) cldf.ContractDeploy[*erc20.ERC20] {
 					tokenAddress, tx, token, err := erc20.DeployERC20(
@@ -415,7 +417,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 					return cldf.ContractDeploy[*erc20.ERC20]{
 						Address:  tokenAddress,
 						Contract: token,
-						Tv:       cldf.NewTypeAndVersion(changeset.ERC20Token, deployment.Version1_0_0),
+						Tv:       cldf.NewTypeAndVersion(shared.ERC20Token, deployment.Version1_0_0),
 						Tx:       tx,
 						Err:      err,
 					}
@@ -426,7 +428,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 				return nil, ab, fmt.Errorf("failed to deploy ERC20 token %s on chain %d: %w", cfg.TokenName, selector, err)
 			}
 			tokenAddresses[selector] = token.Address
-		case changeset.ERC677Token:
+		case shared.ERC677Token:
 			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
 				func(chain deployment.Chain) cldf.ContractDeploy[*erc677.ERC677] {
 					tokenAddress, tx, token, err := erc677.DeployERC677(
@@ -438,7 +440,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 					return cldf.ContractDeploy[*erc677.ERC677]{
 						Address:  tokenAddress,
 						Contract: token,
-						Tv:       cldf.NewTypeAndVersion(changeset.ERC677Token, deployment.Version1_0_0),
+						Tv:       cldf.NewTypeAndVersion(shared.ERC677Token, deployment.Version1_0_0),
 						Tx:       tx,
 						Err:      err,
 					}

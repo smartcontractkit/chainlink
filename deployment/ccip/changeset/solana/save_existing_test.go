@@ -12,7 +12,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -35,7 +36,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 		ExistingContracts: []commonchangeset.Contract{
 			{
 				Address:        solAddr1,
-				TypeAndVersion: cldf.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0),
+				TypeAndVersion: cldf.NewTypeAndVersion(shared.Router, deployment.Version1_0_0),
 				ChainSelector:  solChain,
 			},
 			{
@@ -50,7 +51,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 	require.Equal(t, state.SolChains[solChain].Router.String(), solAddr1)
 	require.Equal(t, state.SolChains[solChain].LinkToken.String(), solAddr2)

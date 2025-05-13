@@ -11,8 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -55,7 +56,7 @@ func Test_AddChain(t *testing.T) {
 	/////////////////////////////////////
 	e = setupChain(t, e, tEnv, toDeploy, false)
 
-	state, err := ccipcs.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 	// check RMNRemote is up and RMNProxy is correctly wired.
@@ -175,7 +176,7 @@ func Test_AddChain(t *testing.T) {
 	// transferred to MCMS.
 	e = setupChain(t, e, tEnv, []uint64{remainingChain}, true)
 
-	state, err = ccipcs.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 
@@ -199,7 +200,7 @@ func Test_AddChain(t *testing.T) {
 		true, // mcmsEnabled
 	)
 
-	state, err = ccipcs.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	assertChainWiringOutbound(
@@ -317,7 +318,7 @@ func Test_AddChain(t *testing.T) {
 		true,  // mcmsEnabled
 	)
 
-	state, err = ccipcs.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	assertChainWiringOutbound(
@@ -536,7 +537,7 @@ func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEn
 // It doesn't check that the existingChains have the newChain enabled as a dest.
 func assertChainWiringInbound(
 	t *testing.T,
-	state ccipcs.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	newChain uint64,
 	existingChains []uint64,
 	testRouterEnabled bool,
@@ -582,7 +583,7 @@ func assertChainWiringInbound(
 // It doesn't check that the newChain can process the requests.
 func assertChainWiringOutbound(
 	t *testing.T,
-	state ccipcs.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	newChain uint64,
 	existingChains []uint64,
 	testRouterEnabled bool,
@@ -732,7 +733,7 @@ func offRampSourceUpdates(t *testing.T, dests []uint64, sources []uint64, testRo
 	return
 }
 
-func assertRMNRemoteAndProxyState(t *testing.T, chains []uint64, state ccipcs.CCIPOnChainState) {
+func assertRMNRemoteAndProxyState(t *testing.T, chains []uint64, state stateview.CCIPOnChainState) {
 	for _, chain := range chains {
 		require.NotEqual(t, common.Address{}, state.Chains[chain].RMNRemote.Address())
 		_, err := state.Chains[chain].RMNRemote.GetCursedSubjects(&bind.CallOpts{
@@ -756,7 +757,7 @@ func transferToMCMSAndRenounceTimelockDeployer(
 	t *testing.T,
 	e testhelpers.DeployedEnv,
 	chains []uint64,
-	state ccipcs.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	onlyChainContracts bool,
 ) {
 	apps := make([]commonchangeset.ConfiguredChangeSet, 0, len(chains)+1)

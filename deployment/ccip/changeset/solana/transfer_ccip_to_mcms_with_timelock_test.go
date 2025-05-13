@@ -28,13 +28,14 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	solanachangesets "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -52,8 +53,8 @@ func TestValidateContracts(t *testing.T) {
 
 	zeroPubkey := solana.PublicKey{} // Zero public key
 
-	makeState := func(router, feeQuoter solana.PublicKey) changeset.SolCCIPChainState {
-		return changeset.SolCCIPChainState{
+	makeState := func(router, feeQuoter solana.PublicKey) solanastateview.CCIPChainState {
+		return solanastateview.CCIPChainState{
 			Router:    router,
 			FeeQuoter: feeQuoter,
 		}
@@ -61,7 +62,7 @@ func TestValidateContracts(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		state         changeset.SolCCIPChainState
+		state         solanastateview.CCIPChainState
 		contracts     solanachangesets.CCIPContractsToTransfer
 		chainSelector uint64
 		expectedError string
@@ -193,7 +194,7 @@ func TestValidate(t *testing.T) {
 
 // prepareEnvironmentForOwnershipTransfer helper that deploys the necessary contracts as pre-requisite to
 // the transfer ownership changeset.
-func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environment, changeset.CCIPOnChainState) {
+func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environment, stateview.CCIPOnChainState) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
@@ -257,7 +258,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			cldf.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
 			solanachangesets.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: changeset.SPL2022Tokens,
+				TokenProgramName: shared.SPL2022Tokens,
 				TokenDecimals:    9,
 			},
 		),
@@ -265,7 +266,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			cldf.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
 			solanachangesets.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: changeset.SPLTokens,
+				TokenProgramName: shared.SPLTokens,
 				TokenDecimals:    9,
 			},
 		),
@@ -285,7 +286,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-	state, err := changeset.LoadOnchainStateSolana(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	tokenAddressLockRelease := state.SolChains[solChain1].SPL2022Tokens[0]
 	tokenAddressBurnMint := state.SolChains[solChain1].SPLTokens[0]
@@ -322,8 +323,8 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 	tokenAddressLockRelease := state.SolChains[solChain1].SPL2022Tokens[0]
 	tokenAddressBurnMint := state.SolChains[solChain1].SPLTokens[0]
 
-	burnMintPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressBurnMint, state.SolChains[solChain1].BurnMintTokenPools[ccipChangeset.CLLMetadata])
-	lockReleasePoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressLockRelease, state.SolChains[solChain1].LockReleaseTokenPools[ccipChangeset.CLLMetadata])
+	burnMintPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressBurnMint, state.SolChains[solChain1].BurnMintTokenPools[shared.CLLMetadata])
+	lockReleasePoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressLockRelease, state.SolChains[solChain1].LockReleaseTokenPools[shared.CLLMetadata])
 	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(
 		t,
 		&e,
@@ -411,8 +412,8 @@ func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 	tokenAddressLockRelease := state.SolChains[solChain1].SPL2022Tokens[0]
 	tokenAddressBurnMint := state.SolChains[solChain1].SPLTokens[0]
 
-	burnMintPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressBurnMint, state.SolChains[solChain1].BurnMintTokenPools[ccipChangeset.CLLMetadata])
-	lockReleasePoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressLockRelease, state.SolChains[solChain1].LockReleaseTokenPools[ccipChangeset.CLLMetadata])
+	burnMintPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressBurnMint, state.SolChains[solChain1].BurnMintTokenPools[shared.CLLMetadata])
+	lockReleasePoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressLockRelease, state.SolChains[solChain1].LockReleaseTokenPools[shared.CLLMetadata])
 	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(
 		t,
 		&e,

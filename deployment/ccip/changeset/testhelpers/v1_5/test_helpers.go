@@ -18,6 +18,8 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	config2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
@@ -26,14 +28,13 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5changeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	plugintesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
-func AddLanes(t *testing.T, e deployment.Environment, state changeset.CCIPOnChainState, pairs []testhelpers.SourceDestPair) deployment.Environment {
+func AddLanes(t *testing.T, e deployment.Environment, state stateview.CCIPOnChainState, pairs []testhelpers.SourceDestPair) deployment.Environment {
 	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e, state, pairs)
 	var err error
 	e, err = commonchangeset.Apply(t, e, nil,
@@ -54,7 +55,7 @@ func AddLanes(t *testing.T, e deployment.Environment, state changeset.CCIPOnChai
 	return e
 }
 
-func LaneConfigsForChains(t *testing.T, env deployment.Environment, state changeset.CCIPOnChainState, pairs []testhelpers.SourceDestPair) (
+func LaneConfigsForChains(t *testing.T, env deployment.Environment, state stateview.CCIPOnChainState, pairs []testhelpers.SourceDestPair) (
 	[]v1_5changeset.DeployLaneConfig,
 	[]v1_5changeset.CommitOCR2ConfigParams,
 	[]v1_5changeset.ExecuteOCR2ConfigParams,
@@ -212,7 +213,7 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 }
 
 // CreatePriceGetterConfig returns price getter config as json string.
-func CreatePriceGetterConfig(t *testing.T, state changeset.CCIPOnChainState, source, dest uint64) string {
+func CreatePriceGetterConfig(t *testing.T, state stateview.CCIPOnChainState, source, dest uint64) string {
 	sourceRouter := state.Chains[source].Router
 	destRouter := state.Chains[dest].Router
 	destLinkAddr, err := state.Chains[dest].LinkTokenAddress()
@@ -276,7 +277,7 @@ func DefaultOCRParams() confighelper.PublicConfig {
 func SendRequest(
 	t *testing.T,
 	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	opts ...testhelpers.SendReqOpts,
 ) (*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, error) {
 	cfg := &testhelpers.CCIPSendReqConfig{}

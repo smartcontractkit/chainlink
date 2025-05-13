@@ -17,8 +17,9 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -32,7 +33,7 @@ type DisableRemoteChainConfig struct {
 }
 
 func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
-	state, err := cs.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -47,7 +48,7 @@ func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true, ccipChangeset.OffRamp: true}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true, shared.OffRamp: true}); err != nil {
 		return err
 	}
 	var routerConfigAccount solRouter.Config
@@ -62,7 +63,7 @@ func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
 		if remote == routerConfigAccount.SvmChainSelector {
 			return fmt.Errorf("cannot disable remote chain %d with same chain selector as current chain %d", remote, cfg.ChainSelector)
 		}
-		if err := state.ValidateRamp(remote, cs.OnRamp); err != nil {
+		if err := state.ValidateRamp(remote, shared.OnRamp); err != nil {
 			return err
 		}
 		routerDestChainPDA, err := solState.FindDestChainStatePDA(remote, chainState.Router)
@@ -83,7 +84,7 @@ func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) 
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := cs.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -109,7 +110,7 @@ func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) 
 
 func doDisableRemoteChain(
 	e deployment.Environment,
-	s cs.CCIPOnChainState,
+	s stateview.CCIPOnChainState,
 	cfg DisableRemoteChainConfig) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	ixns := make([]solana.Instruction, 0)
@@ -118,18 +119,18 @@ func doDisableRemoteChain(
 	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
 	offRampID := s.SolChains[chainSel].OffRamp
-	feeQuoterUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
-	offRampUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.OffRamp,
+		shared.OffRamp,
 		solana.PublicKey{},
 		"")
 
@@ -144,7 +145,7 @@ func doDisableRemoteChain(
 			chain,
 			chainState,
 			cfg.MCMS,
-			cs.FeeQuoter,
+			shared.FeeQuoter,
 			solana.PublicKey{},
 			"",
 		)
@@ -158,7 +159,7 @@ func doDisableRemoteChain(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if feeQuoterUsingMCMS {
-			tx, err := BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), cs.FeeQuoter)
+			tx, err := BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), shared.FeeQuoter)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}
@@ -173,7 +174,7 @@ func doDisableRemoteChain(
 			chain,
 			chainState,
 			cfg.MCMS,
-			cs.OffRamp,
+			shared.OffRamp,
 			solana.PublicKey{},
 			"")
 		offRampIx, err := solOffRamp.NewDisableSourceChainSelectorInstruction(
@@ -186,7 +187,7 @@ func doDisableRemoteChain(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if offRampUsingMCMS {
-			tx, err := BuildMCMSTxn(offRampIx, offRampID.String(), cs.OffRamp)
+			tx, err := BuildMCMSTxn(offRampIx, offRampID.String(), shared.OffRamp)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}
