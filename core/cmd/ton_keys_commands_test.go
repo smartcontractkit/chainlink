@@ -75,7 +75,7 @@ func TestShell_TonKeys(t *testing.T) {
 		key, err := app.GetKeyStore().Ton().Create(ctx)
 		require.NoError(t, err)
 		requireTonKeyCount(t, app, 1)
-		assert.NoError(t, cmd.NewTonKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
+		require.NoError(t, cmd.NewTonKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
 		require.Len(t, r.Renders, 1)
 		keys := *r.Renders[0].(*cmd.TonKeyPresenters)
 		assert.Equal(t, key.PublicKeyStr(), keys[0].PubKey)
