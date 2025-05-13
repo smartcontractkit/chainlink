@@ -20,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -29,8 +31,8 @@ import (
 )
 
 const (
-	LocalTokenDecimals                       = 18
-	TestTokenSymbol    changeset.TokenSymbol = "TEST"
+	LocalTokenDecimals                    = 18
+	TestTokenSymbol    shared.TokenSymbol = "TEST"
 )
 
 // CreateSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
@@ -89,7 +91,7 @@ func SetupTwoChainEnvironmentWithTokens(
 				return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 					Address:  tokenAddress,
 					Contract: token,
-					Tv:       cldf.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+					Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0),
 					Tx:       tx,
 					Err:      err,
 				}
@@ -112,7 +114,7 @@ func SetupTwoChainEnvironmentWithTokens(
 	)
 	require.NoError(t, err)
 
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// We only need the token admin registry to be owned by the timelock in these tests
@@ -182,7 +184,7 @@ func DeployTestTokenPools(
 	)
 	require.NoError(t, err)
 
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	if transferToTimelock {
@@ -199,13 +201,13 @@ func DeployTestTokenPools(
 		for _, selector := range selectors {
 			if newPool, ok := newPools[selector]; ok {
 				switch newPool.Type {
-				case changeset.BurnFromMintTokenPool:
+				case shared.BurnFromMintTokenPool:
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].BurnFromMintTokenPools[TestTokenSymbol], e.Chains[selector])
-				case changeset.BurnWithFromMintTokenPool:
+				case shared.BurnWithFromMintTokenPool:
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].BurnWithFromMintTokenPools[TestTokenSymbol], e.Chains[selector])
-				case changeset.BurnMintTokenPool:
+				case shared.BurnMintTokenPool:
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].BurnMintTokenPools[TestTokenSymbol], e.Chains[selector])
-				case changeset.LockReleaseTokenPool:
+				case shared.LockReleaseTokenPool:
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].LockReleaseTokenPools[TestTokenSymbol], e.Chains[selector])
 				}
 			}

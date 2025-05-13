@@ -19,11 +19,11 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -35,7 +35,7 @@ import (
 func checkConnectivity(
 	t *testing.T,
 	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	selector uint64,
 	remoteChainSelector uint64,
 	expectedRouter *router.Router,
@@ -118,7 +118,7 @@ func TestConnectNewChain(t *testing.T) {
 			})
 			e := deployedEnvironment.Env
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
 			selectors := e.AllChainSelectors()
@@ -285,7 +285,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				testCfg.ChainIDs = chainIDs
 			})
 			e := deployedEnvironment.Env
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
 			// Identify and delete addresses from the new chain
@@ -305,7 +305,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				}
 			}
 			e.ExistingAddresses = cldf.NewMemoryAddressBookFromMap(addressesByChain)
-			state, err = changeset.LoadOnchainState(e)
+			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
 			// Identify and delete the DON ID for the new chain
@@ -444,7 +444,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				))
 			require.NoError(t, err, "must deploy donIDClaimer contract")
 
-			state, err = changeset.LoadOnchainState(e)
+			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
 			if test.DonIDOffSet != nil {
@@ -471,7 +471,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				),
 			)
 			require.NoError(t, err, "must apply AddCandidatesForNewChainChangeset")
-			state, err = changeset.LoadOnchainState(e)
+			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
 			capReg := state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry

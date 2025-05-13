@@ -17,8 +17,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -43,16 +45,16 @@ var _ cldf.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
 func getTypeToProgramDeployName() map[cldf.ContractType]string {
 	return map[cldf.ContractType]string{
-		ccipChangeset.Router:               deployment.RouterProgramName,
-		ccipChangeset.OffRamp:              deployment.OffRampProgramName,
-		ccipChangeset.FeeQuoter:            deployment.FeeQuoterProgramName,
-		ccipChangeset.BurnMintTokenPool:    deployment.BurnMintTokenPoolProgramName,
-		ccipChangeset.LockReleaseTokenPool: deployment.LockReleaseTokenPoolProgramName,
-		ccipChangeset.RMNRemote:            deployment.RMNRemoteProgramName,
-		types.AccessControllerProgram:      deployment.AccessControllerProgramName,
-		types.ManyChainMultisigProgram:     deployment.McmProgramName,
-		types.RBACTimelockProgram:          deployment.TimelockProgramName,
-		ccipChangeset.Receiver:             deployment.ReceiverProgramName,
+		shared.Router:                  deployment.RouterProgramName,
+		shared.OffRamp:                 deployment.OffRampProgramName,
+		shared.FeeQuoter:               deployment.FeeQuoterProgramName,
+		shared.BurnMintTokenPool:       deployment.BurnMintTokenPoolProgramName,
+		shared.LockReleaseTokenPool:    deployment.LockReleaseTokenPoolProgramName,
+		shared.RMNRemote:               deployment.RMNRemoteProgramName,
+		types.AccessControllerProgram:  deployment.AccessControllerProgramName,
+		types.ManyChainMultisigProgram: deployment.McmProgramName,
+		types.RBACTimelockProgram:      deployment.TimelockProgramName,
+		shared.Receiver:                deployment.ReceiverProgramName,
 	}
 }
 
@@ -130,7 +132,7 @@ func (c DeployChainContractsConfig) Validate(e deployment.Environment) error {
 	if err := c.UpgradeConfig.Validate(e, c.ChainSelector); err != nil {
 		return fmt.Errorf("invalid UpgradeConfig: %w", err)
 	}
-	existingState, err := ccipChangeset.LoadOnchainState(e)
+	existingState, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load existing onchain state: %w", err)
 	}
@@ -159,7 +161,7 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
-	existingState, _ := ccipChangeset.LoadOnchainState(e)
+	existingState, _ := stateview.LoadOnchainState(e)
 	err := v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -242,7 +244,7 @@ func DeployAndMaybeSaveToAddressBook(
 	overallocate := true
 	// by default we want to overallocate buffers, but if metadata is set (i.e. we're managing partner programs)
 	// we want to set the overallocate flag to false
-	if metadata != "" && metadata != ccipChangeset.CLLMetadata {
+	if metadata != "" && metadata != shared.CLLMetadata {
 		overallocate = false
 	}
 	programID, err := chain.DeployProgram(e.Logger, programName, isUpgrade, overallocate)
@@ -274,7 +276,7 @@ func deployChainContractsSolana(
 ) ([]mcmsTypes.BatchOperation, error) {
 	// we may need to gather instructions and submit them as part of MCMS
 	batches := make([]mcmsTypes.BatchOperation, 0)
-	s, err := ccipChangeset.LoadOnchainStateSolana(e)
+	s, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return batches, err
@@ -293,14 +295,14 @@ func deployChainContractsSolana(
 	var feeQuoterAddress solana.PublicKey
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.FeeQuoter.IsZero() {
-		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.FeeQuoter, deployment.Version1_0_0, false, "")
+		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.FeeQuoter, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
 		feeQuoterAddress = chainState.FeeQuoter
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewFeeQuoterVersion, chainState.FeeQuoter, ccipChangeset.FeeQuoter)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewFeeQuoterVersion, chainState.FeeQuoter, shared.FeeQuoter)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -322,14 +324,14 @@ func deployChainContractsSolana(
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.Router.IsZero() {
 		// deploy router
-		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Router, deployment.Version1_0_0, false, "")
+		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.Router, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewRouterVersion != nil {
 		// router updated in place
 		ccipRouterProgram = chainState.Router
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRouterVersion, chainState.Router, ccipChangeset.Router)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRouterVersion, chainState.Router, shared.Router)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -351,20 +353,20 @@ func deployChainContractsSolana(
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
-		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, deployment.Version1_0_0, false, "")
+		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.OffRamp, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewOffRampVersion != nil {
-		tv := cldf.NewTypeAndVersion(ccipChangeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
+		tv := cldf.NewTypeAndVersion(shared.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
 		existingAddresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 		if err != nil {
 			return batches, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		offRampAddress = ccipChangeset.FindSolanaAddress(tv, existingAddresses)
+		offRampAddress = solanastateview.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
 			// deploy offramp, not upgraded in place so upgrade is false
-			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false, "")
+			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false, "")
 			if err != nil {
 				return batches, fmt.Errorf("failed to deploy program: %w", err)
 			}
@@ -383,7 +385,7 @@ func deployChainContractsSolana(
 				return batches, fmt.Errorf("failed to build instruction: %w", err)
 			}
 			if config.UpgradeConfig.MCMS != nil {
-				priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), ccipChangeset.FeeQuoter)
+				priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), shared.FeeQuoter)
 				if err != nil {
 					return batches, fmt.Errorf("failed to create price updater transaction: %w", err)
 				}
@@ -397,7 +399,7 @@ func deployChainContractsSolana(
 				}
 			}
 		} else {
-			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewOffRampVersion, chainState.OffRamp, ccipChangeset.OffRamp)
+			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewOffRampVersion, chainState.OffRamp, shared.OffRamp)
 			if err != nil {
 				return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 			}
@@ -418,13 +420,13 @@ func deployChainContractsSolana(
 	// RMN REMOTE DEPLOY
 	var rmnRemoteAddress solana.PublicKey
 	if chainState.RMNRemote.IsZero() {
-		rmnRemoteAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.RMNRemote, deployment.Version1_0_0, false, "")
+		rmnRemoteAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.RMNRemote, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewRMNRemoteVersion != nil {
 		rmnRemoteAddress = chainState.RMNRemote
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRMNRemoteVersion, chainState.RMNRemote, ccipChangeset.RMNRemote)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRMNRemoteVersion, chainState.RMNRemote, shared.RMNRemote)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -509,19 +511,19 @@ func deployChainContractsSolana(
 
 	// TOKEN POOLS DEPLOY
 	var burnMintTokenPool solana.PublicKey
-	metadata := ccipChangeset.CLLMetadata
+	metadata := shared.CLLMetadata
 	if config.BurnMintTokenPoolMetadata != "" {
 		metadata = config.BurnMintTokenPoolMetadata
 	}
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.BurnMintTokenPools[metadata].IsZero() {
-		burnMintTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.BurnMintTokenPool, deployment.Version1_0_0, false, metadata)
+		burnMintTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.BurnMintTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil {
 		burnMintTokenPool = chainState.BurnMintTokenPools[metadata]
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPools[metadata], ccipChangeset.BurnMintTokenPool)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -538,19 +540,19 @@ func deployChainContractsSolana(
 	}
 
 	var lockReleaseTokenPool solana.PublicKey
-	metadata = ccipChangeset.CLLMetadata
+	metadata = shared.CLLMetadata
 	if config.LockReleaseTokenPoolMetadata != "" {
 		metadata = config.LockReleaseTokenPoolMetadata
 	}
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.LockReleaseTokenPools[metadata].IsZero() {
-		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.LockReleaseTokenPool, deployment.Version1_0_0, false, metadata)
+		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.LockReleaseTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil {
 		lockReleaseTokenPool = chainState.LockReleaseTokenPools[metadata]
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPools[metadata], ccipChangeset.LockReleaseTokenPool)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}

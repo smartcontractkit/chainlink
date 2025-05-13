@@ -17,7 +17,9 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 )
 
 var _ cldf.ChangeSet[DeployUSDCTokenPoolContractsConfig] = DeployUSDCTokenPoolContractsChangeset
@@ -33,7 +35,7 @@ type DeployUSDCTokenPoolInput struct {
 	AllowList []common.Address
 }
 
-func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain deployment.Chain, state changeset.CCIPChainState) error {
+func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain deployment.Chain, state evm.CCIPChainState) error {
 	// Ensure that required fields are populated
 	if i.TokenAddress == utils.ZeroAddress {
 		return errors.New("token address must be defined")
@@ -51,7 +53,7 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain deployment
 	if err != nil {
 		return fmt.Errorf("failed to fetch symbol from token with address %s: %w", i.TokenAddress, err)
 	}
-	if symbol != string(changeset.USDCSymbol) {
+	if symbol != string(shared.USDCSymbol) {
 		return fmt.Errorf("symbol of token with address %s (%s) is not USDC", i.TokenAddress, symbol)
 	}
 
@@ -88,7 +90,7 @@ type DeployUSDCTokenPoolContractsConfig struct {
 }
 
 func (c DeployUSDCTokenPoolContractsConfig) Validate(env deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -129,7 +131,7 @@ func DeployUSDCTokenPoolContractsChangeset(env deployment.Environment, c DeployU
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
 
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -150,7 +152,7 @@ func DeployUSDCTokenPoolContractsChangeset(env deployment.Environment, c DeployU
 				return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
 					Address:  poolAddress,
 					Contract: usdcTokenPool,
-					Tv:       cldf.NewTypeAndVersion(changeset.USDCTokenPool, deployment.Version1_5_1),
+					Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1),
 					Tx:       tx,
 					Err:      err,
 				}

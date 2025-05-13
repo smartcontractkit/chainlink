@@ -1,4 +1,4 @@
-package changeset
+package deployergroup
 
 import (
 	"context"
@@ -23,13 +23,14 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type DeployerGroup struct {
 	e                 deployment.Environment
-	state             CCIPOnChainState
+	state             stateview.CCIPOnChainState
 	mcmConfig         *proposalutils.TimelockConfig
 	deploymentContext *DeploymentContext
 	txDecoder         *proposalutils.TxCallDecoder
@@ -119,7 +120,7 @@ type DeployerGroupWithContext interface {
 
 type deployerGroupBuilder struct {
 	e               deployment.Environment
-	state           CCIPOnChainState
+	state           stateview.CCIPOnChainState
 	mcmConfig       *proposalutils.TimelockConfig
 	txDecoder       *proposalutils.TxCallDecoder
 	describeContext *proposalutils.ArgumentContext
@@ -148,7 +149,7 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 //	state.Chains[selector].RMNRemote.Curse()
 //	# Execute the transaction or create the proposal
 //	deployerGroup.Enact("Curse RMNRemote")
-func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfig *proposalutils.TimelockConfig) DeployerGroupWithContext {
+func NewDeployerGroup(e deployment.Environment, state stateview.CCIPOnChainState, mcmConfig *proposalutils.TimelockConfig) DeployerGroupWithContext {
 	addresses, _ := e.ExistingAddresses.Addresses()
 	return &deployerGroupBuilder{
 		e:               e,
@@ -321,7 +322,7 @@ func ValidateMCMS(env deployment.Environment, selector uint64, mcmConfig *propos
 
 	switch family {
 	case chain_selectors.FamilyEVM:
-		state, err := LoadOnchainState(env)
+		state, err := stateview.LoadOnchainState(env)
 		if err != nil {
 			return fmt.Errorf("failed to load onchain state: %w", err)
 		}
@@ -473,7 +474,7 @@ func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
 	return cldf.ChangesetOutput{}, nil
 }
 
-func BuildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*proposalutils.TimelockExecutionContracts {
+func BuildTimelockPerChain(e deployment.Environment, state stateview.CCIPOnChainState) map[uint64]*proposalutils.TimelockExecutionContracts {
 	timelocksPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	for _, chain := range e.Chains {
 		timelocksPerChain[chain.Selector] = &proposalutils.TimelockExecutionContracts{
@@ -484,7 +485,7 @@ func BuildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map
 	return timelocksPerChain
 }
 
-func BuildTimelockAddressPerChain(e deployment.Environment, onchainState CCIPOnChainState) map[uint64]string {
+func BuildTimelockAddressPerChain(e deployment.Environment, onchainState stateview.CCIPOnChainState) map[uint64]string {
 	addressPerChain := make(map[uint64]string)
 	for _, chain := range e.Chains {
 		addressPerChain[chain.Selector] = onchainState.Chains[chain.Selector].Timelock.Address().Hex()
@@ -500,7 +501,7 @@ func BuildTimelockAddressPerChain(e deployment.Environment, onchainState CCIPOnC
 	return addressPerChain
 }
 
-func BuildMcmAddressesPerChainByAction(e deployment.Environment, onchainState CCIPOnChainState, mcmCfg *proposalutils.TimelockConfig) (map[uint64]string, error) {
+func BuildMcmAddressesPerChainByAction(e deployment.Environment, onchainState stateview.CCIPOnChainState, mcmCfg *proposalutils.TimelockConfig) (map[uint64]string, error) {
 	if mcmCfg == nil {
 		return nil, errors.New("mcm config is nil, cannot get mcms address")
 	}
