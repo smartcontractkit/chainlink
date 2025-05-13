@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
@@ -39,6 +40,17 @@ var TestChain = chainselectors.Chain{
 	Selector:   909606746561742123,
 	Name:       "Test Chain",
 	VarName:    "",
+}
+
+// TestDON is the DON we use in tests.
+var TestDON = struct {
+	ID   uint64
+	Name string
+	Env  string
+}{
+	ID:   1,
+	Name: "don",
+	Env:  "memory",
 }
 
 // NewMemoryEnv Deploys a memory environment with the provided number of nodes and optionally deploys MCMS and Timelock.

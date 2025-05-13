@@ -19,7 +19,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
@@ -48,11 +50,11 @@ func sendTestLLOJobs(t *testing.T, e deployment.Environment, numOracles, numBoot
 	config := CsDistributeLLOJobSpecsConfig{
 		ChainSelectorEVM: chainSel,
 		Filter: &jd.ListFilter{
-			DONID:             1,
-			DONName:           "don",
-			EnvLabel:          e.Name,
-			NumOracleNodes:    numBootstraps,
-			NumBootstrapNodes: 1,
+			DONID:             testutil.TestDON.ID,
+			DONName:           testutil.TestDON.Name,
+			EnvLabel:          testutil.TestDON.Env,
+			NumOracleNodes:    numOracles,
+			NumBootstrapNodes: numBootstraps,
 		},
 		FromBlock:                   0,
 		ConfigMode:                  "bluegreen",
@@ -76,8 +78,64 @@ func sendTestLLOJobs(t *testing.T, e deployment.Environment, numOracles, numBoot
 	return out
 }
 
+// sendTestStreamJobs sends some test stream jobs, which we can then revoke, retrieve, delete, etc.
+func sendTestStreamJobs(t *testing.T, e deployment.Environment, numOracles int, autoApproveJobs bool) []deployment.ChangesetOutput {
+	_, oracleNodeNames := collectNodeNames(t, e, numOracles, 0)
+
+	var labels []*ptypes.Label
+	if !autoApproveJobs {
+		labels = append(labels, &ptypes.Label{
+			Key: test.LabelDoNotAutoApprove,
+		})
+	}
+
+	config := CsDistributeStreamJobSpecsConfig{
+		Filter: &jd.ListFilter{
+			DONID:             testutil.TestDON.ID,
+			DONName:           testutil.TestDON.Name,
+			EnvLabel:          testutil.TestDON.Env,
+			NumOracleNodes:    numOracles,
+			NumBootstrapNodes: 0,
+		},
+		Streams: []StreamSpecConfig{
+			{
+				StreamID:   1000001038,
+				Name:       "ICP/USD-RefPrice",
+				StreamType: jobs.StreamTypeQuote,
+				ReportFields: jobs.QuoteReportFields{
+					Bid: jobs.ReportFieldLLO{
+						ResultPath: "data,bid",
+					},
+					Benchmark: jobs.ReportFieldLLO{
+						ResultPath: "data,mid",
+					},
+					Ask: jobs.ReportFieldLLO{
+						ResultPath: "data,ask",
+					},
+				},
+				EARequestParams: EARequestParams{
+					Endpoint: "cryptolwba",
+					From:     "ICP",
+					To:       "USD",
+				},
+				APIs: []string{"api1", "api2", "api3", "api4"},
+			},
+		},
+		Labels:    labels,
+		NodeNames: oracleNodeNames,
+	}
+
+	_, out, err := commonChangesets.ApplyChangesetsV2(t,
+		e,
+		[]commonChangesets.ConfiguredChangeSet{
+			commonChangesets.Configure(CsDistributeStreamJobSpecs{}, config),
+		},
+	)
+	require.NoError(t, err)
+	return out
+}
+
 func collectNodeNames(t *testing.T, e deployment.Environment, numOracles, numBootstraps int) (btNames, oracleNames []string) {
-	// Collect the names of the nodes.
 	bootstrapNodeNames := make([]string, 0, numBootstraps)
 	oracleNodeNames := make([]string, 0, numOracles)
 	resp, err := e.Offchain.ListNodes(context.Background(), &node.ListNodesRequest{

@@ -190,8 +190,8 @@ func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ deployment.Environment
 	}
 	// The list of node names tells us which nodes to distribute the job specs to.
 	// The size of that list needs to match the filter size, i.e. the number of nodes we expect to get from JD.
-	if config.Filter.NumOracleNodes+config.Filter.NumBootstrapNodes != len(config.NodeNames) {
-		return fmt.Errorf("number of node names (%d) does not match filter size (%d)", len(config.NodeNames), config.Filter.NumOracleNodes+config.Filter.NumBootstrapNodes)
+	if config.Filter.NumOracleNodes != len(config.NodeNames) {
+		return fmt.Errorf("number of node names (%d) does not match filter size (%d)", len(config.NodeNames), config.Filter.NumOracleNodes)
 	}
 
 	return nil

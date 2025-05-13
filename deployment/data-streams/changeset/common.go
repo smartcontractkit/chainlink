@@ -90,7 +90,8 @@ func fetchExternalJobID(e deployment.Environment, nodeID string, selectors []*pt
 
 	switch len(jobsResp.Jobs) {
 	case 0:
-		// No job found, return nil UUID
+		// No job found, return a new UUID
+		externalJobID = uuid.New()
 	case 1:
 		// One job found, return its ID
 		externalJobID, err = uuid.Parse(jobsResp.Jobs[0].Uuid)
