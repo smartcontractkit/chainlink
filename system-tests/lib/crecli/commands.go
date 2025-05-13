@@ -23,7 +23,7 @@ func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string,
 	var outputBuffer bytes.Buffer
 
 	// the CLI expects the workflow code to be located in the same directory as its `go.mod`` file. That's why we assume that the file, which
-	// contains the entrypoint method is always named `main.go`. This is a limitation of the CLI, which we can't change.
+	// the CLI also expects `cre.yaml` settings file to be present either in the present directory or any of its parent tree directories.
 
 	cliFile, err := os.Create(filepath.Join(workflowFolder, CRECLISettingsFileName))
 	if err != nil {

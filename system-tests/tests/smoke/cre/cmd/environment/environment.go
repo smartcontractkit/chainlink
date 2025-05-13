@@ -186,13 +186,13 @@ var startCmd = &cobra.Command{
 				return settingsErr
 			}
 
-			// Copy the file to current directory as cre.settings.yaml
+			// Copy the file to current directory as cre.yaml
 			currentDir, cErr := os.Getwd()
 			if cErr != nil {
 				return cErr
 			}
 
-			targetPath := filepath.Join(currentDir, "cre.settings.yaml")
+			targetPath := filepath.Join(currentDir, "cre.yaml")
 			input, err := os.ReadFile(creCLISettingsFile.Name())
 			if err != nil {
 				return err
