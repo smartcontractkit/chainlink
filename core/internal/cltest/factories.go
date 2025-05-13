@@ -8,7 +8,6 @@ import (
 	"math/big"
 	mathrand "math/rand"
 	"net/url"
-	"strconv"
 	"testing"
 	"time"
 
@@ -406,23 +405,6 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, registry keeper.Regi
 	err = korm.UpsertUpkeep(ctx, &upkeep)
 	require.NoError(t, err)
 	return upkeep
-}
-
-func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (runID int64) {
-	require.NoError(t, db.Get(&runID, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,created_at) VALUES ($1, 0, 0, NOW()) RETURNING id`, "running"))
-	return runID
-}
-
-func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
-	err := db.Get(&spec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
-	require.NoError(t, err)
-	return
-}
-
-func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunID int64) (trID uuid.UUID) {
-	/* #nosec G404 */
-	require.NoError(t, db.Get(&trID, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING id`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.New()))
-	return trID
 }
 
 func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {

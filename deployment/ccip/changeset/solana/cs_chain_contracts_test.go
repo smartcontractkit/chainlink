@@ -48,7 +48,7 @@ func deployTokenAndMint(t *testing.T, tenv deployment.Environment, solChain uint
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeploySolanaToken),
 			ccipChangesetSolana.DeploySolanaTokenConfig{
 				ChainSelector:       solChain,
-				TokenProgramName:    shared.SPL2022Tokens,
+				TokenProgramName:    shared.SPLTokens,
 				TokenDecimals:       9,
 				TokenSymbol:         "TEST_TOKEN",
 				ATAList:             walletPubKeys,
@@ -60,7 +60,7 @@ func deployTokenAndMint(t *testing.T, tenv deployment.Environment, solChain uint
 	require.NoError(t, err)
 	tokenAddress := solanastateview.FindSolanaAddress(
 		cldf.TypeAndVersion{
-			Type:    shared.SPL2022Tokens,
+			Type:    shared.SPLTokens,
 			Version: deployment.Version1_0_0,
 			Labels:  cldf.NewLabelSet("TEST_TOKEN"),
 		},
@@ -525,7 +525,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 
 	// just send funds to the router manually rather than run e2e
 	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(state.SolChains[solChain].Router)
-	billingSignerATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, billingSignerPDA)
+	billingSignerATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, tokenAddress, billingSignerPDA)
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.MintSolanaToken),
@@ -544,7 +544,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	_, billingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, billingSignerATA, cldf.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, 1000, billingResult)
-	feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, feeAggregator)
+	feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, tokenAddress, feeAggregator)
 	_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, feeAggregatorATA, cldf.SolDefaultCommitment)
 	require.NoError(t, err)
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{

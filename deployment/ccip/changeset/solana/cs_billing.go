@@ -86,10 +86,10 @@ func AddBillingToken(
 	txns := make([]mcmsTypes.Transaction, 0)
 	tokenPubKey := solana.MustPublicKeyFromBase58(billingTokenConfig.Mint.String())
 	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, feeQuoterAddress)
-	// we dont need to handle test router here because we explicitly create this and token2022Receiver for test router
+	// we dont need to handle test router here because we explicitly create this and token Receiver for test router
 	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(routerAddress)
 	tokenProgramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
-	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
+	tokenReceiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
@@ -124,7 +124,7 @@ func AddBillingToken(
 			tokenBillingPDA,
 			tokenProgramID,
 			tokenPubKey,
-			token2022Receiver,
+			tokenReceiver,
 			authority, // ccip admin
 			billingSignerPDA,
 			ata.ProgramID,
