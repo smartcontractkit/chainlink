@@ -325,6 +325,11 @@ ChipIngressEndpoint = 'example.com/chip-ingress'
 Baz = 'test'
 Foo = 'bar'
 
+[CRE]
+[CRE.Streams]
+WsURL = 'streams.url'
+RestURL = 'streams.url'
+
 [Workflows]
 [Workflows.Limits]
 Global = 200

@@ -542,7 +542,7 @@ func (g *generalConfig) Telemetry() coreconfig.Telemetry {
 }
 
 func (g *generalConfig) CRE() coreconfig.CRE {
-	return &creConfig{c: g.secrets.CRE}
+	return &creConfig{s: g.secrets.CRE}
 }
 
 var zeroSha256Hash = models.Sha256Hash{}

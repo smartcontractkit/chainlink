@@ -323,6 +323,11 @@ EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
 
+[CRE]
+[CRE.Streams]
+WsURL = ''
+RestURL = ''
+
 [Workflows]
 [Workflows.Limits]
 Global = 200

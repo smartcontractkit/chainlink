@@ -61,6 +61,7 @@ type Core struct {
 	Capabilities     Capabilities     `toml:",omitempty"`
 	Telemetry        Telemetry        `toml:",omitempty"`
 	Workflows        Workflows        `toml:",omitempty"`
+	CRE              CreConfig        `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -102,6 +103,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Insecure.setFrom(&f.Insecure)
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
+	c.CRE.setFrom(&f.CRE)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -1582,13 +1584,57 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	return err
 }
 
+// StreamsConfig holds the WsURL and RestURL for configuring the
+// Streams SDK for use in the workflow engine
 type StreamsConfig struct {
+	WsURL   *string `toml:",omitempty"`
+	RestURL *string `toml:",omitempty"`
+}
+
+type CreConfig struct {
+	Streams *StreamsConfig `toml:",omitempty"`
+}
+
+func (c *CreConfig) setFrom(f *CreConfig) (err error) {
+	err = c.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if f.Streams != nil {
+		if c.Streams == nil {
+			c.Streams = &StreamsConfig{}
+		}
+		if v := f.Streams.WsURL; v != nil {
+			c.Streams.WsURL = v
+		}
+		if v := f.Streams.RestURL; v != nil {
+			c.Streams.RestURL = v
+		}
+	}
+
+	return nil
+}
+
+func (c *CreConfig) validateMerge(f *CreConfig) (err error) {
+	if c.Streams != nil && f.Streams != nil {
+		if c.Streams.WsURL != nil && f.Streams.WsURL != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.ApiKey"})
+		}
+		if c.Streams.RestURL != nil && f.Streams.RestURL != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.ApiSecret"})
+		}
+	}
+	return err
+}
+
+type StreamsSecretConfig struct {
 	ApiKey    *commonconfig.SecretString `toml:",omitempty"`
 	ApiSecret *commonconfig.SecretString `toml:",omitempty"`
 }
 
 type CreSecrets struct {
-	Streams *StreamsConfig `toml:",omitempty"`
+	Streams *StreamsSecretConfig `toml:",omitempty"`
 }
 
 func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
@@ -1599,7 +1645,7 @@ func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
 
 	if f.Streams != nil {
 		if c.Streams == nil {
-			c.Streams = &StreamsConfig{}
+			c.Streams = &StreamsSecretConfig{}
 		}
 		if v := f.Streams.ApiKey; v != nil {
 			c.Streams.ApiKey = v
