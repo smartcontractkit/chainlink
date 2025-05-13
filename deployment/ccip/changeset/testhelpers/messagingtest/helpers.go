@@ -17,16 +17,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 // Use this when testhelpers.DeployedEnv is available (usually in ephemeral test environments).
 func NewTestSetupWithDeployedEnv(
 	t *testing.T,
 	depEnv testhelpers.DeployedEnv,
-	onchainState changeset.CCIPOnChainState,
+	onchainState stateview.CCIPOnChainState,
 	sourceChain,
 	destChain uint64,
 	sender []byte,
@@ -48,7 +49,7 @@ func NewTestSetupWithDeployedEnv(
 func NewTestSetup(
 	t *testing.T,
 	env deployment.Environment,
-	onchainState changeset.CCIPOnChainState,
+	onchainState stateview.CCIPOnChainState,
 	sourceChain,
 	destChain uint64,
 	sender []byte,
@@ -71,7 +72,7 @@ type TestSetup struct {
 	Sender       []byte
 	Env          deployment.Environment
 	DeployedEnv  testhelpers.DeployedEnv
-	OnchainState changeset.CCIPOnChainState
+	OnchainState stateview.CCIPOnChainState
 	SourceChain  uint64
 	DestChain    uint64
 	TestRouter   bool

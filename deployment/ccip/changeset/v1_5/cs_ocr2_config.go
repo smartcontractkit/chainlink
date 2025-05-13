@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
@@ -68,7 +68,7 @@ func (c *CommitOCR2ConfigParams) PopulateOffChainAndOnChainCfg(priceReg common.A
 	return nil
 }
 
-func (c *CommitOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) error {
+func (c *CommitOCR2ConfigParams) Validate(state stateview.CCIPOnChainState) error {
 	if err := deployment.IsValidChainSelector(c.DestinationChainSelector); err != nil {
 		return fmt.Errorf("invalid DestinationChainSelector: %w", err)
 	}
@@ -135,7 +135,7 @@ func (e *ExecuteOCR2ConfigParams) PopulateOffChainAndOnChainCfg(router, priceReg
 	return nil
 }
 
-func (e *ExecuteOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) error {
+func (e *ExecuteOCR2ConfigParams) Validate(state stateview.CCIPOnChainState) error {
 	if err := deployment.IsValidChainSelector(e.SourceChainSelector); err != nil {
 		return fmt.Errorf("invalid SourceChainSelector: %w", err)
 	}
@@ -167,7 +167,7 @@ type OCR2Config struct {
 	ExecConfigs   []ExecuteOCR2ConfigParams
 }
 
-func (o OCR2Config) Validate(state changeset.CCIPOnChainState) error {
+func (o OCR2Config) Validate(state stateview.CCIPOnChainState) error {
 	for _, c := range o.CommitConfigs {
 		if err := c.Validate(state); err != nil {
 			return err
@@ -184,7 +184,7 @@ func (o OCR2Config) Validate(state changeset.CCIPOnChainState) error {
 // SetOCR2ConfigForTestChangeset sets the OCR2 config on the chain for commit and offramp
 // This is currently not suitable for prod environments it's only for testing
 func SetOCR2ConfigForTestChangeset(env deployment.Environment, c OCR2Config) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
 	}

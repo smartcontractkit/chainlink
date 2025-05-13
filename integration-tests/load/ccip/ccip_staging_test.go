@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
@@ -37,7 +38,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, env)
 	userOverrides.Validate(t, env)
-	state, err := ccipchangeset.LoadOnchainState(*env)
+	state, err := stateview.LoadOnchainState(*env)
 	require.NoError(t, err)
 
 	// initialize additional accounts on other chains

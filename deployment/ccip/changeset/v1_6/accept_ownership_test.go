@@ -7,8 +7,9 @@ import (
 	"golang.org/x/exp/maps"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -16,7 +17,7 @@ import (
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChains := maps.Keys(e.Env.Chains)
@@ -36,7 +37,7 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 
 	// at this point we have the initial deploys done, now we need to transfer ownership
 	// to the timelock contract
-	state, err = changeset.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// compose the transfer ownership and accept ownership changesets
