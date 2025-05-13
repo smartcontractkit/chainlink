@@ -1,12 +1,14 @@
 package changeset
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -15,27 +17,28 @@ import (
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
 )
 
-// ContractSetV2 represents a set of contracts for a specific chain.
-type ContractSetV2 struct {
+// contractSetV2 represents a set of contracts for a specific chain.
+// TODO: remove this once migration to DataStore is complete.
+type contractSetV2 struct {
 	OCR3                 map[common.Address]OwnedContract[*ocr3_capability.OCR3Capability]
 	Forwarder            *OwnedContract[*forwarder.KeystoneForwarder]
 	CapabilitiesRegistry *OwnedContract[*capabilities_registry.CapabilitiesRegistry]
 	WorkflowRegistry     *OwnedContract[*workflow_registry.WorkflowRegistry]
 }
 
-// GetContractSetsRequestV2 is the request structure for getting contract sets.
-type GetContractSetsRequestV2 struct {
-	AddressBook deployment.AddressBook
+// getContractSetsRequestV2 is the request structure for getting contract sets.
+type getContractSetsRequestV2 struct {
+	AddressBook cldf.AddressBook
 	Chains      map[uint64]deployment.Chain
 	Labels      []string
 }
 
-// GetContractSetsResponseV2 is the response structure for getting contract sets.
-type GetContractSetsResponseV2 struct {
-	ContractSets map[uint64]ContractSetV2
+// getContractSetsResponseV2 is the response structure for getting contract sets.
+type getContractSetsResponseV2 struct {
+	ContractSets map[uint64]contractSetV2
 }
 
-func (cs ContractSetV2) toContractSet() ContractSet {
+func (cs contractSetV2) toContractSet() ContractSet {
 	// We don't set the `ContractSet.MCMSWithTimelockState` due to the nature of `ContractSetV2`.
 	// Now each contract has its own MCMS state, and that format is not compatible with `ContractSet`.
 	out := ContractSet{}
@@ -59,21 +62,15 @@ func (cs ContractSetV2) toContractSet() ContractSet {
 	return out
 }
 
-// TransferableContracts returns a list of addresses of contracts that are transferable.
-func (cs ContractSetV2) TransferableContracts() []common.Address {
+// transferableContracts returns a list of addresses of contracts that are transferable.
+func (cs contractSetV2) transferableContracts() []common.Address {
 	return cs.toContractSet().TransferableContracts()
 }
 
-// View is a view of the keystone chain. Internally, it uses the ContractSet view to get the state of the contracts.
-// This is to preserve the view functionality.
-func (cs ContractSetV2) View(ctx context.Context, prevView KeystoneChainView, lggr logger.Logger) (KeystoneChainView, error) {
-	return cs.toContractSet().View(ctx, prevView, lggr)
-}
-
-// GetContractSetsV2 retrieves the contract sets for the given chains and labels.
-func GetContractSetsV2(lggr logger.Logger, req GetContractSetsRequestV2) (*GetContractSetsResponseV2, error) {
-	out := &GetContractSetsResponseV2{
-		ContractSets: make(map[uint64]ContractSetV2),
+// getContractSetsV2 retrieves the contract sets for the given chains and labels.
+func getContractSetsV2(lggr logger.Logger, req getContractSetsRequestV2) (*getContractSetsResponseV2, error) {
+	out := &getContractSetsResponseV2{
+		ContractSets: make(map[uint64]contractSetV2),
 	}
 
 	for id, chain := range req.Chains {
@@ -84,7 +81,7 @@ func GetContractSetsV2(lggr logger.Logger, req GetContractSetsRequestV2) (*GetCo
 
 		// Forwarder addresses now have informative labels, but we don't want them to be ignored if no labels are provided for filtering.
 		// If labels are provided, just filter by those.
-		forwarderAddrs := make(map[string]deployment.TypeAndVersion)
+		forwarderAddrs := make(map[string]cldf.TypeAndVersion)
 		if len(req.Labels) == 0 {
 			for addr, tv := range addresses {
 				if tv.Type == KeystoneForwarder {
@@ -111,10 +108,10 @@ func GetContractSetsV2(lggr logger.Logger, req GetContractSetsRequestV2) (*GetCo
 	return out, nil
 }
 
-func loadContractSetV2(lggr logger.Logger, addressBook deployment.AddressBook, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSetV2, error) {
-	var out ContractSetV2
+func loadContractSetV2(lggr logger.Logger, addressBook cldf.AddressBook, chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*contractSetV2, error) {
+	var out contractSetV2
 
-	handlers := map[deployment.ContractType]func(string) error{
+	handlers := map[cldf.ContractType]func(string) error{
 		OCR3Capability: func(addr string) error {
 			contract, err := GetOwnedContract[*ocr3_capability.OCR3Capability](addressBook, chain, addr)
 			if err != nil {

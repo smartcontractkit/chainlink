@@ -2,6 +2,7 @@ package txmgr
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -12,17 +13,18 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-framework/metrics"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txm/clientwrappers"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txm/storage"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/clientwrappers"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/storage"
 )
 
 type latestAndFinalizedBlockHeadTracker interface {
@@ -63,11 +65,15 @@ func NewTxm(
 	feeCfg := NewEvmTxmFeeConfig(fCfg)                 // wrap Evm specific config
 	txmClient := NewEvmTxmClient(client, clientErrors) // wrap Evm specific client
 	chainID := txmClient.ConfiguredChainID()
-	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, lggr, checker, chainConfig.NonceAutoSync(), chainConfig.ChainType())
+	metrics, err := NewEVMTxmMetrics(chainID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize EVM TXM metrics: %w", err)
+	}
+	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, lggr, checker, chainConfig.NonceAutoSync(), chainConfig.ChainType(), metrics)
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
 	stuckTxDetector := NewStuckTxDetector(lggr, client.ConfiguredChainID(), chainConfig.ChainType(), fCfg.PriceMax(), txConfig.AutoPurge(), estimator, txStore, client)
-	evmConfirmer := NewEvmConfirmer(txStore, txmClient, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector)
-	evmFinalizer := NewEvmFinalizer(lggr, client.ConfiguredChainID(), chainConfig.RPCDefaultBatchSize(), txConfig.ForwardersEnabled(), txStore, txmClient, headTracker)
+	evmConfirmer := NewEvmConfirmer(txStore, txmClient, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector, metrics)
+	evmFinalizer := NewEvmFinalizer(lggr, client.ConfiguredChainID(), chainConfig.RPCDefaultBatchSize(), txConfig.ForwardersEnabled(), txStore, txmClient, headTracker, metrics)
 	var evmResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
 		evmResender = NewEvmResender(lggr, txStore, txmClient, evmTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
@@ -177,8 +183,9 @@ func NewEvmConfirmer(
 	txAttemptBuilder TxAttemptBuilder,
 	lggr logger.Logger,
 	stuckTxDetector StuckTxDetector,
+	metrics metrics.GenericTXMMetrics,
 ) *Confirmer {
-	return txmgr.NewConfirmer(txStore, client, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *types.Receipt) bool { return r == nil }, stuckTxDetector)
+	return txmgr.NewConfirmer(txStore, client, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *types.Receipt) bool { return r == nil }, stuckTxDetector, metrics)
 }
 
 // NewEvmTracker instantiates a new EVM tracker for abandoned transactions
@@ -205,7 +212,8 @@ func NewEvmBroadcaster(
 	checkerFactory TransmitCheckerFactory,
 	autoSyncNonce bool,
 	chainType chaintype.ChainType,
+	metrics metrics.GenericTXMMetrics,
 ) *Broadcaster {
 	nonceTracker := NewNonceTracker(logger, txStore, client)
-	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, txAttemptBuilder, nonceTracker, logger, checkerFactory, autoSyncNonce, string(chainType))
+	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, txAttemptBuilder, nonceTracker, logger, checkerFactory, autoSyncNonce, string(chainType), metrics)
 }

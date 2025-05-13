@@ -205,7 +205,6 @@ type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
 	Logger             logger.Logger
-	Emitter            *tests.BeholderTester
 	Server             *httptest.Server
 	Started            bool
 	Backend            *simulated.Backend
@@ -464,12 +463,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	for _, dep := range flagsAndDeps {
 		if k, ok := dep.(ethkey.KeyV2); ok {
 			ta.Keys = append(ta.Keys, k)
-		}
-	}
-
-	for _, dep := range flagsAndDeps {
-		if k, ok := dep.(*tests.BeholderTester); ok {
-			ta.Emitter = k
 		}
 	}
 
@@ -1276,18 +1269,6 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clie
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	ethClient.On("Close").Return().Maybe()
-}
-
-func BatchElemMatchesParams(req rpc.BatchElem, arg interface{}, method string) bool {
-	return req.Method == method &&
-		len(req.Args) == 1 && req.Args[0] == arg
-}
-
-func BatchElemMustMatchParams(t *testing.T, req rpc.BatchElem, hash common.Hash, method string) {
-	t.Helper()
-	if !BatchElemMatchesParams(req, hash, method) {
-		t.Fatalf("Batch hash %v does not match expected %v", req.Args[0], hash)
-	}
 }
 
 // SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.

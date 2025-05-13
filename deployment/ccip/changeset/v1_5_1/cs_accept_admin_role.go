@@ -6,11 +6,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
-var _ deployment.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = AcceptAdminRoleChangeset
+var _ cldf.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = AcceptAdminRoleChangeset
 
 func validateAcceptAdminRole(
 	config token_admin_registry.TokenAdminRegistryTokenConfig,
@@ -27,13 +30,13 @@ func validateAcceptAdminRole(
 }
 
 // AcceptAdminRoleChangeset accepts admin rights for tokens on the token admin registry.
-func AcceptAdminRoleChangeset(env deployment.Environment, c changeset.TokenAdminRegistryChangesetConfig) (deployment.ChangesetOutput, error) {
+func AcceptAdminRoleChangeset(env deployment.Environment, c changeset.TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env, false, validateAcceptAdminRole); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid TokenAdminRegistryChangesetConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid TokenAdminRegistryChangesetConfig: %w", err)
 	}
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("accept admin role for tokens on token admin registries")
@@ -43,16 +46,16 @@ func AcceptAdminRoleChangeset(env deployment.Environment, c changeset.TokenAdmin
 		chainState := state.Chains[chainSelector]
 		opts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
 		}
 		for symbol, poolInfo := range tokenSymbolToPoolInfo {
 			_, tokenAddress, err := poolInfo.GetPoolAndTokenAddress(env.GetContext(), symbol, chain, chainState)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get state of %s token on chain %s: %w", symbol, chain, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get state of %s token on chain %s: %w", symbol, chain, err)
 			}
 			_, err = chainState.TokenAdminRegistry.AcceptAdminRole(opts, tokenAddress)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create acceptAdminRole transaction for %s on %s registry: %w", symbol, chain, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create acceptAdminRole transaction for %s on %s registry: %w", symbol, chain, err)
 			}
 		}
 	}

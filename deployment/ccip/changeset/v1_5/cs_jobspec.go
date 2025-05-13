@@ -6,13 +6,14 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
 
-var _ deployment.ChangeSet[JobSpecsForLanesConfig] = JobSpecsForLanesChangeset
+var _ cldf.ChangeSet[JobSpecsForLanesConfig] = JobSpecsForLanesChangeset
 
 type JobSpecsForLanesConfig struct {
 	Configs []JobSpecInput
@@ -59,23 +60,23 @@ func (j JobSpecInput) Validate() error {
 	return nil
 }
 
-func JobSpecsForLanesChangeset(env deployment.Environment, c JobSpecsForLanesConfig) (deployment.ChangesetOutput, error) {
+func JobSpecsForLanesChangeset(env deployment.Environment, c JobSpecsForLanesConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid JobSpecsForLanesConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid JobSpecsForLanesConfig: %w", err)
 	}
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	nodesToJobSpecs, err := jobSpecsForLane(env, state, c)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	// Now we propose the job specs to the offchain system.
-	var Jobs []deployment.ProposedJob
+	var Jobs []cldf.ProposedJob
 	for nodeID, jobs := range nodesToJobSpecs {
 		for _, job := range jobs {
-			Jobs = append(Jobs, deployment.ProposedJob{
+			Jobs = append(Jobs, cldf.ProposedJob{
 				Node: nodeID,
 				Spec: job,
 			})
@@ -88,14 +89,14 @@ func JobSpecsForLanesChangeset(env deployment.Environment, c JobSpecsForLanesCon
 				// If we fail to propose a job, we should return an error and the jobs we've already proposed.
 				// This is so that we can retry the proposal with manual intervention.
 				// JOBID will be empty if the proposal failed.
-				return deployment.ChangesetOutput{
+				return cldf.ChangesetOutput{
 					Jobs: Jobs,
 				}, fmt.Errorf("failed to propose job %s: %w", job, err)
 			}
 			Jobs[len(Jobs)-1].JobID = res.Proposal.JobId
 		}
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		Jobs: Jobs,
 	}, nil
 }

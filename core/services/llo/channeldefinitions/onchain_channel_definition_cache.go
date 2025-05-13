@@ -171,8 +171,10 @@ func (c *channelDefinitionCache) Start(ctx context.Context) error {
 			return err
 		} else if pd != nil {
 			c.definitions = pd.Definitions
-			c.initialBlockNum = pd.BlockNum + 1
 			c.definitionsVersion = uint32(pd.Version)
+			if pd.BlockNum+1 > c.initialBlockNum {
+				c.initialBlockNum = pd.BlockNum + 1
+			}
 		} else {
 			// ensure non-nil map ready for assignment later
 			c.definitions = make(llotypes.ChannelDefinitions)
@@ -264,6 +266,9 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 		}
 		unpacked.DonId = new(big.Int).SetBytes(log.Topics[1])
 
+		//nolint:gosec // disable G115
+		unpacked.Raw.BlockNumber = uint64(log.BlockNumber)
+
 		if unpacked.DonId.Cmp(big.NewInt(int64(c.donID))) != 0 {
 			// skip logs for other donIDs, shouldn't happen given the
 			// FilterLogs call, but belts and braces
@@ -286,7 +291,8 @@ func (c *channelDefinitionCache) scanFromBlockNum() int64 {
 	c.newLogMu.RLock()
 	defer c.newLogMu.RUnlock()
 	if c.newLog != nil {
-		return int64(c.newLog.Raw.BlockNumber) + 1
+		//nolint:gosec // disable G115
+		return int64(c.newLog.Raw.BlockNumber)
 	}
 	return c.initialBlockNum
 }

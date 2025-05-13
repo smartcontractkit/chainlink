@@ -169,27 +169,30 @@ var startCmd = &cobra.Command{
 		homeChainOut := output.BlockchainOutput[0]
 
 		sErr := func() error {
+			rpcs := map[uint64]string{}
+			for _, bcOut := range output.BlockchainOutput {
+				rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
+			}
 			creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
+				crecli.CRECLIProfile,
 				homeChainOut.SethClient.MustGetRootKeyAddress(),
 				output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				output.DonTopology.WorkflowDonID,
 				homeChainOut.ChainSelector,
-				map[uint64]string{
-					homeChainOut.ChainSelector: homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				},
+				rpcs,
 			)
 
 			if settingsErr != nil {
 				return settingsErr
 			}
 
-			// Copy the file to current directory as cre.settings.yaml
+			// Copy the file to current directory as cre.yaml
 			currentDir, cErr := os.Getwd()
 			if cErr != nil {
 				return cErr
 			}
 
-			targetPath := filepath.Join(currentDir, "cre.settings.yaml")
+			targetPath := filepath.Join(currentDir, "cre.yaml")
 			input, err := os.ReadFile(creCLISettingsFile.Name())
 			if err != nil {
 				return err

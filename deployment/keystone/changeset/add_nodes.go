@@ -8,7 +8,11 @@ import (
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -130,6 +134,20 @@ type CreateNodeRequest struct {
 	CapabilityIdentities          // the capabilities of the node; must all exist in the capabilities registry
 }
 
+func NewCreateNodeRequest(nop NOPIdentity, node deployment.Node, capabilities CapabilityIdentities, registryChainSel uint64) (*CreateNodeRequest, error) {
+	s, e, err := internal.ExtractSignerEncryptionKeys(node, registryChainSel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract signer and encryption keys: %w", err)
+	}
+	return &CreateNodeRequest{
+		NOPIdentity:          nop,
+		Signer:               s,
+		P2PID:                node.PeerID,
+		EncryptionPublicKey:  e,
+		CapabilityIdentities: capabilities,
+	}, nil
+}
+
 func (r *CreateNodeRequest) Validate() error {
 	if err := r.NOPIdentity.Validate(); err != nil {
 		return fmt.Errorf("invalid NOPIdentity: %w", err)
@@ -170,14 +188,16 @@ func (r *CreateNodeRequest) Resolve(registry *kcr.CapabilitiesRegistry) (kcr.Cap
 type AddNodesRequest struct {
 	RegistryChainSel uint64
 
-	CreateNodeRequests map[string]CreateNodeRequest
+	CreateNodeRequests map[string]*CreateNodeRequest
 	// MCMS is the configuration for the Multi-Chain Manager Service
 	// Required if the registry contract has be delegated to MCMS
 	// If nil, the registry contract will be used directly
 	MCMSConfig *MCMSConfig
+	// RegistryRef is the address of the registry contract
+	RegistryRef datastore.AddressRefKey
 }
 
-func (r *AddNodesRequest) Validate() error {
+func (r *AddNodesRequest) Validate(env deployment.Environment) error {
 	if len(r.CreateNodeRequests) == 0 {
 		return errors.New("must provide create node requests")
 	}
@@ -186,34 +206,35 @@ func (r *AddNodesRequest) Validate() error {
 			return fmt.Errorf("invalid create node request for node %s: %w", nodeName, err)
 		}
 	}
+	if err := shouldUseDatastore(env, r.RegistryRef); err != nil {
+		return fmt.Errorf("failed to check registry ref: %w", err)
+	}
 	return nil
 }
 
-var _ deployment.ChangeSet[*AddNodesRequest] = AddNodes
+var _ cldf.ChangeSet[*AddNodesRequest] = AddNodes
 
-func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.ChangesetOutput, error) {
-	err := req.Validate()
+func AddNodes(env deployment.Environment, req *AddNodesRequest) (cldf.ChangesetOutput, error) {
+	err := req.Validate(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
 	}
 
-	contractSetResp, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	})
+	capReg, err := loadCapabilityRegistry(env.Chains[req.RegistryChainSel], env, req.RegistryRef)
+
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract sets: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry sets: %w", err)
 	}
 
 	nodeParams := make(map[string]kcr.CapabilitiesRegistryNodeParams)
 	for nodeName, cr := range req.CreateNodeRequests {
-		params, err := cr.Resolve(contractSetResp.ContractSets[req.RegistryChainSel].CapabilitiesRegistry.Contract)
+		params, err := cr.Resolve(capReg.Contract)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to resolve node params for node %s: %w", nodeName, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to resolve node params for node %s: %w", nodeName, err)
 		}
 		p2p := string(params.P2pId[:])
 		if _, exists := nodeParams[p2p]; exists {
-			return deployment.ChangesetOutput{}, fmt.Errorf("duplicate p2pid %s at node %s", p2p, nodeName)
+			return cldf.ChangesetOutput{}, fmt.Errorf("duplicate p2pid %s at node %s", p2p, nodeName)
 		}
 		nodeParams[p2p] = params
 	}
@@ -221,32 +242,31 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 	var (
 		useMCMS       = req.MCMSConfig != nil
 		registryChain = env.Chains[req.RegistryChainSel]
-		registry      = contractSetResp.ContractSets[req.RegistryChainSel].CapabilitiesRegistry
 	)
 	resp, err := internal.AddNodes(env.Logger, &internal.AddNodesRequest{
 		RegistryChain:        registryChain,
-		CapabilitiesRegistry: registry.Contract,
+		CapabilitiesRegistry: capReg.Contract,
 		NodeParams:           nodeParams,
 		UseMCMS:              useMCMS,
 	})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to add nodes: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add nodes: %w", err)
 	}
 	// create mcms proposal if needed
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if useMCMS {
 		if resp.Ops == nil || len(resp.Ops.Transactions) == 0 {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]string{
-			registryChain.Selector: registry.McmsContracts.Timelock.Address().Hex(),
+			registryChain.Selector: capReg.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			registryChain.Selector: registry.McmsContracts.ProposerMcm.Address().Hex(),
+			registryChain.Selector: capReg.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		inspectorPerChain := map[uint64]mcmssdk.Inspector{
 			req.RegistryChainSel: inspector,

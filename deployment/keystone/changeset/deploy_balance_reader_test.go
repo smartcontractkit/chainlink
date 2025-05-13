@@ -7,7 +7,9 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -25,7 +27,7 @@ func TestDeployBalanceReader(t *testing.T) {
 	registrySel := env.AllChainSelectors()[0]
 
 	t.Run("should deploy balancereader", func(t *testing.T) {
-		ab := deployment.NewMemoryAddressBook()
+		ab := cldf.NewMemoryAddressBook()
 
 		// deploy balancereader
 		env.ExistingAddresses = ab

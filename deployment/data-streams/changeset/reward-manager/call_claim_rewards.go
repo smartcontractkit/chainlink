@@ -9,13 +9,15 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 )
 
-var ClaimRewardsChangeset = deployment.CreateChangeSet(claimRewardsLogic, claimRewardsPrecondition)
+var ClaimRewardsChangeset = cldf.CreateChangeSet(claimRewardsLogic, claimRewardsPrecondition)
 
 type ClaimRewardsConfig struct {
 	ConfigsByChain map[uint64][]ClaimRewards
@@ -46,7 +48,7 @@ func claimRewardsPrecondition(_ deployment.Environment, cc ClaimRewardsConfig) e
 	return nil
 }
 
-func claimRewardsLogic(e deployment.Environment, cfg ClaimRewardsConfig) (deployment.ChangesetOutput, error) {
+func claimRewardsLogic(e deployment.Environment, cfg ClaimRewardsConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.RewardManager.String(),
@@ -55,7 +57,7 @@ func claimRewardsLogic(e deployment.Environment, cfg ClaimRewardsConfig) (deploy
 		doClaimRewards,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building ClaimRewards txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building ClaimRewards txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "ClaimRewards proposal")

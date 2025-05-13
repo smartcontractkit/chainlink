@@ -9,13 +9,15 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 )
 
-var UpdateRewardRecipientsChangeset = deployment.CreateChangeSet(updateRewardRecipientsLogic, updateRewardRecipientsPrecondition)
+var UpdateRewardRecipientsChangeset = cldf.CreateChangeSet(updateRewardRecipientsLogic, updateRewardRecipientsPrecondition)
 
 type UpdateRewardRecipientsConfig struct {
 	ConfigsByChain map[uint64][]UpdateRewardRecipients
@@ -47,7 +49,7 @@ func updateRewardRecipientsPrecondition(_ deployment.Environment, cc UpdateRewar
 	return nil
 }
 
-func updateRewardRecipientsLogic(e deployment.Environment, cfg UpdateRewardRecipientsConfig) (deployment.ChangesetOutput, error) {
+func updateRewardRecipientsLogic(e deployment.Environment, cfg UpdateRewardRecipientsConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.RewardManager.String(),
@@ -56,7 +58,7 @@ func updateRewardRecipientsLogic(e deployment.Environment, cfg UpdateRewardRecip
 		doUpdateRewardRecipients,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building UpdateRewardRecipients txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building UpdateRewardRecipients txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "UpdateRewardRecipients proposal")

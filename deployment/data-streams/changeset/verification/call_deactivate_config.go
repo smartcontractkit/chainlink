@@ -9,13 +9,15 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 )
 
-var DeactivateConfigChangeset = deployment.CreateChangeSet(deactivateConfigLogic, deactivateConfigPrecondition)
+var DeactivateConfigChangeset = cldf.CreateChangeSet(deactivateConfigLogic, deactivateConfigPrecondition)
 
 type DeactivateConfigConfig struct {
 	ConfigsByChain map[uint64][]DeactivateConfig
@@ -45,7 +47,7 @@ func deactivateConfigPrecondition(_ deployment.Environment, cc DeactivateConfigC
 	return nil
 }
 
-func deactivateConfigLogic(e deployment.Environment, cfg DeactivateConfigConfig) (deployment.ChangesetOutput, error) {
+func deactivateConfigLogic(e deployment.Environment, cfg DeactivateConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.VerifierProxy.String(),
@@ -54,7 +56,7 @@ func deactivateConfigLogic(e deployment.Environment, cfg DeactivateConfigConfig)
 		doDeactivateConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building DeactivateConfig txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building DeactivateConfig txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "ActivateConfig proposal")

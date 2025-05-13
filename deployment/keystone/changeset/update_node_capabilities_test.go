@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -49,6 +49,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			cfg := changeset.UpdateNodeCapabilitiesRequest{
 				RegistryChainSel:  te.RegistrySelector,
 				P2pToCapabilities: newCapabilities,
+				RegistryRef:       te.CapabilityRegistryAddressRef(),
 			}
 
 			_, err := changeset.UpdateNodeCapabilities(te.Env, &cfg)
@@ -56,7 +57,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			assert.Contains(t, err.Error(), "CapabilityRequiredByDON")
 		})
 		t.Run("succeeds if update sets new and existing capabilities", func(t *testing.T) {
-			existing := getNodeCapabilities(te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry, p2pIDs)
+			existing := getNodeCapabilities(te.CapabilitiesRegistry(), p2pIDs)
 
 			capabiltiesToSet := existing
 			for k, v := range newCapabilities {
@@ -65,6 +66,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			cfg := changeset.UpdateNodeCapabilitiesRequest{
 				RegistryChainSel:  te.RegistrySelector,
 				P2pToCapabilities: capabiltiesToSet,
+				RegistryRef:       te.CapabilityRegistryAddressRef(),
 			}
 
 			csOut, err := changeset.UpdateNodeCapabilities(te.Env, &cfg)
@@ -92,7 +94,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			newCapabilities[id] = caps
 		}
 
-		existing := getNodeCapabilities(te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry, p2pIDs)
+		existing := getNodeCapabilities(te.CapabilitiesRegistry(), p2pIDs)
 
 		capabiltiesToSet := existing
 		for k, v := range newCapabilities {
@@ -102,6 +104,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			RegistryChainSel:  te.RegistrySelector,
 			P2pToCapabilities: capabiltiesToSet,
 			MCMSConfig:        &changeset.MCMSConfig{MinDuration: 0},
+			RegistryRef:       te.CapabilityRegistryAddressRef(),
 		}
 
 		csOut, err := changeset.UpdateNodeCapabilities(te.Env, &cfg)
@@ -111,21 +114,10 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		require.Len(t, csOut.MCMSTimelockProposals[0].Operations[0].Transactions, 2) // add capabilities, update nodes
 		require.Nil(t, csOut.AddressBook)
 
-		// now apply the changeset such that the proposal is signed and execed
-		contracts := te.ContractSets()[te.RegistrySelector]
-		timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
-			te.RegistrySelector: {
-				Timelock:  contracts.Timelock,
-				CallProxy: contracts.CallProxy,
-			},
-		}
-
-		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset.UpdateNodeCapabilities),
-				&cfg,
-			),
-		)
+		err = applyProposal(t, te, commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(changeset.UpdateNodeCapabilities),
+			&cfg,
+		))
 		require.NoError(t, err)
 		validateCapabilityUpdates(t, te, capabiltiesToSet)
 	})
@@ -133,7 +125,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates
 func validateCapabilityUpdates(t *testing.T, te test.EnvWrapper, expected map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) {
-	registry := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry
+	registry := te.CapabilitiesRegistry()
 	wfP2PIDs := te.GetP2PIDs("wfDon").Bytes32()
 	nodes, err := registry.GetNodesByP2PIds(nil, wfP2PIDs)
 	require.NoError(t, err)

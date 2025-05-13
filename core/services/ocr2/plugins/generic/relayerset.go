@@ -12,7 +12,7 @@ import (
 )
 
 type RelayGetter interface {
-	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
+	GetIDToRelayerMap() map[types.RelayID]loop.Relayer
 }
 
 type RelayerSet struct {
@@ -22,10 +22,7 @@ type RelayerSet struct {
 func NewRelayerSet(relayGetter RelayGetter, externalJobID uuid.UUID, jobID int32, isNew bool) (*RelayerSet, error) {
 	wrappedRelayers := map[types.RelayID]core.Relayer{}
 
-	relayers, err := relayGetter.GetIDToRelayerMap()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get relayers: %w", err)
-	}
+	relayers := relayGetter.GetIDToRelayerMap()
 
 	for id, relayer := range relayers {
 		wrappedRelayers[id] = relayerWrapper{Relayer: relayer, ExternalJobID: externalJobID, JobID: jobID, New: isNew}
@@ -69,7 +66,7 @@ type relayerWrapper struct {
 	New           bool // Whether this is a first time job add.
 }
 
-func (r relayerWrapper) NewPluginProvider(ctx context.Context, rargs core.RelayArgs, pargs core.PluginArgs) (types.PluginProvider, error) {
+func (r relayerWrapper) NewPluginProvider(ctx context.Context, rargs core.RelayArgs, pargs core.PluginArgs) (core.PluginProvider, error) {
 	relayArgs := types.RelayArgs{
 		ExternalJobID:      r.ExternalJobID,
 		JobID:              r.JobID,

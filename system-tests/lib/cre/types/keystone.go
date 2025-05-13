@@ -8,6 +8,9 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -241,7 +244,7 @@ type GenerateConfigsInput struct {
 	HomeChainSelector      uint64
 	Flags                  []string
 	PeeringData            CapabilitiesPeeringData
-	AddressBook            deployment.AddressBook
+	AddressBook            cldf.AddressBook
 	GatewayConnectorOutput *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
 
@@ -422,7 +425,7 @@ type FullCLDEnvironmentInput struct {
 	BlockchainOutputs map[uint64]*blockchain.Output
 	SethClients       map[uint64]*seth.Client
 	NodeSetOutput     []*WrappedNodeOutput
-	ExistingAddresses deployment.AddressBook
+	ExistingAddresses cldf.AddressBook
 	Topology          *Topology
 }
 
@@ -548,7 +551,7 @@ type JobSpecFactoryInput struct {
 	CldEnvironment   *deployment.Environment
 	BlockchainOutput *blockchain.Output
 	DonTopology      *DonTopology
-	AddressBook      deployment.AddressBook
+	AddressBook      cldf.AddressBook
 }
 
 type RegisterWorkflowWithCRECLIInput struct {
@@ -564,6 +567,7 @@ type RegisterWorkflowWithCRECLIInput struct {
 	CRESettingsFile          *os.File
 	NewWorkflow              *NewWorkflow
 	ExistingWorkflow         *ExistingWorkflow
+	CRECLIProfile            string
 }
 
 type NewWorkflow struct {

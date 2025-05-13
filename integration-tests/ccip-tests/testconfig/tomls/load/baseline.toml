@@ -26,7 +26,7 @@ TokenPool = '1.4.0'
 CommitStore = '1.2.0'
 
 [CCIP.Env]
-TTL = '12h'
+TTL = '10h'
 
 [CCIP.Env.Network]
 selected_networks = ['PRIVATE-CHAIN-1', 'PRIVATE-CHAIN-2']
@@ -149,8 +149,8 @@ NoOfCommitNodes = 16
 PhaseTimeout = '40m'
 NodeFunding = 1000.0
 NoOfRoutersPerPair = 1
-NoOfNetworks = 60
-MaxNoOfLanes = 300
+NoOfNetworks = 70
+MaxNoOfLanes = 350
 
 [CCIP.Groups.load.OffRampConfig]
 BatchGasLimit = 11000000
@@ -163,7 +163,7 @@ DynamicPriceUpdateInterval = '15s'
 CCIPOwnerTokens = true
 
 [CCIP.Groups.load.LoadProfile]
-TestDuration = '10h'
+TestDuration = '8h'
 TimeUnit = '5s'
 RequestPerUnitTime = [1]
 OptimizeSpace = true

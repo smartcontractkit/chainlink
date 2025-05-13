@@ -295,7 +295,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	var configURL = "http://example.com/config"
 	var config = []byte("")
 	var wfOwner = []byte("0xOwner")
-	var binary = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+	var binary = wasmtest.CreateTestBinary(binaryCmd, true, t)
 	var encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 	var workflowName = "workflow-name"
 
@@ -575,7 +575,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					BinaryURL:     event.BinaryURL,
 					ConfigURL:     event.ConfigURL,
 				}
-				_, err := s.UpsertWorkflowSpec(ctx, entry)
+				urlHash, err := crypto.Keccak256([]byte(event.SecretsURL))
+				require.NoError(t, err)
+				_, err = s.UpsertWorkflowSpecWithSecrets(ctx, entry, event.SecretsURL, hex.EncodeToString(urlHash), "secrets")
 				require.NoError(t, err)
 
 				err = h.workflowRegisteredEvent(ctx, event)
@@ -799,6 +801,9 @@ func (m *mockArtifactStore) DeleteWorkflowArtifacts(ctx context.Context, workflo
 func (m *mockArtifactStore) GetSecrets(ctx context.Context, secretsURL string, workflowID [32]byte, workflowOwner []byte) ([]byte, error) {
 	return m.artifactStore.GetSecrets(ctx, secretsURL, workflowID, workflowOwner)
 }
+func (m *mockArtifactStore) ValidateSecrets(ctx context.Context, workflowID, workflowOwner string) error {
+	return m.artifactStore.ValidateSecrets(ctx, workflowID, workflowOwner)
+}
 func (m *mockArtifactStore) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
 	return m.artifactStore.SecretsFor(ctx, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID)
 }
@@ -828,7 +833,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com"
@@ -913,7 +918,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com"
@@ -966,7 +971,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com"
@@ -1057,7 +1062,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			updateConfig  = []byte("updated")

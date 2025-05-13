@@ -14,10 +14,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -93,6 +95,70 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
+	ctx := testcontext.Get(t)
+	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t)
+	e := deployedEnvironment.Env
+
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	require.NoError(t, err)
+
+	// deploy home chain
+	homeChainCfg := v1_6.DeployHomeChainConfig{
+		HomeChainSel:     deployedEnvironment.HomeChainSel,
+		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+		NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[deployedEnvironment.HomeChainSel].DeployerKey.From),
+		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+			"NodeOperator": nodes.NonBootstraps().PeerIDs(),
+		},
+	}
+
+	// apply the changeset once again to ensure idempotency
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			homeChainCfg,
+		))
+	require.NoError(t, err)
+
+	state, err := changeset.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	// capabilityRegistryDonID
+	nextDonID, err := state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry.GetNextDONId(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+
+	// deploy donIDClaimer
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			v1_6.DeployDonIDClaimerChangeset,
+			v1_6.DeployDonIDClaimerConfig{},
+		))
+
+	require.NoError(t, err)
+
+	state, err = changeset.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			v1_6.DonIDClaimerOffSetChangeset,
+			v1_6.DonIDClaimerOffSetConfig{
+				OffSet: 1,
+			},
+		))
+
+	require.NoError(t, err)
+
+	// check if the offset was successfully applied
+	nextDonIDAfterOffset, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.GetNextDONId(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+
+	// offSets donID based on CapReg nextDonID
+	require.Equal(t, nextDonID+1, nextDonIDAfterOffset)
+}
+
 func TestRemoveDonsValidate(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := changeset.LoadOnchainState(e.Env)
@@ -159,7 +225,7 @@ func TestRemoveDons(t *testing.T) {
 	require.NoError(t, err)
 	e.Env, err = commoncs.Apply(t, e.Env, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.RemoveDONs),
+			cldf.CreateLegacyChangeSet(v1_6.RemoveDONs),
 			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
@@ -182,7 +248,7 @@ func TestRemoveDons(t *testing.T) {
 			},
 		},
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
 			commoncs.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
@@ -193,7 +259,7 @@ func TestRemoveDons(t *testing.T) {
 			},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.RemoveDONs),
+			cldf.CreateLegacyChangeSet(v1_6.RemoveDONs),
 			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
@@ -219,7 +285,7 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 	require.NoError(t, err)
 	e.Env, err = commoncs.Apply(t, e.Env, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.RemoveDONs),
+			cldf.CreateLegacyChangeSet(v1_6.RemoveDONs),
 			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[len(donsBefore)-1].Id},
@@ -261,7 +327,7 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 	// try to add the another don
 	e.Env, err = commoncs.Apply(t, e.Env, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
 			v1_6.AddDonAndSetCandidateChangesetConfig{
 				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
@@ -299,7 +365,7 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 			// apply the DeployHomeChain changeset, and timelock
 			e.Env, err = commoncs.ApplyChangesets(t, e.Env, nil, []commoncs.ConfiguredChangeSet{
 				commoncs.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 					v1_6.DeployHomeChainConfig{
 						HomeChainSel:     e.HomeChainSel,
 						RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -335,7 +401,7 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 						},
 					},
 					commoncs.Configure(
-						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
@@ -456,7 +522,7 @@ func TestRemoveNodes(t *testing.T) {
 			// apply the DeployHomeChain changeset, and timelock
 			e.Env, err = commoncs.ApplyChangesets(t, e.Env, nil, []commoncs.ConfiguredChangeSet{
 				commoncs.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 					v1_6.DeployHomeChainConfig{
 						HomeChainSel:     e.HomeChainSel,
 						RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -493,7 +559,7 @@ func TestRemoveNodes(t *testing.T) {
 						},
 					},
 					commoncs.Configure(
-						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
