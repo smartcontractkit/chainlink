@@ -30,8 +30,9 @@ import (
 	selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 )
 
@@ -43,7 +44,7 @@ type SeqNumRange struct {
 type DestinationGun struct {
 	l                logger.Logger
 	env              deployment.Environment
-	state            *ccipchangeset.CCIPOnChainState
+	state            *stateview.CCIPOnChainState
 	roundNum         *atomic.Int32
 	chainSelector    uint64
 	receiver         common.Address
@@ -58,7 +59,7 @@ func NewDestinationGun(
 	l logger.Logger,
 	chainSelector uint64,
 	env deployment.Environment,
-	state *ccipchangeset.CCIPOnChainState,
+	state *stateview.CCIPOnChainState,
 	receiver common.Address,
 	overrides *ccip.LoadConfig,
 	evmSourceKeys map[uint64]*bind.TransactOpts,

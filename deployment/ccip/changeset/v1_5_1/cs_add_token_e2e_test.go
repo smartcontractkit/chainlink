@@ -19,9 +19,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -95,7 +96,7 @@ func TestAddTokenE2E(t *testing.T) {
 				// we deploy the token as part of AddTokenE2E changeset
 				tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithPrerequisiteDeploymentOnly(nil))
 				e = tenv.Env
-				state, err := changeset.LoadOnchainState(e)
+				state, err := stateview.LoadOnchainState(e)
 				require.NoError(t, err)
 				selectors := e.AllChainSelectors()
 				selectorA = selectors[0]
@@ -142,7 +143,7 @@ func TestAddTokenE2E(t *testing.T) {
 			// form the changeset input config
 			for _, chain := range e.AllChainSelectors() {
 				if addTokenE2EConfig.Tokens == nil {
-					addTokenE2EConfig.Tokens = make(map[changeset.TokenSymbol]v1_5_1.AddTokenE2EConfig)
+					addTokenE2EConfig.Tokens = make(map[shared.TokenSymbol]v1_5_1.AddTokenE2EConfig)
 				}
 				if _, ok := addTokenE2EConfig.Tokens[testhelpers.TestTokenSymbol]; !ok {
 					addTokenE2EConfig.Tokens[testhelpers.TestTokenSymbol] = v1_5_1.AddTokenE2EConfig{
@@ -167,8 +168,8 @@ func TestAddTokenE2E(t *testing.T) {
 						TokenSymbol:   testhelpers.TestTokenSymbol,
 						TokenDecimals: testhelpers.LocalTokenDecimals,
 						MaxSupply:     big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
-						Type:          changeset.BurnMintToken,
-						PoolType:      changeset.BurnMintTokenPool,
+						Type:          shared.BurnMintToken,
+						PoolType:      shared.BurnMintTokenPool,
 						MintTokenForRecipients: map[common.Address]*big.Int{
 							recipientAddress: topupAmount,
 						},
@@ -176,7 +177,7 @@ func TestAddTokenE2E(t *testing.T) {
 				} else {
 					token := tokens[chain]
 					deployPoolConfig = &v1_5_1.DeployTokenPoolInput{
-						Type:               changeset.BurnMintTokenPool,
+						Type:               shared.BurnMintTokenPool,
 						TokenAddress:       token.Address,
 						LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 					}
@@ -194,7 +195,7 @@ func TestAddTokenE2E(t *testing.T) {
 				commonchangeset.Configure(v1_5_1.AddTokensE2E, addTokenE2EConfig))
 			require.NoError(t, err)
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			// populate token details in case of token deployment as part of changeset

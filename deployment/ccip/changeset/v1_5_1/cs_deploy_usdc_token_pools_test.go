@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -45,7 +47,7 @@ func deployUSDCPrerequisites(
 			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: token,
-				Tv:       cldf.NewTypeAndVersion(changeset.USDCTokenPool, deployment.Version1_5_1),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -59,7 +61,7 @@ func deployUSDCPrerequisites(
 			return cldf.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
 				Address:  transmitterAddress,
 				Contract: transmitter,
-				Tv:       cldf.NewTypeAndVersion(changeset.USDCMockTransmitter, deployment.Version1_0_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCMockTransmitter, deployment.Version1_0_0),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -73,7 +75,7 @@ func deployUSDCPrerequisites(
 			return cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
 				Address:  messengerAddress,
 				Contract: messenger,
-				Tv:       cldf.NewTypeAndVersion(changeset.USDCTokenMessenger, deployment.Version1_0_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenMessenger, deployment.Version1_0_0),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -160,7 +162,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: token,
-				Tv:       cldf.NewTypeAndVersion(changeset.USDCTokenPool, deployment.Version1_5_1),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -168,7 +170,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -288,7 +290,7 @@ func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 				} else {
 					require.NoError(t, err)
 
-					state, err := changeset.LoadOnchainState(e)
+					state, err := stateview.LoadOnchainState(e)
 					require.NoError(t, err)
 
 					for _, selector := range selectors {

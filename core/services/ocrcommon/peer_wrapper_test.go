@@ -125,7 +125,7 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(1 * time.Second)
 
 		p2paddresses := []string{
-			"127.0.0.1:17193",
+			fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t)),
 		}
 		c.P2P.V2.ListenAddresses = ptr(p2paddresses)
 		c.P2P.V2.AnnounceAddresses = ptr(p2paddresses)

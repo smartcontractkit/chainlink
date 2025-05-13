@@ -317,7 +317,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 		attempts := tx.TxAttempts[0]
 		// Request still returns transaction by hash, transaction not discarded by network and not considered stuck
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "zirc_isQuarantined")
+			return matchBatchElemParams(b, attempts.Hash, "zirc_isQuarantined")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			resp, err := json.Marshal(struct {
@@ -338,7 +338,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 		attempts := tx.TxAttempts[0]
 		// Request still returns transaction by hash, transaction not discarded by network and not considered stuck
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "zirc_isQuarantined")
+			return matchBatchElemParams(b, attempts.Hash, "zirc_isQuarantined")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			resp, err := json.Marshal(struct {
@@ -359,7 +359,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 		attempts := tx.TxAttempts[0]
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "zirc_isQuarantined")
+			return matchBatchElemParams(b, attempts.Hash, "zirc_isQuarantined")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			resp, err := json.Marshal(struct {
@@ -379,7 +379,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 		attempts := tx.TxAttempts[0]
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "zirc_isQuarantined")
+			return matchBatchElemParams(b, attempts.Hash, "zirc_isQuarantined")
 		})).Return(fmt.Errorf("failed to fetch rpc"))
 
 		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, []common.Address{fromAddress}, blockNum)
@@ -410,7 +410,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 		attempts := tx.TxAttempts[0]
 		// Request still returns transaction by hash, transaction not discarded by network and not considered stuck
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "eth_getTransactionByHash")
+			return matchBatchElemParams(b, attempts.Hash, "eth_getTransactionByHash")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			resp, err := json.Marshal(evmtypes.Transaction{})
@@ -609,3 +609,8 @@ func (t testAutoPurgeConfig) Enabled() bool             { return t.enabled }
 func (t testAutoPurgeConfig) Threshold() *uint32        { return t.threshold }
 func (t testAutoPurgeConfig) MinAttempts() *uint32      { return t.minAttempts }
 func (t testAutoPurgeConfig) DetectionApiUrl() *url.URL { return t.detectionApiUrl }
+
+func matchBatchElemParams(req []rpc.BatchElem, arg interface{}, method string) bool {
+	return len(req) == 1 && req[0].Method == method &&
+		len(req[0].Args) == 1 && req[0].Args[0] == arg
+}

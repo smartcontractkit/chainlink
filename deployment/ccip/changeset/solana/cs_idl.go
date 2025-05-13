@@ -20,7 +20,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -302,7 +302,7 @@ func (c IDLConfig) Validate(e deployment.Environment) error {
 	if family != chainsel.FamilySolana {
 		return fmt.Errorf("chain %d is not a solana chain", c.ChainSelector)
 	}
-	existingState, err := ccipChangeset.LoadOnchainState(e)
+	existingState, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load existing onchain state: %w", err)
 	}
@@ -356,7 +356,7 @@ func UploadIDL(e deployment.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
 	chain := e.SolChains[c.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 
 	if err := repoSetup(e, chain, c.GitCommitSha); err != nil {
@@ -436,7 +436,7 @@ func SetAuthorityIDL(e deployment.Environment, c IDLConfig) (cldf.ChangesetOutpu
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 	chain := e.SolChains[c.ChainSelector]
 
@@ -526,7 +526,7 @@ func UpgradeIDL(e deployment.Environment, c IDLConfig) (cldf.ChangesetOutput, er
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
 	chain := e.SolChains[c.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 
 	if err := repoSetup(e, chain, c.GitCommitSha); err != nil {

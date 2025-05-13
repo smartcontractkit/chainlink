@@ -12,19 +12,21 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 // ProposeAdminRoleChangeset is a changeset that proposes admin rights for tokens on the token admin registry.
 // To be able to propose admin rights, the caller must own the token admin registry and the token must not already have an administrator.
 // If you want to propose admin role for an external address, you can set the ExternalAdmin field in the TokenPoolInfo within TokenAdminRegistryChangesetConfig.
-var _ cldf.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = ProposeAdminRoleChangeset
+var _ cldf.ChangeSet[TokenAdminRegistryChangesetConfig] = ProposeAdminRoleChangeset
 
 func validateProposeAdminRole(
 	config token_admin_registry.TokenAdminRegistryTokenConfig,
 	sender common.Address,
 	externalAdmin common.Address,
-	symbol changeset.TokenSymbol,
+	symbol shared.TokenSymbol,
 	chain deployment.Chain,
 ) error {
 	// To propose ourselves as admin of the token, two things must be true.
@@ -38,16 +40,16 @@ func validateProposeAdminRole(
 }
 
 // ProposeAdminRoleChangeset proposes admin rights for tokens on the token admin registry.
-func ProposeAdminRoleChangeset(env deployment.Environment, c changeset.TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
+func ProposeAdminRoleChangeset(env deployment.Environment, c TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env, true, validateProposeAdminRole); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid TokenAdminRegistryChangesetConfig: %w", err)
 	}
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("propose admin role for tokens on token admin registries")
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("propose admin role for tokens on token admin registries")
 
 	for chainSelector, tokenSymbolToPoolInfo := range c.Pools {
 		chain := env.Chains[chainSelector]

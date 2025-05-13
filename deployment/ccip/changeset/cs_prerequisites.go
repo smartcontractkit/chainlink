@@ -32,6 +32,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 var (
@@ -124,7 +126,7 @@ func WithLegacyDeploymentEnabled(cfg V1_5DeploymentConfig) PrerequisiteOpt {
 }
 
 func deployPrerequisiteChainContracts(e deployment.Environment, ab cldf.AddressBook, cfg DeployPrerequisiteConfig) error {
-	state, err := LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
@@ -146,7 +148,7 @@ func deployPrerequisiteChainContracts(e deployment.Environment, ab cldf.AddressB
 
 // deployPrerequisiteContracts deploys the contracts that can be ported from previous CCIP version to the new one.
 // This is only required for staging and test environments where the contracts are not already deployed.
-func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, state CCIPOnChainState, chain deployment.Chain, opts ...PrerequisiteOpt) error {
+func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain deployment.Chain, opts ...PrerequisiteOpt) error {
 	deployOpts := &DeployPrerequisiteContractsOpts{}
 	for _, opt := range opts {
 		if opt != nil {
@@ -189,7 +191,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 					*deployOpts.LegacyDeploymentCfg.RMNConfig,
 				)
 				return cldf.ContractDeploy[*rmn_contract.RMNContract]{
-					Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: cldf.NewTypeAndVersion(RMN, deployment.Version1_5_0), Err: err2,
+					Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.RMN, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -207,7 +209,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 						chain.Client,
 					)
 					return cldf.ContractDeploy[*mock_rmn_contract.MockRMNContract]{
-						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: cldf.NewTypeAndVersion(MockRMN, deployment.Version1_0_0), Err: err2,
+						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.MockRMN, deployment.Version1_0_0), Err: err2,
 					}
 				})
 			if err != nil {
@@ -229,7 +231,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 					rmnAddr,
 				)
 				return cldf.ContractDeploy[*rmn_proxy_contract.RMNProxy]{
-					Address: rmnProxyAddr, Contract: rmnProxy2, Tx: tx2, Tv: cldf.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), Err: err2,
+					Address: rmnProxyAddr, Contract: rmnProxy2, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.ARMProxy, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -278,7 +280,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 					chain.DeployerKey,
 					chain.Client)
 				return cldf.ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
-					Address: tokenAdminRegistryAddr, Contract: tokenAdminRegistry, Tx: tx2, Tv: cldf.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), Err: err2,
+					Address: tokenAdminRegistryAddr, Contract: tokenAdminRegistry, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.TokenAdminRegistry, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -305,7 +307,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 					chain.Client,
 					tokenAdminReg.Address())
 				return cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
-					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: cldf.NewTypeAndVersion(RegistryModule, deployment.Version1_6_0), Err: err2,
+					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -347,7 +349,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 					chain.Client,
 				)
 				return cldf.ContractDeploy[*weth9.WETH9]{
-					Address: weth9Addr, Contract: weth9c, Tx: tx2, Tv: cldf.NewTypeAndVersion(WETH9, deployment.Version1_0_0), Err: err2,
+					Address: weth9Addr, Contract: weth9c, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.WETH9, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -371,7 +373,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 					rmnProxy.Address(),
 				)
 				return cldf.ContractDeploy[*router.Router]{
-					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: cldf.NewTypeAndVersion(Router, deployment.Version1_2_0), Err: err2,
+					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.Router, deployment.Version1_2_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -399,7 +401,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 						r.Address(),
 					)
 					return cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory]{
-						Address: tpfAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(TokenPoolFactory, deployment.Version1_5_1), Err: err2,
+						Address: tpfAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.TokenPoolFactory, deployment.Version1_5_1), Err: err2,
 					}
 				},
 			)
@@ -418,15 +420,15 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 					factoryBurnMintERC20Addr, tx2, contract, err2 := factory_burn_mint_erc20.DeployFactoryBurnMintERC20(
 						chain.DeployerKey,
 						chain.Client,
-						string(FactoryBurnMintERC20Symbol),
-						string(FactoryBurnMintERC20Symbol),
+						string(shared.FactoryBurnMintERC20Symbol),
+						string(shared.FactoryBurnMintERC20Symbol),
 						18,
 						big.NewInt(0),
 						big.NewInt(0),
 						chain.DeployerKey.From,
 					)
 					return cldf.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20]{
-						Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(FactoryBurnMintERC20Token, deployment.Version1_0_0), Err: err2,
+						Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FactoryBurnMintERC20Token, deployment.Version1_0_0), Err: err2,
 					}
 				},
 			)
@@ -446,7 +448,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 					chain.Client,
 				)
 				return cldf.ContractDeploy[*multicall3.Multicall3]{
-					Address: multicall3Addr, Contract: multicall3Wrapper, Tx: tx2, Tv: cldf.NewTypeAndVersion(Multicall3, deployment.Version1_0_0), Err: err2,
+					Address: multicall3Addr, Contract: multicall3Wrapper, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.Multicall3, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -480,7 +482,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 					false,
 				)
 				return cldf.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver]{
-					Address: receiverAddr, Contract: receiver, Tx: tx, Tv: cldf.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0), Err: err2,
+					Address: receiverAddr, Contract: receiver, Tx: tx, Tv: cldf.NewTypeAndVersion(shared.CCIPReceiver, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -508,7 +510,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 					)
 					return cldf.ContractDeploy[*price_registry_1_2_0.PriceRegistry]{
 						Address: priceRegAddr, Contract: priceRegAddrC, Tx: tx2,
-						Tv: cldf.NewTypeAndVersion(PriceRegistry, deployment.Version1_2_0), Err: err2,
+						Tv: cldf.NewTypeAndVersion(shared.PriceRegistry, deployment.Version1_2_0), Err: err2,
 					}
 				})
 			if err != nil {
@@ -540,16 +542,16 @@ func deployUSDC(
 			tokenAddress, tx, tokenContract, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
-				USDCName,
-				string(USDCSymbol),
-				UsdcDecimals,
+				shared.USDCName,
+				string(shared.USDCSymbol),
+				shared.UsdcDecimals,
 				big.NewInt(0),
 			)
 			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: tokenContract,
 				Tx:       tx,
-				Tv:       cldf.NewTypeAndVersion(USDCToken, deployment.Version1_0_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCToken, deployment.Version1_0_0),
 				Err:      err2,
 			}
 		})
@@ -581,7 +583,7 @@ func deployUSDC(
 				Address:  transmitterAddress,
 				Contract: transmitterContract,
 				Tx:       tx,
-				Tv:       cldf.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCMockTransmitter, deployment.Version1_0_0),
 				Err:      err2,
 			}
 		})
@@ -602,7 +604,7 @@ func deployUSDC(
 				Address:  messengerAddress,
 				Contract: messengerContract,
 				Tx:       tx,
-				Tv:       cldf.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenMessenger, deployment.Version1_0_0),
 				Err:      err2,
 			}
 		})
@@ -626,7 +628,7 @@ func deployUSDC(
 				Address:  tokenPoolAddress,
 				Contract: tokenPoolContract,
 				Tx:       tx,
-				Tv:       cldf.NewTypeAndVersion(USDCTokenPool, deployment.Version1_5_1),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1),
 				Err:      err2,
 			}
 		})
