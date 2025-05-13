@@ -15,7 +15,6 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -248,10 +247,11 @@ func UpdateOffRampRefAddresses(
 type SetUpgradeAuthorityConfig struct {
 	ChainSelector         uint64
 	NewUpgradeAuthority   solana.PublicKey
-	SetAfterInitialDeploy bool               // set all of the programs after the initial deploy
-	SetOffRamp            bool               // offramp not upgraded in place, so may need to set separately
-	SetMCMSPrograms       bool               // these all deploy at once so just set them all
-	TransferKeys          []solana.PublicKey // any keys not covered by the above e.g. partner programs
+	SetAfterInitialDeploy bool                          // set all of the programs after the initial deploy
+	SetOffRamp            bool                          // offramp not upgraded in place, so may need to set separately
+	SetMCMSPrograms       bool                          // these all deploy at once so just set them all
+	TransferKeys          []solana.PublicKey            // any keys not covered by the above e.g. partner programs
+	MCMS                  *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
 }
 
 func SetUpgradeAuthorityChangeset(
@@ -298,11 +298,42 @@ func SetUpgradeAuthorityChangeset(
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get program address for chain %s", chain.String())
 		}
 	}
-	e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
-	for _, programID := range programs {
-		if err := setUpgradeAuthority(&e, &chain, programID, chain.DeployerKey, &config.NewUpgradeAuthority, false); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set upgrade authority: %w", err)
+	currentAuthority := chain.DeployerKey.PublicKey()
+	if config.MCMS != nil {
+		timelockSignerPDA, err := FetchTimelockSigner(e, chain.Selector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get timelock signer: %w", err)
 		}
+		currentAuthority = timelockSignerPDA
+	}
+	e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
+	mcmsTxns := make([]mcmsTypes.Transaction, 0)
+	for _, programID := range programs {
+		ixn := setUpgradeAuthority(&e, &chain, programID, currentAuthority, config.NewUpgradeAuthority, false)
+		if config.MCMS == nil {
+			if err := chain.Confirm([]solana.Instruction{ixn}); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+			}
+		} else {
+			tx, err := BuildMCMSTxn(
+				ixn,
+				solana.BPFLoaderUpgradeableProgramID.String(),
+				cldf.ContractType(solana.BPFLoaderUpgradeableProgramID.String()))
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			}
+			mcmsTxns = append(mcmsTxns, *tx)
+		}
+	}
+	if len(mcmsTxns) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, config.ChainSelector, "proposal to SetUpgradeAuthority in Solana", config.MCMS.MinDelay, mcmsTxns)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
 	}
 	return cldf.ChangesetOutput{}, nil
 }
@@ -312,10 +343,11 @@ func setUpgradeAuthority(
 	e *deployment.Environment,
 	chain *deployment.SolChain,
 	programID solana.PublicKey,
-	currentUpgradeAuthority *solana.PrivateKey,
-	newUpgradeAuthority *solana.PublicKey,
+	currentUpgradeAuthority solana.PublicKey,
+	newUpgradeAuthority solana.PublicKey,
 	isBuffer bool,
-) error {
+) solana.Instruction {
+	e.Logger.Infow("Setting upgrade authority", "programID", programID.String(), "currentUpgradeAuthority", currentUpgradeAuthority.String(), "newUpgradeAuthority", newUpgradeAuthority.String())
 	// Buffers use the program account as the program data account
 	programDataSlice := solana.NewAccountMeta(programID, true, false)
 	if !isBuffer {
@@ -326,8 +358,8 @@ func setUpgradeAuthority(
 
 	keys := solana.AccountMetaSlice{
 		programDataSlice, // Program account (writable)
-		solana.NewAccountMeta(currentUpgradeAuthority.PublicKey(), false, true), // Current upgrade authority (signer)
-		solana.NewAccountMeta(*newUpgradeAuthority, false, false),               // New upgrade authority
+		solana.NewAccountMeta(currentUpgradeAuthority, false, true), // Current upgrade authority (signer)
+		solana.NewAccountMeta(newUpgradeAuthority, false, false),    // New upgrade authority
 	}
 
 	instruction := solana.NewInstruction(
@@ -337,12 +369,7 @@ func setUpgradeAuthority(
 		[]byte{4, 0, 0, 0}, // 4-byte SetAuthority instruction identifier
 	)
 
-	if err := chain.Confirm([]solana.Instruction{instruction}, solCommonUtil.AddSigners(*currentUpgradeAuthority)); err != nil {
-		return fmt.Errorf("failed to confirm setUpgradeAuthority: %w", err)
-	}
-	e.Logger.Infow("Set upgrade authority", "programID", programID.String(), "newUpgradeAuthority", newUpgradeAuthority.String())
-
-	return nil
+	return instruction
 }
 
 type SetFeeAggregatorConfig struct {

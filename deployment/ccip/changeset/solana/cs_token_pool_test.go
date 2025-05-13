@@ -87,10 +87,10 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 	require.NoError(t, err)
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	testUserATA, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, newTokenAddress, testUserPubKey)
+	testUserATA, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, newTokenAddress, testUserPubKey)
 	require.NoError(t, err)
 	deployerATA, _, err := solTokenUtil.FindAssociatedTokenAddress(
-		solana.Token2022ProgramID,
+		solana.TokenProgramID,
 		newTokenAddress,
 		e.SolChains[solChain].DeployerKey.PublicKey(),
 	)
@@ -207,6 +207,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
+						BurnMintTokenPoolMetadata: tokenMetadata,
 						BurnMintTokenPools: map[solana.PublicKey]solana.PublicKey{
 							poolConfigPDA: tokenAddress,
 						},
@@ -215,6 +216,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
+						LockReleaseTokenPoolMetadata: tokenMetadata,
 						LockReleaseTokenPools: map[solana.PublicKey]solana.PublicKey{
 							poolConfigPDA: tokenAddress,
 						},
@@ -338,6 +340,84 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 			require.NoError(t, err)
 			require.Equal(t, int(50), outVal)
 			require.Equal(t, 9, int(outDec))
+
+			// transfer away from timelock if metadata is set and not ccipChangeset.CLLMetadata
+			if mcms && tokenMetadata != "" && tokenMetadata != ccipChangeset.CLLMetadata {
+				timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
+				require.NoError(t, err)
+				e.Logger.Debugf("Transferring away from MCMS for token pool %v", testCase.poolType)
+				if testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
+					e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+						commonchangeset.Configure(
+							cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
+							ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
+								MCMSCfg:       proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+								CurrentOwner:  timelockSignerPDA,
+								ProposedOwner: deployerKey,
+								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
+									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
+										BurnMintTokenPoolMetadata: tokenMetadata,
+										BurnMintTokenPools: map[solana.PublicKey]solana.PublicKey{
+											poolConfigPDA: tokenAddress,
+										},
+									},
+								},
+							},
+						),
+					})
+					require.NoError(t, err)
+				} else if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType {
+					e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+						commonchangeset.Configure(
+							cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
+							ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
+								MCMSCfg:       proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+								CurrentOwner:  timelockSignerPDA,
+								ProposedOwner: deployerKey,
+								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
+									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
+										LockReleaseTokenPoolMetadata: tokenMetadata,
+										LockReleaseTokenPools: map[solana.PublicKey]solana.PublicKey{
+											poolConfigPDA: tokenAddress,
+										},
+									},
+								},
+							},
+						),
+					})
+					require.NoError(t, err)
+				}
+				e.Logger.Debugf("MCMS Configured for token pool %v with token address %v", testCase.poolType, tokenAddress)
+				e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+					// upgrade authority
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
+						ccipChangesetSolana.SetUpgradeAuthorityConfig{
+							ChainSelector:       solChain,
+							NewUpgradeAuthority: timelockSignerPDA,
+							TransferKeys: []solana.PublicKey{
+								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
+								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
+							},
+						},
+					),
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
+						ccipChangesetSolana.SetUpgradeAuthorityConfig{
+							ChainSelector:       solChain,
+							NewUpgradeAuthority: e.SolChains[solChain].DeployerKey.PublicKey(),
+							TransferKeys: []solana.PublicKey{
+								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
+								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
+							},
+							MCMS: &proposalutils.TimelockConfig{
+								MinDelay: 1 * time.Second,
+							},
+						},
+					),
+				})
+				require.NoError(t, err)
+			}
 		}
 	}
 }
@@ -347,7 +427,6 @@ func TestPartnerTokenPools(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	e := tenv.Env
 	solChainSelectors := e.AllChainSelectorsSolana()
-	// mcmsConfig := proposalutils.SingleGroupTimelockConfigV2(t)
 	metadata := "partner_testing"
 	e, _, err := commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
@@ -369,4 +448,5 @@ func TestPartnerTokenPools(t *testing.T) {
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 	doTestTokenPool(t, e, false, metadata)
 	doTestPoolLookupTable(t, e, false, metadata)
+	doTestTokenPool(t, e, true, metadata)
 }
