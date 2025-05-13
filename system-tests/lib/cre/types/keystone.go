@@ -553,7 +553,7 @@ type JobSpecFactoryInput struct {
 	AddressBook      cldf.AddressBook
 }
 
-type RegisterWorkflowWithCRECLIInput struct {
+type ManageWorkflowWithCRECLIInput struct {
 	DoNotUseCRECLI           bool
 	ShouldCompileNewWorkflow bool
 	ChainSelector            uint64
@@ -583,7 +583,7 @@ type ExistingWorkflow struct {
 	SecretsURL *string
 }
 
-func (w *RegisterWorkflowWithCRECLIInput) Validate() error {
+func (w *ManageWorkflowWithCRECLIInput) Validate() error {
 	if w.ChainSelector == 0 {
 		return errors.New("ChainSelector is required")
 	}
