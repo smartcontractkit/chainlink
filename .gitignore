@@ -109,3 +109,7 @@ vendor/*
 contracts/lcov.info
 contracts/out/
 /cache
+
+# Used by plugins/chianlink.prebuilt.Dockerfile
+bin/
+lib/

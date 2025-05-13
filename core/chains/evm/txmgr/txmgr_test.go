@@ -313,7 +313,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		// Create mock forwarder, mock authorizedsenders call.
 		form := forwarders.NewORM(db)
 		fwdrAddr := testutils.NewAddress()
-		fwdr, err := form.CreateForwarder(tests.Context(t), fwdrAddr, ubig.Big(cltest.FixtureChainID))
+		fwdr, err := form.CreateForwarder(tests.Context(t), fwdrAddr, ubig.Big(*testutils.FixtureChainID))
 		require.NoError(t, err)
 		require.Equal(t, fwdr.Address, fwdrAddr)
 

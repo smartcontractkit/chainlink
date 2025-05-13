@@ -49,7 +49,7 @@
 
 [dependencies]
   cron_capability_binary_path = "./cron"
-  cre_cli_binary_path = "./cre_v0.1.5_linux_amd64" # must be linux/amd64 to match our CI runner
+  cre_cli_binary_path = "./cre_v0.2.0_linux_amd64" # must be linux/amd64 to match our CI runner
 
 [[nodesets]]
   http_port_range_start = 10100

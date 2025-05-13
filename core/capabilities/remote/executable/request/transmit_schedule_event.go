@@ -4,5 +4,5 @@ package request
 const (
 	TransmissionEventSchema   = "/workflows/v1/transmit_schedule_event.proto"
 	TransmissionEventProtoPkg = "workflows.v1"
-	TransmissionEventEntity   = "TransmitScheduleEvent"
+	TransmissionEventEntity   = "TransmissionsScheduledEvent"
 )

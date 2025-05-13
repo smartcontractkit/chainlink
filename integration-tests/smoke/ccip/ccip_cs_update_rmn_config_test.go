@@ -12,10 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -73,7 +76,7 @@ func TestUpdateRMNConfig(t *testing.T) {
 
 func TestSetDynamicConfig(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	rmnHome := state.Chains[e.HomeChainSel].RMNHome
 
@@ -138,7 +141,7 @@ func TestSetDynamicConfig(t *testing.T) {
 
 func TestRevokeConfig(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	rmnHome := state.Chains[e.HomeChainSel].RMNHome
 
@@ -182,7 +185,7 @@ func TestRevokeConfig(t *testing.T) {
 func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	contractsByChain := make(map[uint64][]common.Address)
@@ -193,7 +196,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 
 	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
 
-	timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, state)
+	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 	if tc.useMCMS {
 		// This is required because RMNHome is initially owned by the deployer
 		_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
@@ -252,7 +255,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 
 	require.NoError(t, err)
 
-	state, err = changeset.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	currentCandidateDigest, err := rmnHome.GetCandidateDigest(nil)
@@ -324,7 +327,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	}
 }
 
-func buildRMNRemoteAddressPerChain(e deployment.Environment, state changeset.CCIPOnChainState) map[uint64]common.Address {
+func buildRMNRemoteAddressPerChain(e deployment.Environment, state stateview.CCIPOnChainState) map[uint64]common.Address {
 	rmnRemotePerChain := v1_6.BuildRMNRemotePerChain(e, state)
 	rmnRemoteAddressPerChain := make(map[uint64]common.Address)
 	for chain, remote := range rmnRemotePerChain {
@@ -369,7 +372,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	)
 	require.NoError(t, err)
 	contractsByChain := make(map[uint64][]common.Address)
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range allChains {
 		rmnProxy := state.Chains[chain].RMNProxy
@@ -431,7 +434,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-	state, err = changeset.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range allChains {
 		rmnProxy := state.Chains[chain].RMNProxy

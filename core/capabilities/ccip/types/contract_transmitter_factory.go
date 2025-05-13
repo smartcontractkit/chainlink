@@ -1,4 +1,4 @@
-package oraclecreator
+package types
 
 import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"

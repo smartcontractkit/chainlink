@@ -12,8 +12,9 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	corejob "github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -64,8 +65,8 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (cldf.Cha
 		if !node.IsBootstrap {
 			spec, err = validate.NewCCIPSpecToml(validate.SpecArgs{
 				P2PV2Bootstrappers:     nodes.BootstrapLocators(),
-				CapabilityVersion:      ccip.CapabilityVersion,
-				CapabilityLabelledName: ccip.CapabilityLabelledName,
+				CapabilityVersion:      shared.CapabilityVersion,
+				CapabilityLabelledName: shared.CapabilityLabelledName,
 				OCRKeyBundleIDs:        keyBundles,
 				P2PKeyID:               node.PeerID.String(),
 				RelayConfigs:           nil,
@@ -74,8 +75,8 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (cldf.Cha
 		} else {
 			spec, err = validate.NewCCIPSpecToml(validate.SpecArgs{
 				P2PV2Bootstrappers:     []string{}, // Intentionally empty for bootstraps.
-				CapabilityVersion:      ccip.CapabilityVersion,
-				CapabilityLabelledName: ccip.CapabilityLabelledName,
+				CapabilityVersion:      shared.CapabilityVersion,
+				CapabilityLabelledName: shared.CapabilityLabelledName,
 				OCRKeyBundleIDs:        map[string]string{},
 				P2PKeyID:               node.PeerID.String(),
 				RelayConfigs:           nil,

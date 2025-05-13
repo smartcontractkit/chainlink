@@ -13,7 +13,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -30,7 +31,7 @@ type SyncUSDCDomainsWithChainsConfig struct {
 	MCMS *proposalutils.TimelockConfig
 }
 
-func (c SyncUSDCDomainsWithChainsConfig) Validate(env deployment.Environment, state changeset.CCIPOnChainState) error {
+func (c SyncUSDCDomainsWithChainsConfig) Validate(env deployment.Environment, state stateview.CCIPOnChainState) error {
 	ctx := env.GetContext()
 
 	if c.ChainSelectorToUSDCDomain == nil {
@@ -95,7 +96,7 @@ func (c SyncUSDCDomainsWithChainsConfig) Validate(env deployment.Environment, st
 // SyncUSDCDomainsWithChainsChangeset syncs domain support on specified USDC token pools with its chain support.
 // As such, it is expected that ConfigureTokenPoolContractsChangeset is executed before running this changeset.
 func SyncUSDCDomainsWithChainsChangeset(env deployment.Environment, c SyncUSDCDomainsWithChainsConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -104,7 +105,7 @@ func SyncUSDCDomainsWithChainsChangeset(env deployment.Environment, c SyncUSDCDo
 	}
 	readOpts := &bind.CallOpts{Context: env.GetContext()}
 
-	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("sync domain support with chain support on USDC token pools")
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("sync domain support with chain support on USDC token pools")
 
 	for chainSelector, version := range c.USDCVersionByChain {
 		chain := env.Chains[chainSelector]

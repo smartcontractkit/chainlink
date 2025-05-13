@@ -1,4 +1,4 @@
-package changeset
+package shared
 
 import (
 	"math/big"
