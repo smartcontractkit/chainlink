@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"github.com/gagliardetto/solana-go"
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
@@ -30,7 +30,11 @@ import (
 )
 
 func TestMessageHasher_EVM2SVM(t *testing.T) {
-	var extraDataCodec = ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataCodec{}, ExtraDataCodec{})
+	registeredExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    ccipevm.ExtraDataCodec{},
+		chainsel.FamilySolana: ExtraDataCodec{},
+	}
+	var extraDataCodec = ccipcommon.NewExtraDataCodec(registeredExtraDataCodecMap)
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)
 	msgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
@@ -58,7 +62,13 @@ func TestMessageHasher_InvalidReceiver(t *testing.T) {
 			[32]byte(solana.SystemProgramID.Bytes()),
 		},
 	}, nil).Maybe()
-	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
+
+	registeredMockExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    mockExtraDataCodec,
+		chainsel.FamilySolana: mockExtraDataCodec,
+	}
+
+	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(registeredMockExtraDataCodecMap))
 	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.Error(t, err)
 }
@@ -81,7 +91,12 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 			[32]byte(solana.SystemProgramID.Bytes()),
 		},
 	}, nil).Maybe()
-	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
+
+	registeredMockExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    mockExtraDataCodec,
+		chainsel.FamilySolana: mockExtraDataCodec,
+	}
+	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(registeredMockExtraDataCodecMap))
 	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.Error(t, err)
 }

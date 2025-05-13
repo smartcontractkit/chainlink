@@ -16,10 +16,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	defaults "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/default"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
@@ -371,7 +367,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		return nil, nil, fmt.Errorf("failed to get chain ID from chain selector %d: %w", i.homeChainSelector, err)
 	}
 
-	crcw := defaults.DefaultCRCW
+	crcw := ccipcommon.NewCRCW(ccipcommon.RegisteredCRCW)
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for relayID, relayer := range i.relayers {
@@ -469,11 +465,8 @@ func decodeAndValidateOffchainConfig(
 
 // initializerPluginConfig initializes the plugin config for the given chain family.
 func initializerPluginConfig(destChainFamily string, lggr logger.Logger) (ccipcommon.PluginConfig, error) {
-	extraDataCodec := defaults.DefaultExtraDataCodec
-	pluginConfig, err := ccipcommon.NewPluginConfigFactory(
-		ccipevm.InitializePluginConfig(lggr, extraDataCodec),
-		ccipsolana.InitializePluginConfig(lggr, extraDataCodec),
-	).CreatePluginConfig(destChainFamily)
+	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.RegisteredExtraDataCodec)
+	pluginConfig, err := ccipcommon.NewPluginConfigFactory(lggr, extraDataCodec).CreatePluginConfig(destChainFamily)
 	if err != nil {
 		return ccipcommon.PluginConfig{}, fmt.Errorf("failed to create plugin config: %w", err)
 	}

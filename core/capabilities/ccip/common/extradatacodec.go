@@ -10,15 +10,13 @@ import (
 
 // ExtraDataCodec is a struct that holds the chain specific extra data codec
 type ExtraDataCodec struct {
-	EVMExtraDataCodec    SourceChainExtraDataCodec
-	SolanaExtraDataCodec SourceChainExtraDataCodec
+	registeredExtraDataCodecMap map[string]SourceChainExtraDataCodec
 }
 
 // NewExtraDataCodec is a constructor for ExtraDataCodec
-func NewExtraDataCodec(evmExtraDataCodec, solanaExtraDataCodec SourceChainExtraDataCodec) ExtraDataCodec {
+func NewExtraDataCodec(registeredExtraDataCodecMap map[string]SourceChainExtraDataCodec) ExtraDataCodec {
 	return ExtraDataCodec{
-		EVMExtraDataCodec:    evmExtraDataCodec,
-		SolanaExtraDataCodec: solanaExtraDataCodec,
+		registeredExtraDataCodecMap: registeredExtraDataCodecMap,
 	}
 }
 
@@ -34,16 +32,12 @@ func (c ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSe
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", sourceChainSelector, err)
 	}
 
-	switch family {
-	case chainsel.FamilyEVM:
-		return c.EVMExtraDataCodec.DecodeExtraArgsToMap(extraArgs)
-
-	case chainsel.FamilySolana:
-		return c.SolanaExtraDataCodec.DecodeExtraArgsToMap(extraArgs)
-
-	default:
+	codec, exist := c.registeredExtraDataCodecMap[family]
+	if !exist {
 		return nil, fmt.Errorf("unsupported family for extra args type %s", family)
 	}
+
+	return codec.DecodeExtraArgsToMap(extraArgs)
 }
 
 // DecodeTokenAmountDestExecData reformats bytes to chain-agnostic map[string]any for tokenAmount DestExecData field
@@ -58,14 +52,10 @@ func (c ExtraDataCodec) DecodeTokenAmountDestExecData(destExecData cciptypes.Byt
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", sourceChainSelector, err)
 	}
 
-	switch family {
-	case chainsel.FamilyEVM:
-		return c.EVMExtraDataCodec.DecodeDestExecDataToMap(destExecData)
-
-	case chainsel.FamilySolana:
-		return c.SolanaExtraDataCodec.DecodeDestExecDataToMap(destExecData)
-
-	default:
+	codec, exist := c.registeredExtraDataCodecMap[family]
+	if !exist {
 		return nil, fmt.Errorf("unsupported family for extra args type %s", family)
 	}
+
+	return codec.DecodeDestExecDataToMap(destExecData)
 }

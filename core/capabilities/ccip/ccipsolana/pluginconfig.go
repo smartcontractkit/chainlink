@@ -21,3 +21,11 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(extraDataCodec),
 	}
 }
+
+func init() {
+	// Register the EVM plugin config factory
+	ccipcommon.RegisterPluginConfig(chainsel.FamilySolana, InitializePluginConfig)
+	ccipcommon.RegisterCRCW(chainsel.FamilySolana, ChainRWProvider{})
+	ccipcommon.RegisterExtraDataCodec(chainsel.FamilySolana, ExtraDataCodec{})
+	ccipcommon.RegisterAddressCodec(chainsel.FamilySolana, AddressCodec{})
+}

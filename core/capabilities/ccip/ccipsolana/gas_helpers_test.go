@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/stretchr/testify/assert"
 
@@ -56,7 +55,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 			}
 			// Set the source chain selector to be EVM for now
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.SOLANA_TESTNET.Selector)
-			ep := EstimateProvider{extraDataCodec: ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataCodec{}, ExtraDataCodec{})}
+			ep := EstimateProvider{extraDataCodec: ccipcommon.NewExtraDataCodec(ccipcommon.RegisteredExtraDataCodec)}
 			got := ep.CalculateMessageMaxGas(msg)
 			t.Log(got)
 			assert.Equalf(t, tt.want, got, "calculateMessageMaxGas(%v, %v)", tt.args.dataLen, tt.args.numTokens)
@@ -96,7 +95,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			}
 
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.SOLANA_TESTNET.Selector)
-			ep := EstimateProvider{extraDataCodec: ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataCodec{}, ExtraDataCodec{})}
+			ep := EstimateProvider{extraDataCodec: ccipcommon.NewExtraDataCodec(ccipcommon.RegisteredExtraDataCodec)}
 			gotTree := ep.CalculateMerkleTreeGas(tt.numRequests)
 			gotMsg := ep.CalculateMessageMaxGas(msg)
 			t.Log("want", tt.want, "got", gotTree+gotMsg)
