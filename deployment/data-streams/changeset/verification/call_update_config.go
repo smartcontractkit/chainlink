@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -42,14 +42,14 @@ func (cfg UpdateConfigConfig) Validate() error {
 	return nil
 }
 
-func updateConfigPrecondition(_ deployment.Environment, cc UpdateConfigConfig) error {
+func updateConfigPrecondition(_ cldf.Environment, cc UpdateConfigConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid UpdateConfig config: %w", err)
 	}
 	return nil
 }
 
-func updateConfigLogic(e deployment.Environment, cfg UpdateConfigConfig) (cldf.ChangesetOutput, error) {
+func updateConfigLogic(e cldf.Environment, cfg UpdateConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.VerifierProxy.String(),
@@ -66,7 +66,7 @@ func updateConfigLogic(e deployment.Environment, cfg UpdateConfigConfig) (cldf.C
 
 func doUpdateConfig(v *verifier_v0_5_0.Verifier, ac UpdateConfig) (*goEthTypes.Transaction, error) {
 	return v.UpdateConfig(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		ac.ConfigDigest,
 		ac.PrevSigners,
 		ac.NewSigners,

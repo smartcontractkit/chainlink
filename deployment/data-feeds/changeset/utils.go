@@ -115,7 +115,7 @@ type WrappedChangeSet[C any] struct {
 // It executes VerifyPreconditions internally to handle changeset errors.
 func RunChangeset[C any](
 	operation cldf.ChangeSetV2[C],
-	env deployment.Environment,
+	env cldf.Environment,
 	config C,
 ) (cldf.ChangesetOutput, error) {
 	cs := WrappedChangeSet[C]{operation: operation}

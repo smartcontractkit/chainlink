@@ -168,7 +168,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 
 			if test.DeployCCIPHome {
 				_, err = cldf.DeployContract(e.Logger, e.Chains[homeChainSelector], e.ExistingAddresses,
-					func(chain deployment.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
+					func(chain cldf.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
 						address, tx2, contract, err2 := ccip_home.DeployCCIPHome(
 							chain.DeployerKey,
 							chain.Client,
@@ -183,7 +183,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 
 			if test.DeployCapReg {
 				_, err = cldf.DeployContract(e.Logger, e.Chains[homeChainSelector], e.ExistingAddresses,
-					func(chain deployment.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+					func(chain cldf.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 						address, tx2, contract, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 							chain.DeployerKey,
 							chain.Client,

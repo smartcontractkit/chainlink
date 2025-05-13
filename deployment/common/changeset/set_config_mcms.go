@@ -56,7 +56,7 @@ var _ cldf.ChangeSet[MCMSConfig] = SetConfigMCMS
 var _ cldf.ChangeSet[MCMSConfigV2] = SetConfigMCMSV2
 
 // Validate checks that the MCMSConfig is valid
-func (cfg MCMSConfig) Validate(e deployment.Environment, selectors []uint64) error {
+func (cfg MCMSConfig) Validate(e cldf.Environment, selectors []uint64) error {
 	if len(cfg.ConfigsPerChain) == 0 {
 		return errors.New("no chain configs provided")
 	}
@@ -95,7 +95,7 @@ func (cfg MCMSConfig) Validate(e deployment.Environment, selectors []uint64) err
 }
 
 // Validate checks that the MCMSConfigV2 is valid
-func (cfg MCMSConfigV2) Validate(e deployment.Environment, selectors []uint64) error {
+func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 	if len(cfg.ConfigsPerChain) == 0 {
 		return errors.New("no chain configs provided")
 	}
@@ -153,9 +153,9 @@ func (cfg MCMSConfigV2) Validate(e deployment.Environment, selectors []uint64) e
 
 // setConfigOrTxData executes set config tx or gets the tx data for the MCMS proposal
 // Deprecated: Use setConfigOrTxDataV2 instead.
-func setConfigOrTxData(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg config.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
+func setConfigOrTxData(ctx context.Context, lggr logger.Logger, chain cldf.Chain, cfg config.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
 	groupQuorums, groupParents, signerAddresses, signerGroups := cfg.ExtractSetConfigInputs()
-	opts := deployment.SimTransactOpts()
+	opts := cldf.SimTransactOpts()
 	if !useMCMS {
 		opts = chain.DeployerKey
 	}
@@ -165,7 +165,7 @@ func setConfigOrTxData(ctx context.Context, lggr logger.Logger, chain deployment
 		return nil, err
 	}
 	if !useMCMS {
-		_, err = deployment.ConfirmIfNoErrorWithABI(chain, tx, gethwrappers.ManyChainMultiSigABI, err)
+		_, err = cldf.ConfirmIfNoErrorWithABI(chain, tx, gethwrappers.ManyChainMultiSigABI, err)
 		if err != nil {
 			return nil, err
 		}
@@ -175,8 +175,8 @@ func setConfigOrTxData(ctx context.Context, lggr logger.Logger, chain deployment
 }
 
 // setConfigOrTxDataV2 executes set config tx or gets the tx data for the MCMS proposal
-func setConfigOrTxDataV2(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg mcmstypes.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
-	opts := deployment.SimTransactOpts()
+func setConfigOrTxDataV2(ctx context.Context, lggr logger.Logger, chain cldf.Chain, cfg mcmstypes.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
+	opts := cldf.SimTransactOpts()
 	if !useMCMS {
 		opts = chain.DeployerKey
 	}
@@ -190,7 +190,7 @@ func setConfigOrTxDataV2(ctx context.Context, lggr logger.Logger, chain deployme
 
 	transaction := res.RawData.(*types.Transaction)
 	if !useMCMS {
-		_, err = deployment.ConfirmIfNoErrorWithABI(chain, transaction, gethwrappers.ManyChainMultiSigABI, err)
+		_, err = cldf.ConfirmIfNoErrorWithABI(chain, transaction, gethwrappers.ManyChainMultiSigABI, err)
 		if err != nil {
 			return nil, err
 		}
@@ -207,7 +207,7 @@ type setConfigTxs struct {
 
 // setConfigPerRole sets the configuration for each of the MCMS contract roles on the mcmsState.
 // Deprecated: Use setConfigPerRoleV2 instead.
-func setConfigPerRole(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg ConfigPerRole, mcmsState *MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
+func setConfigPerRole(ctx context.Context, lggr logger.Logger, chain cldf.Chain, cfg ConfigPerRole, mcmsState *MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
 	// Proposer set config
 	proposerTx, err := setConfigOrTxData(ctx, lggr, chain, cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
 	if err != nil {
@@ -232,7 +232,7 @@ func setConfigPerRole(ctx context.Context, lggr logger.Logger, chain deployment.
 }
 
 // setConfigPerRoleV2 sets the configuration for each of the MCMS contract roles on the mcmsState.
-func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg ConfigPerRoleV2, mcmsState *commonState.MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
+func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain cldf.Chain, cfg ConfigPerRoleV2, mcmsState *commonState.MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
 	// Proposer set config
 	proposerTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
 	if err != nil {
@@ -284,7 +284,7 @@ func addTxsToProposalBatch(setConfigTxsChain setConfigTxs, chainSelector uint64,
 
 // SetConfigMCMS sets the configuration of the MCMS contract on the chain identified by the chainSelector.
 // Deprecated: Use SetConfigMCMSV2 instead.
-func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (cldf.ChangesetOutput, error) {
+func SetConfigMCMS(e cldf.Environment, cfg MCMSConfig) (cldf.ChangesetOutput, error) {
 	selectors := []uint64{}
 	lggr := e.Logger
 	ctx := e.GetContext()
@@ -335,7 +335,7 @@ func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (cldf.ChangesetOutp
 }
 
 // SetConfigMCMSV2 is a reimplementation of SetConfigMCMS that uses the new MCMS library.
-func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput, error) {
+func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput, error) {
 	selectors := []uint64{}
 	lggr := e.Logger
 	ctx := e.GetContext()
@@ -431,7 +431,7 @@ func addTxsToProposalBatchV2(setConfigTxsChain setConfigTxs, chainSelector uint6
 }
 
 func setConfigSolana(
-	e deployment.Environment, chainSelector uint64, cfg ConfigPerRoleV2,
+	e cldf.Environment, chainSelector uint64, cfg ConfigPerRoleV2,
 	timelockAddressesPerChain, proposerMcmsPerChain map[uint64]string, useMCMS bool,
 ) ([]mcmstypes.BatchOperation, error) {
 	chain := e.SolChains[chainSelector]
@@ -473,7 +473,7 @@ func setConfigSolana(
 	return batches, nil
 }
 
-func setConfigForRole(e deployment.Environment, chain deployment.SolChain, cfg mcmstypes.Config, mcmAddress string, contractType string, useMCMS bool, timelockSignerPDA solanasdk.PublicKey) (mcmstypes.BatchOperation, error) {
+func setConfigForRole(e cldf.Environment, chain cldf.SolChain, cfg mcmstypes.Config, mcmAddress string, contractType string, useMCMS bool, timelockSignerPDA solanasdk.PublicKey) (mcmstypes.BatchOperation, error) {
 	var configurer *solana.Configurer
 
 	if useMCMS {

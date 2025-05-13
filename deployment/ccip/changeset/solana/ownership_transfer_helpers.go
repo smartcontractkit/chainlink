@@ -15,7 +15,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -45,7 +44,7 @@ func transferAndWrapAcceptOwnership(
 	proposedOwner solana.PublicKey, // e.g. usually, the timelock signer PDA
 	configPDA solana.PublicKey, // e.g. for routerConfigPDA or a token-pool config
 	deployer solana.PublicKey, // the “from” authority
-	solChain deployment.SolChain, // used for solChain.Confirm
+	solChain cldf.SolChain, // used for solChain.Confirm
 	label cldf.ContractType, // e.g. "Router" or "TokenPool"
 ) (mcmsTypes.Transaction, error) {
 	// 1. Build the instruction that transfers ownership to the timelock
@@ -78,7 +77,7 @@ func transferAndWrapAcceptOwnership(
 func transferOwnershipRouter(
 	ccipState state2.CCIPOnChainState,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	timelockProgramID solana.PublicKey,
 	timelockInstanceSeed state.PDASeed,
 ) ([]mcmsTypes.Transaction, error) {
@@ -138,7 +137,7 @@ func transferOwnershipRouter(
 func transferOwnershipFeeQuoter(
 	ccipState state2.CCIPOnChainState,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	timelockProgramID solana.PublicKey,
 	timelockInstanceSeed state.PDASeed,
 ) ([]mcmsTypes.Transaction, error) {
@@ -198,7 +197,7 @@ func transferOwnershipFeeQuoter(
 func transferOwnershipOffRamp(
 	ccipState state2.CCIPOnChainState,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	timelockProgramID solana.PublicKey,
 	timelockInstanceSeed state.PDASeed,
 ) ([]mcmsTypes.Transaction, error) {
@@ -260,7 +259,7 @@ func transferOwnershipBurnMintTokenPools(
 	tokenPoolConfigPDA solana.PublicKey,
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	timelockProgramID solana.PublicKey,
 	timelockInstanceSeed state.PDASeed,
 ) ([]mcmsTypes.Transaction, error) {
@@ -318,7 +317,7 @@ func transferOwnershipLockReleaseTokenPools(
 	tokenPoolConfigPDA solana.PublicKey,
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	timelockProgramID solana.PublicKey,
 	timelockInstanceSeed state.PDASeed,
 ) ([]mcmsTypes.Transaction, error) {
@@ -374,7 +373,7 @@ func transferOwnershipLockReleaseTokenPools(
 func transferOwnershipRMNRemote(
 	ccipState state2.CCIPOnChainState,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	timelockProgramID solana.PublicKey,
 	timelockInstanceSeed state.PDASeed,
 ) ([]mcmsTypes.Transaction, error) {

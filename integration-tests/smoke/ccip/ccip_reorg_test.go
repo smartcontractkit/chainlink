@@ -26,6 +26,9 @@ import (
 
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -377,7 +380,7 @@ func getHeadTrackerService(t *testing.T, chainSelector uint64) string {
 // Send CCIP message helper
 func sendCCIPMessage(
 	t *testing.T,
-	env deployment.Environment,
+	env cldf.Environment,
 	state ccipcs.CCIPOnChainState,
 	sourceSelector, destSelector uint64,
 	l logging.Logger,

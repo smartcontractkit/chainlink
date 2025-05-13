@@ -13,7 +13,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -63,7 +62,7 @@ func ValidateContracts(state state2.SolCCIPChainState, chainSelector uint64, con
 	return nil
 }
 
-func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e deployment.Environment) error {
+func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e cldf.Environment) error {
 	ccipState, err := state2.LoadOnchainStateSolana(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -129,7 +128,7 @@ func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e deployment.Envi
 // the timelock and mcms exist on the chain and that the proposed addresses to transfer ownership
 // are currently owned by the deployer key.
 func TransferCCIPToMCMSWithTimelockSolana(
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg TransferCCIPToMCMSWithTimelockSolanaConfig,
 ) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {

@@ -22,7 +22,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	viewSolana "github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -80,7 +79,7 @@ type SolCCIPChainState struct {
 	RMNRemoteCursesPDA   solana.PublicKey
 }
 
-func FetchOfframpLookupTable(ctx context.Context, chain deployment.SolChain, offRampAddress solana.PublicKey) (solana.PublicKey, error) {
+func FetchOfframpLookupTable(ctx context.Context, chain cldf.SolChain, offRampAddress solana.PublicKey) (solana.PublicKey, error) {
 	var referenceAddressesAccount solOffRamp.ReferenceAddresses
 	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
 	err := chain.GetAccountDataBorshInto(ctx, offRampReferenceAddressesPDA, &referenceAddressesAccount)
@@ -90,7 +89,7 @@ func FetchOfframpLookupTable(ctx context.Context, chain deployment.SolChain, off
 	return referenceAddressesAccount.OfframpLookupTable, nil
 }
 
-func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
+func LoadOnchainStateSolana(e cldf.Environment) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
 		SolChains: make(map[uint64]SolCCIPChainState),
 	}
@@ -113,7 +112,7 @@ func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) 
 }
 
 // LoadChainStateSolana Loads all state for a SolChain into state
-func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]cldf.TypeAndVersion) (SolCCIPChainState, error) {
+func LoadChainStateSolana(chain cldf.SolChain, addresses map[string]cldf.TypeAndVersion) (SolCCIPChainState, error) {
 	state := SolCCIPChainState{
 		SourceChainStatePDAs:  make(map[uint64]solana.PublicKey),
 		DestChainStatePDAs:    make(map[uint64]solana.PublicKey),
@@ -311,8 +310,8 @@ func FindSolanaAddress(tv cldf.TypeAndVersion, addresses map[string]cldf.TypeAnd
 }
 
 func ValidateOwnershipSolana(
-	e *deployment.Environment,
-	chain deployment.SolChain,
+	e *cldf.Environment,
+	chain cldf.SolChain,
 	mcms bool,
 	programID solana.PublicKey,
 	contractType cldf.ContractType,
@@ -395,8 +394,8 @@ func ValidateOwnershipSolana(
 }
 
 func IsSolanaProgramOwnedByTimelock(
-	e *deployment.Environment,
-	chain deployment.SolChain,
+	e *cldf.Environment,
+	chain cldf.SolChain,
 	chainState SolCCIPChainState,
 	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // for token pools only
@@ -501,7 +500,7 @@ func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
 	return receiverTargetAccount
 }
 
-func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolChainView, error) {
+func (s SolCCIPChainState) GenerateView(solChain cldf.SolChain) (view.SolChainView, error) {
 	chainView := view.NewSolChain()
 	var remoteChains []uint64
 	for selector := range s.DestChainStatePDAs {
@@ -580,7 +579,7 @@ func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolC
 	return chainView, nil
 }
 
-func (s SolCCIPChainState) GetFeeAggregator(chain deployment.SolChain) solana.PublicKey {
+func (s SolCCIPChainState) GetFeeAggregator(chain cldf.SolChain) solana.PublicKey {
 	var config solRouter.Config
 	configPDA, _, _ := solState.FindConfigPDA(s.Router)
 	err := chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)

@@ -210,7 +210,7 @@ type CCIPChainState struct {
 // validateHomeChain validates the home chain contracts and their configurations after complete set up
 // It cross-references the config across CCIPHome and OffRamps to ensure they are in sync
 // This should be called after the complete deployment is done
-func (c CCIPChainState) validateHomeChain(e deployment.Environment, nodes deployment.Nodes, offRampsByChain map[uint64]offramp.OffRampInterface) error {
+func (c CCIPChainState) validateHomeChain(e cldf.Environment, nodes deployment.Nodes, offRampsByChain map[uint64]offramp.OffRampInterface) error {
 	if c.RMNHome == nil {
 		return errors.New("no RMNHome contract found in the state for home chain")
 	}
@@ -266,7 +266,7 @@ func (c CCIPChainState) validateHomeChain(e deployment.Environment, nodes deploy
 
 // validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on corresponding chain selector and its state
 // The validation related to correctness of F and node length is omitted here as it is already validated in the contract
-func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Environment, nodes deployment.Nodes, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
+func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment, nodes deployment.Nodes, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
 	if homeCfg.ConfigDigest == [32]byte{} {
 		return errors.New("active config digest is empty")
 	}
@@ -357,7 +357,7 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 
 // validateOnRamp validates whether the contract addresses configured in static and dynamic config are in sync with state
 func (c CCIPChainState) validateOnRamp(
-	e deployment.Environment,
+	e cldf.Environment,
 	selector uint64,
 	connectedChains []uint64,
 ) error {
@@ -432,7 +432,7 @@ func (c CCIPChainState) validateOnRamp(
 }
 
 // validateFeeQuoter validates whether the fee quoter contract address configured in static config is in sync with state
-func (c CCIPChainState) validateFeeQuoter(e deployment.Environment) error {
+func (c CCIPChainState) validateFeeQuoter(e cldf.Environment) error {
 	if c.FeeQuoter == nil {
 		return errors.New("no FeeQuoter contract found in the state")
 	}
@@ -455,7 +455,7 @@ func (c CCIPChainState) validateFeeQuoter(e deployment.Environment) error {
 
 // validateRouter validates the router contract to check if all wired contracts are synced with state
 // and returns all connected chains with respect to the router
-func (c CCIPChainState) validateRouter(e deployment.Environment, isTestRouter bool) ([]uint64, error) {
+func (c CCIPChainState) validateRouter(e cldf.Environment, isTestRouter bool) ([]uint64, error) {
 	if c.Router == nil && c.TestRouter == nil {
 		return nil, errors.New("no Router or TestRouter contract found in the state")
 	}
@@ -524,7 +524,7 @@ func (c CCIPChainState) validateRouter(e deployment.Environment, isTestRouter bo
 // and returns whether RMN is enabled for the chain on the RMNRemote
 // It validates whether RMNRemote is in sync with the RMNHome contract
 func (c CCIPChainState) validateRMNRemote(
-	e deployment.Environment,
+	e cldf.Environment,
 	selector uint64,
 	rmnHomeActiveDigest [32]byte,
 ) (bool, error) {
@@ -559,7 +559,7 @@ func (c CCIPChainState) validateRMNRemote(
 
 // validateOffRamp validates the offRamp contract to check if all wired contracts are synced with state
 func (c CCIPChainState) validateOffRamp(
-	e deployment.Environment,
+	e cldf.Environment,
 	selector uint64,
 	onRampsBySelector map[uint64]common.Address,
 	isRMNEnabledBySource map[uint64]bool,
@@ -1097,7 +1097,7 @@ type CCIPOnChainState struct {
 // ValidatePostDeploymentState should be called after the deployment and configuration for all contracts
 // in environment is complete.
 // It validates the state of the contracts and ensures that they are correctly configured and wired with each other.
-func (c CCIPOnChainState) ValidatePostDeploymentState(e deployment.Environment) error {
+func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment) error {
 	onRampsBySelector := make(map[uint64]common.Address)
 	offRampsBySelector := make(map[uint64]offramp.OffRampInterface)
 	for selector, chainState := range c.Chains {
@@ -1198,7 +1198,7 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithT
 	return mcmsStateByChain
 }
 
-func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env deployment.Environment, selector uint64) (uint32, error) {
+func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env cldf.Environment, selector uint64) (uint32, error) {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
 		return 0, err
@@ -1373,7 +1373,7 @@ func (c CCIPOnChainState) EnforceMCMSUsageIfProd(ctx context.Context, mcmsConfig
 // ValidateOwnershipOfChain validates the ownership of every CCIP contract on a chain.
 // If mcmsConfig is nil, the expected owner of each contract is the chain's deployer key.
 // If provided, the expected owner is the Timelock contract.
-func (c CCIPOnChainState) ValidateOwnershipOfChain(e deployment.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig) error {
+func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig) error {
 	chain, ok := e.Chains[chainSel]
 	if !ok {
 		return fmt.Errorf("chain with selector %d not found in the environment", chainSel)
@@ -1426,7 +1426,7 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e deployment.Environment, cha
 	return nil
 }
 
-func (c CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
+func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
 	m := sync.Map{}
 	sm := sync.Map{}
 	grp := errgroup.Group{}
@@ -1438,7 +1438,7 @@ func (c CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[
 			if err != nil {
 				return err
 			}
-			chainInfo, err := deployment.ChainInfo(chainSelector)
+			chainInfo, err := cldf.ChainInfo(chainSelector)
 			if err != nil {
 				return err
 			}
@@ -1609,7 +1609,7 @@ func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType cldf.Contr
 	return nil
 }
 
-func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
+func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 	solanaState, err := LoadOnchainStateSolana(e)
 	if err != nil {
 		return CCIPOnChainState{}, err
@@ -1643,7 +1643,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
+func LoadChainState(ctx context.Context, chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
 	mcmsWithTimelock, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
@@ -2042,8 +2042,8 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	return state, nil
 }
 
-func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *proposalutils.TimelockConfig) error {
-	err := deployment.IsValidChainSelector(chainSel)
+func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *proposalutils.TimelockConfig) error {
+	err := cldf.IsValidChainSelector(chainSel)
 	if err != nil {
 		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
 	}

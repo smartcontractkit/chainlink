@@ -17,7 +17,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 )
@@ -47,7 +49,7 @@ func NewTestSetupWithDeployedEnv(
 // Use this when testhelpers.DeployedEnv is not available (usually in long-running test environments like staging).
 func NewTestSetup(
 	t *testing.T,
-	env deployment.Environment,
+	env cldf.Environment,
 	onchainState changeset.CCIPOnChainState,
 	sourceChain,
 	destChain uint64,
@@ -69,7 +71,7 @@ func NewTestSetup(
 type TestSetup struct {
 	T            *testing.T
 	Sender       []byte
-	Env          deployment.Environment
+	Env          cldf.Environment
 	DeployedEnv  testhelpers.DeployedEnv
 	OnchainState changeset.CCIPOnChainState
 	SourceChain  uint64

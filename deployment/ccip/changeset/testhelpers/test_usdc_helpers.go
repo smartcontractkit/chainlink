@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -22,7 +23,7 @@ import (
 
 func ConfigureUSDCTokenPools(
 	lggr logger.Logger,
-	chains map[uint64]deployment.Chain,
+	chains map[uint64]cldf.Chain,
 	src, dst uint64,
 	state changeset.CCIPOnChainState,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_erc677.BurnMintERC677, error) {
@@ -32,7 +33,7 @@ func ConfigureUSDCTokenPools(
 	dstPool := state.Chains[dst].USDCTokenPools[deployment.Version1_5_1]
 
 	args := []struct {
-		sourceChain deployment.Chain
+		sourceChain cldf.Chain
 		dstChainSel uint64
 		state       changeset.CCIPChainState
 		srcToken    *burn_mint_erc677.BurnMintERC677
@@ -72,7 +73,7 @@ func ConfigureUSDCTokenPools(
 
 func configureSingleChain(
 	lggr logger.Logger,
-	sourceChain deployment.Chain,
+	sourceChain cldf.Chain,
 	dstChainSel uint64,
 	state changeset.CCIPChainState,
 	srcToken *burn_mint_erc677.BurnMintERC677,
@@ -107,9 +108,9 @@ func configureSingleChain(
 
 func UpdateFeeQuoterForUSDC(
 	t *testing.T,
-	e deployment.Environment,
+	e cldf.Environment,
 	lggr logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	dstChain uint64,
 ) error {
 	config := fee_quoter.FeeQuoterTokenTransferFeeConfig{

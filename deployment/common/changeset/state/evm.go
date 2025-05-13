@@ -60,7 +60,7 @@ func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (view.MCMSWith
 }
 
 // MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
-func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
+func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.Chains[chainSelector]
@@ -81,7 +81,7 @@ func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors [
 }
 
 // MaybeLoadMCMSWithTimelockStateDataStore loads the MCMSWithTimelockState state for each chain in the given environment from the DataStore.
-func MaybeLoadMCMSWithTimelockStateDataStore(env deployment.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
+func MaybeLoadMCMSWithTimelockStateDataStore(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.Chains[chainSelector]
@@ -127,7 +127,7 @@ func loadAddressesFromDataStore(ds datastore.DataStore[datastore.DefaultMetadata
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
-func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockState, error) {
+func MaybeLoadMCMSWithTimelockChainState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockState, error) {
 	state := MCMSWithTimelockState{}
 	var (
 		// We expect one of each contract on the chain.
@@ -224,7 +224,7 @@ func (s LinkTokenState) GenerateLinkView() (view.LinkTokenView, error) {
 }
 
 // MaybeLoadLinkTokenState loads the LinkTokenState state for each chain in the given environment.
-func MaybeLoadLinkTokenState(env deployment.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
+func MaybeLoadLinkTokenState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
 	result := map[uint64]*LinkTokenState{}
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.Chains[chainSelector]
@@ -244,7 +244,7 @@ func MaybeLoadLinkTokenState(env deployment.Environment, chainSelectors []uint64
 	return result, nil
 }
 
-func MaybeLoadLinkTokenChainState(chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
+func MaybeLoadLinkTokenChainState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
 	state := LinkTokenState{}
 	linkToken := cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
 
@@ -280,7 +280,7 @@ func (s StaticLinkTokenState) GenerateStaticLinkView() (view.StaticLinkTokenView
 	return view.GenerateStaticLinkTokenView(s.StaticLinkToken)
 }
 
-func MaybeLoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {
+func MaybeLoadStaticLinkTokenState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {
 	state := StaticLinkTokenState{}
 	staticLinkToken := cldf.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0)
 

@@ -71,7 +71,7 @@ func (t TokenPoolInfo) Validate() error {
 func (t TokenPoolInfo) GetConfigOnRegistry(
 	ctx context.Context,
 	symbol TokenSymbol,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	state CCIPChainState,
 ) (token_admin_registry.TokenAdminRegistryTokenConfig, error) {
 	_, tokenAddress, err := t.GetPoolAndTokenAddress(ctx, symbol, chain, state)
@@ -90,7 +90,7 @@ func (t TokenPoolInfo) GetConfigOnRegistry(
 func (t TokenPoolInfo) GetPoolAndTokenAddress(
 	ctx context.Context,
 	symbol TokenSymbol,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	state CCIPChainState,
 ) (*token_pool.TokenPool, common.Address, error) {
 	tokenPoolAddress, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, symbol, t.Type, t.Version)
@@ -125,7 +125,7 @@ func NewTokenPoolWithMetadata[P tokenPool](
 	ctx context.Context,
 	newTokenPool func(address common.Address, backend bind.ContractBackend) (P, error),
 	poolAddress common.Address,
-	chainClient deployment.OnchainClient,
+	chainClient cldf.OnchainClient,
 ) (P, tokenPoolMetadata, error) {
 	pool, err := newTokenPool(poolAddress, chainClient)
 	if err != nil {
@@ -164,7 +164,7 @@ func NewTokenPoolWithMetadata[P tokenPool](
 // GetTokenPoolAddressFromSymbolTypeAndVersion returns the token pool address in the environment linked to a particular symbol, type, and version
 func GetTokenPoolAddressFromSymbolTypeAndVersion(
 	chainState CCIPChainState,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	symbol TokenSymbol,
 	poolType cldf.ContractType,
 	version semver.Version,
@@ -220,14 +220,14 @@ type TokenAdminRegistryChangesetConfig struct {
 
 // validateTokenAdminRegistryChangeset validates all token admin registry changesets.
 func (c TokenAdminRegistryChangesetConfig) Validate(
-	env deployment.Environment,
+	env cldf.Environment,
 	mustBeOwner bool,
 	registryConfigCheck func(
 		config token_admin_registry.TokenAdminRegistryTokenConfig,
 		sender common.Address,
 		externalAdmin common.Address,
 		symbol TokenSymbol,
-		chain deployment.Chain,
+		chain cldf.Chain,
 	) error,
 ) error {
 	state, err := LoadOnchainState(env)

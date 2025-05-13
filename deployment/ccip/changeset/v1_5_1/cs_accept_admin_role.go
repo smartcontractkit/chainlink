@@ -9,7 +9,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
@@ -20,7 +19,7 @@ func validateAcceptAdminRole(
 	sender common.Address,
 	externalAdmin common.Address,
 	symbol changeset.TokenSymbol,
-	chain deployment.Chain,
+	chain cldf.Chain,
 ) error {
 	// We must be the pending administrator
 	if config.PendingAdministrator != sender {
@@ -30,7 +29,7 @@ func validateAcceptAdminRole(
 }
 
 // AcceptAdminRoleChangeset accepts admin rights for tokens on the token admin registry.
-func AcceptAdminRoleChangeset(env deployment.Environment, c changeset.TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
+func AcceptAdminRoleChangeset(env cldf.Environment, c changeset.TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env, false, validateAcceptAdminRole); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid TokenAdminRegistryChangesetConfig: %w", err)
 	}

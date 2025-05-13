@@ -109,7 +109,7 @@ var _ testEnvIface = (*EnvWrapper)(nil)
 
 type EnvWrapper struct {
 	t                *testing.T
-	Env              deployment.Environment
+	Env              cldf.Environment
 	RegistrySelector uint64
 
 	dons testDons
@@ -130,7 +130,7 @@ func (te EnvWrapper) OwnedCapabilityRegistry() *changeset.OwnedContract[*kcr.Cap
 	return loadOneContract[*kcr.CapabilitiesRegistry](te.t, te.Env, te.Env.Chains[te.RegistrySelector], registryQualifier)
 }
 
-func loadOneContract[T changeset.Ownable](t *testing.T, env deployment.Environment, chain deployment.Chain, qualifier string) *changeset.OwnedContract[T] {
+func loadOneContract[T changeset.Ownable](t *testing.T, env cldf.Environment, chain cldf.Chain, qualifier string) *changeset.OwnedContract[T] {
 	t.Helper()
 	addrs := env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))
 	require.Len(t, addrs, 1)
@@ -189,14 +189,14 @@ func (te EnvWrapper) GetP2PIDs(donName string) P2PIDs {
 	return te.dons.Get(donName).GetP2PIDs()
 }
 
-func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment.Environment) {
+func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env cldf.Environment) {
 	chains, _ := memory.NewMemoryChains(t, nChains, 1)
 	registryChainSel = registryChain(t, chains)
 	// note that all the nodes require TOML configuration of the cap registry address
 	// and writers need forwarder address as TOML config
 	// we choose to use changesets to deploy the initial contracts because that's how it's done in the real world
 	// this requires a initial environment to house the address book
-	env = deployment.Environment{
+	env = cldf.Environment{
 		GetContext:        t.Context,
 		Logger:            logger.Test(t),
 		Chains:            chains,
@@ -279,7 +279,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	lggr.Debug("done init env")
 	var (
 		dons testDons
-		env  deployment.Environment
+		env  cldf.Environment
 	)
 	if c.useInMemoryNodes {
 		dons, env = setupMemoryNodeTest(t, registryChainSel, envWithContracts.Chains, c)
@@ -415,7 +415,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	}
 }
 
-func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]deployment.Chain, c EnvWrapperConfig) (testDons, deployment.Environment) {
+func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]cldf.Chain, c EnvWrapperConfig) (testDons, cldf.Environment) {
 	// now that we have the initial contracts deployed, we can configure the nodes with the addresses
 	dons := newViewOnlyDons()
 	for _, donCfg := range []DonConfig{c.WFDonConfig, c.AssetDonConfig, c.WriterDonConfig} {
@@ -442,7 +442,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		dons.Put(newViewOnlyDon(donCfg.Name, n))
 	}
 
-	env := deployment.NewEnvironment(
+	env := cldf.NewEnvironment(
 		"view only nodes",
 		logger.Test(t),
 		cldf.NewMemoryAddressBook(),
@@ -462,7 +462,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 	return dons, *env
 }
 
-func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]deployment.Chain, c EnvWrapperConfig) (testDons, deployment.Environment) {
+func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]cldf.Chain, c EnvWrapperConfig) (testDons, cldf.Environment) {
 	// now that we have the initial contracts deployed, we can configure the nodes with the addresses
 	// TODO: configure the nodes with the correct override functions
 	lggr := logger.Test(t)
@@ -471,7 +471,7 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 		Contract:   [20]byte{},
 	}
 
-	wfChains := map[uint64]deployment.Chain{}
+	wfChains := map[uint64]cldf.Chain{}
 	wfChains[registryChainSel] = chains[registryChainSel]
 	wfConf := memory.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
@@ -486,7 +486,7 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	wfNodes := memory.NewNodes(t, wfConf)
 	require.Len(t, wfNodes, c.WFDonConfig.N)
 
-	writerChains := map[uint64]deployment.Chain{}
+	writerChains := map[uint64]cldf.Chain{}
 	maps.Copy(writerChains, chains)
 	cwConf := memory.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
@@ -501,7 +501,7 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	cwNodes := memory.NewNodes(t, cwConf)
 	require.Len(t, cwNodes, c.WriterDonConfig.N)
 
-	assetChains := map[uint64]deployment.Chain{}
+	assetChains := map[uint64]cldf.Chain{}
 	assetChains[registryChainSel] = chains[registryChainSel]
 	assetCfg := memory.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
@@ -525,7 +525,7 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	return dons, env
 }
 
-func registryChain(t *testing.T, chains map[uint64]deployment.Chain) uint64 {
+func registryChain(t *testing.T, chains map[uint64]cldf.Chain) uint64 {
 	var registryChainSel uint64 = math.MaxUint64
 	for sel := range chains {
 		if sel < registryChainSel {
@@ -537,7 +537,7 @@ func registryChain(t *testing.T, chains map[uint64]deployment.Chain) uint64 {
 
 // validateInitialChainState checks that the initial chain state
 // has the expected contracts deployed
-func validateInitialChainState(t *testing.T, env deployment.Environment, registryChainSel uint64) {
+func validateInitialChainState(t *testing.T, env cldf.Environment, registryChainSel uint64) {
 	ad := env.ExistingAddresses
 	// all contracts on registry chain
 	registryChainAddrs, err := ad.AddressesForChain(registryChainSel)

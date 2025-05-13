@@ -14,7 +14,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -150,7 +149,7 @@ type TokenPoolConfig struct {
 	OverrideTokenSymbol changeset.TokenSymbol
 }
 
-func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, ccipState changeset.CCIPOnChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
+func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf.Chain, ccipState changeset.CCIPOnChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
 	chainState := ccipState.Chains[chain.Selector]
 	// Ensure that the inputted type is known
 	if _, ok := changeset.TokenPoolTypes[c.Type]; !ok {
@@ -210,7 +209,7 @@ type ConfigureTokenPoolContractsConfig struct {
 	TokenSymbol changeset.TokenSymbol
 }
 
-func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) error {
+func (c ConfigureTokenPoolContractsConfig) Validate(env cldf.Environment) error {
 	if c.TokenSymbol == "" {
 		return errors.New("token symbol must be defined")
 	}
@@ -219,7 +218,7 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) 
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for chainSelector, poolUpdate := range c.PoolUpdates {
-		err := deployment.IsValidChainSelector(chainSelector)
+		err := cldf.IsValidChainSelector(chainSelector)
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
@@ -266,7 +265,7 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) 
 // ConfigureTokenPoolContractsChangeset configures pools for a given token across multiple chains.
 // The outputted MCMS proposal will update chain configurations on each pool, encompassing new chain additions and rate limit changes.
 // Removing chain support is not in scope for this changeset.
-func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c ConfigureTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
+func ConfigureTokenPoolContractsChangeset(env cldf.Environment, c ConfigureTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid ConfigureTokenPoolContractsConfig: %w", err)
 	}
@@ -307,7 +306,7 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 func configureTokenPool(
 	ctx context.Context,
 	opts *bind.TransactOpts,
-	chains map[uint64]deployment.Chain,
+	chains map[uint64]cldf.Chain,
 	state changeset.CCIPOnChainState,
 	config ConfigureTokenPoolContractsConfig,
 	chainSelector uint64,
@@ -463,7 +462,7 @@ func GetTokenStateFromPoolEVM(
 	symbol changeset.TokenSymbol,
 	poolType cldf.ContractType,
 	version semver.Version,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	state changeset.CCIPChainState,
 ) (*token_pool.TokenPool, common.Address, token_admin_registry.TokenAdminRegistryTokenConfig, error) {
 	tokenPoolAddress, ok := changeset.GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, symbol, poolType, version)

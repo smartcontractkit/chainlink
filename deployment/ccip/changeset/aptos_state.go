@@ -11,7 +11,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -32,7 +31,7 @@ type AptosCCIPChainState struct {
 }
 
 // LoadOnchainStateAptos loads chain state for Aptos chains from env
-func LoadOnchainStateAptos(env deployment.Environment) (map[uint64]AptosCCIPChainState, error) {
+func LoadOnchainStateAptos(env cldf.Environment) (map[uint64]AptosCCIPChainState, error) {
 	aptosChains := make(map[uint64]AptosCCIPChainState)
 	for chainSelector := range env.AptosChains {
 		addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
@@ -76,7 +75,7 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion) 
 	return chainState, nil
 }
 
-func getOfframpDynamicConfig(c deployment.AptosChain, ccipAddress aptos.AccountAddress) (module_offramp.DynamicConfig, error) {
+func getOfframpDynamicConfig(c cldf.AptosChain, ccipAddress aptos.AccountAddress) (module_offramp.DynamicConfig, error) {
 	offrampBind := ccip_offramp.Bind(ccipAddress, c.Client)
 	return offrampBind.Offramp().GetDynamicConfig(&aptosBind.CallOpts{})
 }

@@ -9,7 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 )
@@ -53,7 +55,7 @@ func WithDeployedEnv(de testhelpers.DeployedEnv) TestSetupOpts {
 	}
 }
 
-func WithEnv(env deployment.Environment) TestSetupOpts {
+func WithEnv(env cldf.Environment) TestSetupOpts {
 	return func(ts *TestSetup) {
 		ts.Env = env
 	}
@@ -61,7 +63,7 @@ func WithEnv(env deployment.Environment) TestSetupOpts {
 
 type TestSetup struct {
 	T                           *testing.T
-	Env                         deployment.Environment
+	Env                         cldf.Environment
 	DeployedEnv                 *testhelpers.DeployedEnv
 	OnchainState                changeset.CCIPOnChainState
 	SrcChain                    uint64

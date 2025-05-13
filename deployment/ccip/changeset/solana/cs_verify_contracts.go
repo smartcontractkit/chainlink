@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -31,7 +32,7 @@ type VerifyBuildConfig struct {
 	MCMS                         *proposalutils.TimelockConfig
 }
 
-func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHash, mountPath string, remote bool) error {
+func runSolanaVerify(chain cldf.SolChain, programID, libraryName, commitHash, mountPath string, remote bool) error {
 	params := map[string]string{
 		"Keypair Path": chain.KeypairPath,
 		"Network URL":  chain.URL,
@@ -93,7 +94,7 @@ func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHa
 	return nil
 }
 
-func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutput, error) {
+func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]

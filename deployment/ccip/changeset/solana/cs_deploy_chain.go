@@ -100,7 +100,7 @@ type UpgradeConfig struct {
 	MCMS *proposalutils.TimelockConfig
 }
 
-func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64) error {
+func (cfg UpgradeConfig) Validate(e cldf.Environment, chainSelector uint64) error {
 	if cfg.NewFeeQuoterVersion == nil && cfg.NewRouterVersion == nil && cfg.NewOffRampVersion == nil {
 		return nil
 	}
@@ -116,11 +116,11 @@ func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64
 	return nil
 }
 
-func (c DeployChainContractsConfig) Validate(e deployment.Environment) error {
-	if err := deployment.IsValidChainSelector(c.HomeChainSelector); err != nil {
+func (c DeployChainContractsConfig) Validate(e cldf.Environment) error {
+	if err := cldf.IsValidChainSelector(c.HomeChainSelector); err != nil {
 		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSelector, err)
 	}
-	if err := deployment.IsValidChainSelector(c.ChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(c.ChainSelector); err != nil {
 		return fmt.Errorf("invalid chain selector: %d - %w", c.ChainSelector, err)
 	}
 	family, _ := chainsel.GetSelectorFamily(c.ChainSelector)
@@ -154,7 +154,7 @@ func (c DeployChainContractsConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
+func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
@@ -231,8 +231,8 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 // DeployAndMaybeSaveToAddressBook deploys a program to the Solana chain and saves it to the address book
 // if it is not an upgrade. It returns the program ID of the deployed program.
 func DeployAndMaybeSaveToAddressBook(
-	e deployment.Environment,
-	chain deployment.SolChain,
+	e cldf.Environment,
+	chain cldf.SolChain,
 	ab cldf.AddressBook,
 	contractType cldf.ContractType,
 	version semver.Version,
@@ -267,8 +267,8 @@ func DeployAndMaybeSaveToAddressBook(
 }
 
 func deployChainContractsSolana(
-	e deployment.Environment,
-	chain deployment.SolChain,
+	e cldf.Environment,
+	chain cldf.SolChain,
 	ab cldf.AddressBook,
 	config DeployChainContractsConfig,
 ) ([]mcmsTypes.BatchOperation, error) {
@@ -679,8 +679,8 @@ func deployChainContractsSolana(
 
 // INITIALIZE FUNCTIONS
 func initializeRouter(
-	e deployment.Environment,
-	chain deployment.SolChain,
+	e cldf.Environment,
+	chain cldf.SolChain,
 	ccipRouterProgram solana.PublicKey,
 	linkTokenAddress solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
@@ -719,8 +719,8 @@ func initializeRouter(
 }
 
 func initializeFeeQuoter(
-	e deployment.Environment,
-	chain deployment.SolChain,
+	e cldf.Environment,
+	chain cldf.SolChain,
 	ccipRouterProgram solana.PublicKey,
 	linkTokenAddress solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
@@ -770,8 +770,8 @@ func initializeFeeQuoter(
 }
 
 func initializeOffRamp(
-	e deployment.Environment,
-	chain deployment.SolChain,
+	e cldf.Environment,
+	chain cldf.SolChain,
 	ccipRouterProgram solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
 	rmnRemoteAddress solana.PublicKey,
@@ -826,8 +826,8 @@ func initializeOffRamp(
 }
 
 func initializeRMNRemote(
-	e deployment.Environment,
-	chain deployment.SolChain,
+	e cldf.Environment,
+	chain cldf.SolChain,
 	rmnRemoteProgram solana.PublicKey,
 ) error {
 	e.Logger.Debugw("Initializing rmn remote", "chain", chain.String(), "rmnRemoteProgram", rmnRemoteProgram.String())
@@ -857,8 +857,8 @@ func initializeRMNRemote(
 
 // UPGRADE FUNCTIONS
 func generateUpgradeTxns(
-	e deployment.Environment,
-	chain deployment.SolChain,
+	e cldf.Environment,
+	chain cldf.SolChain,
 	ab cldf.AddressBook,
 	config DeployChainContractsConfig,
 	newVersion *semver.Version,
@@ -939,7 +939,7 @@ func generateUpgradeTxns(
 }
 
 func generateUpgradeIxn(
-	e *deployment.Environment,
+	e *cldf.Environment,
 	programID solana.PublicKey,
 	bufferAddress solana.PublicKey,
 	spillAddress solana.PublicKey,
@@ -970,8 +970,8 @@ func generateUpgradeIxn(
 }
 
 func generateExtendIxn(
-	e *deployment.Environment,
-	chain deployment.SolChain,
+	e *cldf.Environment,
+	chain cldf.SolChain,
 	programID solana.PublicKey,
 	bufferAddress solana.PublicKey,
 	payer solana.PublicKey,
@@ -1020,7 +1020,7 @@ func generateExtendIxn(
 }
 
 func generateCloseBufferIxn(
-	e *deployment.Environment,
+	e *cldf.Environment,
 	bufferAddress solana.PublicKey,
 	recipient solana.PublicKey,
 	upgradeAuthority solana.PublicKey,
@@ -1042,7 +1042,7 @@ func generateCloseBufferIxn(
 }
 
 // HELPER FUNCTIONS
-func GetSolProgramSize(e *deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (int, error) {
+func GetSolProgramSize(e *cldf.Environment, chain cldf.SolChain, programID solana.PublicKey) (int, error) {
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
 		Commitment: cldf.SolDefaultCommitment,
 	})
@@ -1056,7 +1056,7 @@ func GetSolProgramSize(e *deployment.Environment, chain deployment.SolChain, pro
 	return programBytes, nil
 }
 
-func getSolProgramData(e deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (struct {
+func getSolProgramData(e cldf.Environment, chain cldf.SolChain, programID solana.PublicKey) (struct {
 	DataType uint32
 	Address  solana.PublicKey
 }, error) {
@@ -1083,7 +1083,7 @@ type CloseBuffersConfig struct {
 	Buffers       []string
 }
 
-func CloseBuffersChangeset(e deployment.Environment, cfg CloseBuffersConfig) (cldf.ChangesetOutput, error) {
+func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.ChangesetOutput, error) {
 	for _, buffer := range cfg.Buffers {
 		if err := e.SolChains[cfg.ChainSelector].CloseBuffers(e.Logger, buffer); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to close buffer: %w", err)

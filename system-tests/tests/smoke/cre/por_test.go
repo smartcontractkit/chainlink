@@ -38,7 +38,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
@@ -242,7 +241,7 @@ type registerPoRWorkflowInput struct {
 type configureDataFeedsCacheInput struct {
 	useCRECLI          bool
 	chainSelector      uint64
-	fullCldEnvironment *deployment.Environment
+	fullCldEnvironment *cldf.Environment
 	workflowName       string
 	feedID             string
 	sethClient         *seth.Client

@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 // PreparedTx represents a transaction that was prepared but not sent to the chain. This is intended to be
@@ -26,7 +26,7 @@ type ExecuteTxResult struct {
 
 // SignAndExecute signs and then executes transactions directly on the chain with the given deployer key configured
 // for the chain. The transactions should not be already sent to the chain.
-func SignAndExecute(e deployment.Environment, preparedTxs []*PreparedTx) ([]ExecuteTxResult, error) {
+func SignAndExecute(e cldf.Environment, preparedTxs []*PreparedTx) ([]ExecuteTxResult, error) {
 	var executeTxResults []ExecuteTxResult
 	// To execute the txs in parallel this would need to batch up the txs by chain to avoid nonce issues
 	for _, tx := range preparedTxs {
@@ -60,7 +60,7 @@ func SignAndExecute(e deployment.Environment, preparedTxs []*PreparedTx) ([]Exec
 }
 
 // reconfigureTx takes the tx `call data` and reconfigures the transaction to use valid nonce, gas price and gas limit
-func reconfigureTx(ctx context.Context, chain deployment.Chain, preparedTx *PreparedTx) (*gethtypes.Transaction, error) {
+func reconfigureTx(ctx context.Context, chain cldf.Chain, preparedTx *PreparedTx) (*gethtypes.Transaction, error) {
 	nonce, err := chain.Client.NonceAt(ctx, chain.DeployerKey.From, nil)
 	if err != nil {
 		return nil, fmt.Errorf("chain %d: failed to get nonce: %w", chain.Selector, err)

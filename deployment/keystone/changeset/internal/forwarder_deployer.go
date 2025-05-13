@@ -12,8 +12,6 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 const (
@@ -88,7 +86,7 @@ type ConfigureForwarderContractsResponse struct {
 // Depreciated: use [changeset.ConfigureForwardContracts] instead
 // ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
 // the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
-func ConfigureForwardContracts(env *deployment.Environment, req ConfigureForwarderContractsRequest) (*ConfigureForwarderContractsResponse, error) {
+func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderContractsRequest) (*ConfigureForwarderContractsResponse, error) {
 	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,

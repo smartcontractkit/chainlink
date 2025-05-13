@@ -12,7 +12,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -30,7 +29,7 @@ type SyncUSDCDomainsWithChainsConfig struct {
 	MCMS *proposalutils.TimelockConfig
 }
 
-func (c SyncUSDCDomainsWithChainsConfig) Validate(env deployment.Environment, state changeset.CCIPOnChainState) error {
+func (c SyncUSDCDomainsWithChainsConfig) Validate(env cldf.Environment, state changeset.CCIPOnChainState) error {
 	ctx := env.GetContext()
 
 	if c.ChainSelectorToUSDCDomain == nil {
@@ -39,7 +38,7 @@ func (c SyncUSDCDomainsWithChainsConfig) Validate(env deployment.Environment, st
 
 	// Validate that all USDC configs inputted are for valid chains that define USDC pools.
 	for chainSelector, version := range c.USDCVersionByChain {
-		err := deployment.IsValidChainSelector(chainSelector)
+		err := cldf.IsValidChainSelector(chainSelector)
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
@@ -94,7 +93,7 @@ func (c SyncUSDCDomainsWithChainsConfig) Validate(env deployment.Environment, st
 
 // SyncUSDCDomainsWithChainsChangeset syncs domain support on specified USDC token pools with its chain support.
 // As such, it is expected that ConfigureTokenPoolContractsChangeset is executed before running this changeset.
-func SyncUSDCDomainsWithChainsChangeset(env deployment.Environment, c SyncUSDCDomainsWithChainsConfig) (cldf.ChangesetOutput, error) {
+func SyncUSDCDomainsWithChainsChangeset(env cldf.Environment, c SyncUSDCDomainsWithChainsConfig) (cldf.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)

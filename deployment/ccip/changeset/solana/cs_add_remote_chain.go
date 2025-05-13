@@ -48,7 +48,7 @@ type RouterConfig struct {
 	IsUpdate bool
 }
 
-func (cfg *AddRemoteChainToRouterConfig) Validate(e deployment.Environment) error {
+func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment) error {
 	state, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -96,7 +96,7 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e deployment.Environment) erro
 }
 
 // Adds new remote chain configurations
-func AddRemoteChainToRouter(e deployment.Environment, cfg AddRemoteChainToRouterConfig) (cldf.ChangesetOutput, error) {
+func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -128,7 +128,7 @@ func AddRemoteChainToRouter(e deployment.Environment, cfg AddRemoteChainToRouter
 }
 
 func doAddRemoteChainToRouter(
-	e deployment.Environment,
+	e cldf.Environment,
 	s ccipChangeset.CCIPOnChainState,
 	cfg AddRemoteChainToRouterConfig,
 	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
@@ -274,7 +274,7 @@ type FeeQuoterConfig struct {
 	IsUpdate bool
 }
 
-func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) error {
+func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment) error {
 	state, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -314,7 +314,7 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) e
 }
 
 // Adds new remote chain configurations
-func AddRemoteChainToFeeQuoter(e deployment.Environment, cfg AddRemoteChainToFeeQuoterConfig) (cldf.ChangesetOutput, error) {
+func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoterConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -346,7 +346,7 @@ func AddRemoteChainToFeeQuoter(e deployment.Environment, cfg AddRemoteChainToFee
 }
 
 func doAddRemoteChainToFeeQuoter(
-	e deployment.Environment,
+	e cldf.Environment,
 	s ccipChangeset.CCIPOnChainState,
 	cfg AddRemoteChainToFeeQuoterConfig,
 	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
@@ -449,7 +449,7 @@ type OffRampConfig struct {
 	IsUpdate bool
 }
 
-func (cfg *AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) error {
+func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment) error {
 	state, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -490,7 +490,7 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) err
 }
 
 // Adds new remote chain configurations
-func AddRemoteChainToOffRamp(e deployment.Environment, cfg AddRemoteChainToOffRampConfig) (cldf.ChangesetOutput, error) {
+func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -522,7 +522,7 @@ func AddRemoteChainToOffRamp(e deployment.Environment, cfg AddRemoteChainToOffRa
 }
 
 func doAddRemoteChainToOffRamp(
-	e deployment.Environment,
+	e cldf.Environment,
 	s ccipChangeset.CCIPOnChainState,
 	cfg AddRemoteChainToOffRampConfig,
 	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
@@ -635,7 +635,7 @@ func getSourceChainConfig(s ccipChangeset.CCIPOnChainState, remoteChainSel uint6
 	return validSourceChainConfig, nil
 }
 
-func extendLookupTable(e deployment.Environment, chain deployment.SolChain, offRampID solana.PublicKey, lookUpTableEntries []solana.PublicKey) error {
+func extendLookupTable(e cldf.Environment, chain cldf.SolChain, offRampID solana.PublicKey, lookUpTableEntries []solana.PublicKey) error {
 	addressLookupTable, err := ccipChangeset.FetchOfframpLookupTable(e.GetContext(), chain, offRampID)
 	if err != nil {
 		return fmt.Errorf("failed to get offramp reference addresses: %w", err)

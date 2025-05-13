@@ -16,7 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -266,7 +268,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 func pickFirstAvailableUser(
 	tenv testhelpers.DeployedEnv,
 	sourceChain uint64,
-	e deployment.Environment,
+	e cldf.Environment,
 ) (*bind.TransactOpts, error) {
 	for _, user := range tenv.Users[sourceChain] {
 		if user == nil {

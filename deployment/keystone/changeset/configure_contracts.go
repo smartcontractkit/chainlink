@@ -8,7 +8,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
@@ -20,7 +19,7 @@ type InitialContractsCfg struct {
 	OCR3Config       *kslib.OracleConfig
 }
 
-func ConfigureInitialContractsChangeset(e deployment.Environment, cfg InitialContractsCfg) (cldf.ChangesetOutput, error) {
+func ConfigureInitialContractsChangeset(e cldf.Environment, cfg InitialContractsCfg) (cldf.ChangesetOutput, error) {
 	req := &kslib.ConfigureContractsRequest{
 		Env:              &e,
 		RegistryChainSel: cfg.RegistryChainSel,

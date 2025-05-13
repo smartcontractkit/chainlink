@@ -14,7 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 )
@@ -22,7 +24,7 @@ import (
 // NewFeeTokenTestCase creates a new FeeTokenTestCase to test fee token usage scenarios.
 func NewFeeTokenTestCase(
 	t *testing.T,
-	env deployment.Environment,
+	env cldf.Environment,
 	src, dst uint64,
 	feeToken common.Address,
 	tokenAmounts []router.ClientEVMTokenAmount,
@@ -50,7 +52,7 @@ func NewFeeTokenTestCase(
 type FeeTokenTestCase struct {
 	t                  *testing.T
 	src, dst           uint64
-	env                deployment.Environment
+	env                cldf.Environment
 	srcToken, dstToken *burn_mint_erc677.BurnMintERC677
 	tokenAmounts       []router.ClientEVMTokenAmount
 	feeToken           common.Address
@@ -98,7 +100,7 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 
 			srcChain.DeployerKey.Value = assets.Ether(100).ToInt()
 			tx, err := weth9.Deposit(srcChain.DeployerKey)
-			_, err = deployment.ConfirmIfNoError(srcChain, tx, err)
+			_, err = cldf.ConfirmIfNoError(srcChain, tx, err)
 			require.NoError(tc.t, err)
 			srcChain.DeployerKey.Value = big.NewInt(0)
 		}
@@ -117,7 +119,7 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 		// Approve the router to spend fee token
 		tx, err := feeTokenWrapper.Approve(srcChain.DeployerKey, state.Chains[tc.src].Router.Address(), math.MaxBig256)
 
-		_, err = deployment.ConfirmIfNoError(srcChain, tx, err)
+		_, err = cldf.ConfirmIfNoError(srcChain, tx, err)
 		require.NoError(tc.t, err)
 	}
 

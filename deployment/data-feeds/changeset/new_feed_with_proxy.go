@@ -9,8 +9,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -24,7 +22,7 @@ import (
 // Returns a new addressbook with the new AggregatorProxy contracts address and MCMS proposal
 var NewFeedWithProxyChangeset = cldf.CreateChangeSet(newFeedWithProxyLogic, newFeedWithProxyPrecondition)
 
-func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyConfig) (cldf.ChangesetOutput, error) {
+func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig) (cldf.ChangesetOutput, error) {
 	chain := env.Chains[c.ChainSelector]
 	state, _ := LoadOnchainState(env)
 	chainState := state.Chains[c.ChainSelector]
@@ -72,7 +70,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load proxy contract %w", err)
 		}
 		tx, err := proxyContract.TransferOwnership(chain.DeployerKey, common.HexToAddress(timelockAddr))
-		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		if _, err := cldf.ConfirmIfNoError(chain, tx, err); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 		}
 
@@ -82,7 +80,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 		}
 
 		// accept proxy ownership proposal
-		acceptProxyOwnerShipTx, err := proxyContract.AcceptOwnership(deployment.SimTransactOpts())
+		acceptProxyOwnerShipTx, err := proxyContract.AcceptOwnership(cldf.SimTransactOpts())
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
 		}
@@ -97,13 +95,13 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
 
 	// set feed config proposal
-	setFeedConfigTx, err := dataFeedsCache.SetDecimalFeedConfigs(deployment.SimTransactOpts(), dataIDs, c.Descriptions, c.WorkflowMetadata)
+	setFeedConfigTx, err := dataFeedsCache.SetDecimalFeedConfigs(cldf.SimTransactOpts(), dataIDs, c.Descriptions, c.WorkflowMetadata)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set feed config %w", err)
 	}
 
 	// set feed proxy mapping proposal
-	setProxyMappingTx, err := dataFeedsCache.UpdateDataIdMappingsForProxies(deployment.SimTransactOpts(), proxyAddresses, dataIDs)
+	setProxyMappingTx, err := dataFeedsCache.UpdateDataIdMappingsForProxies(cldf.SimTransactOpts(), proxyAddresses, dataIDs)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set proxy-dataId mapping %w", err)
 	}
@@ -130,7 +128,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 	return cldf.ChangesetOutput{AddressBook: ab, MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposals}}, nil
 }
 
-func newFeedWithProxyPrecondition(env deployment.Environment, c types.NewFeedWithProxyConfig) error {
+func newFeedWithProxyPrecondition(env cldf.Environment, c types.NewFeedWithProxyConfig) error {
 	if c.McmsConfig == nil {
 		return errors.New("mcms config is required")
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
@@ -48,7 +48,7 @@ type EARequestParams struct {
 
 type CsDistributeStreamJobSpecs struct{}
 
-func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistributeStreamJobSpecsConfig) (cldf.ChangesetOutput, error) {
+func (CsDistributeStreamJobSpecs) Apply(e cldf.Environment, cfg CsDistributeStreamJobSpecsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(e.GetContext(), defaultJobSpecsTimeout)
 	defer cancel()
 
@@ -155,7 +155,7 @@ func generateDatasources(cc StreamSpecConfig) []jobs.Datasource {
 	return dss
 }
 
-func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ deployment.Environment, config CsDistributeStreamJobSpecsConfig) error {
+func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ cldf.Environment, config CsDistributeStreamJobSpecsConfig) error {
 	if config.Filter == nil {
 		return errors.New("filter is required")
 	}

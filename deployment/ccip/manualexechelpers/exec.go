@@ -12,13 +12,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	defaults "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/default"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm/manualexeclib"
@@ -114,7 +117,7 @@ func durationToBlocks(srcChainSel uint64, lookbackDuration time.Duration) uint64
 func getCommitRootAcceptedEvent(
 	ctx context.Context,
 	lggr logger.Logger,
-	env deployment.Environment,
+	env cldf.Environment,
 	state ccipchangeset.CCIPOnChainState,
 	srcChainSel uint64,
 	destChainSel uint64,
@@ -208,7 +211,7 @@ func findCommitRoot(
 func getCCIPMessageSentEvents(
 	ctx context.Context,
 	lggr logger.Logger,
-	env deployment.Environment,
+	env cldf.Environment,
 	state ccipchangeset.CCIPOnChainState,
 	srcChainSel uint64,
 	destChainSel uint64,
@@ -301,7 +304,7 @@ func manuallyExecuteSingle(
 	ctx context.Context,
 	lggr logger.Logger,
 	state ccipchangeset.CCIPOnChainState,
-	env deployment.Environment,
+	env cldf.Environment,
 	srcChainSel uint64,
 	destChainSel uint64,
 	msgSeqNr uint64,
@@ -524,7 +527,7 @@ func manuallyExecuteSingle(
 			},
 		},
 	)
-	_, err = deployment.ConfirmIfNoErrorWithABI(env.Chains[destChainSel], tx, offramp.OffRampABI, err)
+	_, err = cldf.ConfirmIfNoErrorWithABI(env.Chains[destChainSel], tx, offramp.OffRampABI, err)
 	if err != nil {
 		return fmt.Errorf("failed to execute message: %w", err)
 	}
@@ -541,7 +544,7 @@ func ManuallyExecuteAll(
 	ctx context.Context,
 	lggr logger.Logger,
 	state ccipchangeset.CCIPOnChainState,
-	env deployment.Environment,
+	env cldf.Environment,
 	srcChainSel uint64,
 	destChainSel uint64,
 	msgSeqNrs []int64,

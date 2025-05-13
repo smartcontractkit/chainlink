@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -324,7 +325,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	}
 }
 
-func buildRMNRemoteAddressPerChain(e deployment.Environment, state changeset.CCIPOnChainState) map[uint64]common.Address {
+func buildRMNRemoteAddressPerChain(e cldf.Environment, state changeset.CCIPOnChainState) map[uint64]common.Address {
 	rmnRemotePerChain := v1_6.BuildRMNRemotePerChain(e, state)
 	rmnRemoteAddressPerChain := make(map[uint64]common.Address)
 	for chain, remote := range rmnRemotePerChain {

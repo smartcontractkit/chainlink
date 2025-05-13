@@ -16,7 +16,6 @@ import (
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -31,7 +30,7 @@ type DisableRemoteChainConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
+func (cfg DisableRemoteChainConfig) Validate(e cldf.Environment) error {
 	state, err := cs.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -78,7 +77,7 @@ func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) (cldf.ChangesetOutput, error) {
+func DisableRemoteChain(e cldf.Environment, cfg DisableRemoteChainConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -108,7 +107,7 @@ func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) 
 }
 
 func doDisableRemoteChain(
-	e deployment.Environment,
+	e cldf.Environment,
 	s cs.CCIPOnChainState,
 	cfg DisableRemoteChainConfig) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)

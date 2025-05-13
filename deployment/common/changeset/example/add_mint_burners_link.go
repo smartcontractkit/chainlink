@@ -5,7 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
@@ -18,7 +18,7 @@ type AddMintersBurnersLinkConfig struct {
 var _ cldf.ChangeSet[*AddMintersBurnersLinkConfig] = AddMintersBurnersLink
 
 // AddMintersBurnersLink grants the minter / burner role to the provided addresses.
-func AddMintersBurnersLink(e deployment.Environment, cfg *AddMintersBurnersLinkConfig) (cldf.ChangesetOutput, error) {
+func AddMintersBurnersLink(e cldf.Environment, cfg *AddMintersBurnersLinkConfig) (cldf.ChangesetOutput, error) {
 	chain := e.Chains[cfg.ChainSelector]
 	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
 	if err != nil {
@@ -42,7 +42,7 @@ func AddMintersBurnersLink(e deployment.Environment, cfg *AddMintersBurnersLinkC
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
-		_, err = deployment.ConfirmIfNoError(chain, tx, err)
+		_, err = cldf.ConfirmIfNoError(chain, tx, err)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -60,7 +60,7 @@ func AddMintersBurnersLink(e deployment.Environment, cfg *AddMintersBurnersLinkC
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
-		_, err = deployment.ConfirmIfNoError(chain, tx, err)
+		_, err = cldf.ConfirmIfNoError(chain, tx, err)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}

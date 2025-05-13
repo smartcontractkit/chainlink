@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -28,7 +28,7 @@ type AddCapabilitiesRequest struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-func (r *AddCapabilitiesRequest) Validate(env deployment.Environment) error {
+func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 	if r.RegistryChainSel == 0 {
 		return errors.New("registry chain selector must be set")
 	}
@@ -44,7 +44,7 @@ func (r *AddCapabilitiesRequest) Validate(env deployment.Environment) error {
 
 // if the environment has a non-empty datastore, the registry ref must be set
 // prevents accidental usage of the old address book
-func shouldUseDatastore(env deployment.Environment, ref datastore.AddressRefKey) error {
+func shouldUseDatastore(env cldf.Environment, ref datastore.AddressRefKey) error {
 	if addrs, err := env.DataStore.Addresses().Fetch(); err == nil {
 		if len(addrs) != 0 && ref == nil {
 			return errors.New("This environment has been migrated to DataStore: address ref key must not be nil")
@@ -66,7 +66,7 @@ var _ cldf.ChangeSet[*AddCapabilitiesRequest] = AddCapabilities
 //
 // When using MCMS, the output will contain a single proposal with a single batch containing all capabilities to be added.
 // When not using MCMS, each capability will be added in a separate transaction.
-func AddCapabilities(env deployment.Environment, req *AddCapabilitiesRequest) (cldf.ChangesetOutput, error) {
+func AddCapabilities(env cldf.Environment, req *AddCapabilitiesRequest) (cldf.ChangesetOutput, error) {
 	err := req.Validate(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate request: %w", err)

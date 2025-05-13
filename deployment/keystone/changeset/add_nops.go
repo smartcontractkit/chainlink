@@ -13,7 +13,6 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -27,7 +26,7 @@ type AddNopsRequest struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-func (req *AddNopsRequest) Validate(env deployment.Environment) error {
+func (req *AddNopsRequest) Validate(env cldf.Environment) error {
 	if len(req.Nops) == 0 {
 		return errors.New("no NOPs provided")
 	}
@@ -42,7 +41,7 @@ func (req *AddNopsRequest) Validate(env deployment.Environment) error {
 
 var _ cldf.ChangeSet[*AddNopsRequest] = AddNops
 
-func AddNops(env deployment.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, error) {
+func AddNops(env cldf.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
 	}
