@@ -1428,36 +1428,6 @@ func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head *evmtype
 	fn(ctx, head)
 }
 
-type testifyExpectationsAsserter interface {
-	AssertExpectations(t mock.TestingT) bool
-}
-
-type fakeT struct{}
-
-func (ft fakeT) Logf(format string, args ...interface{})   {}
-func (ft fakeT) Errorf(format string, args ...interface{}) {}
-func (ft fakeT) FailNow()                                  {}
-
-func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, timeout time.Duration, interval time.Duration) {
-	t.Helper()
-
-	chTimeout := time.After(timeout)
-	for {
-		var ft fakeT
-		success := mock.AssertExpectations(ft)
-		if success {
-			return
-		}
-		select {
-		case <-chTimeout:
-			mock.AssertExpectations(t)
-			t.FailNow()
-		default:
-			time.Sleep(interval)
-		}
-	}
-}
-
 func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected int64) {
 	testutils.AssertCount(t, ds, tableName, expected)
 }

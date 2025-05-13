@@ -14,6 +14,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -1923,11 +1924,13 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 
 	servicetest.Run(t, fm)
 
-	waitTime := 15 * time.Second
-	interval := 50 * time.Millisecond
-	cltest.EventuallyExpectationsMet(t, tm.logBroadcaster, waitTime, interval)
-	cltest.EventuallyExpectationsMet(t, tm.fluxAggregator, waitTime, interval)
-	cltest.EventuallyExpectationsMet(t, tm.orm, waitTime, interval)
-	cltest.EventuallyExpectationsMet(t, tm.pipelineORM, waitTime, interval)
-	cltest.EventuallyExpectationsMet(t, tm.contractSubmitter, waitTime, interval)
+	isReady := func() bool {
+		return tm.logBroadcaster.AssertExpectations(t) &&
+			tm.fluxAggregator.AssertExpectations(t) &&
+			tm.orm.AssertExpectations(t) &&
+			tm.pipelineORM.AssertExpectations(t) &&
+			tm.contractSubmitter.AssertExpectations(t)
+	}
+
+	assert.Eventually(t, isReady, testutils.WaitTimeout(t), 50*time.Millisecond)
 }
