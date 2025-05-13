@@ -316,7 +316,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	}
 
 	if c.DonIDOffSet != nil {
-		_, err = deployment.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
+		_, err = commoncs.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
 			OffSet: *c.DonIDOffSet,
 		})
 
