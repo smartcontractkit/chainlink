@@ -22,7 +22,7 @@ func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int],
 }
 
 func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], txConfig txmgrtypes.ReaperTransactionsConfig) *txmgr.Reaper {
-	return newReaperWithChainID(t, db, txConfig, &cltest.FixtureChainID)
+	return newReaperWithChainID(t, db, txConfig, testutils.FixtureChainID)
 }
 
 type reaperConfig struct {

@@ -35,8 +35,8 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -277,7 +277,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 	bootstrappers := nodes.BootstrapLocators()
 
 	// Just set all RMN nodes to support all chains.
-	state, err := changeset.LoadOnchainState(tenv.Env)
+	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	var chainParams []devenv.ChainParam
 	var remoteChains []devenv.RemoteChains

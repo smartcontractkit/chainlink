@@ -11,11 +11,9 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 // ExecutePluginCodecV1 is a codec for encoding and decoding execute plugin reports.

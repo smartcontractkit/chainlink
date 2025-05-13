@@ -7,10 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -23,7 +25,7 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 		selectorA: {
-			Type:               changeset.BurnMintTokenPool,
+			Type:               shared.BurnMintTokenPool,
 			TokenAddress:       tokens[selectorA].Address,
 			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 		},
@@ -34,34 +36,34 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 	}
 
 	tests := []struct {
-		Config changeset.TokenAdminRegistryChangesetConfig
+		Config v1_5_1.TokenAdminRegistryChangesetConfig
 		ErrStr string
 		Msg    string
 	}{
 		{
 			Msg: "Chain selector is invalid",
-			Config: changeset.TokenAdminRegistryChangesetConfig{
-				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					0: map[changeset.TokenSymbol]changeset.TokenPoolInfo{},
+			Config: v1_5_1.TokenAdminRegistryChangesetConfig{
+				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+					0: map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{},
 				},
 			},
 			ErrStr: "failed to validate chain selector 0",
 		},
 		{
 			Msg: "Chain selector doesn't exist in environment",
-			Config: changeset.TokenAdminRegistryChangesetConfig{
-				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					5009297550715157269: map[changeset.TokenSymbol]changeset.TokenPoolInfo{},
+			Config: v1_5_1.TokenAdminRegistryChangesetConfig{
+				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+					5009297550715157269: map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{},
 				},
 			},
 			ErrStr: "does not exist in environment",
 		},
 		{
 			Msg: "Invalid pool type",
-			Config: changeset.TokenAdminRegistryChangesetConfig{
+			Config: v1_5_1.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
-				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+					selectorA: map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
 						testhelpers.TestTokenSymbol: {
 							Type:    "InvalidType",
 							Version: deployment.Version1_5_1,
@@ -73,12 +75,12 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 		},
 		{
 			Msg: "Invalid pool version",
-			Config: changeset.TokenAdminRegistryChangesetConfig{
+			Config: v1_5_1.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
-				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+					selectorA: map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
 						testhelpers.TestTokenSymbol: {
-							Type:    changeset.BurnMintTokenPool,
+							Type:    shared.BurnMintTokenPool,
 							Version: deployment.Version1_0_0,
 						},
 					},
@@ -88,12 +90,12 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 		},
 		{
 			Msg: "Not pending admin",
-			Config: changeset.TokenAdminRegistryChangesetConfig{
+			Config: v1_5_1.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
-				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
 					selectorA: {
 						testhelpers.TestTokenSymbol: {
-							Type:    changeset.BurnMintTokenPool,
+							Type:    shared.BurnMintTokenPool,
 							Version: deployment.Version1_5_1,
 						},
 					},
@@ -129,18 +131,18 @@ func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
 
 			e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 				selectorA: {
-					Type:               changeset.BurnMintTokenPool,
+					Type:               shared.BurnMintTokenPool,
 					TokenAddress:       tokens[selectorA].Address,
 					LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 				},
 				selectorB: {
-					Type:               changeset.BurnMintTokenPool,
+					Type:               shared.BurnMintTokenPool,
 					TokenAddress:       tokens[selectorB].Address,
 					LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 				},
 			}, mcmsConfig != nil)
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			registryOnA := state.Chains[selectorA].TokenAdminRegistry
@@ -149,18 +151,18 @@ func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
-					changeset.TokenAdminRegistryChangesetConfig{
+					v1_5_1.TokenAdminRegistryChangesetConfig{
 						MCMS: mcmsConfig,
-						Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+						Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
 							selectorA: {
 								testhelpers.TestTokenSymbol: {
-									Type:    changeset.BurnMintTokenPool,
+									Type:    shared.BurnMintTokenPool,
 									Version: deployment.Version1_5_1,
 								},
 							},
 							selectorB: {
 								testhelpers.TestTokenSymbol: {
-									Type:    changeset.BurnMintTokenPool,
+									Type:    shared.BurnMintTokenPool,
 									Version: deployment.Version1_5_1,
 								},
 							},
@@ -169,18 +171,18 @@ func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
 				),
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
-					changeset.TokenAdminRegistryChangesetConfig{
+					v1_5_1.TokenAdminRegistryChangesetConfig{
 						MCMS: mcmsConfig,
-						Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+						Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
 							selectorA: {
 								testhelpers.TestTokenSymbol: {
-									Type:    changeset.BurnMintTokenPool,
+									Type:    shared.BurnMintTokenPool,
 									Version: deployment.Version1_5_1,
 								},
 							},
 							selectorB: {
 								testhelpers.TestTokenSymbol: {
-									Type:    changeset.BurnMintTokenPool,
+									Type:    shared.BurnMintTokenPool,
 									Version: deployment.Version1_5_1,
 								},
 							},

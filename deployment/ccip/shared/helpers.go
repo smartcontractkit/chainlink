@@ -1,4 +1,4 @@
-package ccip
+package shared
 
 import (
 	"context"

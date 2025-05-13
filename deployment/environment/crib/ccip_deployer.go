@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 
@@ -92,7 +94,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("changeset sequence execution failed with error: %w", err)
 	}
-	state, err := changeset.LoadOnchainState(*e)
+	state, err := stateview.LoadOnchainState(*e)
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to load on chain state: %w", err)
 	}
@@ -124,7 +126,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
 	}
 
-	state, err := changeset.LoadOnchainState(*e)
+	state, err := stateview.LoadOnchainState(*e)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -197,7 +199,7 @@ func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	}
 	e.ExistingAddresses = ab
 
-	state, err := changeset.LoadOnchainState(*e)
+	state, err := stateview.LoadOnchainState(*e)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -349,23 +351,23 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 }
 
 func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
-	state, err := changeset.LoadOnchainState(*e)
+	state, err := stateview.LoadOnchainState(*e)
 	if err != nil {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainSelectors := e.AllChainSelectors()
 	poolInput := make(map[uint64]v1_5_1.DeployTokenPoolInput)
-	pools := make(map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo)
+	pools := make(map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo)
 	for _, chain := range chainSelectors {
 		poolInput[chain] = v1_5_1.DeployTokenPoolInput{
-			Type:               changeset.BurnMintTokenPool,
+			Type:               shared.BurnMintTokenPool,
 			LocalTokenDecimals: 18,
 			AllowList:          []common.Address{},
 			TokenAddress:       state.Chains[chain].LinkToken.Address(),
 		}
-		pools[chain] = map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-			changeset.LinkSymbol: {
-				Type:          changeset.BurnMintTokenPool,
+		pools[chain] = map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+			shared.LinkSymbol: {
+				Type:          shared.BurnMintTokenPool,
 				Version:       deployment.Version1_5_1,
 				ExternalAdmin: e.Chains[chain].DeployerKey.From,
 			},
@@ -375,25 +377,25 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
 			v1_5_1.DeployTokenPoolContractsConfig{
-				TokenSymbol: changeset.LinkSymbol,
+				TokenSymbol: shared.LinkSymbol,
 				NewPools:    poolInput,
 			},
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
-			changeset.TokenAdminRegistryChangesetConfig{
+			v1_5_1.TokenAdminRegistryChangesetConfig{
 				Pools: pools,
 			},
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
-			changeset.TokenAdminRegistryChangesetConfig{
+			v1_5_1.TokenAdminRegistryChangesetConfig{
 				Pools: pools,
 			},
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
-			changeset.TokenAdminRegistryChangesetConfig{
+			v1_5_1.TokenAdminRegistryChangesetConfig{
 				Pools: pools,
 			},
 		),
@@ -403,13 +405,13 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 		return *e, fmt.Errorf("failed to apply changesets: %w", err)
 	}
 
-	state, err = changeset.LoadOnchainState(env)
+	state, err = stateview.LoadOnchainState(env)
 	if err != nil {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	for _, chain := range chainSelectors {
-		linkPool := state.Chains[chain].BurnMintTokenPools[changeset.LinkSymbol][deployment.Version1_5_1]
+		linkPool := state.Chains[chain].BurnMintTokenPools[shared.LinkSymbol][deployment.Version1_5_1]
 		linkToken := state.Chains[chain].LinkToken
 		tx, err := linkToken.GrantMintAndBurnRoles(e.Chains[chain].DeployerKey, linkPool.Address())
 		_, err = deployment.ConfirmIfNoError(e.Chains[chain], tx, err)
@@ -420,7 +422,7 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 	return env, err
 }
 
-func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (deployment.Environment, error) {
+func setupLanes(e *deployment.Environment, state stateview.CCIPOnChainState) (deployment.Environment, error) {
 	eg := xerrgroup.Group{}
 	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
 	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
@@ -482,7 +484,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 			}
 			mu.Lock()
 			poolUpdates[src] = v1_5_1.TokenPoolConfig{
-				Type:         changeset.BurnMintTokenPool,
+				Type:         shared.BurnMintTokenPool,
 				Version:      deployment.Version1_5_1,
 				ChainUpdates: rateLimitPerChain,
 			}
@@ -532,7 +534,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 	_, err = commonchangeset.Apply(nil, *e, nil, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 		v1_5_1.ConfigureTokenPoolContractsConfig{
-			TokenSymbol: changeset.LinkSymbol,
+			TokenSymbol: shared.LinkSymbol,
 			PoolUpdates: poolUpdates,
 		},
 	))
@@ -723,7 +725,7 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 		return DeployCCIPOutput{}, fmt.Errorf("failed to set rmn node candidate: %w", err)
 	}
 
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load chain state: %w", err)
 	}

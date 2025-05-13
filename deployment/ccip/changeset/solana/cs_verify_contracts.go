@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -95,7 +97,7 @@ func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHa
 
 func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
@@ -106,8 +108,8 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (cldf.Changese
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	bnmMetadata := ccipChangeset.CLLMetadata
-	lnrMetadata := ccipChangeset.CLLMetadata
+	bnmMetadata := shared.CLLMetadata
+	lnrMetadata := shared.CLLMetadata
 	if cfg.BurnMintTokenPoolMetadata != "" {
 		bnmMetadata = cfg.BurnMintTokenPoolMetadata
 	}

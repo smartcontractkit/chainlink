@@ -1271,18 +1271,6 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clie
 	ethClient.On("Close").Return().Maybe()
 }
 
-func BatchElemMatchesParams(req rpc.BatchElem, arg interface{}, method string) bool {
-	return req.Method == method &&
-		len(req.Args) == 1 && req.Args[0] == arg
-}
-
-func BatchElemMustMatchParams(t *testing.T, req rpc.BatchElem, hash common.Hash, method string) {
-	t.Helper()
-	if !BatchElemMatchesParams(req, hash, method) {
-		t.Fatalf("Batch hash %v does not match expected %v", req.Args[0], hash)
-	}
-}
-
 // SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.
 func SimulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...evmheads.Trackable) (done chan struct{}) {
 	// Build the full chain of heads
@@ -1438,36 +1426,6 @@ type HeadTrackableFunc func(context.Context, *evmtypes.Head)
 
 func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	fn(ctx, head)
-}
-
-type testifyExpectationsAsserter interface {
-	AssertExpectations(t mock.TestingT) bool
-}
-
-type fakeT struct{}
-
-func (ft fakeT) Logf(format string, args ...interface{})   {}
-func (ft fakeT) Errorf(format string, args ...interface{}) {}
-func (ft fakeT) FailNow()                                  {}
-
-func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, timeout time.Duration, interval time.Duration) {
-	t.Helper()
-
-	chTimeout := time.After(timeout)
-	for {
-		var ft fakeT
-		success := mock.AssertExpectations(ft)
-		if success {
-			return
-		}
-		select {
-		case <-chTimeout:
-			mock.AssertExpectations(t)
-			t.FailNow()
-		default:
-			time.Sleep(interval)
-		}
-	}
 }
 
 func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected int64) {

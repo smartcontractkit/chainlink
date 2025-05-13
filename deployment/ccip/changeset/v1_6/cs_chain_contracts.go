@@ -23,7 +23,9 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
@@ -94,7 +96,7 @@ type PreviousRampCfg struct {
 }
 
 func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -149,7 +151,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	s, err := changeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -215,7 +217,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 			mcmsTransactions := make([]mcmstypes.Transaction, 0)
 			if authTx != nil {
 				mcmsTx, err := proposalutils.TransactionForChain(chainSel, nm.Address().Hex(), authTx.Data(), big.NewInt(0),
-					string(changeset.NonceManager), []string{})
+					string(shared.NonceManager), []string{})
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction for chain %d: %w", chainSel, err)
 				}
@@ -224,7 +226,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 			}
 			if prevRampsTx != nil {
 				mcmsTx, err := proposalutils.TransactionForChain(chainSel, nm.Address().Hex(), prevRampsTx.Data(), big.NewInt(0),
-					string(changeset.NonceManager), []string{})
+					string(shared.NonceManager), []string{})
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction for chain %d: %w", chainSel, err)
 				}
@@ -250,7 +252,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -290,13 +292,13 @@ type UpdateOnRampDestsConfig struct {
 }
 
 func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
-		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
+		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
 		chainState, ok := state.Chains[chainSel]
@@ -341,7 +343,7 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	s, err := changeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -385,7 +387,7 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 			}
 
 			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(changeset.OnRamp), []string{})
+				big.NewInt(0), string(shared.OnRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -401,7 +403,7 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -435,9 +437,9 @@ type UpdateOnRampDynamicConfig struct {
 	MCMS *proposalutils.TimelockConfig
 }
 
-func (cfg UpdateOnRampDynamicConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+func (cfg UpdateOnRampDynamicConfig) Validate(e deployment.Environment, state stateview.CCIPOnChainState) error {
 	for chainSel, config := range cfg.UpdatesByChain {
-		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
+		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
@@ -454,7 +456,7 @@ func (cfg UpdateOnRampDynamicConfig) Validate(e deployment.Environment, state ch
 }
 
 func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRampDynamicConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -501,7 +503,7 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 			}
 
 			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(changeset.OnRamp), []string{})
+				big.NewInt(0), string(shared.OnRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -517,7 +519,7 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -547,12 +549,12 @@ type UpdateOnRampAllowListConfig struct {
 }
 
 func (cfg UpdateOnRampAllowListConfig) Validate(env deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for srcSel, updates := range cfg.UpdatesByChain {
-		if err := changeset.ValidateChain(env, state, srcSel, cfg.MCMS); err != nil {
+		if err := stateview.ValidateChain(env, state, srcSel, cfg.MCMS); err != nil {
 			return err
 		}
 		onRamp := state.Chains[srcSel].OnRamp
@@ -580,7 +582,7 @@ func (cfg UpdateOnRampAllowListConfig) Validate(env deployment.Environment) erro
 			}
 		}
 		for destSel, update := range updates {
-			if err := changeset.ValidateChain(env, state, srcSel, cfg.MCMS); err != nil {
+			if err := stateview.ValidateChain(env, state, srcSel, cfg.MCMS); err != nil {
 				return err
 			}
 			if len(update.AddedAllowlistedSenders) > 0 && !update.AllowListEnabled {
@@ -600,7 +602,7 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	onchain, err := changeset.LoadOnchainState(e)
+	onchain, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -660,7 +662,7 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 			}
 
 			batchOperation, err := proposalutils.BatchOperationForChain(srcSel, onRamp.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(changeset.OnRamp), []string{})
+				big.NewInt(0), string(shared.OnRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -676,7 +678,7 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, onchain, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, onchain, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -701,9 +703,9 @@ type WithdrawOnRampFeeTokensConfig struct {
 	MCMS             *proposalutils.TimelockConfig
 }
 
-func (cfg WithdrawOnRampFeeTokensConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+func (cfg WithdrawOnRampFeeTokensConfig) Validate(e deployment.Environment, state stateview.CCIPOnChainState) error {
 	for chainSel, feeTokens := range cfg.FeeTokensByChain {
-		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
+		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
@@ -737,7 +739,7 @@ func (cfg WithdrawOnRampFeeTokensConfig) Validate(e deployment.Environment, stat
 }
 
 func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRampFeeTokensConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -763,7 +765,7 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 			}
 
 			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(changeset.OnRamp), []string{})
+				big.NewInt(0), string(shared.OnRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -779,7 +781,7 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -810,7 +812,7 @@ type FeeQuoterPriceUpdatePerSource struct {
 }
 
 func (cfg UpdateFeeQuoterPricesConfig) Validate(e deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -888,7 +890,7 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	s, err := changeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -931,7 +933,7 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 			}
 
 			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, fq.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(changeset.FeeQuoter), []string{})
+				big.NewInt(0), string(shared.FeeQuoter), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -947,7 +949,7 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -976,7 +978,7 @@ type UpdateFeeQuoterDestsConfig struct {
 }
 
 func (cfg UpdateFeeQuoterDestsConfig) Validate(e deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -1020,7 +1022,7 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	s, err := changeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -1053,7 +1055,7 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 				return cldf.ChangesetOutput{}, err
 			}
 			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, fq.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(changeset.FeeQuoter), []string{})
+				big.NewInt(0), string(shared.FeeQuoter), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -1069,7 +1071,7 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1107,7 +1109,7 @@ type UpdateOffRampSourcesConfig struct {
 	SkipOwnershipCheck bool
 }
 
-func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state stateview.CCIPOnChainState) error {
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.Chains[chainSel]
@@ -1139,7 +1141,7 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state c
 				return fmt.Errorf("cannot update offramp source to the same chain %d", source)
 			}
 
-			if err := state.ValidateRamp(source, changeset.OnRamp); err != nil {
+			if err := state.ValidateRamp(source, shared.OnRamp); err != nil {
 				return err
 			}
 		}
@@ -1149,7 +1151,7 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state c
 
 // UpdateOffRampSourcesChangeset updates the offramp sources for each offramp.
 func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSourcesConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -1200,7 +1202,7 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 			}
 
 			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, offRamp.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(changeset.OffRamp), []string{})
+				big.NewInt(0), string(shared.OffRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -1216,7 +1218,7 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1253,7 +1255,7 @@ type UpdateRouterRampsConfig struct {
 	SkipOwnershipCheck bool
 }
 
-func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state stateview.CCIPOnChainState) error {
 	if !cfg.TestRouter {
 		// If not using the test router, we need to enforce MCMS usage if the state calls for it.
 		err := state.EnforceMCMSUsageIfProd(e.GetContext(), cfg.MCMS)
@@ -1263,7 +1265,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 	}
 	supportedChains := state.SupportedChains()
 	for chainSel, update := range cfg.UpdatesByChain {
-		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
+		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
 		chainState, ok := state.Chains[chainSel]
@@ -1313,7 +1315,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 			if source == chainSel {
 				return fmt.Errorf("cannot update offramp source to the same chain %d", source)
 			}
-			if err := state.ValidateRamp(source, changeset.OnRamp); err != nil {
+			if err := state.ValidateRamp(source, shared.OnRamp); err != nil {
 				return err
 			}
 		}
@@ -1325,7 +1327,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 			if destination == chainSel {
 				return fmt.Errorf("cannot update onRamp dest to the same chain %d", destination)
 			}
-			if err := state.ValidateRamp(destination, changeset.OffRamp); err != nil {
+			if err := state.ValidateRamp(destination, shared.OffRamp); err != nil {
 				return err
 			}
 		}
@@ -1341,7 +1343,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 // on all chains to support the new chain through the test router first. Once tested,
 // Enable the new destination on the real router.
 func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -1408,7 +1410,7 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 			}
 
 			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, routerC.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(changeset.Router), []string{})
+				big.NewInt(0), string(shared.Router), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -1424,7 +1426,7 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1451,8 +1453,8 @@ type SetOCR3OffRampConfig struct {
 	MCMS               *proposalutils.TimelockConfig
 }
 
-func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
-	if err := changeset.ValidateChain(e, state, c.HomeChainSel, c.MCMS); err != nil {
+func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state stateview.CCIPOnChainState) error {
+	if err := stateview.ValidateChain(e, state, c.HomeChainSel, c.MCMS); err != nil {
 		return err
 	}
 	if c.CCIPHomeConfigType != globals.ConfigTypeActive &&
@@ -1467,7 +1469,7 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state changeset
 	return nil
 }
 
-func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, state *changeset.CCIPOnChainState, chainSelector uint64) error {
+func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, state *stateview.CCIPOnChainState, chainSelector uint64) error {
 	family, err := chain_selectors.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return err
@@ -1502,7 +1504,7 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, sta
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
 func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -1554,7 +1556,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			}
 
 			batchOperation, err := proposalutils.BatchOperationForChain(remote, offRamp.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(changeset.OffRamp), []string{})
+				big.NewInt(0), string(shared.OffRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -1570,7 +1572,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1597,12 +1599,12 @@ type UpdateDynamicConfigOffRampConfig struct {
 }
 
 func (cfg UpdateDynamicConfigOffRampConfig) Validate(e deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
 	for chainSel, params := range cfg.Updates {
-		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
+		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSel, err)
 		}
 		if state.Chains[chainSel].OffRamp == nil {
@@ -1636,7 +1638,7 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -1669,7 +1671,7 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 			}
 
 			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, offRamp.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(changeset.OffRamp), []string{})
+				big.NewInt(0), string(shared.OffRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -1685,7 +1687,7 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1805,17 +1807,17 @@ type ApplyFeeTokensUpdatesConfig struct {
 }
 
 type ApplyFeeTokensUpdatesConfigPerChain struct {
-	TokensToRemove []changeset.TokenSymbol
-	TokensToAdd    []changeset.TokenSymbol
+	TokensToRemove []shared.TokenSymbol
+	TokensToAdd    []shared.TokenSymbol
 }
 
 func (cfg ApplyFeeTokensUpdatesConfig) Validate(e deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
 	for chainSel, updates := range cfg.UpdatesByChain {
-		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMSConfig); err != nil {
+		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMSConfig); err != nil {
 			return err
 		}
 		chainState := state.Chains[chainSel]
@@ -1856,7 +1858,7 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -1890,7 +1892,7 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 				return cldf.ChangesetOutput{}, err
 			}
 			op, err := proposalutils.BatchOperationForChain(
-				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), changeset.FeeQuoter.String(), nil)
+				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), shared.FeeQuoter.String(), nil)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("error creating batch operation for chain %d: %w", chainSel, err)
 			}
@@ -1906,7 +1908,7 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 	if cfg.MCMSConfig == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1934,12 +1936,12 @@ type UpdateTokenPriceFeedsConfig struct {
 }
 
 type UpdateTokenPriceFeedsConfigPerChain struct {
-	SourceToken changeset.TokenSymbol
+	SourceToken shared.TokenSymbol
 	IsEnabled   bool
 }
 
 func (cfg UpdateTokenPriceFeedsConfig) Validate(e deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -1948,7 +1950,7 @@ func (cfg UpdateTokenPriceFeedsConfig) Validate(e deployment.Environment) error 
 		return fmt.Errorf("feed chain %d not found in state", cfg.FeedChainSelector)
 	}
 	for chainSel, updates := range cfg.Updates {
-		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
+		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
 		chainState := state.Chains[chainSel]
@@ -1992,7 +1994,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg Updat
 		return cldf.ChangesetOutput{}, err
 	}
 
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2045,7 +2047,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg Updat
 				return cldf.ChangesetOutput{}, err
 			}
 			op, err := proposalutils.BatchOperationForChain(
-				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), changeset.FeeQuoter.String(), nil)
+				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), shared.FeeQuoter.String(), nil)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("error creating batch operation for chain %d: %w", chainSel, err)
 			}
@@ -2061,7 +2063,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg Updat
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -2088,12 +2090,12 @@ type PremiumMultiplierWeiPerEthUpdatesConfig struct {
 }
 
 func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) Validate(e deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
 	for chainSel, updates := range cfg.Updates {
-		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
+		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
 		chainState := state.Chains[chainSel]
@@ -2126,7 +2128,7 @@ func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) Validate(e deployment.Environ
 }
 
 type PremiumMultiplierWeiPerEthUpdatesConfigPerChain struct {
-	Token                      changeset.TokenSymbol
+	Token                      shared.TokenSymbol
 	PremiumMultiplierWeiPerEth uint64
 }
 
@@ -2137,7 +2139,7 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Envir
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2171,7 +2173,7 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Envir
 				return cldf.ChangesetOutput{}, err
 			}
 			op, err := proposalutils.BatchOperationForChain(
-				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), changeset.FeeQuoter.String(), nil)
+				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), shared.FeeQuoter.String(), nil)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("error creating batch operation for chain %d: %w", chainSel, err)
 			}
@@ -2187,7 +2189,7 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Envir
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -2214,12 +2216,12 @@ type ApplyTokenTransferFeeConfigUpdatesConfig struct {
 }
 
 func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) Validate(e deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
 	for chainSel, updates := range cfg.UpdatesByChain {
-		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
+		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
 		chainState := state.Chains[chainSel]
@@ -2245,7 +2247,7 @@ func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) Validate(e deployment.Enviro
 					return fmt.Errorf("dest bytes overhead must be at least %d for token %s in chain %d", globals.CCIPLockOrBurnV1RetBytes, token, chainSel)
 				}
 			}
-			if err := changeset.ValidateChain(e, state, update.DestChain, nil); err != nil {
+			if err := stateview.ValidateChain(e, state, update.DestChain, nil); err != nil {
 				return fmt.Errorf("dest chain %d: %w", update.DestChain, err)
 			}
 		}
@@ -2256,7 +2258,7 @@ func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) Validate(e deployment.Enviro
 			if _, ok := tokenAddresses[remove.Token]; !ok {
 				return fmt.Errorf("token %s not found in state for chain %d", remove.Token, chainSel)
 			}
-			if err := changeset.ValidateChain(e, state, remove.DestChain, nil); err != nil {
+			if err := stateview.ValidateChain(e, state, remove.DestChain, nil); err != nil {
 				return fmt.Errorf("dest chain %d: %w", remove.DestChain, err)
 			}
 			_, err := chainState.FeeQuoter.GetTokenTransferFeeConfig(&bind.CallOpts{
@@ -2287,12 +2289,12 @@ type ApplyTokenTransferFeeConfigUpdatesConfigPerChain struct {
 
 type TokenTransferFeeConfigArg struct {
 	DestChain                      uint64
-	TokenTransferFeeConfigPerToken map[changeset.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig
+	TokenTransferFeeConfigPerToken map[shared.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig
 }
 
 type TokenTransferFeeConfigRemoveArg struct {
 	DestChain uint64
-	Token     changeset.TokenSymbol
+	Token     shared.TokenSymbol
 }
 
 // ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset applies the token transfer fee config updates for provided tokens to the fee quoter.
@@ -2305,7 +2307,7 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e deployment.Environme
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2353,7 +2355,7 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e deployment.Environme
 				return cldf.ChangesetOutput{}, err
 			}
 			op, err := proposalutils.BatchOperationForChain(
-				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), changeset.FeeQuoter.String(), nil)
+				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), shared.FeeQuoter.String(), nil)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("error creating batch operation for chain %d: %w", chainSel, err)
 			}
@@ -2369,7 +2371,7 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e deployment.Environme
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}

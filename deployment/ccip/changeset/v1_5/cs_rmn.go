@@ -17,7 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -30,7 +32,7 @@ type PermaBlessConfigPerSourceChain struct {
 	// https://github.com/smartcontractkit/ccip/blob/ccip-develop/contracts/src/v0.8/ccip/RMN.sol#L699C30-L699C54
 }
 
-func (p PermaBlessConfigPerSourceChain) Validate(destChain uint64, state changeset.CCIPOnChainState, permaBlessedCommitStores []common.Address) error {
+func (p PermaBlessConfigPerSourceChain) Validate(destChain uint64, state stateview.CCIPOnChainState, permaBlessedCommitStores []common.Address) error {
 	if err := deployment.IsValidChainSelector(p.SourceChainSelector); err != nil {
 		return fmt.Errorf("invalid SourceChainSelector: %w", err)
 	}
@@ -65,7 +67,7 @@ type PermaBlessCommitStoreConfig struct {
 }
 
 func (c PermaBlessCommitStoreConfig) Validate(env deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -109,7 +111,7 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid PermaBlessCommitStoreConfig: %w", err)
 	}
 
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -158,7 +160,7 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 		}
 
 		batchOperation, err := proposalutils.BatchOperationForChain(destChain, RMN.Address().Hex(), tx.Data(), big.NewInt(0),
-			string(changeset.RMN), []string{})
+			string(shared.RMN), []string{})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %d: %w", destChain, err)
 		}
@@ -169,7 +171,7 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(env, state, c.MCMSConfig)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(env, state, c.MCMSConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
