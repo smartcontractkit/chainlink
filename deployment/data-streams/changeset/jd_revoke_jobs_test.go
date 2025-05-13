@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -22,13 +21,13 @@ func TestRevokeJobSpecs(t *testing.T) {
 	t.Parallel()
 
 	const numBootstraps = 1
-	const numOracles = 1
+	const numOracles = 2
 
 	env := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
 		ShouldDeployLinkToken: false,
-		NumNodes:              numBootstraps,
-		NumBootstrapNodes:     numOracles,
+		NumBootstrapNodes:     numBootstraps,
+		NumNodes:              numOracles,
 		NodeLabels: []*ptypes.Label{
 			{
 				Key:   devenv.LabelProductKey,
@@ -96,26 +95,30 @@ func TestRevokeJobSpecs(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		uuids     []string
-		streamIDs []uint32
-		wantErr   string
-		wantJobID string
+		name        string
+		uuids       []string
+		streamIDs   []uint32
+		wantErr     string
+		wantJobIDs  []string
+		wantNumJobs int
 	}{
 		{
-			name:      "Revoke an oracle job",
-			uuids:     oracleJobUUIDs,
-			wantJobID: oracleJobUUIDs[0], // we only have one
+			name:        "Revoke an oracle job",
+			uuids:       oracleJobUUIDs,
+			wantJobIDs:  oracleJobUUIDs,
+			wantNumJobs: numOracles,
 		},
 		{
-			name:    "Revoke the same job again",
-			uuids:   oracleJobUUIDs,
-			wantErr: "failed to revoke job",
+			name:        "Revoke the same job again",
+			uuids:       oracleJobUUIDs,
+			wantNumJobs: numOracles,
+			wantErr:     "failed to revoke job",
 		},
 		{
-			name:      "Revoke a bootstrap job",
-			uuids:     btJobUUIDs,
-			wantJobID: btJobUUIDs[0], // we only have one
+			name:        "Revoke a bootstrap job",
+			uuids:       btJobUUIDs,
+			wantJobIDs:  btJobUUIDs,
+			wantNumJobs: numBootstraps,
 		},
 		{
 			name:    "Revoke a non-existing job",
@@ -123,15 +126,17 @@ func TestRevokeJobSpecs(t *testing.T) {
 			wantErr: "failed to find jobs for all provided UUIDs",
 		},
 		{
-			name:      "Revoke a stream job",
-			streamIDs: []uint32{streamIDs[0]},
-			wantJobID: streamIDsToJobIDs[streamIDs[0]][0], // we only have one
+			name:        "Revoke a stream job",
+			streamIDs:   []uint32{streamIDs[0]},
+			wantNumJobs: numOracles,
+			wantJobIDs:  streamIDsToJobIDs[streamIDs[0]],
 		},
 		{
-			name:      "Fail when both stream ids and uuids are provided",
-			uuids:     oracleJobUUIDs,
-			streamIDs: streamIDs,
-			wantErr:   "either job ids or stream ids are required",
+			name:        "Fail when both stream ids and uuids are provided",
+			uuids:       oracleJobUUIDs,
+			streamIDs:   streamIDs,
+			wantNumJobs: numOracles,
+			wantErr:     "either job ids or stream ids are required",
 		},
 	}
 
@@ -152,8 +157,17 @@ func TestRevokeJobSpecs(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Len(t, out, 1)
-			require.Len(t, out[0].Jobs, 1)
-			require.Equal(t, tc.wantJobID, out[0].Jobs[0].JobID)
+			require.Len(t, out[0].Jobs, tc.wantNumJobs)
+			for _, wantedJobID := range tc.wantJobIDs {
+				found := false
+				for _, job := range out[0].Jobs {
+					if job.JobID == wantedJobID {
+						found = true
+						break
+					}
+				}
+				require.True(t, found, "expected to find job %s in the output", wantedJobID)
+			}
 		})
 	}
 }
