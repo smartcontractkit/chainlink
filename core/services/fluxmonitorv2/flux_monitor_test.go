@@ -1932,5 +1932,5 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 			tm.contractSubmitter.AssertExpectations(t)
 	}
 
-	assert.Eventually(t, isReady, testutils.WaitTimeout(t), 50*time.Millisecond)
+	assert.Eventually(t, isReady, 15*time.Second, 50*time.Millisecond)
 }
