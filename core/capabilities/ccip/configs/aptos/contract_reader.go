@@ -325,7 +325,23 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 									},
 									"token_amounts": {
 										NewName:         "TokenAmounts",
-										SubFieldRenames: nil, // TODO
+										SubFieldRenames: map[string]chainreader.RenamedField{
+											"source_pool_address": {
+												NewName: "SourcePoolAddress",
+											},
+											"dest_token_address": {
+												NewName: "DestTokenAddress",
+											},
+											"extra_data": {
+												NewName: "ExtraData",
+											},
+											"amount": {
+												NewName: "Amount",
+											},
+											"dest_exec_data": {
+												NewName: "DestExecData",
+											},
+										},
 									},
 								},
 							},
