@@ -164,6 +164,9 @@ func TransferCCIPToMCMSWithTimelockSolana(
 		if !cfg.ProposedOwner.IsZero() {
 			proposedOwner = cfg.ProposedOwner
 		}
+		if currentOwner.Equals(proposedOwner) {
+			return cldf.ChangesetOutput{}, fmt.Errorf("current owner and proposed owner are the same: %s", currentOwner)
+		}
 
 		timelocks[solChain.Selector] = mcmsSolana.ContractAddress(
 			mcmState.TimelockProgram,
