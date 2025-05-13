@@ -341,7 +341,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 			require.Equal(t, 9, int(outDec))
 
 			// transfer away from timelock if metadata is set and not ccipChangeset.CLLMetadata
-			if mcms && tokenMetadata != "" && tokenMetadata != ccipChangeset.CLLMetadata {
+			if mcms && tokenMetadata != "" && tokenMetadata != shared.CLLMetadata {
 				timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 				require.NoError(t, err)
 				e.Logger.Debugf("Transferring away from MCMS for token pool %v", testCase.poolType)

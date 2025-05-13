@@ -969,7 +969,7 @@ func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
 	}
-	metadata := ccipChangeset.CLLMetadata
+	metadata := shared.CLLMetadata
 	if cfg.Metadata != "" {
 		metadata = cfg.Metadata
 	}
