@@ -199,15 +199,15 @@ func (j *JobServiceClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobR
 		)
 
 		storeErr = j.proposalStore.put(storeProposalID, p.Proposal)
-		defer func() {
-			// cleanup if we fail to save the job
-			if storeErr != nil {
-				j.proposalStore.delete(storeProposalID) //nolint:errcheck // ignore error nothing to do
-			}
-		}()
 		if storeErr != nil {
 			return nil, fmt.Errorf("failed to save proposal: %w", err)
 		}
+		defer func() {
+			// cleanup if we fail to save the job
+			if storeErr != nil {
+				_ = j.proposalStore.delete(storeProposalID)
+			}
+		}()
 
 		job, storeErr = j.jobStore.get(extractor.ExternalJobID)
 		if storeErr != nil && !errors.Is(storeErr, errNoExist) {
