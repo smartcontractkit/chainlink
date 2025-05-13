@@ -133,6 +133,7 @@ type Secrets struct {
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
 	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	P2PKey     P2PKey                   `toml:",omitempty"`
+	CRE        CreSecrets               `toml:",omitempty"`
 }
 
 type EthKeys struct {
@@ -1577,6 +1578,48 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 			err = multierr.Append(err, configutils.NewErrDuplicate("URL", s))
 		}
 		urls[s] = struct{}{}
+	}
+	return err
+}
+
+type StreamsConfig struct {
+	ApiKey    *commonconfig.SecretString `toml:",omitempty"`
+	ApiSecret *commonconfig.SecretString `toml:",omitempty"`
+}
+
+type CreSecrets struct {
+	Streams *StreamsConfig `toml:",omitempty"`
+}
+
+func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
+	err = c.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if f.Streams != nil {
+		if c.Streams == nil {
+			c.Streams = &StreamsConfig{}
+		}
+		if v := f.Streams.ApiKey; v != nil {
+			c.Streams.ApiKey = v
+		}
+		if v := f.Streams.ApiSecret; v != nil {
+			c.Streams.ApiSecret = v
+		}
+	}
+
+	return nil
+}
+
+func (c *CreSecrets) validateMerge(f *CreSecrets) (err error) {
+	if c.Streams != nil && f.Streams != nil {
+		if c.Streams.ApiKey != nil && f.Streams.ApiKey != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.ApiKey"})
+		}
+		if c.Streams.ApiSecret != nil && f.Streams.ApiSecret != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.ApiSecret"})
+		}
 	}
 	return err
 }
