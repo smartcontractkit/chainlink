@@ -1928,7 +1928,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	servicetest.Run(t, fm)
 
 	waitTime := 15 * time.Second
-	interval := 1000 * time.Millisecond
+	interval := 50 * time.Millisecond
 	eventuallyExpectationsMet(t, tm.logBroadcaster, waitTime, interval)
 	eventuallyExpectationsMet(t, tm.fluxAggregator, waitTime, interval)
 	eventuallyExpectationsMet(t, tm.orm, waitTime, interval)
