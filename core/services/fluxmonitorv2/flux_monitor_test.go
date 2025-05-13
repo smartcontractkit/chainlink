@@ -14,7 +14,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -1926,9 +1925,39 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 
 	waitTime := 15 * time.Second
 	interval := 50 * time.Millisecond
-	assert.Eventually(t, func() bool { return tm.logBroadcaster.AssertExpectations(t) }, waitTime, interval)
-	assert.Eventually(t, func() bool { return tm.fluxAggregator.AssertExpectations(t) }, waitTime, interval)
-	assert.Eventually(t, func() bool { return tm.orm.AssertExpectations(t) }, waitTime, interval)
-	assert.Eventually(t, func() bool { return tm.pipelineORM.AssertExpectations(t) }, waitTime, interval)
-	assert.Eventually(t, func() bool { return tm.contractSubmitter.AssertExpectations(t) }, waitTime, interval)
+	EventuallyExpectationsMet(t, tm.logBroadcaster, waitTime, interval)
+	EventuallyExpectationsMet(t, tm.fluxAggregator, waitTime, interval)
+	EventuallyExpectationsMet(t, tm.orm, waitTime, interval)
+	EventuallyExpectationsMet(t, tm.pipelineORM, waitTime, interval)
+	EventuallyExpectationsMet(t, tm.contractSubmitter, waitTime, interval)
+}
+
+type testifyExpectationsAsserter interface {
+	AssertExpectations(t mock.TestingT) bool
+}
+
+type fakeT struct{}
+
+func (ft fakeT) Logf(format string, args ...interface{})   {}
+func (ft fakeT) Errorf(format string, args ...interface{}) {}
+func (ft fakeT) FailNow()                                  {}
+
+func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, timeout time.Duration, interval time.Duration) {
+	t.Helper()
+
+	chTimeout := time.After(timeout)
+	for {
+		var ft fakeT
+		success := mock.AssertExpectations(ft)
+		if success {
+			return
+		}
+		select {
+		case <-chTimeout:
+			mock.AssertExpectations(t)
+			t.FailNow()
+		default:
+			time.Sleep(interval)
+		}
+	}
 }
