@@ -1814,7 +1814,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 }
 
 // This is a flaky test: inserting time.Sleep(15 * time.Second) in its end makes it failing with an unexpected call.
-// For now, we let it use custom EventuallyExpectationsMet instead of assert.Eventually because it flakes
+// For now, we let it use a custom EventuallyExpectationsMet instead of assert.Eventually because it flakes
 // with the latter approach (somehow assert.Eventually gives it a little bit more time, and then it fails
 // with the same unexpected call).
 func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
