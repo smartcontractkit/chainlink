@@ -1924,13 +1924,11 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 
 	servicetest.Run(t, fm)
 
-	isReady := func() bool {
-		return tm.logBroadcaster.AssertExpectations(t) &&
-			tm.fluxAggregator.AssertExpectations(t) &&
-			tm.orm.AssertExpectations(t) &&
-			tm.pipelineORM.AssertExpectations(t) &&
-			tm.contractSubmitter.AssertExpectations(t)
-	}
-
-	assert.Eventually(t, isReady, 15*time.Second, 50*time.Millisecond)
+	waitTime := 15 * time.Second
+	interval := 50 * time.Millisecond
+	assert.Eventually(t, func() bool { return tm.logBroadcaster.AssertExpectations(t) }, waitTime, interval)
+	assert.Eventually(t, func() bool { return tm.fluxAggregator.AssertExpectations(t) }, waitTime, interval)
+	assert.Eventually(t, func() bool { return tm.orm.AssertExpectations(t) }, waitTime, interval)
+	assert.Eventually(t, func() bool { return tm.pipelineORM.AssertExpectations(t) }, waitTime, interval)
+	assert.Eventually(t, func() bool { return tm.contractSubmitter.AssertExpectations(t) }, waitTime, interval)
 }
