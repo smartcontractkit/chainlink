@@ -66,17 +66,17 @@ func ApproveTokenTransferEVMChangeset(e deployment.Environment, cfg ApproveToken
 
 type ApproveTokenSolConfig struct {
 	ChainSelector uint64
-	SolChain      cldf.SolChain
-
-	SolTokenPubKey     solana.PublicKey
-	RemoteTokenAccount solana.PublicKey
-	TokenPubKey        solana.PublicKey
 
 	Amount   uint64
 	Decimals uint8
 }
 
 func ApproveTokenTransferSolChangeset(e deployment.Environment, cfg ApproveTokenSolConfig) (cldf.ChangesetOutput, error) {
+	solChain, found := e.SolChains[cfg.ChainSelector]
+	if !found {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get chain for selector %d", cfg.ChainSelector)
+	}
+
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -89,30 +89,42 @@ func ApproveTokenTransferSolChangeset(e deployment.Environment, cfg ApproveToken
 
 	tokenPool, _ := getActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, cfg.ChainSelector, "")
 
-	tokenProgram, err := chainState.TokenToTokenProgram(cfg.SolTokenPubKey)
+	solTokenPubKey := state.SolChains[cfg.ChainSelector].SPLTokens[0]
+
+	tokenProgram, err := chainState.TokenToTokenProgram(solTokenPubKey)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token program: %w", err)
 	}
-	poolSigner, err := solTokenUtil.TokenPoolSignerAddress(cfg.SolTokenPubKey, tokenPool)
+	poolSigner, err := solTokenUtil.TokenPoolSignerAddress(solTokenPubKey, tokenPool)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token pool signer address: %w", err)
+	}
+
+	deployerATA, _, err := solTokenUtil.FindAssociatedTokenAddress(
+		solana.TokenProgramID,
+		solTokenPubKey,
+		solChain.DeployerKey.PublicKey(),
+	)
+
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to find associated token address: %w", err)
 	}
 
 	ix1, err := solTokenUtil.TokenApproveChecked(
 		cfg.Amount,
 		cfg.Decimals,
 		tokenProgram,
-		cfg.RemoteTokenAccount,
-		cfg.TokenPubKey,
+		deployerATA,
+		solTokenPubKey,
 		poolSigner,
-		cfg.SolChain.DeployerKey.PublicKey(),
+		solChain.DeployerKey.PublicKey(),
 		solana.PublicKeySlice{},
 	)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to TokenApproveChecked: %w", err)
 	}
-	if err = cfg.SolChain.Confirm([]solana.Instruction{ix1}); err != nil {
-		e.Logger.Errorw("Failed to confirm instructions for TokenApproveChecked", "chain", cfg.SolChain.String(), "err", err)
+	if err = solChain.Confirm([]solana.Instruction{ix1}); err != nil {
+		e.Logger.Errorw("Failed to confirm instructions for TokenApproveChecked", "chain", solChain.String(), "err", err)
 		return cldf.ChangesetOutput{}, err
 	}
 
