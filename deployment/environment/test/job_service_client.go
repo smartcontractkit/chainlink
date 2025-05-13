@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"google.golang.org/grpc"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -354,8 +356,20 @@ func (m *mapJobStore) get(jobID string) (*jobv1.Job, error) {
 }
 
 func (m *mapJobStore) list(filter *jobv1.ListJobsRequest_Filter) ([]*jobv1.Job, error) {
-	if filter != nil && filter.NodeIds != nil && filter.Uuids != nil && filter.Ids != nil {
-		return nil, errors.New("only one of NodeIds, Uuids or Ids can be set")
+	if filter != nil {
+		counter := 0
+		if filter.NodeIds != nil {
+			counter++
+		}
+		if filter.Uuids != nil {
+			counter++
+		}
+		if filter.Ids != nil {
+			counter++
+		}
+		if counter > 1 {
+			return nil, errors.New("only one of NodeIds, Uuids or Ids can be set")
+		}
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -367,6 +381,9 @@ func (m *mapJobStore) list(filter *jobv1.ListJobsRequest_Filter) ([]*jobv1.Job, 
 
 	if filter == nil || (filter.NodeIds == nil && filter.Uuids == nil && filter.Ids == nil) {
 		for _, job := range m.jobs {
+			if filter != nil && !matchesSelectors(filter.Selectors, job) {
+				continue
+			}
 			jobs = append(jobs, job)
 		}
 		return jobs, nil
@@ -404,11 +421,71 @@ func (m *mapJobStore) list(filter *jobv1.ListJobsRequest_Filter) ([]*jobv1.Job, 
 	}
 
 	for _, job := range m.jobs {
+		if !matchesSelectors(filter.Selectors, job) {
+			continue
+		}
 		if _, ok := wantedJobIDs[job.Id]; ok {
 			jobs = append(jobs, job)
 		}
 	}
 	return jobs, nil
+}
+
+func matchesSelectors(selectors []*ptypes.Selector, job *jobv1.Job) bool {
+	for _, selector := range selectors {
+		label := labelForKey(selector.Key, job.Labels)
+		switch selector.Op {
+		case ptypes.SelectorOp_EXIST:
+			return label != nil
+		case ptypes.SelectorOp_NOT_EXIST:
+			return label == nil
+		case ptypes.SelectorOp_EQ:
+			if label == nil || *label.Value != *selector.Value {
+				return false
+			}
+		case ptypes.SelectorOp_NOT_EQ:
+			if label != nil && *label.Value == *selector.Value {
+				return false
+			}
+		case ptypes.SelectorOp_IN:
+			if label == nil || label.Value == nil || selector.Value == nil {
+				return false
+			}
+			list := strings.Split(*selector.Value, ",")
+			found := false
+			for _, v := range list {
+				if *label.Value == v {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		case ptypes.SelectorOp_NOT_IN:
+			if label != nil && label.Value != nil {
+				list := strings.Split(*selector.Value, ",")
+				for _, v := range list {
+					if *label.Value == v {
+						return false
+					}
+				}
+			}
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
+func labelForKey(key string, labels []*ptypes.Label) *ptypes.Label {
+	for _, label := range labels {
+		if label.Key == key {
+			return label
+		}
+	}
+	return nil
 }
 
 func (m *mapJobStore) delete(jobID string) error {

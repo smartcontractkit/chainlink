@@ -13,6 +13,7 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
@@ -770,6 +771,287 @@ func TestMapProposalStore(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "proposal not found")
 	})
+}
+
+func TestMatchesSelectors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		selectors []*ptypes.Selector
+		job       *jobv1.Job
+		expected  bool
+	}{
+		// SelectorOp_EXIST cases
+		{
+			name: "SelectorOp_EXIST match",
+			selectors: []*ptypes.Selector{
+				{
+					Key: "label1",
+					Op:  ptypes.SelectorOp_EXIST,
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key: "label1",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectorOp_EXIST does not exist",
+			selectors: []*ptypes.Selector{
+				{
+					Key: "label1",
+					Op:  ptypes.SelectorOp_EXIST,
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: false,
+		},
+		// SelectorOp_NOT_EXIST cases
+		{
+			name: "SelectorOp_NOT_EXIST match",
+			selectors: []*ptypes.Selector{
+				{
+					Key: "label1",
+					Op:  ptypes.SelectorOp_NOT_EXIST,
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key: "label1",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "SelectorOp_NOT_EXIST does not exist",
+			selectors: []*ptypes.Selector{
+				{
+					Key: "label1",
+					Op:  ptypes.SelectorOp_NOT_EXIST,
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: true,
+		},
+		// SelectorOp_EQ cases
+		{
+			name: "SelectorOp_EQ match",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("value1"),
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectorOp_EQ mismatched label value",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("NOT THE VALUE WE NEED"),
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "SelectorOp_EQ with missing label",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: false,
+		},
+		// SelectorOp_NOT_EQ cases
+		{
+			name: "SelectorOp_NOT_EQ match",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("value1"),
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "SelectorOp_NOT_EQ mismatched label value",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("NOT THE VALUE WE NEED"),
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectorOp_NOT_EQ with missing label",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: true,
+		},
+		// SelectorOp_IN cases
+		{
+			name: "SelectorOp_IN match",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_IN,
+					Value: pointer.To("value1,value2"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("value1"),
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectorOp_IN mismatched label value",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_IN,
+					Value: pointer.To("value1,value2"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("NOT THE VALUE WE NEED"),
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "SelectorOp_IN with missing label",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_IN,
+					Value: pointer.To("value1"),
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: false,
+		},
+		// SelectorOp_NOT_IN cases
+		{
+			name: "SelectorOp_NOT_IN match",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_IN,
+					Value: pointer.To("value1,value2"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("value1"),
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "SelectorOp_NOT_IN mismatched label value",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_IN,
+					Value: pointer.To("value1,value2"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("NOT THE VALUE WE NEED"),
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectorOp_NOT_IN with missing label",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_IN,
+					Value: pointer.To("value1"),
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := matchesSelectors(tc.selectors, tc.job)
+			require.Equal(t, tc.expected, result)
+		})
+	}
 }
 
 // need some non-ocr job type to avoid the ocr validation and the p2pwrapper check
