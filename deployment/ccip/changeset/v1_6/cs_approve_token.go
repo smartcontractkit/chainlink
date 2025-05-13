@@ -19,9 +19,6 @@ import (
 type ApproveTokenEVMConfig struct {
 	ChainSelector uint64
 
-	TokenAddress  string
-	RouterAddress string
-
 	Amount *big.Int
 }
 
@@ -46,11 +43,20 @@ func ApproveToken(env deployment.Environment, src uint64, tokenAddress common.Ad
 }
 
 func ApproveTokenTransferEVMChangeset(e deployment.Environment, cfg ApproveTokenEVMConfig) (cldf.ChangesetOutput, error) {
-	tokenAddress := common.HexToAddress(cfg.TokenAddress)
-	routerAddress := common.HexToAddress(cfg.RouterAddress)
+	state, err := changeset.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
 
-	err := ApproveToken(e, cfg.ChainSelector, tokenAddress, routerAddress, cfg.Amount)
+	chainState, found := state.Chains[cfg.ChainSelector]
+	if !found {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get chain state for selector %d", cfg.ChainSelector)
+	}
 
+	routerAddress := chainState.Router.Address()
+	tokenAddress := chainState.LinkToken.Address()
+
+	err = ApproveToken(e, cfg.ChainSelector, tokenAddress, routerAddress, cfg.Amount)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to approve token transfer: %w", err)
 	}
@@ -76,7 +82,10 @@ func ApproveTokenTransferSolChangeset(e deployment.Environment, cfg ApproveToken
 		return cldf.ChangesetOutput{}, err
 	}
 
-	chainState := state.SolChains[cfg.ChainSelector]
+	chainState, found := state.SolChains[cfg.ChainSelector]
+	if !found {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get chain state for selector %d", cfg.ChainSelector)
+	}
 
 	tokenPool, _ := getActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, cfg.ChainSelector, "")
 
