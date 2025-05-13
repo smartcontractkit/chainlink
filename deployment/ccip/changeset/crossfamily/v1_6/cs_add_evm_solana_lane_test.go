@@ -18,7 +18,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	crossfamily "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/crossfamily/v1_6"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
