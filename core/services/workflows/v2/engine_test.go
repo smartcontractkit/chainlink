@@ -283,11 +283,10 @@ func TestEngine_Execution(t *testing.T) {
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything).
 			Run(
 				func(_ context.Context, request *wasmpb.ExecuteRequest) {
-					wantExecId, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+					wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 					require.NoError(t, err)
-					require.Equal(t, wantExecId, request.Id)
-
-					require.Equal(t, request.Request.(*wasmpb.ExecuteRequest_Trigger).Trigger.Id, uint64(0))
+					require.Equal(t, wantExecID, request.Id)
+					require.Equal(t, uint64(0), request.Request.(*wasmpb.ExecuteRequest_Trigger).Trigger.Id)
 				},
 			).
 			Return(nil, nil).
@@ -373,10 +372,14 @@ func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 		res := <-resultReceivedCh
 		switch output := res.Result.(type) {
 		case *wasmpb.ExecutionResult_Value:
+			var value values.Value
+			var err error
+			var unwrapped any
+
 			valuePb := output.Value
-			value, err := values.FromProto(valuePb)
+			value, err = values.FromProto(valuePb)
 			require.NoError(t, err)
-			unwrapped, err := value.Unwrap()
+			unwrapped, err = value.Unwrap()
 			require.NoError(t, err)
 			require.Equal(t, wantResponse, unwrapped)
 		default:
