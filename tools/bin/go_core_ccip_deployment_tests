@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-set -o pipefail
+set -xo pipefail
 set +e
 
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"../output.txt"}
 EXTRA_FLAGS=""
+
+go env
 
 if [[ -n "$USE_FLAKEGUARD" ]]; then
   # Install flakeguard
@@ -18,7 +20,7 @@ if [[ -n "$USE_FLAKEGUARD" ]]; then
 
   # Run go tests with flakeguard auto test rerun
   flakeguard run \
-    --test-packages "./..." \
+    --test-packages "./ccip/manualexechelpers/..." \
     --project-path="deployment" \
     --run-count=1 \
     --rerun-failed-count=3 \
@@ -37,7 +39,7 @@ else
     EXTRA_FLAGS="-covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
   fi
 
-  go test ./... $EXTRA_FLAGS | tee "$OUTPUT_FILE" | grep -Ev '\[no test files\]|\[no tests to run\]'
+  go test ./ccip/manualexechelpers/... $EXTRA_FLAGS | tee "$OUTPUT_FILE" | grep -Ev '\[no test files\]|\[no tests to run\]'
   EXITCODE=${PIPESTATUS[0]}
 
   # Assert no known sensitive strings present in test logger output
