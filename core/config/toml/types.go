@@ -1596,11 +1596,6 @@ type CreConfig struct {
 }
 
 func (c *CreConfig) setFrom(f *CreConfig) (err error) {
-	err = c.validateMerge(f)
-	if err != nil {
-		return err
-	}
-
 	if f.Streams != nil {
 		if c.Streams == nil {
 			c.Streams = &StreamsConfig{}
@@ -1614,18 +1609,6 @@ func (c *CreConfig) setFrom(f *CreConfig) (err error) {
 	}
 
 	return nil
-}
-
-func (c *CreConfig) validateMerge(f *CreConfig) (err error) {
-	if c.Streams != nil && f.Streams != nil {
-		if c.Streams.WsURL != nil && f.Streams.WsURL != nil {
-			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.ApiKey"})
-		}
-		if c.Streams.RestURL != nil && f.Streams.RestURL != nil {
-			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.ApiSecret"})
-		}
-	}
-	return err
 }
 
 type StreamsSecretConfig struct {
