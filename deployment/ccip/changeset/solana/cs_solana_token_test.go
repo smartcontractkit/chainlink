@@ -172,5 +172,7 @@ func TestSolanaTokenOps(t *testing.T) {
 }
 
 func TestDeployLinkToken(t *testing.T) {
-	commonchangeset.DeployLinkTokenTest(t, 1)
+	commonchangeset.DeployLinkTokenTest(t, memory.MemoryEnvironmentConfig{
+		SolChains: 1,
+	})
 }
