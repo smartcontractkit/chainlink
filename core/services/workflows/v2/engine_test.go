@@ -373,14 +373,14 @@ func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 		switch output := res.Result.(type) {
 		case *wasmpb.ExecutionResult_Value:
 			var value values.Value
-			var err error
+			var execErr error
 			var unwrapped any
 
 			valuePb := output.Value
-			value, err = values.FromProto(valuePb)
-			require.NoError(t, err)
-			unwrapped, err = value.Unwrap()
-			require.NoError(t, err)
+			value, execErr = values.FromProto(valuePb)
+			require.NoError(t, execErr)
+			unwrapped, execErr = value.Unwrap()
+			require.NoError(t, execErr)
 			require.Equal(t, wantResponse, unwrapped)
 		default:
 			t.Fatalf("unexpected response type %T", output)
