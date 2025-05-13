@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	types2 "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -32,7 +31,6 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -130,36 +128,6 @@ func setupLoadTestWriterEnvironment(
 	dfCacheAddress, dfCacheErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, changeset.DataFeedsCache.String()) //nolint:staticcheck // won't migrate now
 	require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
 	// Config
-
-	// Search for the config set on df
-	go func() {
-		ethClinet, _ := universalSetupOutput.BlockchainOutput[0].SethClient.Client.(*ethclient.Client)
-		df, _ := data_feeds_cache.NewDataFeedsCache(dfCacheAddress, ethClinet)
-		logCh := make(chan types2.Log)
-		topic := common.HexToHash("0x2dec0e9ffbb18c6499fc8bee8b9c35f765e76d9dbd436f25dd00a80de267ac0d")
-		_, err = universalSetupOutput.BlockchainOutput[0].SethClient.Client.SubscribeFilterLogs(context.TODO(), ethereum.FilterQuery{
-			Topics:    [][]common.Hash{{topic}},
-			FromBlock: big.NewInt(0),
-		}, logCh)
-		if err != nil {
-			panic(err)
-		}
-		count := 0
-		for {
-			configLog := <-logCh
-
-			configSet, err := df.ParseDecimalFeedConfigSet(configLog)
-			if err != nil {
-				testLogger.Info().Msgf("Topic: %x", configLog.Topics)
-				continue
-			}
-			testLogger.Info().Msgf("ConfigSet dataID %x sender %s workflowOwner %s workflowName  %x", configSet.DataId, configSet.WorkflowMetadata[0].AllowedSender, configSet.WorkflowMetadata[0].AllowedWorkflowOwner, configSet.WorkflowMetadata[0].AllowedWorkflowName)
-			count++
-			if count == 10 {
-				break
-			}
-		}
-	}()
 	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, &keystonetypes.ConfigureDataFeedsCacheInput{
 		CldEnv:                universalSetupOutput.CldEnvironment,
 		ChainSelector:         universalSetupOutput.BlockchainOutput[0].ChainSelector,
@@ -263,13 +231,13 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		return capabilities
 	}
 
-	homeChain := in.Blockchains[0]
-	homeChainIDUint64, homeChainErr := strconv.ParseUint(homeChain.ChainID, 10, 64)
+	registryChain := in.Blockchains[0]
+	homeChainIDUint64, homeChainErr := strconv.ParseUint(registryChain.ChainID, 10, 64)
 	require.NoError(t, homeChainErr, "failed to convert chain ID to int")
 
 	feedIDs := make([]string, 0)
 	for range in.WriterTest.NrOfFeeds {
-		_, id := NewFeedID(t)
+		_, id := NewFeedIDDF2(t)
 		feedIDs = append(feedIDs, strings.TrimPrefix(id, "0x"))
 	}
 
@@ -782,6 +750,7 @@ func (s *WriterGun) createEVMEncoder() (consensustypes.Encoder, error) {
 	return evm.NewEVMEncoder(wrappedEVMEncoderConfig)
 }
 
+// generateReports creates a slice of reports for each feed ID, where each report contains the necessary data to be EVM encoded conforming to `(bytes32 FeedID, uint32 Timestamp, uint224 Price)[] Reports`
 func (s *WriterGun) generateReports(timestamp time.Time) []any {
 	reports := make([]any, 0, s.testParams.nrOfReports)
 	for i := range s.testParams.nrOfReports {

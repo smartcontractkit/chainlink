@@ -169,7 +169,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	for i := range in.WorkflowDONLoad.Jobs {
 		feedsAddresses[i] = make([]FeedWithStreamID, 0)
 		for streamID := range in.WorkflowDONLoad.Streams {
-			_, id := NewFeedID(t)
+			_, id := NewFeedIDDF2(t)
 			feedsAddresses[i] = append(feedsAddresses[i], FeedWithStreamID{
 				Feed:     id,
 				StreamID: (in.WorkflowDONLoad.Streams * i) + streamID + 1,
@@ -735,14 +735,15 @@ func loadKeyBundlesFromCache() ([]ocr2key.KeyBundle, error) {
 	return keyBundles, nil
 }
 
-func NewFeedID(t *testing.T) ([32]byte, string) {
+// NewFeedIDDF2 creates a random Data Feeds 2.0 format https://docs.google.com/document/d/13ciwTx8lSUfyz1IdETwpxlIVSn1lwYzGtzOBBTpl5Vg/edit?tab=t.0#heading=h.dxx2wwn1dmoz
+func NewFeedIDDF2(t *testing.T) ([32]byte, string) {
 	buf := [32]byte{}
 	_, err := crand.Read(buf[:])
 	require.NoError(t, err, "cannot create feedID")
 	buf[0] = 0x01 // format byte
+	buf[5] = 0x00 // attribute
+	buf[6] = 0x03 // attribute
 	buf[7] = 0x00 // data type byte
-	buf[5] = 0x00 //attribute
-	buf[6] = 0x03 //attribute
 
 	for i := 8; i < 16; i++ {
 		buf[i] = 0x00

@@ -156,7 +156,6 @@ func (c *Controller) List(ctx context.Context) ([]CapInfos, error) {
 				ID:             d.ID,
 				CapabilityType: capabilities.CapabilityType(d.CapabilityType),
 				Description:    d.Description,
-				DON:            nil, // DON information is not transmitted
 				IsLocal:        d.IsLocal,
 			})
 		}
