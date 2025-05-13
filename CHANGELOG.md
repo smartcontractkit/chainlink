@@ -20,6 +20,8 @@
 
 ### Patch Changes
 
+- [#17708](https://github.com/smartcontractkit/chainlink/pull/17708) [`9d444c8`](https://github.com/smartcontractkit/chainlink/commit/9d444c8199947c9a43e00db3174d1ebe9fd85278) - #bugfix Bump libocr to `61c382d` to fix panic in `report_attestation.go` triggered by lagging DFv2 nodes
+
 - [#17628](https://github.com/smartcontractkit/chainlink/pull/17628) [`3b46213`](https://github.com/smartcontractkit/chainlink/commit/3b462133e068b5aadb5d9540040fb45f46f9c51a) - #bugfix PriceService context fix
 
 - [#17601](https://github.com/smartcontractkit/chainlink/pull/17601) [`1347d91`](https://github.com/smartcontractkit/chainlink/commit/1347d9125a814a2b8748141617cef3c65f982677) - #updated Bump chainlink-solana
