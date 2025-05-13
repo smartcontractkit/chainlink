@@ -2096,6 +2096,51 @@ func (_c *GeneralConfig_Threshold_Call) RunAndReturn(run func() config.Threshold
 	return _c
 }
 
+// TonEnabled provides a mock function with no fields
+func (_m *GeneralConfig) TonEnabled() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for TonEnabled")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// GeneralConfig_TonEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TonEnabled'
+type GeneralConfig_TonEnabled_Call struct {
+	*mock.Call
+}
+
+// TonEnabled is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) TonEnabled() *GeneralConfig_TonEnabled_Call {
+	return &GeneralConfig_TonEnabled_Call{Call: _e.mock.On("TonEnabled")}
+}
+
+func (_c *GeneralConfig_TonEnabled_Call) Run(run func()) *GeneralConfig_TonEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_TonEnabled_Call) Return(_a0 bool) *GeneralConfig_TonEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_TonEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_TonEnabled_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Tracing provides a mock function with no fields
 func (_m *GeneralConfig) Tracing() config.Tracing {
 	ret := _m.Called()

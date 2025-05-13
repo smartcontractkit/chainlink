@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
@@ -47,6 +48,7 @@ type Master interface {
 	StarkNet() StarkNet
 	Aptos() Aptos
 	Tron() Tron
+	Ton() Ton
 	VRF() VRF
 	Workflow() Workflow
 	Unlock(ctx context.Context, password string) error
@@ -95,6 +97,7 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logg
 		starknet:   newStarkNetKeyStore(km),
 		aptos:      newAptosKeyStore(km),
 		tron:       newTronKeyStore(km),
+		ton:        newTonKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 		workflow:   newWorkflowKeyStore(km),
 	}
@@ -287,6 +290,8 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 		return "Aptos", nil
 	case tronkey.Key:
 		return "Tron", nil
+	case tonkey.Key:
+		return "Ton", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil
 	case workflowkey.Key:
