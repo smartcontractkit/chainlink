@@ -10,7 +10,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 
@@ -174,7 +174,7 @@ type MintSolanaTokenConfig struct {
 func (cfg MintSolanaTokenConfig) Validate(e deployment.Environment) error {
 	chain := e.SolChains[cfg.ChainSelector]
 	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
-	state, err := ccipChangeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (cldf.
 	}
 	// get chain
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	// get addresses
 	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
@@ -239,7 +239,7 @@ type CreateSolanaTokenATAConfig struct {
 
 func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
@@ -273,7 +273,7 @@ type SetTokenAuthorityConfig struct {
 
 func SetTokenAuthority(e deployment.Environment, cfg SetTokenAuthorityConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)

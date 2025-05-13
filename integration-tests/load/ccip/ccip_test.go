@@ -9,6 +9,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -16,12 +17,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+
+	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -93,7 +93,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// Keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
-	state, err := ccipchangeset.LoadOnchainState(*env)
+	state, err := stateview.LoadOnchainState(*env)
 	require.NoError(t, err)
 
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
@@ -277,7 +277,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 func prepareAccountToSendLink(
 	t *testing.T,
-	state ccipchangeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	e deployment.Environment,
 	src uint64,
 	srcAccount *bind.TransactOpts) error {

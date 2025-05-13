@@ -13,10 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -75,7 +76,7 @@ func getRemoteChains(chains []v1_6.ChainDefinition, currentIndex int) []v1_6.Cha
 func checkBidirectionalLaneConnectivity(
 	t *testing.T,
 	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	chainOne v1_6.ChainDefinition,
 	chainTwo v1_6.ChainDefinition,
 	testRouter bool,
@@ -311,7 +312,7 @@ func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
 			})
 			e := deployedEnvironment.Env
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
 			selectors := e.AllChainSelectors()

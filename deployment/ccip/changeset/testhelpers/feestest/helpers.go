@@ -14,9 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 // NewFeeTokenTestCase creates a new FeeTokenTestCase to test fee token usage scenarios.
@@ -70,7 +72,7 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 	srcChain := tc.env.Chains[tc.src]
 	dstChain := tc.env.Chains[tc.dst]
 
-	state, err := changeset.LoadOnchainState(tc.env)
+	state, err := stateview.LoadOnchainState(tc.env)
 	require.NoError(tc.t, err)
 
 	var dstTokBalanceBefore *big.Int
@@ -204,7 +206,7 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 			Context: ctx,
 		}, linkAddress)
 		require.NoError(tc.t, err)
-		require.Equal(tc.t, changeset.MockLinkPrice, timestampedPrice.Value)
+		require.Equal(tc.t, shared.MockLinkPrice, timestampedPrice.Value)
 
 		// Wait for all exec reports to land
 		testhelpers.ConfirmExecWithSeqNrsForAll(tc.t, tc.env, state, expectedSeqNumExec, startBlocks)
