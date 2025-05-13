@@ -24,6 +24,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
@@ -132,8 +134,8 @@ func DefaultTestConfigs() *TestConfigs {
 		NumOfUsersPerChain:    1,
 		Nodes:                 4,
 		Bootstraps:            1,
-		LinkPrice:             changeset.MockLinkPrice,
-		WethPrice:             changeset.MockWethPrice,
+		LinkPrice:             shared.MockLinkPrice,
+		WethPrice:             shared.MockWethPrice,
 		CreateJobAndContracts: true,
 		BlockTime:             2 * time.Second,
 	}
@@ -301,7 +303,7 @@ type DeployedEnv struct {
 
 func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.TimelockExecutionContracts {
 	timelocks := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	state, err := changeset.LoadOnchainState(d.Env)
+	state, err := stateview.LoadOnchainState(d.Env)
 	require.NoError(t, err)
 	for chain, chainState := range state.Chains {
 		timelocks[chain] = &proposalutils.TimelockExecutionContracts{
@@ -619,7 +621,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	require.NoError(t, err)
 
 	// load the state again to get the latest addresses
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	err = state.ValidatePostDeploymentState(e.Env)
 	require.NoError(t, err)
@@ -631,7 +633,7 @@ func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([
 	if err != nil {
 		return nil, err
 	}
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	if err != nil {
 		return nil, err
 	}
@@ -737,7 +739,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
 	require.NoError(t, err)
 
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	// Assert link present
 	if tc.IsStaticLink {
@@ -747,7 +749,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 
-	tokenConfig := changeset.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	tokenConfig := shared.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
@@ -828,9 +830,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	for _, chain := range solChains {
 		// TODO: this is a workaround for tokenConfig.GetTokenInfo
 		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
-		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[chain].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[changeset.LinkSymbol]
+		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[chain].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 		// TODO: point this to proper SOL feed, apparently 0 signified SOL
-		tokenInfo[cciptypes.UnknownEncodedAddress(solanago.SolMint.String())] = tokenConfig.TokenSymbolToInfo[changeset.WethSymbol]
+		tokenInfo[cciptypes.UnknownEncodedAddress(solanago.SolMint.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
 
 		ocrOverride := tc.OCRConfigOverride
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
@@ -945,7 +947,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 
-	state, err = changeset.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[e.HomeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[e.HomeChainSel].CCIPHome)

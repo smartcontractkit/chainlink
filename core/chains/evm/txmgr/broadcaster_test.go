@@ -1151,8 +1151,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})
 
 		t.Run("with callback", func(t *testing.T) {
-			runID := cltest.MustInsertPipelineRun(t, db)
-			trID := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
+			runID := testutils.MustInsertPipelineRun(t, db)
+			trID := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 			etx := txmgr.Tx{
 				FromAddress:       fromAddress,
 				ToAddress:         toAddress,

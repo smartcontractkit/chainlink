@@ -15,6 +15,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -422,7 +423,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDa
 			AdminAddress:  input.AdminAddress,
 			IsAdmin:       true,
 		}
-		_, setAdminErr := df_changeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
+		_, setAdminErr := changeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
 		if setAdminErr != nil {
 			return nil, errors.Wrap(setAdminErr, "failed to set feed admin")
 		}
@@ -442,7 +443,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDa
 		feeIDs = append(feeIDs, feedID[:32])
 	}
 
-	_, setFeedConfigErr := df_changeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
+	_, setFeedConfigErr := changeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
 		ChainSelector:    input.ChainSelector,
 		CacheAddress:     input.DataFeedsCacheAddress,
 		DataIDs:          feeIDs,

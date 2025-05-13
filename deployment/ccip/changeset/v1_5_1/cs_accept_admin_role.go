@@ -10,16 +10,18 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-var _ cldf.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = AcceptAdminRoleChangeset
+var _ cldf.ChangeSet[TokenAdminRegistryChangesetConfig] = AcceptAdminRoleChangeset
 
 func validateAcceptAdminRole(
 	config token_admin_registry.TokenAdminRegistryTokenConfig,
 	sender common.Address,
 	externalAdmin common.Address,
-	symbol changeset.TokenSymbol,
+	symbol shared.TokenSymbol,
 	chain deployment.Chain,
 ) error {
 	// We must be the pending administrator
@@ -30,16 +32,16 @@ func validateAcceptAdminRole(
 }
 
 // AcceptAdminRoleChangeset accepts admin rights for tokens on the token admin registry.
-func AcceptAdminRoleChangeset(env deployment.Environment, c changeset.TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
+func AcceptAdminRoleChangeset(env deployment.Environment, c TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env, false, validateAcceptAdminRole); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid TokenAdminRegistryChangesetConfig: %w", err)
 	}
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("accept admin role for tokens on token admin registries")
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("accept admin role for tokens on token admin registries")
 
 	for chainSelector, tokenSymbolToPoolInfo := range c.Pools {
 		chain := env.Chains[chainSelector]

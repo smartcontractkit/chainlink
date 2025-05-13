@@ -1,4 +1,4 @@
-package changeset
+package stateview
 
 import (
 	"encoding/json"
