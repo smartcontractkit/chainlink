@@ -106,24 +106,3 @@ func GetDataFeedsCacheAddress(ab cldf.AddressBook, chainSelector uint64, label *
 
 	return dataFeedsCacheAddress
 }
-
-type WrappedChangeSet[C any] struct {
-	operation cldf.ChangeSetV2[C]
-}
-
-// RunChangeset is used to run a changeset in another changeset
-// It executes VerifyPreconditions internally to handle changeset errors.
-func RunChangeset[C any](
-	operation cldf.ChangeSetV2[C],
-	env deployment.Environment,
-	config C,
-) (cldf.ChangesetOutput, error) {
-	cs := WrappedChangeSet[C]{operation: operation}
-
-	err := cs.operation.VerifyPreconditions(env, config)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run precondition: %w", err)
-	}
-
-	return cs.operation.Apply(env, config)
-}
