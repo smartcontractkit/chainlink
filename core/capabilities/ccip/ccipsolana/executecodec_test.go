@@ -11,6 +11,8 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/mock"
 
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -168,19 +170,20 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	}
 
 	ctx := testutils.Context(t)
-	mockExtraDataCodec := mocks.NewExtraDataCodec(t)
-	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
+	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
 	}, nil).Maybe()
-	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec.On("DecodeExtraArgsToMap", mock.Anything).Return(map[string]any{
 		"ComputeUnits":            uint32(1000),
 		"accountIsWritableBitmap": uint64(2),
 		"TokenReceiver":           [32]byte(solanago.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF").Bytes()),
 	}, nil).Maybe()
+	cd := NewExecutePluginCodecV1(ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cd := NewExecutePluginCodecV1(mockExtraDataCodec)
+
 			report := tc.report(randomExecuteReport(t, tc.chainSelector))
 			bytes, err := cd.Encode(ctx, report)
 			if tc.expErr {
@@ -208,11 +211,11 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodingExecuteReport(t *testing.T) {
-	mockExtraDataCodec := mocks.NewExtraDataCodec(t)
-	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
+	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
 	}, nil)
-	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec.On("DecodeExtraArgsToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"ComputeUnits":            uint32(1000),
 		"accountIsWritableBitmap": uint64(2),
 	}, nil)
@@ -254,7 +257,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		err = onChainReport.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
 
-		executeCodec := NewExecutePluginCodecV1(mockExtraDataCodec)
+		executeCodec := NewExecutePluginCodecV1(ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
 		decode, err := executeCodec.Decode(testutils.Context(t), buf.Bytes())
 		require.NoError(t, err)
 
@@ -270,7 +273,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 
 	t.Run("decode Borsh encoded execute report", func(t *testing.T) {
 		ocrReport := randomExecuteReport(t, 124615329519749607)
-		cd := NewExecutePluginCodecV1(mockExtraDataCodec)
+		cd := NewExecutePluginCodecV1(ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
 		encodedReport, err := cd.Encode(testutils.Context(t), ocrReport)
 		require.NoError(t, err)
 

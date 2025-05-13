@@ -871,8 +871,9 @@ func generateUpgradeTxns(
 	if err != nil {
 		return txns, fmt.Errorf("failed to deploy program: %w", err)
 	}
-	if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
-		return txns, fmt.Errorf("failed to set upgrade authority: %w", err)
+	ixn := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey.PublicKey(), config.UpgradeConfig.UpgradeAuthority, true)
+	if err := chain.Confirm([]solana.Instruction{ixn}); err != nil {
+		return txns, fmt.Errorf("failed to confirm setUpgradeAuthority: %w", err)
 	}
 	upgradeIxn, err := generateUpgradeIxn(
 		&e,

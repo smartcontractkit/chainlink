@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,10 +19,28 @@ type CompilationResult struct {
 	ConfigURL   string
 }
 
-func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string, configFile *string, settingsFile *os.File) (CompilationResult, error) {
+func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string, configFile *string, workflowSettingsFile, settingsFile *os.File) (CompilationResult, error) {
 	var outputBuffer bytes.Buffer
 
-	compileArgs := []string{"workflow", "compile", "-S", settingsFile.Name()}
+	// the CLI expects the workflow code to be located in the same directory as its `go.mod`` file. That's why we assume that the file, which
+	// the CLI also expects `cre.yaml` settings file to be present either in the present directory or any of its parent tree directories.
+
+	cliFile, err := os.Create(filepath.Join(workflowFolder, CRECLISettingsFileName))
+	if err != nil {
+		return CompilationResult{}, err
+	}
+
+	settingsFileBytes, err := os.ReadFile(settingsFile.Name())
+	if err != nil {
+		return CompilationResult{}, err
+	}
+
+	_, err = cliFile.Write(settingsFileBytes)
+	if err != nil {
+		return CompilationResult{}, err
+	}
+
+	compileArgs := []string{"workflow", "compile", "-S", workflowSettingsFile.Name()}
 	if configFile != nil {
 		compileArgs = append(compileArgs, "-c", *configFile)
 	}
@@ -31,7 +50,7 @@ func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string,
 	compileCmd.Stderr = &outputBuffer
 	// the CLI expects the workflow code to be located in the same directory as its `go.mod` file
 	compileCmd.Dir = workflowFolder
-	err := compileCmd.Start()
+	err = compileCmd.Start()
 	if err != nil {
 		return CompilationResult{}, errors.Wrap(err, "failed to start compile command")
 	}
@@ -73,8 +92,8 @@ func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string,
 }
 
 // Same command to register a workflow or update an existing one
-func DeployWorkflow(creCLICommandPath, workflowName, workflowURL string, configURL, secretsURL *string, settingsFile *os.File) error {
-	commandArgs := []string{"workflow", "deploy", workflowName, "-b", workflowURL, "-S", settingsFile.Name(), "-v"}
+func DeployWorkflow(creCLICommandPath, workflowURL string, configURL, secretsURL *string, settingsFile *os.File) error {
+	commandArgs := []string{"workflow", "deploy", "-b", workflowURL, "-S", settingsFile.Name(), "-v"}
 	if configURL != nil {
 		commandArgs = append(commandArgs, "-c", *configURL)
 	}
@@ -85,8 +104,13 @@ func DeployWorkflow(creCLICommandPath, workflowName, workflowURL string, configU
 	deployCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
 	deployCmd.Stdout = os.Stdout
 	deployCmd.Stderr = os.Stderr
-	if err := deployCmd.Start(); err != nil {
-		return errors.Wrap(err, "failed to start register command")
+	if startErr := deployCmd.Start(); startErr != nil {
+		return errors.Wrap(startErr, "failed to start deploy command")
+	}
+
+	waitErr := deployCmd.Wait()
+	if waitErr != nil {
+		return errors.Wrap(waitErr, "failed to wait for deploy command")
 	}
 
 	return nil
@@ -141,7 +165,7 @@ func SetFeedAdmin(creCLICommandPath string, chainID int, adminAddress common.Add
 	waitErr := setFeedAdminCmd.Wait()
 	fmt.Println("Set Feed Admin output:\n", outputBuffer.String())
 	if waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for compile command")
+		return errors.Wrap(waitErr, "failed to wait for set feed admin command")
 	}
 
 	return nil
@@ -194,7 +218,7 @@ func SetFeedConfig(creCLICommandPath, feedID, feedDecimals, feedDescription stri
 	waitErr := setFeedConfigCmd.Wait()
 	fmt.Println("Set Feed Config output:\n", outputBuffer.String())
 	if waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for compile command")
+		return errors.Wrap(waitErr, "failed to wait for set feed config command")
 	}
 
 	return nil

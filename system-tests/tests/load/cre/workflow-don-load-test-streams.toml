@@ -12,7 +12,7 @@ duration = "2h"
   image = "job-distributor:0.9.0"
 
 [[mock_capabilities]]
-  name="streams-triggeer"
+  name="streams-trigger"
   version= "2.0.0"
   type="trigger"
   description="streams trigger mock"

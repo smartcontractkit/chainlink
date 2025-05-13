@@ -640,6 +640,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/extras=s3-cache
       SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
       SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
       GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
@@ -716,7 +717,7 @@ jobs:
 
           echo "Opt-out is false for current run. Using self-hosted runner for deployment tests."
           echo "deployment-tests-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
-          echo "deployment-tests-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "deployment-tests-runner=${SH_DEPLOYMENT_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
 
       - name: Select runners for core tests
         id: core-tests
