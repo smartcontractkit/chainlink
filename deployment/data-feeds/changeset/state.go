@@ -8,12 +8,15 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	modulefeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
+
 
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -30,7 +33,8 @@ import (
 )
 
 var (
-	DataFeedsCache cldf.ContractType = "DataFeedsCache"
+	DataFeedsCache            cldf.ContractType      = "DataFeedsCache"
+	ChainlinkDataFeedsPackage datastore.ContractType = "ChainlinkDataFeeds"
 )
 
 type DataFeedsChainState struct {
@@ -40,8 +44,29 @@ type DataFeedsChainState struct {
 	AggregatorProxy map[common.Address]*proxy.AggregatorProxy
 }
 
+type DataFeedsAptosChainState struct {
+	DataFeeds map[aptos.AccountAddress]*modulefeeds.DataFeeds
+}
+
 type DataFeedsOnChainState struct {
-	Chains map[uint64]DataFeedsChainState
+	Chains      map[uint64]DataFeedsChainState
+	AptosChains map[uint64]DataFeedsAptosChainState
+}
+
+func LoadAptosOnchainState(e deployment.Environment) (DataFeedsOnChainState, error) {
+	state := DataFeedsOnChainState{
+		AptosChains: make(map[uint64]DataFeedsAptosChainState),
+	}
+
+	for chainSelector, chain := range e.AptosChains {
+		records := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
+		chainState, err := LoadAptosChainState(e.Logger, chain, records)
+		if err != nil {
+			return state, err
+		}
+		state.AptosChains[chainSelector] = *chainState
+	}
+	return state, nil
 }
 
 func LoadOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
@@ -110,6 +135,28 @@ func LoadChainState(logger logger.Logger, chain cldf_evm.Chain, addresses map[st
 			state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 		default:
 			logger.Warnw("unknown contract type", "type", tv.Type)
+		}
+	}
+	return &state, nil
+}
+
+// LoadAptosChainState Loads all state for aptos chain into state
+func LoadAptosChainState(logger logger.Logger, chain deployment.AptosChain, addresses []datastore.AddressRef) (*DataFeedsAptosChainState, error) {
+	var state DataFeedsAptosChainState
+
+	state.DataFeeds = make(map[aptos.AccountAddress]*modulefeeds.DataFeeds)
+
+	for _, address := range addresses {
+		if address.Type == ChainlinkDataFeedsPackage {
+
+			feedsAddress := aptos.AccountAddress{}
+			err := feedsAddress.ParseStringRelaxed(address.Address)
+			if err != nil {
+				return &state, fmt.Errorf("failed to parse address %s: %w", address.Address, err)
+			}
+
+			bindContract := modulefeeds.Bind(feedsAddress, chain.Client)
+			state.DataFeeds[feedsAddress] = &bindContract
 		}
 	}
 	return &state, nil
