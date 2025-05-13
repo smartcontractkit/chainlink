@@ -9,12 +9,11 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-// Deprecated: use capabilities.webapi.WebAPITriggerJobSpecFactoryFn and capabilities.webapi.WebAPITargetJobSpecFactoryFn instead
-var WebAPIJobSpecFactoryFn = func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
-	return GenerateJobSpecs(input.DonTopology)
+var WebAPITargetJobSpecFactoryFn = func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
+	return GenerateWebAPITargetJobSpecs(input.DonTopology)
 }
 
-func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, error) {
+func GenerateWebAPITargetJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
@@ -30,13 +29,6 @@ func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, err
 			nodeID, nodeIDErr := libnode.FindLabelValue(workerNode, libnode.NodeIDKey)
 			if nodeIDErr != nil {
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
-			}
-
-			if flags.HasFlag(donWithMetadata.Flags, types.WebAPITriggerCapability) {
-				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
-				}
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, types.WebAPITriggerCapability, "__builtin_web-api-trigger", libjobs.EmptyStdCapConfig))
 			}
 
 			if flags.HasFlag(donWithMetadata.Flags, types.WebAPITargetCapability) {
