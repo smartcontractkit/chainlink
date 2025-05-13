@@ -579,8 +579,8 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	minConfirmations := int64(2)
 
 	// Suspended run waiting for callback
-	runID1 := cltest.MustInsertPipelineRun(t, db)
-	trID1 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID1)
+	runID1 := testutils.MustInsertPipelineRun(t, db)
+	trID1 := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID1)
 	testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, runID1)
 	etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 	testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
@@ -589,8 +589,8 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID1, minConfirmations, etx1.ID)
 
 	// Callback to pipeline service completed. Should be ignored
-	runID2 := cltest.MustInsertPipelineRun(t, db)
-	trID2 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID2)
+	runID2 := testutils.MustInsertPipelineRun(t, db)
+	trID2 := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID2)
 	testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'completed', outputs = '""'::jsonb, finished_at = NOW() WHERE id = $1`, runID2)
 	etx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
 	testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
@@ -599,8 +599,8 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &trID2, minConfirmations, etx2.ID)
 
 	// Suspended run younger than minConfirmations. Should be ignored
-	runID3 := cltest.MustInsertPipelineRun(t, db)
-	trID3 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, runID3)
+	runID3 := testutils.MustInsertPipelineRun(t, db)
+	trID3 := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID3)
 	testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, runID3)
 	etx3 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 5, 1, fromAddress)
 	testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)

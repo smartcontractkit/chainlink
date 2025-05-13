@@ -967,7 +967,11 @@ func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
 	}
-	if _, ok := chainState.TokenPoolLookupTable[tokenPubKey]; !ok {
+	metadata := ccipChangeset.CLLMetadata
+	if cfg.Metadata != "" {
+		metadata = cfg.Metadata
+	}
+	if lut, ok := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][metadata]; !ok || lut.IsZero() {
 		return fmt.Errorf("token pool lookup table not found for (mint: %s)", tokenPubKey.String())
 	}
 	return nil
@@ -987,8 +991,11 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput,
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
-	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][cfg.Metadata]
-
+	metadata := ccipChangeset.CLLMetadata
+	if cfg.Metadata != "" {
+		metadata = cfg.Metadata
+	}
+	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][metadata]
 	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
@@ -1004,7 +1011,7 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput,
 		cfg.MCMS,
 		ccipChangeset.Router,
 		tokenPubKey,
-		cfg.Metadata,
+		metadata,
 	)
 	base := solRouter.NewSetPoolInstruction(
 		cfg.WritableIndexes,
