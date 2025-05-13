@@ -26,10 +26,6 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 	t.Parallel()
 	t.Skip("Skipping testing in CI environment") // flaking on CI
 
-	const donID = 1
-	const donName = "don"
-	const envName = "env"
-
 	env := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
 		ShouldDeployLinkToken: false,
@@ -42,10 +38,10 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 			},
 			{
 				Key:   devenv.LabelEnvironmentKey,
-				Value: pointer.To(envName),
+				Value: pointer.To(testutil.TestDON.Env),
 			},
 			{
-				Key: utils.DonIdentifier(donID, donName),
+				Key: utils.DonIdentifier(testutil.TestDON.ID, testutil.TestDON.Name),
 			},
 		},
 	}).Environment
@@ -101,9 +97,9 @@ chainID = '90000001'
 	config := CsDistributeLLOJobSpecsConfig{
 		ChainSelectorEVM: chainSelector,
 		Filter: &jd.ListFilter{
-			DONID:             donID,
-			DONName:           donName,
-			EnvLabel:          envName,
+			DONID:             testutil.TestDON.ID,
+			DONName:           testutil.TestDON.Name,
+			EnvLabel:          testutil.TestDON.Env,
 			NumOracleNodes:    2,
 			NumBootstrapNodes: 1,
 		},
@@ -153,9 +149,9 @@ chainID = '90000001'
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
 				c.NodeNames = append(bootstrapNodeNames, oracleNodeNames[:1]...) //nolint: gocritic // I want a combined list. GoCritic doesn't like it.
 				c.Filter = &jd.ListFilter{
-					DONID:             donID,
-					DONName:           donName,
-					EnvLabel:          envName,
+					DONID:             testutil.TestDON.ID,
+					DONName:           testutil.TestDON.Name,
+					EnvLabel:          testutil.TestDON.Env,
 					NumOracleNodes:    1,
 					NumBootstrapNodes: 1,
 				}
@@ -171,9 +167,9 @@ chainID = '90000001'
 			prepConfFn: func(c CsDistributeLLOJobSpecsConfig) CsDistributeLLOJobSpecsConfig {
 				c.NodeNames = []string{oracleNodeNames[0]}
 				c.Filter = &jd.ListFilter{
-					DONID:             donID,
-					DONName:           donName,
-					EnvLabel:          envName,
+					DONID:             testutil.TestDON.ID,
+					DONName:           testutil.TestDON.Name,
+					EnvLabel:          testutil.TestDON.Env,
 					NumOracleNodes:    1,
 					NumBootstrapNodes: 0,
 				}
