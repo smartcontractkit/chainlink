@@ -74,6 +74,10 @@ var (
 		WethSymbol: MockWETHAggregatorDescription,
 	}
 	TestDeviationPPB = ccipocr3.NewBigIntFromInt64(1e9)
+
+	TokenSymbolSubstitute = map[string]string{
+		"wS": WSSymbol.String(),
+	}
 )
 
 // TokenConfig mapping between token Symbol (e.g. LinkSymbol, WethSymbol)

@@ -61,10 +61,9 @@ func findTokenInfo(tokens []shared.TokenDetails, address common.Address) (string
 				return "", 0, fmt.Errorf("fetch token symbol for token %s: %w", address, err)
 			}
 			// TODO think of better solution
-			// WS token is a special case, where the symbol is stored as wS in mainnet and WS in testnet
-			// here we are converting it to WS for consistency
-			if tokenSymbol == "wS" {
-				tokenSymbol = "WS"
+			// there are tokens which have diff symbols in testnet and mainnet
+			if symbol, ok := shared.TokenSymbolSubstitute[tokenSymbol]; ok {
+				tokenSymbol = symbol
 			}
 			tokenDecimals, err := token.Decimals(nil)
 			if err != nil {
