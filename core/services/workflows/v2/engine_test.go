@@ -368,6 +368,8 @@ func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 		require.NoError(t, <-initDoneCh)
 		require.Equal(t, []string{wrappedTriggerMock.ID()}, <-subscribedToTriggersCh)
 
+		// Read the result from the hook and assert that the wanted response was
+		// received.
 		res := <-resultReceivedCh
 		switch output := res.Result.(type) {
 		case *wasmpb.ExecutionResult_Value:

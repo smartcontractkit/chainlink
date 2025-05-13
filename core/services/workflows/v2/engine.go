@@ -287,6 +287,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		// TODO(CAPPL-736): observability
 		return
 	}
+
 	// TODO(CAPPL-736): handle execution result
 	e.cfg.Lggr.Debugw("Workflow execution finished", "executionID", executionID, "result", result)
 	e.cfg.Hooks.OnResultReceived(result)

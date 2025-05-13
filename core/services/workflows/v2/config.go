@@ -72,8 +72,12 @@ type LifecycleHooks struct {
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnExecutionFinished    func(executionID string)
-	OnResultReceived       func(*wasmpb.ExecutionResult)
-	OnRateLimited          func(executionID string)
+
+	// TODO(CAPPL-736): handle execution result.
+	// OnResultReceived exposes the execution result for now.  By default, if
+	// unspecified, it is a no-op and the result is logged.
+	OnResultReceived func(*wasmpb.ExecutionResult)
+	OnRateLimited    func(executionID string)
 }
 
 func (c *EngineConfig) Validate() error {
