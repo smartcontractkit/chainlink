@@ -447,10 +447,10 @@ answer1      [type=median index=0];
 func TestOnChainContractAvailability(t *testing.T) {
 	// Because some RPCs prune logs we have scenarios in which a job spec update will lead to outages because of the inability to get the logs. We need to safeguard against these outages by checking if the node can access the OCR configuration
 	// There are 4 possible scenarios:
-	// 1. Contract is deployed and config log event is accessible
-	// 2. Contract is deployed but config log event is NOT accessible
-	// 3. Contract is deployed but NOT configured
-	// 3. Contract is not deployed
+	// 1. Contract is not deployed
+	// 2. Contract is deployed but NOT configured
+	// 3. Contract is deployed but config log event is NOT accessible
+	// 4. Contract is deployed and config log event is accessible
 
 	// Mock chain
 	client := clienttest.NewClient(t)
@@ -505,12 +505,9 @@ answer1      [type=median index=0];
 	// Contract is configured
 	client.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(contractBytes, nil).Once()
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(goodConfigDetails, nil).Once()
-	client.On("FilterLogs", mock.Anything, mock.Anything, mock.Anything).Return([]types2.Log{configLog}, nil).Once()
+	client.On("FilterLogs", mock.Anything, mock.Anything, mock.Anything).Return([]types2.Log{{
+		Address: common.HexToAddress("0x613a38ac1659769640aae063c651f48e0250454c"),
+		Topics:  []common.Hash{common.HexToHash("0x25d719d88a4512dd76c7442b910a83360845505894eb444ef299409e180f8fb9")}}}, nil).Once()
 	_, err = ocr.ValidatedOracleSpecToml(cfg, legacyChain, jobSpec)
 	require.NoError(t, err)
-}
-
-var configLog = types2.Log{
-	Address: common.HexToAddress("0x613a38ac1659769640aae063c651f48e0250454c"),
-	Topics:  []common.Hash{common.HexToHash("0x25d719d88a4512dd76c7442b910a83360845505894eb444ef299409e180f8fb9")},
 }
