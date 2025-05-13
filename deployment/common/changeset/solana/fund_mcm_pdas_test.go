@@ -215,7 +215,7 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 					Timelock:     100,
 				}},
 			},
-			expectedError: "failed to get existing addresses: chain not found: chain selector 12463857294658392847",
+			expectedError: "failed to get existing addresses: chain selector 12463857294658392847: chain not found",
 		},
 	}
 
