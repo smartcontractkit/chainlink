@@ -393,7 +393,10 @@ func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 
 // setupExpectedCalls mocks single call to trigger and two calls to the basic action
 // mock capability
-func setupExpectedCalls(t *testing.T) (*basictriggermock.BasicCapability, *basicactionmock.BasicActionCapability) {
+func setupExpectedCalls(t *testing.T) (
+	*basictriggermock.BasicCapability,
+	*basicactionmock.BasicActionCapability,
+) {
 	triggerMock := &basictriggermock.BasicCapability{}
 	triggerMock.Trigger = func(ctx context.Context, input *basictrigger.Config) (*basictrigger.Outputs, error) {
 		return &basictrigger.Outputs{CoolOutput: "Hello, "}, nil
