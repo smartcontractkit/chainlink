@@ -2,15 +2,13 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jonboulle/clockwork"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -21,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 const (
@@ -32,7 +31,7 @@ const (
 	defaultName                      = "myworkflow"
 )
 
-func NewStandaloneEngine(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry, binary []byte, config []byte) (*workflows.Engine, error) {
+func NewStandaloneEngine(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry, binary []byte, config []byte) (services.Service, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                  lggr,
@@ -46,11 +45,7 @@ func NewStandaloneEngine(ctx context.Context, lggr logger.Logger, registry *capa
 		return nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
 
-	if !module.IsLegacyDAG() {
-		return nil, errors.New("no DAG not yet supported")
-	}
-
-	sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
+	name, err := types.NewWorkflowName(defaultName)
 	if err != nil {
 		return nil, err
 	}
@@ -73,28 +68,48 @@ func NewStandaloneEngine(ctx context.Context, lggr logger.Logger, registry *capa
 		return nil, err
 	}
 
-	name, err := types.NewWorkflowName(defaultName)
-	if err != nil {
-		return nil, err
+	if module.IsLegacyDAG() {
+		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg := workflows.Config{
+			Lggr:                 lggr,
+			Workflow:             *sdkSpec,
+			WorkflowID:           defaultWorkflowID,
+			WorkflowOwner:        defaultOwner,
+			WorkflowName:         name,
+			Registry:             registry,
+			Store:                store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+			Config:               config,
+			Binary:               binary,
+			SecretsFetcher:       SecretsFor,
+			RateLimiter:          rl,
+			WorkflowLimits:       workflowLimits,
+			NewWorkerTimeout:     time.Minute,
+			StepTimeout:          time.Minute,
+			MaxExecutionDuration: time.Minute,
+		}
+		return workflows.NewEngine(ctx, cfg)
 	}
-	cfg := workflows.Config{
-		Lggr:                 lggr,
-		Workflow:             *sdkSpec,
-		WorkflowID:           defaultWorkflowID,
-		WorkflowOwner:        defaultOwner,
-		WorkflowName:         name,
-		Registry:             registry,
-		Store:                store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
-		Config:               config,
-		Binary:               binary,
-		SecretsFetcher:       SecretsFor,
-		RateLimiter:          rl,
-		WorkflowLimits:       workflowLimits,
-		NewWorkerTimeout:     time.Minute,
-		StepTimeout:          time.Minute,
-		MaxExecutionDuration: time.Minute,
+
+	cfg := &v2.EngineConfig{
+		Lggr:            lggr,
+		Module:          module,
+		CapRegistry:     registry,
+		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+
+		WorkflowID:    defaultWorkflowID,
+		WorkflowOwner: defaultOwner,
+		WorkflowName:  name,
+
+		LocalLimits:          v2.EngineLimits{},
+		GlobalLimits:         workflowLimits,
+		ExecutionRateLimiter: rl,
 	}
-	return workflows.NewEngine(ctx, cfg)
+
+	return v2.NewEngine(ctx, cfg)
 }
 
 // TODO support fetching secrets (from a local file)
@@ -103,11 +118,21 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 }
 
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
-	caps := make([]services.Service, 0, 5)
+	caps := make([]services.Service, 0, 6)
+
+	// CRON trigger
+	cronTrigger := fakes.NewFakeCronTrigger(lggr)
+
+	err := registry.Add(ctx, cronTrigger.Capability())
+	if err != nil {
+		return nil, fmt.Errorf("failed to add cron trigger to registry : %w", err)
+	}
+
+	caps = append(caps, cronTrigger)
 
 	// Streams Trigger
 	streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
-	err := registry.Add(ctx, streamsTrigger)
+	err = registry.Add(ctx, streamsTrigger)
 	if err != nil {
 		return nil, err
 	}
