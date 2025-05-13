@@ -345,7 +345,7 @@ func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMet
 			if mcms && tokenMetadata != "" && tokenMetadata != ccipChangeset.CLLMetadata {
 				timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 				require.NoError(t, err)
-				e.Logger.Debugf("Transfering away from MCMS for token pool %v", testCase.poolType)
+				e.Logger.Debugf("Transferring away from MCMS for token pool %v", testCase.poolType)
 				if testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
 					e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 						commonchangeset.Configure(
