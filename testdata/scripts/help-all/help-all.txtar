@@ -34,8 +34,6 @@ chains solana # Commands for handling solana chains
 chains solana list # List all existing solana chains
 chains starknet # Commands for handling starknet chains
 chains starknet list # List all existing starknet chains
-chains ton # Commands for handling ton chains
-chains ton list # List all existing ton chains
 chains tron # Commands for handling tron chains
 chains tron list # List all existing tron chains
 config # Commands for the node's configuration
@@ -160,8 +158,6 @@ nodes solana # Commands for handling solana node configuration
 nodes solana list # List all existing solana nodes
 nodes starknet # Commands for handling starknet node configuration
 nodes starknet list # List all existing starknet nodes
-nodes ton # Commands for handling ton node configuration
-nodes ton list # List all existing ton nodes
 nodes tron # Commands for handling tron node configuration
 nodes tron list # List all existing tron nodes
 txs # Commands for handling transactions
