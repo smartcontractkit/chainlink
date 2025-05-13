@@ -187,7 +187,8 @@ func Test_EthResender_Start(t *testing.T) {
 			er.Start(ctx)
 			defer er.Stop()
 
-			cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, time.Second)
+			assert.Eventually(t, func() bool { return ethClient.AssertExpectations(t) },
+				testutils.WaitTimeout(t), time.Second)
 		}()
 
 		var dbEtx txmgr.DbEthTx

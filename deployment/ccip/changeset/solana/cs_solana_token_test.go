@@ -14,8 +14,9 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -36,7 +37,7 @@ func TestSolanaTokenOps(t *testing.T) {
 			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: ccipChangeset.SPL2022Tokens,
+				TokenProgramName: shared.SPL2022Tokens,
 				TokenDecimals:    9,
 				TokenSymbol:      "TEST_TOKEN",
 			},
@@ -52,7 +53,7 @@ func TestSolanaTokenOps(t *testing.T) {
 			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: ccipChangeset.SPLTokens,
+				TokenProgramName: shared.SPLTokens,
 				MintPrivateKey:   privKey,
 				TokenDecimals:    9,
 				TokenSymbol:      "SPL_TEST_TOKEN",
@@ -63,9 +64,9 @@ func TestSolanaTokenOps(t *testing.T) {
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
-	tokenAddress := ccipChangeset.FindSolanaAddress(
+	tokenAddress := solanastateview.FindSolanaAddress(
 		cldf.TypeAndVersion{
-			Type:    ccipChangeset.SPL2022Tokens,
+			Type:    shared.SPL2022Tokens,
 			Version: deployment.Version1_0_0,
 			Labels:  cldf.NewLabelSet("TEST_TOKEN"),
 		},
@@ -129,7 +130,7 @@ func TestSolanaTokenOps(t *testing.T) {
 			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: ccipChangeset.SPLTokens,
+				TokenProgramName: shared.SPLTokens,
 				TokenDecimals:    9,
 				TokenSymbol:      "TEST_TOKEN_2",
 				ATAList:          []string{deployerKey.String(), testUserPubKey.String()},
@@ -143,9 +144,9 @@ func TestSolanaTokenOps(t *testing.T) {
 	require.NoError(t, err)
 	addresses, err = e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
-	tokenAddress2 := ccipChangeset.FindSolanaAddress(
+	tokenAddress2 := solanastateview.FindSolanaAddress(
 		cldf.TypeAndVersion{
-			Type:    ccipChangeset.SPLTokens,
+			Type:    shared.SPLTokens,
 			Version: deployment.Version1_0_0,
 			Labels:  cldf.NewLabelSet("TEST_TOKEN_2"),
 		},

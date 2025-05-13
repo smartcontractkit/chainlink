@@ -33,8 +33,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/pgtest"
 
@@ -52,6 +53,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -822,7 +824,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	env, _ := testhelpers.NewMemoryEnvironment(t)
-	state, err := changeset.LoadOnchainState(env.Env)
+	state, err := stateview.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
 	selectors := env.Env.AllChainSelectors()
@@ -1186,7 +1188,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 func Test_GetChainFeePriceUpdates(t *testing.T) {
 	t.Parallel()
 	env, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
-	state, err := changeset.LoadOnchainState(env.Env)
+	state, err := stateview.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
 	selectors := env.Env.AllChainSelectors()
@@ -1291,7 +1293,7 @@ func Test_LinkPriceUSD(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	env, _ := testhelpers.NewMemoryEnvironment(t)
-	state, err := changeset.LoadOnchainState(env.Env)
+	state, err := stateview.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
 	selectors := env.Env.AllChainSelectors()
@@ -1326,7 +1328,7 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	env, _ := testhelpers.NewMemoryEnvironment(t)
-	state, err := changeset.LoadOnchainState(env.Env)
+	state, err := stateview.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
 	selectors := env.Env.AllChainSelectors()

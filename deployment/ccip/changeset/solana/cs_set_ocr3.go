@@ -17,10 +17,11 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -48,7 +49,7 @@ func btoi(b bool) uint8 {
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
 func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -63,7 +64,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 			return cldf.ChangesetOutput{}, fmt.Errorf("chain %d is not a solana chain", remote)
 		}
 		chain := e.SolChains[remote]
-		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, cfg.MCMS != nil, state.SolChains[remote].OffRamp, ccipChangeset.OffRamp, solana.PublicKey{}); err != nil {
+		if err := solanastateview.ValidateOwnershipSolana(&e, chain, cfg.MCMS != nil, state.SolChains[remote].OffRamp, shared.OffRamp, solana.PublicKey{}); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate ownership: %w", err)
 		}
 	}
@@ -146,7 +147,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 				}
 			} else {
-				tx, err := BuildMCMSTxn(instruction, state.SolChains[remote].OffRamp.String(), ccipChangeset.OffRamp)
+				tx, err := BuildMCMSTxn(instruction, state.SolChains[remote].OffRamp.String(), shared.OffRamp)
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 				}
@@ -180,7 +181,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 func isOCR3ConfigSetOnOffRampSolana(
 	e deployment.Environment,
 	chain deployment.SolChain,
-	chainState ccipChangeset.SolCCIPChainState,
+	chainState solanastateview.CCIPChainState,
 	args []internal.MultiOCR3BaseOCRConfigArgsSolana,
 ) (bool, error) {
 	var configAccount solOffRamp.Config

@@ -1,27 +1,22 @@
-package changeset
+package aptos
 
 import (
 	"errors"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
-	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
 
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-const (
-	AptosMCMSType     cldf.ContractType = "AptosManyChainMultisig"
-	AptosCCIPType     cldf.ContractType = "AptosCCIP"
-	AptosReceiverType cldf.ContractType = "AptosReceiver"
-)
-
-type AptosCCIPChainState struct {
+type CCIPChainState struct {
 	MCMSAddress      aptos.AccountAddress
 	CCIPAddress      aptos.AccountAddress
 	LinkTokenAddress aptos.AccountAddress
@@ -32,8 +27,8 @@ type AptosCCIPChainState struct {
 }
 
 // LoadOnchainStateAptos loads chain state for Aptos chains from env
-func LoadOnchainStateAptos(env deployment.Environment) (map[uint64]AptosCCIPChainState, error) {
-	aptosChains := make(map[uint64]AptosCCIPChainState)
+func LoadOnchainStateAptos(env deployment.Environment) (map[uint64]CCIPChainState, error) {
+	aptosChains := make(map[uint64]CCIPChainState)
 	for chainSelector := range env.AptosChains {
 		addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
@@ -52,8 +47,8 @@ func LoadOnchainStateAptos(env deployment.Environment) (map[uint64]AptosCCIPChai
 	return aptosChains, nil
 }
 
-func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion) (AptosCCIPChainState, error) {
-	chainState := AptosCCIPChainState{}
+func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
+	chainState := CCIPChainState{}
 	for addrStr, typeAndVersion := range addresses {
 		// Parse address
 		address := &aptos.AccountAddress{}
@@ -63,20 +58,20 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion) 
 		}
 		// Set address based on type
 		switch typeAndVersion.Type {
-		case AptosMCMSType:
+		case shared.AptosMCMSType:
 			chainState.MCMSAddress = *address
-		case AptosCCIPType:
+		case shared.AptosCCIPType:
 			chainState.CCIPAddress = *address
-		case commontypes.LinkToken:
+		case types.LinkToken:
 			chainState.LinkTokenAddress = *address
-		case AptosReceiverType:
+		case shared.AptosReceiverType:
 			chainState.ReceiverAddress = *address
 		}
 	}
 	return chainState, nil
 }
 
-func getOfframpDynamicConfig(c deployment.AptosChain, ccipAddress aptos.AccountAddress) (module_offramp.DynamicConfig, error) {
+func GetOfframpDynamicConfig(c deployment.AptosChain, ccipAddress aptos.AccountAddress) (module_offramp.DynamicConfig, error) {
 	offrampBind := ccip_offramp.Bind(ccipAddress, c.Client)
-	return offrampBind.Offramp().GetDynamicConfig(&aptosBind.CallOpts{})
+	return offrampBind.Offramp().GetDynamicConfig(&bind.CallOpts{})
 }
