@@ -33,24 +33,26 @@ func (c *cronCapability) RegisterTrigger(ctx context.Context, request capabiliti
 		for {
 			select {
 			case <-time.After(3 * time.Second):
+				response := capabilities.TriggerResponse{}
+
 				trigger, err := c.InvokeTrigger(ctx, &sdkpb.TriggerSubscription{
 					ExecId:  request.Metadata.WorkflowExecutionID,
 					Id:      request.TriggerID,
 					Payload: request.Payload,
 					Method:  request.Method,
 				})
-
-				response := capabilities.TriggerResponse{}
 				if err != nil {
 					response.Err = err
-				} else if trigger == nil {
+				}
+
+				if trigger == nil {
 					return
-				} else {
-					response.Event = capabilities.TriggerEvent{
-						TriggerType: request.TriggerID,
-						ID:          uuid.NewString(),
-						Payload:     trigger.Payload,
-					}
+				}
+
+				response.Event = capabilities.TriggerEvent{
+					TriggerType: request.TriggerID,
+					ID:          uuid.NewString(),
+					Payload:     trigger.Payload,
 				}
 
 				select {
@@ -68,7 +70,6 @@ func (c *cronCapability) RegisterTrigger(ctx context.Context, request capabiliti
 }
 
 type fakeCronTrigger struct {
-	logger  logger.Logger
 	wrapped *cronCapability
 }
 
@@ -95,8 +96,8 @@ func (f *fakeCronTrigger) Ready() error { return nil }
 func (f *fakeCronTrigger) Name() string { return "fake-cron-trigger-server" }
 
 func NewFakeCronTrigger(lggr logger.Logger) *fakeCronTrigger {
-	cap := &crontriggermock.CronCapability{}
-	cap.Trigger = func(ctx context.Context, input *cron.Config) (*cron.Payload, error) {
+	capMock := &crontriggermock.CronCapability{}
+	capMock.Trigger = func(ctx context.Context, input *cron.Config) (*cron.Payload, error) {
 		return &cron.Payload{
 			ScheduledExecutionTime: time.Now().String(),
 		}, nil
@@ -109,7 +110,7 @@ func NewFakeCronTrigger(lggr logger.Logger) *fakeCronTrigger {
 			doneCh: doneCh,
 			lggr:   lggr,
 			CapabilityWrapper: &testutils.CapabilityWrapper{
-				Capability: cap,
+				Capability: capMock,
 			},
 		},
 	}
