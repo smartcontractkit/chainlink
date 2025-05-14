@@ -147,7 +147,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 				},
 				// MCMSDeployConfigPerChain is missing needed configs
 			},
-			wantErrRe: `invalid mcms configs for chain 4457093679053095497`,
+			wantErrRe: `invalid mcms configs for Aptos chain 4457093679053095497`,
 			wantErr:   true,
 		},
 		{
@@ -176,7 +176,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 					},
 				},
 			},
-			wantErrRe: `invalid config for chain 4457093679053095497`,
+			wantErrRe: `invalid config for Aptos chain 4457093679053095497`,
 			wantErr:   true,
 		},
 	}
