@@ -75,7 +75,7 @@ func TestAddTokenE2E(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := testutils.Context(t)
 			var (
-				e                    deployment.Environment
+				e                    cldf.Environment
 				selectorA, selectorB uint64
 				mcmsConfig           *proposalutils.TimelockConfig
 				err                  error

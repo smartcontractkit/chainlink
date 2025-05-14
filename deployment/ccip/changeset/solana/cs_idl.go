@@ -57,7 +57,7 @@ func parseAnchorVersion(output string) (string, error) {
 }
 
 // create Anchor.toml file to simulate anchor workspace
-func writeAnchorToml(e deployment.Environment, filename, anchorVersion, cluster, wallet string) error {
+func writeAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, wallet string) error {
 	e.Logger.Debugw("Writing Anchor.toml", "filename", filename, "anchorVersion", anchorVersion, "cluster", cluster, "wallet", wallet)
 	config := map[string]interface{}{
 		"toolchain": map[string]string{
@@ -89,7 +89,7 @@ func writeAnchorToml(e deployment.Environment, filename, anchorVersion, cluster,
 }
 
 // resolve artifacts based on sha and write anchor.toml file to simulate anchor workspace
-func repoSetup(e deployment.Environment, chain deployment.SolChain, gitCommitSha string) error {
+func repoSetup(e cldf.Environment, chain cldf.SolChain, gitCommitSha string) error {
 	e.Logger.Debug("Downloading Solana CCIP program artifacts...")
 	err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, e.Logger, gitCommitSha)
 	if err != nil {
@@ -116,7 +116,7 @@ func repoSetup(e deployment.Environment, chain deployment.SolChain, gitCommitSha
 }
 
 // update IDL with program ID
-func updateIDL(e deployment.Environment, idlFile string, programID string) error {
+func updateIDL(e cldf.Environment, idlFile string, programID string) error {
 	e.Logger.Debug("Reading IDL")
 	idlBytes, err := os.ReadFile(idlFile)
 	if err != nil {
@@ -146,7 +146,7 @@ func updateIDL(e deployment.Environment, idlFile string, programID string) error
 }
 
 // get IDL file and update with program ID
-func getIDL(e deployment.Environment, programsPath, programID string, programName string) (string, error) {
+func getIDL(e cldf.Environment, programsPath, programID string, programName string) (string, error) {
 	idlFile := filepath.Join(programsPath, programName+".json")
 	if _, err := os.Stat(idlFile); err != nil {
 		return "", fmt.Errorf("idl file not found: %w", err)
@@ -160,7 +160,7 @@ func getIDL(e deployment.Environment, programsPath, programID string, programNam
 }
 
 // initialize IDL for a program
-func idlInit(e deployment.Environment, programsPath, programID, programName string) error {
+func idlInit(e cldf.Environment, programsPath, programID, programName string) error {
 	idlFile, err := getIDL(e, programsPath, programID, programName)
 	if err != nil {
 		return fmt.Errorf("error getting IDL: %w", err)
@@ -179,7 +179,7 @@ func idlInit(e deployment.Environment, programsPath, programID, programName stri
 }
 
 // set IDL authority for a program
-func setIdlAuthority(e deployment.Environment, newAuthority, programsPath, programID, programName, bufferAccount string) error {
+func setIdlAuthority(e cldf.Environment, newAuthority, programsPath, programID, programName, bufferAccount string) error {
 	e.Logger.Infow("Setting IDL authority", "programName", programName, "newAuthority", newAuthority)
 	args := []string{"idl", "set-authority", "-n", newAuthority, "-p", programID}
 	if bufferAccount != "" {
@@ -195,7 +195,7 @@ func setIdlAuthority(e deployment.Environment, newAuthority, programsPath, progr
 }
 
 // get IDL address for a program
-func getIDLAddress(e deployment.Environment, programID solana.PublicKey) (solana.PublicKey, error) {
+func getIDLAddress(e cldf.Environment, programID solana.PublicKey) (solana.PublicKey, error) {
 	base, _, _ := solana.FindProgramAddress([][]byte{}, programID)
 	idlAddress, _ := solana.CreateWithSeed(base, "anchor:idl", programID)
 	e.Logger.Infof("IDL Address:  %s", idlAddress.String())
@@ -214,7 +214,7 @@ func parseIdlBuffer(output string) (string, error) {
 }
 
 // write IDL buffer for a program
-func writeBuffer(e deployment.Environment, programsPath, programID, programName string) (solana.PublicKey, error) {
+func writeBuffer(e cldf.Environment, programsPath, programID, programName string) (solana.PublicKey, error) {
 	idlFile, err := getIDL(e, programsPath, programID, programName)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("error getting IDL: %w", err)
@@ -239,7 +239,7 @@ func writeBuffer(e deployment.Environment, programsPath, programID, programName 
 }
 
 // generate set buffer ix using solana-go sdk
-func setBufferIx(e deployment.Environment, programID, buffer, authority solana.PublicKey) (solana.GenericInstruction, error) {
+func setBufferIx(e cldf.Environment, programID, buffer, authority solana.PublicKey) (solana.GenericInstruction, error) {
 	idlAddress, err := getIDLAddress(e, programID)
 	if err != nil {
 		return solana.GenericInstruction{}, fmt.Errorf("error getting idl address for %s: %w", programID.String(), err)
@@ -260,7 +260,7 @@ func setBufferIx(e deployment.Environment, programID, buffer, authority solana.P
 }
 
 // generate upgrade IDL ix for a program via timelock
-func upgradeIDLIx(e deployment.Environment, programsPath, programID, programName string, c IDLConfig) (*mcmsTypes.Transaction, error) {
+func upgradeIDLIx(e cldf.Environment, programsPath, programID, programName string, c IDLConfig) (*mcmsTypes.Transaction, error) {
 	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("error loading timelockSignerPDA: %w", err)
@@ -294,8 +294,8 @@ func upgradeIDLIx(e deployment.Environment, programsPath, programID, programName
 	return nil, nil
 }
 
-func (c IDLConfig) Validate(e deployment.Environment) error {
-	if err := deployment.IsValidChainSelector(c.ChainSelector); err != nil {
+func (c IDLConfig) Validate(e cldf.Environment) error {
+	if err := cldf.IsValidChainSelector(c.ChainSelector); err != nil {
 		return fmt.Errorf("invalid chain selector: %d - %w", c.ChainSelector, err)
 	}
 	family, _ := chainsel.GetSelectorFamily(c.ChainSelector)
@@ -351,7 +351,7 @@ func (c IDLConfig) Validate(e deployment.Environment) error {
 }
 
 // changeset to upload idl for a program
-func UploadIDL(e deployment.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
+func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
@@ -432,7 +432,7 @@ func UploadIDL(e deployment.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 }
 
 // changeset to set idl authority for a program to timelock
-func SetAuthorityIDL(e deployment.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
+func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
@@ -521,7 +521,7 @@ func SetAuthorityIDL(e deployment.Environment, c IDLConfig) (cldf.ChangesetOutpu
 // set buffer authority to timelock using anchor cli
 // generate set buffer ix using solana-go sdk
 // build mcms txn to upgrade idl
-func UpgradeIDL(e deployment.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
+func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}

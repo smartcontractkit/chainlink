@@ -293,7 +293,7 @@ type TestEnvironment interface {
 }
 
 type DeployedEnv struct {
-	Env                    deployment.Environment
+	Env                    cldf.Environment
 	HomeChainSel           uint64
 	FeedChainSel           uint64
 	ReplayBlocks           map[uint64]uint64
@@ -325,9 +325,9 @@ type MemoryEnvironment struct {
 	DeployedEnv
 	nodes       map[string]memory.Node
 	TestConfig  *TestConfigs
-	Chains      map[uint64]deployment.Chain
-	SolChains   map[uint64]deployment.SolChain
-	AptosChains map[uint64]deployment.AptosChain
+	Chains      map[uint64]cldf.Chain
+	SolChains   map[uint64]cldf.SolChain
+	AptosChains map[uint64]cldf.AptosChain
 }
 
 func (m *MemoryEnvironment) TestConfigs() *TestConfigs {
@@ -345,7 +345,7 @@ func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
 func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	ctx := testcontext.Get(t)
 	tc := m.TestConfig
-	var chains map[uint64]deployment.Chain
+	var chains map[uint64]cldf.Chain
 	var users map[uint64][]*bind.TransactOpts
 	if len(tc.ChainIDs) > 0 {
 		chains, users = memory.NewMemoryChainsWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain)
@@ -365,7 +365,7 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	m.Chains = chains
 	m.SolChains = memory.NewMemoryChainsSol(t, tc.SolChains)
 	m.AptosChains = memory.NewMemoryChainsAptos(t, tc.AptosChains)
-	env := deployment.Environment{
+	env := cldf.Environment{
 		Chains:      m.Chains,
 		SolChains:   m.SolChains,
 		AptosChains: m.AptosChains,

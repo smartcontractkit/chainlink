@@ -15,7 +15,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
@@ -44,7 +43,7 @@ func transferAndWrapAcceptOwnership(
 	proposedOwner solana.PublicKey, // e.g. usually, the timelock signer PDA
 	configPDA solana.PublicKey, // e.g. for routerConfigPDA or a token-pool config
 	currentOwner solana.PublicKey, // the “from” authority
-	solChain deployment.SolChain, // used for solChain.Confirm
+	solChain cldf.SolChain, // used for solChain.Confirm
 	label cldf.ContractType, // e.g. "Router" or "TokenPool"
 	timelockSigner solana.PublicKey, // the timelock signer PDA
 ) (mcmsTypes.Transaction, error) {
@@ -95,7 +94,7 @@ func transferAndWrapAcceptOwnership(
 func transferOwnershipRouter(
 	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
 	timelockSigner solana.PublicKey,
@@ -165,7 +164,7 @@ func transferOwnershipRouter(
 func transferOwnershipFeeQuoter(
 	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
 	timelockSigner solana.PublicKey,
@@ -235,7 +234,7 @@ func transferOwnershipFeeQuoter(
 func transferOwnershipOffRamp(
 	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
 	timelockSigner solana.PublicKey,
@@ -307,7 +306,7 @@ func transferOwnershipBurnMintTokenPools(
 	tokenPoolConfigPDA solana.PublicKey,
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	tokenPoolMetadata string,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
@@ -376,7 +375,7 @@ func transferOwnershipLockReleaseTokenPools(
 	tokenPoolConfigPDA solana.PublicKey,
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	tokenPoolMetadata string,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
@@ -443,7 +442,7 @@ func transferOwnershipLockReleaseTokenPools(
 func transferOwnershipRMNRemote(
 	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
-	solChain deployment.SolChain,
+	solChain cldf.SolChain,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
 	timelockSigner solana.PublicKey,

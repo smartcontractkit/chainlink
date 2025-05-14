@@ -10,7 +10,8 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -22,7 +23,7 @@ type ProposalData struct {
 // MultiChainProposalConfig is a map of chain selector to a list of proposals to be executed on that chain
 type MultiChainProposalConfig map[uint64][]ProposalData
 
-func BuildMultiChainProposals(env deployment.Environment, description string, proposalConfig MultiChainProposalConfig, minDelay time.Duration) (*mcmslib.TimelockProposal, error) {
+func BuildMultiChainProposals(env cldf.Environment, description string, proposalConfig MultiChainProposalConfig, minDelay time.Duration) (*mcmslib.TimelockProposal, error) {
 	state, _ := LoadOnchainState(env)
 
 	var timelocksPerChain = map[uint64]string{}

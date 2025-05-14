@@ -49,6 +49,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -129,7 +131,7 @@ type CCIPChainState struct {
 // ValidateHomeChain validates the home chain contracts and their configurations after complete set up
 // It cross-references the config across CCIPHome and OffRamps to ensure they are in sync
 // This should be called after the complete deployment is done
-func (c CCIPChainState) ValidateHomeChain(e deployment.Environment, nodes deployment.Nodes, offRampsByChain map[uint64]offramp.OffRampInterface) error {
+func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.Nodes, offRampsByChain map[uint64]offramp.OffRampInterface) error {
 	if c.RMNHome == nil {
 		return errors.New("no RMNHome contract found in the state for home chain")
 	}
@@ -185,7 +187,7 @@ func (c CCIPChainState) ValidateHomeChain(e deployment.Environment, nodes deploy
 
 // validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on corresponding chain selector and its state
 // The validation related to correctness of F and node length is omitted here as it is already validated in the contract
-func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Environment, nodes deployment.Nodes, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
+func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment, nodes deployment.Nodes, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
 	if homeCfg.ConfigDigest == [32]byte{} {
 		return errors.New("active config digest is empty")
 	}
@@ -276,7 +278,7 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 
 // ValidateOnRamp validates whether the contract addresses configured in static and dynamic config are in sync with state
 func (c CCIPChainState) ValidateOnRamp(
-	e deployment.Environment,
+	e cldf.Environment,
 	selector uint64,
 	connectedChains []uint64,
 ) error {
@@ -351,7 +353,7 @@ func (c CCIPChainState) ValidateOnRamp(
 }
 
 // ValidateFeeQuoter validates whether the fee quoter contract address configured in static config is in sync with state
-func (c CCIPChainState) ValidateFeeQuoter(e deployment.Environment) error {
+func (c CCIPChainState) ValidateFeeQuoter(e cldf.Environment) error {
 	if c.FeeQuoter == nil {
 		return errors.New("no FeeQuoter contract found in the state")
 	}
@@ -374,7 +376,7 @@ func (c CCIPChainState) ValidateFeeQuoter(e deployment.Environment) error {
 
 // ValidateRouter validates the router contract to check if all wired contracts are synced with state
 // and returns all connected chains with respect to the router
-func (c CCIPChainState) ValidateRouter(e deployment.Environment, isTestRouter bool) ([]uint64, error) {
+func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool) ([]uint64, error) {
 	if c.Router == nil && c.TestRouter == nil {
 		return nil, errors.New("no Router or TestRouter contract found in the state")
 	}
@@ -443,7 +445,7 @@ func (c CCIPChainState) ValidateRouter(e deployment.Environment, isTestRouter bo
 // and returns whether RMN is enabled for the chain on the RMNRemote
 // It validates whether RMNRemote is in sync with the RMNHome contract
 func (c CCIPChainState) ValidateRMNRemote(
-	e deployment.Environment,
+	e cldf.Environment,
 	selector uint64,
 	rmnHomeActiveDigest [32]byte,
 ) (bool, error) {
@@ -478,7 +480,7 @@ func (c CCIPChainState) ValidateRMNRemote(
 
 // ValidateOffRamp validates the offRamp contract to check if all wired contracts are synced with state
 func (c CCIPChainState) ValidateOffRamp(
-	e deployment.Environment,
+	e cldf.Environment,
 	selector uint64,
 	onRampsBySelector map[uint64]common.Address,
 	isRMNEnabledBySource map[uint64]bool,

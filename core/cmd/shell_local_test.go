@@ -17,6 +17,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -286,8 +287,8 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, sqlxDB)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, sqlxDB)
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 42, fromAddress)
+	txStore := txmgrtest.NewTestTxStore(t, sqlxDB)
+	txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 42, fromAddress)
 
 	lggr := logger.TestLogger(t)
 
@@ -368,8 +369,8 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-			txStore := cltest.NewTestTxStore(t, sqlxDB)
-			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress)
+			txStore := txmgrtest.NewTestTxStore(t, sqlxDB)
+			txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress)
 
 			lggr := logger.TestLogger(t)
 

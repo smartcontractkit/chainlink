@@ -59,11 +59,11 @@ func TestSaveExistingCCIP(t *testing.T) {
 
 func TestSaveExisting(t *testing.T) {
 	t.Parallel()
-	dummyEnv := deployment.Environment{
+	dummyEnv := cldf.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		SolChains: map[uint64]deployment.SolChain{
+		SolChains: map[uint64]cldf.SolChain{
 			chainsel.SOLANA_DEVNET.Selector: {},
 		},
 	}

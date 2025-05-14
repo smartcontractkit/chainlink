@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -19,7 +19,7 @@ import (
 )
 
 // setupFiredrillTestEnv deploys all required contracts for the firedrill proposal execution
-func setupFiredrillTestEnv(t *testing.T) deployment.Environment {
+func setupFiredrillTestEnv(t *testing.T) cldf.Environment {
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
 		Chains:    2,

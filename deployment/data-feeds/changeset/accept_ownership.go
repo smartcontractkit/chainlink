@@ -7,7 +7,7 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -17,7 +17,7 @@ import (
 // Once proposal is executed, new owned contracts can be imported into the addressbook.
 var AcceptOwnershipChangeset = cldf.CreateChangeSet(acceptOwnershipLogic, acceptOwnershipPrecondition)
 
-func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipConfig) (cldf.ChangesetOutput, error) {
+func acceptOwnershipLogic(env cldf.Environment, c types.AcceptOwnershipConfig) (cldf.ChangesetOutput, error) {
 	chain := env.Chains[c.ChainSelector]
 
 	var mcmsProposals []ProposalData
@@ -27,7 +27,7 @@ func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipCon
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load the contract %w", err)
 		}
 
-		tx, err := contract.AcceptOwnership(deployment.SimTransactOpts())
+		tx, err := contract.AcceptOwnership(cldf.SimTransactOpts())
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
 		}
@@ -46,7 +46,7 @@ func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipCon
 	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
-func acceptOwnershipPrecondition(env deployment.Environment, c types.AcceptOwnershipConfig) error {
+func acceptOwnershipPrecondition(env cldf.Environment, c types.AcceptOwnershipConfig) error {
 	_, ok := env.Chains[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)

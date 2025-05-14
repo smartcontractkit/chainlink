@@ -1473,10 +1473,6 @@ func MustWebURL(t *testing.T, s string) *models.WebURL {
 	return (*models.WebURL)(uri)
 }
 
-func NewTestTxStore(t testing.TB, ds sqlutil.DataSource) txmgr.TestEvmTxStore {
-	return txmgr.NewTxStore(ds, logger.TestLogger(t))
-}
-
 // ClearDBTables deletes all rows from the given tables
 func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 	tx, err := db.Beginx()

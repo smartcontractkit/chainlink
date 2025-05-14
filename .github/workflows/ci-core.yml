@@ -316,9 +316,7 @@ jobs:
           USE_FLAKEGUARD: ${{ matrix.type.use-flakeguard == 'true' && 'true' || '' }}
         run: |
           # See: https://github.com/golang/go/issues/69179
-          GODEBUG=goindex=0
-
-          ./tools/bin/${{ matrix.type.cmd }} ./...
+          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
 
       - name: Generate Flakeguard Test Reports
         if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}

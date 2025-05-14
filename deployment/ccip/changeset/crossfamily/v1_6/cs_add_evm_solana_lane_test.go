@@ -16,6 +16,8 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	crossfamily "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/crossfamily/v1_6"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -40,6 +42,12 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			if t.Name() == "TestAddEVMSolanaLaneBidirectional/MCMS_enabled" {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-758")
+			}
+			if t.Name() == "TestAddEVMSolanaLaneBidirectional/MCMS_disabled" {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-759")
+			}
 			t.Parallel()
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))

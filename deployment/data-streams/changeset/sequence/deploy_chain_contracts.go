@@ -9,10 +9,10 @@ import (
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verification"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
@@ -32,7 +32,7 @@ type DeployDataStreams struct {
 	Ownership      types.OwnershipFeature
 }
 
-func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig) (cldf.ChangesetOutput, error) {
+func deployDataStreamsLogic(e cldf.Environment, cc DeployDataStreamsConfig) (cldf.ChangesetOutput, error) {
 	deployedAddresses := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
 
 	// Prevents mutating environment state - injected environment is not expected to be updated during changeset Apply
@@ -82,7 +82,7 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 	}, nil
 }
 
-func deployDataStreamsPrecondition(_ deployment.Environment, cc DeployDataStreamsConfig) error {
+func deployDataStreamsPrecondition(_ cldf.Environment, cc DeployDataStreamsConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployDataStreams config: %w", err)
 	}
@@ -101,7 +101,7 @@ func (cc DeployDataStreamsConfig) Validate() error {
 	}
 
 	for chain, cfg := range cc.ChainsToDeploy {
-		if err := deployment.IsValidChainSelector(chain); err != nil {
+		if err := cldf.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
 

@@ -41,7 +41,7 @@ var _ cldf.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 // In case of migrating from legacy ccip to 1.6, the previous RMN address should be set while deploying RMNRemote.
 // if there is no existing RMN address found, RMNRemote will be deployed with 0x0 address for previous RMN address
 // which will set RMN to 0x0 address immutably in RMNRemote.
-func DeployChainContractsChangeset(env deployment.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
+func DeployChainContractsChangeset(env cldf.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
@@ -49,7 +49,7 @@ func DeployChainContractsChangeset(env deployment.Environment, c DeployChainCont
 	err := deployChainContractsForChains(env, newAddresses, c.HomeChainSelector, c.ContractParamsPerChain)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
-		return cldf.ChangesetOutput{AddressBook: newAddresses}, deployment.MaybeDataErr(err)
+		return cldf.ChangesetOutput{AddressBook: newAddresses}, cldf.MaybeDataErr(err)
 	}
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
@@ -62,11 +62,11 @@ type DeployChainContractsConfig struct {
 }
 
 func (c DeployChainContractsConfig) Validate() error {
-	if err := deployment.IsValidChainSelector(c.HomeChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(c.HomeChainSelector); err != nil {
 		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSelector, err)
 	}
 	for cs, args := range c.ContractParamsPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 		if err := args.Validate(); err != nil {
@@ -158,7 +158,7 @@ func DefaultOffRampParams() OffRampParams {
 	}
 }
 
-func ValidateHomeChainState(e deployment.Environment, homeChainSel uint64, existingState stateview.CCIPOnChainState) error {
+func ValidateHomeChainState(e cldf.Environment, homeChainSel uint64, existingState stateview.CCIPOnChainState) error {
 	existingState, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -202,7 +202,7 @@ func ValidateHomeChainState(e deployment.Environment, homeChainSel uint64, exist
 }
 
 func deployChainContractsForChains(
-	e deployment.Environment,
+	e cldf.Environment,
 	ab cldf.AddressBook,
 	homeChainSel uint64,
 	contractParamsPerChain map[uint64]ChainContractParams) error {
@@ -258,7 +258,7 @@ func deployChainContractsForChains(
 	return nil
 }
 
-func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, ab cldf.AddressBook, rmnHome *rmn_home.RMNHome, contractParams ChainContractParams) error {
+func deployChainContractsEVM(e cldf.Environment, chain cldf.Chain, ab cldf.AddressBook, rmnHome *rmn_home.RMNHome, contractParams ChainContractParams) error {
 	// check for existing contracts
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -310,7 +310,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 	if chainState.RMNRemote == nil {
 		// TODO: Correctly configure RMN remote.
 		rmnRemote, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*rmn_remote.RMNRemote] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*rmn_remote.RMNRemote] {
 				rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
 					chain.DeployerKey,
 					chain.Client,
@@ -365,7 +365,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 			},
 			FSign: 0,
 		})
-		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, rmn_remote.RMNRemoteABI, err); err != nil {
+		if _, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, rmn_remote.RMNRemoteABI, err); err != nil {
 			e.Logger.Errorw("Failed to confirm RMNRemote config", "chain", chain.String(), "err", err)
 			return err
 		}
@@ -374,7 +374,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 
 	if chainState.TestRouter == nil {
 		_, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*router.Router] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*router.Router] {
 				routerAddr, tx2, routerC, err2 := router.DeployRouter(
 					chain.DeployerKey,
 					chain.Client,
@@ -396,7 +396,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 	nmContract := chainState.NonceManager
 	if chainState.NonceManager == nil {
 		nonceManager, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*nonce_manager.NonceManager] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*nonce_manager.NonceManager] {
 				nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
 					chain.DeployerKey,
 					chain.Client,
@@ -417,7 +417,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 	feeQuoterContract := chainState.FeeQuoter
 	if chainState.FeeQuoter == nil {
 		feeQuoter, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
 				prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
 					chain.DeployerKey,
 					chain.Client,
@@ -457,7 +457,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 	onRampContract := chainState.OnRamp
 	if onRampContract == nil {
 		onRamp, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*onramp.OnRamp] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*onramp.OnRamp] {
 				onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
 					chain.DeployerKey,
 					chain.Client,
@@ -488,7 +488,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 	offRampContract := chainState.OffRamp
 	if offRampContract == nil {
 		offRamp, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*offramp.OffRamp] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*offramp.OffRamp] {
 				offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
 					chain.DeployerKey,
 					chain.Client,
@@ -537,7 +537,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 			// Should be removed after.
 			AddedCallers: []common.Address{offRampContract.Address(), chain.DeployerKey.From},
 		})
-		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, fee_quoter.FeeQuoterABI, err); err != nil {
+		if _, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, fee_quoter.FeeQuoterABI, err); err != nil {
 			e.Logger.Errorw("Failed to confirm fee quoter authorized caller update", "chain", chain.String(), "err", err)
 			return err
 		}
@@ -560,7 +560,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 		tx, err := nmContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
 			AddedCallers: []common.Address{offRampContract.Address(), onRampContract.Address()},
 		})
-		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, nonce_manager.NonceManagerABI, err); err != nil {
+		if _, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, nonce_manager.NonceManagerABI, err); err != nil {
 			e.Logger.Errorw("Failed to update nonce manager with ramps", "chain", chain.String(), "err", err)
 			return err
 		}

@@ -10,14 +10,13 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 type SetupTestWorkflowRegistryResponse struct {
 	Registry         *workflow_registry.WorkflowRegistry
-	Chain            deployment.Chain
+	Chain            cldf.Chain
 	RegistrySelector uint64
 	AddressBook      cldf.AddressBook
 }
@@ -46,9 +45,9 @@ func SetupTestWorkflowRegistry(t *testing.T, lggr logger.Logger, chainSel uint64
 	}
 }
 
-func testChain(t *testing.T) deployment.Chain {
+func testChain(t *testing.T) cldf.Chain {
 	chains, _ := memory.NewMemoryChains(t, 1, 5)
-	var chain deployment.Chain
+	var chain cldf.Chain
 	for _, c := range chains {
 		chain = c
 		break

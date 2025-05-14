@@ -18,7 +18,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
@@ -47,7 +46,7 @@ type DeployTokenPoolInput struct {
 	AcceptLiquidity *bool
 }
 
-func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Chain, state evm.CCIPChainState, tokenSymbol shared.TokenSymbol) error {
+func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf.Chain, state evm.CCIPChainState, tokenSymbol shared.TokenSymbol) error {
 	// Ensure that required fields are populated
 	if i.TokenAddress == utils.ZeroAddress {
 		return errors.New("token address must be defined")
@@ -110,7 +109,7 @@ type DeployTokenPoolContractsConfig struct {
 	IsTestRouter bool
 }
 
-func (c DeployTokenPoolContractsConfig) Validate(env deployment.Environment) error {
+func (c DeployTokenPoolContractsConfig) Validate(env cldf.Environment) error {
 	// Ensure that required fields are populated
 	if c.TokenSymbol == shared.TokenSymbol("") {
 		return errors.New("token symbol must be defined")
@@ -121,7 +120,7 @@ func (c DeployTokenPoolContractsConfig) Validate(env deployment.Environment) err
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for chainSelector, poolConfig := range c.NewPools {
-		err := deployment.IsValidChainSelector(chainSelector)
+		err := cldf.IsValidChainSelector(chainSelector)
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
@@ -154,7 +153,7 @@ func (c DeployTokenPoolContractsConfig) Validate(env deployment.Environment) err
 }
 
 // DeployTokenPoolContractsChangeset deploys new pools for a given token across multiple chains.
-func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
+func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployTokenPoolContractsConfig: %w", err)
 	}
@@ -199,7 +198,7 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 // deployTokenPool deploys a token pool contract based on a given type & configuration.
 func deployTokenPool(
 	logger logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	chainState evm.CCIPChainState,
 	addressBook cldf.AddressBook,
 	poolConfig DeployTokenPoolInput,
@@ -212,7 +211,7 @@ func deployTokenPool(
 	rmnProxy := chainState.RMNProxy
 
 	return cldf.DeployContract(logger, chain, addressBook,
-		func(chain deployment.Chain) cldf.ContractDeploy[*token_pool.TokenPool] {
+		func(chain cldf.Chain) cldf.ContractDeploy[*token_pool.TokenPool] {
 			var tpAddr common.Address
 			var tx *types.Transaction
 			var err error

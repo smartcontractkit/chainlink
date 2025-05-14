@@ -31,18 +31,18 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 func ConfirmGasPriceUpdatedForAll(
 	t *testing.T,
-	e deployment.Environment,
+	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	gasPrice *big.Int,
@@ -75,7 +75,7 @@ func ConfirmGasPriceUpdatedForAll(
 
 func ConfirmGasPriceUpdated(
 	t *testing.T,
-	dest deployment.Chain,
+	dest cldf.Chain,
 	srcFeeQuoter *fee_quoter.FeeQuoter,
 	startBlock uint64,
 	gasPrice *big.Int,
@@ -95,7 +95,7 @@ func ConfirmGasPriceUpdated(
 
 func ConfirmTokenPriceUpdatedForAll(
 	t *testing.T,
-	e deployment.Environment,
+	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	linkPrice *big.Int,
@@ -128,7 +128,7 @@ func ConfirmTokenPriceUpdatedForAll(
 
 func ConfirmTokenPriceUpdated(
 	t *testing.T,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	feeQuoter *fee_quoter.FeeQuoter,
 	startBlock uint64,
 	tokenToInitialPrice map[common.Address]*big.Int,
@@ -180,7 +180,7 @@ type SourceDestPair struct {
 // If startBlocks is nil, it will start watching from the latest block.
 func ConfirmCommitForAllWithExpectedSeqNums(
 	t *testing.T,
-	e deployment.Environment,
+	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	expectedSeqNums map[SourceDestPair]uint64,
 	startBlocks map[uint64]*uint64,
@@ -296,7 +296,7 @@ func (c *CommitReportTracker) allCommited(sourceChainSelector uint64) bool {
 // Waiting is done in parallel per every sourceChain/destChain (lane) passed as argument.
 func ConfirmMultipleCommits(
 	t *testing.T,
-	env deployment.Environment,
+	env cldf.Environment,
 	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	enforceSingleCommit bool,
@@ -356,7 +356,7 @@ func ConfirmMultipleCommits(
 func ConfirmCommitWithExpectedSeqNumRange(
 	t *testing.T,
 	srcSelector uint64,
-	dest deployment.Chain,
+	dest cldf.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
@@ -541,7 +541,7 @@ func SolEventEmitter[T any](
 func ConfirmCommitWithExpectedSeqNumRangeSol(
 	t *testing.T,
 	srcSelector uint64,
-	dest deployment.SolChain,
+	dest cldf.SolChain,
 	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
@@ -597,7 +597,7 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 // If startBlocks is nil, it will start watching from the latest block.
 func ConfirmExecWithSeqNrsForAll(
 	t *testing.T,
-	e deployment.Environment,
+	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	expectedSeqNums map[SourceDestPair][]uint64,
 	startBlocks map[uint64]*uint64,
@@ -676,7 +676,7 @@ func ConfirmExecWithSeqNrsForAll(
 func ConfirmExecWithSeqNrs(
 	t *testing.T,
 	sourceSelector uint64,
-	dest deployment.Chain,
+	dest cldf.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNrs []uint64,
@@ -751,7 +751,7 @@ func ConfirmExecWithSeqNrs(
 func ConfirmExecWithSeqNrsSol(
 	t *testing.T,
 	srcSelector uint64,
-	dest deployment.SolChain,
+	dest cldf.SolChain,
 	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNrs []uint64,
@@ -802,7 +802,7 @@ func ConfirmExecWithSeqNrsSol(
 func ConfirmNoExecConsistentlyWithSeqNr(
 	t *testing.T,
 	sourceSelector uint64,
-	dest deployment.Chain,
+	dest cldf.Chain,
 	offRamp offramp.OffRampInterface,
 	expectedSeqNr uint64,
 	timeout time.Duration,

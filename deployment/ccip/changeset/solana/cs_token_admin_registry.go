@@ -16,7 +16,6 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
@@ -44,7 +43,7 @@ type RegisterTokenAdminRegistryConfig struct {
 	MCMS                    *proposalutils.TimelockConfig
 }
 
-func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
+func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment) error {
 	if cfg.RegisterType != ViaGetCcipAdminInstruction && cfg.RegisterType != ViaOwnerInstruction {
 		return fmt.Errorf("invalid register type, valid types are %d and %d", ViaGetCcipAdminInstruction, ViaOwnerInstruction)
 	}
@@ -78,7 +77,8 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) e
 	return nil
 }
 
-func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
+func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("RegisterTokenAdminRegistry", "cfg", cfg)
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -197,7 +197,7 @@ type TransferAdminRoleTokenAdminRegistryConfig struct {
 	MCMS                      *proposalutils.TimelockConfig
 }
 
-func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
+func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -243,7 +243,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 	return nil
 }
 
-func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferAdminRoleTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
+func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRoleTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -310,7 +310,7 @@ type AcceptAdminRoleTokenAdminRegistryConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
+func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment) error {
 	tokenPubKey := cfg.TokenPubKey
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -354,7 +354,8 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 	return nil
 }
 
-func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdminRoleTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
+func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("AcceptAdminRoleTokenAdminRegistry", "cfg", cfg)
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

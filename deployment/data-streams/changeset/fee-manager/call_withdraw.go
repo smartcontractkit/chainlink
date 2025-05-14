@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -38,7 +38,7 @@ func (a Withdraw) GetContractAddress() common.Address {
 	return a.FeeManagerAddress
 }
 
-func (cs withdraw) Apply(e deployment.Environment, cfg FeeManagerWithdrawConfig) (cldf.ChangesetOutput, error) {
+func (cs withdraw) Apply(e cldf.Environment, cfg FeeManagerWithdrawConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -53,12 +53,12 @@ func (cs withdraw) Apply(e deployment.Environment, cfg FeeManagerWithdrawConfig)
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "Withdraw proposal")
 }
 
-func (cs withdraw) VerifyPreconditions(e deployment.Environment, cfg FeeManagerWithdrawConfig) error {
+func (cs withdraw) VerifyPreconditions(e cldf.Environment, cfg FeeManagerWithdrawConfig) error {
 	if len(cfg.ConfigPerChain) == 0 {
 		return errors.New("ConfigPerChain is empty")
 	}
 	for cs := range cfg.ConfigPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 	}
@@ -70,7 +70,7 @@ func doWithdraw(
 	c Withdraw,
 ) (*goEthTypes.Transaction, error) {
 	return fm.Withdraw(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		c.AssetAddress,
 		c.RecipientAddress,
 		c.Quantity)
