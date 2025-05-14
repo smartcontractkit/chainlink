@@ -184,6 +184,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg TokenPoolConfig) (cldf.C
 	} else if *cfg.PoolType == solTestTokenPool.LockAndRelease_PoolType {
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
 	}
+	solvBTC := solana.MustPublicKeyFromBase58("SoLvHDFVstC74Jr9eNLTDoG4goSUsn1RENmjNtFKZvW")
 
 	// verified
 	tokenprogramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
@@ -191,17 +192,24 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg TokenPoolConfig) (cldf.C
 	poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	rmnRemoteAddress := chainState.RMNRemote
-	// ata for token pool
-	createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
-		tokenprogramID,
-		tokenPubKey,
-		poolSigner,
-		chain.DeployerKey.PublicKey(),
-	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
+	// hack to unblock prod
+	if tokenPubKey != solvBTC {
+		// ata for token pool
+		createI, _, err := solTokenUtil.CreateAssociatedTokenAccount(
+			tokenprogramID,
+			tokenPubKey,
+			poolSigner,
+			chain.DeployerKey.PublicKey(),
+		)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
+		}
+
+		// add signer here if authority is different from deployer key
+		if err := chain.Confirm([]solana.Instruction{createI}); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to createI: %w", err)
+		}
 	}
-	instructions := []solana.Instruction{createI}
 
 	var poolInitI solana.Instruction
 	programData, err := getSolProgramData(e, chain, tokenPool)
@@ -239,10 +247,11 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg TokenPoolConfig) (cldf.C
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
+	if err := chain.Confirm([]solana.Instruction{poolInitI}); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to poolInitI: %w", err)
+	}
 
-	instructions = append(instructions, poolInitI)
-
-	if *cfg.PoolType == solTestTokenPool.BurnAndMint_PoolType && tokenPubKey != solana.SolMint {
+	if *cfg.PoolType == solTestTokenPool.BurnAndMint_PoolType && tokenPubKey != solana.SolMint && tokenPubKey != solvBTC {
 		// make pool mint_authority for token
 		authI, err := solTokenUtil.SetTokenMintAuthority(
 			tokenprogramID,
@@ -253,15 +262,13 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg TokenPoolConfig) (cldf.C
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
-		instructions = append(instructions, authI)
 		e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
+		if err := chain.Confirm([]solana.Instruction{authI}); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to authI: %w", err)
+		}
 	}
 
-	// add signer here if authority is different from deployer key
-	if err := chain.Confirm(instructions); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-	}
-	e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
+	e.Logger.Infow("Created new token pool config", "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
 
 	csOutput, err := AddTokenPoolLookupTable(e, TokenPoolLookupTableConfig{
 		ChainSelector: cfg.ChainSelector,
