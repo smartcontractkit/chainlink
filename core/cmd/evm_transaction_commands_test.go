@@ -13,6 +13,7 @@ import (
 	"github.com/urfave/cli"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	evmtxmgrtestutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/testutils"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -32,8 +33,8 @@ func TestShell_IndexTransactions(t *testing.T) {
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, app.GetDB())
-	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
+	txStore := evmtxmgrtestutils.NewTestTxStore(t, app.GetDB())
+	tx := evmtxmgrtestutils.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 	attempt := tx.TxAttempts[0]
 
 	// page 1
@@ -73,8 +74,8 @@ func TestShell_ShowTransaction(t *testing.T) {
 	db := app.GetDB()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, db)
-	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
+	txStore := evmtxmgrtestutils.NewTestTxStore(t, db)
+	tx := evmtxmgrtestutils.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 	attempt := tx.TxAttempts[0]
 
 	set := flag.NewFlagSet("test get tx", 0)
@@ -97,8 +98,8 @@ func TestShell_IndexTxAttempts(t *testing.T) {
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, app.GetDB())
-	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
+	txStore := evmtxmgrtestutils.NewTestTxStore(t, app.GetDB())
+	tx := evmtxmgrtestutils.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 
 	// page 1
 	set := flag.NewFlagSet("test txattempts", 0)

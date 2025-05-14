@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	evmtxmgrtestutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/testutils"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
@@ -42,7 +43,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := evmtxmgrtestutils.NewTestTxStore(t, db)
 	fromAddress := testutils.NewAddress()
 	var nonce int64
 	oneDayAgo := time.Now().Add(-24 * time.Hour)
