@@ -39,7 +39,7 @@ func GenerateChainsZk(t *testing.T, numChains int) map[uint64]cldf.Chain {
 
 		testcontainers.CleanupContainer(t, output.Container)
 
-		sel, err := chain_selectors.SelectorFromChainId(chainID)
+		sel, err := cs.SelectorFromChainId(chainID)
 		require.NoError(t, err)
 
 		client, err := ethclient.Dial(output.Nodes[0].ExternalHTTPUrl)
