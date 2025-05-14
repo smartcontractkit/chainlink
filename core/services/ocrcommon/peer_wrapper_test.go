@@ -12,7 +12,6 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -110,7 +109,6 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 }
 
 func Test_SingletonPeerWrapper_Close(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-761")
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -127,7 +125,7 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(1 * time.Second)
 
 		p2paddresses := []string{
-			"127.0.0.1:17193",
+			fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t)),
 		}
 		c.P2P.V2.ListenAddresses = ptr(p2paddresses)
 		c.P2P.V2.AnnounceAddresses = ptr(p2paddresses)

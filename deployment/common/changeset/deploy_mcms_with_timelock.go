@@ -40,7 +40,7 @@ var (
 
 // DeployMCMSWithTimelockV2 deploys and initializes the MCM and Timelock contracts
 func DeployMCMSWithTimelockV2(
-	env deployment.Environment, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2,
+	env cldf.Environment, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2,
 ) (cldf.ChangesetOutput, error) {
 	newAddresses := cldf.NewMemoryAddressBook()
 
@@ -97,7 +97,7 @@ type GrantRoleInput struct {
 	MCMS                    *proposalutils.TimelockConfig
 }
 
-func grantRolePreconditions(e deployment.Environment, cfg GrantRoleInput) error {
+func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockState(e, maps.Keys(cfg.ExistingProposerByChain))
 	if err != nil {
 		return err
@@ -133,7 +133,7 @@ func grantRolePreconditions(e deployment.Environment, cfg GrantRoleInput) error 
 	return nil
 }
 
-func grantRoleLogic(e deployment.Environment, cfg GrantRoleInput) (cldf.ChangesetOutput, error) {
+func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutput, error) {
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockState(e, maps.Keys(cfg.ExistingProposerByChain))
 	if err != nil {
 		return cldf.ChangesetOutput{}, err

@@ -11,12 +11,13 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
@@ -24,7 +25,7 @@ import (
 )
 
 // CreateMCMSProposal creates a new MCMS proposal with prepared (but not sent) transactions.
-func CreateMCMSProposal(e deployment.Environment, preparedTxs []*txutil.PreparedTx, mcmsMinDelay time.Duration, proposalName string) (*mcmslib.TimelockProposal, error) {
+func CreateMCMSProposal(e cldf.Environment, preparedTxs []*txutil.PreparedTx, mcmsMinDelay time.Duration, proposalName string) (*mcmslib.TimelockProposal, error) {
 	var chainSelectors []uint64
 	for _, tx := range preparedTxs {
 		chainSelectors = append(chainSelectors, tx.ChainSelector)
@@ -78,7 +79,7 @@ func CreateMCMSProposal(e deployment.Environment, preparedTxs []*txutil.Prepared
 
 // ExecuteOrPropose executes the transactions if no MCMS is configured, otherwise creates a proposal.
 func ExecuteOrPropose(
-	e deployment.Environment,
+	e cldf.Environment,
 	txs []*txutil.PreparedTx,
 	mcmsCfg *dsTypes.MCMSConfig,
 	proposalName string,
@@ -105,7 +106,7 @@ func ExecuteOrPropose(
 // The output will contain an MCMS timelock proposal for "AcceptOwnership" of those contracts
 // The newAddresses should be recently deployed addresses that are being transferred to MCMS and
 // should not be in `e` Environment
-func TransferToMCMSWithTimelock(e deployment.Environment, newAddresses []ds.AddressRef,
+func TransferToMCMSWithTimelock(e cldf.Environment, newAddresses []ds.AddressRef,
 	mcmsConfig proposalutils.TimelockConfig) (cldf.ChangesetOutput, error) {
 	// Map: chainselector -> List[Address]
 	contractAddressesToTransfer := make(map[uint64][]common.Address)
@@ -235,7 +236,7 @@ type HasOwnershipConfig interface {
 }
 
 func GetTransferOwnershipProposals[T HasOwnershipConfig](
-	e deployment.Environment, cfg T, addresses []ds.AddressRef) ([]mcms.TimelockProposal, error) {
+	e cldf.Environment, cfg T, addresses []ds.AddressRef) ([]mcms.TimelockProposal, error) {
 	var proposals []mcms.TimelockProposal
 	if cfg.GetOwnershipConfig().ShouldTransfer && cfg.GetOwnershipConfig().MCMSProposalConfig != nil {
 		res, err := TransferToMCMSWithTimelock(e, addresses, *cfg.GetOwnershipConfig().MCMSProposalConfig)

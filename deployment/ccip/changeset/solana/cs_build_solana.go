@@ -13,7 +13,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -82,7 +81,7 @@ func runCommand(command string, args []string, workDir string) (string, error) {
 }
 
 // Clone and checkout the specific revision of the repo
-func cloneRepo(e deployment.Environment, revision string, forceClean bool) error {
+func cloneRepo(e cldf.Environment, revision string, forceClean bool) error {
 	// Check if the repository already exists
 	if forceClean {
 		e.Logger.Debugw("Cleaning repository", "dir", cloneDir)
@@ -123,7 +122,7 @@ func cloneRepo(e deployment.Environment, revision string, forceClean bool) error
 }
 
 // Replace keys in Rust files
-func replaceKeys(e deployment.Environment) error {
+func replaceKeys(e cldf.Environment) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Replacing keys", "solanaDir", solanaDir)
 	output, err := runCommand("make", []string{"docker-update-contracts"}, solanaDir)
@@ -133,7 +132,7 @@ func replaceKeys(e deployment.Environment) error {
 	return nil
 }
 
-func replaceKeysForUpgrade(e deployment.Environment, keys map[cldf.ContractType]string) error {
+func replaceKeysForUpgrade(e cldf.Environment, keys map[cldf.ContractType]string) error {
 	e.Logger.Debug("Replacing keys in Rust files...")
 	for program, key := range keys {
 		programStr := string(program)
@@ -196,7 +195,7 @@ func syncRouterAndCommon() error {
 	return os.WriteFile(commonFile, []byte(updatedContent), 0600)
 }
 
-func generateVanityKeys(e deployment.Environment, keys map[cldf.ContractType]string) error {
+func generateVanityKeys(e cldf.Environment, keys map[cldf.ContractType]string) error {
 	e.Logger.Debug("Generating vanity keys...")
 	for program, prefix := range programToVanityKey {
 		_, exists := keys[program]
@@ -260,7 +259,7 @@ func copyFile(srcFile string, destDir string) error {
 }
 
 // Build the project with Anchor
-func buildProject(e deployment.Environment) error {
+func buildProject(e cldf.Environment) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Building project", "solanaDir", solanaDir)
 	args := []string{"docker-build-contracts"}
@@ -271,7 +270,7 @@ func buildProject(e deployment.Environment) error {
 	return nil
 }
 
-func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
+func buildLocally(e cldf.Environment, config BuildSolanaConfig) error {
 	e.Logger.Debugw("Starting local build process", "destinationDir", config.DestinationDir)
 	// Clone the repository
 	if err := cloneRepo(e, config.GitCommitSha, config.LocalBuild.CleanGitDir); err != nil {
@@ -344,7 +343,7 @@ func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
 	return nil
 }
 
-func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
+func BuildSolana(e cldf.Environment, config BuildSolanaConfig) error {
 	if !config.LocalBuild.BuildLocally {
 		e.Logger.Debug("Downloading Solana CCIP program artifacts...")
 		err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, config.GitCommitSha)

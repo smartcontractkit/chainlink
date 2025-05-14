@@ -8,8 +8,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -26,7 +24,7 @@ type MigrationSchema struct {
 	Description    string              `json:"description"`
 }
 
-func migrateFeedsLogic(env deployment.Environment, c types.MigrationConfig) (cldf.ChangesetOutput, error) {
+func migrateFeedsLogic(env cldf.Environment, c types.MigrationConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
@@ -58,20 +56,20 @@ func migrateFeedsLogic(env deployment.Environment, c types.MigrationConfig) (cld
 
 	// Set the feed config
 	tx, err := contract.SetDecimalFeedConfigs(chain.DeployerKey, dataIDs, descriptions, c.WorkflowMetadata)
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := cldf.ConfirmIfNoError(chain, tx, err); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
 	// Set the proxy to dataId mapping
 	tx, err = contract.UpdateDataIdMappingsForProxies(chain.DeployerKey, addresses, dataIDs)
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := cldf.ConfirmIfNoError(chain, tx, err); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
 	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func migrateFeedsPrecondition(env deployment.Environment, c types.MigrationConfig) error {
+func migrateFeedsPrecondition(env cldf.Environment, c types.MigrationConfig) error {
 	_, ok := env.Chains[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)

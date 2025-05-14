@@ -13,7 +13,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -21,9 +20,9 @@ import (
 )
 
 func ValidateMCMSConfigSolana(
-	e deployment.Environment,
+	e cldf.Environment,
 	mcms *proposalutils.TimelockConfig,
-	chain deployment.SolChain,
+	chain cldf.SolChain,
 	chainState solanastateview.CCIPChainState,
 	tokenAddress solana.PublicKey,
 	tokenPoolMetadata string,
@@ -70,7 +69,7 @@ func ValidateMCMSConfigSolana(
 }
 
 func BuildProposalsForTxns(
-	e deployment.Environment,
+	e cldf.Environment,
 	chainSelector uint64,
 	description string,
 	minDelay time.Duration,
@@ -131,7 +130,7 @@ func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType cldf.Co
 	return &tx, nil
 }
 
-func FetchTimelockSigner(e deployment.Environment, chainSelector uint64) (solana.PublicKey, error) {
+func FetchTimelockSigner(e cldf.Environment, chainSelector uint64) (solana.PublicKey, error) {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to load addresses for chain %d: %w", chainSelector, err)
@@ -145,8 +144,8 @@ func FetchTimelockSigner(e deployment.Environment, chainSelector uint64) (solana
 }
 
 func GetAuthorityForIxn(
-	e *deployment.Environment,
-	chain deployment.SolChain,
+	e *cldf.Environment,
+	chain cldf.SolChain,
 	chainState solanastateview.CCIPChainState,
 	mcms *proposalutils.TimelockConfig,
 	contractType cldf.ContractType,

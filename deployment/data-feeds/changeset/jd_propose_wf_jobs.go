@@ -10,7 +10,7 @@ import (
 	"time"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
@@ -23,11 +23,11 @@ const (
 // ProposeWFJobsToJDChangeset is a changeset that reads a feed state file, creates a workflow job spec from it and proposes it to JD.
 var ProposeWFJobsToJDChangeset = cldf.CreateChangeSet(proposeWFJobsToJDLogic, proposeWFJobsToJDPrecondition)
 
-func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsConfig) (cldf.ChangesetOutput, error) {
+func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(env.GetContext(), timeout)
 	defer cancel()
 
-	chainInfo, _ := deployment.ChainInfo(c.ChainSelector)
+	chainInfo, _ := cldf.ChainInfo(c.ChainSelector)
 
 	feedStatePath := filepath.Join("feeds", chainInfo.ChainName+".json")
 	feedState, _ := LoadJSON[*v1_0.FeedState](feedStatePath, c.InputFS)
@@ -132,7 +132,7 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 	return out, nil
 }
 
-func proposeWFJobsToJDPrecondition(env deployment.Environment, c types.ProposeWFJobsConfig) error {
+func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsConfig) error {
 	if c.MigrationName == "" {
 		return errors.New("migration name is required")
 	}
@@ -166,7 +166,7 @@ func proposeWFJobsToJDPrecondition(env deployment.Environment, c types.ProposeWF
 		return fmt.Errorf("failed to get consensus encoder abi: %w", err)
 	}
 
-	chainInfo, err := deployment.ChainInfo(c.ChainSelector)
+	chainInfo, err := cldf.ChainInfo(c.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get chain info for chain %d: %w", c.ChainSelector, err)
 	}

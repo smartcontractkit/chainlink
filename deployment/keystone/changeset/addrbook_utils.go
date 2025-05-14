@@ -9,8 +9,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	capReg "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	keystoneForwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -27,7 +25,7 @@ type contractConstructor[T any] func(address common.Address, client bind.Contrac
 // It uses the provided constructor to initialize matching contracts for the given chain.
 func getContractsFromAddrBook[T any](
 	addrBook cldf.AddressBook,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	desiredType cldf.ContractType,
 	constructor contractConstructor[T],
 ) ([]*T, error) {
@@ -56,7 +54,7 @@ func getContractsFromAddrBook[T any](
 }
 
 // capRegistriesFromAddrBook retrieves CapabilitiesRegistry contracts for the given chain.
-func capRegistriesFromAddrBook(addrBook cldf.AddressBook, chain deployment.Chain) ([]*capReg.CapabilitiesRegistry, error) {
+func capRegistriesFromAddrBook(addrBook cldf.AddressBook, chain cldf.Chain) ([]*capReg.CapabilitiesRegistry, error) {
 	return getContractsFromAddrBook[capReg.CapabilitiesRegistry](
 		addrBook,
 		chain,
@@ -66,7 +64,7 @@ func capRegistriesFromAddrBook(addrBook cldf.AddressBook, chain deployment.Chain
 }
 
 // ocr3FromAddrBook retrieves OCR3Capability contracts for the given chain.
-func ocr3FromAddrBook(addrBook cldf.AddressBook, chain deployment.Chain) ([]*ocr3Capability.OCR3Capability, error) {
+func ocr3FromAddrBook(addrBook cldf.AddressBook, chain cldf.Chain) ([]*ocr3Capability.OCR3Capability, error) {
 	return getContractsFromAddrBook[ocr3Capability.OCR3Capability](
 		addrBook,
 		chain,
@@ -76,7 +74,7 @@ func ocr3FromAddrBook(addrBook cldf.AddressBook, chain deployment.Chain) ([]*ocr
 }
 
 // forwardersFromAddrBook retrieves KeystoneForwarder contracts for the given chain.
-func forwardersFromAddrBook(addrBook cldf.AddressBook, chain deployment.Chain) ([]*keystoneForwarder.KeystoneForwarder, error) {
+func forwardersFromAddrBook(addrBook cldf.AddressBook, chain cldf.Chain) ([]*keystoneForwarder.KeystoneForwarder, error) {
 	return getContractsFromAddrBook[keystoneForwarder.KeystoneForwarder](
 		addrBook,
 		chain,
@@ -86,7 +84,7 @@ func forwardersFromAddrBook(addrBook cldf.AddressBook, chain deployment.Chain) (
 }
 
 // feedsConsumersFromAddrBook retrieves FeedsConsumer contracts for the given chain.
-func feedsConsumersFromAddrBook(addrBook cldf.AddressBook, chain deployment.Chain) ([]*feeds_consumer.KeystoneFeedsConsumer, error) {
+func feedsConsumersFromAddrBook(addrBook cldf.AddressBook, chain cldf.Chain) ([]*feeds_consumer.KeystoneFeedsConsumer, error) {
 	return getContractsFromAddrBook[feeds_consumer.KeystoneFeedsConsumer](
 		addrBook,
 		chain,
@@ -96,7 +94,7 @@ func feedsConsumersFromAddrBook(addrBook cldf.AddressBook, chain deployment.Chai
 }
 
 // proposersFromAddrBook retrieves ManyChainMultiSig proposer contracts for the given chain.
-func proposersFromAddrBook(addrBook cldf.AddressBook, chain deployment.Chain) ([]*ccipowner.ManyChainMultiSig, error) {
+func proposersFromAddrBook(addrBook cldf.AddressBook, chain cldf.Chain) ([]*ccipowner.ManyChainMultiSig, error) {
 	return getContractsFromAddrBook[ccipowner.ManyChainMultiSig](
 		addrBook,
 		chain,
@@ -106,7 +104,7 @@ func proposersFromAddrBook(addrBook cldf.AddressBook, chain deployment.Chain) ([
 }
 
 // timelocksFromAddrBook retrieves RBACTimelock contracts for the given chain.
-func timelocksFromAddrBook(addrBook cldf.AddressBook, chain deployment.Chain) ([]*ccipowner.RBACTimelock, error) {
+func timelocksFromAddrBook(addrBook cldf.AddressBook, chain cldf.Chain) ([]*ccipowner.RBACTimelock, error) {
 	return getContractsFromAddrBook[ccipowner.RBACTimelock](
 		addrBook,
 		chain,

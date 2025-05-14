@@ -41,7 +41,7 @@ type DeployResponse struct {
 }
 
 type DeployRequest struct {
-	Chain deployment.Chain
+	Chain cldf.Chain
 }
 
 type DonNode struct {
@@ -253,7 +253,7 @@ type RegisteredDonConfig struct {
 	RegistryChainSel uint64
 }
 
-func NewRegisteredDon(env deployment.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
+func NewRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
 	// load the don info from the capabilities registry
 	r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,

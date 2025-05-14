@@ -23,7 +23,7 @@ var _ cldf.ChangeSet[any] = CCIPCapabilityJobspecChangeset
 
 // CCIPCapabilityJobspecChangeset returns the job specs for the CCIP capability.
 // The caller needs to propose these job specs to the offchain system.
-func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (cldf.ChangesetOutput, error) {
+func CCIPCapabilityJobspecChangeset(env cldf.Environment, _ any) (cldf.ChangesetOutput, error) {
 	nodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -190,7 +190,7 @@ func areCCIPSpecsEqual(existingSpecStr, newSpecStr string) (bool, error) {
 
 // acceptedOrPendingAcceptedJobSpecs returns a map of nodeID to job specs that are either accepted or pending review
 // or proposed
-func acceptedOrPendingAcceptedJobSpecs(env deployment.Environment, nodes deployment.Nodes) (map[string][]string, error) {
+func acceptedOrPendingAcceptedJobSpecs(env cldf.Environment, nodes deployment.Nodes) (map[string][]string, error) {
 	existingSpecs := make(map[string][]string)
 	for _, node := range nodes {
 		jobs, err := env.Offchain.ListJobs(env.GetContext(), &jobv1.ListJobsRequest{
@@ -232,7 +232,7 @@ func acceptedOrPendingAcceptedJobSpecs(env deployment.Environment, nodes deploym
 // so we return false TODO implement this check when it is available
 // there is no downside to proposing the same job spec to a node multiple times
 // It will only be accepted once by node
-func isJobProposed(env deployment.Environment, nodeID string, spec string) bool {
+func isJobProposed(env cldf.Environment, nodeID string, spec string) bool {
 	// implement this when it is available
 	return false
 }

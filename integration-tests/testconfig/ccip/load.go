@@ -3,13 +3,12 @@ package ccip
 import (
 	"errors"
 	"fmt"
-
 	"testing"
 	"time"
 
 	"github.com/AlekSi/pointer"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +40,7 @@ const (
 	ChaosModeTypeFull
 )
 
-func (l *LoadConfig) Validate(t *testing.T, e *deployment.Environment) {
+func (l *LoadConfig) Validate(t *testing.T, e *cldf.Environment) {
 	_, err := time.ParseDuration(*l.LoadDuration)
 	require.NoError(t, err, "LoadDuration must be a valid duration")
 

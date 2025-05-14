@@ -11,7 +11,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
@@ -44,7 +43,7 @@ type NodeIndexToSecretsOverride = map[int]string
 
 type WorkflowRegistryInput struct {
 	ChainSelector  uint64                  `toml:"-"`
-	CldEnv         *deployment.Environment `toml:"-"`
+	CldEnv         *cldf.Environment       `toml:"-"`
 	AllowedDonIDs  []uint32                `toml:"-"`
 	WorkflowOwners []common.Address        `toml:"-"`
 	Out            *WorkflowRegistryOutput `toml:"out"`
@@ -86,7 +85,7 @@ type ConfigureDataFeedsCacheOutput struct {
 }
 
 type ConfigureDataFeedsCacheInput struct {
-	CldEnv                *deployment.Environment        `toml:"-"`
+	CldEnv                *cldf.Environment              `toml:"-"`
 	ChainSelector         uint64                         `toml:"-"`
 	FeedIDs               []string                       `toml:"-"`
 	Descriptions          []string                       `toml:"-"`
@@ -138,7 +137,7 @@ type WrappedNodeOutput struct {
 }
 
 type CreateJobsInput struct {
-	CldEnv        *deployment.Environment
+	CldEnv        *cldf.Environment
 	DonTopology   *DonTopology
 	DonToJobSpecs DonsToJobSpecs
 }
@@ -203,7 +202,7 @@ func (d *DebugInput) Validate() error {
 type ConfigureKeystoneInput struct {
 	ChainSelector uint64
 	Topology      *Topology
-	CldEnv        *deployment.Environment
+	CldEnv        *cldf.Environment
 	OCR3Config    keystone_changeset.OracleConfig
 }
 
@@ -458,7 +457,7 @@ func (f *FullCLDEnvironmentInput) Validate() error {
 }
 
 type FullCLDEnvironmentOutput struct {
-	Environment *deployment.Environment
+	Environment *cldf.Environment
 	DonTopology *DonTopology
 }
 
@@ -548,7 +547,7 @@ type CapabilitiesBinaryPathFactoryFn = func(donMetadata *DonMetadata) ([]string,
 type JobSpecFactoryFn = func(input *JobSpecFactoryInput) (DonsToJobSpecs, error)
 
 type JobSpecFactoryInput struct {
-	CldEnvironment   *deployment.Environment
+	CldEnvironment   *cldf.Environment
 	BlockchainOutput *blockchain.Output
 	DonTopology      *DonTopology
 	AddressBook      cldf.AddressBook

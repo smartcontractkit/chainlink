@@ -6,6 +6,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
@@ -22,7 +25,7 @@ import (
 func RewardManagerDeploy(
 	t *testing.T,
 	cfg testutil.MemoryEnv,
-) (deployment.Environment, common.Address) {
+) (cldf.Environment, common.Address) {
 	t.Helper()
 
 	chainSelector := testutil.TestChain.Selector

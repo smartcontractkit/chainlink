@@ -21,7 +21,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -93,7 +92,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[sourceChain1], tx, err)
+		_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain1], tx, err)
 		require.NoError(t, err)
 		t.Logf("manually editing token prices")
 

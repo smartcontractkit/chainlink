@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
 
@@ -35,7 +34,7 @@ func (r *UpdateAuthorizedAddressesRequest) Validate() error {
 	return nil
 }
 
-func getWorkflowRegistry(env deployment.Environment, chainSel uint64) (*workflow_registry.WorkflowRegistry, error) {
+func getWorkflowRegistry(env cldf.Environment, chainSel uint64) (*workflow_registry.WorkflowRegistry, error) {
 	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
@@ -53,7 +52,7 @@ func getWorkflowRegistry(env deployment.Environment, chainSel uint64) (*workflow
 }
 
 // UpdateAuthorizedAddresses updates the list of DONs that workflows can be sent to.
-func UpdateAuthorizedAddresses(env deployment.Environment, req *UpdateAuthorizedAddressesRequest) (cldf.ChangesetOutput, error) {
+func UpdateAuthorizedAddresses(env cldf.Environment, req *UpdateAuthorizedAddressesRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -101,7 +100,7 @@ func UpdateAuthorizedAddresses(env deployment.Environment, req *UpdateAuthorized
 	return s.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		tx, err := registry.UpdateAuthorizedAddresses(opts, addr, req.Allowed)
 		if err != nil {
-			err = deployment.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
+			err = cldf.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
 		}
 		return tx, err
 	})

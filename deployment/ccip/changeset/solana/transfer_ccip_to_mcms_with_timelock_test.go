@@ -124,7 +124,7 @@ func TestValidate(t *testing.T) {
 		SolChains:  1,
 		Nodes:      4,
 	})
-	envWithInvalidSolChain.SolChains[chainselectors.ETHEREUM_TESTNET_SEPOLIA_LENS_1.Selector] = deployment.SolChain{}
+	envWithInvalidSolChain.SolChains[chainselectors.ETHEREUM_TESTNET_SEPOLIA_LENS_1.Selector] = cldf.SolChain{}
 	timelockID := mcmsSolana.ContractAddress(solana.MustPublicKeyFromBase58(TimelockProgramID), [32]byte{'t', 'e', 's', 't'})
 	mcmsID := mcmsSolana.ContractAddress(solana.MustPublicKeyFromBase58(MCMProgramID), [32]byte{'t', 'e', 's', 't'})
 	err := env.ExistingAddresses.Save(env.AllChainSelectorsSolana()[0], timelockID, cldf.TypeAndVersion{Type: commontypes.RBACTimelock, Version: deployment.Version1_0_0})
@@ -134,7 +134,7 @@ func TestValidate(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		env              deployment.Environment
+		env              cldf.Environment
 		contractsByChain map[uint64]solanachangesets.CCIPContractsToTransfer
 		expectedError    string
 	}{
@@ -194,7 +194,7 @@ func TestValidate(t *testing.T) {
 
 // prepareEnvironmentForOwnershipTransfer helper that deploys the necessary contracts as pre-requisite to
 // the transfer ownership changeset.
-func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environment, stateview.CCIPOnChainState) {
+func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, stateview.CCIPOnChainState) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{

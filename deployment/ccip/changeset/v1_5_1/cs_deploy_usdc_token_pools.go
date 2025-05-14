@@ -35,7 +35,7 @@ type DeployUSDCTokenPoolInput struct {
 	AllowList []common.Address
 }
 
-func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain deployment.Chain, state evm.CCIPChainState) error {
+func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf.Chain, state evm.CCIPChainState) error {
 	// Ensure that required fields are populated
 	if i.TokenAddress == utils.ZeroAddress {
 		return errors.New("token address must be defined")
@@ -89,13 +89,13 @@ type DeployUSDCTokenPoolContractsConfig struct {
 	IsTestRouter bool
 }
 
-func (c DeployUSDCTokenPoolContractsConfig) Validate(env deployment.Environment) error {
+func (c DeployUSDCTokenPoolContractsConfig) Validate(env cldf.Environment) error {
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for chainSelector, poolConfig := range c.USDCPools {
-		err := deployment.IsValidChainSelector(chainSelector)
+		err := cldf.IsValidChainSelector(chainSelector)
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
@@ -125,7 +125,7 @@ func (c DeployUSDCTokenPoolContractsConfig) Validate(env deployment.Environment)
 }
 
 // DeployUSDCTokenPoolContractsChangeset deploys new USDC pools across multiple chains.
-func DeployUSDCTokenPoolContractsChangeset(env deployment.Environment, c DeployUSDCTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
+func DeployUSDCTokenPoolContractsChangeset(env cldf.Environment, c DeployUSDCTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployUSDCTokenPoolContractsConfig: %w", err)
 	}
@@ -144,7 +144,7 @@ func DeployUSDCTokenPoolContractsChangeset(env deployment.Environment, c DeployU
 			router = chainState.TestRouter
 		}
 		_, err := cldf.DeployContract(env.Logger, chain, newAddresses,
-			func(chain deployment.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 				poolAddress, tx, usdcTokenPool, err := usdc_token_pool.DeployUSDCTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenMessenger, poolConfig.TokenAddress,
 					poolConfig.AllowList, chainState.RMNProxy.Address(), router.Address(),

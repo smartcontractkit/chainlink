@@ -7,13 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
 
@@ -28,7 +28,7 @@ type SetStagingConfigConfig struct {
 	MCMSConfig            *types.MCMSConfig
 }
 
-func setStagingConfigPrecondition(_ deployment.Environment, ss SetStagingConfigConfig) error {
+func setStagingConfigPrecondition(_ cldf.Environment, ss SetStagingConfigConfig) error {
 	if err := ss.Validate(); err != nil {
 		return fmt.Errorf("invalid SetStagingConfigConfig: %w", err)
 	}
@@ -43,7 +43,7 @@ func (cfg SetStagingConfigConfig) Validate() error {
 	return nil
 }
 
-func setStagingConfigLogic(e deployment.Environment, cfg SetStagingConfigConfig) (cldf.ChangesetOutput, error) {
+func setStagingConfigLogic(e cldf.Environment, cfg SetStagingConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.Configurator.String(),
@@ -62,7 +62,7 @@ func doSetStagingConfig(
 	c *configurator.Configurator,
 	cfg ConfiguratorConfig,
 ) (*ethTypes.Transaction, error) {
-	return c.SetStagingConfig(deployment.SimTransactOpts(),
+	return c.SetStagingConfig(cldf.SimTransactOpts(),
 		cfg.ConfigID,
 		cfg.Signers,
 		cfg.OffchainTransmitters,
