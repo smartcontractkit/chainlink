@@ -30,7 +30,7 @@ var (
 		func(b operations.Bundle, deps Dependencies, input postOpsInput) ([]mcmslib.TimelockProposal, error) {
 			allProposals := input.Proposals
 			proposal, err := proposalutils.AggregateProposals(
-				deps.Env, deps.EVMMCMSState, deps.SolanaMCMSState, allProposals, nil,
+				deps.Env, deps.EVMMCMSState, deps.SolanaMCMSState, allProposals,
 				"Adding EVM and Solana lane", input.MCMSConfig)
 			if err != nil {
 				return nil, err

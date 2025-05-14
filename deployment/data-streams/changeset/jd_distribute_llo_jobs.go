@@ -39,6 +39,7 @@ type CsDistributeLLOJobSpecsConfig struct {
 	ChannelConfigStoreAddr      common.Address
 	ChannelConfigStoreFromBlock uint64
 	ConfiguratorAddress         string
+	Labels                      []*ptypes.Label
 
 	// Servers is a list of Data Engine Producer endpoints, where the key is the server URL and the value is its public key.
 	//
@@ -62,7 +63,7 @@ func (CsDistributeLLOJobSpecs) Apply(e cldf.Environment, cfg CsDistributeLLOJobS
 	}
 
 	// Add a label to the job spec to identify the related DON
-	labels := append([]*ptypes.Label(nil),
+	cfg.Labels = append(cfg.Labels,
 		&ptypes.Label{
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
 		},
@@ -72,7 +73,7 @@ func (CsDistributeLLOJobSpecs) Apply(e cldf.Environment, cfg CsDistributeLLOJobS
 		},
 	)
 
-	bootstrapProposals, err := generateBootstrapProposals(ctx, e, cfg, chainID, labels)
+	bootstrapProposals, err := generateBootstrapProposals(ctx, e, cfg, chainID, cfg.Labels)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate bootstrap proposals: %w", err)
 	}
@@ -82,7 +83,7 @@ func (CsDistributeLLOJobSpecs) Apply(e cldf.Environment, cfg CsDistributeLLOJobS
 	for _, p := range bootstrapProposals {
 		boostrapNodeIDs = append(boostrapNodeIDs, p.NodeId)
 	}
-	oracleProposals, err := generateOracleProposals(ctx, e, cfg, chainID, labels, boostrapNodeIDs)
+	oracleProposals, err := generateOracleProposals(ctx, e, cfg, chainID, cfg.Labels, boostrapNodeIDs)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate oracle proposals: %w", err)
 	}

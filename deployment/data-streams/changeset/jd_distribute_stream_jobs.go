@@ -25,6 +25,7 @@ var _ cldf.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStreamJob
 type CsDistributeStreamJobSpecsConfig struct {
 	Filter  *jd.ListFilter
 	Streams []StreamSpecConfig
+	Labels  []*ptypes.Label
 
 	// NodeNames specifies on which nodes to distribute the job specs.
 	NodeNames []string
@@ -53,7 +54,7 @@ func (CsDistributeStreamJobSpecs) Apply(e cldf.Environment, cfg CsDistributeStre
 	defer cancel()
 
 	// Add a label to the job spec to identify the related DON
-	labels := append([]*ptypes.Label(nil),
+	cfg.Labels = append(cfg.Labels,
 		&ptypes.Label{
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
 		},
@@ -67,7 +68,7 @@ func (CsDistributeStreamJobSpecs) Apply(e cldf.Environment, cfg CsDistributeStre
 	var proposals []*jobv1.ProposeJobRequest
 	for _, s := range cfg.Streams {
 		for _, n := range oracleNodes {
-			localLabels := append(labels, //nolint: gocritic // obvious and readable locally modified copy of labels
+			localLabels := append(cfg.Labels, //nolint: gocritic // locally modified copy of labels
 				&ptypes.Label{
 					Key:   devenv.LabelStreamIDKey,
 					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
@@ -190,8 +191,8 @@ func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ cldf.Environment, conf
 	}
 	// The list of node names tells us which nodes to distribute the job specs to.
 	// The size of that list needs to match the filter size, i.e. the number of nodes we expect to get from JD.
-	if config.Filter.NumOracleNodes+config.Filter.NumBootstrapNodes != len(config.NodeNames) {
-		return fmt.Errorf("number of node names (%d) does not match filter size (%d)", len(config.NodeNames), config.Filter.NumOracleNodes+config.Filter.NumBootstrapNodes)
+	if config.Filter.NumOracleNodes != len(config.NodeNames) {
+		return fmt.Errorf("number of node names (%d) does not match filter size (%d)", len(config.NodeNames), config.Filter.NumOracleNodes)
 	}
 
 	return nil
