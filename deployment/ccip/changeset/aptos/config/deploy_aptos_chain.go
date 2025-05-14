@@ -6,7 +6,7 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -20,7 +20,7 @@ type DeployAptosChainConfig struct {
 
 func (c DeployAptosChainConfig) Validate() error {
 	for cs, args := range c.ContractParamsPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 		if err := args.Validate(); err != nil {
@@ -81,7 +81,7 @@ type OffRampParams struct {
 }
 
 func (o OffRampParams) Validate() error {
-	if err := deployment.IsValidChainSelector(o.ChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(o.ChainSelector); err != nil {
 		return fmt.Errorf("invalid chain selector: %d - %w", o.ChainSelector, err)
 	}
 	if o.PermissionlessExecutionThreshold == 0 {
@@ -100,7 +100,7 @@ type OnRampParams struct {
 }
 
 func (o OnRampParams) Validate() error {
-	if err := deployment.IsValidChainSelector(o.ChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(o.ChainSelector); err != nil {
 		return fmt.Errorf("invalid chain selector: %d - %w", o.ChainSelector, err)
 	}
 	return nil

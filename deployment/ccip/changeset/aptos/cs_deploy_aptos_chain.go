@@ -9,23 +9,26 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 )
 
-var _ deployment.ChangeSetV2[config.DeployAptosChainConfig] = DeployAptosChain{}
+var _ cldf.ChangeSetV2[config.DeployAptosChainConfig] = DeployAptosChain{}
 
 // DeployAptosChain deploys Aptos chain packages and modules
 type DeployAptosChain struct{}
 
-func (cs DeployAptosChain) VerifyPreconditions(env deployment.Environment, config config.DeployAptosChainConfig) error {
+func (cs DeployAptosChain) VerifyPreconditions(env cldf.Environment, config config.DeployAptosChainConfig) error {
 	// Validate env and prerequisite contracts
-	state, err := changeset.LoadOnchainStateAptos(env)
+	state, err := aptosstate.LoadOnchainStateAptos(env)
 	if err != nil {
 		return fmt.Errorf("failed to load existing Aptos onchain state: %w", err)
 	}
@@ -56,13 +59,13 @@ func (cs DeployAptosChain) VerifyPreconditions(env deployment.Environment, confi
 	return errors.Join(errs...)
 }
 
-func (cs DeployAptosChain) Apply(env deployment.Environment, config config.DeployAptosChainConfig) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
+func (cs DeployAptosChain) Apply(env cldf.Environment, config config.DeployAptosChainConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	seqReports := make([]operations.Report[any, any], 0)
 	proposals := make([]mcms.TimelockProposal, 0)
 
@@ -80,16 +83,16 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 		// MCMS Deploy operations
 		mcmsSeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployMCMSSequence, deps, config.MCMSDeployConfigPerChain[chainSel])
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		seqReports = append(seqReports, mcmsSeqReport.ExecutionReports...)
 		mcmsOperations = append(mcmsOperations, mcmsSeqReport.Output.MCMSOperation)
 
 		// Save MCMS address
-		typeAndVersion := deployment.NewTypeAndVersion(changeset.AptosMCMSType, deployment.Version1_6_0)
+		typeAndVersion := cldf.NewTypeAndVersion(shared.AptosMCMSType, deployment.Version1_6_0)
 		err = deps.AB.Save(deps.AptosChain.Selector, mcmsSeqReport.Output.MCMSAddress.String(), typeAndVersion)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save MCMS address %s for Aptos chain %d: %w", mcmsSeqReport.Output.MCMSAddress.String(), chainSel, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save MCMS address %s for Aptos chain %d: %w", mcmsSeqReport.Output.MCMSAddress.String(), chainSel, err)
 		}
 		// CCIP Deploy operations
 		ccipSeqInput := seq.DeployCCIPSeqInput{
@@ -98,16 +101,16 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 		}
 		ccipSeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployCCIPSequence, deps, ccipSeqInput)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy CCIP for Aptos chain %d: %w", chainSel, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy CCIP for Aptos chain %d: %w", chainSel, err)
 		}
 		seqReports = append(seqReports, ccipSeqReport.ExecutionReports...)
 		mcmsOperations = append(mcmsOperations, ccipSeqReport.Output.MCMSOperations...)
 
 		// Save the address of the CCIP object
-		typeAndVersion = deployment.NewTypeAndVersion(changeset.AptosCCIPType, deployment.Version1_6_0)
+		typeAndVersion = cldf.NewTypeAndVersion(shared.AptosCCIPType, deployment.Version1_6_0)
 		err = deps.AB.Save(deps.AptosChain.Selector, ccipSeqReport.Output.CCIPAddress.String(), typeAndVersion)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save CCIP address %s for Aptos chain %d: %w", ccipSeqReport.Output.CCIPAddress.String(), chainSel, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save CCIP address %s for Aptos chain %d: %w", ccipSeqReport.Output.CCIPAddress.String(), chainSel, err)
 		}
 
 		// Generate MCMS proposals
@@ -120,11 +123,11 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 			config.MCMSTimelockConfigPerChain[chainSel],
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", chainSel, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", chainSel, err)
 		}
 		proposals = append(proposals, *proposal)
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook:           ab,
 		MCMSTimelockProposals: proposals,
 		Reports:               seqReports,

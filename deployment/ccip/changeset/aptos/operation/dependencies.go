@@ -1,12 +1,12 @@
 package operation
 
 import (
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 type AptosDeps struct {
-	AB               *deployment.AddressBookMap
-	AptosChain       deployment.AptosChain
-	CCIPOnChainState changeset.CCIPOnChainState
+	AB               *cldf.AddressBookMap
+	AptosChain       cldf.AptosChain
+	CCIPOnChainState stateview.CCIPOnChainState
 }
