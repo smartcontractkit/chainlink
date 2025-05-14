@@ -690,10 +690,6 @@ func setupPoRTestEnvironment(
 
 		workflowActivateErr := activatePoRWorkflow(workflowInput)
 		require.NoError(t, workflowActivateErr, "failed to activate PoR workflow")
-
-		// Given the workflow name is the same, this "register" is actually an "update"
-		workflowUpdateErr := registerPoRWorkflow(workflowInput)
-		require.NoError(t, workflowUpdateErr, "failed to update PoR workflow")
 	}
 	// Workflow-specific configuration -- END
 
