@@ -30,8 +30,7 @@ var _ cldf.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
 // use this changeset to set the authority of a token
 var _ cldf.ChangeSet[SetTokenAuthorityConfig] = SetTokenAuthority
 
-func getMintIxs(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) ([]solana.Instruction, error) {
-	instructions := []solana.Instruction{}
+func getMintIxs(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) error {
 	for toAddress, amount := range amountToAddress {
 		e.Logger.Infof("Minting %d to %s", amount, toAddress)
 		toAddressBase58 := solana.MustPublicKeyFromBase58(toAddress)
@@ -39,15 +38,17 @@ func getMintIxs(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint so
 		ata, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenprogramID, mint, toAddressBase58)
 		mintToI, err := solTokenUtil.MintTo(amount, tokenprogramID, mint, ata, chain.DeployerKey.PublicKey())
 		if err != nil {
-			return nil, err
+			return err
 		}
-		instructions = append(instructions, mintToI)
+		if err := chain.Confirm([]solana.Instruction{mintToI}); err != nil {
+			e.Logger.Errorw("Failed to confirm instructions for minting", "chain", chain.String(), "err", err)
+			return err
+		}
 	}
-	return instructions, nil
+	return nil
 }
 
-func createATAIx(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint solana.PublicKey, ataList []string) ([]solana.Instruction, error) {
-	instructions := []solana.Instruction{}
+func createATAIx(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint solana.PublicKey, ataList []string) error {
 	for _, ata := range ataList {
 		e.Logger.Infof("Creating ATA for account %s for token %s", ata, mint.String())
 		createATAIx, _, err := solTokenUtil.CreateAssociatedTokenAccount(
@@ -57,11 +58,14 @@ func createATAIx(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint s
 			chain.DeployerKey.PublicKey(),
 		)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		instructions = append(instructions, createATAIx)
+		if err := chain.Confirm([]solana.Instruction{createATAIx}); err != nil {
+			e.Logger.Errorw("Failed to confirm instructions for ATA creation", "chain", chain.String(), "err", err)
+			return err
+		}
 	}
-	return instructions, nil
+	return nil
 }
 
 // TODO: add option to set token mint authority by taking in its public key
@@ -130,18 +134,16 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 	}
 
 	// ata ix
-	ataIxs, err := createATAIx(e, chain, tokenprogramID, mint, cfg.ATAList)
+	err = createATAIx(e, chain, tokenprogramID, mint, cfg.ATAList)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	instructions = append(instructions, ataIxs...)
 
 	// mint ix
-	mintIxs, err := getMintIxs(e, chain, tokenprogramID, mint, cfg.MintAmountToAddress)
+	err = getMintIxs(e, chain, tokenprogramID, mint, cfg.MintAmountToAddress)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	instructions = append(instructions, mintIxs...)
 
 	err = chain.Confirm(instructions, solCommonUtil.AddSigners(mintPrivKey))
 	if err != nil {
@@ -215,14 +217,8 @@ func MintSolanaToken(e cldf.Environment, cfg MintSolanaTokenConfig) (cldf.Change
 	tokenprogramID, _ := chainState.TokenToTokenProgram(tokenAddress)
 
 	// get mint instructions
-	instructions, err := getMintIxs(e, chain, tokenprogramID, tokenAddress, cfg.AmountToAddress)
+	err = getMintIxs(e, chain, tokenprogramID, tokenAddress, cfg.AmountToAddress)
 	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	// confirm instructions
-	err = chain.Confirm(instructions)
-	if err != nil {
-		e.Logger.Errorw("Failed to confirm instructions for token minting", "chain", chain.String(), "err", err)
 		return cldf.ChangesetOutput{}, err
 	}
 	e.Logger.Infow("Minted tokens on", "chain", cfg.ChainSelector, "for token", tokenAddress.String())
@@ -248,17 +244,7 @@ func CreateSolanaTokenATA(e cldf.Environment, cfg CreateSolanaTokenATAConfig) (c
 	}
 
 	// create instructions for each ATA
-	instructions, err := createATAIx(e, chain, tokenprogramID, cfg.TokenPubkey, cfg.ATAList)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
-	// confirm instructions
-	err = chain.Confirm(instructions)
-	if err != nil {
-		e.Logger.Errorw("Failed to confirm instructions for ATA creation", "chain", chain.String(), "err", err)
-		return cldf.ChangesetOutput{}, err
-	}
+	err = createATAIx(e, chain, tokenprogramID, cfg.TokenPubkey, cfg.ATAList)
 	e.Logger.Infow("Created ATAs on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String(), "numATAs", len(cfg.ATAList))
 
 	return cldf.ChangesetOutput{}, nil
