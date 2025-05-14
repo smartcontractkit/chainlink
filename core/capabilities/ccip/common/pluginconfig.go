@@ -39,15 +39,13 @@ type PluginConfig struct {
 
 // PluginConfigFactory is a factory for creating PluginConfig instances.
 type PluginConfigFactory struct {
-	lggr           logger.Logger
-	extraDataCodec ExtraDataCodec
+	lggr logger.Logger
 }
 
 // NewPluginConfigFactory is a constructor for PluginConfigFactory.
-func NewPluginConfigFactory(lggr logger.Logger, extraDataCodec ExtraDataCodec) *PluginConfigFactory {
+func NewPluginConfigFactory(lggr logger.Logger) *PluginConfigFactory {
 	return &PluginConfigFactory{
-		lggr:           lggr,
-		extraDataCodec: extraDataCodec,
+		lggr: lggr,
 	}
 }
 
@@ -58,7 +56,7 @@ func (f *PluginConfigFactory) CreatePluginConfig(chainFamily string) (PluginConf
 		return PluginConfig{}, fmt.Errorf("unsupported chain family: %s", chainFamily)
 	}
 
-	return pluginConfigFactory(f.lggr, f.extraDataCodec), nil
+	return pluginConfigFactory(f.lggr, NewExtraDataCodec(RegisteredExtraDataCodec)), nil
 }
 
 // RegisterPluginConfig registers a plugin config factory for a specific chain family.

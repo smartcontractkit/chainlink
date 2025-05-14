@@ -467,8 +467,7 @@ func decodeAndValidateOffchainConfig(
 
 // initializerPluginConfig initializes the plugin config for the given chain family.
 func initializerPluginConfig(destChainFamily string, lggr logger.Logger) (ccipcommon.PluginConfig, error) {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.RegisteredExtraDataCodec)
-	pluginConfig, err := ccipcommon.NewPluginConfigFactory(lggr, extraDataCodec).CreatePluginConfig(destChainFamily)
+	pluginConfig, err := ccipcommon.NewPluginConfigFactory(lggr).CreatePluginConfig(destChainFamily)
 	if err != nil {
 		return ccipcommon.PluginConfig{}, fmt.Errorf("failed to create plugin config: %w", err)
 	}
