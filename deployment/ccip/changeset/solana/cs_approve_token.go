@@ -17,6 +17,8 @@ import (
 type ApproveTokenFeeBillingSignerSolConfig struct {
 	ChainSelector uint64
 
+	TokenProgram solana.PublicKey
+
 	Amount   uint64
 	Decimals uint8
 }
@@ -30,6 +32,9 @@ func (cfg ApproveTokenFeeBillingSignerSolConfig) Validate(e cldf.Environment) (s
 	chainState, found := state.SolChains[cfg.ChainSelector]
 	if !found {
 		return solanaStateView.CCIPChainState{}, fmt.Errorf("failed to get chain state for selector %d", cfg.ChainSelector)
+	}
+	if cfg.TokenProgram == (solana.PublicKey{}) {
+		return solanaStateView.CCIPChainState{}, errors.New("token program is not set")
 	}
 
 	return chainState, nil
@@ -51,7 +56,7 @@ func TokenApproveFeeBillingSigner(e cldf.Environment, cfg ApproveTokenFeeBilling
 		state,
 		cfg.ChainSelector,
 		billingSignerPDA,
-		state.SPLTokens[0],
+		cfg.TokenProgram,
 		cfg.Amount,
 		cfg.Decimals,
 	)
