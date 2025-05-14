@@ -64,50 +64,13 @@ func (f *PluginConfigFactory) CreatePluginConfig(chainFamily string) (PluginConf
 // RegisterPluginConfig registers a plugin config factory for a specific chain family.
 func RegisterPluginConfig(
 	chainFamily string,
-	factory func(lggr logger.Logger, extraDataCodec ExtraDataCodec) PluginConfig) error {
-	if _, exists := RegisteredPluginConfigFactories[chainFamily]; exists {
-		return fmt.Errorf("plugin config factory for chain family %s already registered", chainFamily)
-	}
-
-	RegisteredPluginConfigFactories[chainFamily] = factory
-	return nil
-}
-
-// RegisterCRCW registers a ChainRWProvider for a specific chain family.
-func RegisterCRCW(
-	chainFamily string,
-	factory ChainRWProvider,
-) error {
-	if _, exists := RegisteredCRCW[chainFamily]; exists {
-		return fmt.Errorf("CRCW factory for chain family %s already registered", chainFamily)
-	}
-
-	RegisteredCRCW[chainFamily] = factory
-	return nil
-}
-
-// RegisterExtraDataCodec registers a SourceChainExtraDataCodec for a specific chain family.
-func RegisterExtraDataCodec(
-	chainFamily string,
+	pluginConfigFactory func(lggr logger.Logger, extraDataCodec ExtraDataCodec) PluginConfig,
+	crw ChainRWProvider,
 	extraDataCodec SourceChainExtraDataCodec,
-) error {
-	if _, exists := RegisteredExtraDataCodec[chainFamily]; exists {
-		return fmt.Errorf("extra data codec for chain family %s already registered", chainFamily)
-	}
-
+	addressCodec ChainSpecificAddressCodec) {
 	RegisteredExtraDataCodec[chainFamily] = extraDataCodec
-	return nil
-}
-
-// RegisterAddressCodec registers a ChainSpecificAddressCodec for a specific chain family.
-func RegisterAddressCodec(
-	chainFamily string,
-	addressCodec ChainSpecificAddressCodec,
-) error {
-	if _, exists := RegisteredAddressCodec[chainFamily]; exists {
-		return fmt.Errorf("address codec for chain family %s already registered", chainFamily)
-	}
-
+	RegisteredPluginConfigFactories[chainFamily] = pluginConfigFactory
+	RegisteredCRCW[chainFamily] = crw
 	RegisteredAddressCodec[chainFamily] = addressCodec
-	return nil
+	return
 }
