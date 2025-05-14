@@ -370,9 +370,20 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
 	mockClientsAddress := make([]string, 0)
 	if in.Infra.InfraType == "docker" {
-		// TODO: For CTFv2 we should get the ports from the .toml
-		// Need to add addresses manually
-		mockClientsAddress = []string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}
+		for _, nodeSet := range in.NodeSets {
+			if nodeSet.Name == "writer" {
+				for i, n := range nodeSet.NodeSpecs {
+					if i == 0 {
+						continue
+					}
+					if len(n.Node.CustomPorts) == 0 {
+						panic("no custom port specified, mock capability running in kind must have a custom port in order to connect")
+					}
+					ports := strings.Split(n.Node.CustomPorts[0], ":")
+					mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("127.0.0.1:%s", ports[0]))
+				}
+			}
+		}
 	} else {
 		for i := range setupOutput.nodeOutput[1].CLNodes {
 			// TODO: This is brittle, switch to checking the node label

@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+	changeset2 "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
@@ -57,7 +58,6 @@ import (
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -118,8 +118,7 @@ func setupLoadTestWriterEnvironment(
 		ChainsToDeploy: []uint64{universalSetupOutput.BlockchainOutput[0].ChainSelector},
 		Labels:         []string{"data-feeds"}, // label required by the changeset
 	}
-
-	dfOutput, dfErr := changeset.RunChangeset(changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
+	dfOutput, dfErr := changeset2.RunChangeset(changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
 	require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
 	mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
@@ -354,9 +353,20 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
 	mockClientsAddress := make([]string, 0)
 	if in.Infra.InfraType == "docker" {
-		// TODO: For CTFv2 we should get the ports from the .toml
-		// Need to add addresses manually
-		mockClientsAddress = []string{"127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404", "127.0.0.1:13405", "127.0.0.1:13406"}
+		for _, nodeSet := range in.NodeSets {
+			if nodeSet.Name == "writer" {
+				for i, n := range nodeSet.NodeSpecs {
+					if i == 0 {
+						continue
+					}
+					if len(n.Node.CustomPorts) == 0 {
+						panic("no custom port specified, mock capability running in kind must have a custom port in order to connect")
+					}
+					ports := strings.Split(n.Node.CustomPorts[0], ":")
+					mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("127.0.0.1:%s", ports[0]))
+				}
+			}
+		}
 	} else {
 		for i := range setupOutput.nodeOutput[0].CLNodes {
 			// TODO: This is brittle, switch to checking the node label
@@ -394,7 +404,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			Schedule: wasp.Combine(
 				wasp.Plain(1, 10*time.Minute),
 			),
-			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", logger.TestLogger(t), setupOutput.blockchainOutput[0].SethClient, tParams),
+			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", setupOutput.blockchainOutput[0].SethClient, tParams),
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
@@ -448,7 +458,7 @@ func TestWriteWithReconnect(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", logger.TestLogger(t), sethClient, tParams)
+	sg := NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", sethClient, tParams)
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
@@ -549,7 +559,6 @@ type WriterGun struct {
 	triggerID  string
 	waitChans  map[uint8]chan interface{}
 	mu         sync.Mutex
-	lggr       logger.Logger
 	reportID   uint8
 	seqNr      uint32
 	testParams testParams
@@ -557,12 +566,11 @@ type WriterGun struct {
 	seth *seth.Client
 }
 
-func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, triggerID string, lggr logger.Logger, seth *seth.Client, params testParams) *WriterGun {
+func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, triggerID string, seth *seth.Client, params testParams) *WriterGun {
 	sg := &WriterGun{
 		capProxy:   capProxy,
 		keyBundles: keyBundles,
 		triggerID:  triggerID,
-		lggr:       lggr,
 		reportID:   1,
 		seqNr:      1,
 		seth:       seth,
@@ -578,7 +586,7 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 		if err != nil {
 			panic(err)
 		}
-
+		framework.L.Info().Msg("Subscribed to new heads, check every block for tx event")
 		for {
 			head := <-ch
 			block, err := seth.Client.BlockByNumber(context.TODO(), head.Number)
@@ -586,11 +594,11 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 				panic(err)
 			}
 
-			lggr.Infof("Block %d tx count: %d", block.NumberU64(), block.Transactions().Len())
+			framework.L.Info().Msgf("Block %d tx count: %d", block.NumberU64(), block.Transactions().Len())
 			for _, t := range block.Transactions() {
 				receipt, err := seth.Client.TransactionReceipt(context.TODO(), t.Hash())
 				if err != nil {
-					lggr.Errorw("could not fetch tx receipt", "err", err)
+					framework.L.Error().Msgf("could not fetch tx receipt %v", err)
 					continue
 				}
 
@@ -599,7 +607,7 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 					if err != nil {
 						continue
 					}
-					lggr.Infof("Log ReportID %04x result %t", log.ReportId, log.Result)
+					framework.L.Info().Msgf("Found ReportProcessed event ReportID %04x result %t", log.ReportId, log.Result)
 					reportID := log.ReportId[1]
 					sg.mu.Lock()
 					if ch, exists := sg.waitChans[reportID]; exists {
@@ -619,28 +627,28 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 	// Generate workflow execution metadata
 	metadata, err := s.createWorkflowMetadata()
 	if err != nil {
-		s.lggr.Error(err)
+		framework.L.Error().Err(err)
 		return &wasp.Response{Error: err.Error()}
 	}
 
 	// Create report context from sequence number and config digest
 	repContext, err := s.createReportContext()
 	if err != nil {
-		s.lggr.Error(err)
+		framework.L.Error().Err(err)
 		return &wasp.Response{Error: err.Error()}
 	}
 
 	// Create and encode report data
 	encodedReport, err := s.createEncodedReport(metadata)
 	if err != nil {
-		s.lggr.Error(err)
+		framework.L.Error().Err(err)
 		return &wasp.Response{Error: err.Error()}
 	}
 
 	// Generate signatures for the report
 	sigs, err := s.generateSignatures(encodedReport, repContext)
 	if err != nil {
-		s.lggr.Error(err)
+		framework.L.Error().Err(err)
 		return &wasp.Response{Error: err.Error()}
 	}
 
@@ -651,7 +659,7 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 	// Create executable request and execute
 	err = s.executeRequest(metadata, encodedReport, sigs, repContext)
 	if err != nil {
-		s.lggr.Error(err)
+		framework.L.Error().Err(err)
 		return &wasp.Response{Error: err.Error()}
 	}
 
@@ -756,7 +764,7 @@ func (s *WriterGun) generateReports(timestamp time.Time) []any {
 	for i := range s.testParams.nrOfReports {
 		feedIDBytes, err := stringTo32Byte(s.testParams.feeds[i])
 		if err != nil {
-			s.lggr.Errorf("failed to convert feed ID to bytes: %v", err)
+			framework.L.Error().Msgf("failed to convert feed ID to bytes: %v", err)
 			continue
 		}
 		reports = append(reports, struct {
