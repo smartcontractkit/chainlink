@@ -9,7 +9,7 @@ import (
 )
 
 // use this changeset to add a token pool and lookup table
-var _ cldf.ChangeSet[E2ETokenPoolConfig] = SolanaE2ETokenPool
+var _ cldf.ChangeSet[E2ETokenPoolConfig] = E2ETokenPool
 
 type E2ETokenPoolConfig struct {
 	AddTokenPoolAndLookupTable              []TokenPoolLookupTableConfig
@@ -21,11 +21,11 @@ type E2ETokenPoolConfig struct {
 	ConfigureTokenPoolContractsChangesets   []v1_5_1.ConfigureTokenPoolContractsConfig
 }
 
-func SolanaE2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {
+func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {
 	finalOutput := cldf.ChangesetOutput{}
 	defer func(e cldf.Environment) {
 		e.Logger.Info("SolanaE2ETokenPool changeset completed")
-		e.Logger.Info("Final output: ", finalOutput.AddressBook)
+		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	}(e)
 
 	for _, tokenPoolConfig := range cfg.AddTokenPoolAndLookupTable {
