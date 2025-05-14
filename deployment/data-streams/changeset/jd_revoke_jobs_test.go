@@ -88,7 +88,7 @@ func TestRevokeJobSpecs(t *testing.T) {
 	var streamIDs []uint32
 	streamIDsToJobIDs := make(map[uint32][]string)
 	for _, job := range sentStreamJobs[0].Jobs {
-		s, e := strconv.Atoi(streamIDFromJobSpec(job.Spec))
+		s, e := strconv.ParseUint(streamIDFromJobSpec(job.Spec), 10, 32)
 		require.NoError(t, e)
 		streamIDs = append(streamIDs, uint32(s))
 		streamIDsToJobIDs[uint32(s)] = append(streamIDsToJobIDs[uint32(s)], uuidFromJobSpec(job.Spec))
