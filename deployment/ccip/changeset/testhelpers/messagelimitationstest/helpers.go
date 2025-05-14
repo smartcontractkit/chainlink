@@ -6,8 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
@@ -97,7 +95,7 @@ func Run(tc TestCase) TestCaseOutput {
 		if tc.TestRouter {
 			routerAddress = tc.OnchainState.Chains[tc.SrcChain].TestRouter.Address()
 		}
-		err := ccipChangeset.ApproveToken(tc.Env, tc.SrcChain, tc.SrcToken, routerAddress, testhelpers.OneCoin)
+		err := testhelpers.ApproveToken(tc.Env, tc.SrcChain, tc.SrcToken, routerAddress, testhelpers.OneCoin)
 		require.NoError(tc.T, err)
 	}
 

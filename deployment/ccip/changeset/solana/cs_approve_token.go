@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -83,10 +84,10 @@ func (cfg ApproveTokenSolConfig) Validate(e cldf.Environment) (solanaStateView.C
 	}
 
 	if cfg.AddressToApprove == (solana.PublicKey{}) {
-		return solanaStateView.CCIPChainState{}, fmt.Errorf("address to approve is not set")
+		return solanaStateView.CCIPChainState{}, errors.New("address to approve is not set")
 	}
 	if cfg.TokenProgram == (solana.PublicKey{}) {
-		return solanaStateView.CCIPChainState{}, fmt.Errorf("token program is not set")
+		return solanaStateView.CCIPChainState{}, errors.New("token program is not set")
 	}
 
 	return chainState, nil
