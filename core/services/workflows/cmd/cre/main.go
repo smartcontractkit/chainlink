@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -18,11 +20,20 @@ func main() {
 	var wasmPath string
 	var configPath string
 	var debugMode bool
+	var capabilitiesStr string
+	defaultCapabilityNames := []string{"streams", "consensus", "write_aptos"}
 
 	flag.StringVar(&wasmPath, "wasm", "", "Path to the WASM binary file")
 	flag.StringVar(&configPath, "config", "", "Path to the Config file")
 	flag.BoolVar(&debugMode, "debug", false, "Enable debug-level logging")
+	flag.StringVar(&capabilitiesStr, "capability-names", strings.Join(defaultCapabilityNames, ","), "Comma separated list of capability names to load into the registry")
 	flag.Parse()
+
+	rawComponents := strings.Split(capabilitiesStr, ",")
+	var names []string
+	for _, comp := range rawComponents {
+		names = append(names, strings.TrimSpace(comp))
+	}
 
 	if wasmPath == "" {
 		fmt.Println("--wasm must be set")
@@ -56,25 +67,32 @@ func main() {
 	logCfg := logger.Config{LogLevel: logLevel}
 	lggr, _ := logCfg.New()
 
-	run(ctx, lggr, binary, config)
-}
-
-// run instantiates the engine, starts it and blocks until the context is canceled.
-func run(ctx context.Context, lggr logger.Logger, binary, config []byte) {
+	// Create the registry and fake capabilities
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 
+	capabilities, err := NewFakeCapabilities(ctx, lggr, names, registry)
+	if err != nil {
+		fmt.Printf("Failed to create capabilities: %v\n", err)
+		os.Exit(1)
+	}
+
+	run(ctx, lggr, registry, capabilities, binary, config)
+}
+
+// run instantiates the engine, starts it and blocks until the context is canceled.
+func run(
+	ctx context.Context,
+	lggr logger.Logger,
+	registry *capabilities.Registry,
+	capabilities []services.Service,
+	binary, config []byte) {
 	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config)
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)
 	}
 
-	capabilities, err := NewFakeCapabilities(ctx, lggr, registry)
-	if err != nil {
-		fmt.Printf("Failed to create capabilities: %v\n", err)
-		os.Exit(1)
-	}
 	for _, cap := range capabilities {
 		if err2 := cap.Start(ctx); err2 != nil {
 			fmt.Printf("Failed to start capability: %v\n", err2)

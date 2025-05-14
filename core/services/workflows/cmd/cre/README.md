@@ -23,6 +23,7 @@ go run . --wasm data_feeds.wasm --config ./examples/legacy/data_feeds/config_10_
 ```
 
 ### V2 `cron` Example ("No DAG")
+Requires overriding the default capabilities.  Pass the `cron` capability via the `--capability-names` flag, which accepts a comma separated list of values.
 
 1. Build the workflow:
 
@@ -34,5 +35,5 @@ GOOS=wasip1 GOARCH=wasm go build -o cron.wasm ./examples/v2/simple_cron/main.go
 2. Run the engine with the workflow:
 
 ```bash
-go run . --wasm cron.wasm --debug 2> stderr.log
+go run . --wasm cron.wasm --capability-names "cron" --debug 2> stderr.log
 ```
