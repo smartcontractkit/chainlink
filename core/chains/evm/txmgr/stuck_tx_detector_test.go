@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
@@ -30,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
 var (
@@ -42,7 +42,7 @@ func TestStuckTxDetector_Disabled(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	fromAddress := testutils.NewAddress()
 
 	lggr := logger.Test(t)
@@ -64,7 +64,7 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	ctx := tests.Context(t)
 	blockNum := int64(100)
 
@@ -108,7 +108,7 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 
 	db := testutils.NewSqlxDB(t)
 	config := configtest.NewChainScopedConfig(t, nil)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
@@ -127,10 +127,10 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 		fromAddress1 := testutils.NewAddress()
 		fromAddress2 := testutils.NewAddress()
 		// Insert 2 txs for from address, should only return the lowest nonce txs
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress1)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress1)
+		txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress1)
+		txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress1)
 		// Insert 1 tx for other from address, should return a tx
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress2)
+		txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress2)
 		stuckTxs, err := stuckTxDetector.FindUnconfirmedTxWithLowestNonce(ctx, []common.Address{fromAddress1, fromAddress2})
 		require.NoError(t, err)
 
@@ -157,8 +157,8 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 
 	t.Run("excludes transactions with a in-progress attempt", func(t *testing.T) {
 		fromAddress := testutils.NewAddress()
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
-		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+		etx := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
+		attempt := txmgrtest.NewLegacyEthTxAttempt(t, etx.ID)
 		attempt.TxFee.GasPrice = assets.NewWeiI(2)
 		attempt.State = txmgrtypes.TxAttemptInProgress
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
@@ -169,8 +169,8 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 
 	t.Run("excludes transactions with an insufficient funds attempt", func(t *testing.T) {
 		fromAddress := testutils.NewAddress()
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
-		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+		etx := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
+		attempt := txmgrtest.NewLegacyEthTxAttempt(t, etx.ID)
 		attempt.TxFee.GasPrice = assets.NewWeiI(2)
 		attempt.State = txmgrtypes.TxAttemptInsufficientFunds
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
@@ -184,7 +184,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
@@ -291,7 +291,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
@@ -392,7 +392,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
@@ -456,7 +456,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 		// Insert tx with enough attempts for detection
 		fromAddress1 := testutils.NewAddress()
 		etx1 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress1, 1, blockNum, tenGwei)
-		attempt := cltest.NewLegacyEthTxAttempt(t, etx1.ID)
+		attempt := txmgrtest.NewLegacyEthTxAttempt(t, etx1.ID)
 		attempt.TxFee.GasPrice = assets.NewWeiI(2)
 		attempt.State = txmgrtypes.TxAttemptBroadcast
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
@@ -483,7 +483,7 @@ func TestStuckTxDetector_DetectStuckTransactionsScroll(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
@@ -525,11 +525,11 @@ func TestStuckTxDetector_DetectStuckTransactionsScroll(t *testing.T) {
 
 func mustInsertUnconfirmedTxWithBroadcastAttempts(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, numAttempts uint32, latestBroadcastBlockNum int64, latestGasPrice *assets.Wei) txmgr.Tx {
 	ctx := tests.Context(t)
-	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress)
+	etx := txmgrtest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress)
 	// Insert attempts from oldest to newest
 	for i := int64(numAttempts - 1); i >= 0; i-- {
 		blockNum := latestBroadcastBlockNum - i
-		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+		attempt := txmgrtest.NewLegacyEthTxAttempt(t, etx.ID)
 
 		attempt.State = txmgrtypes.TxAttemptBroadcast
 		attempt.BroadcastBeforeBlockNum = &blockNum
@@ -544,10 +544,10 @@ func mustInsertUnconfirmedTxWithBroadcastAttempts(t testing.TB, txStore txmgr.Te
 // helper function for edge case where broadcast attempt contains empty pointer
 func mustInsertUnconfirmedTxWithBroadcastAttemptsContainsEmptyBroadcastBeforeBlockNum(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, numAttempts uint32, latestGasPrice *assets.Wei) txmgr.Tx {
 	ctx := tests.Context(t)
-	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress)
+	etx := txmgrtest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress)
 	// Insert attempts from oldest to newest
 	for i := int64(numAttempts - 1); i >= 0; i-- {
-		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+		attempt := txmgrtest.NewLegacyEthTxAttempt(t, etx.ID)
 		attempt.State = txmgrtypes.TxAttemptBroadcast
 		attempt.BroadcastBeforeBlockNum = nil
 		attempt.TxFee = gas.EvmFee{GasPrice: latestGasPrice.Sub(assets.NewWeiI(i))}
@@ -559,7 +559,7 @@ func mustInsertUnconfirmedTxWithBroadcastAttemptsContainsEmptyBroadcastBeforeBlo
 }
 
 func mustInsertFatalErrorTxWithError(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, blockNum int64) txmgr.Tx {
-	etx := cltest.NewEthTx(fromAddress)
+	etx := txmgrtest.NewEthTx(fromAddress)
 	etx.State = txmgrcommon.TxFatalError
 	etx.Error = null.StringFrom("fatal error")
 	broadcastAt := time.Now()
@@ -570,7 +570,7 @@ func mustInsertFatalErrorTxWithError(t *testing.T, txStore txmgr.TestEvmTxStore,
 	etx.ChainID = testutils.FixtureChainID
 	require.NoError(t, txStore.InsertTx(tests.Context(t), &etx))
 
-	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+	attempt := txmgrtest.NewLegacyEthTxAttempt(t, etx.ID)
 	ctx := tests.Context(t)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	attempt.IsPurgeAttempt = true
@@ -586,8 +586,8 @@ func mustInsertFatalErrorTxWithError(t *testing.T, txStore txmgr.TestEvmTxStore,
 }
 
 func mustInsertUnconfirmedEthTxWithBroadcastPurgeAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address) txmgr.Tx {
-	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress)
-	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+	etx := txmgrtest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress)
+	attempt := txmgrtest.NewLegacyEthTxAttempt(t, etx.ID)
 	ctx := tests.Context(t)
 
 	attempt.State = txmgrtypes.TxAttemptBroadcast
