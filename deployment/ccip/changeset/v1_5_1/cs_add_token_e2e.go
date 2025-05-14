@@ -350,7 +350,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
 	if len(finalCSOut.MCMSTimelockProposals) > 1 {
 		aggregatedProposals, err := proposalutils.AggregateProposals(
-			e, state.EVMMCMSStateByChain(), nil, finalCSOut.MCMSTimelockProposals, nil,
+			e, state.EVMMCMSStateByChain(), nil, finalCSOut.MCMSTimelockProposals,
 			"Add Tokens E2E", config.MCMS)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)

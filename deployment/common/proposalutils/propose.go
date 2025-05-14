@@ -3,7 +3,6 @@ package proposalutils
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -357,14 +356,14 @@ func buildProposalMetadataV2(
 	return metaDataPerChain, nil
 }
 
-// AggregateProposals aggregates proposals from the legacy and new formats into a single proposal.
-// Required if you are merging multiple changesets that have different proposal formats.
+// AggregateProposals aggregates multiple MCMS proposals into a single proposal by combining their operations, and
+// setting up the proposers and inspectors for each chain. It returns a single MCMS proposal that can be executed
+// and signed.
 func AggregateProposals(
 	env cldf.Environment,
 	mcmsEVMState map[uint64]state.MCMSWithTimelockState,
 	mcmsSolanaState map[uint64]state.MCMSWithTimelockStateSolana,
 	proposals []mcmslib.TimelockProposal,
-	legacyProposals []timelock.MCMSWithTimelockProposal,
 	description string,
 	mcmsConfig *TimelockConfig,
 ) (*mcmslib.TimelockProposal, error) {
@@ -373,26 +372,8 @@ func AggregateProposals(
 	}
 
 	var batches []types.BatchOperation
-	// Add proposals that follow the legacy format to the aggregate.
-	for _, proposal := range legacyProposals {
-		for _, batchTransaction := range proposal.Transactions {
-			for _, transaction := range batchTransaction.Batch {
-				batchOperation, err := BatchOperationForChain(
-					uint64(batchTransaction.ChainIdentifier),
-					transaction.To.Hex(),
-					transaction.Data,
-					big.NewInt(0),
-					transaction.ContractType,
-					transaction.Tags,
-				)
-				if err != nil {
-					return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", batchTransaction.ChainIdentifier, err)
-				}
-				batches = append(batches, batchOperation)
-			}
-		}
-	}
-	// Add proposals that follow the new format to the aggregate.
+
+	// Add proposals to the aggregate.
 	for _, proposal := range proposals {
 		batches = append(batches, proposal.Operations...)
 	}

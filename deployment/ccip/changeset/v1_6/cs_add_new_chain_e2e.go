@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -408,7 +408,6 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		state.EVMMCMSStateByChain(),
 		nil,
 		allProposals,
-		nil,
 		fmt.Sprintf("Deploy and set candidates for chain with selector %d", c.NewChain.Selector),
 		c.MCMSConfig,
 	)
@@ -588,7 +587,6 @@ func promoteNewChainForConfigLogic(e cldf.Environment, c PromoteNewChainForConfi
 		state.EVMMCMSStateByChain(),
 		nil,
 		allProposals,
-		nil,
 		fmt.Sprintf("Promote chain with selector %d for testing", c.NewChain.Selector),
 		c.MCMSConfig,
 	)
@@ -729,7 +727,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 	}
 	readOpts := &bind.CallOpts{Context: env.GetContext()}
 
-	var ownershipTransferProposals []timelock.MCMSWithTimelockProposal
+	var ownershipTransferProposals []mcmslib.TimelockProposal
 	if !*c.TestRouter && c.MCMSConfig != nil {
 		// If using the production router, transfer ownership of all contracts on the new chain to MCMS.
 		allContracts := []commoncs.Ownable{
@@ -755,7 +753,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 				addressesToTransfer = append(addressesToTransfer, contract.Address())
 			}
 		}
-		out, err := commoncs.TransferToMCMSWithTimelock(env, commoncs.TransferToMCMSWithTimelockConfig{
+		out, err := commoncs.TransferToMCMSWithTimelockV2(env, commoncs.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{
 				c.NewChainSelector: addressesToTransfer,
 			},
@@ -764,7 +762,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run TransferToMCMSWithTimelock on chain with selector %d: %w", c.NewChainSelector, err)
 		}
-		ownershipTransferProposals = out.Proposals //nolint:staticcheck //SA1019 ignoring deprecated function for compatibility
+		ownershipTransferProposals = out.MCMSTimelockProposals
 
 		// Also, renounce the admin role on the Timelock (if not already done).
 		adminRole, err := state.Chains[c.NewChainSelector].Timelock.ADMINROLE(readOpts)
@@ -802,12 +800,13 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 		}
 	}
 
+	allProposals := slices.Concat(ownershipTransferProposals, allEnablementProposals)
+
 	proposal, err := proposalutils.AggregateProposals(
 		env,
 		state.EVMMCMSStateByChain(),
 		nil,
-		allEnablementProposals,
-		ownershipTransferProposals,
+		allProposals,
 		fmt.Sprintf("Connect chain with selector %d to other chains", c.NewChainSelector),
 		c.MCMSConfig,
 	)
