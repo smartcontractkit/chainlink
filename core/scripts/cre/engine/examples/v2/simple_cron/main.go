@@ -11,7 +11,7 @@ import (
 func RunSimpleCronWorkflow(runner sdk.DonRunner) {
 	cron := &croncap.Cron{}
 	cfg := &croncap.Config{
-		Schedule: "*/30 * * * * *", // Every 30 seconds
+		Schedule: "", // mocking ignored
 	}
 
 	runner.Run(&sdk.WorkflowArgs[sdk.DonRuntime]{
