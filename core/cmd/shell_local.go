@@ -448,6 +448,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.TronEnabled() {
 			enabledChains = append(enabledChains, chaintype.Tron)
 		}
+		if s.Config.TonEnabled() {
+			enabledChains = append(enabledChains, chaintype.Ton)
+		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
@@ -497,6 +500,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 		err2 := app.GetKeyStore().Tron().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure tron key")
+		}
+	}
+	if s.Config.TonEnabled() {
+		err2 := app.GetKeyStore().Ton().EnsureKey(rootCtx)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure ton key")
 		}
 	}
 

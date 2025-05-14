@@ -1,12 +1,12 @@
-exec chainlink keys Ton --help
+exec chainlink keys ton --help
 cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink keys Ton - Remote commands for administering the node's Ton keys
+   chainlink keys ton - Remote commands for administering the node's Ton keys
 
 USAGE:
-   chainlink keys Ton command [command options] [arguments...]
+   chainlink keys ton command [command options] [arguments...]
 
 COMMANDS:
    create  Create a Ton key
