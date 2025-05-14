@@ -14,15 +14,14 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	internal "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 var _ cldf.ChangeSet[uint64] = DeployOCR3
 
 // Deprecated: use DeployOCR3V2 instead
-func DeployOCR3(env deployment.Environment, registryChainSel uint64) (cldf.ChangesetOutput, error) {
+func DeployOCR3(env cldf.Environment, registryChainSel uint64) (cldf.ChangesetOutput, error) {
 	return DeployOCR3V2(env, &DeployRequestV2{
 		ChainSel: registryChainSel,
 	})
@@ -30,7 +29,7 @@ func DeployOCR3(env deployment.Environment, registryChainSel uint64) (cldf.Chang
 
 var _ cldf.ChangeSet[ConfigureOCR3Config] = ConfigureOCR3Contract
 
-func DeployOCR3V2(env deployment.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
+func DeployOCR3V2(env cldf.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
 	req.deployFn = internal.DeployOCR3
 	return deploy(env, req)
 }
@@ -51,7 +50,7 @@ func (cfg ConfigureOCR3Config) UseMCMS() bool {
 	return cfg.MCMSConfig != nil
 }
 
-func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) (cldf.ChangesetOutput, error) {
+func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.ChangesetOutput, error) {
 	resp, err := internal.ConfigureOCR3ContractFromJD(&env, internal.ConfigureOCR3Config{
 		ChainSel:   cfg.ChainSel,
 		NodeIDs:    cfg.NodeIDs,

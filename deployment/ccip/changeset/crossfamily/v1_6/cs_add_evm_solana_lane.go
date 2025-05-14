@@ -13,10 +13,9 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -212,7 +211,7 @@ var (
 			}
 			var mcmsCfg *proposalutils.TimelockConfig
 			if input.MCMSConfig != nil {
-				mcmsCfg = input.MCMSConfig.MCMS
+				mcmsCfg = input.MCMSConfig
 			}
 			// post ops where we merge all the proposals into one
 			postOpsReport, err := operations.ExecuteOperation(b, postOps, deps, postOpsInput{
@@ -227,7 +226,7 @@ var (
 )
 
 type Dependencies struct {
-	Env             deployment.Environment
+	Env             cldf.Environment
 	EVMMCMSState    map[uint64]commonstate.MCMSWithTimelockState
 	SolanaMCMSState map[uint64]commonstate.MCMSWithTimelockStateSolana
 
@@ -266,13 +265,13 @@ type AddRemoteChainE2EConfig struct {
 	SolanaOffRampConfig                  solana.OffRampConfig
 	SolanaFeeQuoterConfig                solana.FeeQuoterConfig
 
-	MCMSConfig *solana.MCMSConfigSolana
+	MCMSConfig *proposalutils.TimelockConfig
 }
 
-func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env deployment.Environment, evmState ccipchangeset.CCIPOnChainState) (csInputs, error) {
+func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env cldf.Environment, evmState stateview.CCIPOnChainState) (csInputs, error) {
 	var timelockConfig *proposalutils.TimelockConfig
 	if cfg.MCMSConfig != nil {
-		timelockConfig = cfg.MCMSConfig.MCMS
+		timelockConfig = cfg.MCMSConfig
 	}
 	var input csInputs
 	input.evmOnRampInput = v1_6.UpdateOnRampDestsConfig{
@@ -334,21 +333,21 @@ func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env de
 	}
 	input.solanaRouterInput = solana.AddRemoteChainToRouterConfig{
 		ChainSelector: cfg.SolanaChainSelector,
-		MCMSSolana:    cfg.MCMSConfig,
+		MCMS:          cfg.MCMSConfig,
 		UpdatesByChain: map[uint64]*solana.RouterConfig{
 			cfg.EVMChainSelector: &cfg.SolanaRouterConfig,
 		},
 	}
 	input.solanaOffRampInput = solana.AddRemoteChainToOffRampConfig{
 		ChainSelector: cfg.SolanaChainSelector,
-		MCMSSolana:    cfg.MCMSConfig,
+		MCMS:          cfg.MCMSConfig,
 		UpdatesByChain: map[uint64]*solana.OffRampConfig{
 			cfg.EVMChainSelector: &cfg.SolanaOffRampConfig,
 		},
 	}
 	input.solanaFeeQuoterInput = solana.AddRemoteChainToFeeQuoterConfig{
 		ChainSelector: cfg.SolanaChainSelector,
-		MCMSSolana:    cfg.MCMSConfig,
+		MCMS:          cfg.MCMSConfig,
 		UpdatesByChain: map[uint64]*solana.FeeQuoterConfig{
 			cfg.EVMChainSelector: &cfg.SolanaFeeQuoterConfig,
 		},
@@ -380,23 +379,23 @@ func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env de
 	return input, nil
 }
 
-func addEVMSolanaPreconditions(env deployment.Environment, input AddRemoteChainE2EConfig) error {
-	evmState, err := ccipchangeset.LoadOnchainState(env)
+func addEVMSolanaPreconditions(env cldf.Environment, input AddRemoteChainE2EConfig) error {
+	evmState, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain evm state: %w", err)
 	}
 	var timelockConfig *proposalutils.TimelockConfig
 	if input.MCMSConfig != nil {
-		timelockConfig = input.MCMSConfig.MCMS
+		timelockConfig = input.MCMSConfig
 	}
 	// Verify evm Chain
-	if err := ccipchangeset.ValidateChain(env, evmState, input.EVMChainSelector, timelockConfig); err != nil {
+	if err := stateview.ValidateChain(env, evmState, input.EVMChainSelector, timelockConfig); err != nil {
 		return fmt.Errorf("failed to validate EVM chain %d: %w", input.EVMChainSelector, err)
 	}
 	if _, ok := env.SolChains[input.SolanaChainSelector]; !ok {
 		return fmt.Errorf("failed to find Solana chain in env %d", input.SolanaChainSelector)
 	}
-	solanaState, err := ccipchangeset.LoadOnchainStateSolana(env)
+	solanaState, err := stateview.LoadOnchainStateSolana(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain solana state: %w", err)
 	}
@@ -406,8 +405,8 @@ func addEVMSolanaPreconditions(env deployment.Environment, input AddRemoteChainE
 	return nil
 }
 
-func addEVMAndSolanaLaneLogic(env deployment.Environment, input AddRemoteChainE2EConfig) (cldf.ChangesetOutput, error) {
-	evmState, err := ccipchangeset.LoadOnchainState(env)
+func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddRemoteChainE2EConfig) (cldf.ChangesetOutput, error) {
+	evmState, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load evm onchain state: %w", err)
 	}

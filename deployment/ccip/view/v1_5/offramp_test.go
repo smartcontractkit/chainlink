@@ -13,7 +13,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -30,7 +32,7 @@ func TestOffRampView(t *testing.T) {
 			OnRamp:              common.HexToAddress("0x4"),
 			RmnProxy:            common.HexToAddress("0x1"),
 		})
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 	sc := evm_2_evm_offramp.EVM2EVMOffRampStaticConfig{
 		ChainSelector:       chainsel.TEST_90000002.Selector,
@@ -47,7 +49,7 @@ func TestOffRampView(t *testing.T) {
 	}
 	_, tx, c2, err := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
 		chain.DeployerKey, chain.Client, sc, rl)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	v, err := GenerateOffRampView(c2)

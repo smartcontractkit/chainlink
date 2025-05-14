@@ -9,7 +9,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
@@ -22,7 +21,7 @@ type DeployBalanceReaderRequest struct {
 // DeployBalanceReader deploys the BalanceReader contract to all chains in the environment
 // callers must merge the output addressbook with the existing one
 // Deprecated: use DeployBalanceReaderV2 instead
-func DeployBalanceReader(env deployment.Environment, cfg DeployBalanceReaderRequest) (cldf.ChangesetOutput, error) {
+func DeployBalanceReader(env cldf.Environment, cfg DeployBalanceReaderRequest) (cldf.ChangesetOutput, error) {
 	out := cldf.ChangesetOutput{
 		AddressBook: cldf.NewMemoryAddressBook(),
 		DataStore:   datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata](),
@@ -52,7 +51,7 @@ func DeployBalanceReader(env deployment.Environment, cfg DeployBalanceReaderRequ
 	return out, nil
 }
 
-func DeployBalanceReaderV2(env deployment.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
+func DeployBalanceReaderV2(env cldf.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
 	req.deployFn = internal.DeployBalanceReader
 	return deploy(env, req)
 }

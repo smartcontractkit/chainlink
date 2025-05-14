@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -40,14 +40,14 @@ func (cfg DeactivateConfigConfig) Validate() error {
 	return nil
 }
 
-func deactivateConfigPrecondition(_ deployment.Environment, cc DeactivateConfigConfig) error {
+func deactivateConfigPrecondition(_ cldf.Environment, cc DeactivateConfigConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid ActivateConfig config: %w", err)
 	}
 	return nil
 }
 
-func deactivateConfigLogic(e deployment.Environment, cfg DeactivateConfigConfig) (cldf.ChangesetOutput, error) {
+func deactivateConfigLogic(e cldf.Environment, cfg DeactivateConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.VerifierProxy.String(),
@@ -64,7 +64,7 @@ func deactivateConfigLogic(e deployment.Environment, cfg DeactivateConfigConfig)
 
 func doDeactivateConfig(v *verifier_v0_5_0.Verifier, ac DeactivateConfig) (*goEthTypes.Transaction, error) {
 	return v.DeactivateConfig(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		ac.ConfigDigest,
 	)
 }

@@ -15,7 +15,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
@@ -53,7 +52,7 @@ type CsDistributeLLOJobSpecsConfig struct {
 
 type CsDistributeLLOJobSpecs struct{}
 
-func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig) (cldf.ChangesetOutput, error) {
+func (CsDistributeLLOJobSpecs) Apply(e cldf.Environment, cfg CsDistributeLLOJobSpecsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(e.GetContext(), defaultJobSpecsTimeout)
 	defer cancel()
 
@@ -105,7 +104,7 @@ func (CsDistributeLLOJobSpecs) Apply(e deployment.Environment, cfg CsDistributeL
 
 func generateBootstrapProposals(
 	ctx context.Context,
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg CsDistributeLLOJobSpecsConfig,
 	chainID string,
 	labels []*ptypes.Label,
@@ -172,7 +171,7 @@ func generateBootstrapProposals(
 
 func generateOracleProposals(
 	ctx context.Context,
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg CsDistributeLLOJobSpecsConfig,
 	chainID string,
 	labels []*ptypes.Label,
@@ -277,7 +276,7 @@ func generateOracleProposals(
 }
 
 // chainConfigs returns a map of node IDs to their chain configs for the given chain ID.
-func chainConfigs(ctx context.Context, e deployment.Environment, chainID string, nodes []*node.Node) (map[string]*node.OCR2Config, error) {
+func chainConfigs(ctx context.Context, e cldf.Environment, chainID string, nodes []*node.Node) (map[string]*node.OCR2Config, error) {
 	nodeConfigMap := make(map[string]*node.OCR2Config)
 	for _, n := range nodes {
 		ncf, err := e.Offchain.ListNodeChainConfigs(ctx,
@@ -301,7 +300,7 @@ func chainConfigs(ctx context.Context, e deployment.Environment, chainID string,
 
 // getBootstrapMultiAddr fetches the bootstrap node from Job Distributor and returns its multiaddr.
 // If boostrapNodeIDs is empty, it will return the first bootstrap node found for this DON.
-func getBootstrapMultiAddr(ctx context.Context, e deployment.Environment, cfg CsDistributeLLOJobSpecsConfig, boostrapNodeIDs []string) (string, error) {
+func getBootstrapMultiAddr(ctx context.Context, e cldf.Environment, cfg CsDistributeLLOJobSpecsConfig, boostrapNodeIDs []string) (string, error) {
 	if len(boostrapNodeIDs) == 0 {
 		// Get all bootstrap nodes for this DON.
 		// We fetch these with a custom filter because the filter in the config defines which nodes need to be sent jobs
@@ -358,7 +357,7 @@ func getBootstrapMultiAddr(ctx context.Context, e deployment.Environment, cfg Cs
 	return resp.ChainConfigs[0].Ocr2Config.Multiaddr, nil
 }
 
-func (f CsDistributeLLOJobSpecs) VerifyPreconditions(_ deployment.Environment, config CsDistributeLLOJobSpecsConfig) error {
+func (f CsDistributeLLOJobSpecs) VerifyPreconditions(_ cldf.Environment, config CsDistributeLLOJobSpecsConfig) error {
 	if config.ChainSelectorEVM == 0 {
 		return errors.New("chain selector is required")
 	}

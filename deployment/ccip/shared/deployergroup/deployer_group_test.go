@@ -1,4 +1,4 @@
-package changeset_test
+package deployergroup_test
 
 import (
 	"fmt"
@@ -14,9 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -43,25 +44,25 @@ type dummyEmptyBatchChangesetConfig struct {
 	MCMS *proposalutils.TimelockConfig
 }
 
-func dummyEmptyBatchChangeset(e deployment.Environment, cfg dummyEmptyBatchChangesetConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+func dummyEmptyBatchChangeset(e cldf.Environment, cfg dummyEmptyBatchChangesetConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("empty batch")
+	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("empty batch")
 	return group.Enact()
 }
 
-func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+func dummyDeployerGroupGrantMintChangeset(e cldf.Environment, cfg dummyDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	token := state.Chains[cfg.selector].LinkToken
 
-	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
+	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
 	deployer, err := group.GetDeployer(cfg.selector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -75,15 +76,15 @@ func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDep
 	return group.Enact()
 }
 
-func dummyDeployerGroupMintChangeset(e deployment.Environment, cfg dummyDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+func dummyDeployerGroupMintChangeset(e cldf.Environment, cfg dummyDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	token := state.Chains[cfg.selector].LinkToken
 
-	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("mint tokens")
+	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("mint tokens")
 	deployer, err := group.GetDeployer(cfg.selector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -99,13 +100,13 @@ func dummyDeployerGroupMintChangeset(e deployment.Environment, cfg dummyDeployer
 	return group.Enact()
 }
 
-func dummyDeployerGroupGrantMintMultiChainChangeset(e deployment.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+func dummyDeployerGroupGrantMintMultiChainChangeset(e cldf.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
+	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
 	for _, mint := range cfg.mints {
 		selector := e.AllChainSelectors()[mint.selectorIndex]
 		token := state.Chains[selector].LinkToken
@@ -124,13 +125,13 @@ func dummyDeployerGroupGrantMintMultiChainChangeset(e deployment.Environment, cf
 	return group.Enact()
 }
 
-func dummyDeployerGroupMintMultiDeploymentContextChangeset(e deployment.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+func dummyDeployerGroupMintMultiDeploymentContextChangeset(e cldf.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	var group *changeset.DeployerGroup
+	var group *deployergroup.DeployerGroup
 	var deployer *bind.TransactOpts
 
 	for i, mint := range cfg.mints {
@@ -138,7 +139,7 @@ func dummyDeployerGroupMintMultiDeploymentContextChangeset(e deployment.Environm
 		token := state.Chains[selector].LinkToken
 
 		if group == nil {
-			group = changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
+			group = deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
 		} else {
 			group = group.WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
 		}
@@ -197,7 +198,7 @@ func TestDeployerGroup(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				state, err := changeset.LoadOnchainState(e.Env)
+				state, err := stateview.LoadOnchainState(e.Env)
 				require.NoError(t, err)
 
 				token := state.Chains[e.HomeChainSel].LinkToken
@@ -232,10 +233,10 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			tc.cfg.MCMS = &proposalutils.TimelockConfig{
 				MinDelay: 0,
 			}
-			state, err := changeset.LoadOnchainState(e.Env)
+			state, err := stateview.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 
-			timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, state)
+			timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 
 			contractsByChain := make(map[uint64][]common.Address)
 			contractsByChain[e.HomeChainSel] = []common.Address{state.Chains[e.HomeChainSel].LinkToken.Address()}
@@ -269,7 +270,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			state, err = changeset.LoadOnchainState(e.Env)
+			state, err = stateview.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 
 			token := state.Chains[e.HomeChainSel].LinkToken
@@ -309,10 +310,10 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 		},
 	}
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, state)
+	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 
 	contractsByChain := make(map[uint64][]common.Address)
 	for _, chain := range e.Env.AllChainSelectors() {
@@ -375,10 +376,10 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 
-	currentState, err := changeset.LoadOnchainState(e.Env)
+	currentState, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, currentState)
+	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, currentState)
 
 	contractsByChain := make(map[uint64][]common.Address)
 	for _, chain := range e.Env.AllChainSelectors() {
@@ -414,7 +415,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	currentState, err = changeset.LoadOnchainState(e.Env)
+	currentState, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	token := currentState.Chains[e.HomeChainSel].LinkToken

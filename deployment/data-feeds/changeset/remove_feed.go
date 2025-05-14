@@ -7,7 +7,7 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -15,7 +15,7 @@ import (
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transactions with the deployer key.
 var RemoveFeedChangeset = cldf.CreateChangeSet(removeFeedLogic, removeFeedPrecondition)
 
-func removeFeedLogic(env deployment.Environment, c types.RemoveFeedConfig) (cldf.ChangesetOutput, error) {
+func removeFeedLogic(env cldf.Environment, c types.RemoveFeedConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
@@ -23,7 +23,7 @@ func removeFeedLogic(env deployment.Environment, c types.RemoveFeedConfig) (cldf
 
 	txOpt := chain.DeployerKey
 	if c.McmsConfig != nil {
-		txOpt = deployment.SimTransactOpts()
+		txOpt = cldf.SimTransactOpts()
 	}
 	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
 
@@ -34,7 +34,7 @@ func removeFeedLogic(env deployment.Environment, c types.RemoveFeedConfig) (cldf
 	}
 
 	if c.McmsConfig == nil {
-		if _, err := deployment.ConfirmIfNoError(chain, removeConfigTx, err); err != nil {
+		if _, err := cldf.ConfirmIfNoError(chain, removeConfigTx, err); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", removeConfigTx.Hash().String(), err)
 		}
 	}
@@ -46,7 +46,7 @@ func removeFeedLogic(env deployment.Environment, c types.RemoveFeedConfig) (cldf
 	}
 
 	if c.McmsConfig == nil {
-		if _, err := deployment.ConfirmIfNoError(chain, removeProxyMappingTx, err); err != nil {
+		if _, err := cldf.ConfirmIfNoError(chain, removeProxyMappingTx, err); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", removeProxyMappingTx.Hash().String(), err)
 		}
 		return cldf.ChangesetOutput{}, nil
@@ -72,7 +72,7 @@ func removeFeedLogic(env deployment.Environment, c types.RemoveFeedConfig) (cldf
 	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
-func removeFeedPrecondition(env deployment.Environment, c types.RemoveFeedConfig) error {
+func removeFeedPrecondition(env cldf.Environment, c types.RemoveFeedConfig) error {
 	_, ok := env.Chains[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)

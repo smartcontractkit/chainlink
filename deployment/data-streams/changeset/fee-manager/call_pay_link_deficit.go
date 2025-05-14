@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -35,7 +35,7 @@ func (a PayLinkDeficit) GetContractAddress() common.Address {
 	return a.FeeManagerAddress
 }
 
-func (cs payLinkDeficit) Apply(e deployment.Environment, cfg PayLinkDeficitConfig) (cldf.ChangesetOutput, error) {
+func (cs payLinkDeficit) Apply(e cldf.Environment, cfg PayLinkDeficitConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -50,12 +50,12 @@ func (cs payLinkDeficit) Apply(e deployment.Environment, cfg PayLinkDeficitConfi
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "Withdraw proposal")
 }
 
-func (cs payLinkDeficit) VerifyPreconditions(e deployment.Environment, cfg PayLinkDeficitConfig) error {
+func (cs payLinkDeficit) VerifyPreconditions(e cldf.Environment, cfg PayLinkDeficitConfig) error {
 	if len(cfg.ConfigPerChain) == 0 {
 		return errors.New("ConfigPerChain is empty")
 	}
 	for cs := range cfg.ConfigPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 	}
@@ -67,6 +67,6 @@ func doPayLinkDeficit(
 	c PayLinkDeficit,
 ) (*goEthTypes.Transaction, error) {
 	return fm.PayLinkDeficit(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		c.ConfigDigest)
 }

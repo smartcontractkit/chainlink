@@ -294,14 +294,14 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		run := cltest.MustInsertPipelineRun(t, db)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
+		runID := testutils.MustInsertPipelineRun(t, db)
+		trID := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 1, fromAddress)
 		mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 		// Setting both signal_callback and callback_completed to TRUE to simulate a completed pipeline task
 		// It would only be in a state past suspended if the resume callback was called and callback_completed was set to TRUE
-		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &trID, minConfirmations, etx.ID)
 
 		err := finalizer.ResumePendingTaskRuns(ctx, head.BlockNumber(), 0)
 		require.NoError(t, err)
@@ -316,13 +316,13 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		run := cltest.MustInsertPipelineRun(t, db)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
+		runID := testutils.MustInsertPipelineRun(t, db)
+		trID := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
 		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
-		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID, minConfirmations, etx.ID)
 
 		err := finalizer.ResumePendingTaskRuns(ctx, head.BlockNumber(), 0)
 		require.NoError(t, err)
@@ -341,15 +341,15 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		run := cltest.MustInsertPipelineRun(t, db)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
-		testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
+		runID := testutils.MustInsertPipelineRun(t, db)
+		trID := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
+		testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 		receipt := mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 
-		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID, minConfirmations, etx.ID)
 
 		done := make(chan struct{})
 		t.Cleanup(func() { <-done })
@@ -394,9 +394,9 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		run := cltest.MustInsertPipelineRun(t, db)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
-		testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
+		runID := testutils.MustInsertPipelineRun(t, db)
+		trID := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
+		testutils.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
@@ -404,7 +404,7 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		// receipt is not passed through as a value since it reverted and caused an error
 		mustInsertRevertedEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 
-		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID, minConfirmations, etx.ID)
 
 		done := make(chan struct{})
 		t.Cleanup(func() { <-done })
@@ -441,12 +441,12 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		})
 		servicetest.Run(t, finalizer)
 
-		run := cltest.MustInsertPipelineRun(t, db)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
+		runID := testutils.MustInsertPipelineRun(t, db)
+		trID := testutils.MustInsertUnfinishedPipelineTaskRun(t, db, runID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
-		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &trID, minConfirmations, etx.ID)
 
 		err := finalizer.ResumePendingTaskRuns(ctx, head.BlockNumber(), 0)
 		require.Error(t, err)
@@ -508,7 +508,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		// Transaction not confirmed yet, receipt is nil
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && matchTranscationReceipt(b[0], etx.TxAttempts[0].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &types.Receipt{}
@@ -541,7 +541,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 
 		// First transaction confirmed
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && matchTranscationReceipt(b[0], etx.TxAttempts[0].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			*(elems[0].Result.(*types.Receipt)) = txmReceipt
@@ -573,7 +573,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 
 		// Batch receipt call fails
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && matchTranscationReceipt(b[0], etx.TxAttempts[0].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			*(elems[0].Result.(*types.Receipt)) = txmReceipt
@@ -609,8 +609,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				cltest.BatchElemMatchesParams(b[0], etx1.TxAttempts[0].Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[1], etx2.TxAttempts[0].Hash, "eth_getTransactionReceipt")
+				matchTranscationReceipt(b[0], etx1.TxAttempts[0].Hash) &&
+				matchTranscationReceipt(b[1], etx2.TxAttempts[0].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First transaction confirmed
@@ -669,9 +669,9 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 3 &&
-				cltest.BatchElemMatchesParams(b[2], attempt1.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[1], attempt2.Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[0], attempt3.Hash, "eth_getTransactionReceipt")
+				matchTranscationReceipt(b[2], attempt1.Hash) &&
+				matchTranscationReceipt(b[1], attempt2.Hash) &&
+				matchTranscationReceipt(b[0], attempt3.Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// Most expensive attempt still unconfirmed
@@ -708,7 +708,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 			Status: uint64(1),
 		}
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && matchTranscationReceipt(b[0], etx.TxAttempts[0].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			*(elems[0].Result.(*types.Receipt)) = receipt
@@ -741,7 +741,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 			Status:    uint64(1),
 		}
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && matchTranscationReceipt(b[0], etx.TxAttempts[0].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			*(elems[0].Result.(*types.Receipt)) = receipt
@@ -777,7 +777,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 
 		// First attempt is confirmed and reverted
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt.Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && matchTranscationReceipt(b[0], attempt.Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First attempt still unconfirmed
@@ -824,7 +824,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 
 		// Transaction receipt is nil
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && matchTranscationReceipt(b[0], etx.TxAttempts[0].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			*(elems[0].Result.(*types.Receipt)) = txmReceipt
@@ -850,7 +850,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 
 		// Transaction receipt is nil
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && matchTranscationReceipt(b[0], etx.TxAttempts[0].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &types.Receipt{}
@@ -931,8 +931,8 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				cltest.BatchElemMatchesParams(b[0], attempts[4].Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[1], attempts[3].Hash, "eth_getTransactionReceipt")
+				matchTranscationReceipt(b[0], attempts[4].Hash) &&
+				matchTranscationReceipt(b[1], attempts[3].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &types.Receipt{}
@@ -940,16 +940,15 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 		}).Once()
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				cltest.BatchElemMatchesParams(b[0], attempts[2].Hash, "eth_getTransactionReceipt") &&
-				cltest.BatchElemMatchesParams(b[1], attempts[1].Hash, "eth_getTransactionReceipt")
+				matchTranscationReceipt(b[0], attempts[2].Hash) &&
+				matchTranscationReceipt(b[1], attempts[1].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &types.Receipt{}
 			elems[1].Result = &types.Receipt{}
 		}).Once()
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 &&
-				cltest.BatchElemMatchesParams(b[0], attempts[0].Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && matchTranscationReceipt(b[0], attempts[0].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &types.Receipt{}
@@ -978,12 +977,10 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 		}
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 &&
-				cltest.BatchElemMatchesParams(b[0], etx1.TxAttempts[0].Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && matchTranscationReceipt(b[0], etx1.TxAttempts[0].Hash)
 		})).Return(errors.New("batch call failed")).Once()
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 &&
-				cltest.BatchElemMatchesParams(b[0], etx2.TxAttempts[0].Hash, "eth_getTransactionReceipt")
+			return len(b) == 1 && matchTranscationReceipt(b[0], etx2.TxAttempts[0].Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			*(elems[0].Result.(*types.Receipt)) = txmReceipt // confirmed
@@ -1045,8 +1042,7 @@ func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t
 	}
 
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		return len(b) == 1 &&
-			cltest.BatchElemMatchesParams(b[0], attempt.Hash, "eth_getTransactionReceipt")
+		return len(b) == 1 && matchTranscationReceipt(b[0], attempt.Hash)
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		*(elems[0].Result.(*types.Receipt)) = txmReceipt // confirmed
@@ -1180,4 +1176,9 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 		require.Equal(t, txmgrcommon.TxConfirmed, etx.State)
 		require.False(t, etx.CallbackCompleted)
 	})
+}
+
+func matchTranscationReceipt(req rpc.BatchElem, arg interface{}) bool {
+	return req.Method == "eth_getTransactionReceipt" &&
+		len(req.Args) == 1 && req.Args[0] == arg
 }

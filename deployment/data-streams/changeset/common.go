@@ -14,14 +14,13 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 const (
 	defaultJobSpecsTimeout = 120 * time.Second
 )
 
-func chainAndAddresses(e deployment.Environment, chainSel uint64) (chainID string, addresses map[string]cldf.TypeAndVersion, err error) {
+func chainAndAddresses(e cldf.Environment, chainSel uint64) (chainID string, addresses map[string]cldf.TypeAndVersion, err error) {
 	chainID, err = chainsel.GetChainIDFromSelector(chainSel)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to get chain ID from selector: %w", err)
@@ -72,7 +71,7 @@ func proposeAllOrNothing(ctx context.Context, oc cldf.OffchainClient, prs []*job
 
 // fetchExternalJobID looks for an existing job that matches the given labels and returns its ID.
 // If no job is found, it returns a nil UUID.
-func fetchExternalJobID(e deployment.Environment, nodeID string, selectors []*ptypes.Selector) (externalJobID uuid.UUID, err error) {
+func fetchExternalJobID(e cldf.Environment, nodeID string, selectors []*ptypes.Selector) (externalJobID uuid.UUID, err error) {
 	var nodeIDs []string
 	if nodeID != "" {
 		nodeIDs = []string{nodeID}

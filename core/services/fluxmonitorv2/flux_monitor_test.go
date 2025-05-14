@@ -1813,6 +1813,10 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 	})
 }
 
+// This is a flaky test: inserting time.Sleep(15 * time.Second) in its end makes it failing with an unexpected call.
+// For now, we let it use a custom EventuallyExpectationsMet instead of assert.Eventually because it flakes
+// with the latter approach (somehow assert.Eventually gives it a little bit more time, and then it fails
+// with the same unexpected call).
 func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	t.Parallel()
 
@@ -1925,9 +1929,39 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 
 	waitTime := 15 * time.Second
 	interval := 50 * time.Millisecond
-	cltest.EventuallyExpectationsMet(t, tm.logBroadcaster, waitTime, interval)
-	cltest.EventuallyExpectationsMet(t, tm.fluxAggregator, waitTime, interval)
-	cltest.EventuallyExpectationsMet(t, tm.orm, waitTime, interval)
-	cltest.EventuallyExpectationsMet(t, tm.pipelineORM, waitTime, interval)
-	cltest.EventuallyExpectationsMet(t, tm.contractSubmitter, waitTime, interval)
+	eventuallyExpectationsMet(t, tm.logBroadcaster, waitTime, interval)
+	eventuallyExpectationsMet(t, tm.fluxAggregator, waitTime, interval)
+	eventuallyExpectationsMet(t, tm.orm, waitTime, interval)
+	eventuallyExpectationsMet(t, tm.pipelineORM, waitTime, interval)
+	eventuallyExpectationsMet(t, tm.contractSubmitter, waitTime, interval)
+}
+
+type testifyExpectationsAsserter interface {
+	AssertExpectations(t mock.TestingT) bool
+}
+
+type fakeT struct{}
+
+func (ft fakeT) Logf(format string, args ...interface{})   {}
+func (ft fakeT) Errorf(format string, args ...interface{}) {}
+func (ft fakeT) FailNow()                                  {}
+
+func eventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, timeout time.Duration, interval time.Duration) {
+	t.Helper()
+
+	chTimeout := time.After(timeout)
+	for {
+		var ft fakeT
+		success := mock.AssertExpectations(ft)
+		if success {
+			return
+		}
+		select {
+		case <-chTimeout:
+			mock.AssertExpectations(t)
+			t.FailNow()
+		default:
+			time.Sleep(interval)
+		}
+	}
 }

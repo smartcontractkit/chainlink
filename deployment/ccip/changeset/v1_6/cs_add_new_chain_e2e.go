@@ -12,9 +12,9 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -148,13 +148,13 @@ func (c AddCandidatesForNewChainConfig) updateChainConfig() UpdateChainConfigCon
 	}
 }
 
-func addCandidatesForNewChainPrecondition(e deployment.Environment, c AddCandidatesForNewChainConfig) error {
-	state, err := changeset.LoadOnchainState(e)
+func addCandidatesForNewChainPrecondition(e cldf.Environment, c AddCandidatesForNewChainConfig) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	err = changeset.ValidateChain(e, state, c.HomeChainSelector, c.MCMSConfig)
+	err = stateview.ValidateChain(e, state, c.HomeChainSelector, c.MCMSConfig)
 	if err != nil {
 		return fmt.Errorf("failed to validate home chain: %w", err)
 	}
@@ -206,7 +206,7 @@ func addCandidatesForNewChainPrecondition(e deployment.Environment, c AddCandida
 	return nil
 }
 
-func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForNewChainConfig) (cldf.ChangesetOutput, error) {
+func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChainConfig) (cldf.ChangesetOutput, error) {
 	newAddresses := cldf.NewMemoryAddressBook()
 	var allProposals []mcmslib.TimelockProposal
 
@@ -255,7 +255,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	}
 	// Set the RMN remote on the RMN proxy, using MCMS if RMN proxy is owned by Timelock
 	// RMN proxy will already exist on chains that supported CCIPv1.5.0, in which case RMN proxy will be owned by Timelock
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -310,13 +310,13 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	}
 
 	// Fetch the next DON ID from the capabilities registry
-	state, err = changeset.LoadOnchainState(e)
+	state, err = stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	if c.DonIDOffSet != nil {
-		_, err = deployment.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
+		_, err = commoncs.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
 			OffSet: *c.DonIDOffSet,
 		})
 
@@ -389,7 +389,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	txOpts := e.Chains[c.HomeChainSelector].DeployerKey
 
 	tx, err := state.Chains[c.HomeChainSelector].DonIDClaimer.ClaimNextDONId(txOpts)
-	if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[c.HomeChainSelector], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
+	if _, err := cldf.ConfirmIfNoErrorWithABI(e.Chains[c.HomeChainSelector], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
@@ -510,8 +510,8 @@ func (c PromoteNewChainForConfig) connectNewChainConfig(testRouter bool) Connect
 	}
 }
 
-func promoteNewChainForConfigPrecondition(e deployment.Environment, c PromoteNewChainForConfig) error {
-	state, err := changeset.LoadOnchainState(e)
+func promoteNewChainForConfigPrecondition(e cldf.Environment, c PromoteNewChainForConfig) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -541,9 +541,9 @@ func promoteNewChainForConfigPrecondition(e deployment.Environment, c PromoteNew
 	return nil
 }
 
-func promoteNewChainForConfigLogic(e deployment.Environment, c PromoteNewChainForConfig) (cldf.ChangesetOutput, error) {
+func promoteNewChainForConfigLogic(e cldf.Environment, c PromoteNewChainForConfig) (cldf.ChangesetOutput, error) {
 	var allProposals []mcmslib.TimelockProposal
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -632,7 +632,7 @@ type ConnectNewChainConfig struct {
 	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
-func (c ConnectNewChainConfig) validateNewChain(env deployment.Environment, state changeset.CCIPOnChainState) error {
+func (c ConnectNewChainConfig) validateNewChain(env cldf.Environment, state stateview.CCIPOnChainState) error {
 	// When running this changeset, there is no case in which the new chain contract should be owned by MCMS,
 	// which is why we do not use MCMSConfig to determine the ownedByMCMS variable.
 	err := c.validateChain(env, state, c.NewChainSelector, false)
@@ -643,7 +643,7 @@ func (c ConnectNewChainConfig) validateNewChain(env deployment.Environment, stat
 	return nil
 }
 
-func (c ConnectNewChainConfig) validateRemoteChains(env deployment.Environment, state changeset.CCIPOnChainState) error {
+func (c ConnectNewChainConfig) validateRemoteChains(env cldf.Environment, state stateview.CCIPOnChainState) error {
 	for remoteChainSelector := range c.RemoteChains {
 		// The remote chain may or may not be owned by MCMS, as MCMS is not really used in staging.
 		// Therefore, we use the presence of MCMSConfig to determine the ownedByMCMS variable.
@@ -656,8 +656,8 @@ func (c ConnectNewChainConfig) validateRemoteChains(env deployment.Environment, 
 	return nil
 }
 
-func (c ConnectNewChainConfig) validateChain(e deployment.Environment, state changeset.CCIPOnChainState, chainSelector uint64, ownedByMCMS bool) error {
-	err := changeset.ValidateChain(e, state, chainSelector, c.MCMSConfig)
+func (c ConnectNewChainConfig) validateChain(e cldf.Environment, state stateview.CCIPOnChainState, chainSelector uint64, ownedByMCMS bool) error {
+	err := stateview.ValidateChain(e, state, chainSelector, c.MCMSConfig)
 	if err != nil {
 		return fmt.Errorf("failed to validate chain with selector %d: %w", chainSelector, err)
 	}
@@ -699,12 +699,12 @@ func (c ConnectNewChainConfig) validateChain(e deployment.Environment, state cha
 	return nil
 }
 
-func connectNewChainPrecondition(env deployment.Environment, c ConnectNewChainConfig) error {
+func connectNewChainPrecondition(env cldf.Environment, c ConnectNewChainConfig) error {
 	if c.TestRouter == nil {
 		return errors.New("must define whether to use the test router")
 	}
 
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -722,8 +722,8 @@ func connectNewChainPrecondition(env deployment.Environment, c ConnectNewChainCo
 	return nil
 }
 
-func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
+func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -825,7 +825,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 // It also sets the onRamp and offRamp on the router for the given remote chains.
 // This function will add the proposals required to make these changes to the proposalAggregate slice.
 func connectRampsAndRouters(
-	e deployment.Environment,
+	e cldf.Environment,
 	chainSelector uint64,
 	remoteChains map[uint64]ConnectionConfig,
 	mcmsConfig *proposalutils.TimelockConfig,

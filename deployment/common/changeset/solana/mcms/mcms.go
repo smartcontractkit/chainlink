@@ -6,7 +6,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -16,8 +15,8 @@ import (
 // as well as the timelock program. It's not necessarily the only way to use
 // the timelock and MCMS, but its reasonable pattern.
 func DeployMCMSWithTimelockProgramsSolana(
-	e deployment.Environment,
-	chain deployment.SolChain,
+	e cldf.Environment,
+	chain cldf.SolChain,
 	addressBook cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 ) (*state.MCMSWithTimelockStateSolana, error) {
