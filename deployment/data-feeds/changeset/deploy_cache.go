@@ -6,8 +6,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -15,7 +13,7 @@ import (
 // Returns a new addressbook with deployed DataFeedsCache contracts
 var DeployCacheChangeset = cldf.CreateChangeSet(deployCacheLogic, deployCachePrecondition)
 
-func deployCacheLogic(env deployment.Environment, c types.DeployConfig) (cldf.ChangesetOutput, error) {
+func deployCacheLogic(env cldf.Environment, c types.DeployConfig) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	ab := cldf.NewMemoryAddressBook()
 	for _, chainSelector := range c.ChainsToDeploy {
@@ -35,7 +33,7 @@ func deployCacheLogic(env deployment.Environment, c types.DeployConfig) (cldf.Ch
 	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func deployCachePrecondition(env deployment.Environment, c types.DeployConfig) error {
+func deployCachePrecondition(env cldf.Environment, c types.DeployConfig) error {
 	for _, chainSelector := range c.ChainsToDeploy {
 		_, ok := env.Chains[chainSelector]
 		if !ok {

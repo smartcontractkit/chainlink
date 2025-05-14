@@ -10,7 +10,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -157,7 +156,7 @@ func (c UpdateBidirectionalLanesConfig) BuildConfigs() UpdateBidirectionalLanesC
 	}
 }
 
-func updateBidirectionalLanesPrecondition(e deployment.Environment, c UpdateBidirectionalLanesConfig) error {
+func updateBidirectionalLanesPrecondition(e cldf.Environment, c UpdateBidirectionalLanesConfig) error {
 	configs := c.BuildConfigs()
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -192,7 +191,7 @@ func updateBidirectionalLanesPrecondition(e deployment.Environment, c UpdateBidi
 	return nil
 }
 
-func updateBidirectionalLanesLogic(e deployment.Environment, c UpdateBidirectionalLanesConfig) (cldf.ChangesetOutput, error) {
+func updateBidirectionalLanesLogic(e cldf.Environment, c UpdateBidirectionalLanesConfig) (cldf.ChangesetOutput, error) {
 	proposals := make([]mcms.TimelockProposal, 0)
 	configs := c.BuildConfigs()
 

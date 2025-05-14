@@ -6,7 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
@@ -27,7 +27,7 @@ func (cc DeployMCMSConfig) GetOwnershipConfig() types.OwnershipSettings {
 	return cc.Ownership
 }
 
-func deployAndTransferMcmsLogic(e deployment.Environment, cc DeployMCMSConfig) (cldf.ChangesetOutput, error) {
+func deployAndTransferMcmsLogic(e cldf.Environment, cc DeployMCMSConfig) (cldf.ChangesetOutput, error) {
 	cfgByChain := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, chain := range cc.ChainsToDeploy {
 		cfgByChain[chain] = cc.Config
@@ -88,7 +88,7 @@ func deployAndTransferMcmsLogic(e deployment.Environment, cc DeployMCMSConfig) (
 		MCMSTimelockProposals: proposals}, nil
 }
 
-func deployAndTransferMcmsPrecondition(_ deployment.Environment, cc DeployMCMSConfig) error {
+func deployAndTransferMcmsPrecondition(_ cldf.Environment, cc DeployMCMSConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployMCMSConfig: %w", err)
 	}
@@ -100,7 +100,7 @@ func (cc DeployMCMSConfig) Validate() error {
 		return errors.New("ChainsToDeploy is empty")
 	}
 	for _, chain := range cc.ChainsToDeploy {
-		if err := deployment.IsValidChainSelector(chain); err != nil {
+		if err := cldf.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
 	}

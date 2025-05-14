@@ -10,12 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	dsCs "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/mcms"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -43,7 +43,7 @@ var TestChain = chainselectors.Chain{
 
 // NewMemoryEnv Deploys a memory environment with the provided number of nodes and optionally deploys MCMS and Timelock.
 // Deprecated: use NewMemoryEnvV2 instead.
-func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deployment.Environment {
+func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) cldf.Environment {
 	lggr := logger.TestLogger(t)
 
 	// Default to 0 if no extra argument is provided
@@ -89,7 +89,7 @@ type MemoryEnvConfig struct {
 }
 
 type MemoryEnv struct {
-	Environment    deployment.Environment
+	Environment    cldf.Environment
 	Timelocks      map[uint64]*proposalutils.TimelockExecutionContracts
 	LinkTokenState *commonstate.LinkTokenState
 }
@@ -189,9 +189,9 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 // Deploy MCMS and Timelock, optionally transferring ownership of the provided contracts to Timelock
 func DeployMCMS(
 	t *testing.T,
-	e deployment.Environment,
+	e cldf.Environment,
 	addressesToTransfer ...map[uint64][]common.Address,
-) (env deployment.Environment, mcmsState *commonChangesets.MCMSWithTimelockState, timelocks map[uint64]*proposalutils.TimelockExecutionContracts) {
+) (env cldf.Environment, mcmsState *commonChangesets.MCMSWithTimelockState, timelocks map[uint64]*proposalutils.TimelockExecutionContracts) {
 	t.Helper()
 
 	chainSelector := TestChain.Selector

@@ -14,7 +14,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -75,7 +74,7 @@ func getRemoteChains(chains []v1_6.ChainDefinition, currentIndex int) []v1_6.Cha
 
 func checkBidirectionalLaneConnectivity(
 	t *testing.T,
-	e deployment.Environment,
+	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	chainOne v1_6.ChainDefinition,
 	chainTwo v1_6.ChainDefinition,

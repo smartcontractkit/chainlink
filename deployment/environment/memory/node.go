@@ -36,6 +36,8 @@ import (
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -229,11 +231,11 @@ type NewNodeConfig struct {
 	// Port for the P2P V2 listener.
 	Port int
 	// EVM chains to be configured. Optional.
-	Chains map[uint64]deployment.Chain
+	Chains map[uint64]cldf.Chain
 	// Solana chains to be configured. Optional.
-	Solchains map[uint64]deployment.SolChain
+	Solchains map[uint64]cldf.SolChain
 	// Aptos chains to be configured. Optional.
-	Aptoschains    map[uint64]deployment.AptosChain
+	Aptoschains    map[uint64]cldf.AptosChain
 	LogLevel       zapcore.Level
 	Bootstrap      bool
 	RegistryConfig deployment.CapabilityRegistryConfig
@@ -424,9 +426,9 @@ type Keys struct {
 
 func CreateKeys(t *testing.T,
 	app chainlink.Application,
-	chains map[uint64]deployment.Chain,
-	solchains map[uint64]deployment.SolChain,
-	aptoschains map[uint64]deployment.AptosChain,
+	chains map[uint64]cldf.Chain,
+	solchains map[uint64]cldf.SolChain,
+	aptoschains map[uint64]cldf.AptosChain,
 ) Keys {
 	ctx := t.Context()
 	_, err := app.GetKeyStore().P2P().Create(ctx)
@@ -606,7 +608,7 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	}
 }
 
-func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.TOMLConfig {
+func createSolanaChainConfig(chainID string, chain cldf.SolChain) *solcfg.TOMLConfig {
 	chainConfig := solcfg.Chain{}
 	chainConfig.SetDefaults()
 

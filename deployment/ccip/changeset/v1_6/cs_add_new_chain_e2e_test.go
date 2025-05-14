@@ -34,7 +34,7 @@ import (
 
 func checkConnectivity(
 	t *testing.T,
-	e deployment.Environment,
+	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	selector uint64,
 	remoteChainSelector uint64,
@@ -451,7 +451,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				tx, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.ClaimNextDONId(e.Chains[deployedEnvironment.HomeChainSel].DeployerKey)
 				require.NoError(t, err)
 
-				_, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[deployedEnvironment.HomeChainSel], tx, don_id_claimer.DonIDClaimerABI, err)
+				_, err = cldf.ConfirmIfNoErrorWithABI(e.Chains[deployedEnvironment.HomeChainSel], tx, don_id_claimer.DonIDClaimerABI, err)
 				require.NoError(t, err)
 			}
 

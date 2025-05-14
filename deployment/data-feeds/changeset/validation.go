@@ -9,11 +9,9 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-func ValidateCacheForChain(env deployment.Environment, chainSelector uint64, cacheAddress common.Address) error {
+func ValidateCacheForChain(env cldf.Environment, chainSelector uint64, cacheAddress common.Address) error {
 	state, err := LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load on chain state %w", err)

@@ -83,7 +83,7 @@ type AddTokenE2EConfig struct {
 // newConfigurePoolAndTokenAdminRegConfig populated internal fields in AddTokenE2EConfig.
 // It creates the configuration for deploying and configuring token pools and token admin registry.
 // It then validates the configuration.
-func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e deployment.Environment, symbol shared.TokenSymbol, timelockCfg *proposalutils.TimelockConfig) error {
+func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Environment, symbol shared.TokenSymbol, timelockCfg *proposalutils.TimelockConfig) error {
 	c.deployPool = DeployTokenPoolContractsConfig{
 		TokenSymbol:  symbol,
 		NewPools:     make(map[uint64]DeployTokenPoolInput),
@@ -185,7 +185,7 @@ type AddTokensE2EConfig struct {
 	MCMS   *proposalutils.TimelockConfig
 }
 
-func addTokenE2EPreconditionValidation(e deployment.Environment, config AddTokensE2EConfig) error {
+func addTokenE2EPreconditionValidation(e cldf.Environment, config AddTokensE2EConfig) error {
 	if len(config.Tokens) == 0 {
 		return nil
 	}
@@ -228,7 +228,7 @@ func addTokenE2EPreconditionValidation(e deployment.Environment, config AddToken
 	return nil
 }
 
-func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (cldf.ChangesetOutput, error) {
+func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.ChangesetOutput, error) {
 	if len(config.Tokens) == 0 {
 		return cldf.ChangesetOutput{}, nil
 	}
@@ -360,14 +360,14 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (cl
 	return *finalCSOut, nil
 }
 
-func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployTokenConfig) (map[uint64]common.Address, cldf.AddressBook, error) {
+func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfig) (map[uint64]common.Address, cldf.AddressBook, error) {
 	ab := cldf.NewMemoryAddressBook()
 	tokenAddresses := make(map[uint64]common.Address) // This will hold the token addresses for each chain.
 	for selector, cfg := range tokenDeployCfg {
 		switch cfg.Type {
 		case shared.BurnMintToken:
 			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
-				func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+				func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 						e.Chains[selector].DeployerKey,
 						e.Chains[selector].Client,
@@ -407,7 +407,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 			tokenAddresses[selector] = token.Address
 		case shared.ERC20Token:
 			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
-				func(chain deployment.Chain) cldf.ContractDeploy[*erc20.ERC20] {
+				func(chain cldf.Chain) cldf.ContractDeploy[*erc20.ERC20] {
 					tokenAddress, tx, token, err := erc20.DeployERC20(
 						e.Chains[selector].DeployerKey,
 						e.Chains[selector].Client,
@@ -430,7 +430,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 			tokenAddresses[selector] = token.Address
 		case shared.ERC677Token:
 			token, err := cldf.DeployContract(e.Logger, e.Chains[selector], ab,
-				func(chain deployment.Chain) cldf.ContractDeploy[*erc677.ERC677] {
+				func(chain cldf.Chain) cldf.ContractDeploy[*erc677.ERC677] {
 					tokenAddress, tx, token, err := erc677.DeployERC677(
 						e.Chains[selector].DeployerKey,
 						e.Chains[selector].Client,
@@ -461,7 +461,7 @@ func deployTokens(e deployment.Environment, tokenDeployCfg map[uint64]DeployToke
 // grantAccessToPool grants the token pool contract access to mint and burn tokens.
 func grantAccessToPool(
 	ctx context.Context,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	tpAddress common.Address,
 	tokenAddress common.Address,
 ) error {
@@ -488,7 +488,7 @@ func grantAccessToPool(
 }
 
 // addMinterAndMintToken adds the minter role to the recipient and mints the specified amount of tokens to the recipient's address.
-func addMinterAndMintToken(env deployment.Environment, selector uint64, token *burn_mint_erc677.BurnMintERC677, recipient common.Address, amount *big.Int) error {
+func addMinterAndMintToken(env cldf.Environment, selector uint64, token *burn_mint_erc677.BurnMintERC677, recipient common.Address, amount *big.Int) error {
 	deployerKey := env.Chains[selector].DeployerKey
 	ctx := env.GetContext()
 	// check if owner is the deployer key

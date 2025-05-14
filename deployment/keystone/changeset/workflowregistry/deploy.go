@@ -8,13 +8,12 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 var _ cldf.ChangeSet[uint64] = Deploy
 
-func Deploy(env deployment.Environment, registrySelector uint64) (cldf.ChangesetOutput, error) {
+func Deploy(env cldf.Environment, registrySelector uint64) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	chain, ok := env.Chains[registrySelector]
 	if !ok {
@@ -30,7 +29,7 @@ func Deploy(env deployment.Environment, registrySelector uint64) (cldf.Changeset
 	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func DeployV2(env deployment.Environment, req *changeset.DeployRequestV2) (cldf.ChangesetOutput, error) {
+func DeployV2(env cldf.Environment, req *changeset.DeployRequestV2) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	chain, ok := env.Chains[req.ChainSel]
 	if !ok {

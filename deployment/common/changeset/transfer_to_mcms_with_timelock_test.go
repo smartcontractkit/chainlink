@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -179,7 +179,7 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		config RenounceTimelockDeployerConfig
-		env    deployment.Environment
+		env    cldf.Environment
 		err    string
 	}{
 		{

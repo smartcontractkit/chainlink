@@ -694,7 +694,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	///////////////////////////
 	for _, selector := range evmSelectors {
 		token, err := cldf.DeployContract(e.Logger, e.Chains[selector], addressBook,
-			func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 				tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 					e.Chains[selector].DeployerKey,
 					e.Chains[selector].Client,

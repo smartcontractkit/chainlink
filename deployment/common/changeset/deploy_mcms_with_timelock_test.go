@@ -552,7 +552,7 @@ func timelockSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASe
 }
 
 func solanaTimelockConfig(
-	ctx context.Context, t *testing.T, chain deployment.SolChain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
+	ctx context.Context, t *testing.T, chain cldf.SolChain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
 ) timelockBindings.Config {
 	t.Helper()
 

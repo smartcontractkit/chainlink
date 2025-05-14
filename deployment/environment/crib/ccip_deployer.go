@@ -277,7 +277,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	}, nil
 }
 
-func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uint64) (deployment.Environment, error) {
+func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (cldf.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -350,7 +350,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 	return setupLinkPools(&env)
 }
 
-func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
+func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 	state, err := stateview.LoadOnchainState(*e)
 	if err != nil {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
@@ -414,7 +414,7 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 		linkPool := state.Chains[chain].BurnMintTokenPools[shared.LinkSymbol][deployment.Version1_5_1]
 		linkToken := state.Chains[chain].LinkToken
 		tx, err := linkToken.GrantMintAndBurnRoles(e.Chains[chain].DeployerKey, linkPool.Address())
-		_, err = deployment.ConfirmIfNoError(e.Chains[chain], tx, err)
+		_, err = cldf.ConfirmIfNoError(e.Chains[chain], tx, err)
 		if err != nil {
 			return *e, fmt.Errorf("failed to grant mint and burn roles for link pool: %w", err)
 		}
@@ -422,7 +422,7 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 	return env, err
 }
 
-func setupLanes(e *deployment.Environment, state stateview.CCIPOnChainState) (deployment.Environment, error) {
+func setupLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Environment, error) {
 	eg := xerrgroup.Group{}
 	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
 	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
@@ -542,7 +542,7 @@ func setupLanes(e *deployment.Environment, state stateview.CCIPOnChainState) (de
 	return *e, err
 }
 
-func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (deployment.Environment, error) {
+func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (cldf.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)

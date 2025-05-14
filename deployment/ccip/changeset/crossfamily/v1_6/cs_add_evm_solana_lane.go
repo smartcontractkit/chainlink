@@ -13,7 +13,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -227,7 +226,7 @@ var (
 )
 
 type Dependencies struct {
-	Env             deployment.Environment
+	Env             cldf.Environment
 	EVMMCMSState    map[uint64]commonstate.MCMSWithTimelockState
 	SolanaMCMSState map[uint64]commonstate.MCMSWithTimelockStateSolana
 
@@ -269,7 +268,7 @@ type AddRemoteChainE2EConfig struct {
 	MCMSConfig *proposalutils.TimelockConfig
 }
 
-func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env deployment.Environment, evmState stateview.CCIPOnChainState) (csInputs, error) {
+func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env cldf.Environment, evmState stateview.CCIPOnChainState) (csInputs, error) {
 	var timelockConfig *proposalutils.TimelockConfig
 	if cfg.MCMSConfig != nil {
 		timelockConfig = cfg.MCMSConfig
@@ -380,7 +379,7 @@ func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env de
 	return input, nil
 }
 
-func addEVMSolanaPreconditions(env deployment.Environment, input AddRemoteChainE2EConfig) error {
+func addEVMSolanaPreconditions(env cldf.Environment, input AddRemoteChainE2EConfig) error {
 	evmState, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain evm state: %w", err)
@@ -406,7 +405,7 @@ func addEVMSolanaPreconditions(env deployment.Environment, input AddRemoteChainE
 	return nil
 }
 
-func addEVMAndSolanaLaneLogic(env deployment.Environment, input AddRemoteChainE2EConfig) (cldf.ChangesetOutput, error) {
+func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddRemoteChainE2EConfig) (cldf.ChangesetOutput, error) {
 	evmState, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load evm onchain state: %w", err)

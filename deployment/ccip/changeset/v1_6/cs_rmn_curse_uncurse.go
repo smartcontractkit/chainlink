@@ -15,7 +15,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
@@ -40,7 +39,7 @@ type RMNCurseAction struct {
 
 // CurseAction is a function that returns a list of RMNCurseAction to be applied on a chain
 // CurseChain, CurseLane, CurseGloballyOnlyOnSource are examples of function implementing CurseAction
-type CurseAction func(e deployment.Environment) ([]RMNCurseAction, error)
+type CurseAction func(e cldf.Environment) ([]RMNCurseAction, error)
 
 type RMNCurseConfig struct {
 	MCMS         *proposalutils.TimelockConfig
@@ -52,7 +51,7 @@ type RMNCurseConfig struct {
 	Reason string
 }
 
-func (c RMNCurseConfig) Validate(e deployment.Environment) error {
+func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -94,7 +93,7 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 		}
 
 		for _, action := range result {
-			if err = deployment.IsValidChainSelector(action.ChainSelector); err != nil {
+			if err = cldf.IsValidChainSelector(action.ChainSelector); err != nil {
 				return fmt.Errorf("invalid chain selector %d", action.ChainSelector)
 			}
 
@@ -146,7 +145,7 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 // CurseLaneOnlyOnSource(A, B) will curse A with the curse subject of B
 func CurseLaneOnlyOnSource(sourceSelector uint64, destinationSelector uint64) CurseAction {
 	// Curse from source to destination
-	return func(e deployment.Environment) ([]RMNCurseAction, error) {
+	return func(e cldf.Environment) ([]RMNCurseAction, error) {
 		family, err := chain_selectors.GetSelectorFamily(sourceSelector)
 		if err != nil {
 			return nil, err
@@ -165,7 +164,7 @@ func CurseLaneOnlyOnSource(sourceSelector uint64, destinationSelector uint64) Cu
 // Given 3 chains A, B, C
 // CurseGloballyOnlyOnChain(A) will curse a with the global curse subject only
 func CurseGloballyOnlyOnChain(selector uint64) CurseAction {
-	return func(e deployment.Environment) ([]RMNCurseAction, error) {
+	return func(e cldf.Environment) ([]RMNCurseAction, error) {
 		return []RMNCurseAction{
 			{
 				ChainSelector:  selector,
@@ -181,7 +180,7 @@ func CurseGloballyOnlyOnChain(selector uint64) CurseAction {
 func CurseLaneBidirectionally(sourceSelector uint64, destinationSelector uint64) CurseAction {
 
 	// Bidirectional curse between two chains
-	return func(e deployment.Environment) ([]RMNCurseAction, error) {
+	return func(e cldf.Environment) ([]RMNCurseAction, error) {
 		curseActions1, err := CurseLaneOnlyOnSource(sourceSelector, destinationSelector)(e)
 		if err != nil {
 			return nil, err
@@ -200,7 +199,7 @@ func CurseLaneBidirectionally(sourceSelector uint64, destinationSelector uint64)
 // Given 3 chains A, B, C
 // CurseChain(A) will curse A with the global curse subject and curse B and C with the curse subject of A
 func CurseChain(chainSelector uint64) CurseAction {
-	return func(e deployment.Environment) ([]RMNCurseAction, error) {
+	return func(e cldf.Environment) ([]RMNCurseAction, error) {
 		chainSelectors := GetAllCursableChainsSelector(e)
 
 		// Curse all other chains to prevent onramp from sending message to the cursed chain
@@ -231,7 +230,7 @@ func CurseChain(chainSelector uint64) CurseAction {
 }
 
 func CurseGloballyAllChains() CurseAction {
-	return func(e deployment.Environment) ([]RMNCurseAction, error) {
+	return func(e cldf.Environment) ([]RMNCurseAction, error) {
 		chainSelectors := GetAllCursableChainsSelector(e)
 		var curseActions []RMNCurseAction
 		for _, chainSelector := range chainSelectors {
@@ -245,7 +244,7 @@ func CurseGloballyAllChains() CurseAction {
 	}
 }
 
-func FilterOutNotConnectedLanes(e deployment.Environment, curseActions []RMNCurseAction) ([]RMNCurseAction, error) {
+func FilterOutNotConnectedLanes(e cldf.Environment, curseActions []RMNCurseAction) ([]RMNCurseAction, error) {
 	cursableChains, err := GetCursableChains(e)
 	if err != nil {
 		e.Logger.Errorf("failed to load cursable chains: %v", err)
@@ -353,7 +352,7 @@ func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf bo
 // This changeset is following an anti-pattern of supporting multiple chain families. Most changeset should be family specific.
 // The decision to support multiple chain families here is due to the fact that curse changesets are emergency actions
 // we want to keep a simple unified interface for all chain families to streamline emergency procedures.
-func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (cldf.ChangesetOutput, error) {
+func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -443,7 +442,7 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (cldf.Chang
 // This changeset is following an anti-pattern of supporting multiple chain families. Most changeset should be family specific.
 // The decision to support multiple chain families here is due to the fact that curse changesets are emergency actions
 // we want to keep a simple unified interface for all chain families to streamline emergency procedures.
-func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (cldf.ChangesetOutput, error) {
+func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -521,7 +520,7 @@ type CursableChain interface {
 
 type SolanaCursableChain struct {
 	selector uint64
-	env      deployment.Environment
+	env      cldf.Environment
 	chain    solanastateview.CCIPChainState
 }
 
@@ -654,7 +653,7 @@ func (c SolanaCursableChain) Name() string {
 
 type EvmCursableChain struct {
 	selector uint64
-	env      deployment.Environment
+	env      cldf.Environment
 	chain    evm.CCIPChainState
 }
 
@@ -722,7 +721,7 @@ func (c EvmCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup, su
 	return nil
 }
 
-func GetCursableChains(env deployment.Environment) (map[uint64]CursableChain, error) {
+func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
@@ -758,7 +757,7 @@ func GetCursableChains(env deployment.Environment) (map[uint64]CursableChain, er
 	return activeCursableChains, nil
 }
 
-func GetAllCursableChainsSelector(env deployment.Environment) []uint64 {
+func GetAllCursableChainsSelector(env cldf.Environment) []uint64 {
 	selectors := make([]uint64, 0)
 	selectors = append(selectors, env.AllChainSelectors()...)
 	selectors = append(selectors, env.AllChainSelectorsSolana()...)

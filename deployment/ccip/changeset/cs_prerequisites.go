@@ -44,7 +44,7 @@ var (
 // pre-requisite contracts are the contracts which can be reused from previous versions of CCIP
 // Or the contracts which are already deployed on the chain ( for example, tokens, feeds, etc)
 // Caller should update the environment's address book with the returned addresses.
-func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequisiteConfig) (cldf.ChangesetOutput, error) {
+func DeployPrerequisitesChangeset(env cldf.Environment, cfg DeployPrerequisiteConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return cldf.ChangesetOutput{}, errors.Wrapf(cldf.ErrInvalidConfig, "%v", err)
@@ -88,7 +88,7 @@ func (c DeployPrerequisiteConfig) Validate() error {
 	for _, cfg := range c.Configs {
 		cs := cfg.ChainSelector
 		mapAllChainSelectors[cs] = struct{}{}
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 	}
@@ -125,7 +125,7 @@ func WithLegacyDeploymentEnabled(cfg V1_5DeploymentConfig) PrerequisiteOpt {
 	}
 }
 
-func deployPrerequisiteChainContracts(e deployment.Environment, ab cldf.AddressBook, cfg DeployPrerequisiteConfig) error {
+func deployPrerequisiteChainContracts(e cldf.Environment, ab cldf.AddressBook, cfg DeployPrerequisiteConfig) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
@@ -148,7 +148,7 @@ func deployPrerequisiteChainContracts(e deployment.Environment, ab cldf.AddressB
 
 // deployPrerequisiteContracts deploys the contracts that can be ported from previous CCIP version to the new one.
 // This is only required for staging and test environments where the contracts are not already deployed.
-func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain deployment.Chain, opts ...PrerequisiteOpt) error {
+func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain cldf.Chain, opts ...PrerequisiteOpt) error {
 	deployOpts := &DeployPrerequisiteContractsOpts{}
 	for _, opt := range opts {
 		if opt != nil {
@@ -184,7 +184,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 	// if RMN is not found in state and LegacyDeploymentCfg is provided, deploy RMN contract based on the config
 	case deployOpts.LegacyDeploymentCfg != nil && deployOpts.LegacyDeploymentCfg.RMNConfig != nil:
 		rmn, err := cldf.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*rmn_contract.RMNContract] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*rmn_contract.RMNContract] {
 				rmnAddress, tx2, rmnC, err2 := rmn_contract.DeployRMNContract(
 					chain.DeployerKey,
 					chain.Client,
@@ -195,7 +195,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 				}
 			})
 		if err != nil {
-			lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", deployment.MaybeDataErr(err))
+			lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", cldf.MaybeDataErr(err))
 			return err
 		}
 		rmnAddr = rmn.Address
@@ -203,7 +203,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 		// otherwise deploy the mock RMN contract
 		if chainState.MockRMN == nil {
 			rmn, err := cldf.DeployContract(lggr, chain, ab,
-				func(chain deployment.Chain) cldf.ContractDeploy[*mock_rmn_contract.MockRMNContract] {
+				func(chain cldf.Chain) cldf.ContractDeploy[*mock_rmn_contract.MockRMNContract] {
 					rmnAddress, tx2, rmnC, err2 := mock_rmn_contract.DeployMockRMNContract(
 						chain.DeployerKey,
 						chain.Client,
@@ -224,7 +224,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 	}
 	if rmnProxy == nil {
 		RMNProxy, err := cldf.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*rmn_proxy_contract.RMNProxy] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*rmn_proxy_contract.RMNProxy] {
 				rmnProxyAddr, tx2, rmnProxy2, err2 := rmn_proxy_contract.DeployRMNProxy(
 					chain.DeployerKey,
 					chain.Client,
@@ -275,7 +275,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 	}
 	if tokenAdminReg == nil {
 		tokenAdminRegistry, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
 				tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
 					chain.DeployerKey,
 					chain.Client)
@@ -301,7 +301,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 	}
 	if len(regAddresses) == 0 {
 		customRegistryModule, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
 				regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
 					chain.DeployerKey,
 					chain.Client,
@@ -343,7 +343,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 
 	if weth9Contract == nil {
 		weth, err := cldf.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*weth9.WETH9] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*weth9.WETH9] {
 				weth9Addr, tx2, weth9c, err2 := weth9.DeployWETH9(
 					chain.DeployerKey,
 					chain.Client,
@@ -365,7 +365,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 	// if router is not already deployed, we deploy it
 	if r == nil {
 		routerContract, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*router.Router] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*router.Router] {
 				routerAddr, tx2, routerC, err2 := router.DeployRouter(
 					chain.DeployerKey,
 					chain.Client,
@@ -388,7 +388,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 	if deployOpts.TokenPoolFactoryEnabled {
 		if tokenPoolFactory == nil {
 			_, err := cldf.DeployContract(e.Logger, chain, ab,
-				func(chain deployment.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
+				func(chain cldf.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
 					tpfAddr, tx2, contract, err2 := token_pool_factory.DeployTokenPoolFactory(
 						chain.DeployerKey,
 						chain.Client,
@@ -416,7 +416,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 		// We deploy it here so that we can verify it. All subsequent user deployments would then be verified.
 		if factoryBurnMintERC20 == nil {
 			_, err := cldf.DeployContract(e.Logger, chain, ab,
-				func(chain deployment.Chain) cldf.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20] {
+				func(chain cldf.Chain) cldf.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20] {
 					factoryBurnMintERC20Addr, tx2, contract, err2 := factory_burn_mint_erc20.DeployFactoryBurnMintERC20(
 						chain.DeployerKey,
 						chain.Client,
@@ -442,7 +442,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 	}
 	if deployOpts.Multicall3Enabled && mc3 == nil {
 		_, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*multicall3.Multicall3] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*multicall3.Multicall3] {
 				multicall3Addr, tx2, multicall3Wrapper, err2 := multicall3.DeployMulticall3(
 					chain.DeployerKey,
 					chain.Client,
@@ -475,7 +475,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 	}
 	if chainState.Receiver == nil {
 		_, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
 				receiverAddr, tx, receiver, err2 := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
 					chain.DeployerKey,
 					chain.Client,
@@ -500,7 +500,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 				return fmt.Errorf("failed to get link token address for chain %s: %w", chain.String(), err1)
 			}
 			_, err := cldf.DeployContract(lggr, chain, ab,
-				func(chain deployment.Chain) cldf.ContractDeploy[*price_registry_1_2_0.PriceRegistry] {
+				func(chain cldf.Chain) cldf.ContractDeploy[*price_registry_1_2_0.PriceRegistry] {
 					priceRegAddr, tx2, priceRegAddrC, err2 := price_registry_1_2_0.DeployPriceRegistry(
 						chain.DeployerKey,
 						chain.Client,
@@ -526,7 +526,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab cldf.AddressBook, 
 
 func deployUSDC(
 	lggr logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	addresses cldf.AddressBook,
 	rmnProxy common.Address,
 	router common.Address,
@@ -538,7 +538,7 @@ func deployUSDC(
 	error,
 ) {
 	token, err := cldf.DeployContract(lggr, chain, addresses,
-		func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+		func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, tokenContract, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
@@ -571,7 +571,7 @@ func deployUSDC(
 	}
 
 	transmitter, err := cldf.DeployContract(lggr, chain, addresses,
-		func(chain deployment.Chain) cldf.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
+		func(chain cldf.Chain) cldf.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
 			transmitterAddress, tx, transmitterContract, err2 := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(
 				chain.DeployerKey,
 				chain.Client,
@@ -593,7 +593,7 @@ func deployUSDC(
 	}
 
 	messenger, err := cldf.DeployContract(lggr, chain, addresses,
-		func(chain deployment.Chain) cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
+		func(chain cldf.Chain) cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
 			messengerAddress, tx, messengerContract, err2 := mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(
 				chain.DeployerKey,
 				chain.Client,
@@ -614,7 +614,7 @@ func deployUSDC(
 	}
 
 	tokenPool, err := cldf.DeployContract(lggr, chain, addresses,
-		func(chain deployment.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
+		func(chain cldf.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 			tokenPoolAddress, tx, tokenPoolContract, err2 := usdc_token_pool.DeployUSDCTokenPool(
 				chain.DeployerKey,
 				chain.Client,
