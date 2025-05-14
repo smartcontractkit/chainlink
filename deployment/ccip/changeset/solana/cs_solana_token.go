@@ -133,6 +133,12 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 		return cldf.ChangesetOutput{}, err
 	}
 
+	err = chain.Confirm(instructions, solCommonUtil.AddSigners(mintPrivKey))
+	if err != nil {
+		e.Logger.Errorw("Failed to confirm instructions for token deployment", "chain", chain.String(), "err", err)
+		return cldf.ChangesetOutput{}, err
+	}
+
 	// ata ix
 	err = createATAIx(e, chain, tokenprogramID, mint, cfg.ATAList)
 	if err != nil {
@@ -142,12 +148,6 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 	// mint ix
 	err = getMintIxs(e, chain, tokenprogramID, mint, cfg.MintAmountToAddress)
 	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
-	err = chain.Confirm(instructions, solCommonUtil.AddSigners(mintPrivKey))
-	if err != nil {
-		e.Logger.Errorw("Failed to confirm instructions for token deployment", "chain", chain.String(), "err", err)
 		return cldf.ChangesetOutput{}, err
 	}
 
