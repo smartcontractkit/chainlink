@@ -7,16 +7,18 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 type SetupTestWorkflowRegistryResponse struct {
 	Registry         *workflow_registry.WorkflowRegistry
-	Chain            deployment.Chain
+	Chain            cldf.Chain
 	RegistrySelector uint64
-	AddressBook      deployment.AddressBook
+	AddressBook      cldf.AddressBook
 }
 
 func SetupTestWorkflowRegistry(t *testing.T, lggr logger.Logger, chainSel uint64) *SetupTestWorkflowRegistryResponse {
@@ -27,9 +29,9 @@ func SetupTestWorkflowRegistry(t *testing.T, lggr logger.Logger, chainSel uint64
 	resp, err := deployer.Deploy(changeset.DeployRequest{Chain: chain})
 	require.NoError(t, err)
 
-	addressBook := deployment.NewMemoryAddressBookFromMap(
-		map[uint64]map[string]deployment.TypeAndVersion{
-			chainSel: map[string]deployment.TypeAndVersion{
+	addressBook := cldf.NewMemoryAddressBookFromMap(
+		map[uint64]map[string]cldf.TypeAndVersion{
+			chainSel: map[string]cldf.TypeAndVersion{
 				resp.Address.Hex(): resp.Tv,
 			},
 		},
@@ -43,9 +45,9 @@ func SetupTestWorkflowRegistry(t *testing.T, lggr logger.Logger, chainSel uint64
 	}
 }
 
-func testChain(t *testing.T) deployment.Chain {
+func testChain(t *testing.T) cldf.Chain {
 	chains, _ := memory.NewMemoryChains(t, 1, 5)
-	var chain deployment.Chain
+	var chain cldf.Chain
 	for _, c := range chains {
 		chain = c
 		break

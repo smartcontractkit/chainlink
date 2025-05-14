@@ -9,13 +9,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-var _ deployment.ChangeSet[SyncUSDCDomainsWithChainsConfig] = SyncUSDCDomainsWithChainsChangeset
+var _ cldf.ChangeSet[SyncUSDCDomainsWithChainsConfig] = SyncUSDCDomainsWithChainsChangeset
 
 // SyncUSDCDomainsWithChainsConfig defines the chain selector -> USDC domain mappings.
 type SyncUSDCDomainsWithChainsConfig struct {
@@ -27,7 +30,7 @@ type SyncUSDCDomainsWithChainsConfig struct {
 	MCMS *proposalutils.TimelockConfig
 }
 
-func (c SyncUSDCDomainsWithChainsConfig) Validate(env deployment.Environment, state changeset.CCIPOnChainState) error {
+func (c SyncUSDCDomainsWithChainsConfig) Validate(env cldf.Environment, state stateview.CCIPOnChainState) error {
 	ctx := env.GetContext()
 
 	if c.ChainSelectorToUSDCDomain == nil {
@@ -36,7 +39,7 @@ func (c SyncUSDCDomainsWithChainsConfig) Validate(env deployment.Environment, st
 
 	// Validate that all USDC configs inputted are for valid chains that define USDC pools.
 	for chainSelector, version := range c.USDCVersionByChain {
-		err := deployment.IsValidChainSelector(chainSelector)
+		err := cldf.IsValidChainSelector(chainSelector)
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
@@ -91,30 +94,30 @@ func (c SyncUSDCDomainsWithChainsConfig) Validate(env deployment.Environment, st
 
 // SyncUSDCDomainsWithChainsChangeset syncs domain support on specified USDC token pools with its chain support.
 // As such, it is expected that ConfigureTokenPoolContractsChangeset is executed before running this changeset.
-func SyncUSDCDomainsWithChainsChangeset(env deployment.Environment, c SyncUSDCDomainsWithChainsConfig) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
+func SyncUSDCDomainsWithChainsChangeset(env cldf.Environment, c SyncUSDCDomainsWithChainsConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	if err := c.Validate(env, state); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid SyncUSDCDomainsWithChainsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid SyncUSDCDomainsWithChainsConfig: %w", err)
 	}
 	readOpts := &bind.CallOpts{Context: env.GetContext()}
 
-	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("sync domain support with chain support on USDC token pools")
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("sync domain support with chain support on USDC token pools")
 
 	for chainSelector, version := range c.USDCVersionByChain {
 		chain := env.Chains[chainSelector]
 		chainState := state.Chains[chainSelector]
 		writeOpts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get transaction opts for %s", chain)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get transaction opts for %s", chain)
 		}
 
 		usdcTokenPool := chainState.USDCTokenPools[version]
 		supportedChains, err := usdcTokenPool.GetSupportedChains(readOpts)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch supported chains from USDC token pool with address %s on %s: %w", usdcTokenPool.Address(), chain, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch supported chains from USDC token pool with address %s on %s: %w", usdcTokenPool.Address(), chain, err)
 		}
 
 		domainUpdates := make([]usdc_token_pool.USDCTokenPoolDomainUpdate, 0)
@@ -130,7 +133,7 @@ func SyncUSDCDomainsWithChainsChangeset(env deployment.Environment, c SyncUSDCDo
 
 			currentDomain, err := usdcTokenPool.GetDomain(readOpts, remoteChainSelector)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch domain for %d from USDC token pool with address %s on %s: %w", remoteChainSelector, usdcTokenPool.Address(), chain, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch domain for %d from USDC token pool with address %s on %s: %w", remoteChainSelector, usdcTokenPool.Address(), chain, err)
 			}
 			// If any parameters are different, we need to add a setDomains call
 			if currentDomain.AllowedCaller != desiredAllowedCaller ||
@@ -147,7 +150,7 @@ func SyncUSDCDomainsWithChainsChangeset(env deployment.Environment, c SyncUSDCDo
 		if len(domainUpdates) > 0 {
 			_, err := usdcTokenPool.SetDomains(writeOpts, domainUpdates)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create set domains operation on %s: %w", chain, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create set domains operation on %s: %w", chain, err)
 			}
 		}
 	}

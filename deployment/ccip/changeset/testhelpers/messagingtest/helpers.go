@@ -17,16 +17,18 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 // Use this when testhelpers.DeployedEnv is available (usually in ephemeral test environments).
 func NewTestSetupWithDeployedEnv(
 	t *testing.T,
 	depEnv testhelpers.DeployedEnv,
-	onchainState changeset.CCIPOnChainState,
+	onchainState stateview.CCIPOnChainState,
 	sourceChain,
 	destChain uint64,
 	sender []byte,
@@ -47,8 +49,8 @@ func NewTestSetupWithDeployedEnv(
 // Use this when testhelpers.DeployedEnv is not available (usually in long-running test environments like staging).
 func NewTestSetup(
 	t *testing.T,
-	env deployment.Environment,
-	onchainState changeset.CCIPOnChainState,
+	env cldf.Environment,
+	onchainState stateview.CCIPOnChainState,
 	sourceChain,
 	destChain uint64,
 	sender []byte,
@@ -69,9 +71,9 @@ func NewTestSetup(
 type TestSetup struct {
 	T            *testing.T
 	Sender       []byte
-	Env          deployment.Environment
+	Env          cldf.Environment
 	DeployedEnv  testhelpers.DeployedEnv
-	OnchainState changeset.CCIPOnChainState
+	OnchainState stateview.CCIPOnChainState
 	SourceChain  uint64
 	DestChain    uint64
 	TestRouter   bool
@@ -85,6 +87,7 @@ type TestCase struct {
 	Receiver               []byte
 	MsgData                []byte
 	ExtraArgs              []byte
+	FeeToken               string
 	ExpectedExecutionState int
 	ExtraAssertions        []func(t *testing.T)
 }
@@ -151,18 +154,30 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	var msg any
 	switch family {
 	case chain_selectors.FamilyEVM:
+		feeToken := common.HexToAddress("0x0")
+		if len(tc.FeeToken) > 0 {
+			feeToken = common.HexToAddress(tc.FeeToken)
+		}
+
 		msg = router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
 			Data:         tc.MsgData,
 			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
+			FeeToken:     feeToken,
 			ExtraArgs:    tc.ExtraArgs,
 		}
 	case chain_selectors.FamilySolana:
+		feeToken := solana.PublicKey{}
+		if len(tc.FeeToken) > 0 {
+			feeToken, err = solana.PublicKeyFromBase58(tc.FeeToken)
+			require.NoError(t, err)
+		}
+
 		msg = ccip_router.SVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
 			TokenAmounts: nil,
 			Data:         tc.MsgData,
+			FeeToken:     feeToken,
 			ExtraArgs:    tc.ExtraArgs,
 		}
 

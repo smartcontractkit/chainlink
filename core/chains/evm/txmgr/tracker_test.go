@@ -14,24 +14,23 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
 )
 
 func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore) {
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	chainID := big.NewInt(0)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	memKS := keystest.NewMemoryChainStore()
+	addr1 := memKS.MustCreate(t)
+	addr2 := memKS.MustCreate(t)
 	var enabledAddresses []common.Address
-	_, addr1 := cltest.MustInsertRandomKey(t, ethKeyStore, *ubig.NewI(chainID.Int64()))
-	_, addr2 := cltest.MustInsertRandomKey(t, ethKeyStore, *ubig.NewI(chainID.Int64()))
 	enabledAddresses = append(enabledAddresses, addr1, addr2)
 	lggr := logger.Test(t)
-	return txmgr.NewEvmTracker(txStore, keys.NewStore(keystore.NewEthSigner(ethKeyStore, chainID)), chainID, lggr), txStore
+	return txmgr.NewEvmTracker(txStore, keys.NewStore(memKS), chainID, lggr), txStore
 }
 
 func containsID(txes []*txmgr.Tx, id int64) bool {
@@ -64,14 +63,14 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 	t.Run("track abandoned addresses", func(t *testing.T) {
 		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		tracker, txStore := newTestEvmTrackerSetup(t)
-		inProgressAddr := cltest.MustGenerateRandomKey(t).Address
-		unstartedAddr := cltest.MustGenerateRandomKey(t).Address
-		unconfirmedAddr := cltest.MustGenerateRandomKey(t).Address
-		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
+		inProgressAddr := testutils.NewAddress()
+		unstartedAddr := testutils.NewAddress()
+		unconfirmedAddr := testutils.NewAddress()
+		confirmedAddr := testutils.NewAddress()
 		_ = mustInsertInProgressEthTxWithAttempt(t, txStore, 123, inProgressAddr)
-		_ = cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, unconfirmedAddr)
+		_ = txmgrtest.MustInsertUnconfirmedEthTx(t, txStore, 123, unconfirmedAddr)
 		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
-		_ = mustCreateUnstartedTx(t, txStore, unstartedAddr, cltest.MustGenerateRandomKey(t).Address, []byte{}, 0, big.Int{}, ethClient.ConfiguredChainID())
+		_ = mustCreateUnstartedTx(t, txStore, unstartedAddr, testutils.NewAddress(), []byte{}, 0, big.Int{}, ethClient.ConfiguredChainID())
 
 		servicetest.Run(t, tracker)
 
@@ -87,7 +86,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 	/* TODO: finalized tx state https://smartcontract-it.atlassian.net/browse/BCI-2920
 	t.Run("stop tracking finalized tx", func(t *testing.T) {
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
-		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
+		confirmedAddr := testutils.NewAddress()
 		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
 
 		err := tracker.Start(ctx)
@@ -119,10 +118,10 @@ func TestEvmTracker_ExceedingTTL(t *testing.T) {
 	ctx := tests.Context(t)
 
 	tracker, txStore := newTestEvmTrackerSetup(t)
-	addr1 := cltest.MustGenerateRandomKey(t).Address
-	addr2 := cltest.MustGenerateRandomKey(t).Address
+	addr1 := testutils.NewAddress()
+	addr2 := testutils.NewAddress()
 	tx1 := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, addr1)
-	tx2 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, addr2)
+	tx2 := txmgrtest.MustInsertUnconfirmedEthTx(t, txStore, 123, addr2)
 
 	tracker.XXXTestSetTTL(time.Nanosecond)
 	servicetest.Run(t, tracker)

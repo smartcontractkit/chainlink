@@ -12,7 +12,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -332,7 +335,7 @@ func DefaultOCR3Config(topology *types.Topology) (*keystone_changeset.OracleConf
 	return oracleConfig, nil
 }
 
-func FindAddressesForChain(addressBook deployment.AddressBook, chainSelector uint64, contractName string) (common.Address, error) {
+func FindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) (common.Address, error) {
 	addresses, err := addressBook.AddressesForChain(chainSelector)
 	if err != nil {
 		return common.Address{}, errors.Wrap(err, "failed to get addresses for chain")
@@ -347,7 +350,7 @@ func FindAddressesForChain(addressBook deployment.AddressBook, chainSelector uin
 	return common.Address{}, fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector)
 }
 
-func MustFindAddressesForChain(addressBook deployment.AddressBook, chainSelector uint64, contractName string) common.Address {
+func MustFindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) common.Address {
 	addr, err := FindAddressesForChain(addressBook, chainSelector, contractName)
 	if err != nil {
 		panic(fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector))
@@ -420,7 +423,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDa
 			AdminAddress:  input.AdminAddress,
 			IsAdmin:       true,
 		}
-		_, setAdminErr := df_changeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
+		_, setAdminErr := changeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
 		if setAdminErr != nil {
 			return nil, errors.Wrap(setAdminErr, "failed to set feed admin")
 		}
@@ -440,7 +443,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDa
 		feeIDs = append(feeIDs, feedID[:32])
 	}
 
-	_, setFeedConfigErr := df_changeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
+	_, setFeedConfigErr := changeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
 		ChainSelector:    input.ChainSelector,
 		CacheAddress:     input.DataFeedsCacheAddress,
 		DataIDs:          feeIDs,

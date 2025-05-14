@@ -41,7 +41,7 @@
   workflow_name = "porfeedtwo"
 
 [dependencies]
-  cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
+  cre_cli_binary_path = "./cre_v0.2.0_darwin_arm64"
   cron_capability_binary_path = "./cron"
 
 [[nodesets]]

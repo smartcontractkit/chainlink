@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -190,7 +191,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 	_, err = db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 	require.NoError(t, err)
 
-	ps := cltest.MustInsertPipelineSpec(t, db)
+	ps := mustInsertPipelineSpec(t, db)
 
 	var runs []*pipeline.Run
 	for i := 0; i < 3; i++ {
@@ -854,7 +855,7 @@ func Test_Prune(t *testing.T) {
 	porm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	torm := newTestORM(porm, db)
 
-	ps1 := cltest.MustInsertPipelineSpec(t, db)
+	ps1 := mustInsertPipelineSpec(t, db)
 
 	// We need a job_pipeline_specs entry to test the pruning mechanism
 	err := torm.AddJobPipelineSpecWithoutConstraints(testutils.Context(t), ps1.ID, ps1.ID)
@@ -876,10 +877,10 @@ func Test_Prune(t *testing.T) {
 	// ps1 has:
 	// - 20 completed runs
 	for i := 0; i < 20; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps1.ID, pipeline.RunStatusCompleted, jobID)
+		mustInsertPipelineRunWithStatus(t, db, ps1.ID, pipeline.RunStatusCompleted, jobID)
 	}
 
-	ps2 := cltest.MustInsertPipelineSpec(t, db)
+	ps2 := mustInsertPipelineSpec(t, db)
 
 	jobID2 := ps2.ID
 	// ps2 has:
@@ -888,16 +889,16 @@ func Test_Prune(t *testing.T) {
 	// - 3 running runs
 	// - 3 suspended run
 	for i := 0; i < 12; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusCompleted, jobID2)
+		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusCompleted, jobID2)
 	}
 	for i := 0; i < 3; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusErrored, jobID2)
+		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusErrored, jobID2)
 	}
 	for i := 0; i < 3; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusRunning, jobID2)
+		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusRunning, jobID2)
 	}
 	for i := 0; i < 3; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusSuspended, jobID2)
+		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusSuspended, jobID2)
 	}
 
 	porm.Prune(tests.Context(t), jobID2)
@@ -913,4 +914,36 @@ func Test_Prune(t *testing.T) {
 	assert.Equal(t, 3, cnt)
 	cnt = pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps2.ID, pipeline.RunStatusSuspended)
 	assert.Equal(t, 3, cnt)
+}
+
+func mustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus, jobID int32) (runID int64) {
+	var finishedAt *time.Time
+	var outputs jsonserializable.JSONSerializable
+	var allErrors pipeline.RunErrors
+	var fatalErrors pipeline.RunErrors
+	now := time.Now()
+	switch status {
+	case pipeline.RunStatusCompleted:
+		finishedAt = &now
+		outputs = jsonserializable.JSONSerializable{
+			Val:   "foo",
+			Valid: true,
+		}
+	case pipeline.RunStatusErrored:
+		finishedAt = &now
+		allErrors = []null.String{null.StringFrom("oh no!")}
+		fatalErrors = []null.String{null.StringFrom("oh no!")}
+	case pipeline.RunStatusRunning, pipeline.RunStatusSuspended:
+		// leave empty
+	default:
+		t.Fatalf("unknown status: %s", status)
+	}
+	require.NoError(t, db.Get(&runID, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING id`, status, pipelineSpecID, jobID, finishedAt, outputs, allErrors, fatalErrors))
+	return runID
+}
+
+func mustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
+	err := db.Get(&spec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
+	require.NoError(t, err)
+	return
 }

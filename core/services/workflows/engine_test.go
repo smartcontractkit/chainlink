@@ -1826,7 +1826,7 @@ func basicTestTrigger(t *testing.T) *mockTriggerCapability {
 }
 
 func TestEngine_WithCustomComputeStep(t *testing.T) {
-	cmd := "core/services/workflows/test/wasm/cmd"
+	cmd := "core/services/workflows/test/wasm/legacy/cmd"
 
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)

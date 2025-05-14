@@ -20,7 +20,7 @@ const (
 	// SchemaCapabilityFinished represents the schema for capability finished events
 	SchemaCapabilityFinished string = "/cre-events-capability-finished/v1"
 
-	MeteringReportSchema string = "github.com/smartcontractkit/chainlink-protos/workflows/workflows/v1/metering.proto"
+	MeteringReportSchema string = "/workflows/v1/metering.proto"
 	MeteringReportDomain string = "platform"
 	MeteringReportEntity string = "MeteringReport"
 )

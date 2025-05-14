@@ -122,13 +122,12 @@ func (p *priceService) Close() error {
 }
 
 func (p *priceService) run() {
-	ctx, cancel := p.stopChan.NewCtx()
-	defer cancel()
-
 	gasUpdateTicker := time.NewTicker(utils.WithJitter(p.gasUpdateInterval))
 	tokenUpdateTicker := time.NewTicker(utils.WithJitter(p.tokenUpdateInterval))
 
 	go func() {
+		ctx, cancel := p.stopChan.NewCtx()
+		defer cancel()
 		defer p.wg.Done()
 		defer gasUpdateTicker.Stop()
 		defer tokenUpdateTicker.Stop()

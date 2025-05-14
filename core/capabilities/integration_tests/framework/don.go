@@ -9,13 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
@@ -24,12 +23,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -41,6 +42,8 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -94,6 +97,16 @@ func (c DonContext) WaitForCapabilitiesToBeExposed(t *testing.T, dons ...*DON) {
 
 		return true
 	}, 1*time.Minute, 1*time.Second, "timeout waiting for capabilities to be exposed")
+}
+
+func (c DonContext) WaitForWorkflowRegistryMetadata(t *testing.T, workflowName string, owner string, workflowID [32]byte) {
+	require.Eventually(t, func() bool {
+		wf, err := c.workflowRegistry.contract.GetWorkflowMetadata(&bind.CallOpts{}, common.HexToAddress(owner), workflowName)
+		if err != nil {
+			return false
+		}
+		return wf.WorkflowID == workflowID
+	}, 1*time.Minute, 5*time.Second, "timeout waiting for workflow")
 }
 
 type capabilityNode struct {
@@ -389,6 +402,24 @@ func (d *DON) AddWorkflow(workflow Workflow) error {
 	return nil
 }
 
+func (d *DON) UpdateWorkflow(workflow UpdatedWorkflow) error {
+	if !d.config.AcceptsWorkflows {
+		return errors.New("cannot add workflow to non-workflow DON")
+	}
+
+	if !d.initialised {
+		return errors.New("cannot add workflow to non-initialised DON")
+	}
+
+	d.workflowRegistry.UpdateWorkflow(workflow, *d.id)
+
+	return nil
+}
+
+func (d *DON) ComputeHashKey(owner string, field string) [32]byte {
+	return d.workflowRegistry.ComputeHashKey(owner, field)
+}
+
 type TriggerFactory interface {
 	CreateNewTrigger(t *testing.T) commoncap.TriggerCapability
 	GetTriggerID() string
@@ -419,6 +450,7 @@ func startNewNode(ctx context.Context,
 		c.Capabilities.ExternalRegistry.ChainID = ptr(fmt.Sprintf("%d", testutils.SimulatedChainID))
 		c.Capabilities.ExternalRegistry.Address = ptr(capRegistryAddr.String())
 		c.Capabilities.Peering.V2.Enabled = ptr(true)
+		c.Capabilities.WorkflowRegistry.SyncStrategy = ptr(syncer.SyncStrategyReconciliation)
 		c.Feature.FeedsManager = ptr(false)
 		c.Feature.LogPoller = ptr(true)
 
@@ -430,7 +462,7 @@ func startNewNode(ctx context.Context,
 	n, err := ethBlockchain.Client().NonceAt(ctx, ethBlockchain.transactionOpts.From, nil)
 	require.NoError(t, err)
 
-	tx := cltest.NewLegacyTransaction(
+	tx := evmtestutils.NewLegacyTransaction(
 		n, keyV2.Address,
 		assets.Ether(1).ToInt(),
 		21000,

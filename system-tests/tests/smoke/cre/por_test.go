@@ -18,6 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -35,7 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
@@ -174,9 +177,6 @@ type DependenciesConfig struct {
 }
 
 const (
-	CronBinaryVersion   = "v1.0.2-alpha"
-	CRECLIBinaryVersion = "v0.1.5"
-
 	AuthorizationKeySecretName = "AUTH_KEY"
 	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
 	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
@@ -227,19 +227,20 @@ type registerPoRWorkflowInput struct {
 	writeTargetName    string
 	workflowDonID      uint32
 	feedID             string
-	addressBook        deployment.AddressBook
+	addressBook        cldf.AddressBook
 	priceProvider      PriceProvider
 	sethClient         *seth.Client
 	deployerPrivateKey string
 	creCLIAbsPath      string
 	creCLIsettingsFile *os.File
 	authKey            string
+	creCLIProfile      string
 }
 
 type configureDataFeedsCacheInput struct {
 	useCRECLI          bool
 	chainSelector      uint64
-	fullCldEnvironment *deployment.Environment
+	fullCldEnvironment *cldf.Environment
 	workflowName       string
 	feedID             string
 	sethClient         *seth.Client
@@ -270,6 +271,10 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 		err := os.Setenv("CRE_ETH_PRIVATE_KEY", input.deployerPrivateKey)
 		if err != nil {
 			return errors.Wrap(err, "failed to set CRE_ETH_PRIVATE_KEY")
+		}
+		err = os.Setenv("CRE_PROFILE", libcrecli.CRECLIProfile)
+		if err != nil {
+			return errors.Wrap(err, "failed to set CRE_PROFILE")
 		}
 
 		dfAdminErr := libcrecli.SetFeedAdmin(input.creCLIAbsPath, chainIDInt, input.sethClient.MustGetRootKeyAddress(), input.settingsFile)
@@ -412,6 +417,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 		CRESettingsFile:          input.creCLIsettingsFile,
 		WorkflowName:             input.WorkflowConfig.WorkflowName,
 		ShouldCompileNewWorkflow: input.WorkflowConfig.ShouldCompileNewWorkflow,
+		CRECLIProfile:            input.creCLIProfile,
 	}
 
 	if input.WorkflowConfig.ShouldCompileNewWorkflow {
@@ -450,7 +456,7 @@ func logTestInfo(l zerolog.Logger, feedID, workflowName, dataFeedsCacheAddr, for
 
 type porSetupOutput struct {
 	priceProvider                   PriceProvider
-	addressBook                     deployment.AddressBook
+	addressBook                     cldf.AddressBook
 	chainSelectorToSethClient       map[uint64]*seth.Client
 	chainSelectorToBlockchainOutput map[uint64]*blockchain.Output
 	donTopology                     *keystonetypes.DonTopology
@@ -542,7 +548,7 @@ func setupPoRTestEnvironment(
 			Labels:         []string{"data-feeds"}, // label required by the changeset
 		}
 
-		dfOutput, dfErr := df_changeset.RunChangeset(df_changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
+		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
 		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
 		mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
@@ -564,6 +570,7 @@ func setupPoRTestEnvironment(
 			// create CRE CLI settings file
 			var settingsErr error
 			creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(
+				libcrecli.CRECLIProfile,
 				bo.SethClient.MustGetRootKeyAddress(),
 				universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				universalSetupOutput.DonTopology.WorkflowDonID,
@@ -606,6 +613,7 @@ func setupPoRTestEnvironment(
 			creCLIAbsPath:      creCLIAbsPath,
 			creCLIsettingsFile: creCLISettingsFile,
 			writeTargetName:    corevm.GenerateWriteTargetName(bo.ChainID),
+			creCLIProfile:      libcrecli.CRECLIProfile,
 		}
 
 		workflowErr := registerPoRWorkflow(registerInput)

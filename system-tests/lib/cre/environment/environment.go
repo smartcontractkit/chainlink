@@ -21,7 +21,9 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
@@ -63,7 +65,7 @@ const (
 
 type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *keystonetypes.WorkflowRegistryOutput
-	CldEnvironment                      *deployment.Environment
+	CldEnvironment                      *cldf.Environment
 	BlockchainOutput                    []*BlockchainOutput
 	DonTopology                         *keystonetypes.DonTopology
 	NodeOutput                          []*keystonetypes.WrappedNodeOutput
@@ -152,10 +154,10 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(allChainsErr, "failed to create chains")
 	}
 
-	allChainsCLDEnvironment := &deployment.Environment{
+	allChainsCLDEnvironment := &cldf.Environment{
 		Logger:            singeFileLogger,
 		Chains:            allChains,
-		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		GetContext: func() context.Context {
 			return ctx
 		},

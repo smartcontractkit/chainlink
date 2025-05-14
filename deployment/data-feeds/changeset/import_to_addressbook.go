@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -14,13 +14,13 @@ import (
 var ImportToAddressbookChangeset = cldf.CreateChangeSet(importToAddressbookLogic, importToAddressbookPrecondition)
 
 type AddressesSchema struct {
-	Address        string                    `json:"address"`
-	TypeAndVersion deployment.TypeAndVersion `json:"typeAndVersion"`
-	Label          string                    `json:"label"`
+	Address        string              `json:"address"`
+	TypeAndVersion cldf.TypeAndVersion `json:"typeAndVersion"`
+	Label          string              `json:"label"`
 }
 
-func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddressbookConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+func importToAddressbookLogic(env cldf.Environment, c types.ImportToAddressbookConfig) (cldf.ChangesetOutput, error) {
+	ab := cldf.NewMemoryAddressBook()
 
 	addresses, _ := LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
 
@@ -32,14 +32,14 @@ func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddres
 			address.TypeAndVersion,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address %s: %w", address.Address, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address %s: %w", address.Address, err)
 		}
 	}
 
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func importToAddressbookPrecondition(env deployment.Environment, c types.ImportToAddressbookConfig) error {
+func importToAddressbookPrecondition(env cldf.Environment, c types.ImportToAddressbookConfig) error {
 	_, evmOK := env.Chains[c.ChainSelector]
 	_, aptosOK := env.AptosChains[c.ChainSelector]
 	_, solOK := env.SolChains[c.ChainSelector]

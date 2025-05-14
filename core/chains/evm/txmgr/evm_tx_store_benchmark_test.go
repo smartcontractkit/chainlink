@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
 func NewTestTxStore(t testing.TB, db *sqlx.DB) txmgr.TestEvmTxStore {
@@ -39,8 +38,7 @@ func BenchmarkTxStoreCreateTransaction(b *testing.B) {
 		b.Run(bs.name, func(b *testing.B) {
 			db := testutils.NewSqlxDB(b)
 			txStore := newTxStore(b, db)
-			kst := cltest.NewKeyStore(b, db)
-			_, fromAddress := cltest.MustInsertRandomKey(b, kst.Eth())
+			fromAddress := testutils.NewAddress()
 			gasLimit := uint64(1000)
 			payload := []byte{1, 2, 3}
 			ethClient := clienttest.NewClientWithDefaultChainID(b)
@@ -87,8 +85,7 @@ func BenchmarkTxStoreFindAttemptsRequiringReceiptFetch(b *testing.B) {
 			txStore := NewTestTxStore(b, db)
 			ctx := tests.Context(b)
 			blockNum := int64(100)
-			kst := cltest.NewKeyStore(b, db)
-			_, fromAddress := cltest.MustInsertRandomKey(b, kst.Eth())
+			fromAddress := testutils.NewAddress()
 
 			var nonce = evmtypes.Nonce(0)
 			for i := 0; i < bs.size; i++ {
@@ -132,8 +129,7 @@ func BenchmarkFindTxesByIDs(b *testing.B) {
 			db := testutils.NewSqlxDB(b)
 			txStore := NewTestTxStore(b, db)
 			ctx := tests.Context(b)
-			ethKeyStore := cltest.NewKeyStore(b, db).Eth()
-			_, fromAddress := cltest.MustInsertRandomKeyReturningState(b, ethKeyStore)
+			fromAddress := testutils.NewAddress()
 
 			var etxIDs []int64
 			for i := 0; i < bs.size; i++ {
@@ -159,8 +155,7 @@ func BenchmarkFindConfirmedTxesReceipts(b *testing.B) {
 			db := testutils.NewSqlxDB(b)
 			txStore := NewTestTxStore(b, db)
 			finalizedBlockNum := int64(100)
-			kst := cltest.NewKeyStore(b, db)
-			_, fromAddress := cltest.MustInsertRandomKey(b, kst.Eth())
+			fromAddress := testutils.NewAddress()
 
 			for i := 0; i < bs.size; i++ {
 				mustInsertConfirmedEthTxWithReceipt(b, txStore, fromAddress, int64(i), finalizedBlockNum)
@@ -169,7 +164,7 @@ func BenchmarkFindConfirmedTxesReceipts(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				b.StartTimer()
-				receipts, err := txStore.FindConfirmedTxesReceipts(tests.Context(b), finalizedBlockNum, &cltest.FixtureChainID)
+				receipts, err := txStore.FindConfirmedTxesReceipts(tests.Context(b), finalizedBlockNum, testutils.FixtureChainID)
 				b.StopTimer()
 				require.NoError(b, err)
 				require.Len(b, receipts, bs.size)

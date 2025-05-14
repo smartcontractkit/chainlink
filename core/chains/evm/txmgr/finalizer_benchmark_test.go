@@ -5,6 +5,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -15,16 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
 )
 
 func BenchmarkFinalizer(b *testing.B) {
 	ctx := tests.Context(b)
 	db := testutils.NewSqlxDB(b)
-	txStore := cltest.NewTestTxStore(b, db)
-	ethKeyStore := cltest.NewKeyStore(b, db).Eth()
+	txStore := txmgrtest.NewTestTxStore(b, db)
 	feeLimit := uint64(10_000)
 	ethClient := clienttest.NewClientWithDefaultChainID(b)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
@@ -46,7 +46,7 @@ func BenchmarkFinalizer(b *testing.B) {
 	finalizer := txmgr.NewEvmFinalizer(logger.Test(b), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht, metrics)
 	servicetest.Run(b, finalizer)
 
-	_, fromAddress := cltest.MustInsertRandomKey(b, ethKeyStore)
+	fromAddress := testutils.NewAddress()
 
 	broadcast := time.Now()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil)

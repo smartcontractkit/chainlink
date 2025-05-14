@@ -11,8 +11,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
@@ -27,24 +28,24 @@ const (
 
 // Map program names to their Rust file paths (relative to the Anchor project root)
 // Needed for upgrades in place
-var programToFileMap = map[deployment.ContractType]string{
-	cs.Router:                      "programs/ccip-router/src/lib.rs",
-	cs.CCIPCommon:                  "programs/ccip-common/src/lib.rs",
-	cs.FeeQuoter:                   "programs/fee-quoter/src/lib.rs",
-	cs.OffRamp:                     "programs/ccip-offramp/src/lib.rs",
-	cs.BurnMintTokenPool:           "programs/burnmint-token-pool/src/lib.rs",
-	cs.LockReleaseTokenPool:        "programs/lockrelease-token-pool/src/lib.rs",
-	cs.RMNRemote:                   "programs/rmn-remote/src/lib.rs",
+var programToFileMap = map[cldf.ContractType]string{
+	shared.Router:                  "programs/ccip-router/src/lib.rs",
+	shared.CCIPCommon:              "programs/ccip-common/src/lib.rs",
+	shared.FeeQuoter:               "programs/fee-quoter/src/lib.rs",
+	shared.OffRamp:                 "programs/ccip-offramp/src/lib.rs",
+	shared.BurnMintTokenPool:       "programs/burnmint-token-pool/src/lib.rs",
+	shared.LockReleaseTokenPool:    "programs/lockrelease-token-pool/src/lib.rs",
+	shared.RMNRemote:               "programs/rmn-remote/src/lib.rs",
 	types.AccessControllerProgram:  "programs/access-controller/src/lib.rs",
 	types.ManyChainMultisigProgram: "programs/mcm/src/lib.rs",
 	types.RBACTimelockProgram:      "programs/timelock/src/lib.rs",
 }
 
-var programToVanityKey = map[deployment.ContractType]string{
-	cs.Router:    "Ccip",
-	cs.FeeQuoter: "FeeQ",
-	cs.OffRamp:   "off",
-	cs.RMNRemote: "Rmn",
+var programToVanityKey = map[cldf.ContractType]string{
+	shared.Router:    "Ccip",
+	shared.FeeQuoter: "FeeQ",
+	shared.OffRamp:   "off",
+	shared.RMNRemote: "Rmn",
 }
 
 type LocalBuildConfig struct {
@@ -55,7 +56,7 @@ type LocalBuildConfig struct {
 	CleanGitDir bool
 	// When building locally, this will be used to replace the keys in the Rust files
 	GenerateVanityKeys bool
-	UpgradeKeys        map[deployment.ContractType]string
+	UpgradeKeys        map[cldf.ContractType]string
 }
 
 type BuildSolanaConfig struct {
@@ -80,7 +81,7 @@ func runCommand(command string, args []string, workDir string) (string, error) {
 }
 
 // Clone and checkout the specific revision of the repo
-func cloneRepo(e deployment.Environment, revision string, forceClean bool) error {
+func cloneRepo(e cldf.Environment, revision string, forceClean bool) error {
 	// Check if the repository already exists
 	if forceClean {
 		e.Logger.Debugw("Cleaning repository", "dir", cloneDir)
@@ -121,7 +122,7 @@ func cloneRepo(e deployment.Environment, revision string, forceClean bool) error
 }
 
 // Replace keys in Rust files
-func replaceKeys(e deployment.Environment) error {
+func replaceKeys(e cldf.Environment) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Replacing keys", "solanaDir", solanaDir)
 	output, err := runCommand("make", []string{"docker-update-contracts"}, solanaDir)
@@ -131,7 +132,7 @@ func replaceKeys(e deployment.Environment) error {
 	return nil
 }
 
-func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.ContractType]string) error {
+func replaceKeysForUpgrade(e cldf.Environment, keys map[cldf.ContractType]string) error {
 	e.Logger.Debug("Replacing keys in Rust files...")
 	for program, key := range keys {
 		programStr := string(program)
@@ -158,8 +159,8 @@ func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.Contrac
 }
 
 func syncRouterAndCommon() error {
-	routerFileName := programToFileMap[cs.Router]
-	commonFileName := programToFileMap[cs.CCIPCommon]
+	routerFileName := programToFileMap[shared.Router]
+	commonFileName := programToFileMap[shared.CCIPCommon]
 	routerFile := filepath.Join(cloneDir, anchorDir, routerFileName)
 	commonFile := filepath.Join(cloneDir, anchorDir, commonFileName)
 	file, err := os.Open(routerFile)
@@ -194,7 +195,7 @@ func syncRouterAndCommon() error {
 	return os.WriteFile(commonFile, []byte(updatedContent), 0600)
 }
 
-func generateVanityKeys(e deployment.Environment, keys map[deployment.ContractType]string) error {
+func generateVanityKeys(e cldf.Environment, keys map[cldf.ContractType]string) error {
 	e.Logger.Debug("Generating vanity keys...")
 	for program, prefix := range programToVanityKey {
 		_, exists := keys[program]
@@ -258,7 +259,7 @@ func copyFile(srcFile string, destDir string) error {
 }
 
 // Build the project with Anchor
-func buildProject(e deployment.Environment) error {
+func buildProject(e cldf.Environment) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Building project", "solanaDir", solanaDir)
 	args := []string{"docker-build-contracts"}
@@ -269,7 +270,7 @@ func buildProject(e deployment.Environment) error {
 	return nil
 }
 
-func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
+func buildLocally(e cldf.Environment, config BuildSolanaConfig) error {
 	e.Logger.Debugw("Starting local build process", "destinationDir", config.DestinationDir)
 	// Clone the repository
 	if err := cloneRepo(e, config.GitCommitSha, config.LocalBuild.CleanGitDir); err != nil {
@@ -283,7 +284,7 @@ func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
 
 	if config.LocalBuild.GenerateVanityKeys {
 		if len(config.LocalBuild.UpgradeKeys) == 0 {
-			config.LocalBuild.UpgradeKeys = make(map[deployment.ContractType]string)
+			config.LocalBuild.UpgradeKeys = make(map[cldf.ContractType]string)
 		}
 		if err := generateVanityKeys(e, config.LocalBuild.UpgradeKeys); err != nil {
 			return fmt.Errorf("error generating vanity keys: %w", err)
@@ -342,7 +343,7 @@ func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
 	return nil
 }
 
-func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
+func BuildSolana(e cldf.Environment, config BuildSolanaConfig) error {
 	if !config.LocalBuild.BuildLocally {
 		e.Logger.Debug("Downloading Solana CCIP program artifacts...")
 		err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, config.GitCommitSha)
