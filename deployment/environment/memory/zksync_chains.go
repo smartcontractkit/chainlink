@@ -18,7 +18,7 @@ import (
 	"github.com/zksync-sdk/zksync2-go/accounts"
 	"github.com/zksync-sdk/zksync2-go/clients"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cs "github.com/smartcontractkit/chain-selectors"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -28,7 +28,7 @@ func GenerateChainsZk(t *testing.T, numChains int) map[uint64]cldf.Chain {
 	chains := make(map[uint64]cldf.Chain)
 
 	for i := 0; i < numChains; i++ {
-		chainID := chain_selectors.TEST_90000051.EvmChainID + uint64(i) //nolint:gosec // it shouldn't overflow
+		chainID := cs.TEST_90000051.EvmChainID + uint64(i) //nolint:gosec // it shouldn't overflow
 
 		output, err := blockchain.NewBlockchainNetwork(&blockchain.Input{
 			Type:    "anvil-zksync",
