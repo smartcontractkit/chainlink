@@ -158,7 +158,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		assert.Equal(t, big.Int(assets.NewEthValue(0)), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
@@ -248,7 +248,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			Checker:        checker,
 		})
 		assert.NoError(t, err)
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
 
@@ -292,7 +292,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			Checker:        checker,
 		})
 		assert.NoError(t, err)
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
 
@@ -327,7 +327,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			Strategy:         txmgrcommon.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))

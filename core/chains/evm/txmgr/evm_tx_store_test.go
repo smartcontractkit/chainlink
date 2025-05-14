@@ -128,7 +128,7 @@ func TestORM(t *testing.T) {
 		etx = evmtxmgrtestutils.NewEthTx(fromAddress)
 		require.NoError(t, orm.InsertTx(ctx, &etx))
 		assert.Greater(t, int(etx.ID), 0)
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 	})
 	var attemptL txmgr.TxAttempt
 	var attemptD txmgr.TxAttempt
@@ -136,14 +136,14 @@ func TestORM(t *testing.T) {
 		attemptD = evmtxmgrtestutils.NewDynamicFeeEthTxAttempt(t, etx.ID)
 		require.NoError(t, orm.InsertTxAttempt(ctx, &attemptD))
 		assert.Greater(t, int(attemptD.ID), 0)
-		cltest.AssertCount(t, db, "evm.tx_attempts", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.tx_attempts", 1)
 
 		attemptL = evmtxmgrtestutils.NewLegacyEthTxAttempt(t, etx.ID)
 		attemptL.State = txmgrtypes.TxAttemptBroadcast
 		attemptL.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(42)}
 		require.NoError(t, orm.InsertTxAttempt(ctx, &attemptL))
 		assert.Greater(t, int(attemptL.ID), 0)
-		cltest.AssertCount(t, db, "evm.tx_attempts", 2)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.tx_attempts", 2)
 	})
 	var r txmgr.Receipt
 	t.Run("InsertReceipt", func(t *testing.T) {
@@ -152,7 +152,7 @@ func TestORM(t *testing.T) {
 		r.ID = id
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)
-		cltest.AssertCount(t, db, "evm.receipts", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.receipts", 1)
 	})
 	t.Run("FindTxWithAttempts", func(t *testing.T) {
 		var err error
@@ -692,7 +692,7 @@ func Test_FindReceiptWithIdempotencyKey(t *testing.T) {
 		etx.IdempotencyKey = &idempotencyKey
 		require.NoError(t, txStore.InsertTx(ctx, &etx))
 		assert.Greater(t, int(etx.ID), 0)
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 
 		// insert attempt
 		var attemptL txmgr.TxAttempt
@@ -700,14 +700,14 @@ func Test_FindReceiptWithIdempotencyKey(t *testing.T) {
 		attemptD = evmtxmgrtestutils.NewDynamicFeeEthTxAttempt(t, etx.ID)
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attemptD))
 		assert.Greater(t, int(attemptD.ID), 0)
-		cltest.AssertCount(t, db, "evm.tx_attempts", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.tx_attempts", 1)
 
 		attemptL = evmtxmgrtestutils.NewLegacyEthTxAttempt(t, etx.ID)
 		attemptL.State = txmgrtypes.TxAttemptBroadcast
 		attemptL.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(42)}
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attemptL))
 		assert.Greater(t, int(attemptL.ID), 0)
-		cltest.AssertCount(t, db, "evm.tx_attempts", 2)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.tx_attempts", 2)
 
 		// insert receipt
 		var r txmgr.Receipt
@@ -716,7 +716,7 @@ func Test_FindReceiptWithIdempotencyKey(t *testing.T) {
 		r.ID = id
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)
-		cltest.AssertCount(t, db, "evm.receipts", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.receipts", 1)
 
 		res, err := txStore.FindReceiptWithIdempotencyKey(ctx, idempotencyKey, etx.ChainID)
 		require.NoError(t, err)
@@ -1663,7 +1663,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 		assert.Equal(t, big.Int(assets.NewEthValue(0)), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 
 		var dbEthTx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEthTx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
@@ -1715,7 +1715,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.True(t, etx.SignalCallback)
 
-		cltest.AssertCount(t, db, "evm.txes", 3)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 3)
 
 		var dbEthTx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEthTx, `SELECT * FROM evm.txes ORDER BY id DESC LIMIT 1`))

@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -127,4 +128,13 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
 		State:                 types2.TxAttemptInProgress,
 		ChainSpecificFeeLimit: 42,
 	}
+}
+
+func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected int64) {
+	t.Helper()
+	ctx := evmtestutils.Context(t)
+	var count int64
+	err := ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
+	require.NoError(t, err)
+	require.Equal(t, expected, count)
 }

@@ -68,7 +68,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 	})
 
 	t.Run("doesn't touch ethtxes with different chain ID", func(t *testing.T) {
@@ -79,7 +79,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx has chain ID of 0
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 	})
 
 	t.Run("deletes finalized evm.txes that exceed the age threshold", func(t *testing.T) {
@@ -90,14 +90,14 @@ func TestReaper_ReapTxes(t *testing.T) {
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx was not old enough
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 
 		testutils.MustExec(t, db, `UPDATE evm.txes SET created_at=$1, state='finalized'`, oneDayAgo)
 
 		err = r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Now it deleted because the eth_tx was past the age threshold
-		cltest.AssertCount(t, db, "evm.txes", 0)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 0)
 	})
 
 	mustInsertFatalErrorEthTx(t, txStore, fromAddress)
@@ -110,14 +110,14 @@ func TestReaper_ReapTxes(t *testing.T) {
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx was not old enough
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 
 		require.NoError(t, utils.JustError(db.Exec(`UPDATE evm.txes SET created_at=$1`, oneDayAgo)))
 
 		err = r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Deleted because it is old enough now
-		cltest.AssertCount(t, db, "evm.txes", 0)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 0)
 	})
 
 	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 0, 42)
@@ -130,13 +130,13 @@ func TestReaper_ReapTxes(t *testing.T) {
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx was not old enough
-		cltest.AssertCount(t, db, "evm.txes", 1)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 1)
 
 		testutils.MustExec(t, db, `UPDATE evm.txes SET created_at=$1`, oneDayAgo)
 
 		err = r.ReapTxes(42)
 		assert.NoError(t, err)
 		// Now it deleted because the eth_tx was past the age threshold
-		cltest.AssertCount(t, db, "evm.txes", 0)
+		evmtxmgrtestutils.AssertCount(t, db, "evm.txes", 0)
 	})
 }
