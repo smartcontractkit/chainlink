@@ -72,5 +72,4 @@ func RegisterPluginConfig(
 	RegisteredPluginConfigFactories[chainFamily] = pluginConfigFactory
 	RegisteredCRCW[chainFamily] = crw
 	RegisteredAddressCodec[chainFamily] = addressCodec
-	return
 }
