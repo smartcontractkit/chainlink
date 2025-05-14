@@ -10,7 +10,6 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -29,7 +28,7 @@ type InitializeVerifierConfig struct {
 	VerifierAddress      common.Address
 }
 
-func verifierProxyInitializeVerifierLogic(e deployment.Environment, cfg VerifierProxyInitializeVerifierConfig) (cldf.ChangesetOutput, error) {
+func verifierProxyInitializeVerifierLogic(e cldf.Environment, cfg VerifierProxyInitializeVerifierConfig) (cldf.ChangesetOutput, error) {
 	txs, err := GetInitializeVerifierTxs(e, cfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -51,7 +50,7 @@ func verifierProxyInitializeVerifierLogic(e deployment.Environment, cfg Verifier
 
 // GetInitializeVerifierTxs - returns the transactions to set a verifier on the verifier proxy.
 // Does not sign the TXs
-func GetInitializeVerifierTxs(e deployment.Environment, cfg VerifierProxyInitializeVerifierConfig) ([]*txutil.PreparedTx, error) {
+func GetInitializeVerifierTxs(e cldf.Environment, cfg VerifierProxyInitializeVerifierConfig) ([]*txutil.PreparedTx, error) {
 	var preparedTxs []*txutil.PreparedTx
 	for chainSelector, configs := range cfg.ConfigPerChain {
 		for _, config := range configs {
@@ -59,7 +58,7 @@ func GetInitializeVerifierTxs(e deployment.Environment, cfg VerifierProxyInitial
 			if err != nil {
 				return nil, fmt.Errorf("failed to load verifier proxy state: %w", err)
 			}
-			tx, err := state.VerifierProxy.InitializeVerifier(deployment.SimTransactOpts(), config.VerifierAddress)
+			tx, err := state.VerifierProxy.InitializeVerifier(cldf.SimTransactOpts(), config.VerifierAddress)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create InitializeVerifier transaction: %w", err)
 			}
@@ -74,12 +73,12 @@ func GetInitializeVerifierTxs(e deployment.Environment, cfg VerifierProxyInitial
 	return preparedTxs, nil
 }
 
-func verifierProxyInitializeVerifierPrecondition(e deployment.Environment, cfg VerifierProxyInitializeVerifierConfig) error {
+func verifierProxyInitializeVerifierPrecondition(e cldf.Environment, cfg VerifierProxyInitializeVerifierConfig) error {
 	if len(cfg.ConfigPerChain) == 0 {
 		return errors.New("ConfigPerChain is empty")
 	}
 	for cs := range cfg.ConfigPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 	}

@@ -12,7 +12,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -23,7 +22,7 @@ type FireDrillConfig struct {
 }
 
 // buildNoOPEVM builds a dummy tx that transfers 0 to the RBACTimelock
-func buildNoOPEVM(e deployment.Environment, selector uint64) (mcmstypes.Transaction, error) {
+func buildNoOPEVM(e cldf.Environment, selector uint64) (mcmstypes.Transaction, error) {
 	chain, ok := e.Chains[selector]
 	if !ok {
 		return mcmstypes.Transaction{}, nil
@@ -73,7 +72,7 @@ func buildNoOPSolana() (mcmstypes.Transaction, error) {
 // MCMSSignFireDrillChangeset creates a changeset for a MCMS signing Fire Drill.
 // It is used to make sure team member can effectively sign proposal and that the execution pipelines are healthy.
 // The changeset will create a NO-OP transaction for each chain selector in the environment and create a proposal for it.
-func MCMSSignFireDrillChangeset(e deployment.Environment, cfg FireDrillConfig) (cldf.ChangesetOutput, error) {
+func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.ChangesetOutput, error) {
 	allSelectors := cfg.Selectors
 	if len(allSelectors) == 0 {
 		solSelectors := e.AllChainSelectorsSolana()

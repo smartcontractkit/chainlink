@@ -9,7 +9,7 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -30,7 +30,7 @@ type SetAccessControllerConfig struct {
 	AccessControllerAddress common.Address
 }
 
-func (v verifierProxySetAccessController) Apply(e deployment.Environment, cfg VerifierProxySetAccessControllerConfig) (cldf.ChangesetOutput, error) {
+func (v verifierProxySetAccessController) Apply(e cldf.Environment, cfg VerifierProxySetAccessControllerConfig) (cldf.ChangesetOutput, error) {
 	txs, err := GetSetAccessControllerTxs(e, cfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -52,7 +52,7 @@ func (v verifierProxySetAccessController) Apply(e deployment.Environment, cfg Ve
 
 // GetSetAccessControllerTxs - returns the transactions to set the access controller on the verifier proxy.
 // Does not sign the TXs
-func GetSetAccessControllerTxs(e deployment.Environment, cfg VerifierProxySetAccessControllerConfig) ([]*txutil.PreparedTx, error) {
+func GetSetAccessControllerTxs(e cldf.Environment, cfg VerifierProxySetAccessControllerConfig) ([]*txutil.PreparedTx, error) {
 	var preparedTxs []*txutil.PreparedTx
 	for chainSelector, configs := range cfg.ConfigPerChain {
 		for _, config := range configs {
@@ -60,7 +60,7 @@ func GetSetAccessControllerTxs(e deployment.Environment, cfg VerifierProxySetAcc
 			if err != nil {
 				return nil, fmt.Errorf("failed to load verifier proxy state: %w", err)
 			}
-			tx, err := state.VerifierProxy.SetAccessController(deployment.SimTransactOpts(), config.AccessControllerAddress)
+			tx, err := state.VerifierProxy.SetAccessController(cldf.SimTransactOpts(), config.AccessControllerAddress)
 
 			if err != nil {
 				return nil, fmt.Errorf("failed to create SetAccessController transaction: %w", err)
@@ -76,12 +76,12 @@ func GetSetAccessControllerTxs(e deployment.Environment, cfg VerifierProxySetAcc
 	return preparedTxs, nil
 }
 
-func (v verifierProxySetAccessController) VerifyPreconditions(e deployment.Environment, cfg VerifierProxySetAccessControllerConfig) error {
+func (v verifierProxySetAccessController) VerifyPreconditions(e cldf.Environment, cfg VerifierProxySetAccessControllerConfig) error {
 	if len(cfg.ConfigPerChain) == 0 {
 		return errors.New("ConfigPerChain is empty")
 	}
 	for cs := range cfg.ConfigPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 	}

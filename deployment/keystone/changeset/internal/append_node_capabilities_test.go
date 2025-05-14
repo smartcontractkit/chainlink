@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -58,7 +57,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 			args: args{
 				lggr: lggr,
 				req: &internal.AppendNodeCapabilitiesRequest{
-					Chain: deployment.Chain{},
+					Chain: cldf.Chain{},
 				},
 				initialState: &kstest.SetupTestRegistryRequest{},
 			},

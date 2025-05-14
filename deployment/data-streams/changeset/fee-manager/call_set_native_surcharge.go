@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -34,7 +33,7 @@ func (a SetNativeSurcharge) GetContractAddress() common.Address {
 	return a.FeeManagerAddress
 }
 
-func setNativeSurchargeLogic(e deployment.Environment, cfg SetNativeSurchargeConfig) (cldf.ChangesetOutput, error) {
+func setNativeSurchargeLogic(e cldf.Environment, cfg SetNativeSurchargeConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -49,12 +48,12 @@ func setNativeSurchargeLogic(e deployment.Environment, cfg SetNativeSurchargeCon
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "SetNativeSurcharge proposal")
 }
 
-func setNativeSurchargePrecondition(e deployment.Environment, cfg SetNativeSurchargeConfig) error {
+func setNativeSurchargePrecondition(e cldf.Environment, cfg SetNativeSurchargeConfig) error {
 	if len(cfg.ConfigPerChain) == 0 {
 		return errors.New("ConfigPerChain is empty")
 	}
 	for cs := range cfg.ConfigPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 	}
@@ -66,6 +65,6 @@ func doSetNativeSurcharge(
 	c SetNativeSurcharge,
 ) (*goEthTypes.Transaction, error) {
 	return fm.SetNativeSurcharge(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		c.Surcharge)
 }

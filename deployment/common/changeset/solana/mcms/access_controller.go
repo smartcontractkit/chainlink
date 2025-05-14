@@ -21,8 +21,8 @@ import (
 )
 
 func deployAccessControllerProgram(
-	e deployment.Environment, chainState *state.MCMSWithTimelockStateSolana,
-	chain deployment.SolChain, addressBook cldf.AddressBook,
+	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana,
+	chain cldf.SolChain, addressBook cldf.AddressBook,
 ) error {
 	typeAndVersion := cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
 	log := logger.With(e.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
@@ -62,8 +62,8 @@ func deployAccessControllerProgram(
 }
 
 func initAccessController(
-	e deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType cldf.ContractType,
-	chain deployment.SolChain, addressBook cldf.AddressBook,
+	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType cldf.ContractType,
+	chain cldf.SolChain, addressBook cldf.AddressBook,
 ) error {
 	if chainState.AccessControllerProgram.IsZero() {
 		return errors.New("access controller program is not deployed")
@@ -121,7 +121,7 @@ func initAccessController(
 const accessControllerAccountSize = uint64(8 + 32 + 32 + ((32 * 64) + 8))
 
 func initializeAccessController(
-	e deployment.Environment, chain deployment.SolChain, programID solana.PublicKey, roleAccount solana.PrivateKey,
+	e cldf.Environment, chain cldf.SolChain, programID solana.PublicKey, roleAccount solana.PrivateKey,
 ) error {
 	rentExemption, err := chain.Client.GetMinimumBalanceForRentExemption(e.GetContext(),
 		accessControllerAccountSize, rpc.CommitmentConfirmed)
@@ -158,7 +158,7 @@ func initializeAccessController(
 	return nil
 }
 
-func setupRoles(chainState *state.MCMSWithTimelockStateSolana, chain deployment.SolChain) error {
+func setupRoles(chainState *state.MCMSWithTimelockStateSolana, chain cldf.SolChain) error {
 	proposerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
 	cancellerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.CancellerMcmSeed)
 	bypasserPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.BypasserMcmSeed)
@@ -187,7 +187,7 @@ func setupRoles(chainState *state.MCMSWithTimelockStateSolana, chain deployment.
 }
 
 func addAccess(
-	chain deployment.SolChain, chainState *state.MCMSWithTimelockStateSolana,
+	chain cldf.SolChain, chainState *state.MCMSWithTimelockStateSolana,
 	role timelockBindings.Role, accounts ...solana.PublicKey,
 ) error {
 	timelockConfigPDA := state.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed)

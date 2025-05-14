@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -91,7 +92,7 @@ type AddDonsRequest struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-func (r *AddDonsRequest) Validate(e deployment.Environment) error {
+func (r *AddDonsRequest) Validate(e cldf.Environment) error {
 	for _, don := range r.DONs {
 		if err := don.Validate(); err != nil {
 			return fmt.Errorf("invalid DON to register: %w", err)
@@ -139,7 +140,7 @@ func (r AddDonsRequest) convertInternal(registry *kcr.CapabilitiesRegistry) (don
 // See [AddNodes] and [AddCapabilities] for more detail
 // If the DON already exists, it will do nothing. The DON is identified by the P2P addresses of the nodes.
 // If you need to update the DON, use [UpdateDon].
-func AddDons(env deployment.Environment, req *AddDonsRequest) (cldf.ChangesetOutput, error) {
+func AddDons(env cldf.Environment, req *AddDonsRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

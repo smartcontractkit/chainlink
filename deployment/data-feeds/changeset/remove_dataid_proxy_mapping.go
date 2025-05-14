@@ -7,7 +7,7 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -15,7 +15,7 @@ import (
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
 var RemoveFeedProxyMappingChangeset = cldf.CreateChangeSet(removeFeedProxyMappingLogic, removeFeedFeedProxyMappingPrecondition)
 
-func removeFeedProxyMappingLogic(env deployment.Environment, c types.RemoveFeedProxyConfig) (cldf.ChangesetOutput, error) {
+func removeFeedProxyMappingLogic(env cldf.Environment, c types.RemoveFeedProxyConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
@@ -23,7 +23,7 @@ func removeFeedProxyMappingLogic(env deployment.Environment, c types.RemoveFeedP
 
 	txOpt := chain.DeployerKey
 	if c.McmsConfig != nil {
-		txOpt = deployment.SimTransactOpts()
+		txOpt = cldf.SimTransactOpts()
 	}
 
 	tx, err := contract.RemoveDataIdMappingsForProxies(txOpt, c.ProxyAddresses)
@@ -45,14 +45,14 @@ func removeFeedProxyMappingLogic(env deployment.Environment, c types.RemoveFeedP
 		return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
 
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := cldf.ConfirmIfNoError(chain, tx, err); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
 	return cldf.ChangesetOutput{}, nil
 }
 
-func removeFeedFeedProxyMappingPrecondition(env deployment.Environment, c types.RemoveFeedProxyConfig) error {
+func removeFeedFeedProxyMappingPrecondition(env cldf.Environment, c types.RemoveFeedProxyConfig) error {
 	_, ok := env.Chains[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)

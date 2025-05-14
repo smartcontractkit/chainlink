@@ -10,7 +10,6 @@ import (
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
@@ -22,7 +21,7 @@ type UpdateTimelockDelaySolanaCfg struct {
 }
 
 func (t UpdateTimelockDelaySolana) VerifyPreconditions(
-	env deployment.Environment, config UpdateTimelockDelaySolanaCfg,
+	env cldf.Environment, config UpdateTimelockDelaySolanaCfg,
 ) error {
 	if len(config.DelayPerChain) == 0 {
 		return errors.New("no delay configs provided")
@@ -57,7 +56,7 @@ func (t UpdateTimelockDelaySolana) VerifyPreconditions(
 }
 
 func (t UpdateTimelockDelaySolana) Apply(
-	env deployment.Environment, cfg UpdateTimelockDelaySolanaCfg,
+	env cldf.Environment, cfg UpdateTimelockDelaySolanaCfg,
 ) (cldf.ChangesetOutput, error) {
 	for chainSelector, delay := range cfg.DelayPerChain {
 		solChain := env.SolChains[chainSelector]

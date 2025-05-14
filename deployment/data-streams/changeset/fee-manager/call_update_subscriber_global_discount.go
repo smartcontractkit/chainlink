@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -37,7 +37,7 @@ func (a UpdateSubscriberGlobalDiscount) GetContractAddress() common.Address {
 	return a.FeeManagerAddress
 }
 
-func (cs globalDiscount) Apply(e deployment.Environment, cfg UpdateSubscriberGlobalDiscountConfig) (cldf.ChangesetOutput, error) {
+func (cs globalDiscount) Apply(e cldf.Environment, cfg UpdateSubscriberGlobalDiscountConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -52,12 +52,12 @@ func (cs globalDiscount) Apply(e deployment.Environment, cfg UpdateSubscriberGlo
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "UpdateSubscriberGlobalDiscount proposal")
 }
 
-func (cs globalDiscount) VerifyPreconditions(e deployment.Environment, cfg UpdateSubscriberGlobalDiscountConfig) error {
+func (cs globalDiscount) VerifyPreconditions(e cldf.Environment, cfg UpdateSubscriberGlobalDiscountConfig) error {
 	if len(cfg.ConfigPerChain) == 0 {
 		return errors.New("ConfigPerChain is empty")
 	}
 	for cs := range cfg.ConfigPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 	}
@@ -69,7 +69,7 @@ func doUpdateSubscriberGlobalDiscount(
 	c UpdateSubscriberGlobalDiscount,
 ) (*goEthTypes.Transaction, error) {
 	return fm.UpdateSubscriberGlobalDiscount(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		c.SubscriberAddress,
 		c.TokenAddress,
 		c.Discount)

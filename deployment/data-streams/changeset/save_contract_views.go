@@ -8,7 +8,7 @@ import (
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
 	dsstate "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
@@ -30,11 +30,11 @@ func (cfg SaveContractViewsConfig) Validate() error {
 	return nil
 }
 
-func saveViewsPrecondition(_ deployment.Environment, cc SaveContractViewsConfig) error {
+func saveViewsPrecondition(_ cldf.Environment, cc SaveContractViewsConfig) error {
 	return cc.Validate()
 }
 
-func saveViewsLogic(e deployment.Environment, cfg SaveContractViewsConfig) (cldf.ChangesetOutput, error) {
+func saveViewsLogic(e cldf.Environment, cfg SaveContractViewsConfig) (cldf.ChangesetOutput, error) {
 	updatedDataStore := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
 	records, err := e.DataStore.Addresses().Fetch()
 	if err != nil {

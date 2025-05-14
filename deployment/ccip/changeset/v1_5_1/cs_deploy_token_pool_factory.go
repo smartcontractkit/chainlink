@@ -10,7 +10,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 // DeployTokenPoolFactoryChangeset is a changeset that deploys the TokenPoolFactory contract on multiple chains.
@@ -27,14 +28,14 @@ type DeployTokenPoolFactoryConfig struct {
 	RegistryModule1_6Addresses map[uint64]common.Address
 }
 
-func deployTokenPoolFactoryPrecondition(e deployment.Environment, config DeployTokenPoolFactoryConfig) error {
-	state, err := changeset.LoadOnchainState(e)
+func deployTokenPoolFactoryPrecondition(e cldf.Environment, config DeployTokenPoolFactoryConfig) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	for _, chainSel := range config.Chains {
-		err := changeset.ValidateChain(e, state, chainSel, nil)
+		err := stateview.ValidateChain(e, state, chainSel, nil)
 		if err != nil {
 			return fmt.Errorf("failed to validate chain with selector %d: %w", chainSel, err)
 		}
@@ -79,9 +80,9 @@ func deployTokenPoolFactoryPrecondition(e deployment.Environment, config DeployT
 	return nil
 }
 
-func deployTokenPoolFactoryLogic(e deployment.Environment, config DeployTokenPoolFactoryConfig) (cldf.ChangesetOutput, error) {
+func deployTokenPoolFactoryLogic(e cldf.Environment, config DeployTokenPoolFactoryConfig) (cldf.ChangesetOutput, error) {
 	addressBook := cldf.NewMemoryAddressBook()
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -96,7 +97,7 @@ func deployTokenPoolFactoryLogic(e deployment.Environment, config DeployTokenPoo
 		}
 
 		tokenPoolFactory, err := cldf.DeployContract(e.Logger, chain, addressBook,
-			func(chain deployment.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
 				address, tx, tokenPoolFactory, err := token_pool_factory.DeployTokenPoolFactory(
 					chain.DeployerKey,
 					chain.Client,
@@ -110,7 +111,7 @@ func deployTokenPoolFactoryLogic(e deployment.Environment, config DeployTokenPoo
 					Address:  address,
 					Contract: tokenPoolFactory,
 					Tx:       tx,
-					Tv:       cldf.NewTypeAndVersion(changeset.TokenPoolFactory, deployment.Version1_5_1),
+					Tv:       cldf.NewTypeAndVersion(shared.TokenPoolFactory, deployment.Version1_5_1),
 					Err:      err,
 				}
 			},

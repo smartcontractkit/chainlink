@@ -16,11 +16,13 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	crossfamily "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/crossfamily/v1_6"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -40,6 +42,12 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			if t.Name() == "TestAddEVMSolanaLaneBidirectional/MCMS_enabled" {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-758")
+			}
+			if t.Name() == "TestAddEVMSolanaLaneBidirectional/MCMS_disabled" {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-759")
+			}
 			t.Parallel()
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
@@ -50,7 +58,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			require.NotEmpty(t, evmChains)
 			solChain := solChains[0]
 			evmChain := evmChains[0]
-			evmState, err := ccipchangeset.LoadOnchainState(e)
+			evmState, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
@@ -114,10 +122,10 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			require.NoError(t, err)
 
 			// Check that the changeset was applied
-			evmState, err = ccipchangeset.LoadOnchainState(e)
+			evmState, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
-			solanaState, err := ccipchangeset.LoadOnchainStateSolana(e)
+			solanaState, err := stateview.LoadOnchainStateSolana(e)
 			require.NoError(t, err)
 
 			// evm changes

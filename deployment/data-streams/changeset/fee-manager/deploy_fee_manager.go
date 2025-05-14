@@ -6,9 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
@@ -44,19 +45,19 @@ func (cc DeployFeeManagerConfig) Validate() error {
 		return errors.New("ChainsToDeploy is empty")
 	}
 	for chain := range cc.ChainsToDeploy {
-		if err := deployment.IsValidChainSelector(chain); err != nil {
+		if err := cldf.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
 	}
 	return nil
 }
 
-func deployFeeManagerLogic(e deployment.Environment, cc DeployFeeManagerConfig) (cldf.ChangesetOutput, error) {
+func deployFeeManagerLogic(e cldf.Environment, cc DeployFeeManagerConfig) (cldf.ChangesetOutput, error) {
 	dataStore := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
 	err := deployFeeManager(e, dataStore, cc)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy FeeManager", "err", err)
-		return cldf.ChangesetOutput{}, deployment.MaybeDataErr(err)
+		return cldf.ChangesetOutput{}, cldf.MaybeDataErr(err)
 	}
 
 	records, err := dataStore.Addresses().Fetch()
@@ -79,11 +80,11 @@ func deployFeeManagerLogic(e deployment.Environment, cc DeployFeeManagerConfig) 
 	}, nil
 }
 
-func deployFeeManagerPrecondition(_ deployment.Environment, cc DeployFeeManagerConfig) error {
+func deployFeeManagerPrecondition(_ cldf.Environment, cc DeployFeeManagerConfig) error {
 	return cc.Validate()
 }
 
-func deployFeeManager(e deployment.Environment,
+func deployFeeManager(e cldf.Environment,
 	dataStore ds.MutableDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata],
 	cc DeployFeeManagerConfig) error {
 	if err := cc.Validate(); err != nil {
@@ -127,7 +128,7 @@ func deployFeeManager(e deployment.Environment,
 
 // FeeManagerDeployFn returns a function that deploys a FeeManager contract.
 func FeeManagerDeployFn(cfg DeployFeeManager) changeset.ContractDeployFn[*fee_manager_v0_5_0.FeeManager] {
-	return func(chain deployment.Chain) *changeset.ContractDeployment[*fee_manager_v0_5_0.FeeManager] {
+	return func(chain cldf.Chain) *changeset.ContractDeployment[*fee_manager_v0_5_0.FeeManager] {
 		ccsAddr, ccsTx, ccs, err := fee_manager_v0_5_0.DeployFeeManager(
 			chain.DeployerKey,
 			chain.Client,

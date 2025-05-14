@@ -50,7 +50,7 @@ type MCMSWithTimelockEVMDeploy struct {
 func DeployMCMSWithConfigEVM(
 	contractType cldf.ContractType,
 	lggr logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	ab cldf.AddressBook,
 	mcmConfig mcmsTypes.Config,
 	options ...DeployMCMSOption,
@@ -61,7 +61,7 @@ func DeployMCMSWithConfigEVM(
 		return nil, err
 	}
 	mcm, err := cldf.DeployContract(lggr, chain, ab,
-		func(chain deployment.Chain) cldf.ContractDeploy[*bindings.ManyChainMultiSig] {
+		func(chain cldf.Chain) cldf.ContractDeploy[*bindings.ManyChainMultiSig] {
 			mcmAddr, tx, mcm, err2 := bindings.DeployManyChainMultiSig(
 				chain.DeployerKey,
 				chain.Client,
@@ -88,7 +88,7 @@ func DeployMCMSWithConfigEVM(
 		groupParents,
 		false,
 	)
-	if _, err := deployment.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
+	if _, err := cldf.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
 		lggr.Errorw("Failed to confirm mcm config", "chain", chain.String(), "err", err)
 		return mcm, err
 	}
@@ -103,7 +103,7 @@ func DeployMCMSWithConfigEVM(
 func DeployMCMSWithTimelockContractsEVM(
 	ctx context.Context,
 	lggr logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	ab cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 	state *state.MCMSWithTimelockState,
@@ -157,7 +157,7 @@ func DeployMCMSWithTimelockContractsEVM(
 
 	if timelock == nil {
 		timelockC, err := cldf.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*bindings.RBACTimelock] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*bindings.RBACTimelock] {
 				timelock, tx2, cc, err2 := bindings.DeployRBACTimelock(
 					chain.DeployerKey,
 					chain.Client,
@@ -195,7 +195,7 @@ func DeployMCMSWithTimelockContractsEVM(
 
 	if callProxy == nil {
 		callProxyC, err := cldf.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*bindings.CallProxy] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*bindings.CallProxy] {
 				callProxy, tx2, cc, err2 := bindings.DeployCallProxy(
 					chain.DeployerKey,
 					chain.Client,
@@ -269,7 +269,7 @@ func getAdminAddresses(ctx context.Context, timelock *bindings.RBACTimelock) ([]
 func GrantRolesForTimelock(
 	ctx context.Context,
 	lggr logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	timelockContracts *proposalutils.MCMSWithTimelockContracts,
 	skipIfDeployerKeyNotAdmin bool, // If true, skip role grants if the deployer key is not an admin.
 ) ([]mcmsTypes.Transaction, error) {
@@ -389,12 +389,12 @@ func GrantRolesForTimelock(
 func grantRoleTx(
 	lggr logger.Logger,
 	timelock *bindings.RBACTimelock,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	isDeployerKeyAdmin bool,
 	roleID [32]byte,
 	address common.Address,
 ) (mcmsTypes.Transaction, error) {
-	txOpts := deployment.SimTransactOpts()
+	txOpts := cldf.SimTransactOpts()
 	if isDeployerKeyAdmin {
 		txOpts = chain.DeployerKey
 	}
@@ -402,7 +402,7 @@ func grantRoleTx(
 		txOpts, roleID, address,
 	)
 	if isDeployerKeyAdmin {
-		if _, err2 := deployment.ConfirmIfNoErrorWithABI(chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {
+		if _, err2 := cldf.ConfirmIfNoErrorWithABI(chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {
 			lggr.Errorw("Failed to grant timelock role",
 				"chain", chain.String(),
 				"timelock", timelock.Address().Hex(),

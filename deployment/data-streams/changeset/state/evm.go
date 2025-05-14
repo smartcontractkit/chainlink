@@ -9,6 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/contracts/evm"
 
@@ -25,8 +28,6 @@ import (
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 	verifier "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type DataStreamsEVMChainState struct {
@@ -48,7 +49,7 @@ type DataStreamsOnChainState struct {
 	Chains map[uint64]DataStreamsEVMChainState
 }
 
-func LoadOnchainState(e deployment.Environment) (DataStreamsOnChainState, error) {
+func LoadOnchainState(e cldf.Environment) (DataStreamsOnChainState, error) {
 	state := DataStreamsOnChainState{
 		Chains: make(map[uint64]DataStreamsEVMChainState),
 	}
@@ -74,7 +75,7 @@ func LoadOnchainState(e deployment.Environment) (DataStreamsOnChainState, error)
 }
 
 func LoadChainState(logger logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	addresses map[string]cldf.TypeAndVersion,
 	mdStore datastore.ContractMetadataStore[metadata.SerializedContractMetadata]) (*DataStreamsEVMChainState, error) {
 	var cc DataStreamsEVMChainState
