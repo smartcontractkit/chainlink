@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -15,6 +16,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
@@ -540,7 +542,8 @@ func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, err
 	if err != nil {
 		return false, fmt.Errorf("failed to generate instructions: %w", err)
 	}
-	if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
+	_, err = solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ix}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
+	if err != nil {
 		c.env.Logger.Infof("Curse already exists for chain %d and curse subject %v", c.selector, curseSubject)
 		return true, nil
 	}
