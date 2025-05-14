@@ -18,8 +18,8 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	txmgr2 "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	types2 "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 )
 
@@ -34,7 +34,7 @@ func NewEthTx(fromAddress common.Address) txmgr.Tx {
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          big.Int(assets.NewEthValue(142)),
 		FeeLimit:       uint64(1000000000),
-		State:          txmgr2.TxUnstarted,
+		State:          txmgrcommon.TxUnstarted,
 	}
 }
 
@@ -55,7 +55,7 @@ func MustInsertUnconfirmedEthTx(t testing.TB, txStore txmgr.TestEvmTxStore, nonc
 	etx.InitialBroadcastAt = &broadcastAt
 	n := types.Nonce(nonce)
 	etx.Sequence = &n
-	etx.State = txmgr2.TxUnconfirmed
+	etx.State = txmgrcommon.TxUnconfirmed
 	etx.ChainID = chainID
 	require.NoError(t, txStore.InsertTx(evmtestutils.Context(t), &etx))
 	return etx
@@ -71,7 +71,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 
-	attempt.State = types2.TxAttemptBroadcast
+	attempt.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 	etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 	require.NoError(t, err)
@@ -87,12 +87,12 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t testing.TB, txStore txmgr.TestE
 	etx.InitialBroadcastAt = &timeNow
 	n := types.Nonce(nonce)
 	etx.Sequence = &n
-	etx.State = txmgr2.TxConfirmed
+	etx.State = txmgrcommon.TxConfirmed
 	etx.MinConfirmations.SetValid(6)
 	require.NoError(t, txStore.InsertTx(ctx, &etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
-	attempt.State = types2.TxAttemptBroadcast
+	attempt.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 	etx.TxAttempts = append(etx.TxAttempts, attempt)
 	return etx
@@ -108,7 +108,7 @@ func NewLegacyEthTxAttempt(t testing.TB, etxID int64) txmgr.TxAttempt {
 		// Ignore all actual values
 		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
 		Hash:        utils.NewHash(),
-		State:       types2.TxAttemptInProgress,
+		State:       txmgrtypes.TxAttemptInProgress,
 	}
 }
 
@@ -125,7 +125,7 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
 		// Ignore all actual values
 		SignedRawTx:           hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
 		Hash:                  utils.NewHash(),
-		State:                 types2.TxAttemptInProgress,
+		State:                 txmgrtypes.TxAttemptInProgress,
 		ChainSpecificFeeLimit: 42,
 	}
 }
