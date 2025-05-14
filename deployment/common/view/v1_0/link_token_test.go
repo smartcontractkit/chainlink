@@ -56,6 +56,7 @@ func testLinkTokenViewWithChain(t *testing.T, chain cldf.Chain, lt *link_token.L
 	_, err = chain.Confirm(tx)
 	require.NoError(t, err)
 	tx, err = lt.Mint(chain.DeployerKey, chain.DeployerKey.From, big.NewInt(100))
+	require.NoError(t, err)
 	_, err = chain.Confirm(tx)
 	require.NoError(t, err)
 
