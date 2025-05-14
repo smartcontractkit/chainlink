@@ -245,6 +245,9 @@ func CreateSolanaTokenATA(e cldf.Environment, cfg CreateSolanaTokenATAConfig) (c
 
 	// create instructions for each ATA
 	err = createATAIx(e, chain, tokenprogramID, cfg.TokenPubkey, cfg.ATAList)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
 	e.Logger.Infow("Created ATAs on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String(), "numATAs", len(cfg.ATAList))
 
 	return cldf.ChangesetOutput{}, nil
