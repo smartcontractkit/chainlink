@@ -7,11 +7,9 @@ import (
 	"github.com/gagliardetto/solana-go"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
@@ -160,28 +158,4 @@ func doApproveTokenTransfer(
 	}
 
 	return nil
-}
-
-func getActiveTokenPool(
-	e *cldf.Environment,
-	poolType solTestTokenPool.PoolType,
-	selector uint64,
-	metadata string,
-) (solana.PublicKey, cldf.ContractType) {
-	state, _ := stateview.LoadOnchainState(*e)
-	chainState := state.SolChains[selector]
-	switch poolType {
-	case solTestTokenPool.BurnAndMint_PoolType:
-		if metadata == "" {
-			return chainState.BurnMintTokenPools[shared.CLLMetadata], shared.BurnMintTokenPool
-		}
-		return chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool
-	case solTestTokenPool.LockAndRelease_PoolType:
-		if metadata == "" {
-			return chainState.LockReleaseTokenPools[shared.CLLMetadata], shared.LockReleaseTokenPool
-		}
-		return chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool
-	default:
-		return solana.PublicKey{}, ""
-	}
 }
