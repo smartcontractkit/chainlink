@@ -363,7 +363,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 						panic("no custom port specified, mock capability running in kind must have a custom port in order to connect")
 					}
 					ports := strings.Split(n.Node.CustomPorts[0], ":")
-					mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("127.0.0.1:%s", ports[0]))
+					mockClientsAddress = append(mockClientsAddress, "127.0.0.1:"+ports[0])
 				}
 			}
 		}

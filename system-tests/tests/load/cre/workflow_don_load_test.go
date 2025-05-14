@@ -380,7 +380,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 						panic("no custom port specified, mock capability running in kind must have a custom port in order to connect")
 					}
 					ports := strings.Split(n.Node.CustomPorts[0], ":")
-					mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("127.0.0.1:%s", ports[0]))
+					mockClientsAddress = append(mockClientsAddress, "127.0.0.1:"+ports[0])
 				}
 			}
 		}
@@ -429,7 +429,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		Run(false)
 	require.NoError(t, err, "wasp load test did not finish successfully")
 
-	runChaosSuite(t, in)
+	// runChaosSuite(t, in) TODO: remove after the df aptos e2e test is done, chaos testing work was done on this test as a placeholder
 	g.Wait()
 }
 
