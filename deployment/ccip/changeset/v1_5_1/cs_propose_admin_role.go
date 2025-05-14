@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -27,7 +26,7 @@ func validateProposeAdminRole(
 	sender common.Address,
 	externalAdmin common.Address,
 	symbol shared.TokenSymbol,
-	chain deployment.Chain,
+	chain cldf.Chain,
 ) error {
 	// To propose ourselves as admin of the token, two things must be true.
 	//   1. We own the token admin registry
@@ -40,7 +39,7 @@ func validateProposeAdminRole(
 }
 
 // ProposeAdminRoleChangeset proposes admin rights for tokens on the token admin registry.
-func ProposeAdminRoleChangeset(env deployment.Environment, c TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
+func ProposeAdminRoleChangeset(env cldf.Environment, c TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env, true, validateProposeAdminRole); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid TokenAdminRegistryChangesetConfig: %w", err)
 	}

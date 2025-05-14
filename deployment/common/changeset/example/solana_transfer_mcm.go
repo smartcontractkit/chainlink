@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	solanachangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -34,7 +34,7 @@ type TransferFromTimelockConfig struct {
 type TransferFromTimelock struct{}
 
 // VerifyPreconditions checks if the deployer has enough SOL to fund the MCMS signers on each chain.
-func (f TransferFromTimelock) VerifyPreconditions(e deployment.Environment, config TransferFromTimelockConfig) error {
+func (f TransferFromTimelock) VerifyPreconditions(e cldf.Environment, config TransferFromTimelockConfig) error {
 	// the number of accounts to fund per chain (bypasser, canceller, proposer, timelock)
 	for chainSelector, amountCfg := range config.AmountsPerChain {
 		solChain, ok := e.SolChains[chainSelector]
@@ -72,7 +72,7 @@ func (f TransferFromTimelock) VerifyPreconditions(e deployment.Environment, conf
 }
 
 // Apply funds the MCMS signers on each chain.
-func (f TransferFromTimelock) Apply(e deployment.Environment, config TransferFromTimelockConfig) (cldf.ChangesetOutput, error) {
+func (f TransferFromTimelock) Apply(e cldf.Environment, config TransferFromTimelockConfig) (cldf.ChangesetOutput, error) {
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	var batches []types.BatchOperation

@@ -31,7 +31,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 )
@@ -43,7 +44,7 @@ type SeqNumRange struct {
 
 type DestinationGun struct {
 	l                logger.Logger
-	env              deployment.Environment
+	env              cldf.Environment
 	state            *stateview.CCIPOnChainState
 	roundNum         *atomic.Int32
 	chainSelector    uint64
@@ -58,7 +59,7 @@ type DestinationGun struct {
 func NewDestinationGun(
 	l logger.Logger,
 	chainSelector uint64,
-	env deployment.Environment,
+	env cldf.Environment,
 	state *stateview.CCIPOnChainState,
 	receiver common.Address,
 	overrides *ccip.LoadConfig,
@@ -107,7 +108,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		m.l.Errorw("Failed to transmit message",
 			"gun", waspGroup,
 			"sourceChainFamily", selectorFamily,
-			err, deployment.MaybeDataErr(err))
+			err, cldf.MaybeDataErr(err))
 		if m.metricPipe != nil {
 			// in the event of an error, still push a metric
 			// sequence numbers start at 1 so using 0 as a sentinel value
@@ -160,7 +161,7 @@ func (m *DestinationGun) sendEVMMessage(src uint64) error {
 		m.l.Errorw("could not get fee ",
 			"dstChainSelector", m.chainSelector,
 			"fee", fee,
-			"err", deployment.MaybeDataErr(err))
+			"err", cldf.MaybeDataErr(err))
 		return err
 	}
 	if msg.FeeToken == common.HexToAddress("0x0") {
@@ -182,13 +183,13 @@ func (m *DestinationGun) sendEVMMessage(src uint64) error {
 		m.l.Errorw("execution reverted from ",
 			"sourceChain", src,
 			"destchain", m.chainSelector,
-			"err", deployment.MaybeDataErr(err))
+			"err", cldf.MaybeDataErr(err))
 		return err
 	}
 
 	_, err = m.env.Chains[src].Confirm(tx)
 	if err != nil {
-		m.l.Errorw("could not confirm tx on source", "tx", tx, "err", deployment.MaybeDataErr(err))
+		m.l.Errorw("could not confirm tx on source", "tx", tx, "err", cldf.MaybeDataErr(err))
 		return err
 	}
 
@@ -366,7 +367,7 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 		m.l.Errorw("failed to build instruction",
 			"src", src,
 			"dest", m.chainSelector,
-			"err", deployment.MaybeDataErr(err))
+			"err", cldf.MaybeDataErr(err))
 		return err
 	}
 

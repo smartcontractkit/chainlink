@@ -27,12 +27,12 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -60,6 +60,11 @@ func findTokenInfo(tokens []shared.TokenDetails, address common.Address) (string
 			if err != nil {
 				return "", 0, fmt.Errorf("fetch token symbol for token %s: %w", address, err)
 			}
+			// TODO think of better solution
+			// there are tokens which have diff symbols in testnet and mainnet
+			if symbol, ok := shared.TokenSymbolSubstitute[tokenSymbol]; ok {
+				tokenSymbol = symbol
+			}
 			tokenDecimals, err := token.Decimals(nil)
 			if err != nil {
 				return "", 0, fmt.Errorf("fetch token decimals for token %s: %w", address, err)
@@ -70,7 +75,7 @@ func findTokenInfo(tokens []shared.TokenDetails, address common.Address) (string
 	return "", 0, fmt.Errorf("token %s not found in available tokens", address)
 }
 
-func validateExecOffchainConfig(e deployment.Environment, c *pluginconfig.ExecuteOffchainConfig, selector uint64, state stateview.CCIPOnChainState) error {
+func validateExecOffchainConfig(e cldf.Environment, c *pluginconfig.ExecuteOffchainConfig, selector uint64, state stateview.CCIPOnChainState) error {
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("invalid execute off-chain config: %w", err)
 	}
@@ -199,7 +204,7 @@ func (c CCIPOCRParams) Copy() CCIPOCRParams {
 	return newC
 }
 
-func (c CCIPOCRParams) Validate(e deployment.Environment, selector uint64, feedChainSel uint64, state stateview.CCIPOnChainState) error {
+func (c CCIPOCRParams) Validate(e cldf.Environment, selector uint64, feedChainSel uint64, state stateview.CCIPOnChainState) error {
 	if err := c.OCRParameters.Validate(); err != nil {
 		return fmt.Errorf("invalid OCR parameters: %w", err)
 	}
@@ -237,7 +242,7 @@ type PromoteCandidateChangesetConfig struct {
 	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
-func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map[uint64]uint32, error) {
+func (p PromoteCandidateChangesetConfig) Validate(e cldf.Environment) (map[uint64]uint32, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return nil, err
@@ -257,7 +262,7 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 			return nil, errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
 		}
 		for _, chainSelector := range plugin.RemoteChainSelectors {
-			if err := deployment.IsValidChainSelector(chainSelector); err != nil {
+			if err := cldf.IsValidChainSelector(chainSelector); err != nil {
 				return nil, fmt.Errorf("don chain selector invalid: %w", err)
 			}
 			if err := state.ValidateRamp(chainSelector, shared.OffRamp); err != nil {
@@ -317,7 +322,7 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 // PromoteCandidateChangeset is NOT idempotent, once candidate config is promoted to active, if it's called again,
 // It might promote empty candidate config to active, which is not desired.
 func PromoteCandidateChangeset(
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg PromoteCandidateChangesetConfig,
 ) (cldf.ChangesetOutput, error) {
 	donIDs, err := cfg.Validate(e)
@@ -336,7 +341,7 @@ func PromoteCandidateChangeset(
 
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 
 	homeChain := e.Chains[cfg.HomeChainSelector]
@@ -408,7 +413,7 @@ func (p SetCandidatePluginInfo) String() string {
 	return fmt.Sprintf("PluginType: %s, Chains: %v", p.PluginType.String(), allchains)
 }
 
-func (p SetCandidatePluginInfo) Validate(e deployment.Environment, state stateview.CCIPOnChainState, homeChain uint64, feedChain uint64) error {
+func (p SetCandidatePluginInfo) Validate(e cldf.Environment, state stateview.CCIPOnChainState, homeChain uint64, feedChain uint64) error {
 	if p.PluginType != types.PluginTypeCCIPCommit &&
 		p.PluginType != types.PluginTypeCCIPExec {
 		return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
@@ -417,7 +422,7 @@ func (p SetCandidatePluginInfo) Validate(e deployment.Environment, state statevi
 		if _, exists := state.SupportedChains()[chainSelector]; !exists {
 			return fmt.Errorf("chain %d does not exist in state", chainSelector)
 		}
-		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
+		if err := cldf.IsValidChainSelector(chainSelector); err != nil {
 			return fmt.Errorf("don chain selector invalid: %w", err)
 		}
 		if err := state.ValidateRamp(chainSelector, shared.OffRamp); err != nil {
@@ -472,11 +477,11 @@ type SetCandidateConfigBase struct {
 	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
-func (s SetCandidateConfigBase) Validate(e deployment.Environment, state stateview.CCIPOnChainState) error {
-	if err := deployment.IsValidChainSelector(s.HomeChainSelector); err != nil {
+func (s SetCandidateConfigBase) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
+	if err := cldf.IsValidChainSelector(s.HomeChainSelector); err != nil {
 		return fmt.Errorf("home chain selector invalid: %w", err)
 	}
-	if err := deployment.IsValidChainSelector(s.FeedChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(s.FeedChainSelector); err != nil {
 		return fmt.Errorf("feed chain selector invalid: %w", err)
 	}
 	homeChainState, exists := state.Chains[s.HomeChainSelector]
@@ -518,7 +523,7 @@ type AddDonAndSetCandidateChangesetConfig struct {
 	DonIDOverride uint32 `json:"donIdOverride"`
 }
 
-func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state stateview.CCIPOnChainState) error {
+func (a AddDonAndSetCandidateChangesetConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	if err := a.SetCandidateConfigBase.Validate(e, state); err != nil {
 		return err
 	}
@@ -558,7 +563,7 @@ func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment,
 // AddDonAndSetCandidateChangeset is not idempotent, if AddDON is called more than once for the same chain,
 // it will throw an error because the DON would already exist for that chain.
 func AddDonAndSetCandidateChangeset(
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg AddDonAndSetCandidateChangesetConfig,
 ) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
@@ -578,7 +583,7 @@ func AddDonAndSetCandidateChangeset(
 
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 	var donMcmsTxs []mcmstypes.Transaction
 	for chainSelector, params := range cfg.PluginInfo.OCRConfigPerRemoteChainSelector {
@@ -667,7 +672,7 @@ func AddDonAndSetCandidateChangeset(
 // This proposes to set up OCR3 config for the commit plugin for the DON
 func newDonWithCandidateOp(
 	txOpts *bind.TransactOpts,
-	homeChain deployment.Chain,
+	homeChain cldf.Chain,
 	donID uint32,
 	pluginConfig ccip_home.CCIPHomeOCR3Config,
 	capReg *capabilities_registry.CapabilitiesRegistry,
@@ -701,7 +706,7 @@ func newDonWithCandidateOp(
 
 	// note: error check is handled below
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoErrorWithABI(
+		_, err = cldf.ConfirmIfNoErrorWithABI(
 			homeChain, addDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return mcmstypes.Transaction{}, fmt.Errorf("error confirming addDon call: %w", err)
@@ -730,7 +735,7 @@ type SetCandidateChangesetConfig struct {
 	DonIDOverrides map[uint64]uint32 `json:"donIdOverrides"`
 }
 
-func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state stateview.CCIPOnChainState) (map[uint64]uint32, error) {
+func (s SetCandidateChangesetConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) (map[uint64]uint32, error) {
 	err := s.SetCandidateConfigBase.Validate(e, state)
 	if err != nil {
 		return nil, err
@@ -767,7 +772,7 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state st
 // SetCandidateChangeset generates a proposal to call setCandidate on the CCIPHome through the capability registry.
 // A DON must exist in order to use this changeset effectively, i.e AddDonAndSetCandidateChangeset must be called first.
 func SetCandidateChangeset(
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg SetCandidateChangesetConfig,
 ) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
@@ -787,7 +792,7 @@ func SetCandidateChangeset(
 
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 	var setCandidateMcmsTxs []mcmstypes.Transaction
 	pluginInfos := make([]string, 0)
@@ -867,9 +872,9 @@ func SetCandidateChangeset(
 // setCandidateOnExistingDon calls setCandidate on CCIPHome contract through the UpdateDON call on CapReg contract
 // This proposes to set up OCR3 config for the provided plugin for the DON
 func setCandidateOnExistingDon(
-	e deployment.Environment,
+	e cldf.Environment,
 	txOpts *bind.TransactOpts,
-	homeChain deployment.Chain,
+	homeChain cldf.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -918,7 +923,7 @@ func setCandidateOnExistingDon(
 
 	// note: error check is handled below
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoErrorWithABI(
+		_, err = cldf.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return nil, fmt.Errorf("error confirming UpdateDON call in set candidate (don: %d; ptype: %s): %w",
@@ -941,7 +946,7 @@ func setCandidateOnExistingDon(
 // promoteCandidateOp will create the MCMS Operation for `promoteCandidateAndRevokeActive` directed towards the capabilityRegistry
 func promoteCandidateOp(
 	txOpts *bind.TransactOpts,
-	homeChain deployment.Chain,
+	homeChain cldf.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -981,7 +986,7 @@ func promoteCandidateOp(
 
 	// note: error check is handled below
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoErrorWithABI(
+		_, err = cldf.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return mcmstypes.Transaction{}, fmt.Errorf("error confirming UpdateDON call in promote candidate (don: %d; ptype: %s): %w",
@@ -1006,7 +1011,7 @@ func promoteCandidateOp(
 func promoteCandidateForChainOps(
 	lggr logger.Logger,
 	txOpts *bind.TransactOpts,
-	homeChain deployment.Chain,
+	homeChain cldf.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -1055,11 +1060,11 @@ type RevokeCandidateChangesetConfig struct {
 	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
-func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state stateview.CCIPOnChainState) (donID uint32, err error) {
-	if err := deployment.IsValidChainSelector(r.HomeChainSelector); err != nil {
+func (r RevokeCandidateChangesetConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) (donID uint32, err error) {
+	if err := cldf.IsValidChainSelector(r.HomeChainSelector); err != nil {
 		return 0, fmt.Errorf("home chain selector invalid: %w", err)
 	}
-	if err := deployment.IsValidChainSelector(r.RemoteChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(r.RemoteChainSelector); err != nil {
 		return 0, fmt.Errorf("don chain selector invalid: %w", err)
 	}
 	if len(e.NodeIDs) == 0 {
@@ -1104,7 +1109,7 @@ func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state
 	return donID, nil
 }
 
-func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChangesetConfig) (cldf.ChangesetOutput, error) {
+func RevokeCandidateChangeset(e cldf.Environment, cfg RevokeCandidateChangesetConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -1122,7 +1127,7 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 
 	homeChain := e.Chains[cfg.HomeChainSelector]
@@ -1169,7 +1174,7 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 
 func revokeCandidateOps(
 	txOpts *bind.TransactOpts,
-	homeChain deployment.Chain,
+	homeChain cldf.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -1212,7 +1217,7 @@ func revokeCandidateOps(
 
 	// note: error check is handled below
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoErrorWithABI(
+		_, err = cldf.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx,
 			capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
@@ -1247,12 +1252,12 @@ type UpdateChainConfigConfig struct {
 	MCMS               *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
-func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
+func (c UpdateChainConfigConfig) Validate(e cldf.Environment) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
-	if err := deployment.IsValidChainSelector(c.HomeChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(c.HomeChainSelector); err != nil {
 		return fmt.Errorf("home chain selector invalid: %w", err)
 	}
 	if len(c.RemoteChainRemoves) == 0 && len(c.RemoteChainAdds) == 0 {
@@ -1266,7 +1271,7 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 	for _, remove := range c.RemoteChainRemoves {
-		if err := deployment.IsValidChainSelector(remove); err != nil {
+		if err := cldf.IsValidChainSelector(remove); err != nil {
 			return fmt.Errorf("chain remove selector invalid: %w", err)
 		}
 		if _, ok := state.SupportedChains()[remove]; !ok {
@@ -1274,7 +1279,7 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 		}
 	}
 	for add, ccfg := range c.RemoteChainAdds {
-		if err := deployment.IsValidChainSelector(add); err != nil {
+		if err := cldf.IsValidChainSelector(add); err != nil {
 			return fmt.Errorf("chain remove selector invalid: %w", err)
 		}
 		if _, ok := state.SupportedChains()[add]; !ok {
@@ -1293,7 +1298,7 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigConfig) (cldf.ChangesetOutput, error) {
+func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
@@ -1304,7 +1309,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	txOpts.Context = e.GetContext()
 	if cfg.MCMS != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 	var adds []ccip_home.CCIPHomeChainConfigArgs
 	for chain, ccfg := range cfg.RemoteChainAdds {
@@ -1336,7 +1341,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 
 	tx, err := state.Chains[cfg.HomeChainSelector].CCIPHome.ApplyChainConfigUpdates(txOpts, cfg.RemoteChainRemoves, adds)
 	if cfg.MCMS == nil {
-		_, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.HomeChainSelector], tx, ccip_home.CCIPHomeABI, err)
+		_, err = cldf.ConfirmIfNoErrorWithABI(e.Chains[cfg.HomeChainSelector], tx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -1451,7 +1456,7 @@ func ValidateCCIPHomeConfigSetUp(
 
 type DeployDonIDClaimerConfig struct{}
 
-func deployDonIDClaimerChangesetLogic(e deployment.Environment, _ DeployDonIDClaimerConfig) (cldf.ChangesetOutput, error) {
+func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -1478,7 +1483,7 @@ func deployDonIDClaimerChangesetLogic(e deployment.Environment, _ DeployDonIDCla
 	}, nil
 }
 
-func deployDonIDClaimerContract(e deployment.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain deployment.Chain) error {
+func deployDonIDClaimerContract(e cldf.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain cldf.Chain) error {
 	chainState, chainExists := state.Chains[chain.Selector]
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
@@ -1486,7 +1491,7 @@ func deployDonIDClaimerContract(e deployment.Environment, ab cldf.AddressBook, s
 
 	if state.Chains[chain.Selector].DonIDClaimer == nil {
 		_, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*don_id_claimer.DonIDClaimer] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*don_id_claimer.DonIDClaimer] {
 				donIDClaimerAddr, tx2, donIDClaimerC, err2 := don_id_claimer.DeployDonIDClaimer(
 					chain.DeployerKey,
 					chain.Client,
@@ -1507,7 +1512,7 @@ func deployDonIDClaimerContract(e deployment.Environment, ab cldf.AddressBook, s
 	return nil
 }
 
-func deployDonIDClaimerPrecondition(e deployment.Environment, _ DeployDonIDClaimerConfig) error {
+func deployDonIDClaimerPrecondition(e cldf.Environment, _ DeployDonIDClaimerConfig) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -1525,7 +1530,7 @@ type DonIDClaimerOffSetConfig struct {
 	OffSet uint32 `json:"offset"`
 }
 
-func donIDClaimerOffSetChangesetLogic(e deployment.Environment, cfg DonIDClaimerOffSetConfig) (cldf.ChangesetOutput, error) {
+func donIDClaimerOffSetChangesetLogic(e cldf.Environment, cfg DonIDClaimerOffSetConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -1544,14 +1549,14 @@ func donIDClaimerOffSetChangesetLogic(e deployment.Environment, cfg DonIDClaimer
 	txOpts.Context = e.GetContext()
 
 	tx, err := donIDClaimer.SyncNextDONIdWithOffset(txOpts, cfg.OffSet)
-	if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[homeChainSel], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
+	if _, err := cldf.ConfirmIfNoErrorWithABI(e.Chains[homeChainSel], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error apply offset to donIDClaimer for chain %d: %w", homeChainSel, err)
 	}
 
 	return cldf.ChangesetOutput{}, err
 }
 
-func donIDClaimerOffSetChangesetPrecondition(e deployment.Environment, c DonIDClaimerOffSetConfig) error {
+func donIDClaimerOffSetChangesetPrecondition(e cldf.Environment, c DonIDClaimerOffSetConfig) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -1590,7 +1595,7 @@ func donIDClaimerOffSetChangesetPrecondition(e deployment.Environment, c DonIDCl
 }
 
 func donIDClaimerValidationHelper(state stateview.CCIPOnChainState, homeChainSelector uint64) error {
-	if err := deployment.IsValidChainSelector(homeChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(homeChainSelector); err != nil {
 		return fmt.Errorf("home chain selector invalid: %w", err)
 	}
 

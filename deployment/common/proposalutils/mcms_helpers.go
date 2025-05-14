@@ -37,7 +37,7 @@ type TimelockExecutionContracts struct {
 // NewTimelockExecutionContracts creates a new TimelockExecutionContracts struct.
 // If there are multiple timelocks or call proxy on the chain, an error is returned.
 // Used by CLD'S cli
-func NewTimelockExecutionContracts(env deployment.Environment, chainSelector uint64) (*TimelockExecutionContracts, error) {
+func NewTimelockExecutionContracts(env cldf.Environment, chainSelector uint64) (*TimelockExecutionContracts, error) {
 	addrTypeVer, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("error getting addresses for chain: %w", err)
@@ -115,7 +115,7 @@ func (cfg RunTimelockExecutorConfig) Validate() error {
 // If the block start is not provided, it assumes that the operations have not been scheduled yet
 // and executes all the operations for the given chain.
 // It is an error if there are no operations for the given chain.
-func RunTimelockExecutor(env deployment.Environment, cfg RunTimelockExecutorConfig) error {
+func RunTimelockExecutor(env cldf.Environment, cfg RunTimelockExecutorConfig) error {
 	// TODO: This sort of helper probably should move to the MCMS lib.
 	// Execute all the transactions in the proposal which are for this chain.
 	if err := cfg.Validate(); err != nil {
@@ -231,7 +231,7 @@ func (state MCMSWithTimelockContracts) Validate() error {
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
-func MaybeLoadMCMSWithTimelockContracts(chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockContracts, error) {
+func MaybeLoadMCMSWithTimelockContracts(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockContracts, error) {
 	state := MCMSWithTimelockContracts{}
 	// We expect one of each contract on the chain.
 	timelock := cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
@@ -300,7 +300,7 @@ func McmsTimelockConverterForChain(chain uint64) (mcmssdk.TimelockConverter, err
 	}
 }
 
-func McmsTimelockConverters(env deployment.Environment) (map[uint64]mcmssdk.TimelockConverter, error) {
+func McmsTimelockConverters(env cldf.Environment) (map[uint64]mcmssdk.TimelockConverter, error) {
 	converters := make(map[uint64]mcmssdk.TimelockConverter, len(env.Chains)+len(env.SolChains))
 
 	for _, chain := range env.Chains {
@@ -322,7 +322,7 @@ func McmsTimelockConverters(env deployment.Environment) (map[uint64]mcmssdk.Time
 	return converters, nil
 }
 
-func McmsInspectorForChain(env deployment.Environment, chain uint64) (mcmssdk.Inspector, error) {
+func McmsInspectorForChain(env cldf.Environment, chain uint64) (mcmssdk.Inspector, error) {
 	chainFamily, err := mcmstypes.GetChainSelectorFamily(mcmstypes.ChainSelector(chain))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for chain %d: %w", chain, err)
@@ -338,7 +338,7 @@ func McmsInspectorForChain(env deployment.Environment, chain uint64) (mcmssdk.In
 	}
 }
 
-func McmsInspectors(env deployment.Environment) (map[uint64]mcmssdk.Inspector, error) {
+func McmsInspectors(env cldf.Environment) (map[uint64]mcmssdk.Inspector, error) {
 	inspectors := make(map[uint64]mcmssdk.Inspector, len(env.Chains)+len(env.SolChains))
 
 	for _, chain := range env.Chains {

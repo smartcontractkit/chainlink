@@ -15,7 +15,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -45,7 +44,7 @@ type dummyEmptyBatchChangesetConfig struct {
 	MCMS *proposalutils.TimelockConfig
 }
 
-func dummyEmptyBatchChangeset(e deployment.Environment, cfg dummyEmptyBatchChangesetConfig) (cldf.ChangesetOutput, error) {
+func dummyEmptyBatchChangeset(e cldf.Environment, cfg dummyEmptyBatchChangesetConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -55,7 +54,7 @@ func dummyEmptyBatchChangeset(e deployment.Environment, cfg dummyEmptyBatchChang
 	return group.Enact()
 }
 
-func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
+func dummyDeployerGroupGrantMintChangeset(e cldf.Environment, cfg dummyDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -77,7 +76,7 @@ func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDep
 	return group.Enact()
 }
 
-func dummyDeployerGroupMintChangeset(e deployment.Environment, cfg dummyDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
+func dummyDeployerGroupMintChangeset(e cldf.Environment, cfg dummyDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -101,7 +100,7 @@ func dummyDeployerGroupMintChangeset(e deployment.Environment, cfg dummyDeployer
 	return group.Enact()
 }
 
-func dummyDeployerGroupGrantMintMultiChainChangeset(e deployment.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
+func dummyDeployerGroupGrantMintMultiChainChangeset(e cldf.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -126,7 +125,7 @@ func dummyDeployerGroupGrantMintMultiChainChangeset(e deployment.Environment, cf
 	return group.Enact()
 }
 
-func dummyDeployerGroupMintMultiDeploymentContextChangeset(e deployment.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
+func dummyDeployerGroupMintMultiDeploymentContextChangeset(e cldf.Environment, cfg dummyMultiChainDeployerGroupChangesetConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err

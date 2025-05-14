@@ -5,12 +5,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -18,7 +21,7 @@ type VerifierProxyState struct {
 	VerifierProxy *verifier_proxy_v0_5_0.VerifierProxy
 }
 
-func maybeLoadVerifierProxyState(e deployment.Environment, chainSel uint64, contractAddr string) (*VerifierProxyState, error) {
+func maybeLoadVerifierProxyState(e cldf.Environment, chainSel uint64, contractAddr string) (*VerifierProxyState, error) {
 	if err := utils.ValidateContract(e, chainSel, contractAddr, types.VerifierProxy, deployment.Version0_5_0); err != nil {
 		return nil, err
 	}
@@ -35,7 +38,7 @@ func maybeLoadVerifierProxyState(e deployment.Environment, chainSel uint64, cont
 		VerifierProxy: vp,
 	}, nil
 }
-func loadVerifierState(e deployment.Environment, chainSel uint64, contractAddr string) (*verifier_v0_5_0.Verifier, error) {
+func loadVerifierState(e cldf.Environment, chainSel uint64, contractAddr string) (*verifier_v0_5_0.Verifier, error) {
 	chain, ok := e.Chains[chainSel]
 	if !ok {
 		return nil, fmt.Errorf("chain %d not found", chainSel)

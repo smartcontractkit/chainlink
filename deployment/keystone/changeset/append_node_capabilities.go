@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -25,7 +24,7 @@ type AppendNodeCapabilitiesRequest = MutateNodeCapabilitiesRequest
 
 // AppendNodeCapabilities adds any new capabilities to the registry, merges the new capabilities with the existing capabilities
 // of the node, and updates the nodes in the registry host the union of the new and existing capabilities.
-func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilitiesRequest) (cldf.ChangesetOutput, error) {
+func AppendNodeCapabilities(env cldf.Environment, req *AppendNodeCapabilitiesRequest) (cldf.ChangesetOutput, error) {
 	c, capReg, err := req.convert(env, req.RegistryRef)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -70,7 +69,7 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 	return out, nil
 }
 
-func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment, ref datastore.AddressRefKey) (*internal.AppendNodeCapabilitiesRequest, *OwnedContract[*kcr.CapabilitiesRegistry], error) {
+func (req *AppendNodeCapabilitiesRequest) convert(e cldf.Environment, ref datastore.AddressRefKey) (*internal.AppendNodeCapabilitiesRequest, *OwnedContract[*kcr.CapabilitiesRegistry], error) {
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}

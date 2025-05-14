@@ -11,7 +11,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -239,7 +240,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 func updateFeeQuoters(
 	t *testing.T,
 	lggr logger.Logger,
-	e deployment.Environment,
+	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	chainA, chainB, chainC uint64,
 	aChainUSDC, bChainUSDC, cChainUSDC *burn_mint_erc677.BurnMintERC677,

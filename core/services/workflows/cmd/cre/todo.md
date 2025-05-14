@@ -1,0 +1,5 @@
+- script move here, no separate module
+- loop install (chainlink-common) (plugins.public.yaml see docker build)
+- `cre` CLI should be able to run the engine as a standalone
+    - if loops are installed with known path name, they are started (see plugins.private.yaml)
+    - standard capabilities get started as a new delegate [here](https://github.com/smartcontractkit/chainlink/blob/63f9194119ee169916b06864893f159f4b7a3fbc/core/services/chainlink/application.go#L586-L600)

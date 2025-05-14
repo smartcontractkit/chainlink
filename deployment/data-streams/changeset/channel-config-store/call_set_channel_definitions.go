@@ -8,6 +8,7 @@ import (
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 
@@ -53,19 +54,19 @@ func (cfg SetChannelDefinitionsConfig) Validate() error {
 	return nil
 }
 
-func callSetChannelDefinitionsPrecondition(e deployment.Environment, cfg SetChannelDefinitionsConfig) error {
+func callSetChannelDefinitionsPrecondition(e cldf.Environment, cfg SetChannelDefinitionsConfig) error {
 	if len(cfg.DefinitionsByChain) == 0 {
 		return errors.New("DefinitionsByChain cannot be empty")
 	}
 	for chainSel := range cfg.DefinitionsByChain {
-		if err := deployment.IsValidChainSelector(chainSel); err != nil {
+		if err := cldf.IsValidChainSelector(chainSel); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chainSel, err)
 		}
 	}
 	return nil
 }
 
-func callSetChannelDefinitions(e deployment.Environment, cfg SetChannelDefinitionsConfig) (cldf.ChangesetOutput, error) {
+func callSetChannelDefinitions(e cldf.Environment, cfg SetChannelDefinitionsConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.ChannelConfigStore.String(),
@@ -80,7 +81,7 @@ func callSetChannelDefinitions(e deployment.Environment, cfg SetChannelDefinitio
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "SetNativeSurcharge proposal")
 }
 
-func maybeLoadChannelConfigStoreState(e deployment.Environment, chainSel uint64, contractAddr string) (*channel_config_store.ChannelConfigStore, error) {
+func maybeLoadChannelConfigStoreState(e cldf.Environment, chainSel uint64, contractAddr string) (*channel_config_store.ChannelConfigStore, error) {
 	if err := utils.ValidateContract(e, chainSel, contractAddr, types.ChannelConfigStore, deployment.Version1_0_0); err != nil {
 		return nil, err
 	}
@@ -101,7 +102,7 @@ func doSetChannelDefinitions(
 	c ChannelDefinition,
 ) (*ethTypes.Transaction, error) {
 	return ccs.SetChannelDefinitions(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		c.DonID,
 		c.S3URL,
 		c.Hash,

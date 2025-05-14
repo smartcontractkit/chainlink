@@ -17,7 +17,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -46,7 +45,7 @@ type OwnableContract struct {
 type TransferToTimelockSolana struct{}
 
 func (t *TransferToTimelockSolana) VerifyPreconditions(
-	env deployment.Environment, config TransferToTimelockSolanaConfig,
+	env cldf.Environment, config TransferToTimelockSolanaConfig,
 ) error {
 	for chainSelector, contracts := range config.ContractsByChain {
 		err := addressBookContains(env.ExistingAddresses, chainSelector,
@@ -99,7 +98,7 @@ func (t *TransferToTimelockSolana) VerifyPreconditions(
 }
 
 func (t *TransferToTimelockSolana) Apply(
-	env deployment.Environment, cfg TransferToTimelockSolanaConfig,
+	env cldf.Environment, cfg TransferToTimelockSolanaConfig,
 ) (cldf.ChangesetOutput, error) {
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, slices.Collect(maps.Keys(env.SolChains)))
 	if err != nil {
@@ -190,7 +189,7 @@ type TransferMCMSToTimelockSolanaConfig struct {
 type TransferMCMSToTimelockSolana struct{}
 
 func (t TransferMCMSToTimelockSolana) VerifyPreconditions(
-	env deployment.Environment, config TransferMCMSToTimelockSolanaConfig,
+	env cldf.Environment, config TransferMCMSToTimelockSolanaConfig,
 ) error {
 	for _, chainSelector := range config.Chains {
 		err := addressBookContains(env.ExistingAddresses, chainSelector,
@@ -207,7 +206,7 @@ func (t TransferMCMSToTimelockSolana) VerifyPreconditions(
 }
 
 func (t TransferMCMSToTimelockSolana) Apply(
-	env deployment.Environment, cfg TransferMCMSToTimelockSolanaConfig,
+	env cldf.Environment, cfg TransferMCMSToTimelockSolanaConfig,
 ) (cldf.ChangesetOutput, error) {
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, cfg.Chains)
 	if err != nil {

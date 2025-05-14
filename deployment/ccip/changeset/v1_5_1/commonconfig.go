@@ -12,7 +12,8 @@ import (
 	deployment2 "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
@@ -33,14 +34,14 @@ type TokenAdminRegistryChangesetConfig struct {
 
 // validateTokenAdminRegistryChangeset validates all token admin registry changesets.
 func (c TokenAdminRegistryChangesetConfig) Validate(
-	env deployment.Environment,
+	env cldf.Environment,
 	mustBeOwner bool,
 	registryConfigCheck func(
 		config token_admin_registry.TokenAdminRegistryTokenConfig,
 		sender common.Address,
 		externalAdmin common.Address,
 		symbol shared.TokenSymbol,
-		chain deployment.Chain,
+		chain cldf.Chain,
 	) error,
 ) error {
 	state, err := stateview.LoadOnchainState(env)
@@ -130,7 +131,7 @@ func (t TokenPoolInfo) Validate() error {
 func (t TokenPoolInfo) GetConfigOnRegistry(
 	ctx context.Context,
 	symbol shared.TokenSymbol,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	state evm.CCIPChainState,
 ) (token_admin_registry.TokenAdminRegistryTokenConfig, error) {
 	_, tokenAddress, err := t.GetPoolAndTokenAddress(ctx, symbol, chain, state)
@@ -149,7 +150,7 @@ func (t TokenPoolInfo) GetConfigOnRegistry(
 func (t TokenPoolInfo) GetPoolAndTokenAddress(
 	ctx context.Context,
 	symbol shared.TokenSymbol,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	state evm.CCIPChainState,
 ) (*token_pool.TokenPool, common.Address, error) {
 	tokenPoolAddress, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, symbol, t.Type, t.Version)
@@ -170,7 +171,7 @@ func (t TokenPoolInfo) GetPoolAndTokenAddress(
 // GetTokenPoolAddressFromSymbolTypeAndVersion returns the token pool address in the environment linked to a particular symbol, type, and version
 func GetTokenPoolAddressFromSymbolTypeAndVersion(
 	chainState evm.CCIPChainState,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	symbol shared.TokenSymbol,
 	poolType deployment2.ContractType,
 	version semver.Version,

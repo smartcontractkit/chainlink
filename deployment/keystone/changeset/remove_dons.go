@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -29,7 +28,7 @@ type RemoveDONsRequest struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-func (r *RemoveDONsRequest) Validate(e deployment.Environment) error {
+func (r *RemoveDONsRequest) Validate(e cldf.Environment) error {
 	if len(r.DONs) == 0 {
 		return errors.New("dons is required")
 	}
@@ -54,7 +53,7 @@ func (r RemoveDONsRequest) UseMCMS() bool {
 }
 
 // RemoveDONs removes a DON from the capabilities registry
-func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (cldf.ChangesetOutput, error) {
+func RemoveDONs(env cldf.Environment, req *RemoveDONsRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

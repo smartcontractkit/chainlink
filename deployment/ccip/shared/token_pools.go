@@ -54,7 +54,7 @@ func NewTokenPoolWithMetadata[P tokenPool](
 	ctx context.Context,
 	newTokenPool func(address common.Address, backend bind.ContractBackend) (P, error),
 	poolAddress common.Address,
-	chainClient deployment.OnchainClient,
+	chainClient cldf.OnchainClient,
 ) (P, TokenPoolMetadata, error) {
 	pool, err := newTokenPool(poolAddress, chainClient)
 	if err != nil {

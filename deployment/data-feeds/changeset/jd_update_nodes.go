@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -22,7 +22,7 @@ type NodeConfigSchema struct {
 	AppendLabels bool            `json:"append_labels"` // if true, append new labels to existing labels, otherwise replace
 }
 
-func updatesNodesJDLogic(env deployment.Environment, c types.NodeConfig) (cldf.ChangesetOutput, error) {
+func updatesNodesJDLogic(env cldf.Environment, c types.NodeConfig) (cldf.ChangesetOutput, error) {
 	nodes, _ := LoadJSON[[]*NodeConfigSchema](c.InputFileName, c.InputFS)
 
 	for _, node := range nodes {
@@ -58,7 +58,7 @@ func updatesNodesJDLogic(env deployment.Environment, c types.NodeConfig) (cldf.C
 	return cldf.ChangesetOutput{}, nil
 }
 
-func updatesNodesJDLogicPrecondition(env deployment.Environment, c types.NodeConfig) error {
+func updatesNodesJDLogicPrecondition(env cldf.Environment, c types.NodeConfig) error {
 	if c.InputFileName == "" {
 		return errors.New("input file name is required")
 	}

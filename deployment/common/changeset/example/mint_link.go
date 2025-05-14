@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
@@ -19,7 +19,7 @@ type MintLinkConfig struct {
 var _ cldf.ChangeSet[*MintLinkConfig] = MintLink
 
 // MintLink mints LINK to the provided contract.
-func MintLink(e deployment.Environment, cfg *MintLinkConfig) (cldf.ChangesetOutput, error) {
+func MintLink(e cldf.Environment, cfg *MintLinkConfig) (cldf.ChangesetOutput, error) {
 	chain := e.Chains[cfg.ChainSelector]
 	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
 	if err != nil {
@@ -34,7 +34,7 @@ func MintLink(e deployment.Environment, cfg *MintLinkConfig) (cldf.ChangesetOutp
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

@@ -19,7 +19,6 @@ import (
 
 	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
@@ -42,7 +41,7 @@ type BillingTokenConfig struct {
 	MCMS     *proposalutils.TimelockConfig
 }
 
-func (cfg *BillingTokenConfig) Validate(e deployment.Environment) error {
+func (cfg *BillingTokenConfig) Validate(e cldf.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -74,8 +73,8 @@ func (cfg *BillingTokenConfig) Validate(e deployment.Environment) error {
 }
 
 func AddBillingToken(
-	e deployment.Environment,
-	chain deployment.SolChain,
+	e cldf.Environment,
+	chain cldf.SolChain,
 	chainState solanastateview.CCIPChainState,
 	billingTokenConfig solFeeQuoter.BillingTokenConfig,
 	mcms *proposalutils.TimelockConfig,
@@ -149,7 +148,7 @@ func AddBillingToken(
 	return txns, nil
 }
 
-func AddBillingTokenChangeset(e deployment.Environment, cfg BillingTokenConfig) (cldf.ChangesetOutput, error) {
+func AddBillingTokenChangeset(e cldf.Environment, cfg BillingTokenConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -195,7 +194,7 @@ type TokenTransferFeeForRemoteChainConfig struct {
 	MCMS                *proposalutils.TimelockConfig
 }
 
-func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e deployment.Environment) error {
+func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -211,7 +210,7 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e deployment.Environmen
 }
 
 // TODO: rename this, i dont think this is for billing, this is more for token transfer config/fees
-func AddTokenTransferFeeForRemoteChain(e deployment.Environment, cfg TokenTransferFeeForRemoteChainConfig) (cldf.ChangesetOutput, error) {
+func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeForRemoteChainConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -288,7 +287,7 @@ type UpdatePricesConfig struct {
 	MCMS              *proposalutils.TimelockConfig
 }
 
-func (cfg UpdatePricesConfig) Validate(e deployment.Environment) error {
+func (cfg UpdatePricesConfig) Validate(e cldf.Environment) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -324,7 +323,7 @@ func (cfg UpdatePricesConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func UpdatePrices(e deployment.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOutput, error) {
+func UpdatePrices(e cldf.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -414,7 +413,7 @@ const (
 	RemoveUpdater
 )
 
-func (cfg ModifyPriceUpdaterConfig) Validate(e deployment.Environment) error {
+func (cfg ModifyPriceUpdaterConfig) Validate(e cldf.Environment) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -433,7 +432,7 @@ func (cfg ModifyPriceUpdaterConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func ModifyPriceUpdater(e deployment.Environment, cfg ModifyPriceUpdaterConfig) (cldf.ChangesetOutput, error) {
+func ModifyPriceUpdater(e cldf.Environment, cfg ModifyPriceUpdaterConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -520,7 +519,7 @@ type WithdrawBilledFundsConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-func (cfg WithdrawBilledFundsConfig) Validate(e deployment.Environment) error {
+func (cfg WithdrawBilledFundsConfig) Validate(e cldf.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -540,7 +539,7 @@ func (cfg WithdrawBilledFundsConfig) Validate(e deployment.Environment) error {
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true})
 }
 
-func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig) (cldf.ChangesetOutput, error) {
+func WithdrawBilledFunds(e cldf.Environment, cfg WithdrawBilledFundsConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -622,7 +621,7 @@ type SetMaxFeeJuelsPerMsgConfig struct {
 	MCMS              *proposalutils.TimelockConfig
 }
 
-func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e deployment.Environment) error {
+func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e cldf.Environment) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -640,7 +639,7 @@ func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e deployment.Environment) error {
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true})
 }
 
-func SetMaxFeeJuelsPerMsg(e deployment.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (cldf.ChangesetOutput, error) {
+func SetMaxFeeJuelsPerMsg(e cldf.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

@@ -8,8 +8,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/mr-tron/base58"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 )
@@ -30,7 +28,7 @@ type ExistingContractsConfig struct {
 
 func (cfg ExistingContractsConfig) Validate() error {
 	for _, ec := range cfg.ExistingContracts {
-		if err := deployment.IsValidChainSelector(ec.ChainSelector); err != nil {
+		if err := cldf.IsValidChainSelector(ec.ChainSelector); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", ec.ChainSelector, err)
 		}
 		if ec.Address == "" {
@@ -69,7 +67,7 @@ func (cfg ExistingContractsConfig) Validate() error {
 
 // SaveExistingContractsChangeset saves the existing contracts to the address book.
 // Caller should update the environment's address book with the returned addresses.
-func SaveExistingContractsChangeset(env deployment.Environment, cfg ExistingContractsConfig) (cldf.ChangesetOutput, error) {
+func SaveExistingContractsChangeset(env cldf.Environment, cfg ExistingContractsConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return cldf.ChangesetOutput{}, errors.Wrapf(cldf.ErrInvalidConfig, "%v", err)

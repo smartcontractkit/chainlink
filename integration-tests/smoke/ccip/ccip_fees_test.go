@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/feestest"
@@ -41,27 +43,27 @@ func setupNewFeeToken(
 		tokenDecimals,
 		big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 	)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 	lggr.Infow("Deployed new fee token", "tokenAddress", tokenAddress)
 
 	// grant mint role
 	tx, err = token.GrantMintRole(deployer, deployer.From)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	// mint token and approve to router
 	tx, err = token.Mint(deployer, deployer.From, deployment.E18Mult(10_000))
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	tx, err = token.Approve(deployer, state.Chains[chainSelector].Router.Address(), math.MaxBig256)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	// add this new fee token to fee quoter
 	tx, err = state.Chains[chain.Selector].FeeQuoter.ApplyFeeTokensUpdates(deployer, []common.Address{}, []common.Address{tokenAddress})
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 	lggr.Infow("Added new fee token to fee quoter", "tokenAddress", tokenAddress)
 
@@ -78,7 +80,7 @@ func setupNewFeeToken(
 			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{},
 		},
 	)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 	lggr.Infow("Set price for new fee token", "tokenAddress", tokenAddress)
 
@@ -122,7 +124,7 @@ func setupTokens(
 		e.Chains[src].DeployerKey.From,
 		transferTokenMintAmount,
 	)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	require.NoError(t, err)
 
 	// Mint a destination token
@@ -131,23 +133,23 @@ func setupTokens(
 		e.Chains[dest].DeployerKey.From,
 		transferTokenMintAmount,
 	)
-	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[dest], tx, err)
 	require.NoError(t, err)
 
 	// Approve the router to spend the tokens and confirm the tx's
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
 	tx, err = srcToken.Approve(e.Chains[src].DeployerKey, state.Chains[src].Router.Address(), math.MaxBig256)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	require.NoError(t, err)
 
 	tx, err = dstToken.Approve(e.Chains[dest].DeployerKey, state.Chains[dest].Router.Address(), math.MaxBig256)
-	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[dest], tx, err)
 	require.NoError(t, err)
 
 	// Grant mint and burn roles to the deployer key for the newly deployed linkToken
 	// Since those roles are not granted automatically
 	tx, err = linkToken.GrantMintAndBurnRoles(e.Chains[src].DeployerKey, e.Chains[src].DeployerKey.From)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	require.NoError(t, err)
 
 	// Mint link token and confirm the tx
@@ -156,7 +158,7 @@ func setupTokens(
 		e.Chains[src].DeployerKey.From,
 		feeTokenMintAmount,
 	)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	require.NoError(t, err)
 
 	return srcToken, dstToken

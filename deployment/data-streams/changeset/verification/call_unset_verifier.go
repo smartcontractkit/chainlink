@@ -9,7 +9,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -30,7 +29,7 @@ type UnsetVerifierConfig struct {
 	ConfigDigest    [32]byte
 }
 
-func (v verifierProxyUnsetVerifier) Apply(e deployment.Environment, cfg VerifierProxyUnsetVerifierConfig) (cldf.ChangesetOutput, error) {
+func (v verifierProxyUnsetVerifier) Apply(e cldf.Environment, cfg VerifierProxyUnsetVerifierConfig) (cldf.ChangesetOutput, error) {
 	txs, err := GetUnsetVerifierTxs(e, cfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -52,7 +51,7 @@ func (v verifierProxyUnsetVerifier) Apply(e deployment.Environment, cfg Verifier
 
 // GetUnsetVerifierTxs - returns the transactions to run the operation on the verifier proxy.
 // Does not sign the TXs
-func GetUnsetVerifierTxs(e deployment.Environment, cfg VerifierProxyUnsetVerifierConfig) ([]*txutil.PreparedTx, error) {
+func GetUnsetVerifierTxs(e cldf.Environment, cfg VerifierProxyUnsetVerifierConfig) ([]*txutil.PreparedTx, error) {
 	var preparedTxs []*txutil.PreparedTx
 	for chainSelector, configs := range cfg.ConfigPerChain {
 		for _, config := range configs {
@@ -60,7 +59,7 @@ func GetUnsetVerifierTxs(e deployment.Environment, cfg VerifierProxyUnsetVerifie
 			if err != nil {
 				return nil, fmt.Errorf("failed to load verifier proxy state: %w", err)
 			}
-			tx, err := state.VerifierProxy.UnsetVerifier(deployment.SimTransactOpts(), config.ConfigDigest)
+			tx, err := state.VerifierProxy.UnsetVerifier(cldf.SimTransactOpts(), config.ConfigDigest)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create UnsetVerifier transaction: %w", err)
 			}
@@ -75,12 +74,12 @@ func GetUnsetVerifierTxs(e deployment.Environment, cfg VerifierProxyUnsetVerifie
 	return preparedTxs, nil
 }
 
-func (v verifierProxyUnsetVerifier) VerifyPreconditions(e deployment.Environment, cfg VerifierProxyUnsetVerifierConfig) error {
+func (v verifierProxyUnsetVerifier) VerifyPreconditions(e cldf.Environment, cfg VerifierProxyUnsetVerifierConfig) error {
 	if len(cfg.ConfigPerChain) == 0 {
 		return errors.New("ConfigPerChain is empty")
 	}
 	for cs := range cfg.ConfigPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 	}
