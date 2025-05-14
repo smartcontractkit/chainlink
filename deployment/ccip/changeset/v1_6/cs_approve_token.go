@@ -8,10 +8,11 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 type ApproveTokenEVMConfig struct {
@@ -20,8 +21,8 @@ type ApproveTokenEVMConfig struct {
 	Amount *big.Int
 }
 
-func TokenApproveTransferEVMChangeset(e deployment.Environment, cfg ApproveTokenEVMConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+func TokenApproveTransferEVMChangeset(e cldf.Environment, cfg ApproveTokenEVMConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -51,7 +52,7 @@ type ApproveTokenSolConfig struct {
 	Decimals uint8
 }
 
-func TokenApproveTransferSolChangeset(e deployment.Environment, cfg ApproveTokenSolConfig) (cldf.ChangesetOutput, error) {
+func TokenApproveTransferSolChangeset(e cldf.Environment, cfg ApproveTokenSolConfig) (cldf.ChangesetOutput, error) {
 	err := doApproveTokenTransfer(
 		e,
 		cfg.ChainSelector,
@@ -73,25 +74,21 @@ type ApproveTokenFeeBillingSignerSolConfig struct {
 	Decimals uint8
 }
 
-func TokenApproveFeeBillingSigner(e deployment.Environment, cfg ApproveTokenFeeBillingSignerSolConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+func TokenApproveFeeBillingSigner(e cldf.Environment, cfg ApproveTokenFeeBillingSignerSolConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	tokenPool, _ := getActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, cfg.ChainSelector, "")
-
-	solTokenPubKey := state.SolChains[cfg.ChainSelector].SPLTokens[0]
-
-	poolSigner, err := solTokenUtil.TokenPoolSignerAddress(solTokenPubKey, tokenPool)
+	billingSignerPDA, _, err := solState.FindFeeBillingSignerPDA(state.SolChains[cfg.ChainSelector].Router)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token pool signer address: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get billing signer PDA: %w", err)
 	}
 
 	err = doApproveTokenTransfer(
 		e,
 		cfg.ChainSelector,
-		poolSigner,
+		billingSignerPDA,
 		cfg.Amount,
 		cfg.Decimals,
 	)
@@ -103,7 +100,7 @@ func TokenApproveFeeBillingSigner(e deployment.Environment, cfg ApproveTokenFeeB
 }
 
 func doApproveTokenTransfer(
-	e deployment.Environment,
+	e cldf.Environment,
 	chainSelector uint64,
 	addressToApprove solana.PublicKey,
 	amount uint64,
@@ -114,7 +111,7 @@ func doApproveTokenTransfer(
 		return fmt.Errorf("failed to get chain for selector %d", chainSelector)
 	}
 
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -166,24 +163,24 @@ func doApproveTokenTransfer(
 }
 
 func getActiveTokenPool(
-	e *deployment.Environment,
+	e *cldf.Environment,
 	poolType solTestTokenPool.PoolType,
 	selector uint64,
 	metadata string,
 ) (solana.PublicKey, cldf.ContractType) {
-	state, _ := ccipChangeset.LoadOnchainState(*e)
+	state, _ := stateview.LoadOnchainState(*e)
 	chainState := state.SolChains[selector]
 	switch poolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
 		if metadata == "" {
-			return chainState.BurnMintTokenPools[ccipChangeset.CLLMetadata], ccipChangeset.BurnMintTokenPool
+			return chainState.BurnMintTokenPools[shared.CLLMetadata], shared.BurnMintTokenPool
 		}
-		return chainState.BurnMintTokenPools[metadata], ccipChangeset.BurnMintTokenPool
+		return chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool
 	case solTestTokenPool.LockAndRelease_PoolType:
 		if metadata == "" {
-			return chainState.LockReleaseTokenPools[ccipChangeset.CLLMetadata], ccipChangeset.LockReleaseTokenPool
+			return chainState.LockReleaseTokenPools[shared.CLLMetadata], shared.LockReleaseTokenPool
 		}
-		return chainState.LockReleaseTokenPools[metadata], ccipChangeset.LockReleaseTokenPool
+		return chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool
 	default:
 		return solana.PublicKey{}, ""
 	}
