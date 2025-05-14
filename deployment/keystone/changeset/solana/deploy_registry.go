@@ -11,7 +11,6 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/solana"
 )
 
-// DeployRequestV2 is a request to deploy the given deployFn to the given chain
 type DeployRequest = struct {
 	ChainSel  uint64
 	Qualifier string
@@ -37,6 +36,7 @@ func deploy(env deployment.Environment, req *DeployRequest) (cldf.ChangesetOutpu
 		datastore.DefaultMetadata,
 		datastore.DefaultMetadata,
 	]()
+
 	r := datastore.AddressRef{
 		ChainSelector: req.ChainSel,
 		Address:       resp.Address.String(),
@@ -45,9 +45,11 @@ func deploy(env deployment.Environment, req *DeployRequest) (cldf.ChangesetOutpu
 		Qualifier:     req.Qualifier,
 		Labels:        datastore.NewLabelSet(),
 	}
+
 	if req.Labels != nil {
 		r.Labels = *req.Labels
 	}
+
 	// add labels from the response
 	for _, l := range resp.Tv.Labels.List() {
 		r.Labels.Add(l)
@@ -57,5 +59,6 @@ func deploy(env deployment.Environment, req *DeployRequest) (cldf.ChangesetOutpu
 		return cldf.ChangesetOutput{DataStore: ds},
 			fmt.Errorf("failed to save address ref in datastore: %w", err)
 	}
+
 	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
 }
