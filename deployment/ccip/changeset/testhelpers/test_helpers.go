@@ -1680,6 +1680,12 @@ func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.Transact
 	return MintTokenInfo{auth: auth, sender: sender, tokens: tokens}
 }
 
+// ApproveToken approves the router to spend the given amount of tokens
+// Keeping this proxy method in order to not break compatibility
+func ApproveToken(env cldf.Environment, src uint64, tokenAddress common.Address, routerAddress common.Address, amount *big.Int) error {
+	return changeset.ApproveToken(env, src, tokenAddress, routerAddress, amount)
+}
+
 // MintAndAllow mints tokens for deployers and allow router to spend them
 func MintAndAllow(
 	t *testing.T,
