@@ -48,7 +48,6 @@ import (
 	evmtxm "github.com/smartcontractkit/chainlink-evm/pkg/txm"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
 func makeTestEvmTxm(
@@ -529,8 +528,8 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	kst := &keystest.FakeChainStore{}
 
-	head := cltest.Head(42)
-	finalizedHead := cltest.Head(0)
+	head := makeHead(42)
+	finalizedHead := makeHead(0)
 
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(finalizedHead, nil).Maybe()
@@ -1227,4 +1226,9 @@ func txRequestWithIdempotencyKey(idempotencyKey string) func(*txmgr.TxRequest) {
 	return func(tx *txmgr.TxRequest) {
 		tx.IdempotencyKey = &idempotencyKey
 	}
+}
+
+func makeHead(num int64) *evmtypes.Head {
+	h := evmtypes.NewHead(big.NewInt(num), evmtestutils.NewHash(), evmtestutils.NewHash(), ubig.New(evmtestutils.FixtureChainID))
+	return &h
 }
