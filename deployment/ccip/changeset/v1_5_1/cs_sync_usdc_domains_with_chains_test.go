@@ -11,10 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -151,14 +153,14 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 									ChainUpdates: v1_5_1.RateLimiterPerChain{
 										selectors[1]: testhelpers.CreateSymmetricRateLimits(0, 0),
 									},
-									Type:    changeset.USDCTokenPool,
+									Type:    shared.USDCTokenPool,
 									Version: deployment.Version1_5_1,
 								},
 								selectors[1]: {
 									ChainUpdates: v1_5_1.RateLimiterPerChain{
 										selectors[0]: testhelpers.CreateSymmetricRateLimits(0, 0),
 									},
-									Type:    changeset.USDCTokenPool,
+									Type:    shared.USDCTokenPool,
 									Version: deployment.Version1_5_1,
 								},
 							},
@@ -169,7 +171,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			err = test.Input(selectors[0]).Validate(e, state)
@@ -199,7 +201,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 			e := deployedEnvironment.Env
 			selectors := e.AllChainSelectors()
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(selectors))
@@ -238,14 +240,14 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 								ChainUpdates: v1_5_1.RateLimiterPerChain{
 									selectors[1]: testhelpers.CreateSymmetricRateLimits(0, 0),
 								},
-								Type:    changeset.USDCTokenPool,
+								Type:    shared.USDCTokenPool,
 								Version: deployment.Version1_5_1,
 							},
 							selectors[1]: {
 								ChainUpdates: v1_5_1.RateLimiterPerChain{
 									selectors[0]: testhelpers.CreateSymmetricRateLimits(0, 0),
 								},
-								Type:    changeset.USDCTokenPool,
+								Type:    shared.USDCTokenPool,
 								Version: deployment.Version1_5_1,
 							},
 						},
@@ -273,7 +275,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			state, err = changeset.LoadOnchainState(e)
+			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			for i, selector := range selectors {

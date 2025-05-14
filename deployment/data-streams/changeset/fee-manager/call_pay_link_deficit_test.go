@@ -10,6 +10,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/mock_fee_manager_v0_5_0"
@@ -43,7 +44,7 @@ func TestPayLinkDeficit(t *testing.T) {
 
 	deployMockCs := []commonChangesets.ConfiguredChangeSet{
 		commonChangesets.Configure(cldf.CreateChangeSet(
-			func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
+			func(e cldf.Environment, config uint32) (cldf.ChangesetOutput, error) {
 				dataStore := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
 				// This uses a MockFeeManager. The subject under test here is the PayLinkDeficit changeset.
 				// This is modeled as a client/server test where the "client" is the PayLinkDeficit changeset
@@ -51,18 +52,18 @@ func TestPayLinkDeficit(t *testing.T) {
 				// the real FeeManager interface. The MockFeeManager will then validate the call and return a response.
 				_, err = changeset.DeployContract[*mock_fee_manager_v0_5_0.MockFeeManager](e, dataStore, chain, MockFeeManagerDeployFn(cc), nil)
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy MockFeeManager: %w", err)
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy MockFeeManager: %w", err)
 				}
 				sealedDS, err := ds.ToDefault(dataStore.Seal())
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
 				}
 
-				return deployment.ChangesetOutput{
+				return cldf.ChangesetOutput{
 					DataStore: sealedDS,
 				}, nil
 			},
-			func(e deployment.Environment, config uint32) error {
+			func(e cldf.Environment, config uint32) error {
 				return nil
 			},
 		), 1),
@@ -117,7 +118,7 @@ func TestPayLinkDeficit(t *testing.T) {
 }
 
 func MockFeeManagerDeployFn(cfg DeployFeeManager) changeset.ContractDeployFn[*mock_fee_manager_v0_5_0.MockFeeManager] {
-	return func(chain deployment.Chain) *changeset.ContractDeployment[*mock_fee_manager_v0_5_0.MockFeeManager] {
+	return func(chain cldf.Chain) *changeset.ContractDeployment[*mock_fee_manager_v0_5_0.MockFeeManager] {
 		ccsAddr, ccsTx, ccs, err := mock_fee_manager_v0_5_0.DeployMockFeeManager(
 			chain.DeployerKey,
 			chain.Client,

@@ -1,9 +1,9 @@
-package changeset
+package stateview
 
 import (
 	"encoding/json"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	ccipview "github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"

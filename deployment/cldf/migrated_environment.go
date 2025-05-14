@@ -1,4 +1,4 @@
-package deployment
+package cldf
 
 import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"

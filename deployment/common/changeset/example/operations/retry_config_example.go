@@ -5,11 +5,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
 /**
@@ -17,16 +14,16 @@ DisableRetryExampleChangeset demonstrates how to use Operations API to disable r
 UpdateInputExampleChangeset demonstrates how to use Operations API to update input for an operation (eg for changing gas limit)
 */
 
-var _ deployment.ChangeSetV2[operations.EmptyInput] = DisableRetryExampleChangeset{}
+var _ cldf.ChangeSetV2[operations.EmptyInput] = DisableRetryExampleChangeset{}
 
 type DisableRetryExampleChangeset struct{}
 
-func (l DisableRetryExampleChangeset) VerifyPreconditions(e deployment.Environment, config operations.EmptyInput) error {
+func (l DisableRetryExampleChangeset) VerifyPreconditions(e cldf.Environment, config operations.EmptyInput) error {
 	// perform any preconditions checks here
 	return nil
 }
 
-func (l DisableRetryExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (deployment.ChangesetOutput, error) {
+func (l DisableRetryExampleChangeset) Apply(e cldf.Environment, config operations.EmptyInput) (cldf.ChangesetOutput, error) {
 	ab := cldf.NewMemoryAddressBook()
 
 	operationInput := SuccessFailOperationInput{ShouldFail: true}
@@ -34,24 +31,24 @@ func (l DisableRetryExampleChangeset) Apply(e deployment.Environment, config ope
 	// Retry is disabled by default for this operation
 	_, err := operations.ExecuteOperation(e.OperationsBundle, SuccessFailOperation, nil, operationInput)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
 }
 
-var _ deployment.ChangeSetV2[operations.EmptyInput] = UpdateInputExampleChangeset{}
+var _ cldf.ChangeSetV2[operations.EmptyInput] = UpdateInputExampleChangeset{}
 
 type UpdateInputExampleChangeset struct{}
 
-func (l UpdateInputExampleChangeset) VerifyPreconditions(e deployment.Environment, config operations.EmptyInput) error {
+func (l UpdateInputExampleChangeset) VerifyPreconditions(e cldf.Environment, config operations.EmptyInput) error {
 	// perform any preconditions checks here
 	return nil
 }
 
-func (l UpdateInputExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (deployment.ChangesetOutput, error) {
+func (l UpdateInputExampleChangeset) Apply(e cldf.Environment, config operations.EmptyInput) (cldf.ChangesetOutput, error) {
 	ab := cldf.NewMemoryAddressBook()
 
 	operationInput := SuccessFailOperationInput{ShouldFail: true}
@@ -66,10 +63,10 @@ func (l UpdateInputExampleChangeset) Apply(e deployment.Environment, config oper
 		}),
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
 }

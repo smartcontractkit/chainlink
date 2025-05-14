@@ -20,7 +20,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	ccipTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -94,7 +93,7 @@ func (tc *TimelockConfig) validateCommon() error {
 	return nil
 }
 
-func (tc *TimelockConfig) Validate(chain deployment.Chain, s state.MCMSWithTimelockState) error {
+func (tc *TimelockConfig) Validate(chain cldf.Chain, s state.MCMSWithTimelockState) error {
 	err := tc.validateCommon()
 	if err != nil {
 		return err
@@ -120,7 +119,7 @@ func (tc *TimelockConfig) Validate(chain deployment.Chain, s state.MCMSWithTimel
 	return nil
 }
 
-func (tc *TimelockConfig) ValidateSolana(e deployment.Environment, chainSelector uint64) error {
+func (tc *TimelockConfig) ValidateSolana(e cldf.Environment, chainSelector uint64) error {
 	err := tc.validateCommon()
 	if err != nil {
 		return err
@@ -241,7 +240,7 @@ func BuildProposalFromBatches(
 
 // BuildProposalFromBatchesV2 uses the new MCMS library which replaces the implementation in BuildProposalFromBatches.
 func BuildProposalFromBatchesV2(
-	e deployment.Environment,
+	e cldf.Environment,
 	timelockAddressPerChain map[uint64]string,
 	mcmsAddressPerChain map[uint64]string, inspectorPerChain map[uint64]mcmssdk.Inspector,
 	batches []types.BatchOperation,
@@ -293,7 +292,7 @@ func BuildProposalFromBatchesV2(
 }
 
 func buildProposalMetadataV2(
-	env deployment.Environment,
+	env cldf.Environment,
 	chainSelectors []uint64,
 	inspectorPerChain map[uint64]mcmssdk.Inspector,
 	mcmsPerChain map[uint64]string, // can be proposer, canceller or bypasser
@@ -361,7 +360,7 @@ func buildProposalMetadataV2(
 // AggregateProposals aggregates proposals from the legacy and new formats into a single proposal.
 // Required if you are merging multiple changesets that have different proposal formats.
 func AggregateProposals(
-	env deployment.Environment,
+	env cldf.Environment,
 	mcmsEVMState map[uint64]state.MCMSWithTimelockState,
 	mcmsSolanaState map[uint64]state.MCMSWithTimelockStateSolana,
 	proposals []mcmslib.TimelockProposal,

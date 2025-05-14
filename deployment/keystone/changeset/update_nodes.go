@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -23,7 +23,7 @@ type MCMSConfig struct {
 	MinDuration time.Duration
 }
 
-var _ deployment.ChangeSet[*UpdateNodesRequest] = UpdateNodes
+var _ cldf.ChangeSet[*UpdateNodesRequest] = UpdateNodes
 
 type UpdateNodesRequest struct {
 	RegistryChainSel uint64
@@ -35,7 +35,7 @@ type UpdateNodesRequest struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-func (r *UpdateNodesRequest) Validate(e deployment.Environment) error {
+func (r *UpdateNodesRequest) Validate(e cldf.Environment) error {
 	if r.P2pToUpdates == nil {
 		return errors.New("P2pToUpdates must be non-nil")
 	}
@@ -64,18 +64,18 @@ type NodeUpdate = internal.NodeUpdate
 
 // UpdateNodes updates a set of nodes.
 // The nodes and capabilities in the request must already exist in the registry contract.
-func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deployment.ChangesetOutput, error) {
+func UpdateNodes(env cldf.Environment, req *UpdateNodesRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
 	}
 	// extract the registry contract and chain from the environment
 	registryChain, ok := env.Chains[req.RegistryChainSel]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
+		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
 	capReg, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 
 	resp, err := internal.UpdateNodes(env.Logger, &internal.UpdateNodesRequest{
@@ -85,10 +85,10 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 		UseMCMS:              req.UseMCMS(),
 	})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update don: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to update don: %w", err)
 	}
 
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if req.UseMCMS() {
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
@@ -101,7 +101,7 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		inspectorPerChain := map[uint64]sdk.Inspector{
 			req.RegistryChainSel: inspector,

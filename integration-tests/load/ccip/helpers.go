@@ -28,6 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
@@ -58,7 +61,7 @@ func subscribeTransmitEvents(
 	startBlock *uint64,
 	srcChainSel uint64,
 	loadFinished chan struct{},
-	client deployment.OnchainClient,
+	client cldf.OnchainClient,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
 	finalSeqNrCommitChannels map[uint64]chan finalSeqNrReport,
@@ -168,7 +171,7 @@ func subscribeCommitEvents(
 	srcChains []uint64,
 	startBlock *uint64,
 	chainSelector uint64,
-	client deployment.OnchainClient,
+	client cldf.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
@@ -297,7 +300,7 @@ func subscribeExecutionEvents(
 	srcChains []uint64,
 	startBlock *uint64,
 	chainSelector uint64,
-	client deployment.OnchainClient,
+	client cldf.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
@@ -479,7 +482,7 @@ func subscribeSkippedIncorrectNonce(
 }
 
 // fundAdditionalKeys will create len(targetChains) new addresses, and send funds to them on every targetChain
-func fundAdditionalKeys(lggr logger.Logger, e deployment.Environment, destChains []uint64) (map[uint64][]*bind.TransactOpts, error) {
+func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uint64) (map[uint64][]*bind.TransactOpts, error) {
 	deployerMap := make(map[uint64][]*bind.TransactOpts)
 	addressMap := make(map[uint64][]common.Address)
 	numAccounts := len(destChains)
@@ -522,8 +525,8 @@ func fundAdditionalKeys(lggr logger.Logger, e deployment.Environment, destChains
 	}
 	return deployerMap, nil
 }
-func reclaimFunds(lggr logger.Logger, e deployment.Environment, addressesByChain map[uint64][]*bind.TransactOpts, returnAddress common.Address) error {
-	removeFundsFromAccounts := func(ctx context.Context, lggr logger.Logger, chain deployment.Chain, addresses []*bind.TransactOpts, returnAddress common.Address, sel uint64) error {
+func reclaimFunds(lggr logger.Logger, e cldf.Environment, addressesByChain map[uint64][]*bind.TransactOpts, returnAddress common.Address) error {
+	removeFundsFromAccounts := func(ctx context.Context, lggr logger.Logger, chain cldf.Chain, addresses []*bind.TransactOpts, returnAddress common.Address, sel uint64) error {
 		for _, deployer := range addresses {
 			balance, err := chain.Client.BalanceAt(ctx, deployer.From, nil)
 			if err != nil {

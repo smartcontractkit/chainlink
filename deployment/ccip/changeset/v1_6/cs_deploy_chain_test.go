@@ -12,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -87,7 +89,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	require.NoError(t, err)
 
 	// load onchain state
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// verify all contracts populated
@@ -112,7 +114,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	ab := cldf.NewMemoryAddressBook()
 	for _, sel := range evmSelectors {
 		require.NoError(t, ab.Save(sel, state.Chains[sel].FeeQuoter.Address().Hex(),
-			cldf.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_6_0)))
+			cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_6_0)))
 	}
 	//nolint:staticcheck //SA1019 ignoring deprecated
 	require.NoError(t, e.ExistingAddresses.Remove(ab))
@@ -128,7 +130,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	))
 	require.NoError(t, err)
 	// verify all contracts populated
-	postState, err := changeset.LoadOnchainState(e)
+	postState, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 	for _, sel := range evmSelectors {
 		require.Equal(t, state.Chains[sel].RMNRemote, postState.Chains[sel].RMNRemote)
@@ -151,7 +153,7 @@ func TestDeployStaticLinkToken(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithStaticLink())
 	// load onchain state
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range e.Env.AllChainSelectors() {
 		require.NotNil(t, state.Chains[chain].StaticLinkToken)

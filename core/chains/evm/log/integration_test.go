@@ -277,7 +277,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
 		ctx := testutils.Context(t)
-		orm := log.NewORM(helper.db, cltest.FixtureChainID)
+		orm := log.NewORM(helper.db, *testutils.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
 		listener.SkipMarkingConsumed(true)
@@ -303,7 +303,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
 		ctx := testutils.Context(t)
-		orm := log.NewORM(helper.db, cltest.FixtureChainID)
+		orm := log.NewORM(helper.db, *testutils.FixtureChainID)
 		contract1.On("ParseLog", log1).Return(flux_aggregator_wrapper.FluxAggregatorNewRound{}, nil)
 		contract2.On("ParseLog", log2).Return(flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}, nil)
 
@@ -330,7 +330,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
 		ctx := testutils.Context(t)
-		orm := log.NewORM(helper.db, cltest.FixtureChainID)
+		orm := log.NewORM(helper.db, *testutils.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
 		listener2 := helper.newLogListenerWithJob("two")
@@ -355,7 +355,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
 		ctx := testutils.Context(t)
-		orm := log.NewORM(helper.db, cltest.FixtureChainID)
+		orm := log.NewORM(helper.db, *testutils.FixtureChainID)
 		listener := helper.newLogListenerWithJob("one")
 		listener2 := helper.newLogListenerWithJob("two")
 		helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(8, 9), orm, nil, nil)
@@ -1026,7 +1026,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	mockEth := &clienttest.MockEth{EthClient: ethClient}
 	chchRawLogs := make(chan testutils.RawSub[types.Log], backfillTimes)
 	chStarted := make(chan struct{})
-	ethClient.On("ConfiguredChainID", mock.Anything).Return(&cltest.FixtureChainID)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(testutils.FixtureChainID)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
@@ -1144,7 +1144,8 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		t.Fatal("did not subscribe")
 	}
 
-	cltest.EventuallyExpectationsMet(t, ethClient, testutils.WaitTimeout(t), time.Second)
+	assert.Eventually(t, func() bool { return ethClient.AssertExpectations(t) },
+		testutils.WaitTimeout(t), time.Second)
 }
 
 func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
@@ -1678,7 +1679,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	db := testutils.NewSqlxDB(t)
-	orm := log.NewORM(db, cltest.FixtureChainID)
+	orm := log.NewORM(db, *testutils.FixtureChainID)
 	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, highestSeenHead, mailMon)
 	kst := cltest.NewKeyStore(t, db)
 
@@ -1942,11 +1943,11 @@ func (listener *simpleLogListener) handleLogBroadcast(ctx context.Context, lb lo
 }
 
 func (listener *simpleLogListener) WasAlreadyConsumed(ctx context.Context, broadcast log.Broadcast) (bool, error) {
-	return log.NewORM(listener.db, cltest.FixtureChainID).WasBroadcastConsumed(ctx, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
+	return log.NewORM(listener.db, *testutils.FixtureChainID).WasBroadcastConsumed(ctx, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
 }
 
 func (listener *simpleLogListener) MarkConsumed(ctx context.Context, broadcast log.Broadcast) error {
-	return log.NewORM(listener.db, cltest.FixtureChainID).MarkBroadcastConsumed(ctx, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
+	return log.NewORM(listener.db, *testutils.FixtureChainID).MarkBroadcastConsumed(ctx, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
 }
 
 type mockEthClientExpectedCalls struct {
@@ -1960,7 +1961,7 @@ type mockEthClientExpectedCalls struct {
 func newMockEthClient(t *testing.T, chchRawLogs chan<- testutils.RawSub[types.Log], blockHeight int64, expectedCalls mockEthClientExpectedCalls) *clienttest.MockEth {
 	ethClient := clienttest.NewClient(t)
 	mockEth := &clienttest.MockEth{EthClient: ethClient}
-	mockEth.EthClient.On("ConfiguredChainID", mock.Anything).Return(&cltest.FixtureChainID)
+	mockEth.EthClient.On("ConfiguredChainID", mock.Anything).Return(testutils.FixtureChainID)
 	mockEth.EthClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {

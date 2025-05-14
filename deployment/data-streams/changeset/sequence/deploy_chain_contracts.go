@@ -9,10 +9,10 @@ import (
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verification"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
@@ -32,7 +32,7 @@ type DeployDataStreams struct {
 	Ownership      types.OwnershipFeature
 }
 
-func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig) (deployment.ChangesetOutput, error) {
+func deployDataStreamsLogic(e cldf.Environment, cc DeployDataStreamsConfig) (cldf.ChangesetOutput, error) {
 	deployedAddresses := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
 
 	// Prevents mutating environment state - injected environment is not expected to be updated during changeset Apply
@@ -43,46 +43,46 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 	for chainSel, cfg := range cc.ChainsToDeploy {
 		family, err := chainselectors.GetSelectorFamily(chainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get family for chain %d: %w", chainSel, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get family for chain %d: %w", chainSel, err)
 		}
 		switch family {
 		case chainselectors.FamilyEVM:
 			chainProposals, err := deployChainComponentsEVM(&cloneEnv, chainSel, cfg, deployedAddresses)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy components for chain %d: %w", chainSel, err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy components for chain %d: %w", chainSel, err)
 			}
 			timelockProposals = append(timelockProposals, chainProposals...)
 		default:
-			return deployment.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s for chain %d", family, chainSel)
+			return cldf.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s for chain %d", family, chainSel)
 		}
 	}
 
 	if len(timelockProposals) > 0 {
 		mergedTimelockProposal, err := mcmsutil.MergeSimilarTimelockProposals(timelockProposals)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge timelock proposals: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge timelock proposals: %w", err)
 		}
 		timelockProposals = []mcms.TimelockProposal{mergedTimelockProposal}
 	}
 
 	sealedDS, err := ds.ToDefault(deployedAddresses.Seal())
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
 	}
 
 	ab, err := utils.DataStoreToAddressBook(sealedDS.Seal())
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to address book: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to address book: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook:           ab, // backwards compatibility. This will be removed in the future.
 		DataStore:             sealedDS,
 		MCMSTimelockProposals: timelockProposals,
 	}, nil
 }
 
-func deployDataStreamsPrecondition(_ deployment.Environment, cc DeployDataStreamsConfig) error {
+func deployDataStreamsPrecondition(_ cldf.Environment, cc DeployDataStreamsConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployDataStreams config: %w", err)
 	}
@@ -101,7 +101,7 @@ func (cc DeployDataStreamsConfig) Validate() error {
 	}
 
 	for chain, cfg := range cc.ChainsToDeploy {
-		if err := deployment.IsValidChainSelector(chain); err != nil {
+		if err := cldf.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
 
