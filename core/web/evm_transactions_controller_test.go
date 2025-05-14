@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	evmtxmgrtestutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -27,18 +27,18 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	require.NoError(t, app.Start(ctx))
 
 	db := app.GetDB()
-	txStore := evmtxmgrtestutils.NewTestTxStore(t, app.GetDB())
+	txStore := txmgrtest.NewTestTxStore(t, app.GetDB())
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	client := app.NewHTTPClient(nil)
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	evmtxmgrtestutils.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)        // tx1
-	tx2 := evmtxmgrtestutils.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 2, from) // tx2
-	evmtxmgrtestutils.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 4, from)        // tx3
+	txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)        // tx1
+	tx2 := txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 2, from) // tx2
+	txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 4, from)        // tx3
 
 	// add second tx attempt for tx2
 	blockNum := int64(3)
-	attempt := evmtxmgrtestutils.NewLegacyEthTxAttempt(t, tx2.ID)
+	attempt := txmgrtest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	attempt.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(3)}
 	attempt.BroadcastBeforeBlockNum = &blockNum
@@ -85,11 +85,11 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	ctx := testutils.Context(t)
 	require.NoError(t, app.Start(ctx))
 
-	txStore := evmtxmgrtestutils.NewTestTxStore(t, app.GetDB())
+	txStore := txmgrtest.NewTestTxStore(t, app.GetDB())
 	client := app.NewHTTPClient(nil)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
-	tx := evmtxmgrtestutils.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, from)
+	tx := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, from)
 	require.Len(t, tx.TxAttempts, 1)
 	attempt := tx.TxAttempts[0]
 	attempt.Tx = tx
@@ -119,10 +119,10 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	ctx := testutils.Context(t)
 	require.NoError(t, app.Start(ctx))
 
-	txStore := evmtxmgrtestutils.NewTestTxStore(t, app.GetDB())
+	txStore := txmgrtest.NewTestTxStore(t, app.GetDB())
 	client := app.NewHTTPClient(nil)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
-	tx := evmtxmgrtestutils.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, from)
+	tx := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, from)
 	require.Len(t, tx.TxAttempts, 1)
 	attempt := tx.TxAttempts[0]
 

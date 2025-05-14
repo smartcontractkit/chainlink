@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
-	evmtxmgrtestutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -36,7 +36,7 @@ func BenchmarkEthBroadcaster_ProcessUnstartedEthTxs_Success(b *testing.B) {
 	ctx := tests.Context(b)
 
 	ethClient := clienttest.NewClientWithDefaultChainID(b)
-	txStore := evmtxmgrtestutils.NewTestTxStore(b, db)
+	txStore := txmgrtest.NewTestTxStore(b, db)
 	memKeystore := keystest.NewMemoryChainStore()
 	ethKeyStore := keys.NewChainStore(memKeystore, ethClient.ConfiguredChainID())
 	fromAddress := memKeystore.MustCreate(b)
