@@ -391,7 +391,7 @@ func activatePoRWorkflow(input managePoRWorkflowInput) error {
 		CRECLIProfile:            input.creCLIProfile,
 	}
 
-	activateErr := creworkflow.PauseWithCRECLI(activateWorkflowInput)
+	activateErr := creworkflow.ActivateWithCRECLI(activateWorkflowInput)
 	if activateErr != nil {
 		return errors.Wrap(activateErr, "failed to activate workflow with CRE CLI")
 	}

@@ -602,21 +602,6 @@ func (w *ManageWorkflowWithCRECLIInput) Validate() error {
 	if w.NewWorkflow != nil && w.ExistingWorkflow != nil {
 		return errors.New("only one of NewWorkflow or ExistingWorkflow can be provided")
 	}
-	if w.ShouldCompileNewWorkflow && w.NewWorkflow == nil {
-		return errors.New("NewWorkflow is required when ShouldCompileNewWorkflow is true")
-	}
-	if !w.ShouldCompileNewWorkflow && w.ExistingWorkflow == nil {
-		return errors.New("ExistingWorkflow is required when ShouldCompileNewWorkflow is false")
-	}
-	if w.NewWorkflow != nil && w.NewWorkflow.FolderLocation == "" {
-		return errors.New("WorkflowFolderLocation is required when ShouldCompileNewWorkflow is true")
-	}
-	if w.NewWorkflow != nil && w.NewWorkflow.WorkflowFileName == "" {
-		return errors.New("WorkflowFileName is required when ShouldCompileNewWorkflow is true")
-	}
-	if w.ExistingWorkflow != nil && w.ExistingWorkflow.BinaryURL == "" {
-		return errors.New("BinaryURL is required when ShouldCompileNewWorkflow is false")
-	}
 
 	return nil
 }

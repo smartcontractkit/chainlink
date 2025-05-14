@@ -25,6 +25,10 @@ func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 		return errors.Wrap(valErr, "failed to validate RegisterWorkflowInput")
 	}
 
+	if registerValErr := validateRegisterWorkflowInput(input); registerValErr != nil {
+		return errors.Wrap(registerValErr, "failed to validate RegisterWorkflowInput")
+	}
+
 	// This env var is required by the CRE CLI
 	pkErr := os.Setenv("CRE_ETH_PRIVATE_KEY", input.CRECLIPrivateKey)
 	if pkErr != nil {
@@ -72,6 +76,26 @@ func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 	registerErr := libcrecli.DeployWorkflow(input.CRECLIAbsPath, workflowURL, workflowConfigURL, workflowSecretsURL, creCLIWorkflowSettingsFile)
 	if registerErr != nil {
 		return errors.Wrap(registerErr, "failed to register workflow")
+	}
+
+	return nil
+}
+
+func validateRegisterWorkflowInput(input cretypes.ManageWorkflowWithCRECLIInput) error {
+	if input.ShouldCompileNewWorkflow && input.NewWorkflow == nil {
+		return errors.New("NewWorkflow is required when ShouldCompileNewWorkflow is true")
+	}
+	if !input.ShouldCompileNewWorkflow && input.ExistingWorkflow == nil {
+		return errors.New("ExistingWorkflow is required when ShouldCompileNewWorkflow is false")
+	}
+	if input.NewWorkflow != nil && input.NewWorkflow.FolderLocation == "" {
+		return errors.New("WorkflowFolderLocation is required when ShouldCompileNewWorkflow is true")
+	}
+	if input.NewWorkflow != nil && input.NewWorkflow.WorkflowFileName == "" {
+		return errors.New("WorkflowFileName is required when ShouldCompileNewWorkflow is true")
+	}
+	if input.ExistingWorkflow != nil && input.ExistingWorkflow.BinaryURL == "" {
+		return errors.New("BinaryURL is required when ShouldCompileNewWorkflow is false")
 	}
 
 	return nil
