@@ -1,8 +1,9 @@
-# Changelog Chainlink Core
 
 ## 2.24.0 - UNRELEASED
 
 ### Minor Changes
+
+- [#17708](https://github.com/smartcontractkit/chainlink/pull/17708) [`9d444c8`](https://github.com/smartcontractkit/chainlink/commit/9d444c8199947c9a43e00db3174d1ebe9fd85278) - #bugfix Bump `libocr` to `61c382d` to fix a panic in `report_attestation.go` triggered when a DFv2 node lags behind and attempts to sync a reaped outcome
 
 - [#17405](https://github.com/smartcontractkit/chainlink/pull/17405) [`19ea60c`](https://github.com/smartcontractkit/chainlink/commit/19ea60c3c0252cc55da623abb26e211df29c802d) - #updated operator-ui - fix limited chains in fms
 
