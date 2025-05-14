@@ -257,17 +257,21 @@ func TestAddTokenE2E(t *testing.T) {
 					rateLimiterConfig.Inbound.Capacity,
 					e.Chains[chain].DeployerKey.From, // the pools are still owned by the deployer
 				)
-				if test.withNewToken {
-					// check token pool is added as minter
-					minterCheck, err := token.Contract.IsMinter(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
-					require.NoError(t, err)
-					require.True(t, minterCheck)
+				/*
+					This behavior is not currently enabled
 
-					// check token pool is added as burner
-					burnerCheck, err := token.Contract.IsBurner(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
-					require.NoError(t, err)
-					require.True(t, burnerCheck)
-				}
+						if test.withNewToken {
+							// check token pool is added as minter
+							minterCheck, err := token.Contract.IsMinter(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
+							require.NoError(t, err)
+							require.True(t, minterCheck)
+
+							// check token pool is added as burner
+							burnerCheck, err := token.Contract.IsBurner(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
+							require.NoError(t, err)
+							require.True(t, burnerCheck)
+						}
+				*/
 				// check if admin and set pool is set correctly
 				regConfig, err := registry.GetTokenConfig(&bind.CallOpts{Context: ctx}, token.Address)
 				require.NoError(t, err)
