@@ -24,14 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
 
-<<<<<<< HEAD
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-=======
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
->>>>>>> 8138e8d6621c6a3ea5d60a33d4fa518a4cf59f08
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -1685,29 +1680,6 @@ func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.Transact
 	return MintTokenInfo{auth: auth, sender: sender, tokens: tokens}
 }
 
-<<<<<<< HEAD
-=======
-// ApproveToken approves the router to spend the given amount of tokens
-func ApproveToken(env cldf.Environment, src uint64, tokenAddress common.Address, routerAddress common.Address, amount *big.Int) error {
-	token, err := erc20.NewERC20(tokenAddress, env.Chains[src].Client)
-	if err != nil {
-		return err
-	}
-
-	tx, err := token.Approve(env.Chains[src].DeployerKey, routerAddress, amount)
-	if err != nil {
-		return err
-	}
-
-	_, err = env.Chains[src].Confirm(tx)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
->>>>>>> 8138e8d6621c6a3ea5d60a33d4fa518a4cf59f08
 // MintAndAllow mints tokens for deployers and allow router to spend them
 func MintAndAllow(
 	t *testing.T,
