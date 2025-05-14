@@ -253,17 +253,17 @@ type csInputs struct {
 
 type AddRemoteChainE2EConfig struct {
 	// inputs to be filled by user
-	SolanaChainSelector                  uint64
-	EVMChainSelector                     uint64
-	IsTestRouter                         bool
-	EVMOnRampAllowListEnabled            bool
-	EVMFeeQuoterDestChainInput           fee_quoter.FeeQuoterDestChainConfig
-	InitialSolanaGasPriceForEVMFeeQuoter *big.Int
-	InitialEVMTokenPricesForEVMFeeQuoter map[common.Address]*big.Int
-	IsRMNVerificationEnabledOnEVMOffRamp bool
-	SolanaRouterConfig                   solana.RouterConfig
-	SolanaOffRampConfig                  solana.OffRampConfig
-	SolanaFeeQuoterConfig                solana.FeeQuoterConfig
+	SolanaChainSelector                   uint64
+	EVMChainSelector                      uint64
+	IsTestRouter                          bool
+	EVMOnRampAllowListEnabled             bool
+	EVMFeeQuoterDestChainInput            fee_quoter.FeeQuoterDestChainConfig
+	InitialSolanaGasPriceForEVMFeeQuoter  *big.Int
+	InitialEVMTokenPricesForEVMFeeQuoter  map[common.Address]*big.Int
+	IsRMNVerificationDisabledOnEVMOffRamp bool
+	SolanaRouterConfig                    solana.RouterConfig
+	SolanaOffRampConfig                   solana.OffRampConfig
+	SolanaFeeQuoterConfig                 solana.FeeQuoterConfig
 
 	MCMSConfig *proposalutils.TimelockConfig
 }
@@ -312,7 +312,7 @@ func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env cl
 				cfg.SolanaChainSelector: {
 					IsEnabled:                 true,
 					TestRouter:                cfg.IsTestRouter,
-					IsRMNVerificationDisabled: cfg.IsRMNVerificationEnabledOnEVMOffRamp,
+					IsRMNVerificationDisabled: cfg.IsRMNVerificationDisabledOnEVMOffRamp,
 				},
 			},
 		},
