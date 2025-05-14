@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink/deployment/cldf"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -38,7 +38,7 @@ func TestLinkTokenViewZk(t *testing.T) {
 	testLinkTokenViewWithChain(t, chain, lt)
 }
 
-func testLinkTokenViewWithChain(t *testing.T, chain deployment.Chain, lt *link_token.LinkToken) {
+func testLinkTokenViewWithChain(t *testing.T, chain cldf.Chain, lt *link_token.LinkToken) {
 	v, err := GenerateLinkTokenView(lt)
 	require.NoError(t, err)
 

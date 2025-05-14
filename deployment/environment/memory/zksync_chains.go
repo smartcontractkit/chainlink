@@ -19,13 +19,13 @@ import (
 	"github.com/zksync-sdk/zksync2-go/clients"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-func GenerateChainsZk(t *testing.T, numChains int) map[uint64]deployment.Chain {
-	chains := make(map[uint64]deployment.Chain)
+func GenerateChainsZk(t *testing.T, numChains int) map[uint64]cldf.Chain {
+	chains := make(map[uint64]cldf.Chain)
 
 	for i := 0; i < numChains; i++ {
 		chainID := chain_selectors.TEST_90000051.EvmChainID + uint64(i) //nolint:gosec // it shouldn't overflow
@@ -66,7 +66,7 @@ func GenerateChainsZk(t *testing.T, numChains int) map[uint64]deployment.Chain {
 		deployerZk, err := accounts.NewWallet(common.Hex2Bytes(blockchain.AnvilZKSyncRichAccountPks[0]), clientZk, nil)
 		require.NoError(t, err)
 
-		chain := deployment.Chain{
+		chain := cldf.Chain{
 			Selector:    sel,
 			Client:      client,
 			DeployerKey: keyedTransactors[0], // to use to interact with contracts

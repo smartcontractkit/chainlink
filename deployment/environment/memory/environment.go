@@ -109,7 +109,7 @@ func NewMemoryChainsAptos(t *testing.T, numChains int) map[uint64]cldf.AptosChai
 	return GenerateChainsAptos(t, numChains)
 }
 
-func NewMemoryChainsZk(t *testing.T, numChains int) map[uint64]deployment.Chain {
+func NewMemoryChainsZk(t *testing.T, numChains int) map[uint64]cldf.Chain {
 	return GenerateChainsZk(t, numChains)
 }
 
