@@ -27,7 +27,7 @@ import (
 )
 
 // sendTestLLOJobs sends some test LLO jobs, which we can then revoke, retrieve, delete, etc.
-func sendTestLLOJobs(t *testing.T, e deployment.Environment, numOracles, numBootstraps int, autoApproveJobs bool) []deployment.ChangesetOutput {
+func sendTestLLOJobs(t *testing.T, e cldf.Environment, numOracles, numBootstraps int, autoApproveJobs bool) []cldf.ChangesetOutput {
 	chainSel := e.AllChainSelectors()[0]
 	configurator := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
 	err := e.ExistingAddresses.Save(chainSel, configurator,
@@ -79,7 +79,7 @@ func sendTestLLOJobs(t *testing.T, e deployment.Environment, numOracles, numBoot
 }
 
 // sendTestStreamJobs sends some test stream jobs, which we can then revoke, retrieve, delete, etc.
-func sendTestStreamJobs(t *testing.T, e deployment.Environment, numOracles int, autoApproveJobs bool) []deployment.ChangesetOutput {
+func sendTestStreamJobs(t *testing.T, e cldf.Environment, numOracles int, autoApproveJobs bool) []cldf.ChangesetOutput {
 	_, oracleNodeNames := collectNodeNames(t, e, numOracles, 0)
 
 	var labels []*ptypes.Label
@@ -135,7 +135,7 @@ func sendTestStreamJobs(t *testing.T, e deployment.Environment, numOracles int, 
 	return out
 }
 
-func collectNodeNames(t *testing.T, e deployment.Environment, numOracles, numBootstraps int) (btNames, oracleNames []string) {
+func collectNodeNames(t *testing.T, e cldf.Environment, numOracles, numBootstraps int) (btNames, oracleNames []string) {
 	bootstrapNodeNames := make([]string, 0, numBootstraps)
 	oracleNodeNames := make([]string, 0, numOracles)
 	resp, err := e.Offchain.ListNodes(context.Background(), &node.ListNodesRequest{

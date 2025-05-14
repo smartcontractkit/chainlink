@@ -6,15 +6,15 @@ import (
 	"strconv"
 	"strings"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
-var _ deployment.ChangeSetV2[CsRevokeJobSpecsConfig] = CsRevokeJobSpecs{}
+var _ cldf.ChangeSetV2[CsRevokeJobSpecsConfig] = CsRevokeJobSpecs{}
 
 // CsRevokeJobSpecsConfig is the configuration for the revoking a job.
 // In order to revoke a job, we need to know one of two things:
@@ -31,7 +31,7 @@ type CsRevokeJobSpecsConfig struct {
 
 type CsRevokeJobSpecs struct{}
 
-func (CsRevokeJobSpecs) Apply(e deployment.Environment, cfg CsRevokeJobSpecsConfig) (deployment.ChangesetOutput, error) {
+func (CsRevokeJobSpecs) Apply(e cldf.Environment, cfg CsRevokeJobSpecsConfig) (cldf.ChangesetOutput, error) {
 	var filter *jobv1.ListJobsRequest_Filter
 	switch {
 	case len(cfg.UUIDs) > 0 && len(cfg.StreamIDs) == 0:
@@ -53,7 +53,7 @@ func (CsRevokeJobSpecs) Apply(e deployment.Environment, cfg CsRevokeJobSpecsConf
 			},
 		}
 	default:
-		return deployment.ChangesetOutput{}, errors.New("either job ids or stream ids are required")
+		return cldf.ChangesetOutput{}, errors.New("either job ids or stream ids are required")
 	}
 
 	// Fetch the internal job IDs from the job distributor:
@@ -61,13 +61,13 @@ func (CsRevokeJobSpecs) Apply(e deployment.Environment, cfg CsRevokeJobSpecsConf
 		Filter: filter,
 	})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to list jobs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to list jobs: %w", err)
 	}
 	if len(cfg.UUIDs) > 0 && len(jobsResp.Jobs) != len(cfg.UUIDs) {
-		return deployment.ChangesetOutput{}, errors.New("failed to find jobs for all provided UUIDs")
+		return cldf.ChangesetOutput{}, errors.New("failed to find jobs for all provided UUIDs")
 	}
 
-	revokedJobs := make([]deployment.ProposedJob, 0, len(jobsResp.Jobs))
+	revokedJobs := make([]cldf.ProposedJob, 0, len(jobsResp.Jobs))
 	for _, job := range jobsResp.Jobs {
 		resp, err := e.Offchain.RevokeJob(e.GetContext(), &jobv1.RevokeJobRequest{
 			IdOneof: &jobv1.RevokeJobRequest_Id{
@@ -75,20 +75,20 @@ func (CsRevokeJobSpecs) Apply(e deployment.Environment, cfg CsRevokeJobSpecsConf
 			},
 		})
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke job: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to revoke job: %w", err)
 		}
-		revokedJobs = append(revokedJobs, deployment.ProposedJob{
+		revokedJobs = append(revokedJobs, cldf.ProposedJob{
 			JobID: resp.GetProposal().GetJobId(),
 			Spec:  resp.GetProposal().GetSpec(),
 		})
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		Jobs: revokedJobs,
 	}, nil
 }
 
-func (f CsRevokeJobSpecs) VerifyPreconditions(_ deployment.Environment, config CsRevokeJobSpecsConfig) error {
+func (f CsRevokeJobSpecs) VerifyPreconditions(_ cldf.Environment, config CsRevokeJobSpecsConfig) error {
 	if (len(config.UUIDs) == 0 && len(config.StreamIDs) == 0) || (len(config.UUIDs) > 0 && len(config.StreamIDs) > 0) {
 		return errors.New("either job ids or stream ids are required")
 	}
