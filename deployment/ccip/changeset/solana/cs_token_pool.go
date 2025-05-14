@@ -169,7 +169,7 @@ func (cfg TokenPoolConfig) Validate(e cldf.Environment) error {
 }
 
 func AddTokenPoolAndLookupTable(e cldf.Environment, cfg TokenPoolConfig) (cldf.ChangesetOutput, error) {
-	e.Logger.Infow("Adding token pool", "token_pubkey", cfg.TokenPubKey)
+	e.Logger.Infow("Adding token pool", "cfg", cfg)
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -410,6 +410,7 @@ func getOnChainEVMPoolConfig(e cldf.Environment, state stateview.CCIPOnChainStat
 }
 
 func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg RemoteChainTokenPoolConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("Setting up token pool for remote chain", "cfg", cfg)
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -870,7 +871,7 @@ func (cfg TokenPoolLookupTableConfig) Validate(e cldf.Environment) error {
 }
 
 func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig) (cldf.ChangesetOutput, error) {
-	e.Logger.Infow("Adding token pool lookup table", "token_pubkey", cfg.TokenPubKey)
+	e.Logger.Infow("Adding token pool lookup table", "cfg", cfg)
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -981,7 +982,7 @@ func (cfg SetPoolConfig) Validate(e cldf.Environment) error {
 
 // this sets the writable indexes of the token pool lookup table
 func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error) {
-	e.Logger.Infof("Setting pool config for token %s", cfg.TokenPubKey)
+	e.Logger.Infow("Setting pool config", "cfg", cfg)
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

@@ -12,7 +12,7 @@ import (
 var _ cldf.ChangeSet[E2ETokenPoolConfig] = E2ETokenPool
 
 type E2ETokenPoolConfig struct {
-	AddTokenPoolAndLookupTable              []TokenPoolLookupTableConfig
+	AddTokenPoolAndLookupTable              []TokenPoolConfig
 	AddTokenPoolLookupTableConfig           []TokenPoolLookupTableConfig
 	RegisterTokenAdminRegistry              []RegisterTokenAdminRegistryConfig
 	AcceptAdminRoleTokenAdminRegistryConfig []AcceptAdminRoleTokenAdminRegistryConfig
@@ -29,7 +29,7 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 	}(e)
 
 	for _, tokenPoolConfig := range cfg.AddTokenPoolAndLookupTable {
-		output, err := AddTokenPoolLookupTable(e, tokenPoolConfig)
+		output, err := AddTokenPoolAndLookupTable(e, tokenPoolConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
 		}
