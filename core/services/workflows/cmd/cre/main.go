@@ -10,9 +10,7 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -72,24 +70,11 @@ func run(ctx context.Context, lggr logger.Logger, binary, config []byte) {
 		os.Exit(1)
 	}
 
-	capabilities := make([]services.Service, 0, 6)
-
-	// CRON trigger
-	cronTrigger := fakes.NewFakeCronTrigger(lggr)
-
-	err = registry.Add(ctx, cronTrigger.Capability())
+	capabilities, err := NewFakeCapabilities(ctx, lggr, registry)
 	if err != nil {
-		fmt.Printf("failed to add cron trigger to registry : %w", err)
+		fmt.Printf("Failed to create capabilities: %v\n", err)
 		os.Exit(1)
 	}
-
-	capabilities = append(capabilities, cronTrigger)
-
-	/* 	capabilities, err := NewFakeCapabilities(ctx, lggr, registry)
-	   	if err != nil {
-	   		fmt.Printf("Failed to create capabilities: %v\n", err)
-	   		os.Exit(1)
-	   	} */
 	for _, cap := range capabilities {
 		if err2 := cap.Start(ctx); err2 != nil {
 			fmt.Printf("Failed to start capability: %v\n", err2)
