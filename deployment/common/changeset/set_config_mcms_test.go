@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonchangesetsolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -27,7 +27,7 @@ import (
 )
 
 // setupSetConfigTestEnv deploys all required contracts for the setConfig MCMS contract call.
-func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
+func setupSetConfigTestEnv(t *testing.T) cldf.Environment {
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
 		Chains:    2,
@@ -424,7 +424,7 @@ func TestValidateV2(t *testing.T) {
 }
 
 func fundSignerPDAs(
-	t *testing.T, env deployment.Environment, chainSelector uint64, chainState *state.MCMSWithTimelockStateSolana,
+	t *testing.T, env cldf.Environment, chainSelector uint64, chainState *state.MCMSWithTimelockStateSolana,
 ) {
 	t.Helper()
 	solChain := env.SolChains[chainSelector]

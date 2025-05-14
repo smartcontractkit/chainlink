@@ -13,15 +13,15 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
 func BenchmarkEthConfirmer(b *testing.B) {
 	db := testutils.NewSqlxDB(b)
-	txStore := cltest.NewTestTxStore(b, db)
+	txStore := txmgrtest.NewTestTxStore(b, db)
 	ethClient := clienttest.NewClientWithDefaultChainID(b)
 	evmcfg := configtest.NewChainScopedConfig(b, func(c *toml.EVMConfig) {
 		c.GasEstimator.PriceMax = assets.GWei(500)

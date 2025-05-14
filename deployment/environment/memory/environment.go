@@ -62,11 +62,11 @@ type MemoryEnvironmentConfig struct {
 type NewNodesConfig struct {
 	LogLevel zapcore.Level
 	// EVM chains to be configured. Optional.
-	Chains map[uint64]deployment.Chain
+	Chains map[uint64]cldf.Chain
 	// Solana chains to be configured. Optional.
-	SolChains map[uint64]deployment.SolChain
+	SolChains map[uint64]cldf.SolChain
 	// Aptos chains to be configured. Optional.
-	AptosChains    map[uint64]deployment.AptosChain
+	AptosChains    map[uint64]cldf.AptosChain
 	NumNodes       int
 	NumBootstraps  int
 	RegistryConfig deployment.CapabilityRegistryConfig
@@ -75,8 +75,8 @@ type NewNodesConfig struct {
 }
 
 // For placeholders like aptos
-func NewMemoryChain(t *testing.T, selector uint64) deployment.Chain {
-	return deployment.Chain{
+func NewMemoryChain(t *testing.T, selector uint64) cldf.Chain {
+	return cldf.Chain{
 		Selector:    selector,
 		Client:      nil,
 		DeployerKey: &bind.TransactOpts{},
@@ -88,7 +88,7 @@ func NewMemoryChain(t *testing.T, selector uint64) deployment.Chain {
 
 // Needed for environment variables on the node which point to prexisitng addresses.
 // i.e. CapReg.
-func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
+func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]cldf.Chain, map[uint64][]*bind.TransactOpts) {
 	mchains := GenerateChains(t, numChains, numUsers)
 	users := make(map[uint64][]*bind.TransactOpts)
 	for id, chain := range mchains {
@@ -99,16 +99,16 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]depl
 	return generateMemoryChain(t, mchains), users
 }
 
-func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]deployment.SolChain {
+func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]cldf.SolChain {
 	mchains := GenerateChainsSol(t, numChains)
 	return generateMemoryChainSol(mchains)
 }
 
-func NewMemoryChainsAptos(t *testing.T, numChains int) map[uint64]deployment.AptosChain {
+func NewMemoryChainsAptos(t *testing.T, numChains int) map[uint64]cldf.AptosChain {
 	return GenerateChainsAptos(t, numChains)
 }
 
-func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
+func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]cldf.Chain, map[uint64][]*bind.TransactOpts) {
 	mchains := GenerateChainsWithIds(t, chainIDs, numUsers)
 	users := make(map[uint64][]*bind.TransactOpts)
 	for id, chain := range mchains {
@@ -119,14 +119,14 @@ func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) 
 	return generateMemoryChain(t, mchains), users
 }
 
-func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]deployment.Chain {
-	chains := make(map[uint64]deployment.Chain)
+func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]cldf.Chain {
+	chains := make(map[uint64]cldf.Chain)
 	for cid, chain := range inputs {
 		chain := chain
 		chainInfo, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(cid, 10), chainsel.FamilyEVM)
 		require.NoError(t, err)
 		backend := NewBackend(chain.Backend)
-		chains[chainInfo.ChainSelector] = deployment.Chain{
+		chains[chainInfo.ChainSelector] = cldf.Chain{
 			Selector:    chainInfo.ChainSelector,
 			Client:      backend,
 			DeployerKey: chain.DeployerKey,
@@ -160,11 +160,11 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	return chains
 }
 
-func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]deployment.SolChain {
-	chains := make(map[uint64]deployment.SolChain)
+func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]cldf.SolChain {
+	chains := make(map[uint64]cldf.SolChain)
 	for cid, chain := range inputs {
 		chain := chain
-		chains[cid] = deployment.SolChain{
+		chains[cid] = cldf.SolChain{
 			Selector:     cid,
 			Client:       chain.Client,
 			DeployerKey:  &chain.DeployerKey,
@@ -233,16 +233,16 @@ func NewNodes(
 func NewMemoryEnvironmentFromChainsNodes(
 	ctx func() context.Context,
 	lggr logger.Logger,
-	chains map[uint64]deployment.Chain,
-	solChains map[uint64]deployment.SolChain,
-	aptosChains map[uint64]deployment.AptosChain,
+	chains map[uint64]cldf.Chain,
+	solChains map[uint64]cldf.SolChain,
+	aptosChains map[uint64]cldf.AptosChain,
 	nodes map[string]Node,
-) deployment.Environment {
+) cldf.Environment {
 	var nodeIDs []string
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
 	}
-	return *deployment.NewEnvironment(
+	return *cldf.NewEnvironment(
 		Memory,
 		lggr,
 		cldf.NewMemoryAddressBook(),
@@ -261,7 +261,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 }
 
 // To be used by tests and any kind of deployment logic.
-func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
+func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) cldf.Environment {
 	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
 	solChains := NewMemoryChainsSol(t, config.SolChains)
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
@@ -284,7 +284,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		})
 		nodeIDs = append(nodeIDs, id)
 	}
-	return *deployment.NewEnvironment(
+	return *cldf.NewEnvironment(
 		Memory,
 		lggr,
 		cldf.NewMemoryAddressBook(),

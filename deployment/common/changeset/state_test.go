@@ -20,13 +20,13 @@ import (
 func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 	type testCase struct {
 		name      string
-		chain     deployment.Chain
+		chain     cldf.Chain
 		addresses map[string]cldf.TypeAndVersion
 		wantState *MCMSWithTimelockState // Expected state
 		wantErr   string
 	}
 
-	defaultChain := deployment.Chain{
+	defaultChain := cldf.Chain{
 		Selector: chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector,
 	}
 	tests := []testCase{

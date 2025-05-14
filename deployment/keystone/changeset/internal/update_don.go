@@ -16,7 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -28,7 +30,7 @@ type CapabilityConfig struct {
 }
 
 type UpdateDonRequest struct {
-	Chain                deployment.Chain
+	Chain                cldf.Chain
 	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 
 	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
@@ -100,11 +102,11 @@ func UpdateDon(_ logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, erro
 
 	txOpts := req.Chain.DeployerKey
 	if req.UseMCMS {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 	tx, err := registry.UpdateDON(txOpts, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
 	if err != nil {
-		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateDON: %w", err)
 	}
 	var ops types.BatchOperation

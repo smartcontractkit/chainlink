@@ -10,7 +10,9 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -23,7 +25,7 @@ func TestGeneratePriceRegistryView(t *testing.T) {
 	f1, f2 := common.HexToAddress("0x1"), common.HexToAddress("0x2")
 	_, tx, c, err := price_registry_1_2_0.DeployPriceRegistry(
 		chain.DeployerKey, chain.Client, []common.Address{chain.DeployerKey.From}, []common.Address{f1, f2}, uint32(10))
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	v, err := GeneratePriceRegistryView(c)

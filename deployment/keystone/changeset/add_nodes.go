@@ -197,7 +197,7 @@ type AddNodesRequest struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-func (r *AddNodesRequest) Validate(env deployment.Environment) error {
+func (r *AddNodesRequest) Validate(env cldf.Environment) error {
 	if len(r.CreateNodeRequests) == 0 {
 		return errors.New("must provide create node requests")
 	}
@@ -214,7 +214,7 @@ func (r *AddNodesRequest) Validate(env deployment.Environment) error {
 
 var _ cldf.ChangeSet[*AddNodesRequest] = AddNodes
 
-func AddNodes(env deployment.Environment, req *AddNodesRequest) (cldf.ChangesetOutput, error) {
+func AddNodes(env cldf.Environment, req *AddNodesRequest) (cldf.ChangesetOutput, error) {
 	err := req.Validate(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)

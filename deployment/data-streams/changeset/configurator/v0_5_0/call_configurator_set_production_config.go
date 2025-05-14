@@ -6,14 +6,13 @@ import (
 
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 var SetProductionConfigChangeset = cldf.CreateChangeSet(setProductionConfigLogic, setProductionConfigPrecondition)
@@ -31,7 +30,7 @@ func (cfg SetProductionConfigConfig) Validate() error {
 	return nil
 }
 
-func setProductionConfigPrecondition(_ deployment.Environment, cfg SetProductionConfigConfig) error {
+func setProductionConfigPrecondition(_ cldf.Environment, cfg SetProductionConfigConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployConfiguratorConfig: %w", err)
 	}
@@ -39,7 +38,7 @@ func setProductionConfigPrecondition(_ deployment.Environment, cfg SetProduction
 	return nil
 }
 
-func setProductionConfigLogic(e deployment.Environment, cfg SetProductionConfigConfig) (cldf.ChangesetOutput, error) {
+func setProductionConfigLogic(e cldf.Environment, cfg SetProductionConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.Configurator.String(),
@@ -58,7 +57,7 @@ func doSetProductionConfig(
 	c *configurator.Configurator,
 	prodCfg ConfiguratorConfig,
 ) (*ethTypes.Transaction, error) {
-	return c.SetProductionConfig(deployment.SimTransactOpts(),
+	return c.SetProductionConfig(cldf.SimTransactOpts(),
 		prodCfg.ConfigID,
 		prodCfg.Signers,
 		prodCfg.OffchainTransmitters,

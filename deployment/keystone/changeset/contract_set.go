@@ -29,7 +29,7 @@ type contractSetV2 struct {
 // getContractSetsRequestV2 is the request structure for getting contract sets.
 type getContractSetsRequestV2 struct {
 	AddressBook cldf.AddressBook
-	Chains      map[uint64]deployment.Chain
+	Chains      map[uint64]cldf.Chain
 	Labels      []string
 }
 
@@ -108,7 +108,7 @@ func getContractSetsV2(lggr logger.Logger, req getContractSetsRequestV2) (*getCo
 	return out, nil
 }
 
-func loadContractSetV2(lggr logger.Logger, addressBook cldf.AddressBook, chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*contractSetV2, error) {
+func loadContractSetV2(lggr logger.Logger, addressBook cldf.AddressBook, chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*contractSetV2, error) {
 	var out contractSetV2
 
 	handlers := map[cldf.ContractType]func(string) error{

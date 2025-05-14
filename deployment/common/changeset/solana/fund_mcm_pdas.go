@@ -8,7 +8,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
@@ -30,7 +30,7 @@ type FundMCMSignerConfig struct {
 type FundMCMSignersChangeset struct{}
 
 // VerifyPreconditions checks if the deployer has enough SOL to fund the MCMS signers on each chain.
-func (f FundMCMSignersChangeset) VerifyPreconditions(e deployment.Environment, config FundMCMSignerConfig) error {
+func (f FundMCMSignersChangeset) VerifyPreconditions(e cldf.Environment, config FundMCMSignerConfig) error {
 	// the number of accounts to fund per chain (bypasser, canceller, proposer, timelock)
 	for chainSelector, chainCfg := range config.AmountsPerChain {
 		solChain, ok := e.SolChains[chainSelector]
@@ -66,7 +66,7 @@ func (f FundMCMSignersChangeset) VerifyPreconditions(e deployment.Environment, c
 }
 
 // Apply funds the MCMS signers on each chain.
-func (f FundMCMSignersChangeset) Apply(e deployment.Environment, config FundMCMSignerConfig) (cldf.ChangesetOutput, error) {
+func (f FundMCMSignersChangeset) Apply(e cldf.Environment, config FundMCMSignerConfig) (cldf.ChangesetOutput, error) {
 	for chainSelector, cfgAmounts := range config.AmountsPerChain {
 		solChain := e.SolChains[chainSelector]
 		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)

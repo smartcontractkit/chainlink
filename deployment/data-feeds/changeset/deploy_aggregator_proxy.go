@@ -8,8 +8,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -17,7 +15,7 @@ import (
 // from addressbook to set it in the AggregatorProxy constructor. Returns a new addressbook with deploy AggregatorProxy contract addresses.
 var DeployAggregatorProxyChangeset = cldf.CreateChangeSet(deployAggregatorProxyLogic, deployAggregatorProxyPrecondition)
 
-func deployAggregatorProxyLogic(env deployment.Environment, c types.DeployAggregatorProxyConfig) (cldf.ChangesetOutput, error) {
+func deployAggregatorProxyLogic(env cldf.Environment, c types.DeployAggregatorProxyConfig) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	ab := cldf.NewMemoryAddressBook()
 
@@ -44,7 +42,7 @@ func deployAggregatorProxyLogic(env deployment.Environment, c types.DeployAggreg
 	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func deployAggregatorProxyPrecondition(env deployment.Environment, c types.DeployAggregatorProxyConfig) error {
+func deployAggregatorProxyPrecondition(env cldf.Environment, c types.DeployAggregatorProxyConfig) error {
 	if len(c.AccessController) != len(c.ChainsToDeploy) {
 		return errors.New("AccessController addresses must be provided for each chain to deploy")
 	}

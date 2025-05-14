@@ -26,6 +26,7 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -40,11 +41,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
 func newBroadcastLegacyEthTxAttempt(t testing.TB, etxID int64, gasPrice ...int64) txmgr.TxAttempt {
-	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
+	attempt := txmgrtest.NewLegacyEthTxAttempt(t, etxID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	if len(gasPrice) > 0 {
 		gp := gasPrice[0]
@@ -64,7 +64,7 @@ func newTxReceipt(hash gethCommon.Hash, blockNumber int, txIndex uint) evmtypes.
 }
 
 func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.TxAttempt {
-	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
+	attempt := txmgrtest.NewLegacyEthTxAttempt(t, etxID)
 	attempt.State = txmgrtypes.TxAttemptInProgress
 	if len(gasPrice) > 0 {
 		gp := gasPrice[0]
@@ -74,7 +74,7 @@ func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int6
 }
 
 func mustInsertInProgressEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.Tx {
-	etx := cltest.NewEthTx(fromAddress)
+	etx := txmgrtest.NewEthTx(fromAddress)
 	etx.State = txmgrcommon.TxInProgress
 	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
@@ -84,7 +84,7 @@ func mustInsertInProgressEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce
 }
 
 func mustInsertConfirmedEthTx(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.Tx {
-	etx := cltest.NewEthTx(fromAddress)
+	etx := txmgrtest.NewEthTx(fromAddress)
 	etx.State = txmgrcommon.TxConfirmed
 	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
@@ -182,7 +182,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	evmcfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 		c.GasEstimator.PriceMax = assets.GWei(500)
@@ -416,7 +416,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	ctx := t.Context()
 
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
@@ -461,7 +461,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	})
 
 	// This one has BroadcastBeforeBlockNum set as nil... which can happen, but it should be ignored
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
+	txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 
 	t.Run("ignores unconfirmed transactions with nil BroadcastBeforeBlockNum", func(t *testing.T) {
@@ -471,7 +471,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 		require.Empty(t, etxs)
 	})
 
-	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
+	etx1 := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt1_1 := etx1.TxAttempts[0]
 	var dbAttempt txmgr.DbEthTxAttempt
@@ -489,7 +489,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 		assert.Empty(t, etxs)
 	})
 
-	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
+	etx2 := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt2_1 := etx2.TxAttempts[0]
 	dbAttempt = txmgr.DbEthTxAttempt{}
@@ -503,7 +503,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 		assert.Empty(t, etxs)
 	})
 
-	etxWithoutAttempts := cltest.NewEthTx(fromAddress)
+	etxWithoutAttempts := txmgrtest.NewEthTx(fromAddress)
 	{
 		n := evmtypes.Nonce(nonce)
 		etxWithoutAttempts.Sequence = &n
@@ -537,7 +537,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 		require.Empty(t, etxs)
 	})
 
-	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
+	etx3 := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt3_1 := etx3.TxAttempts[0]
 	dbAttempt = txmgr.DbEthTxAttempt{}
@@ -545,7 +545,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_1.ID))
 
 	// NOTE: It should ignore qualifying eth_txes from a different address
-	etxOther := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, evmOtherAddress)
+	etxOther := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, evmOtherAddress)
 	attemptOther1 := etxOther.TxAttempts[0]
 	dbAttempt = txmgr.DbEthTxAttempt{}
 	dbAttempt.FromTxAttempt(&attemptOther1)
@@ -595,7 +595,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 		require.Len(t, etxs, 2) // includes etxWithoutAttempts, etx3 and etx4
 	})
 
-	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
+	etx4 := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt4_1 := etx4.TxAttempts[0]
 	dbAttempt = txmgr.DbEthTxAttempt{}
@@ -604,7 +604,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 
 	t.Run("ignores pending transactions for another key", func(t *testing.T) {
 		// Re-use etx3 nonce for another key, it should not affect the results for this key
-		etxOther := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, (*etx3.Sequence).Int64(), evmOtherAddress)
+		etxOther := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, (*etx3.Sequence).Int64(), evmOtherAddress)
 		aOther := etxOther.TxAttempts[0]
 		dbAttempt = txmgr.DbEthTxAttempt{}
 		dbAttempt.FromTxAttempt(&aOther)
@@ -659,7 +659,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	// This attempt has insufficient_eth, but there is also another attempt4_1
 	// which is old enough, so this will be caught by both queries and should
 	// not be duplicated
-	attempt4_2 := cltest.NewLegacyEthTxAttempt(t, etx4.ID)
+	attempt4_2 := txmgrtest.NewLegacyEthTxAttempt(t, etx4.ID)
 	attempt4_2.State = txmgrtypes.TxAttemptInsufficientFunds
 	attempt4_2.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(40000)}
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt4_2))
@@ -718,7 +718,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		})
 
 		ctx := t.Context()
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		fromAddress := testutils.NewAddress()
 
 		estimator := gasmocks.NewEvmEstimator(t)
@@ -739,7 +739,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		nonce := int64(0)
 		originalBroadcastAt := time.Unix(1616509100, 0)
 
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
+		etx := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
 		attempt1 := etx.TxAttempts[0]
 		var dbAttempt txmgr.DbEthTxAttempt
 		dbAttempt.FromTxAttempt(&attempt1)
@@ -764,7 +764,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		})
 
 		ctx := t.Context()
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		fromAddress := testutils.NewAddress()
 
 		estimator := gasmocks.NewEvmEstimator(t)
@@ -807,7 +807,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_MaxFeeScenario(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	ctx := t.Context()
 
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
@@ -826,7 +826,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_MaxFeeScenario(t *testing.T) {
 	nonce := int64(0)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
-	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
+	etx := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
 	attempt1_1 := etx.TxAttempts[0]
 	var dbAttempt txmgr.DbEthTxAttempt
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
@@ -865,7 +865,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("does nothing if no transactions require bumping", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		memKS := keystest.NewMemoryChainStore()
 		memKS.MustCreate(t)
 		ethKeyStore := keys.NewChainStore(memKS, ethClient.ConfiguredChainID())
@@ -876,7 +876,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("re-sends previous transaction on keystore error", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		fromAddress := keystest.NewMemoryChainStore().MustCreate(t)
 		kst := &keystest.FakeChainStore{
 			Addresses: keystest.Addresses{fromAddress},
@@ -906,7 +906,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("does nothing and continues on fatal error", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		memKS := keystest.NewMemoryChainStore()
 		fromAddress := memKS.MustCreate(t)
 		ethKeyStore := keys.NewChainStore(memKS, ethClient.ConfiguredChainID())
@@ -926,7 +926,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("creates new attempt with higher gas price if transaction has an attempt older than threshold", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		memKS := keystest.NewMemoryChainStore()
 		fromAddress := memKS.MustCreate(t)
 		ethKeyStore := keys.NewChainStore(memKS, ethClient.ConfiguredChainID())
@@ -954,7 +954,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("does nothing if there is an attempt without BroadcastBeforeBlockNum set", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		memKS := keystest.NewMemoryChainStore()
 		fromAddress := memKS.MustCreate(t)
 		ethKeyStore := keys.NewChainStore(memKS, ethClient.ConfiguredChainID())
@@ -971,7 +971,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("creates new attempt with higher gas price if transaction is already in mempool (e.g. due to previous crash before we could save the new attempt)", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		memKS := keystest.NewMemoryChainStore()
 		fromAddress := memKS.MustCreate(t)
 		ethKeyStore := keys.NewChainStore(memKS, ethClient.ConfiguredChainID())
@@ -999,7 +999,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("saves new attempt even for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		memKS := keystest.NewMemoryChainStore()
 		fromAddress := memKS.MustCreate(t)
 		ethKeyStore := keys.NewChainStore(memKS, ethClient.ConfiguredChainID())
@@ -1030,7 +1030,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("saves in-progress attempt on temporary error and returns error", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		memKS := keystest.NewMemoryChainStore()
 		fromAddress := memKS.MustCreate(t)
 		ethKeyStore := keys.NewChainStore(memKS, ethClient.ConfiguredChainID())
@@ -1082,7 +1082,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("re-bumps attempt if initial bump is underpriced because the bumped gas price is insufficiently higher than the previous one", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		memKS := keystest.NewMemoryChainStore()
 		fromAddress := memKS.MustCreate(t)
 		ethKeyStore := keys.NewChainStore(memKS, ethClient.ConfiguredChainID())
@@ -1114,7 +1114,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("resubmits at the old price and does not create a new attempt if one of the bumped transactions would exceed EVM.GasEstimator.PriceMax", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		priceMax := assets.GWei(30)
 		newCfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 			c.GasEstimator.PriceMax = priceMax
@@ -1146,7 +1146,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("resubmits at the old price and does not create a new attempt if the current price is exactly EVM.GasEstimator.PriceMax", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		priceMax := assets.GWei(30)
 		newCfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 			c.GasEstimator.PriceMax = priceMax
@@ -1177,7 +1177,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("EIP-1559: bumps using EIP-1559 rules when existing attempts are of type 0x2", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		newCfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 			c.GasEstimator.BumpMin = assets.GWei(1)
 		})
@@ -1209,7 +1209,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("EIP-1559: resubmits at the old price and does not create a new attempt if one of the bumped EIP-1559 transactions would have its tip cap exceed EVM.GasEstimator.PriceMax", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		newCfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 			c.GasEstimator.PriceMax = assets.NewWeiI(1)
 		})
@@ -1239,7 +1239,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	t.Run("EIP-1559: re-bumps attempt if initial bump is underpriced because the bumped gas price is insufficiently higher than the previous one", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		newCfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 			c.GasEstimator.BumpMin = assets.GWei(1)
 		})
@@ -1277,7 +1277,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 
 	memKS := keystest.NewMemoryChainStore()
 	fromAddress := memKS.MustCreate(t)
@@ -1314,7 +1314,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
 
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
+		etx := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 		nonce++
 		legacyAttempt := etx.TxAttempts[0]
 		var dbAttempt txmgr.DbEthTxAttempt
@@ -1356,7 +1356,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	t.Parallel()
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	ctx := t.Context()
 
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
@@ -1369,7 +1369,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	oldEnough := int64(19)
 	nonce := int64(0)
 
-	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
+	etx := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt1_1 := etx.TxAttempts[0]
 	var dbAttempt txmgr.DbEthTxAttempt
@@ -1490,7 +1490,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyStuckError(t *testing.
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	ctx := t.Context()
 
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
@@ -1511,7 +1511,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyStuckError(t *testing.
 
 	t.Run("terminally stuck transaction replaced with purge attempt", func(t *testing.T) {
 		originalBroadcastAt := time.Unix(1616509100, 0)
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
+		etx := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
 		nonce++
 		attempt1_1 := etx.TxAttempts[0]
 		var dbAttempt txmgr.DbEthTxAttempt
@@ -1542,7 +1542,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 
 	memKS := keystest.NewMemoryChainStore()
 	fromAddress := memKS.MustCreate(t)
@@ -1551,8 +1551,8 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, config.EVM().ChainID())
 	mustInsertInProgressEthTx(t, txStore, 0, fromAddress)
-	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
-	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
+	etx1 := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
+	etx2 := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
 
 	gasPriceWei := gas.EvmFee{GasPrice: assets.GWei(52)}
 	overrideGasLimit := uint64(20000)
@@ -1643,7 +1643,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	fromAddress := testutils.NewAddress()
 	ethKeyStore := &keystest.FakeChainStore{Addresses: keystest.Addresses{fromAddress}}
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
