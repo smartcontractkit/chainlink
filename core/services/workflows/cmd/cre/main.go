@@ -60,8 +60,7 @@ func main() {
 	// Create the registry and fake capabilities
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-	names := []string{"streams", "consensus", "write_aptos", "cron"}
-	capabilities, err := NewFakeCapabilities(ctx, lggr, names, registry)
+	capabilities, err := NewFakeCapabilities(ctx, lggr, registry)
 	if err != nil {
 		fmt.Printf("Failed to create capabilities: %v\n", err)
 		os.Exit(1)

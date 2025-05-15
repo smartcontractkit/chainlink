@@ -118,45 +118,39 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 	return map[string]string{}, nil
 }
 
-func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, names []string, registry *capabilities.Registry) ([]services.Service, error) {
+func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
-	for _, name := range names {
-		switch name {
-		case "streams":
-			streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
-			if err := registry.Add(ctx, streamsTrigger); err != nil {
-				return nil, err
-			}
-			caps = append(caps, streamsTrigger)
-		case "cron":
-			cronTrigger := cronserver.NewCronServer(
-				fakes.NewTriggerService(lggr, nil),
-			)
-			if err := registry.Add(ctx, cronTrigger); err != nil {
-				return nil, fmt.Errorf("failed to add cron trigger to registry : %w", err)
-			}
-			caps = append(caps, cronTrigger)
-		case "consensus":
-			fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
-			if err != nil {
-				return nil, err
-			}
-			if err := registry.Add(ctx, fakeConsensus); err != nil {
-				return nil, err
-			}
-			caps = append(caps, fakeConsensus)
-		case "write_aptos":
-			writers := []string{"write_aptos-testnet@1.0.0"}
-			for _, writer := range writers {
-				writeCap := fakes.NewFakeWriteChain(lggr, writer)
-				if err := registry.Add(ctx, writeCap); err != nil {
-					return nil, err
-				}
-				caps = append(caps, writeCap)
-			}
-		default:
-			return nil, fmt.Errorf("cannot match %s to a capability", name)
-		}
+	streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
+	if err := registry.Add(ctx, streamsTrigger); err != nil {
+		return nil, err
 	}
+	caps = append(caps, streamsTrigger)
+
+	cronTrigger := cronserver.NewCronServer(
+		fakes.NewTriggerService(lggr, nil),
+	)
+	if err := registry.Add(ctx, cronTrigger); err != nil {
+		return nil, fmt.Errorf("failed to add cron trigger to registry : %w", err)
+	}
+	caps = append(caps, cronTrigger)
+
+	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
+	if err != nil {
+		return nil, err
+	}
+	if err := registry.Add(ctx, fakeConsensus); err != nil {
+		return nil, err
+	}
+	caps = append(caps, fakeConsensus)
+
+	writers := []string{"write_aptos-testnet@1.0.0"}
+	for _, writer := range writers {
+		writeCap := fakes.NewFakeWriteChain(lggr, writer)
+		if err := registry.Add(ctx, writeCap); err != nil {
+			return nil, err
+		}
+		caps = append(caps, writeCap)
+	}
+
 	return caps, nil
 }
