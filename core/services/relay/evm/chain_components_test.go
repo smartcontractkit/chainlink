@@ -33,9 +33,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	clevmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	lpMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"

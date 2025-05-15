@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups"
 	evmheads "github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 )
 
