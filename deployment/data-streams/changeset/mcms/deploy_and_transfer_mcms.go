@@ -6,7 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
@@ -27,7 +27,7 @@ func (cc DeployMCMSConfig) GetOwnershipConfig() types.OwnershipSettings {
 	return cc.Ownership
 }
 
-func deployAndTransferMcmsLogic(e deployment.Environment, cc DeployMCMSConfig) (deployment.ChangesetOutput, error) {
+func deployAndTransferMcmsLogic(e cldf.Environment, cc DeployMCMSConfig) (cldf.ChangesetOutput, error) {
 	cfgByChain := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, chain := range cc.ChainsToDeploy {
 		cfgByChain[chain] = cc.Config
@@ -35,7 +35,7 @@ func deployAndTransferMcmsLogic(e deployment.Environment, cc DeployMCMSConfig) (
 
 	mcmsOut, err := commonChangesets.DeployMCMSWithTimelockV2(e, cfgByChain)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy MCMS: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy MCMS: %w", err)
 	}
 
 	// CallProxy has no owner, RBACTimelock has an "admin" setting in place of owner
@@ -48,7 +48,7 @@ func deployAndTransferMcmsLogic(e deployment.Environment, cc DeployMCMSConfig) (
 	// DeployMCMSWithTimelockV2 currently does not use the DataStore
 	ds, err := utils.AddressBookToNewDataStore[metadata.SerializedContractMetadata, datastore.DefaultMetadata](mcmsOut.AddressBook) //nolint:staticcheck // won't migrate now
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to address book: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to address book: %w", err)
 	}
 
 	var transferAddresses []datastore.AddressRef
@@ -63,32 +63,32 @@ func deployAndTransferMcmsLogic(e deployment.Environment, cc DeployMCMSConfig) (
 	for _, addr := range addrs {
 		err := requiredAddrs.Addresses().Add(addr)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to add address to data store: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add address to data store: %w", err)
 		}
 	}
 	requiredAddrsDs, err := datastore.ToDefault(requiredAddrs.Seal())
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
 	}
 	e.DataStore = requiredAddrsDs.Seal()
 
 	proposals, err := mcmsutil.GetTransferOwnershipProposals(e, cc, transferAddresses)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to MCMS: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to MCMS: %w", err)
 	}
 
 	sealedDS, err := datastore.ToDefault(ds.Seal())
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook:           mcmsOut.AddressBook, //nolint:staticcheck // won't migrate now - kept for backwards compatibility until AddressBook is removed
 		DataStore:             sealedDS,
 		MCMSTimelockProposals: proposals}, nil
 }
 
-func deployAndTransferMcmsPrecondition(_ deployment.Environment, cc DeployMCMSConfig) error {
+func deployAndTransferMcmsPrecondition(_ cldf.Environment, cc DeployMCMSConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployMCMSConfig: %w", err)
 	}
@@ -100,7 +100,7 @@ func (cc DeployMCMSConfig) Validate() error {
 		return errors.New("ChainsToDeploy is empty")
 	}
 	for _, chain := range cc.ChainsToDeploy {
-		if err := deployment.IsValidChainSelector(chain); err != nil {
+		if err := cldf.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
 	}

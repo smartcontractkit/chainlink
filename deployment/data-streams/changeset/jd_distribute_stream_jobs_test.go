@@ -5,6 +5,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	jdJob "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -18,15 +23,12 @@ import (
 func TestDistributeStreamJobSpecs(t *testing.T) {
 	t.Parallel()
 	t.Skip("Skipping testing in CI environment") // flaking on CI
-	const donID = 1
-	const donName = "don"
-	const envName = "envName"
 
 	env := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
 		ShouldDeployLinkToken: false,
 		NumNodes:              3,
-		NodeLabels:            testutil.GetNodeLabels(donID, donName, envName),
+		NodeLabels:            testutil.GetNodeLabels(testutil.TestDON.ID, testutil.TestDON.Name, testutil.TestDON.Env),
 		CustomDBSetup: []string{
 			// Seed the database with the list of bridges we're using.
 			`INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, created_at, updated_at)
@@ -40,12 +42,19 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 		},
 	}).Environment
 
+	resp, err := env.Offchain.ListNodes(t.Context(), &node.ListNodesRequest{})
+	require.NoError(t, err)
+	nodeNames := make([]string, 0, len(resp.Nodes))
+	for _, n := range resp.Nodes {
+		nodeNames = append(nodeNames, n.Name)
+	}
+
 	// pick the first EVM chain selector
 	chainSelector := env.AllChainSelectors()[0]
 
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
-	err := env.ExistingAddresses.Save(chainSelector, configuratorAddr,
+	err = env.ExistingAddresses.Save(chainSelector, configuratorAddr,
 		cldf.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
@@ -105,9 +114,9 @@ ask_price [type=median allowedFaults=3 index=2];
 
 	config := CsDistributeStreamJobSpecsConfig{
 		Filter: &jd.ListFilter{
-			DONID:          donID,
-			DONName:        donName,
-			EnvLabel:       envName,
+			DONID:          testutil.TestDON.ID,
+			DONName:        testutil.TestDON.Name,
+			EnvLabel:       testutil.TestDON.Env,
 			NumOracleNodes: 3,
 		},
 		Streams: []StreamSpecConfig{
@@ -134,7 +143,13 @@ ask_price [type=median allowedFaults=3 index=2];
 				APIs: []string{"api1", "api2", "api3", "api4"},
 			},
 		},
-		NodeNames: []string{"node-0", "node-1", "node-2"},
+		Labels: []*ptypes.Label{
+			{
+				Key:   "customTestLabel",
+				Value: pointer.To("customTestValue"),
+			},
+		},
+		NodeNames: nodeNames,
 	}
 
 	tests := []struct {
@@ -159,11 +174,11 @@ ask_price [type=median allowedFaults=3 index=2];
 			// This happens to also be a job update when run after "success" because the two use the same ExternalJobID.
 			name: "success sending jobs to a subset of nodes",
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.NodeNames = []string{"node-0"}
+				c.NodeNames = []string{nodeNames[0]}
 				c.Filter = &jd.ListFilter{
-					DONID:          donID,
-					DONName:        donName,
-					EnvLabel:       envName,
+					DONID:          testutil.TestDON.ID,
+					DONName:        testutil.TestDON.Name,
+					EnvLabel:       testutil.TestDON.Env,
 					NumOracleNodes: 1,
 				}
 				return c
@@ -175,11 +190,11 @@ ask_price [type=median allowedFaults=3 index=2];
 			// This happens to also be a job update when run after "success" because the two use the same ExternalJobID.
 			name: "success sending jobs to a different subset of nodes",
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.NodeNames = []string{"node-1", "node-2"}
+				c.NodeNames = nodeNames[1:]
 				c.Filter = &jd.ListFilter{
-					DONID:          donID,
-					DONName:        donName,
-					EnvLabel:       envName,
+					DONID:          testutil.TestDON.ID,
+					DONName:        testutil.TestDON.Name,
+					EnvLabel:       testutil.TestDON.Env,
 					NumOracleNodes: 2,
 				}
 				return c
@@ -192,9 +207,9 @@ ask_price [type=median allowedFaults=3 index=2];
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
 				c.NodeNames = []string{"non-existing-node"}
 				c.Filter = &jd.ListFilter{
-					DONID:          donID,
-					DONName:        donName,
-					EnvLabel:       envName,
+					DONID:          testutil.TestDON.ID,
+					DONName:        testutil.TestDON.Name,
+					EnvLabel:       testutil.TestDON.Env,
 					NumOracleNodes: 1,
 				}
 				return c
@@ -230,6 +245,21 @@ ask_price [type=median allowedFaults=3 index=2];
 					testutil.StripLineContaining(out[0].Jobs[i].Spec, []string{"externalJobID"}),
 				)
 			}
+			// Ensure the labels are set correctly
+			for _, job := range out[0].Jobs {
+				j, err := env.Offchain.GetJob(t.Context(), &jdJob.GetJobRequest{
+					IdOneof: &jdJob.GetJobRequest_Id{Id: job.JobID},
+				})
+				require.NoError(t, err)
+				foundLabel := false
+				for _, label := range j.GetJob().GetLabels() {
+					if label.GetKey() == "customTestLabel" && label.GetValue() == "customTestValue" {
+						foundLabel = true
+						break
+					}
+				}
+				require.True(t, foundLabel, "customTestLabel not found in job labels")
+			}
 		})
 	}
 }
@@ -241,9 +271,9 @@ func TestValidatePreconditions(t *testing.T) {
 
 	config := CsDistributeStreamJobSpecsConfig{
 		Filter: &jd.ListFilter{
-			DONID:          1,
-			DONName:        "don",
-			EnvLabel:       "env",
+			DONID:          testutil.TestDON.ID,
+			DONName:        testutil.TestDON.Name,
+			EnvLabel:       testutil.TestDON.Env,
 			NumOracleNodes: 1,
 		},
 		Streams: []StreamSpecConfig{

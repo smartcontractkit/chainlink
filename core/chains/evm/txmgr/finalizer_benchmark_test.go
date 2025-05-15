@@ -18,13 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
 )
 
 func BenchmarkFinalizer(b *testing.B) {
 	ctx := tests.Context(b)
 	db := testutils.NewSqlxDB(b)
-	txStore := cltest.NewTestTxStore(b, db)
+	txStore := txmgrtest.NewTestTxStore(b, db)
 	feeLimit := uint64(10_000)
 	ethClient := clienttest.NewClientWithDefaultChainID(b)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)

@@ -6,6 +6,7 @@ import (
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
@@ -13,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
 
@@ -34,41 +36,41 @@ func (cc DeployChannelConfigStoreConfig) Validate() error {
 		return errors.New("ChainsToDeploy is empty")
 	}
 	for _, chain := range cc.ChainsToDeploy {
-		if err := deployment.IsValidChainSelector(chain); err != nil {
+		if err := cldf.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
 	}
 	return nil
 }
 
-func deployChannelConfigStoreLogic(e deployment.Environment, cc DeployChannelConfigStoreConfig) (deployment.ChangesetOutput, error) {
+func deployChannelConfigStoreLogic(e cldf.Environment, cc DeployChannelConfigStoreConfig) (cldf.ChangesetOutput, error) {
 	dataStore := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
 	err := deploy(e, dataStore, cc)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy ChannelConfigStore", "err", err)
-		return deployment.ChangesetOutput{}, deployment.MaybeDataErr(err)
+		return cldf.ChangesetOutput{}, cldf.MaybeDataErr(err)
 	}
 
 	records, err := dataStore.Addresses().Fetch()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch addresses: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch addresses: %w", err)
 	}
 	proposals, err := mcmsutil.GetTransferOwnershipProposals(e, cc, records)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to MCMS: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to MCMS: %w", err)
 	}
 
 	sealedDS, err := ds.ToDefault(dataStore.Seal())
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		DataStore:             sealedDS,
 		MCMSTimelockProposals: proposals,
 	}, nil
 }
 
-func deployChannelConfigStorePrecondition(_ deployment.Environment, cc DeployChannelConfigStoreConfig) error {
+func deployChannelConfigStorePrecondition(_ cldf.Environment, cc DeployChannelConfigStoreConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployChannelConfigStoreConfig: %w", err)
 	}
@@ -76,7 +78,7 @@ func deployChannelConfigStorePrecondition(_ deployment.Environment, cc DeployCha
 	return nil
 }
 
-func deploy(e deployment.Environment, dataStore ds.MutableDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata], cc DeployChannelConfigStoreConfig) error {
+func deploy(e cldf.Environment, dataStore ds.MutableDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata], cc DeployChannelConfigStoreConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployChannelConfigStoreConfig: %w", err)
 	}
@@ -117,7 +119,7 @@ func deploy(e deployment.Environment, dataStore ds.MutableDataStore[metadata.Ser
 
 // channelConfigStoreDeployFn returns a function that deploys a ChannelConfigStore contract.
 func channelConfigStoreDeployFn() changeset.ContractDeployFn[*channel_config_store.ChannelConfigStore] {
-	return func(chain deployment.Chain) *changeset.ContractDeployment[*channel_config_store.ChannelConfigStore] {
+	return func(chain cldf.Chain) *changeset.ContractDeployment[*channel_config_store.ChannelConfigStore] {
 		ccsAddr, ccsTx, ccs, err := channel_config_store.DeployChannelConfigStore(
 			chain.DeployerKey,
 			chain.Client,

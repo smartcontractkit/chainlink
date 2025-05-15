@@ -17,7 +17,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -46,7 +45,7 @@ type OwnableContract struct {
 type TransferToTimelockSolana struct{}
 
 func (t *TransferToTimelockSolana) VerifyPreconditions(
-	env deployment.Environment, config TransferToTimelockSolanaConfig,
+	env cldf.Environment, config TransferToTimelockSolanaConfig,
 ) error {
 	for chainSelector, contracts := range config.ContractsByChain {
 		err := addressBookContains(env.ExistingAddresses, chainSelector,
@@ -99,11 +98,11 @@ func (t *TransferToTimelockSolana) VerifyPreconditions(
 }
 
 func (t *TransferToTimelockSolana) Apply(
-	env deployment.Environment, cfg TransferToTimelockSolanaConfig,
-) (deployment.ChangesetOutput, error) {
+	env cldf.Environment, cfg TransferToTimelockSolanaConfig,
+) (cldf.ChangesetOutput, error) {
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, slices.Collect(maps.Keys(env.SolChains)))
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	batches := []mcmstypes.BatchOperation{}
@@ -115,11 +114,11 @@ func (t *TransferToTimelockSolana) Apply(
 	for chainSelector, contractsToTransfer := range cfg.ContractsByChain {
 		solChain, ok := env.SolChains[chainSelector]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("solana chain not found in environment (selector: %v)", chainSelector)
+			return cldf.ChangesetOutput{}, fmt.Errorf("solana chain not found in environment (selector: %v)", chainSelector)
 		}
 		chainState, ok := mcmsState[chainSelector]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("chain state not found for selector: %v", chainSelector)
+			return cldf.ChangesetOutput{}, fmt.Errorf("chain state not found for selector: %v", chainSelector)
 		}
 		timelocks[chainSelector] = solanaAddress(chainState.TimelockProgram, mcmssolanasdk.PDASeed(chainState.TimelockSeed))
 		proposers[chainSelector] = solanaAddress(chainState.McmProgram, mcmssolanasdk.PDASeed(chainState.ProposerMcmSeed))
@@ -132,13 +131,13 @@ func (t *TransferToTimelockSolana) Apply(
 			transferInstruction, err := transferOwnershipInstruction(contract.ProgramID, contract.Seed, timelockSignerPDA,
 				contract.OwnerPDA, solChain.DeployerKey.PublicKey())
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transfer ownership instruction: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transfer ownership instruction: %w", err)
 			}
 			instructions[chainSelector] = append(instructions[chainSelector], transferInstruction)
 
 			acceptMCMSTransaction, err := acceptMCMSTransaction(contract, timelockSignerPDA)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create accept ownership mcms transaction: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create accept ownership mcms transaction: %w", err)
 			}
 			transactions = append(transactions, acceptMCMSTransaction)
 		}
@@ -162,7 +161,7 @@ func (t *TransferToTimelockSolana) Apply(
 			env.Logger.Debugw("confirming solana transfer ownership instruction", "instruction", instruction.ProgramID())
 			err = solChain.Confirm([]solana.Instruction{instruction})
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instruction: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instruction: %w", err)
 			}
 		}
 	}
@@ -171,11 +170,11 @@ func (t *TransferToTimelockSolana) Apply(
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(env, timelocks, proposers, inspectors,
 		batches, "proposal to transfer ownership of contracts to timelock", cfg.MCMSCfg)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
 	env.Logger.Debugw("created timelock proposal", "# batches", len(batches))
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcms.TimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcms.TimelockProposal{*proposal}}, nil
 }
 
 type TransferMCMSToTimelockSolanaConfig struct {
@@ -190,7 +189,7 @@ type TransferMCMSToTimelockSolanaConfig struct {
 type TransferMCMSToTimelockSolana struct{}
 
 func (t TransferMCMSToTimelockSolana) VerifyPreconditions(
-	env deployment.Environment, config TransferMCMSToTimelockSolanaConfig,
+	env cldf.Environment, config TransferMCMSToTimelockSolanaConfig,
 ) error {
 	for _, chainSelector := range config.Chains {
 		err := addressBookContains(env.ExistingAddresses, chainSelector,
@@ -207,11 +206,11 @@ func (t TransferMCMSToTimelockSolana) VerifyPreconditions(
 }
 
 func (t TransferMCMSToTimelockSolana) Apply(
-	env deployment.Environment, cfg TransferMCMSToTimelockSolanaConfig,
-) (deployment.ChangesetOutput, error) {
+	env cldf.Environment, cfg TransferMCMSToTimelockSolanaConfig,
+) (cldf.ChangesetOutput, error) {
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, cfg.Chains)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load mcms state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load mcms state: %w", err)
 	}
 
 	contracts := map[uint64][]OwnableContract{}

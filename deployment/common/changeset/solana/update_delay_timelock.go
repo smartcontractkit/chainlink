@@ -8,8 +8,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
@@ -21,7 +21,7 @@ type UpdateTimelockDelaySolanaCfg struct {
 }
 
 func (t UpdateTimelockDelaySolana) VerifyPreconditions(
-	env deployment.Environment, config UpdateTimelockDelaySolanaCfg,
+	env cldf.Environment, config UpdateTimelockDelaySolanaCfg,
 ) error {
 	if len(config.DelayPerChain) == 0 {
 		return errors.New("no delay configs provided")
@@ -56,14 +56,14 @@ func (t UpdateTimelockDelaySolana) VerifyPreconditions(
 }
 
 func (t UpdateTimelockDelaySolana) Apply(
-	env deployment.Environment, cfg UpdateTimelockDelaySolanaCfg,
-) (deployment.ChangesetOutput, error) {
+	env cldf.Environment, cfg UpdateTimelockDelaySolanaCfg,
+) (cldf.ChangesetOutput, error) {
 	for chainSelector, delay := range cfg.DelayPerChain {
 		solChain := env.SolChains[chainSelector]
 		//nolint:staticcheck // will wait till we can migrate from address book before using data store
 		addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
 		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
 		configPDA := state.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
@@ -71,11 +71,11 @@ func (t UpdateTimelockDelaySolana) Apply(
 		updateDelayIx := timelockBindings.NewUpdateDelayInstruction(mcmState.TimelockSeed, uint64(delay.Seconds()), configPDA, solChain.DeployerKey.PublicKey())
 		ix, err := updateDelayIx.ValidateAndBuild()
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create update delay instruction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create update delay instruction: %w", err)
 		}
 		if err := solChain.Confirm([]solana.Instruction{ix}); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
 	}
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }

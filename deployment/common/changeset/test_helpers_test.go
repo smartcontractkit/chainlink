@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -25,11 +23,11 @@ func TestChangeSetLegacyFunction_PassingCase(t *testing.T) {
 	executedValidator := false
 
 	csv2 := cldf.CreateChangeSet(
-		func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
+		func(e cldf.Environment, config uint32) (cldf.ChangesetOutput, error) {
 			executedCs = true
-			return deployment.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
+			return cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
 		},
-		func(e deployment.Environment, config uint32) error {
+		func(e cldf.Environment, config uint32) error {
 			executedValidator = true
 			return nil
 		},
@@ -50,11 +48,11 @@ func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 	executedValidator := false
 
 	csv2 := cldf.CreateChangeSet(
-		func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
+		func(e cldf.Environment, config uint32) (cldf.ChangesetOutput, error) {
 			executedCs = true
-			return deployment.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
+			return cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
 		},
-		func(e deployment.Environment, config uint32) error {
+		func(e cldf.Environment, config uint32) error {
 			executedValidator = true
 			return errors.New("you shall not pass")
 		},
@@ -67,8 +65,8 @@ func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 	require.Equal(t, "failed to apply changeset at index 0: you shall not pass", err.Error())
 }
 
-func NewNoopEnvironment(t *testing.T) deployment.Environment {
-	return *deployment.NewEnvironment(
+func NewNoopEnvironment(t *testing.T) cldf.Environment {
+	return *cldf.NewEnvironment(
 		"noop",
 		logger.TestLogger(t),
 		cldf.NewMemoryAddressBook(),
@@ -76,9 +74,9 @@ func NewNoopEnvironment(t *testing.T) deployment.Environment {
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		map[uint64]deployment.Chain{},
-		map[uint64]deployment.SolChain{},
-		map[uint64]deployment.AptosChain{},
+		map[uint64]cldf.Chain{},
+		map[uint64]cldf.SolChain{},
+		map[uint64]cldf.AptosChain{},
 		[]string{},
 		nil,
 		func() context.Context { return tests.Context(t) },
@@ -91,7 +89,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 
 	changesets := []ConfiguredChangeSet{
 		Configure(cldf.CreateChangeSet(
-			func(e deployment.Environment, config uint32) (deployment.ChangesetOutput, error) {
+			func(e cldf.Environment, config uint32) (cldf.ChangesetOutput, error) {
 				ds := datastore.NewMemoryDataStore[
 					datastore.DefaultMetadata,
 					datastore.DefaultMetadata,
@@ -107,7 +105,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 						Qualifier:     "qualifier1",
 					},
 				); err != nil {
-					return deployment.ChangesetOutput{}, err
+					return cldf.ChangesetOutput{}, err
 				}
 
 				// Add ContractMetadata
@@ -117,15 +115,15 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					Metadata:      datastore.DefaultMetadata{Data: "test"},
 				})
 				if err != nil {
-					return deployment.ChangesetOutput{}, err
+					return cldf.ChangesetOutput{}, err
 				}
 
-				return deployment.ChangesetOutput{
+				return cldf.ChangesetOutput{
 					AddressBook: cldf.NewMemoryAddressBook(),
 					DataStore:   ds,
 				}, nil
 			},
-			func(e deployment.Environment, config uint32) error {
+			func(e cldf.Environment, config uint32) error {
 				return nil
 			},
 		), 1),
@@ -134,7 +132,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 	csTests := []struct {
 		name                   string
 		changesets             []ConfiguredChangeSet
-		validate               func(t *testing.T, e deployment.Environment)
+		validate               func(t *testing.T, e cldf.Environment)
 		wantError              bool
 		changesetApplyFunction string
 	}{
@@ -142,7 +140,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 			name:                   "ApplyChangesets validates datastore is merged after apply",
 			changesets:             changesets,
 			changesetApplyFunction: "V2",
-			validate: func(t *testing.T, e deployment.Environment) {
+			validate: func(t *testing.T, e cldf.Environment) {
 				// Check address was stored correctly
 				record, err := e.DataStore.Addresses().Get(
 					datastore.NewAddressRefKey(
@@ -168,7 +166,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 			name:                   "ApplyChangesetsV2 validates datastore is merged after apply",
 			changesets:             changesets,
 			changesetApplyFunction: "V1",
-			validate: func(t *testing.T, e deployment.Environment) {
+			validate: func(t *testing.T, e cldf.Environment) {
 				// Check address was stored correctly
 				record, err := e.DataStore.Addresses().Get(
 					datastore.NewAddressRefKey(

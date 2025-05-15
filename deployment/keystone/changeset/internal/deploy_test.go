@@ -37,9 +37,9 @@ func Test_RegisterNOPS(t *testing.T) {
 			Name: "test-nop",
 		})
 		useMCMS = true
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
+			Chains: map[uint64]cldf.Chain{
 				chain.Selector: chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -240,9 +240,9 @@ func Test_RegisterNodes(t *testing.T) {
 			rc, _ := kstest.MustAddCapabilities(t, lggr, caps2Add, chain, registry)
 
 			t.Run(tc.name, func(t *testing.T) {
-				env := &deployment.Environment{
+				env := &cldf.Environment{
 					Logger: lggr,
-					Chains: map[uint64]deployment.Chain{
+					Chains: map[uint64]cldf.Chain{
 						chain.Selector: chain,
 					},
 					ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -301,9 +301,9 @@ func Test_RegisterNodes(t *testing.T) {
 
 	t.Run("no ops in proposal if node already exists", func(t *testing.T) {
 		useMCMS = true
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
+			Chains: map[uint64]cldf.Chain{
 				chain.Selector: chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -352,9 +352,9 @@ func Test_RegisterNodes(t *testing.T) {
 
 	t.Run("no new nodes to add results in no mcms ops", func(t *testing.T) {
 		useMCMS = true
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
+			Chains: map[uint64]cldf.Chain{
 				chain.Selector: chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -398,9 +398,9 @@ func Test_RegisterDons(t *testing.T) {
 	)
 	t.Run("success create add DONs mcms proposal", func(t *testing.T) {
 		useMCMS = true
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
+			Chains: map[uint64]cldf.Chain{
 				chain.Selector: chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -494,9 +494,9 @@ func Test_RegisterDons(t *testing.T) {
 			regContract = setupResp.CapabilitiesRegistry
 		)
 
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
+			Chains: map[uint64]cldf.Chain{
 				setupResp.Chain.Selector: setupResp.Chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -531,9 +531,9 @@ func Test_RegisterDons(t *testing.T) {
 
 	t.Run("success create add DONs mcms proposal with multiple DONs", func(t *testing.T) {
 		useMCMS = true
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
+			Chains: map[uint64]cldf.Chain{
 				chain.Selector: chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{

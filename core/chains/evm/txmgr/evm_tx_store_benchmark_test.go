@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
 func NewTestTxStore(t testing.TB, db *sqlx.DB) txmgr.TestEvmTxStore {
@@ -165,7 +164,7 @@ func BenchmarkFindConfirmedTxesReceipts(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				b.StartTimer()
-				receipts, err := txStore.FindConfirmedTxesReceipts(tests.Context(b), finalizedBlockNum, &cltest.FixtureChainID)
+				receipts, err := txStore.FindConfirmedTxesReceipts(tests.Context(b), finalizedBlockNum, testutils.FixtureChainID)
 				b.StopTimer()
 				require.NoError(b, err)
 				require.Len(b, receipts, bs.size)

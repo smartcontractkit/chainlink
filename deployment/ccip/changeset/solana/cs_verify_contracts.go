@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"strings"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // https://solana.com/developers/guides/advanced/verified-builds
@@ -26,10 +30,10 @@ type VerifyBuildConfig struct {
 	VerifyMCM                    bool
 	VerifyTimelock               bool
 	RemoteVerification           bool
-	MCMSSolana                   *MCMSConfigSolana
+	MCMS                         *proposalutils.TimelockConfig
 }
 
-func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHash, mountPath string, remote bool) error {
+func runSolanaVerify(chain cldf.SolChain, programID, libraryName, commitHash, mountPath string, remote bool) error {
 	params := map[string]string{
 		"Keypair Path": chain.KeypairPath,
 		"Network URL":  chain.URL,
@@ -91,21 +95,21 @@ func runSolanaVerify(chain deployment.SolChain, programID, libraryName, commitHa
 	return nil
 }
 
-func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.ChangesetOutput, error) {
+func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
 	mcmState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	bnmMetadata := ccipChangeset.CLLMetadata
-	lnrMetadata := ccipChangeset.CLLMetadata
+	bnmMetadata := shared.CLLMetadata
+	lnrMetadata := shared.CLLMetadata
 	if cfg.BurnMintTokenPoolMetadata != "" {
 		bnmMetadata = cfg.BurnMintTokenPoolMetadata
 	}
@@ -145,9 +149,9 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 			cfg.RemoteVerification,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error verifying %s: %w", v.name, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("error verifying %s: %w", v.name, err)
 		}
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }

@@ -11,7 +11,8 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -27,7 +28,7 @@ type AddCapabilitiesRequest struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-func (r *AddCapabilitiesRequest) Validate(env deployment.Environment) error {
+func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 	if r.RegistryChainSel == 0 {
 		return errors.New("registry chain selector must be set")
 	}
@@ -43,7 +44,7 @@ func (r *AddCapabilitiesRequest) Validate(env deployment.Environment) error {
 
 // if the environment has a non-empty datastore, the registry ref must be set
 // prevents accidental usage of the old address book
-func shouldUseDatastore(env deployment.Environment, ref datastore.AddressRefKey) error {
+func shouldUseDatastore(env cldf.Environment, ref datastore.AddressRefKey) error {
 	if addrs, err := env.DataStore.Addresses().Fetch(); err == nil {
 		if len(addrs) != 0 && ref == nil {
 			return errors.New("This environment has been migrated to DataStore: address ref key must not be nil")
@@ -57,7 +58,7 @@ type AddCapabilitiesRequestV2 = struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-var _ deployment.ChangeSet[*AddCapabilitiesRequest] = AddCapabilities
+var _ cldf.ChangeSet[*AddCapabilitiesRequest] = AddCapabilities
 
 // AddCapabilities is a deployment.ChangeSet that adds capabilities to the capabilities registry
 //
@@ -65,26 +66,26 @@ var _ deployment.ChangeSet[*AddCapabilitiesRequest] = AddCapabilities
 //
 // When using MCMS, the output will contain a single proposal with a single batch containing all capabilities to be added.
 // When not using MCMS, each capability will be added in a separate transaction.
-func AddCapabilities(env deployment.Environment, req *AddCapabilitiesRequest) (deployment.ChangesetOutput, error) {
+func AddCapabilities(env cldf.Environment, req *AddCapabilitiesRequest) (cldf.ChangesetOutput, error) {
 	err := req.Validate(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate request: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate request: %w", err)
 	}
 	registryChain, ok := env.Chains[req.RegistryChainSel]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
+		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
 
 	cr, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 	useMCMS := req.MCMSConfig != nil
 	ops, err := internal.AddCapabilities(env.Logger, cr.Contract, env.Chains[req.RegistryChainSel], req.Capabilities, useMCMS)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to add capabilities: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add capabilities: %w", err)
 	}
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if useMCMS {
 		if ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
@@ -97,7 +98,7 @@ func AddCapabilities(env deployment.Environment, req *AddCapabilitiesRequest) (d
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		inspectorPerChain := map[uint64]mcmssdk.Inspector{
 			req.RegistryChainSel: inspector,

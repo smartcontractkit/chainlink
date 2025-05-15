@@ -1,45 +1,32 @@
 package cltest
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"math/big"
 	mathrand "math/rand"
 	"net/url"
-	"strconv"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 
-	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
-	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -138,109 +125,6 @@ func MustJSONMarshal(t *testing.T, val interface{}) string {
 func EmptyCLIContext() *cli.Context {
 	set := flag.NewFlagSet("test", 0)
 	return cli.NewContext(nil, set, nil)
-}
-
-func NewEthTx(fromAddress common.Address) txmgr.Tx {
-	return txmgr.Tx{
-		FromAddress:    fromAddress,
-		ToAddress:      testutils.NewAddress(),
-		EncodedPayload: []byte{1, 2, 3},
-		Value:          big.Int(assets.NewEthValue(142)),
-		FeeLimit:       uint64(1000000000),
-		State:          txmgrcommon.TxUnstarted,
-	}
-}
-
-func MustInsertUnconfirmedEthTx(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
-	broadcastAt := time.Now()
-	chainID := &FixtureChainID
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case time.Time:
-			broadcastAt = v
-		case *big.Int:
-			chainID = v
-		}
-	}
-	etx := NewEthTx(fromAddress)
-
-	etx.BroadcastAt = &broadcastAt
-	etx.InitialBroadcastAt = &broadcastAt
-	n := evmtypes.Nonce(nonce)
-	etx.Sequence = &n
-	etx.State = txmgrcommon.TxUnconfirmed
-	etx.ChainID = chainID
-	require.NoError(t, txStore.InsertTx(testutils.Context(t), &etx))
-	return etx
-}
-
-func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
-	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
-	attempt := NewLegacyEthTxAttempt(t, etx.ID)
-	ctx := testutils.Context(t)
-
-	tx := evmtestutils.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-
-	attempt.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
-	etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
-	require.NoError(t, err)
-	return etx
-}
-
-func MustInsertConfirmedEthTxWithLegacyAttempt(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
-	timeNow := time.Now()
-	etx := NewEthTx(fromAddress)
-	ctx := testutils.Context(t)
-
-	etx.BroadcastAt = &timeNow
-	etx.InitialBroadcastAt = &timeNow
-	n := evmtypes.Nonce(nonce)
-	etx.Sequence = &n
-	etx.State = txmgrcommon.TxConfirmed
-	etx.MinConfirmations.SetValid(6)
-	require.NoError(t, txStore.InsertTx(ctx, &etx))
-	attempt := NewLegacyEthTxAttempt(t, etx.ID)
-	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
-	attempt.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
-	etx.TxAttempts = append(etx.TxAttempts, attempt)
-	return etx
-}
-
-func NewLegacyEthTxAttempt(t testing.TB, etxID int64) txmgr.TxAttempt {
-	gasPrice := assets.NewWeiI(1)
-	return txmgr.TxAttempt{
-		ChainSpecificFeeLimit: 42,
-		TxID:                  etxID,
-		TxFee:                 gas.EvmFee{GasPrice: gasPrice},
-		// Just a random signed raw tx that decodes correctly
-		// Ignore all actual values
-		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
-		Hash:        evmutils.NewHash(),
-		State:       txmgrtypes.TxAttemptInProgress,
-	}
-}
-
-func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
-	gasTipCap := assets.NewWeiI(1)
-	gasFeeCap := assets.NewWeiI(1)
-	return txmgr.TxAttempt{
-		TxType: 0x2,
-		TxID:   etxID,
-		TxFee: gas.EvmFee{
-			DynamicFee: gas.DynamicFee{GasTipCap: gasTipCap, GasFeeCap: gasFeeCap},
-		},
-		// Just a random signed raw tx that decodes correctly
-		// Ignore all actual values
-		SignedRawTx:           hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
-		Hash:                  evmutils.NewHash(),
-		State:                 txmgrtypes.TxAttemptInProgress,
-		ChainSpecificFeeLimit: 42,
-	}
 }
 
 type RandomKey struct {
@@ -408,49 +292,6 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, registry keeper.Regi
 	err = korm.UpsertUpkeep(ctx, &upkeep)
 	require.NoError(t, err)
 	return upkeep
-}
-
-func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (run pipeline.Run) {
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,created_at) VALUES ($1, 0, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
-	return run
-}
-
-func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus, jobID int32) (run pipeline.Run) {
-	var finishedAt *time.Time
-	var outputs jsonserializable.JSONSerializable
-	var allErrors pipeline.RunErrors
-	var fatalErrors pipeline.RunErrors
-	now := time.Now()
-	switch status {
-	case pipeline.RunStatusCompleted:
-		finishedAt = &now
-		outputs = jsonserializable.JSONSerializable{
-			Val:   "foo",
-			Valid: true,
-		}
-	case pipeline.RunStatusErrored:
-		finishedAt = &now
-		allErrors = []null.String{null.StringFrom("oh no!")}
-		fatalErrors = []null.String{null.StringFrom("oh no!")}
-	case pipeline.RunStatusRunning, pipeline.RunStatusSuspended:
-		// leave empty
-	default:
-		t.Fatalf("unknown status: %s", status)
-	}
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`, status, pipelineSpecID, jobID, finishedAt, outputs, allErrors, fatalErrors))
-	return run
-}
-
-func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
-	err := db.Get(&spec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
-	require.NoError(t, err)
-	return
-}
-
-func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunID int64) (tr pipeline.TaskRun) {
-	/* #nosec G404 */
-	require.NoError(t, db.Get(&tr, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING *`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.New()))
-	return tr
 }
 
 func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {

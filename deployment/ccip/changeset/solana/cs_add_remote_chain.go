@@ -20,13 +20,16 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use these three changesets to add a remote chain to solana
-var _ deployment.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
-var _ deployment.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
-var _ deployment.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
+var _ cldf.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
+var _ cldf.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
+var _ cldf.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
 
 type AddRemoteChainToRouterConfig struct {
 	ChainSelector uint64
@@ -34,7 +37,7 @@ type AddRemoteChainToRouterConfig struct {
 	UpdatesByChain map[uint64]*RouterConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMSSolana *MCMSConfigSolana
+	MCMS *proposalutils.TimelockConfig
 }
 
 type RouterConfig struct {
@@ -47,8 +50,8 @@ type RouterConfig struct {
 	IsUpdate bool
 }
 
-func (cfg *AddRemoteChainToRouterConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -61,7 +64,7 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e deployment.Environment) erro
 		return err
 	}
 
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true}); err != nil {
 		return err
 	}
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
@@ -77,7 +80,7 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e deployment.Environment) erro
 		if remote == routerConfigAccount.SvmChainSelector {
 			return fmt.Errorf("cannot add remote chain %d with same chain selector as current chain %d", remote, cfg.ChainSelector)
 		}
-		if err := state.ValidateRamp(remote, ccipChangeset.OnRamp); err != nil {
+		if err := state.ValidateRamp(remote, shared.OnRamp); err != nil {
 			return err
 		}
 		routerDestChainPDA, err := solState.FindDestChainStatePDA(remote, routerProgramAddress)
@@ -95,61 +98,69 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e deployment.Environment) erro
 }
 
 // Adds new remote chain configurations
-func AddRemoteChainToRouter(e deployment.Environment, cfg AddRemoteChainToRouterConfig) (deployment.ChangesetOutput, error) {
+func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := ccipChangeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToRouter(e, s, cfg, ab)
 	if err != nil {
-		return deployment.ChangesetOutput{AddressBook: ab}, err
+		return cldf.ChangesetOutput{AddressBook: ab}, err
 	}
 
 	// create proposals for ixns
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
+			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           ab,
 		}, nil
 	}
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
 func doAddRemoteChainToRouter(
-	e deployment.Environment,
-	s ccipChangeset.CCIPOnChainState,
+	e cldf.Environment,
+	s stateview.CCIPOnChainState,
 	cfg AddRemoteChainToRouterConfig,
 	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
 	chain := e.SolChains[chainSel]
+	chainState := s.SolChains[chainSel]
 	ccipRouterID, routerConfigPDA, _ := s.SolChains[chainSel].GetRouterInfo()
 	offRampID := s.SolChains[chainSel].OffRamp
-	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
+		&e,
+		chain,
+		chainState,
+		shared.Router,
+		solana.PublicKey{},
+		"",
+	)
 	lookUpTableEntries := make([]solana.PublicKey, 0)
 	// router setup
 	solRouter.SetProgramID(ccipRouterID)
-	authority, err := GetAuthorityForIxn(
+	authority := GetAuthorityForIxn(
 		&e,
 		chain,
-		cfg.MCMSSolana,
-		ccipChangeset.Router,
-		solana.PublicKey{})
-	if err != nil {
-		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
-	}
+		chainState,
+		cfg.MCMS,
+		shared.Router,
+		solana.PublicKey{},
+		"",
+	)
 
 	for remoteChainSel, update := range updates {
 		// verified while loading state
@@ -172,7 +183,7 @@ func doAddRemoteChainToRouter(
 			}
 			e.Logger.Infow("update router config for remote chain", "remoteChainSel", remoteChainSel)
 			if routerUsingMCMS {
-				tx, err := BuildMCMSTxn(routerIx, ccipRouterID.String(), ccipChangeset.Router)
+				tx, err := BuildMCMSTxn(routerIx, ccipRouterID.String(), shared.Router)
 				if err != nil {
 					return txns, fmt.Errorf("failed to create update router config transaction: %w", err)
 				}
@@ -216,7 +227,7 @@ func doAddRemoteChainToRouter(
 			if routerUsingMCMS {
 				// build transactions if mcms
 				for _, ix := range []solana.Instruction{routerIx, routerOfframpIx} {
-					tx, err := BuildMCMSTxn(ix, ccipRouterID.String(), ccipChangeset.Router)
+					tx, err := BuildMCMSTxn(ix, ccipRouterID.String(), shared.Router)
 					if err != nil {
 						return txns, fmt.Errorf("failed to create add router config transaction: %w", err)
 					}
@@ -230,7 +241,7 @@ func doAddRemoteChainToRouter(
 				}
 			}
 			// add to address book
-			tv := cldf.NewTypeAndVersion(ccipChangeset.RemoteDest, deployment.Version1_0_0)
+			tv := cldf.NewTypeAndVersion(shared.RemoteDest, deployment.Version1_0_0)
 			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
 			tv.AddLabel(remoteChainSelStr)
 			err = ab.Save(chainSel, routerRemoteStatePDA.String(), tv)
@@ -256,7 +267,7 @@ type AddRemoteChainToFeeQuoterConfig struct {
 	UpdatesByChain map[uint64]*FeeQuoterConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMSSolana *MCMSConfigSolana
+	MCMS *proposalutils.TimelockConfig
 }
 
 type FeeQuoterConfig struct {
@@ -265,8 +276,8 @@ type FeeQuoterConfig struct {
 	IsUpdate bool
 }
 
-func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -279,7 +290,7 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) e
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true}); err != nil {
 		return err
 	}
 	supportedChains := state.SupportedChains()
@@ -287,7 +298,7 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) e
 		if _, ok := supportedChains[remote]; !ok {
 			return fmt.Errorf("remote chain %d is not supported", remote)
 		}
-		if err := state.ValidateRamp(remote, ccipChangeset.OnRamp); err != nil {
+		if err := state.ValidateRamp(remote, shared.OnRamp); err != nil {
 			return err
 		}
 		fqRemoteChainPDA, _, err := solState.FindFqDestChainPDA(remote, chainState.FeeQuoter)
@@ -305,65 +316,73 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) e
 }
 
 // Adds new remote chain configurations
-func AddRemoteChainToFeeQuoter(e deployment.Environment, cfg AddRemoteChainToFeeQuoterConfig) (deployment.ChangesetOutput, error) {
+func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoterConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := ccipChangeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToFeeQuoter(e, s, cfg, ab)
 	if err != nil {
-		return deployment.ChangesetOutput{AddressBook: ab}, err
+		return cldf.ChangesetOutput{AddressBook: ab}, err
 	}
 
 	// create proposals for ixns
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
+			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           ab,
 		}, nil
 	}
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
 func doAddRemoteChainToFeeQuoter(
-	e deployment.Environment,
-	s ccipChangeset.CCIPOnChainState,
+	e cldf.Environment,
+	s stateview.CCIPOnChainState,
 	cfg AddRemoteChainToFeeQuoterConfig,
 	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
 	chain := e.SolChains[chainSel]
+	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
 	offRampID := s.SolChains[chainSel].OffRamp
-	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
+		&e,
+		chain,
+		chainState,
+		shared.FeeQuoter,
+		solana.PublicKey{},
+		"")
 	lookUpTableEntries := make([]solana.PublicKey, 0)
 	// fee quoter setup
 	solFeeQuoter.SetProgramID(feeQuoterID)
-	authority, err := GetAuthorityForIxn(
+	authority := GetAuthorityForIxn(
 		&e,
 		chain,
-		cfg.MCMSSolana,
-		ccipChangeset.FeeQuoter,
-		solana.PublicKey{})
-	if err != nil {
-		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
-	}
+		chainState,
+		cfg.MCMS,
+		shared.FeeQuoter,
+		solana.PublicKey{},
+		"",
+	)
 	for remoteChainSel, update := range updates {
 		// verified while loading state
 		fqRemoteChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
 		var feeQuoterIx solana.Instruction
+		var err error
 		if update.IsUpdate {
 			feeQuoterIx, err = solFeeQuoter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
@@ -393,7 +412,7 @@ func doAddRemoteChainToFeeQuoter(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if feeQuoterUsingMCMS {
-			tx, err := BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), ccipChangeset.FeeQuoter)
+			tx, err := BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), shared.FeeQuoter)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}
@@ -422,7 +441,7 @@ type AddRemoteChainToOffRampConfig struct {
 	UpdatesByChain map[uint64]*OffRampConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMSSolana *MCMSConfigSolana
+	MCMS *proposalutils.TimelockConfig
 }
 
 type OffRampConfig struct {
@@ -432,8 +451,8 @@ type OffRampConfig struct {
 	IsUpdate bool
 }
 
-func (cfg *AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -446,7 +465,7 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) err
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.OffRamp: true}); err != nil {
 		return err
 	}
 
@@ -455,7 +474,7 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) err
 		if _, ok := supportedChains[remote]; !ok {
 			return fmt.Errorf("remote chain %d is not supported", remote)
 		}
-		if err := state.ValidateRamp(remote, ccipChangeset.OnRamp); err != nil {
+		if err := state.ValidateRamp(remote, shared.OnRamp); err != nil {
 			return err
 		}
 		offRampRemoteStatePDA, _, err := solState.FindOfframpSourceChainPDA(remote, chainState.OffRamp)
@@ -473,59 +492,66 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) err
 }
 
 // Adds new remote chain configurations
-func AddRemoteChainToOffRamp(e deployment.Environment, cfg AddRemoteChainToOffRampConfig) (deployment.ChangesetOutput, error) {
+func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := ccipChangeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToOffRamp(e, s, cfg, ab)
 	if err != nil {
-		return deployment.ChangesetOutput{AddressBook: ab}, err
+		return cldf.ChangesetOutput{AddressBook: ab}, err
 	}
 
 	// create proposals for ixns
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
+			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS.MinDelay, txns)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           ab,
 		}, nil
 	}
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
 func doAddRemoteChainToOffRamp(
-	e deployment.Environment,
-	s ccipChangeset.CCIPOnChainState,
+	e cldf.Environment,
+	s stateview.CCIPOnChainState,
 	cfg AddRemoteChainToOffRampConfig,
 	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
 	chain := e.SolChains[chainSel]
+	chainState := s.SolChains[chainSel]
 	offRampID := s.SolChains[chainSel].OffRamp
-	offRampUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.OffRampOwnedByTimelock
-	lookUpTableEntries := make([]solana.PublicKey, 0)
-	solOffRamp.SetProgramID(offRampID)
-	authority, err := GetAuthorityForIxn(
+	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
-		cfg.MCMSSolana,
-		ccipChangeset.OffRamp,
-		solana.PublicKey{})
-	if err != nil {
-		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
-	}
+		chainState,
+		shared.OffRamp,
+		solana.PublicKey{},
+		"")
+	lookUpTableEntries := make([]solana.PublicKey, 0)
+	solOffRamp.SetProgramID(offRampID)
+	authority := GetAuthorityForIxn(
+		&e,
+		chain,
+		chainState,
+		cfg.MCMS,
+		shared.OffRamp,
+		solana.PublicKey{},
+		"",
+	)
 
 	for remoteChainSel, update := range updates {
 		// verified while loading state
@@ -560,7 +586,7 @@ func doAddRemoteChainToOffRamp(
 			).ValidateAndBuild()
 			e.Logger.Infow("add offramp config for remote chain", "remoteChainSel", remoteChainSel)
 			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
-			tv := cldf.NewTypeAndVersion(ccipChangeset.RemoteSource, deployment.Version1_0_0)
+			tv := cldf.NewTypeAndVersion(shared.RemoteSource, deployment.Version1_0_0)
 			tv.AddLabel(remoteChainSelStr)
 			err = ab.Save(chainSel, offRampRemoteStatePDA.String(), tv)
 			if err != nil {
@@ -571,7 +597,7 @@ func doAddRemoteChainToOffRamp(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if offRampUsingMCMS {
-			tx, err := BuildMCMSTxn(offRampIx, offRampID.String(), ccipChangeset.OffRamp)
+			tx, err := BuildMCMSTxn(offRampIx, offRampID.String(), shared.OffRamp)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}
@@ -594,7 +620,7 @@ func doAddRemoteChainToOffRamp(
 	return txns, nil
 }
 
-func getSourceChainConfig(s ccipChangeset.CCIPOnChainState, remoteChainSel uint64, enabledAsSource bool) (solOffRamp.SourceChainConfig, error) {
+func getSourceChainConfig(s stateview.CCIPOnChainState, remoteChainSel uint64, enabledAsSource bool) (solOffRamp.SourceChainConfig, error) {
 	var onRampAddress solOffRamp.OnRampAddress
 	// already verified, skipping errcheck
 	addressBytes, _ := s.GetOnRampAddressBytes(remoteChainSel)
@@ -611,8 +637,8 @@ func getSourceChainConfig(s ccipChangeset.CCIPOnChainState, remoteChainSel uint6
 	return validSourceChainConfig, nil
 }
 
-func extendLookupTable(e deployment.Environment, chain deployment.SolChain, offRampID solana.PublicKey, lookUpTableEntries []solana.PublicKey) error {
-	addressLookupTable, err := ccipChangeset.FetchOfframpLookupTable(e.GetContext(), chain, offRampID)
+func extendLookupTable(e cldf.Environment, chain cldf.SolChain, offRampID solana.PublicKey, lookUpTableEntries []solana.PublicKey) error {
+	addressLookupTable, err := solanastateview.FetchOfframpLookupTable(e.GetContext(), chain, offRampID)
 	if err != nil {
 		return fmt.Errorf("failed to get offramp reference addresses: %w", err)
 	}
