@@ -274,6 +274,9 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e deployment.Envir
 	if _, exists := e.SolChains[chainSel]; exists {
 		return nil
 	}
+	if _, exists := e.AptosChains[chainSel]; exists {
+		return nil
+	}
 	offRamp, ok := offRampsByChain[chainSel]
 	if !ok {
 		return fmt.Errorf("offRamp for chain %d not found in the state", chainSel)
@@ -1307,9 +1310,6 @@ func (c CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 		chains[chain] = struct{}{}
 	}
 	for chain := range c.SolChains {
-		chains[chain] = struct{}{}
-	}
-	for chain := range c.AptosChains {
 		chains[chain] = struct{}{}
 	}
 	for chain := range c.AptosChains {

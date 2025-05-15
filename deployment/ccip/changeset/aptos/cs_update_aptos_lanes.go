@@ -3,19 +3,21 @@ package aptos
 import (
 	"fmt"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	config "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/types"
 )
 
-var _ deployment.ChangeSetV2[config.UpdateAptosLanesConfig] = AddAptosLanes{}
+var _ cldf.ChangeSetV2[config.UpdateAptosLanesConfig] = AddAptosLanes{}
 
 // AddAptosLane implements adding a new lane to an existing Aptos CCIP deployment
 type AddAptosLanes struct{}
@@ -34,7 +36,7 @@ func (cs AddAptosLanes) VerifyPreconditions(env deployment.Environment, cfg conf
 	return nil
 }
 
-func (cs AddAptosLanes) Apply(env deployment.Environment, cfg config.UpdateAptosLanesConfig) (deployment.ChangesetOutput, error) {
+func (cs AddAptosLanes) Apply(env deployment.Environment, cfg config.UpdateAptosLanesConfig) (cldf.ChangesetOutput, error) {
 	timeLockProposals := []mcms.TimelockProposal{}
 	mcmsOperations := []types.BatchOperation{}
 	seqReports := make([]operations.Report[any, any], 0)
@@ -44,7 +46,7 @@ func (cs AddAptosLanes) Apply(env deployment.Environment, cfg config.UpdateAptos
 	evmUpdatesInput := config.ToEVMUpdateLanesConfig(cfg)
 	out, err := v1_6.UpdateLanesLogic(env, cfg.EVMMCMSConfig, evmUpdatesInput)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	timeLockProposals = append(timeLockProposals, out.MCMSTimelockProposals...)
 
@@ -52,7 +54,7 @@ func (cs AddAptosLanes) Apply(env deployment.Environment, cfg config.UpdateAptos
 	// Execute UpdateAptosLanesSequence for each aptos chain
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 
 	updateInputsByAptosChain := seq.ConvertToUpdateAptosLanesSeqInput(state.AptosChains, cfg)
@@ -65,7 +67,7 @@ func (cs AddAptosLanes) Apply(env deployment.Environment, cfg config.UpdateAptos
 		// Execute the sequence
 		updateSeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.UpdateAptosLanesSequence, deps, sequenceInput)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		seqReports = append(seqReports, updateSeqReport.ExecutionReports...)
 		mcmsOperations = append(mcmsOperations, updateSeqReport.Output)
@@ -80,12 +82,12 @@ func (cs AddAptosLanes) Apply(env deployment.Environment, cfg config.UpdateAptos
 			*cfg.AptosMCMSConfig,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", aptosChainSel, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", aptosChainSel, err)
 		}
 		timeLockProposals = append(timeLockProposals, *proposal)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: timeLockProposals,
 		Reports:               seqReports,
 	}, nil

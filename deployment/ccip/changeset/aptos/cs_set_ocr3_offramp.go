@@ -4,18 +4,20 @@ import (
 	"fmt"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/types"
 )
 
-var _ deployment.ChangeSetV2[v1_6.SetOCR3OffRampConfig] = SetOCR3Offramp{}
+var _ cldf.ChangeSetV2[v1_6.SetOCR3OffRampConfig] = SetOCR3Offramp{}
 
 // SetOCR3Offramp updates OCR3 Offramp configurations
 type SetOCR3Offramp struct{}
@@ -30,13 +32,13 @@ func (cs SetOCR3Offramp) VerifyPreconditions(env deployment.Environment, config 
 	return nil
 }
 
-func (cs SetOCR3Offramp) Apply(env deployment.Environment, config v1_6.SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
+func (cs SetOCR3Offramp) Apply(env deployment.Environment, config v1_6.SetOCR3OffRampConfig) (cldf.ChangesetOutput, error) {
 	seqReports := make([]operations.Report[any, any], 0)
 	timeLockProposals := []mcms.TimelockProposal{}
 
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 
 	for _, remoteSelector := range config.RemoteChainSels {
@@ -51,7 +53,7 @@ func (cs SetOCR3Offramp) Apply(env deployment.Environment, config v1_6.SetOCR3Of
 		}
 		setOCR3SeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.SetOCR3OfframpSequence, deps, in)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		seqReports = append(seqReports, setOCR3SeqReport.ExecutionReports...)
 
@@ -65,12 +67,12 @@ func (cs SetOCR3Offramp) Apply(env deployment.Environment, config v1_6.SetOCR3Of
 			*config.MCMS,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", remoteSelector, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", remoteSelector, err)
 		}
 		timeLockProposals = append(timeLockProposals, *proposal)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: timeLockProposals,
 		Reports:               seqReports,
 	}, nil

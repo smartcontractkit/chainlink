@@ -149,7 +149,7 @@ func (c *client) FetchKeys(ctx context.Context, chainType string) ([]string, err
 	case generated.OCR2ChainTypeAptos:
 		var accounts []string
 		for _, key := range keys.AptosKeys.GetResults() {
-			accounts = append(accounts, key.Account)
+			accounts = append(accounts, key.Id)
 		}
 		return accounts, nil
 	case generated.OCR2ChainTypeSolana:

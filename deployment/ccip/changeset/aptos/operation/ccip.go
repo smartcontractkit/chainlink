@@ -185,7 +185,7 @@ func deployRouter(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([
 var DeployOffRampOp = operations.NewOperation(
 	"deploy-offramp-op",
 	Version1_0_0,
-	"Generates MCMS proposals that deployes OffRamp module on CCIP package",
+	"Generates MCMS proposals that deploys OffRamp module on CCIP package",
 	deployOffRamp,
 )
 

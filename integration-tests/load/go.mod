@@ -27,7 +27,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.55
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250506195202-6a3f20db41c6
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250512172541-23f36acc56bb
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250508225633-13a092427990
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250509155341-2b5a5170a351
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250509162544-26e3267013ca
@@ -437,7 +437,7 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250512152539-826d731ba4fa // indirect
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250512161950-c68a88cbc570 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049 // indirect
 	github.com/smartcontractkit/chainlink-deployments-framework v0.0.15-0.20250508081139-ee24199564bd // indirect

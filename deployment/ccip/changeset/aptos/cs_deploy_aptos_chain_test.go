@@ -6,6 +6,12 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -14,10 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
@@ -37,7 +39,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 					743186221051783445:  {},
 					4457093679053095497: {},
 				},
-				ExistingAddresses: deployment.NewMemoryAddressBook(),
+				ExistingAddresses: cldf.NewMemoryAddressBook(),
 			},
 			config: config.DeployAptosChainConfig{
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
@@ -61,7 +63,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 					4457093679053095497: {},
 				},
 				ExistingAddresses: getTestAddressBook(
-					map[uint64]map[string]deployment.TypeAndVersion{
+					map[uint64]map[string]cldf.TypeAndVersion{
 						4457093679053095497: {
 							mockMCMSAddress: {Type: changeset.AptosMCMSType},
 						},
@@ -88,7 +90,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 					4457093679053095497: {},
 				},
 				ExistingAddresses: getTestAddressBook(
-					map[uint64]map[string]deployment.TypeAndVersion{
+					map[uint64]map[string]cldf.TypeAndVersion{
 						4457093679053095497: {
 							mockMCMSAddress: {Type: changeset.AptosMCMSType},
 						},
@@ -112,7 +114,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			env: deployment.Environment{
 				Name:              "test",
 				Logger:            logger.TestLogger(t),
-				ExistingAddresses: deployment.NewMemoryAddressBook(),
+				ExistingAddresses: cldf.NewMemoryAddressBook(),
 				AptosChains:       map[uint64]deployment.AptosChain{},
 			},
 			config: config.DeployAptosChainConfig{
@@ -132,7 +134,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 					4457093679053095497: {},
 				},
 				ExistingAddresses: getTestAddressBook(
-					map[uint64]map[string]deployment.TypeAndVersion{
+					map[uint64]map[string]cldf.TypeAndVersion{
 						4457093679053095497: {}, // No MCMS address in state
 					},
 				),
@@ -155,7 +157,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 					4457093679053095497: {},
 				},
 				ExistingAddresses: getTestAddressBook(
-					map[uint64]map[string]deployment.TypeAndVersion{
+					map[uint64]map[string]cldf.TypeAndVersion{
 						4457093679053095497: {
 							mockMCMSAddress: {Type: changeset.AptosMCMSType}, // MCMS already deployed
 						},

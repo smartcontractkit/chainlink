@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -243,8 +244,15 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		family, err := chain_selectors.GetSelectorFamily(tc.DestChain)
 		require.NoError(tc.T, err)
 
+		unorderedExec := false
+		switch family {
 		// Solana doesn't support catching CPI errors, so nonces can't be ordered
-		unorderedExec := family == chain_selectors.FamilySolana
+		case chain_selectors.FamilySolana:
+			fallthrough
+		// Aptos does only support out-of-order execution
+		case chain_selectors.FamilyAptos:
+			unorderedExec = true
+		}
 
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)

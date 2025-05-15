@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -23,6 +24,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -959,6 +961,20 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				HomeChainSel:       e.HomeChainSel,
 				RemoteChainSels:    evmChains,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
+			},
+		),
+		commonchangeset.Configure(
+			// Enable the OCR config on the remote chains.
+			aptoscs.SetOCR3Offramp{},
+			v1_6.SetOCR3OffRampConfig{
+				HomeChainSel:       e.HomeChainSel,
+				RemoteChainSels:    aptosChains,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay:     time.Second,
+					MCMSAction:   mcmstypes.TimelockActionSchedule,
+					OverrideRoot: false,
+				},
 			},
 		),
 		commonchangeset.Configure(

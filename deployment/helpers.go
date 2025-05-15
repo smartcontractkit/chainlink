@@ -64,7 +64,8 @@ func ValidateSelectorsInEnvironment(e Environment, chains []uint64) error {
 	for _, chain := range chains {
 		_, evmOk := e.Chains[chain]
 		_, solOk := e.SolChains[chain]
-		if !evmOk && !solOk {
+		_, aptosOk := e.AptosChains[chain]
+		if !evmOk && !solOk && !aptosOk {
 			return fmt.Errorf("chain %d not found in environment", chain)
 		}
 	}

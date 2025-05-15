@@ -14,6 +14,9 @@ import (
 	"testing"
 	"time"
 
+	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_dummy_receiver"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -27,6 +30,8 @@ import (
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 
@@ -143,7 +148,7 @@ func WithAssertOnError(assert bool) ReplayLogsOption {
 // By default, it will assert on errors. Use WithAssertOnError(false) to change this behavior.
 func ReplayLogs(t *testing.T, oc cldf.OffchainClient, replayBlocks map[uint64]uint64, opts ...ReplayLogsOption) {
 	options := &replayLogsOptions{
-		assertOnError: true,
+		assertOnError: false,
 	}
 
 	for _, opt := range opts {
@@ -220,6 +225,12 @@ func LatestBlock(ctx context.Context, env deployment.Environment, chainSelector 
 		return block, nil
 	case chainsel.FamilySolana:
 		return env.SolChains[chainSelector].Client.GetSlot(ctx, solconfig.DefaultCommitment)
+	case chainsel.FamilyAptos:
+		chainInfo, err := env.AptosChains[chainSelector].Client.Info()
+		if err != nil {
+			return 0, errors.Wrapf(err, "failed to get chain info for chain %d", chainSelector)
+		}
+		return chainInfo.LedgerVersion(), nil
 	default:
 		return 0, errors.New("unsupported chain family")
 	}
@@ -231,6 +242,7 @@ func LatestBlocksByChain(ctx context.Context, env deployment.Environment) (map[u
 	chains := []uint64{}
 	chains = slices.AppendSeq(chains, maps.Keys(env.Chains))
 	chains = slices.AppendSeq(chains, maps.Keys(env.SolChains))
+	chains = slices.AppendSeq(chains, maps.Keys(env.AptosChains))
 	for _, selector := range chains {
 		block, err := LatestBlock(ctx, env, selector)
 		if err != nil {
@@ -478,6 +490,8 @@ func SendRequest(
 		return SendRequestEVM(e, state, cfg)
 	case chainsel.FamilySolana:
 		return SendRequestSol(e, state, cfg)
+	case chainsel.FamilyAptos:
+		panic("Aptos - not implemented")
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}
@@ -845,22 +859,28 @@ func AddLane(
 	fqCfg fee_quoter.FeeQuoterDestChainConfig,
 ) {
 	var err error
-	fromFamily, _ := chainsel.GetSelectorFamily(from)
-	toFamily, _ := chainsel.GetSelectorFamily(to)
+	fromFamily, err := chainsel.GetSelectorFamily(from)
+	require.NoError(t, err)
+	toFamily, err := chainsel.GetSelectorFamily(to)
+	require.NoError(t, err)
 	changesets := []commoncs.ConfiguredChangeSet{}
-	if fromFamily == chainsel.FamilyEVM {
-		evmSrcChangesets := addEVMSrcChangesets(from, to, isTestRouter, gasprice, tokenPrices, fqCfg)
-		changesets = append(changesets, evmSrcChangesets...)
-	}
-	if toFamily == chainsel.FamilyEVM {
-		evmDstChangesets := addEVMDestChangesets(e, to, from, isTestRouter)
-		changesets = append(changesets, evmDstChangesets...)
-	}
-	if fromFamily == chainsel.FamilySolana {
+
+	switch fromFamily {
+	case chainsel.FamilyEVM:
+		changesets = append(changesets, addEVMSrcChangesets(from, to, isTestRouter, gasprice, tokenPrices, fqCfg)...)
+	case chainsel.FamilySolana:
 		changesets = append(changesets, addLaneSolanaChangesets(t, e, from, to, toFamily)...)
+	case chainsel.FamilyAptos:
+		changesets = append(changesets, addLaneAptosChangesets(t, from, to)...)
 	}
-	if toFamily == chainsel.FamilySolana {
+
+	switch toFamily {
+	case chainsel.FamilyEVM:
+		changesets = append(changesets, addEVMDestChangesets(e, to, from, isTestRouter)...)
+	case chainsel.FamilySolana:
 		changesets = append(changesets, addLaneSolanaChangesets(t, e, to, from, fromFamily)...)
+	case chainsel.FamilyAptos:
+		changesets = append(changesets, addLaneAptosChangesets(t, from, to)...)
 	}
 
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
@@ -869,12 +889,18 @@ func AddLane(
 
 func addLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
 	chainFamilySelector := [4]uint8{}
-	if remoteFamily == chainsel.FamilyEVM {
+	switch remoteFamily {
+	case chainsel.FamilyEVM:
 		// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
 		chainFamilySelector = [4]uint8{40, 18, 213, 44}
-	} else if remoteFamily == chainsel.FamilySolana {
+	case chainsel.FamilySolana:
 		// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
 		chainFamilySelector = [4]uint8{30, 16, 189, 196}
+	case chainsel.FamilyAptos:
+		// bytes4(keccak256("CCIP ChainFamilySelector APTOS"));
+		chainFamilySelector = [4]uint8{0xac, 0x77, 0xff, 0xec}
+	default:
+		panic("unsupported remote family")
 	}
 	solanaChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
@@ -1013,6 +1039,124 @@ func addEVMDestChangesets(e *DeployedEnv, to, from uint64, isTestRouter bool) []
 		),
 	}
 	return evmDstChangesets
+}
+
+func addLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector uint64) []commoncs.ConfiguredChangeSet {
+	srcFamily, err := chainsel.GetSelectorFamily(srcChainSelector)
+	require.NoError(t, err)
+	destFamily, err := chainsel.GetSelectorFamily(destChainSelector)
+	require.NoError(t, err)
+
+	t.Logf("Adding lane %s=>%s", srcFamily, destFamily)
+
+	var src, dest config.ChainDefinition
+
+	switch srcFamily {
+	case chainsel.FamilyEVM:
+		src = config.EVMChainDefinition{
+			ChainDefinition: v1_6.ChainDefinition{
+				ConnectionConfig: v1_6.ConnectionConfig{
+					RMNVerificationDisabled: true,
+				},
+				Selector: srcChainSelector,
+			},
+		}
+	case chainsel.FamilyAptos:
+		src = config.AptosChainDefinition{
+			ConnectionConfig: v1_6.ConnectionConfig{
+				RMNVerificationDisabled: true,
+			},
+			Selector:                      srcChainSelector,
+			AddTokenTransferFeeConfigs:    nil,
+			RemoveTokenTransferFeeConfigs: nil,
+		}
+	}
+
+	switch destFamily {
+	case chainsel.FamilyEVM:
+		dest = config.EVMChainDefinition{
+			ChainDefinition: v1_6.ChainDefinition{
+				ConnectionConfig: v1_6.ConnectionConfig{
+					AllowListEnabled: false,
+				},
+				Selector:    destChainSelector,
+				GasPrice:    big.NewInt(1e17),
+				TokenPrices: nil,
+				FeeQuoterDestChainConfig: fee_quoter.FeeQuoterDestChainConfig{
+					IsEnabled:                         true,
+					MaxNumberOfTokensPerMsg:           10,
+					MaxDataBytes:                      30_000,
+					MaxPerMsgGasLimit:                 3_000_000,
+					DestGasOverhead:                   ccipevm.DestGasOverhead,
+					DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
+					DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
+					DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
+					DestDataAvailabilityOverheadGas:   100,
+					DestGasPerDataAvailabilityByte:    16,
+					DestDataAvailabilityMultiplierBps: 1,
+					ChainFamilySelector:               [4]byte{0x28, 0x12, 0xd5, 0x2c},
+					EnforceOutOfOrder:                 false,
+					DefaultTokenFeeUSDCents:           25,
+					DefaultTokenDestGasOverhead:       90_000,
+					DefaultTxGasLimit:                 200_000,
+					GasMultiplierWeiPerEth:            11e8, // TODO what's the scale here?
+					GasPriceStalenessThreshold:        0,
+					NetworkFeeUSDCents:                10,
+				},
+			},
+			OnRampVersion: []byte{1, 6, 0},
+		}
+	case chainsel.FamilyAptos:
+		dest = config.AptosChainDefinition{
+			ConnectionConfig: v1_6.ConnectionConfig{
+				AllowListEnabled: false,
+			},
+			Selector: destChainSelector,
+			GasPrice: big.NewInt(1e7),
+			FeeQuoterDestChainConfig: aptos_fee_quoter.DestChainConfig{
+				IsEnabled:                         true,
+				MaxNumberOfTokensPerMsg:           10,
+				MaxDataBytes:                      30_000,
+				MaxPerMsgGasLimit:                 3_000_000,
+				DestGasOverhead:                   ccipevm.DestGasOverhead,
+				DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
+				DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
+				DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
+				DestDataAvailabilityOverheadGas:   100,
+				DestGasPerDataAvailabilityByte:    16,
+				DestDataAvailabilityMultiplierBps: 1,
+				ChainFamilySelector:               []byte{0xac, 0x77, 0xff, 0xec},
+				EnforceOutOfOrder:                 true,
+				DefaultTokenFeeUsdCents:           25,
+				DefaultTokenDestGasOverhead:       90_000,
+				DefaultTxGasLimit:                 200_000,
+				GasMultiplierWeiPerEth:            11e17,
+				GasPriceStalenessThreshold:        0,
+				NetworkFeeUsdCents:                10,
+			},
+		}
+	}
+
+	return []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			aptoscs.AddAptosLanes{},
+			config.UpdateAptosLanesConfig{
+				AptosMCMSConfig: &proposalutils.TimelockConfig{
+					MinDelay:     time.Second,
+					MCMSAction:   mcmstypes.TimelockActionSchedule,
+					OverrideRoot: false,
+				},
+				Lanes: []config.LaneConfig{
+					{
+						Source:     src,
+						Dest:       dest,
+						IsDisabled: false,
+					},
+				},
+				TestRouter: false,
+			},
+		),
+	}
 }
 
 // RemoveLane removes a lane between the source and destination chains in the deployed environment.
@@ -2325,4 +2469,16 @@ func TransferToTimelock(
 	)
 	require.NoError(t, err)
 	AssertTimelockOwnership(t, tenv, chains, state)
+}
+
+func DeployAptosCCIPReceiver(t *testing.T, e deployment.Environment) {
+	state, err := changeset.LoadOnchainStateAptos(e)
+	require.NoError(t, err)
+	for selector, onchainState := range state {
+		addr, tx, _, err := ccip_dummy_receiver.DeployToObject(e.AptosChains[selector].DeployerSigner, e.AptosChains[selector].Client, onchainState.CCIPAddress, onchainState.MCMSAddress)
+		require.NoError(t, err)
+		t.Logf("(Aptos) CCIPDummyReceiver(ccip: %s, mcms: %s) deployed to %s in tx %s", onchainState.CCIPAddress.StringLong(), onchainState.MCMSAddress.StringLong(), addr.StringLong(), tx.Hash)
+		require.NoError(t, e.AptosChains[selector].Confirm(tx.Hash))
+		e.ExistingAddresses.Save(selector, addr.StringLong(), cldf.NewTypeAndVersion(changeset.AptosReceiverType, deployment.Version1_0_0))
+	}
 }

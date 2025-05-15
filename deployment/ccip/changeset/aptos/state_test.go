@@ -3,9 +3,11 @@ package aptos
 import (
 	"testing"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestLoadOnchainStateAptos(t *testing.T) {
@@ -29,7 +31,7 @@ func TestLoadOnchainStateAptos(t *testing.T) {
 					743186221051783445: {},
 				},
 				ExistingAddresses: getTestAddressBook(
-					map[uint64]map[string]deployment.TypeAndVersion{
+					map[uint64]map[string]cldf.TypeAndVersion{
 						4457093679053095497: {
 							mockMCMSAddress: {Type: changeset.AptosMCMSType},
 						},
@@ -49,7 +51,7 @@ func TestLoadOnchainStateAptos(t *testing.T) {
 					4457093679053095497: {},
 				},
 				ExistingAddresses: getTestAddressBook(
-					map[uint64]map[string]deployment.TypeAndVersion{
+					map[uint64]map[string]cldf.TypeAndVersion{
 						4457093679053095497: {
 							mockMCMSAddress: {Type: changeset.AptosMCMSType},
 						},
@@ -78,7 +80,7 @@ func TestLoadOnchainStateAptos(t *testing.T) {
 					743186221051783445: {},
 				},
 				ExistingAddresses: getTestAddressBook(
-					map[uint64]map[string]deployment.TypeAndVersion{
+					map[uint64]map[string]cldf.TypeAndVersion{
 						743186221051783445: {
 							mockBadAddress: {Type: changeset.AptosMCMSType},
 						},

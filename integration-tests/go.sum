@@ -1466,12 +1466,12 @@ github.com/smartcontractkit/ccip-owner-contracts v0.1.0 h1:GiBDtlx7539o7AKlDV+9L
 github.com/smartcontractkit/ccip-owner-contracts v0.1.0/go.mod h1:NnT6w4Kj42OFFXhSx99LvJZWPpMjmo4+CpDEWfw61xY=
 github.com/smartcontractkit/chain-selectors v1.0.55 h1:jn8cwTBEzAi/eQRDO7EbFpZFn60yxygnSSPP2HPbYs0=
 github.com/smartcontractkit/chain-selectors v1.0.55/go.mod h1:xsKM0aN3YGcQKTPRPDDtPx2l4mlTN1Djmg0VVXV40b8=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20250512152539-826d731ba4fa h1:IOWXNq3vIm8J7AgjRS1ozslripIX4T9rYsufpaJe4C8=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20250512152539-826d731ba4fa/go.mod h1:+nE9h84c7s1KnpdtWxZu64aafZt/lQ/RtTs7zRknxrY=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20250512161950-c68a88cbc570 h1:WpL5O0u6CAcgy2QZPymsTVUyMQuDjPbHxtSrFKuOPR4=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20250512161950-c68a88cbc570/go.mod h1:+nE9h84c7s1KnpdtWxZu64aafZt/lQ/RtTs7zRknxrY=
 github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgBc2xpDKBco/Q4h4ydl6+UUU=
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
-github.com/smartcontractkit/chainlink-ccip v0.0.0-20250506195202-6a3f20db41c6 h1:9EAwDMu3nvLsgzC4kv58qvFP3OjWivYOxA21/QBsUdE=
-github.com/smartcontractkit/chainlink-ccip v0.0.0-20250506195202-6a3f20db41c6/go.mod h1:Jb05WL6lj5H89XGcaaOinxTf4Gdj+vXO4TcUhqTgqIM=
+github.com/smartcontractkit/chainlink-ccip v0.0.0-20250512172541-23f36acc56bb h1:/UcEnsms6CP2tRiR899zPd1JBgEjH0t7keDBOR1xANY=
+github.com/smartcontractkit/chainlink-ccip v0.0.0-20250512172541-23f36acc56bb/go.mod h1:Jb05WL6lj5H89XGcaaOinxTf4Gdj+vXO4TcUhqTgqIM=
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250508225633-13a092427990 h1:jswzyxv1bIt9gjmEaMPyTRDVMnOjH+AZEFJfHP94sdY=
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250508225633-13a092427990/go.mod h1:k3/Z6AvwurPUlfuDFEonRbkkiTSgNSrtVNhJEWNlUZA=
 github.com/smartcontractkit/chainlink-common v0.7.1-0.20250509155341-2b5a5170a351 h1:luR7oS01qzkw8anxnSYaXurzKzMdgl5ROKFm1/I6llY=
