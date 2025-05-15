@@ -99,7 +99,7 @@ type CCIPOnChainState struct {
 // ValidatePostDeploymentState should be called after the deployment and configuration for all contracts
 // in environment is complete.
 // It validates the state of the contracts and ensures that they are correctly configured and wired with each other.
-func (c CCIPOnChainState) ValidatePostDeploymentState(e deployment.Environment) error {
+func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment) error {
 	onRampsBySelector := make(map[uint64]common.Address)
 	offRampsBySelector := make(map[uint64]offramp.OffRampInterface)
 	for selector, chainState := range c.Chains {
@@ -200,7 +200,7 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithT
 	return mcmsStateByChain
 }
 
-func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env deployment.Environment, selector uint64) (uint32, error) {
+func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env cldf.Environment, selector uint64) (uint32, error) {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
 		return 0, err
@@ -375,7 +375,7 @@ func (c CCIPOnChainState) EnforceMCMSUsageIfProd(ctx context.Context, mcmsConfig
 // ValidateOwnershipOfChain validates the ownership of every CCIP contract on a chain.
 // If mcmsConfig is nil, the expected owner of each contract is the chain's deployer key.
 // If provided, the expected owner is the Timelock contract.
-func (c CCIPOnChainState) ValidateOwnershipOfChain(e deployment.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig) error {
+func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig) error {
 	chain, ok := e.Chains[chainSel]
 	if !ok {
 		return fmt.Errorf("chain with selector %d not found in the environment", chainSel)
@@ -428,7 +428,7 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e deployment.Environment, cha
 	return nil
 }
 
-func (c CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
+func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
 	m := sync.Map{}
 	sm := sync.Map{}
 	grp := errgroup.Group{}
@@ -440,7 +440,7 @@ func (c CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[
 			if err != nil {
 				return err
 			}
-			chainInfo, err := deployment.ChainInfo(chainSelector)
+			chainInfo, err := cldf.ChainInfo(chainSelector)
 			if err != nil {
 				return err
 			}
@@ -611,7 +611,7 @@ func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType cldf.Contr
 	return nil
 }
 
-func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
+func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 	solanaState, err := LoadOnchainStateSolana(e)
 	if err != nil {
 		return CCIPOnChainState{}, err
@@ -644,7 +644,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (evm.CCIPChainState, error) {
+func LoadChainState(ctx context.Context, chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (evm.CCIPChainState, error) {
 	var state evm.CCIPChainState
 	mcmsWithTimelock, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
@@ -1043,8 +1043,8 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	return state, nil
 }
 
-func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *proposalutils.TimelockConfig) error {
-	err := deployment.IsValidChainSelector(chainSel)
+func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *proposalutils.TimelockConfig) error {
+	err := cldf.IsValidChainSelector(chainSel)
 	if err != nil {
 		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
 	}
@@ -1071,7 +1071,7 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 	return nil
 }
 
-func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
+func LoadOnchainStateSolana(e cldf.Environment) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
 		SolChains: make(map[uint64]solana.CCIPChainState),
 	}

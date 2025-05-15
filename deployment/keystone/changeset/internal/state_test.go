@@ -54,7 +54,7 @@ func Test_GetContractSet(t *testing.T) {
 					giveAB,
 				)
 				req := &GetContractSetsRequest{
-					Chains: map[uint64]deployment.Chain{
+					Chains: map[uint64]cldf.Chain{
 						chain.Selector: {
 							Selector: chain.Selector,
 						},
@@ -101,7 +101,7 @@ func Test_GetContractSet(t *testing.T) {
 					giveAB,
 				)
 				req := &GetContractSetsRequest{
-					Chains: map[uint64]deployment.Chain{
+					Chains: map[uint64]cldf.Chain{
 						chain.Selector: {
 							Selector: chain.Selector,
 						},

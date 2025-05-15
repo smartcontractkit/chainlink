@@ -8,8 +8,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -18,7 +16,7 @@ import (
 // Returns a new addressbook with deploy BundleAggregatorProxy contract addresses.
 var DeployBundleAggregatorProxyChangeset = cldf.CreateChangeSet(deployBundleAggregatorProxyLogic, deployBundleAggregatorProxyPrecondition)
 
-func deployBundleAggregatorProxyLogic(env deployment.Environment, c types.DeployBundleAggregatorProxyConfig) (cldf.ChangesetOutput, error) {
+func deployBundleAggregatorProxyLogic(env cldf.Environment, c types.DeployBundleAggregatorProxyConfig) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	ab := cldf.NewMemoryAddressBook()
 
@@ -45,7 +43,7 @@ func deployBundleAggregatorProxyLogic(env deployment.Environment, c types.Deploy
 	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func deployBundleAggregatorProxyPrecondition(env deployment.Environment, c types.DeployBundleAggregatorProxyConfig) error {
+func deployBundleAggregatorProxyPrecondition(env cldf.Environment, c types.DeployBundleAggregatorProxyConfig) error {
 	for _, chainSelector := range c.ChainsToDeploy {
 		_, ok := env.Chains[chainSelector]
 		if !ok {

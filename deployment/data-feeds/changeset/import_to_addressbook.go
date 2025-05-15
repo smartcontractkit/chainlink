@@ -6,8 +6,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -21,7 +19,7 @@ type AddressesSchema struct {
 	Label          string              `json:"label"`
 }
 
-func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddressbookConfig) (cldf.ChangesetOutput, error) {
+func importToAddressbookLogic(env cldf.Environment, c types.ImportToAddressbookConfig) (cldf.ChangesetOutput, error) {
 	ab := cldf.NewMemoryAddressBook()
 
 	addresses, _ := LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
@@ -41,7 +39,7 @@ func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddres
 	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func importToAddressbookPrecondition(env deployment.Environment, c types.ImportToAddressbookConfig) error {
+func importToAddressbookPrecondition(env cldf.Environment, c types.ImportToAddressbookConfig) error {
 	_, evmOK := env.Chains[c.ChainSelector]
 	_, aptosOK := env.AptosChains[c.ChainSelector]
 	_, solOK := env.SolChains[c.ChainSelector]

@@ -6,7 +6,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
@@ -30,7 +29,7 @@ type UpdateDonRequest struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-func (r *UpdateDonRequest) Validate(env deployment.Environment) error {
+func (r *UpdateDonRequest) Validate(env cldf.Environment) error {
 	if len(r.P2PIDs) == 0 {
 		return errors.New("p2pIDs is required")
 	}
@@ -54,7 +53,7 @@ type UpdateDonResponse struct {
 // UpdateDon updates the capabilities of a Don
 // This a complex action in practice that involves registering missing capabilities, adding the nodes, and updating
 // the capabilities of the DON
-func UpdateDon(env deployment.Environment, req *UpdateDonRequest) (cldf.ChangesetOutput, error) {
+func UpdateDon(env cldf.Environment, req *UpdateDonRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
 	}
@@ -109,7 +108,7 @@ func appendRequest(r *UpdateDonRequest) *AppendNodeCapabilitiesRequest {
 	return out
 }
 
-func updateDonRequest(env deployment.Environment, r *UpdateDonRequest) (*internal.UpdateDonRequest, error) {
+func updateDonRequest(env cldf.Environment, r *UpdateDonRequest) (*internal.UpdateDonRequest, error) {
 	capReg, err := loadCapabilityRegistry(env.Chains[r.RegistryChainSel], env, r.RegistryRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load capability registry: %w", err)

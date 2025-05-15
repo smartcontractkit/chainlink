@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
 
@@ -33,7 +32,7 @@ func (r *UpdateAllowedDonsRequest) Validate() error {
 }
 
 // UpdateAllowedDons updates the list of DONs that workflows can be sent to.
-func UpdateAllowedDons(env deployment.Environment, req *UpdateAllowedDonsRequest) (cldf.ChangesetOutput, error) {
+func UpdateAllowedDons(env cldf.Environment, req *UpdateAllowedDonsRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -76,7 +75,7 @@ func UpdateAllowedDons(env deployment.Environment, req *UpdateAllowedDonsRequest
 	return s.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		tx, err := registry.UpdateAllowedDONs(opts, req.DonIDs, req.Allowed)
 		if err != nil {
-			err = deployment.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
+			err = cldf.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
 		}
 		return tx, err
 	})

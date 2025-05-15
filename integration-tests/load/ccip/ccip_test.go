@@ -9,6 +9,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
@@ -20,8 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -278,7 +278,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 func prepareAccountToSendLink(
 	t *testing.T,
 	state stateview.CCIPOnChainState,
-	e deployment.Environment,
+	e cldf.Environment,
 	src uint64,
 	srcAccount *bind.TransactOpts) error {
 	lggr := logger.Test(t)
@@ -288,7 +288,7 @@ func prepareAccountToSendLink(
 
 	lggr.Infow("Granting mint and burn roles")
 	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func prepareAccountToSendLink(
 		srcAccount.From,
 		big.NewInt(20_000),
 	)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	if err != nil {
 		return err
 	}
@@ -310,6 +310,6 @@ func prepareAccountToSendLink(
 	// Approve the router to spend the tokens and confirm the tx's
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
 	tx, err = srcLink.Approve(srcAccount, state.Chains[src].Router.Address(), math.MaxBig256)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	return err
 }

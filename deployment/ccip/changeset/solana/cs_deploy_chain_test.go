@@ -36,7 +36,7 @@ const (
 	NewSha = "cb02e90f9d6d1dd65f534c60a77bb1e3384a42cb"
 )
 
-func verifyProgramSizes(t *testing.T, e deployment.Environment) {
+func verifyProgramSizes(t *testing.T, e cldf.Environment) {
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	addresses, err := e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
@@ -54,7 +54,7 @@ func verifyProgramSizes(t *testing.T, e deployment.Environment) {
 		deployment.McmProgramName:                  chainState.McmProgram,
 		deployment.RMNRemoteProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].RMNRemote,
 	}
-	for program, sizeBytes := range deployment.GetSolanaProgramBytes() {
+	for program, sizeBytes := range cldf.GetSolanaProgramBytes() {
 		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
 		programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programsToState[program].Bytes()}, solana.BPFLoaderUpgradeableProgramID)
 		programDataSize, err := ccipChangesetSolana.GetSolProgramSize(&e, e.SolChains[e.AllChainSelectorsSolana()[0]], programDataAccount)
@@ -63,7 +63,7 @@ func verifyProgramSizes(t *testing.T, e deployment.Environment) {
 	}
 }
 
-func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipChangesetSolana.BuildSolanaConfig) []commonchangeset.ConfiguredChangeSet {
+func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangesetSolana.BuildSolanaConfig) []commonchangeset.ConfiguredChangeSet {
 	evmSelectors := e.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.AllChainSelectorsSolana()

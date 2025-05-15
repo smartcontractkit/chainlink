@@ -38,7 +38,7 @@ import (
 )
 
 // token setup
-func deployTokenAndMint(t *testing.T, tenv deployment.Environment, solChain uint64, walletPubKeys []string) (deployment.Environment, solana.PublicKey, error) {
+func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, walletPubKeys []string) (cldf.Environment, solana.PublicKey, error) {
 	mintMap := make(map[string]uint64)
 	for _, key := range walletPubKeys {
 		mintMap[key] = uint64(1000)
@@ -721,7 +721,7 @@ func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
 }
 
 // pool lookup table test
-func doTestPoolLookupTable(t *testing.T, e deployment.Environment, mcms bool, tokenMetadata string) {
+func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata string) {
 	ctx := testcontext.Get(t)
 
 	solChain := e.AllChainSelectorsSolana()[0]

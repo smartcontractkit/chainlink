@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -24,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 )
 
@@ -459,7 +460,7 @@ func sendMessagesAsync(
 func sendMessages(
 	ctx context.Context,
 	t *testing.T,
-	sourceChain deployment.Chain,
+	sourceChain cldf.Chain,
 	sourceTransactOpts *bind.TransactOpts,
 	sourceOnRamp onramp.OnRampInterface,
 	sourceRouter *router.Router,
@@ -494,7 +495,7 @@ func sendMessages(
 		},
 		calls,
 	)
-	_, err = deployment.ConfirmIfNoError(sourceChain, tx, err)
+	_, err = cldf.ConfirmIfNoError(sourceChain, tx, err)
 	if err != nil {
 		return fmt.Errorf("send messages via multicall3: %w", err)
 	}

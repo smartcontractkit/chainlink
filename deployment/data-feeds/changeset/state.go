@@ -43,7 +43,7 @@ type DataFeedsOnChainState struct {
 	Chains map[uint64]DataFeedsChainState
 }
 
-func LoadOnchainState(e deployment.Environment) (DataFeedsOnChainState, error) {
+func LoadOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
 	state := DataFeedsOnChainState{
 		Chains: make(map[uint64]DataFeedsChainState),
 	}
@@ -66,7 +66,7 @@ func LoadOnchainState(e deployment.Environment) (DataFeedsOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*DataFeedsChainState, error) {
+func LoadChainState(logger logger.Logger, chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*DataFeedsChainState, error) {
 	var state DataFeedsChainState
 
 	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
@@ -114,10 +114,10 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 	return &state, nil
 }
 
-func (s DataFeedsOnChainState) View(chains []uint64, e deployment.Environment) (map[string]view.ChainView, error) {
+func (s DataFeedsOnChainState) View(chains []uint64, e cldf.Environment) (map[string]view.ChainView, error) {
 	m := make(map[string]view.ChainView)
 	for _, chainSelector := range chains {
-		chainInfo, err := deployment.ChainInfo(chainSelector)
+		chainInfo, err := cldf.ChainInfo(chainSelector)
 		if err != nil {
 			return m, err
 		}
@@ -139,7 +139,7 @@ func (s DataFeedsOnChainState) View(chains []uint64, e deployment.Environment) (
 	return m, nil
 }
 
-func GenerateFeedConfigView(e deployment.Environment, chainName string) *v1_0.FeedState {
+func GenerateFeedConfigView(e cldf.Environment, chainName string) *v1_0.FeedState {
 	baseDir := ".."
 	envName := e.Name
 

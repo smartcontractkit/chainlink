@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
+// Deprecated: use capabilities.webapi.WebAPITriggerJobSpecFactoryFn and capabilities.webapi.WebAPITargetJobSpecFactoryFn instead
 var WebAPIJobSpecFactoryFn = func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
 	return GenerateJobSpecs(input.DonTopology)
 }

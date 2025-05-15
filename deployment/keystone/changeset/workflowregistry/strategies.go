@@ -12,7 +12,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -22,7 +21,7 @@ type strategy interface {
 }
 
 type simpleTransaction struct {
-	chain deployment.Chain
+	chain cldf.Chain
 }
 
 func (s *simpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (cldf.ChangesetOutput, error) {
@@ -41,11 +40,11 @@ type mcmsTransaction struct {
 	Address     common.Address
 	ChainSel    uint64
 	ContractSet *changeset.ContractSet
-	Env         deployment.Environment
+	Env         cldf.Environment
 }
 
 func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (cldf.ChangesetOutput, error) {
-	opts := deployment.SimTransactOpts()
+	opts := cldf.SimTransactOpts()
 
 	tx, err := callFn(opts)
 	if err != nil {

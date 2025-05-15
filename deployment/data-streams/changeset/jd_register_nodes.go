@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -46,7 +46,7 @@ func validateNodeSlice(nodes []NodeCfg, nodeType string, donIndex int) error {
 	return nil
 }
 
-func registerNodesForDON(e deployment.Environment, donName string, donID uint64, nodes []NodeCfg, baseLabels []*ptypes.Label, nodeType string) {
+func registerNodesForDON(e cldf.Environment, donName string, donID uint64, nodes []NodeCfg, baseLabels []*ptypes.Label, nodeType string) {
 	for _, node := range nodes {
 		labels := append([]*ptypes.Label(nil), baseLabels...)
 
@@ -72,7 +72,7 @@ func registerNodesForDON(e deployment.Environment, donName string, donID uint64,
 	}
 }
 
-func registerNodesWithJDLogic(e deployment.Environment, cfg RegisterNodesInput) (cldf.ChangesetOutput, error) {
+func registerNodesWithJDLogic(e cldf.Environment, cfg RegisterNodesInput) (cldf.ChangesetOutput, error) {
 	baseLabels := []*ptypes.Label{
 		{
 			Key:   devenv.LabelProductKey,
@@ -124,6 +124,6 @@ func (cfg RegisterNodesInput) Validate() error {
 	return nil
 }
 
-func registerNodesWithJDPrecondition(_ deployment.Environment, cfg RegisterNodesInput) error {
+func registerNodesWithJDPrecondition(_ cldf.Environment, cfg RegisterNodesInput) error {
 	return cfg.Validate()
 }

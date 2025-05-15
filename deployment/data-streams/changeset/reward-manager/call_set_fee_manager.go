@@ -44,7 +44,7 @@ func (cfg SetFeeManagerConfig) Validate() error {
 	return nil
 }
 
-func SetFeeManagerPrecondition(e deployment.Environment, sf SetFeeManagerConfig) error {
+func SetFeeManagerPrecondition(e cldf.Environment, sf SetFeeManagerConfig) error {
 	for chainSelector, configs := range sf.ConfigsByChain {
 		for _, config := range configs {
 			confState, err := loadRewardManagerState(e, chainSelector, config.RewardManagerAddress.Hex())
@@ -72,7 +72,7 @@ func SetFeeManagerPrecondition(e deployment.Environment, sf SetFeeManagerConfig)
 	return nil
 }
 
-func SetFeeManagerLogic(e deployment.Environment, cfg SetFeeManagerConfig) (cldf.ChangesetOutput, error) {
+func SetFeeManagerLogic(e cldf.Environment, cfg SetFeeManagerConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.FeeManager.String(),
@@ -89,7 +89,7 @@ func SetFeeManagerLogic(e deployment.Environment, cfg SetFeeManagerConfig) (cldf
 
 func doSetFeeManager(vs *rewardManager.RewardManager, sf SetFeeManager) (*goEthTypes.Transaction, error) {
 	return vs.SetFeeManager(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		sf.FeeManagerAddress,
 	)
 }

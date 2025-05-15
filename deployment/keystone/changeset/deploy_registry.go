@@ -9,20 +9,19 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 var _ cldf.ChangeSet[uint64] = DeployCapabilityRegistry
 
 // Depreciated: use DeployCapabilityRegistryV2 instead
-func DeployCapabilityRegistry(env deployment.Environment, registrySelector uint64) (cldf.ChangesetOutput, error) {
+func DeployCapabilityRegistry(env cldf.Environment, registrySelector uint64) (cldf.ChangesetOutput, error) {
 	return DeployCapabilityRegistryV2(env, &DeployRequestV2{
 		ChainSel: registrySelector,
 	})
 }
 
-func DeployCapabilityRegistryV2(env deployment.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
+func DeployCapabilityRegistryV2(env cldf.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
 	req.deployFn = kslib.DeployCapabilitiesRegistry
 	return deploy(env, req)
 }
@@ -33,10 +32,10 @@ type DeployRequestV2 = struct {
 	Qualifier string
 	Labels    *datastore.LabelSet
 
-	deployFn func(ctx context.Context, chain deployment.Chain, ab cldf.AddressBook) (*kslib.DeployResponse, error)
+	deployFn func(ctx context.Context, chain cldf.Chain, ab cldf.AddressBook) (*kslib.DeployResponse, error)
 }
 
-func deploy(env deployment.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
+func deploy(env cldf.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	chain, ok := env.Chains[req.ChainSel]
 	if !ok {

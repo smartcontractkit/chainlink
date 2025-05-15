@@ -8,7 +8,7 @@ import (
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -16,7 +16,7 @@ import (
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
 var ProposeAggregatorChangeset = cldf.CreateChangeSet(proposeAggregatorLogic, proposeAggregatorPrecondition)
 
-func proposeAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAggregatorConfig) (cldf.ChangesetOutput, error) {
+func proposeAggregatorLogic(env cldf.Environment, c types.ProposeConfirmAggregatorConfig) (cldf.ChangesetOutput, error) {
 	chain := env.Chains[c.ChainSelector]
 
 	aggregatorProxy, err := proxy.NewAggregatorProxy(c.ProxyAddress, chain.Client)
@@ -26,7 +26,7 @@ func proposeAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAg
 
 	txOpt := chain.DeployerKey
 	if c.McmsConfig != nil {
-		txOpt = deployment.SimTransactOpts()
+		txOpt = cldf.SimTransactOpts()
 	}
 
 	tx, err := aggregatorProxy.ProposeAggregator(txOpt, c.NewAggregatorAddress)
@@ -47,14 +47,14 @@ func proposeAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAg
 		return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
 
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := cldf.ConfirmIfNoError(chain, tx, err); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
 	return cldf.ChangesetOutput{}, nil
 }
 
-func proposeAggregatorPrecondition(env deployment.Environment, c types.ProposeConfirmAggregatorConfig) error {
+func proposeAggregatorPrecondition(env cldf.Environment, c types.ProposeConfirmAggregatorConfig) error {
 	_, ok := env.Chains[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)

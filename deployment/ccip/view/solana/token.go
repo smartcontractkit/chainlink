@@ -7,7 +7,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type TokenView struct {
@@ -19,7 +19,7 @@ type TokenView struct {
 	FreezeAuthority  string `json:"freezeAuthority,omitempty"`
 }
 
-func GenerateTokenView(chain deployment.SolChain, tokenAddress solana.PublicKey, tokenProgram string) (TokenView, error) {
+func GenerateTokenView(chain cldf.SolChain, tokenAddress solana.PublicKey, tokenProgram string) (TokenView, error) {
 	view := TokenView{}
 	view.TokenProgramName = tokenProgram
 	var tokenMint solToken.Mint

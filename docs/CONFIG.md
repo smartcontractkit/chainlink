@@ -2143,6 +2143,26 @@ foo = "bar" # Example
 ```
 foo is an example resource attribute
 
+## CRE.Streams
+```toml
+[CRE.Streams]
+WsURL = "streams.url" # Example
+RestURL = "streams.url" # Example
+```
+
+
+### WsURL
+```toml
+WsURL = "streams.url" # Example
+```
+WsURL is the websockets url for the streams sdk config
+
+### RestURL
+```toml
+RestURL = "streams.url" # Example
+```
+RestURL is the REST url for the streams sdk config
+
 ## EVM
 EVM defaults depend on ChainID:
 
@@ -2851,9 +2871,9 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-PriceDefault = '1 gwei'
+PriceDefault = '100 mwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
+PriceMin = '100 mwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'

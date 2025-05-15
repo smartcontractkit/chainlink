@@ -75,9 +75,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, err
 			}
 
-			if solana.PublicKeyLength != len(tokenAmount.DestTokenAddress) {
-				return nil, fmt.Errorf("invalid DestTokenAddress length: %d", len(tokenAmount.DestTokenAddress))
-			}
 			tokenAmounts = append(tokenAmounts, ccip_offramp.Any2SVMTokenTransfer{
 				SourcePoolAddress: tokenAmount.SourcePoolAddress,
 				DestTokenAddress:  solana.PublicKeyFromBytes(tokenAmount.DestTokenAddress),

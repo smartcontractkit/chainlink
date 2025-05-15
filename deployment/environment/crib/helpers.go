@@ -2,6 +2,7 @@ package crib
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -9,14 +10,15 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
 
-	"math/big"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
-func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) error {
+func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env cldf.Environment) error {
 	transmittersStr := make([]common.Address, 0)
 	fundingAmount := new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 ETH
 
@@ -40,7 +42,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 	return g.Wait()
 }
 
-func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain deployment.Chain, accounts []common.Address, fundingAmount *big.Int, sel uint64) error {
+func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain cldf.Chain, accounts []common.Address, fundingAmount *big.Int, sel uint64) error {
 	latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		lggr.Errorw("could not get header, skipping chain", "chain", sel, "err", err)

@@ -8,7 +8,6 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 var (
@@ -23,7 +22,7 @@ var (
 	DeleteJobChangeset = cldf.CreateChangeSet(deleteJobsLogic, deleteJobsPrecondition)
 )
 
-func revokeJobsPrecondition(env deployment.Environment, jobIDs []string) error {
+func revokeJobsPrecondition(env cldf.Environment, jobIDs []string) error {
 	proposals, err := env.Offchain.ListProposals(env.GetContext(), &jobv1.ListProposalsRequest{
 		Filter: &jobv1.ListProposalsRequest_Filter{
 			JobIds: jobIDs,
@@ -40,7 +39,7 @@ func revokeJobsPrecondition(env deployment.Environment, jobIDs []string) error {
 	return nil
 }
 
-func revokeJobsLogic(env deployment.Environment, jobIDs []string) (cldf.ChangesetOutput, error) {
+func revokeJobsLogic(env cldf.Environment, jobIDs []string) (cldf.ChangesetOutput, error) {
 	var successfullyRevoked []string
 	for _, jobID := range jobIDs {
 		res, err := env.Offchain.RevokeJob(env.GetContext(), &jobv1.RevokeJobRequest{
@@ -67,7 +66,7 @@ func revokeJobsLogic(env deployment.Environment, jobIDs []string) (cldf.Changese
 	return cldf.ChangesetOutput{}, nil
 }
 
-func deleteJobsPrecondition(env deployment.Environment, jobIDs []string) error {
+func deleteJobsPrecondition(env cldf.Environment, jobIDs []string) error {
 	jobs, err := env.Offchain.ListJobs(env.GetContext(), &jobv1.ListJobsRequest{
 		Filter: &jobv1.ListJobsRequest_Filter{
 			Ids: jobIDs,
@@ -91,7 +90,7 @@ func deleteJobsPrecondition(env deployment.Environment, jobIDs []string) error {
 
 // DeleteJobChangeset sends the delete job request to nodes for the given jobID.
 // nops needs to cancel the job once the request is sent by JD.
-func deleteJobsLogic(env deployment.Environment, jobIDs []string) (cldf.ChangesetOutput, error) {
+func deleteJobsLogic(env cldf.Environment, jobIDs []string) (cldf.ChangesetOutput, error) {
 	jobIDsToDelete, err := jobsToDelete(env, jobIDs)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get jobIDs to delete: %w", err)
@@ -114,7 +113,7 @@ func deleteJobsLogic(env deployment.Environment, jobIDs []string) (cldf.Changese
 	return cldf.ChangesetOutput{}, nil
 }
 
-func jobsToDelete(env deployment.Environment, jobIDs []string) ([]string, error) {
+func jobsToDelete(env cldf.Environment, jobIDs []string) ([]string, error) {
 	jobs, err := env.Offchain.ListProposals(env.GetContext(), &jobv1.ListProposalsRequest{
 		Filter: &jobv1.ListProposalsRequest_Filter{
 			JobIds: jobIDs,
