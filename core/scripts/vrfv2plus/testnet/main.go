@@ -1414,7 +1414,7 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "gas-lane-gwei", "coordinator-address", "batch-coordinator-address", "compressed-public-key", "chain-id", "node-sending-keys", "poll-period", "block-type")
 
 		addresses := strings.Fields(*nodeSendingKeys)
-		firstSendingKey := fmt.Sprintf(strings.TrimSpace(addresses[0]))
+		firstSendingKey := strings.TrimSpace(addresses[0])
 		
 		for i := range addresses {
     		addresses[i] = fmt.Sprintf("  \"%s\"", strings.TrimSpace(addresses[i]))		
