@@ -3,7 +3,7 @@ This file contains test helpers for the changeset package.
 The filename has a suffix of "_test.go" in order to not be included in the production build.
 */
 
-package changeset
+package jobs
 
 import (
 	"context"
