@@ -15,11 +15,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/grpc"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
-	"google.golang.org/grpc"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"

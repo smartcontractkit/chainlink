@@ -45,10 +45,6 @@ packages:
       LogPoller:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr:
     interfaces:
-      ChainConfig:
-        config:
-          mockname: Config
-          filename: config.go
       EvmTxStore:
   github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm:
     interfaces:
