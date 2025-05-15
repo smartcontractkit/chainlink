@@ -161,7 +161,7 @@ var (
 					}
 					return OpsOutput{
 						Proposals:   output.MCMSTimelockProposals,
-						AddressBook: output.AddressBook,
+						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
 					}, nil
 				},
 			), deps, deps.changesetInput.solanaRouterInput)
@@ -185,7 +185,7 @@ var (
 					}
 					return OpsOutput{
 						Proposals:   output.MCMSTimelockProposals,
-						AddressBook: output.AddressBook,
+						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
 					}, nil
 				},
 			), deps, deps.changesetInput.solanaOffRampInput)
@@ -209,7 +209,7 @@ var (
 					}
 					return OpsOutput{
 						Proposals:   output.MCMSTimelockProposals,
-						AddressBook: output.AddressBook,
+						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
 					}, nil
 				},
 			), deps, deps.changesetInput.solanaFeeQuoterInput)
@@ -267,6 +267,7 @@ func (o *OpsOutput) Merge(other OpsOutput, env cldf.Environment) error {
 		if err := o.AddressBook.Merge(other.AddressBook); err != nil {
 			return fmt.Errorf("failed to merge address book: %w", err)
 		}
+		//nolint:staticcheck //SA1019 ignoring deprecated
 		if err := env.ExistingAddresses.Merge(other.AddressBook); err != nil {
 			return fmt.Errorf("failed to merge existing addresses to environment: %w", err)
 		}
@@ -480,6 +481,6 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddRemoteChainE2EConfi
 	}
 	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: report.Output.Proposals,
-		AddressBook:           report.Output.AddressBook,
+		AddressBook:           report.Output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
 	}, nil
 }
