@@ -558,6 +558,9 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 
 	for {
 		select {
+		case <-time.After(10 * time.Second):
+			t.Logf("Waiting for CommitReportAccepted event on chain selector %d from source selector %d expected seq nr range %s",
+				dest.Selector, srcSelector, expectedSeqNumRange.String())
 		case commitEvent := <-sink:
 			// if merkle root is zero, it only contains price updates
 			if commitEvent.Report == nil {
@@ -774,6 +777,9 @@ func ConfirmExecWithSeqNrsSol(
 
 	for {
 		select {
+		case <-time.After(10 * time.Second):
+			t.Logf("Waiting for ExecutionStateChanged event on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
+				dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs)
 		case execEvent := <-sink:
 			// TODO: share with EVM
 			_, found := seqNrsToWatch[execEvent.SequenceNumber]
