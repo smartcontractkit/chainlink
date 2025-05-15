@@ -7,6 +7,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	cronserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -128,8 +129,10 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, names []string
 			}
 			caps = append(caps, streamsTrigger)
 		case "cron":
-			cronTrigger := fakes.NewFakeCronTrigger(lggr)
-			if err := registry.Add(ctx, cronTrigger.Capability()); err != nil {
+			cronTrigger := cronserver.NewCronServer(
+				fakes.NewTriggerService(lggr, nil),
+			)
+			if err := registry.Add(ctx, cronTrigger); err != nil {
 				return nil, fmt.Errorf("failed to add cron trigger to registry : %w", err)
 			}
 			caps = append(caps, cronTrigger)
