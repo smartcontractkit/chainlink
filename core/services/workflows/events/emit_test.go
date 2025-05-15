@@ -35,7 +35,7 @@ func TestEmitTimestampNano(t *testing.T) {
 		var expected pb.WorkflowExecutionStarted
 
 		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.True(t, timeMatcher.MatchString(expected.Timestamp))
+		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
 	})
 
 	t.Run(events.WorkflowExecutionFinished, func(t *testing.T) {
@@ -47,7 +47,7 @@ func TestEmitTimestampNano(t *testing.T) {
 		var expected pb.WorkflowExecutionFinished
 
 		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.True(t, timeMatcher.MatchString(expected.Timestamp))
+		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
 	})
 
 	t.Run(events.CapabilityExecutionStarted, func(t *testing.T) {
@@ -59,7 +59,7 @@ func TestEmitTimestampNano(t *testing.T) {
 		var expected pb.CapabilityExecutionStarted
 
 		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.True(t, timeMatcher.MatchString(expected.Timestamp))
+		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
 	})
 
 	t.Run(events.CapabilityExecutionFinished, func(t *testing.T) {
@@ -71,6 +71,6 @@ func TestEmitTimestampNano(t *testing.T) {
 		var expected pb.CapabilityExecutionFinished
 
 		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.True(t, timeMatcher.MatchString(expected.Timestamp))
+		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
 	})
 }
