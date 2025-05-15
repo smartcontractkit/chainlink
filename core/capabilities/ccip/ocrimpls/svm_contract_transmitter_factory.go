@@ -60,8 +60,8 @@ var SVMExecCalldataFunc = func(
 ) (contract string, method string, args any, err error) {
 	var info ccipocr3.ExecuteReportInfo
 	var extraDataDecoded ccipcommon.ExtraDataDecoded
-	info, err = ccipocr3.DecodeExecuteReportInfo(report.Info)
 	if len(report.Info) != 0 {
+		info, err = ccipocr3.DecodeExecuteReportInfo(report.Info)
 		if err != nil {
 			return "", "", nil, fmt.Errorf("failed to decode execute report info: %w", err)
 		}
