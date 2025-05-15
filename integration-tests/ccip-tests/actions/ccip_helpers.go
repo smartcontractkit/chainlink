@@ -4379,7 +4379,7 @@ func CreateOCR2CCIPCommitJobs(
 
 		retryOpts := []retry.Option{
 			retry.DelayType(retry.FixedDelay),
-			retry.Delay(100 * time.Millisecond),
+			retry.Delay(500 * time.Millisecond),
 			retry.Attempts(5),
 			retry.LastErrorOnly(true),
 			retry.OnRetry(func(attempt uint, err error) {
@@ -4435,7 +4435,7 @@ func CreateOCR2CCIPExecutionJobs(
 
 		retryOpts := []retry.Option{
 			retry.DelayType(retry.FixedDelay),
-			retry.Delay(100 * time.Millisecond),
+			retry.Delay(500 * time.Millisecond),
 			retry.Attempts(5),
 			retry.LastErrorOnly(true),
 			retry.OnRetry(func(attempt uint, err error) {
