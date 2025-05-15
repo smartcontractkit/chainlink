@@ -216,6 +216,43 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 	}, nil
 }
 
+func (w *chainWriter) GetEstimateFee(ctx context.Context, contract, method string, args any, toAddress string, meta *commontypes.TxMeta, val *big.Int) (commontypes.EstimateFee, error) {
+	calldata, err := w.encoder.Encode(ctx, args, codec.WrapItemType(contract, method, true))
+	if err != nil {
+		return commontypes.EstimateFee{}, fmt.Errorf("%w: failed to encode args", err)
+	}
+
+	to := common.HexToAddress(toAddress)
+	v := assets.Eth(*val)
+
+	contractConfig, ok := w.contracts[contract]
+	if !ok {
+		return commontypes.EstimateFee{}, fmt.Errorf("contract config not found: %v", contract)
+	}
+
+	methodConfig, ok := contractConfig.Configs[method]
+	if !ok {
+		return commontypes.EstimateFee{}, fmt.Errorf("method config not found: %v", method)
+	}
+
+	gasLimit := methodConfig.GasLimit
+	if meta != nil && meta.GasLimit != nil {
+		gasLimit = meta.GasLimit.Uint64()
+	}
+	from := common.Address{}
+
+	cost, err := w.ge.GetMaxCost(ctx, v, calldata, gasLimit, w.maxGasPrice, &from, &to)
+	if err != nil {
+		return commontypes.EstimateFee{}, err
+	}
+
+	return commontypes.EstimateFee{
+		Fee:      cost,
+		Decimals: 18,
+	}, nil
+
+}
+
 func (w *chainWriter) Close() error {
 	return w.StopOnce(w.Name(), func() error {
 		return nil
