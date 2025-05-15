@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	evmprimitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives/evm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/chains"
@@ -80,15 +80,13 @@ func (r *Relayer) LatestAndFinalizedHead(ctx context.Context) (evmtypes.Head, ev
 	return convertHead(latest), convertHead(finalized), nil
 }
 
+// TODO introduce parameters validation PLEX-1437
 func (r *Relayer) QueryTrackedLogs(ctx context.Context, filterQuery []query.Expression,
 	limitAndSort query.LimitAndSort, confidenceLevel primitives.ConfidenceLevel) ([]*evmtypes.Log, error) {
-	// TODO move evm specific expressions to common
-	// TODO check if required filters[event sig and address] are set
-	// TODO specify query name BCFR-1328
-	// BCFR-1328
 	conformations := confidenceToConformations(confidenceLevel)
 	filterQuery = append(filterQuery, logpoller.NewConfirmationsFilter(conformations))
-	logs, err := r.chain.LogPoller().FilteredLogs(ctx, filterQuery, limitAndSort, "")
+	queryName := queryNameFromFilter(filterQuery)
+	logs, err := r.chain.LogPoller().FilteredLogs(ctx, filterQuery, limitAndSort, queryName)
 
 	if err != nil {
 		return nil, err
@@ -129,16 +127,22 @@ func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID common
 	return commontypes.TransactionStatus(status), nil
 }
 
-func blockFromConfidence(ctx context.Context, ht heads.Tracker, confidence primitives.ConfidenceLevel) (*big.Int, error) {
-	latest, finalized, err := ht.LatestAndFinalizedBlock(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if confidence == primitives.Finalized {
-		return big.NewInt(finalized.BlockNumber()), nil
+func queryNameFromFilter(filterQuery []query.Expression) string {
+	var address string
+	var eventSig string
+
+	for _, expr := range filterQuery {
+		if expr.IsPrimitive() {
+			switch primitive := expr.Primitive.(type) {
+			case *evmprimitives.Address:
+				address = common.Address(primitive.Address).Hex()
+			case *evmprimitives.EventSig:
+				eventSig = common.Hash(primitive.EventSig).Hex()
+			}
+		}
 	}
 
-	return big.NewInt(latest.BlockNumber()), nil
+	return address + "-" + eventSig
 }
 
 func convertHead[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable](h H) evmtypes.Head {
