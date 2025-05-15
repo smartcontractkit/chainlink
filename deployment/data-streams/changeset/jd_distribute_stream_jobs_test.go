@@ -8,6 +8,8 @@ import (
 	jdJob "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -40,12 +42,19 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 		},
 	}).Environment
 
+	resp, err := env.Offchain.ListNodes(t.Context(), &node.ListNodesRequest{})
+	require.NoError(t, err)
+	nodeNames := make([]string, 0, len(resp.Nodes))
+	for _, n := range resp.Nodes {
+		nodeNames = append(nodeNames, n.Name)
+	}
+
 	// pick the first EVM chain selector
 	chainSelector := env.AllChainSelectors()[0]
 
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
-	err := env.ExistingAddresses.Save(chainSelector, configuratorAddr,
+	err = env.ExistingAddresses.Save(chainSelector, configuratorAddr,
 		cldf.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
@@ -140,7 +149,7 @@ ask_price [type=median allowedFaults=3 index=2];
 				Value: pointer.To("customTestValue"),
 			},
 		},
-		NodeNames: []string{"node-0", "node-1", "node-2"},
+		NodeNames: nodeNames,
 	}
 
 	tests := []struct {
@@ -165,7 +174,7 @@ ask_price [type=median allowedFaults=3 index=2];
 			// This happens to also be a job update when run after "success" because the two use the same ExternalJobID.
 			name: "success sending jobs to a subset of nodes",
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.NodeNames = []string{"node-0"}
+				c.NodeNames = []string{nodeNames[0]}
 				c.Filter = &jd.ListFilter{
 					DONID:          testutil.TestDON.ID,
 					DONName:        testutil.TestDON.Name,
@@ -181,7 +190,7 @@ ask_price [type=median allowedFaults=3 index=2];
 			// This happens to also be a job update when run after "success" because the two use the same ExternalJobID.
 			name: "success sending jobs to a different subset of nodes",
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.NodeNames = []string{"node-1", "node-2"}
+				c.NodeNames = nodeNames[1:]
 				c.Filter = &jd.ListFilter{
 					DONID:          testutil.TestDON.ID,
 					DONName:        testutil.TestDON.Name,

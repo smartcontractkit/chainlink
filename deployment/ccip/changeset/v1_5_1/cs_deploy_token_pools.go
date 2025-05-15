@@ -171,15 +171,9 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 		deployGrp.Go(func() error {
 			chain := env.Chains[chainSelector]
 			chainState := state.Chains[chainSelector]
-			contract, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
+			_, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
 			if err != nil {
 				return fmt.Errorf("failed to deploy token pool contract: %w", err)
-			}
-			if poolConfig.Type == shared.BurnMintTokenPool {
-				err := grantAccessToPool(env.GetContext(), chain, contract.Address, poolConfig.TokenAddress)
-				if err != nil {
-					return fmt.Errorf("failed to grant token pool access to token: %s %w", poolConfig.TokenAddress, err)
-				}
 			}
 			return nil
 		})

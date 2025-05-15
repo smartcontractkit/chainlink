@@ -426,8 +426,8 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 					Readers: nodeInfo.NonBootstraps().PeerIDs(),
 					FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3), // #nosec G115 - Overflow is not a concern in this test scenario
 					EncodableChainConfig: chainconfig.ChainConfig{
-						GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
-						DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+						GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+						DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
 						OptimisticConfirmations: globals.OptimisticConfirmations,
 					},
 				},
