@@ -40,11 +40,11 @@ type SVMExecCallArgs struct {
 
 // SVMContractTransmitterFactory implements the transmitter factory for SVM chains.
 type SVMContractTransmitterFactory struct {
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec *ccipcommon.ExtraDataCodec
 }
 
 // NewSVMContractTransmitterFactory returns a new SVMContractTransmitterFactory.
-func NewSVMContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *SVMContractTransmitterFactory {
+func NewSVMContractTransmitterFactory(extraDataCodec *ccipcommon.ExtraDataCodec) *SVMContractTransmitterFactory {
 	return &SVMContractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}

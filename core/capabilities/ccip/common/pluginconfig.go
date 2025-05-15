@@ -21,25 +21,24 @@ type PluginConfig struct {
 	PriceOnlyCommitFn string
 	ChainRW           ChainRWProvider
 	AddressCodec      ChainSpecificAddressCodec
+	ExtraDataCodec    SourceChainExtraDataCodec
 }
 
 // PluginServices aggregates services for a specific chain family.
 type PluginServices struct {
 	PluginConfig   PluginConfig
 	AddrCodec      AddressCodec
-	ExtraDataCodec ExtraDataCodec
+	ExtraDataCodec *ExtraDataCodec
 	ChainRW        MultiChainRW
 }
 
 // InitFunction defines a function to initialize a PluginConfig.
-type InitFunction func(logger.Logger, ExtraDataCodec) PluginConfig
+type InitFunction func(logger.Logger, *ExtraDataCodec) PluginConfig
 
 var registeredFactories = make(map[string]InitFunction)
-var registeredExtraDataCodec = make(map[string]SourceChainExtraDataCodec)
 
 // RegisterPluginConfig registers a plugin config factory for a chain family.
-func RegisterPluginConfig(chainFamily string, factory InitFunction, extraDataCodec SourceChainExtraDataCodec) {
-	registeredExtraDataCodec[chainFamily] = extraDataCodec
+func RegisterPluginConfig(chainFamily string, factory InitFunction) {
 	registeredFactories[chainFamily] = factory
 }
 
@@ -53,17 +52,20 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 	pluginServices := PluginServices{}
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
 	chainRWProviderMap := make(map[string]ChainRWProvider)
-	pluginServices.ExtraDataCodec = NewExtraDataCodec(registeredExtraDataCodec)
+	registeredExtraDataCodec := make(map[string]SourceChainExtraDataCodec)
+	pluginServices.ExtraDataCodec = &ExtraDataCodec{} // lazy initialize it after factory init call
 
 	for family, initFunc := range registeredFactories {
 		config := initFunc(lggr, pluginServices.ExtraDataCodec)
 		addressCodecMap[family] = config.AddressCodec
 		chainRWProviderMap[family] = config.ChainRW
+		registeredExtraDataCodec[family] = config.ExtraDataCodec
 		if family == chainFamily {
 			pluginServices.PluginConfig = config
 		}
 	}
 
+	*pluginServices.ExtraDataCodec = NewExtraDataCodec(registeredExtraDataCodec) // initialize and update it with the map
 	pluginServices.AddrCodec = NewAddressCodec(addressCodecMap)
 	pluginServices.ChainRW = NewCRCW(chainRWProviderMap)
 	return pluginServices, nil

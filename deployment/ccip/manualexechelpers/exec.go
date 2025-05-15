@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -310,7 +312,7 @@ func manuallyExecuteSingle(
 	lookbackDurationCommitReport,
 	stepDuration time.Duration,
 	reExecuteIfFailed bool,
-	extraDataCodec ccipcommon.ExtraDataCodec,
+	extraDataCodec *ccipcommon.ExtraDataCodec,
 	messageSentCache *MessageSentCache,
 	commitRootCache *RootCache,
 ) error {
@@ -551,7 +553,10 @@ func ManuallyExecuteAll(
 	stepDuration time.Duration,
 	reExecuteIfFailed bool,
 ) error {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.RegisteredExtraDataCodec)
+	extraDataCodec := ccipcommon.NewExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    ccipevm.ExtraDataCodec{},
+		chainsel.FamilySolana: ccipsolana.ExtraDataCodec{},
+	})
 	// the chain multiple times for the same root/messages.
 	messageSentCache := NewMessageSentCache()
 	commitRootCache := NewRootCache()
@@ -568,7 +573,7 @@ func ManuallyExecuteAll(
 			lookbackDurationCommitReport,
 			stepDuration,
 			reExecuteIfFailed,
-			extraDataCodec,
+			&extraDataCodec,
 			messageSentCache,
 			commitRootCache,
 		)

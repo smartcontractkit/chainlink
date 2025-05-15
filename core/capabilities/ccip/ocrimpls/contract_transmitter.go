@@ -38,7 +38,7 @@ type ccipTransmitter struct {
 	fromAccount    ocrtypes.Account
 	offrampAddress string
 	toCalldataFn   ToCalldataFunc
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec *ccipcommon.ExtraDataCodec
 	lggr           logger.Logger
 }
 
@@ -107,7 +107,7 @@ func (c *ccipTransmitter) Transmit(
 	}
 
 	// chain writer takes in the raw calldata and packs it on its own.
-	contract, method, args, err := c.toCalldataFn(rawReportCtx, reportWithInfo, rs, ss, vs, &c.extraDataCodec)
+	contract, method, args, err := c.toCalldataFn(rawReportCtx, reportWithInfo, rs, ss, vs, c.extraDataCodec)
 	if err != nil {
 		return fmt.Errorf("failed to generate call data: %w", err)
 	}

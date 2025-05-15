@@ -10,7 +10,7 @@ import (
 )
 
 // InitializePluginConfig returns a pluginConfig for Solana chains.
-func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodec) ccipcommon.PluginConfig {
+func InitializePluginConfig(lggr logger.Logger, extraDataCodec *ccipcommon.ExtraDataCodec) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:          NewCommitPluginCodecV1(),
 		ExecutePluginCodec:         NewExecutePluginCodecV1(extraDataCodec),
@@ -26,5 +26,5 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 
 func init() {
 	// Register the EVM plugin config factory
-	ccipcommon.RegisterPluginConfig(chainsel.FamilySolana, InitializePluginConfig, ExtraDataCodec{})
+	ccipcommon.RegisterPluginConfig(chainsel.FamilySolana, InitializePluginConfig)
 }

@@ -34,11 +34,11 @@ type EVMExecCallArgs struct {
 
 // EVMContractTransmitterFactory implements the transmitter factory for EVM chains.
 type EVMContractTransmitterFactory struct {
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec *ccipcommon.ExtraDataCodec
 }
 
 // NewEVMContractTransmitterFactory returns a new EVMContractTransmitterFactory.
-func NewEVMContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *EVMContractTransmitterFactory {
+func NewEVMContractTransmitterFactory(extraDataCodec *ccipcommon.ExtraDataCodec) *EVMContractTransmitterFactory {
 	return &EVMContractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
