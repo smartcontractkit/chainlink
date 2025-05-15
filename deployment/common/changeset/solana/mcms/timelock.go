@@ -20,7 +20,7 @@ import (
 )
 
 func deployTimelockProgram(
-	e deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, chain deployment.SolChain,
+	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, chain cldf.SolChain,
 	addressBook cldf.AddressBook,
 ) error {
 	typeAndVersion := cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
@@ -61,7 +61,7 @@ func deployTimelockProgram(
 }
 
 func initTimelock(
-	e deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, chain deployment.SolChain,
+	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, chain cldf.SolChain,
 	addressBook cldf.AddressBook, minDelay *big.Int,
 ) error {
 	if chainState.TimelockProgram.IsZero() {
@@ -114,7 +114,7 @@ func initTimelock(
 }
 
 func initializeTimelock(
-	e deployment.Environment, chain deployment.SolChain, timelockProgram solana.PublicKey, timelockID state.PDASeed,
+	e cldf.Environment, chain cldf.SolChain, timelockProgram solana.PublicKey, timelockID state.PDASeed,
 	chainState *state.MCMSWithTimelockStateSolana, minDelay *big.Int,
 ) error {
 	if minDelay == nil {

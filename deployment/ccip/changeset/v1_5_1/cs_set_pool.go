@@ -9,7 +9,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -22,7 +21,7 @@ func validateSetPool(
 	sender common.Address,
 	externalAdmin common.Address,
 	symbol shared.TokenSymbol,
-	chain deployment.Chain,
+	chain cldf.Chain,
 ) error {
 	// We must be the administrator
 	if config.Administrator != sender {
@@ -32,7 +31,7 @@ func validateSetPool(
 }
 
 // SetPoolChangeset sets pools for tokens on the token admin registry.
-func SetPoolChangeset(env deployment.Environment, c TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
+func SetPoolChangeset(env cldf.Environment, c TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env, false, validateSetPool); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid TokenAdminRegistryChangesetConfig: %w", err)
 	}

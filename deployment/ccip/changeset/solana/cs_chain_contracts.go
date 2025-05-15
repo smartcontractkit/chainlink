@@ -51,7 +51,7 @@ func GetTokenProgramID(programName cldf.ContractType) (solana.PublicKey, error) 
 	return programID, nil
 }
 
-func commonValidation(e deployment.Environment, selector uint64, tokenPubKey solana.PublicKey) error {
+func commonValidation(e cldf.Environment, selector uint64, tokenPubKey solana.PublicKey) error {
 	chain, ok := e.SolChains[selector]
 	if !ok {
 		return fmt.Errorf("chain selector %d not found in environment", selector)
@@ -82,7 +82,7 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	return nil
 }
 
-func validateRouterConfig(chain deployment.SolChain, chainState solanastateview.CCIPChainState) error {
+func validateRouterConfig(chain cldf.SolChain, chainState solanastateview.CCIPChainState) error {
 	_, routerConfigPDA, err := chainState.GetRouterInfo()
 	if err != nil {
 		return err
@@ -95,14 +95,14 @@ func validateRouterConfig(chain deployment.SolChain, chainState solanastateview.
 	return nil
 }
 
-func validateFeeAggregatorConfig(chain deployment.SolChain, chainState solanastateview.CCIPChainState) error {
+func validateFeeAggregatorConfig(chain cldf.SolChain, chainState solanastateview.CCIPChainState) error {
 	if chainState.GetFeeAggregator(chain).IsZero() {
 		return fmt.Errorf("fee aggregator not found in existing state, set the fee aggregator first for chain %d", chain.Selector)
 	}
 	return nil
 }
 
-func validateFeeQuoterConfig(chain deployment.SolChain, chainState solanastateview.CCIPChainState) error {
+func validateFeeQuoterConfig(chain cldf.SolChain, chainState solanastateview.CCIPChainState) error {
 	if chainState.FeeQuoter.IsZero() {
 		return fmt.Errorf("fee quoter not found in existing state, deploy the fee quoter first for chain %d", chain.Selector)
 	}
@@ -115,7 +115,7 @@ func validateFeeQuoterConfig(chain deployment.SolChain, chainState solanastatevi
 	return nil
 }
 
-func validateOffRampConfig(chain deployment.SolChain, chainState solanastateview.CCIPChainState) error {
+func validateOffRampConfig(chain cldf.SolChain, chainState solanastateview.CCIPChainState) error {
 	if chainState.OffRamp.IsZero() {
 		return fmt.Errorf("offramp not found in existing state, deploy the offramp first for chain %d", chain.Selector)
 	}
@@ -138,7 +138,7 @@ type OffRampRefAddressesConfig struct {
 	MCMS               *proposalutils.TimelockConfig
 }
 
-func (cfg OffRampRefAddressesConfig) Validate(e deployment.Environment) error {
+func (cfg OffRampRefAddressesConfig) Validate(e cldf.Environment) error {
 	chain := e.SolChains[cfg.ChainSelector]
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -152,7 +152,7 @@ func (cfg OffRampRefAddressesConfig) Validate(e deployment.Environment) error {
 }
 
 func UpdateOffRampRefAddresses(
-	e deployment.Environment,
+	e cldf.Environment,
 	config OffRampRefAddressesConfig,
 ) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainStateSolana(e)
@@ -257,7 +257,7 @@ type SetUpgradeAuthorityConfig struct {
 }
 
 func SetUpgradeAuthorityChangeset(
-	e deployment.Environment,
+	e cldf.Environment,
 	config SetUpgradeAuthorityConfig,
 ) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[config.ChainSelector]
@@ -342,8 +342,8 @@ func SetUpgradeAuthorityChangeset(
 
 // setUpgradeAuthority creates a transaction to set the upgrade authority for a program
 func setUpgradeAuthority(
-	e *deployment.Environment,
-	chain *deployment.SolChain,
+	e *cldf.Environment,
+	chain *cldf.SolChain,
 	programID solana.PublicKey,
 	currentUpgradeAuthority solana.PublicKey,
 	newUpgradeAuthority solana.PublicKey,
@@ -380,7 +380,7 @@ type SetFeeAggregatorConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
+func (cfg SetFeeAggregatorConfig) Validate(e cldf.Environment) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -415,7 +415,7 @@ func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (cldf.ChangesetOutput, error) {
+func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -484,7 +484,7 @@ type DeployForTestConfig struct {
 	IsUpgrade       bool
 }
 
-func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
+func (cfg DeployForTestConfig) Validate(e cldf.Environment) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -498,7 +498,7 @@ func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
 	return validateRouterConfig(chain, chainState)
 }
 
-func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (cldf.ChangesetOutput, error) {
+func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -576,7 +576,7 @@ type SetLinkTokenConfig struct {
 	ChainSelector uint64
 }
 
-func (cfg SetLinkTokenConfig) Validate(e deployment.Environment) error {
+func (cfg SetLinkTokenConfig) Validate(e cldf.Environment) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -590,7 +590,7 @@ func (cfg SetLinkTokenConfig) Validate(e deployment.Environment) error {
 	return validateRouterConfig(chain, chainState)
 }
 
-func SetLinkToken(e deployment.Environment, cfg SetLinkTokenConfig) (cldf.ChangesetOutput, error) {
+func SetLinkToken(e cldf.Environment, cfg SetLinkTokenConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

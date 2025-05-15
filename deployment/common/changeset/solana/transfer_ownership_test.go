@@ -15,7 +15,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanachangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
@@ -58,7 +57,7 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	assertOwner(t, env, solanaSelector, chainState, timelockSignerPDA)
 }
 
-func deployMCMS(t *testing.T, env deployment.Environment, selector uint64) *state.MCMSWithTimelockStateSolana {
+func deployMCMS(t *testing.T, env cldf.Environment, selector uint64) *state.MCMSWithTimelockStateSolana {
 	t.Helper()
 
 	solanaChain := env.SolChains[selector]
@@ -79,7 +78,7 @@ func deployMCMS(t *testing.T, env deployment.Environment, selector uint64) *stat
 }
 
 func assertOwner(
-	t *testing.T, env deployment.Environment, selector uint64, chainState *state.MCMSWithTimelockStateSolana, owner solana.PublicKey,
+	t *testing.T, env cldf.Environment, selector uint64, chainState *state.MCMSWithTimelockStateSolana, owner solana.PublicKey,
 ) {
 	assertMCMOwner(t, owner, state.GetMCMConfigPDA(chainState.McmProgram, chainState.ProposerMcmSeed), env, selector)
 	assertMCMOwner(t, owner, state.GetMCMConfigPDA(chainState.McmProgram, chainState.CancellerMcmSeed), env, selector)
@@ -92,7 +91,7 @@ func assertOwner(
 }
 
 func assertMCMOwner(
-	t *testing.T, want solana.PublicKey, configPDA solana.PublicKey, env deployment.Environment, selector uint64,
+	t *testing.T, want solana.PublicKey, configPDA solana.PublicKey, env cldf.Environment, selector uint64,
 ) {
 	t.Helper()
 	var config mcmBindings.MultisigConfig
@@ -102,7 +101,7 @@ func assertMCMOwner(
 }
 
 func assertTimelockOwner(
-	t *testing.T, want solana.PublicKey, configPDA solana.PublicKey, env deployment.Environment, selector uint64,
+	t *testing.T, want solana.PublicKey, configPDA solana.PublicKey, env cldf.Environment, selector uint64,
 ) {
 	t.Helper()
 	var config timelockBindings.Config
@@ -112,7 +111,7 @@ func assertTimelockOwner(
 }
 
 func assertAccessControllerOwner(
-	t *testing.T, want solana.PublicKey, account solana.PublicKey, env deployment.Environment, selector uint64,
+	t *testing.T, want solana.PublicKey, account solana.PublicKey, env cldf.Environment, selector uint64,
 ) {
 	t.Helper()
 	var config accessControllerBindings.AccessController
@@ -122,7 +121,7 @@ func assertAccessControllerOwner(
 }
 
 func fundSignerPDAs(
-	t *testing.T, env deployment.Environment, chainSelector uint64, chainState *state.MCMSWithTimelockStateSolana,
+	t *testing.T, env cldf.Environment, chainSelector uint64, chainState *state.MCMSWithTimelockStateSolana,
 ) {
 	t.Helper()
 	solChain := env.SolChains[chainSelector]

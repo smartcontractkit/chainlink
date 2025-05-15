@@ -28,7 +28,7 @@ type DeployTokenPoolFactoryConfig struct {
 	RegistryModule1_6Addresses map[uint64]common.Address
 }
 
-func deployTokenPoolFactoryPrecondition(e deployment.Environment, config DeployTokenPoolFactoryConfig) error {
+func deployTokenPoolFactoryPrecondition(e cldf.Environment, config DeployTokenPoolFactoryConfig) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -80,7 +80,7 @@ func deployTokenPoolFactoryPrecondition(e deployment.Environment, config DeployT
 	return nil
 }
 
-func deployTokenPoolFactoryLogic(e deployment.Environment, config DeployTokenPoolFactoryConfig) (cldf.ChangesetOutput, error) {
+func deployTokenPoolFactoryLogic(e cldf.Environment, config DeployTokenPoolFactoryConfig) (cldf.ChangesetOutput, error) {
 	addressBook := cldf.NewMemoryAddressBook()
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -97,7 +97,7 @@ func deployTokenPoolFactoryLogic(e deployment.Environment, config DeployTokenPoo
 		}
 
 		tokenPoolFactory, err := cldf.DeployContract(e.Logger, chain, addressBook,
-			func(chain deployment.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
 				address, tx, tokenPoolFactory, err := token_pool_factory.DeployTokenPoolFactory(
 					chain.DeployerKey,
 					chain.Client,

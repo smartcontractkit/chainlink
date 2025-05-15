@@ -43,10 +43,10 @@ func TestAddTokenPoolWithMcms(t *testing.T) {
 	doTestTokenPool(t, tenv.Env, true, shared.CLLMetadata)
 }
 
-func deployEVMTokenPool(t *testing.T, e deployment.Environment, evmChain uint64) (deployment.Environment, common.Address, error) {
+func deployEVMTokenPool(t *testing.T, e cldf.Environment, evmChain uint64) (cldf.Environment, common.Address, error) {
 	addressBook := cldf.NewMemoryAddressBook()
 	evmToken, err := cldf.DeployContract(e.Logger, e.Chains[evmChain], addressBook,
-		func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+		func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 				e.Chains[evmChain].DeployerKey,
 				e.Chains[evmChain].Client,
@@ -75,7 +75,7 @@ func deployEVMTokenPool(t *testing.T, e deployment.Environment, evmChain uint64)
 	return e, evmToken.Address, nil
 }
 
-func doTestTokenPool(t *testing.T, e deployment.Environment, mcms bool, tokenMetadata string) {
+func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata string) {
 	ctx := testcontext.Get(t)
 	evmChain := e.AllChainSelectors()[0]
 	solChain := e.AllChainSelectorsSolana()[0]

@@ -904,8 +904,8 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 			//nolint:gosec // disable G115
 			FChain: uint8(len(envNodes.NonBootstraps().PeerIDs())),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
 				OptimisticConfirmations: globals.OptimisticConfirmations,
 			},
 		}
@@ -961,7 +961,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 			ab := cldf.NewMemoryAddressBook()
 			for _, selector := range allChains {
 				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
-					func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+					func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 							tenv.Env.Chains[selector].DeployerKey,
 							tenv.Env.Chains[selector].Client,
@@ -1080,7 +1080,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			ab := cldf.NewMemoryAddressBook()
 			for _, selector := range allChains {
 				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
-					func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+					func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 							tenv.Env.Chains[selector].DeployerKey,
 							tenv.Env.Chains[selector].Client,
@@ -1159,7 +1159,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 			// deploy a new token
 			ab := cldf.NewMemoryAddressBook()
 			_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[source], ab,
-				func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+				func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 						tenv.Env.Chains[source].DeployerKey,
 						tenv.Env.Chains[source].Client,

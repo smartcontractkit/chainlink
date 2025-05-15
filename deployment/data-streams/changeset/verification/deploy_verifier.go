@@ -6,13 +6,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
 
 	verifier "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
@@ -40,19 +41,19 @@ func (cc DeployVerifierConfig) Validate() error {
 		return errors.New("ChainsToDeploy is empty")
 	}
 	for chain := range cc.ChainsToDeploy {
-		if err := deployment.IsValidChainSelector(chain); err != nil {
+		if err := cldf.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
 	}
 	return nil
 }
 
-func deployVerifierLogic(e deployment.Environment, cc DeployVerifierConfig) (cldf.ChangesetOutput, error) {
+func deployVerifierLogic(e cldf.Environment, cc DeployVerifierConfig) (cldf.ChangesetOutput, error) {
 	dataStore := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
 	err := deployVerifier(e, dataStore, cc)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy Verifier", "err", err)
-		return cldf.ChangesetOutput{}, deployment.MaybeDataErr(err)
+		return cldf.ChangesetOutput{}, cldf.MaybeDataErr(err)
 	}
 
 	records, err := dataStore.Addresses().Fetch()
@@ -75,7 +76,7 @@ func deployVerifierLogic(e deployment.Environment, cc DeployVerifierConfig) (cld
 	}, nil
 }
 
-func deployVerifierPrecondition(_ deployment.Environment, cc DeployVerifierConfig) error {
+func deployVerifierPrecondition(_ cldf.Environment, cc DeployVerifierConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployVerifierConfig: %w", err)
 	}
@@ -83,7 +84,7 @@ func deployVerifierPrecondition(_ deployment.Environment, cc DeployVerifierConfi
 	return nil
 }
 
-func deployVerifier(e deployment.Environment, dataStore ds.MutableDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata], cc DeployVerifierConfig) error {
+func deployVerifier(e cldf.Environment, dataStore ds.MutableDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata], cc DeployVerifierConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployVerifierConfig: %w", err)
 	}
@@ -125,7 +126,7 @@ func deployVerifier(e deployment.Environment, dataStore ds.MutableDataStore[meta
 }
 
 func VerifierDeployFn(verifierProxyAddress common.Address) changeset.ContractDeployFn[*verifier.Verifier] {
-	return func(chain deployment.Chain) *changeset.ContractDeployment[*verifier.Verifier] {
+	return func(chain cldf.Chain) *changeset.ContractDeployment[*verifier.Verifier] {
 		ccsAddr, ccsTx, ccs, err := verifier.DeployVerifier(
 			chain.DeployerKey,
 			chain.Client,

@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -25,7 +24,7 @@ func validateTransferAdminRole(
 	sender common.Address,
 	externalAdmin common.Address,
 	symbol shared.TokenSymbol,
-	chain deployment.Chain,
+	chain cldf.Chain,
 ) error {
 	if externalAdmin == utils.ZeroAddress {
 		return errors.New("external admin must be defined")
@@ -38,7 +37,7 @@ func validateTransferAdminRole(
 }
 
 // TransferAdminRoleChangeset transfers the admin role for tokens on the token admin registry to 3rd parties.
-func TransferAdminRoleChangeset(env deployment.Environment, c TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
+func TransferAdminRoleChangeset(env cldf.Environment, c TokenAdminRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env, false, validateTransferAdminRole); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid TokenAdminRegistryChangesetConfig: %w", err)
 	}

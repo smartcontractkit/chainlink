@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+	eth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -26,7 +29,7 @@ import (
 var _ cldf.ChangeSet[[]uint64] = DeployLinkToken
 
 // DeployLinkToken deploys a link token contract to the chain identified by the ChainSelector.
-func DeployLinkToken(e deployment.Environment, chains []uint64) (cldf.ChangesetOutput, error) {
+func DeployLinkToken(e cldf.Environment, chains []uint64) (cldf.ChangesetOutput, error) {
 	err := deployment.ValidateSelectorsInEnvironment(e, chains)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -64,7 +67,7 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (cldf.ChangesetO
 }
 
 // DeployStaticLinkToken deploys a static link token contract to the chain identified by the ChainSelector.
-func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (cldf.ChangesetOutput, error) {
+func DeployStaticLinkToken(e cldf.Environment, chains []uint64) (cldf.ChangesetOutput, error) {
 	err := deployment.ValidateSelectorsInEnvironment(e, chains)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -76,7 +79,7 @@ func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (cldf.Chan
 			return cldf.ChangesetOutput{}, fmt.Errorf("chain not found in environment: %d", chainSel)
 		}
 		_, err := cldf.DeployContract[*link_token_interface.LinkToken](e.Logger, chain, newAddresses,
-			func(chain deployment.Chain) cldf.ContractDeploy[*link_token_interface.LinkToken] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*link_token_interface.LinkToken] {
 				linkTokenAddr, tx, linkToken, err2 := link_token_interface.DeployLinkToken(
 					chain.DeployerKey,
 					chain.Client,
@@ -99,15 +102,30 @@ func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (cldf.Chan
 
 func deployLinkTokenContractEVM(
 	lggr logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	ab cldf.AddressBook,
 ) (*cldf.ContractDeploy[*link_token.LinkToken], error) {
 	linkToken, err := cldf.DeployContract[*link_token.LinkToken](lggr, chain, ab,
-		func(chain deployment.Chain) cldf.ContractDeploy[*link_token.LinkToken] {
-			linkTokenAddr, tx, linkToken, err2 := link_token.DeployLinkToken(
-				chain.DeployerKey,
-				chain.Client,
+		func(chain cldf.Chain) cldf.ContractDeploy[*link_token.LinkToken] {
+			var (
+				linkTokenAddr common.Address
+				tx            *eth_types.Transaction
+				linkToken     *link_token.LinkToken
+				err2          error
 			)
+			if !chain.IsZkSyncVM {
+				linkTokenAddr, tx, linkToken, err2 = link_token.DeployLinkToken(
+					chain.DeployerKey,
+					chain.Client,
+				)
+			} else {
+				linkTokenAddr, _, linkToken, err2 = link_token.DeployLinkTokenZk(
+					nil,
+					chain.ClientZkSyncVM,
+					chain.DeployerKeyZkSyncVM,
+					chain.Client,
+				)
+			}
 			return cldf.ContractDeploy[*link_token.LinkToken]{
 				Address:  linkTokenAddr,
 				Contract: linkToken,
@@ -129,7 +147,7 @@ type DeploySolanaLinkTokenConfig struct {
 	TokenDecimals uint8
 }
 
-func DeploySolanaLinkToken(e deployment.Environment, cfg DeploySolanaLinkTokenConfig) (cldf.ChangesetOutput, error) {
+func DeploySolanaLinkToken(e cldf.Environment, cfg DeploySolanaLinkTokenConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
 	mint := cfg.TokenPrivKey
 	instructions, err := solTokenUtil.CreateToken(

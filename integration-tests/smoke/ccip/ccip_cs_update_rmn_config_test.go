@@ -327,7 +327,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	}
 }
 
-func buildRMNRemoteAddressPerChain(e deployment.Environment, state stateview.CCIPOnChainState) map[uint64]common.Address {
+func buildRMNRemoteAddressPerChain(e cldf.Environment, state stateview.CCIPOnChainState) map[uint64]common.Address {
 	rmnRemotePerChain := v1_6.BuildRMNRemotePerChain(e, state)
 	rmnRemoteAddressPerChain := make(map[uint64]common.Address)
 	for chain, remote := range rmnRemotePerChain {
