@@ -278,7 +278,9 @@ func (o *OpsOutput) Merge(other OpsOutput, env cldf.Environment) error {
 		o.Proposals = other.Proposals
 		return nil
 	}
-	o.Proposals = append(o.Proposals, other.Proposals...)
+	if len(other.Proposals) > 0 {
+		o.Proposals = append(o.Proposals, other.Proposals...)
+	}
 	return nil
 }
 
