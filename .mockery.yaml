@@ -43,7 +43,9 @@ packages:
       dir: core/chains/evm/logpoller/mocks
     interfaces:
       LogPoller:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr:
+  github.com/smartcontractkit/chainlink-evm/pkg/txmgr:
+    config:
+      dir: common/txmgr/mocks
     interfaces:
       EvmTxStore:
   github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm:

@@ -17,7 +17,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"

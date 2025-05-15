@@ -42,7 +42,7 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
-	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txm "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
