@@ -29,7 +29,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.55
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250514155910-8d5e392a0219
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250514155910-8d5e392a0219
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250513185318-07ee1579d0e9
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250515145010-c3dcd6a68d9f
 	github.com/smartcontractkit/chainlink-deployments-framework v0.0.15-0.20250508081139-ee24199564bd
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250512171455-818eb49fe8ee
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.4
@@ -325,7 +325,7 @@ require (
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/jmoiron/sqlx v1.4.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
-	github.com/jonboulle/clockwork v0.4.0 // indirect
+	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
