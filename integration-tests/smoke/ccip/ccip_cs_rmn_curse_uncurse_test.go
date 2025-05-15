@@ -46,7 +46,8 @@ type CurseTestCase struct {
 
 type mapIDToSelectorFunc func(uint64) uint64
 
-var testCases = []CurseTestCase{
+// evmTestCases contains test cases that only involve EVM chains
+var evmTestCases = []CurseTestCase{
 	{
 		name: "lane",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -61,6 +62,36 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
+	{
+		name: "chain",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1))}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: false},
+		},
+	},
+	{
+		name: "chain duplicate",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1)), v1_6.CurseChain(mapIDToSelector(Evm1))}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: false},
+		},
+	},
+}
+
+// solanaTestCases contains test cases that involve Solana chains
+var solanaTestCases = []CurseTestCase{
 	{
 		name: "solana lane",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -92,19 +123,6 @@ var testCases = []CurseTestCase{
 		},
 	},
 	{
-		name: "chain",
-		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1))}
-		},
-		curseAssertions: []curseAssertion{
-			{chainID: Evm1, globalCurse: true, cursed: true},
-			{chainID: Evm2, subject: Evm1, cursed: true},
-			{chainID: Evm2, subject: Sol1, cursed: false},
-			{chainID: Sol1, subject: Evm1, cursed: true},
-			{chainID: Sol1, subject: Evm2, cursed: false},
-		},
-	},
-	{
 		name: "solana chain",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
 			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Sol1))}
@@ -117,19 +135,6 @@ var testCases = []CurseTestCase{
 			{chainID: Evm2, subject: Sol1, cursed: true},
 			{chainID: Sol1, subject: Evm1, cursed: true},
 			{chainID: Sol1, subject: Evm2, cursed: true},
-		},
-	},
-	{
-		name: "chain duplicate",
-		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1)), v1_6.CurseChain(mapIDToSelector(Evm1))}
-		},
-		curseAssertions: []curseAssertion{
-			{chainID: Evm1, globalCurse: true, cursed: true},
-			{chainID: Evm2, subject: Evm1, cursed: true},
-			{chainID: Evm2, subject: Sol1, cursed: false},
-			{chainID: Sol1, subject: Evm1, cursed: true},
-			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
 	{
@@ -160,6 +165,10 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: true},
 		},
 	},
+}
+
+// allTestCases combines both EVM and Solana test cases
+var allTestCases = []CurseTestCase{
 	{
 		name: "all chain",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -173,8 +182,8 @@ var testCases = []CurseTestCase{
 	},
 }
 
-func TestRMNCurse(t *testing.T) {
-	for _, tc := range testCases {
+func TestRMNCurseEVM(t *testing.T) {
+	for _, tc := range evmTestCases {
 		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
 			runRmnCurseTest(t, tc)
 		})
@@ -184,32 +193,102 @@ func TestRMNCurse(t *testing.T) {
 	}
 }
 
-func TestRMNCurseBypass(t *testing.T) {
-	for _, tc := range testCases {
+func TestRMNCurseSolana(t *testing.T) {
+	for _, tc := range solanaTestCases {
+		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
+			runRmnCurseTest(t, tc)
+		})
+		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			runRmnCurseMCMSTest(t, tc, types.TimelockActionSchedule)
+		})
+	}
+}
+
+func TestRMNCurseAll(t *testing.T) {
+	for _, tc := range allTestCases {
+		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
+			runRmnCurseTest(t, tc)
+		})
+		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			runRmnCurseMCMSTest(t, tc, types.TimelockActionSchedule)
+		})
+	}
+}
+
+func TestRMNCurseBypassEVM(t *testing.T) {
+	for _, tc := range evmTestCases {
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
 			runRmnCurseMCMSTest(t, tc, types.TimelockActionBypass)
 		})
 	}
 }
 
-func TestRMNCurseIdempotent(t *testing.T) {
-	for _, tc := range testCases {
+func TestRMNCurseBypassSolana(t *testing.T) {
+	for _, tc := range solanaTestCases {
+		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			runRmnCurseMCMSTest(t, tc, types.TimelockActionBypass)
+		})
+	}
+}
+
+func TestRMNCurseBypassAll(t *testing.T) {
+	for _, tc := range allTestCases {
+		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			runRmnCurseMCMSTest(t, tc, types.TimelockActionBypass)
+		})
+	}
+}
+
+func TestRMNCurseIdempotentEVM(t *testing.T) {
+	for _, tc := range evmTestCases {
 		t.Run(tc.name+"_CURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
 			runRmnCurseIdempotentTest(t, tc)
 		})
 	}
 }
 
-func TestRMNUncurseIdempotent(t *testing.T) {
-	for _, tc := range testCases {
+func TestRMNCurseIdempotentSolana(t *testing.T) {
+	for _, tc := range solanaTestCases {
+		t.Run(tc.name+"_CURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
+			runRmnCurseIdempotentTest(t, tc)
+		})
+	}
+}
+
+func TestRMNCurseIdempotentAll(t *testing.T) {
+	for _, tc := range allTestCases {
+		t.Run(tc.name+"_CURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
+			runRmnCurseIdempotentTest(t, tc)
+		})
+	}
+}
+
+func TestRMNUncurseIdempotentEVM(t *testing.T) {
+	for _, tc := range evmTestCases {
 		t.Run(tc.name+"_UNCURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
 			runRmnUncurseIdempotentTest(t, tc)
 		})
 	}
 }
 
-func TestRMNUncurse(t *testing.T) {
-	for _, tc := range testCases {
+func TestRMNUncurseIdempotentSolana(t *testing.T) {
+	for _, tc := range solanaTestCases {
+		t.Run(tc.name+"_UNCURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
+			runRmnUncurseIdempotentTest(t, tc)
+		})
+	}
+}
+
+func TestRMNUncurseIdempotentAll(t *testing.T) {
+	for _, tc := range allTestCases {
+		t.Run(tc.name+"_UNCURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
+			runRmnUncurseIdempotentTest(t, tc)
+		})
+	}
+}
+
+func TestRMNUncurseEVM(t *testing.T) {
+	for _, tc := range evmTestCases {
 		t.Run(tc.name+"_UNCURSE", func(t *testing.T) {
 			runRmnUncurseTest(t, tc)
 		})
@@ -219,16 +298,70 @@ func TestRMNUncurse(t *testing.T) {
 	}
 }
 
-func TestRMNUncurseBypass(t *testing.T) {
-	for _, tc := range testCases {
+func TestRMNUncurseSolana(t *testing.T) {
+	for _, tc := range solanaTestCases {
+		t.Run(tc.name+"_UNCURSE", func(t *testing.T) {
+			runRmnUncurseTest(t, tc)
+		})
+		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
+			runRmnUncurseMCMSTest(t, tc, types.TimelockActionSchedule)
+		})
+	}
+}
+
+func TestRMNUncurseAll(t *testing.T) {
+	for _, tc := range allTestCases {
+		t.Run(tc.name+"_UNCURSE", func(t *testing.T) {
+			runRmnUncurseTest(t, tc)
+		})
+		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
+			runRmnUncurseMCMSTest(t, tc, types.TimelockActionSchedule)
+		})
+	}
+}
+
+func TestRMNUncurseBypassEVM(t *testing.T) {
+	for _, tc := range evmTestCases {
 		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
 			runRmnUncurseMCMSTest(t, tc, types.TimelockActionBypass)
 		})
 	}
 }
 
-func TestRMNCurseConfigValidate(t *testing.T) {
-	for _, tc := range testCases {
+func TestRMNUncurseBypassSolana(t *testing.T) {
+	for _, tc := range solanaTestCases {
+		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
+			runRmnUncurseMCMSTest(t, tc, types.TimelockActionBypass)
+		})
+	}
+}
+
+func TestRMNUncurseBypassAll(t *testing.T) {
+	for _, tc := range allTestCases {
+		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
+			runRmnUncurseMCMSTest(t, tc, types.TimelockActionBypass)
+		})
+	}
+}
+
+func TestRMNCurseConfigValidateEVM(t *testing.T) {
+	for _, tc := range evmTestCases {
+		t.Run(tc.name+"_VALIDATE", func(t *testing.T) {
+			runRmnCurseConfigValidateTest(t, tc)
+		})
+	}
+}
+
+func TestRMNCurseConfigValidateSolana(t *testing.T) {
+	for _, tc := range solanaTestCases {
+		t.Run(tc.name+"_VALIDATE", func(t *testing.T) {
+			runRmnCurseConfigValidateTest(t, tc)
+		})
+	}
+}
+
+func TestRMNCurseConfigValidateAll(t *testing.T) {
+	for _, tc := range allTestCases {
 		t.Run(tc.name+"_VALIDATE", func(t *testing.T) {
 			runRmnCurseConfigValidateTest(t, tc)
 		})

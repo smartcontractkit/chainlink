@@ -157,135 +157,215 @@ runner-test-matrix:
     test_cmd: go test smoke/ccip/ccip_cs_update_rmn_config_test.go -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurse
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseEVM
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurse$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseEVM$" -timeout 20m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseBypass
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseSolana
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseBypass$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseSolana$" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseIdempotent
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseAll
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseIdempotent$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseAll$" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseIdempotent
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseBypassEVM
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseIdempotent$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseBypassEVM$" -timeout 20m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurse
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseBypassSolana
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurse$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseBypassSolana$" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseBypass
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseBypassAll
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseBypass$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseBypassAll$" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseConfigValidate
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseIdempotentEVM
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseConfigValidate$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseIdempotentEVM$" -timeout 20m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseNoConnectedLanes
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseIdempotentSolana
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseNoConnectedLanes$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseIdempotentSolana$" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanes
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseIdempotentAll
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseOneConnectedLanes$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseIdempotentAll$" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanesSolana
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseIdempotentEVM
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseOneConnectedLanesSolana$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseIdempotentEVM$" -timeout 20m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanesGlobalOnly
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseIdempotentSolana
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseOneConnectedLanesGlobalOnly$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseIdempotentSolana$" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanesLaneOnlyOnSource
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseIdempotentAll
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseOneConnectedLanesLaneOnlyOnSource$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseIdempotentAll$" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseForceOption
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseEVM
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseForceOption$" -timeout 20m -test.parallel=1 -count=1 -json
-    test_go_project_path: integration-tests    
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseEVM$" -timeout 20m -test.parallel=2 -count=1 -json
+    test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseSolana
+    path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseSolana$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseAll
+    path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseAll$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseBypassEVM
+    path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseBypassEVM$" -timeout 20m -test.parallel=2 -count=1 -json
+    test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseBypassSolana
+    path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseBypassSolana$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseBypassAll
+    path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseBypassAll$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseConfigValidateEVM
+    path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseConfigValidateEVM$" -timeout 20m -test.parallel=2 -count=1 -json
+    test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseConfigValidateSolana
+    path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseConfigValidateSolana$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseConfigValidateAll
+    path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseConfigValidateAll$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_disable_lane_test.go:*
     path: integration-tests/smoke/ccip/ccip_disable_lane_test.go
