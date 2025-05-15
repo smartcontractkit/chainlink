@@ -81,9 +81,6 @@ user_config_overrides = """
       [OCR2]
       Enabled = true
       DatabaseTimeout = '1s'
-      [P2P.V2]
-      Enabled = true
-      ListenAddresses = ['0.0.0.0:5001']
       """
 
 # ----- CAPABILITIES NODES CONFIGURATION -----
@@ -110,9 +107,6 @@ user_config_overrides = """
       [OCR2]
       Enabled = true
       DatabaseTimeout = '1s'
-      [P2P.V2]
-      Enabled = true
-      ListenAddresses = ['0.0.0.0:5001']
       """
 
 # ----- CHAOS TESTING CONFIGURATION -----

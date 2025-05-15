@@ -429,7 +429,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		Run(false)
 	require.NoError(t, err, "wasp load test did not finish successfully")
 
-	// runChaosSuite(t, in) TODO: remove after the df aptos e2e test is done, chaos testing work was done on this test as a placeholder
 	g.Wait()
 }
 

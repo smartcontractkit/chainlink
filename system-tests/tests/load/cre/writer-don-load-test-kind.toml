@@ -77,9 +77,6 @@ user_config_overrides = """
         [OCR2]
         Enabled = true
         DatabaseTimeout = '1s'
-        [P2P.V2]
-        Enabled = true
-        ListenAddresses = ['0.0.0.0:5001']
       """
 
 # Node 2 (configuration repeats for all 6 nodes with different port mappings)
@@ -94,9 +91,6 @@ user_config_overrides = """
         [OCR2]
         Enabled = true
         DatabaseTimeout = '1s'
-        [P2P.V2]
-        Enabled = true
-        ListenAddresses = ['0.0.0.0:5001']
       """
 
 # Node 3
@@ -111,9 +105,6 @@ user_config_overrides = """
         [OCR2]
         Enabled = true
         DatabaseTimeout = '1s'
-        [P2P.V2]
-        Enabled = true
-        ListenAddresses = ['0.0.0.0:5001']
       """
 
 # Node 4
@@ -128,9 +119,6 @@ user_config_overrides = """
         [OCR2]
         Enabled = true
         DatabaseTimeout = '1s'
-        [P2P.V2]
-        Enabled = true
-        ListenAddresses = ['0.0.0.0:5001']
       """
 
 # Node 5
@@ -145,9 +133,6 @@ user_config_overrides = """
         [OCR2]
         Enabled = true
         DatabaseTimeout = '1s'
-        [P2P.V2]
-        Enabled = true
-        ListenAddresses = ['0.0.0.0:5001']
       """
 
 # Node 6
@@ -162,7 +147,4 @@ user_config_overrides = """
         [OCR2]
         Enabled = true
         DatabaseTimeout = '1s'
-        [P2P.V2]
-        Enabled = true
-        ListenAddresses = ['0.0.0.0:5001']
       """
