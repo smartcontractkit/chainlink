@@ -16,11 +16,11 @@ import (
 )
 
 func TestSaveExisting(t *testing.T) {
-	dummyEnv := deployment.Environment{
+	dummyEnv := cldf.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]deployment.Chain{
+		Chains: map[uint64]cldf.Chain{
 			chainsel.TEST_90000001.Selector: {},
 			chainsel.TEST_90000002.Selector: {},
 		},
@@ -58,11 +58,11 @@ func TestSaveExisting(t *testing.T) {
 }
 
 func TestSaveExistingAddressWithLabels(t *testing.T) {
-	dummyEnv := deployment.Environment{
+	dummyEnv := cldf.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]deployment.Chain{
+		Chains: map[uint64]cldf.Chain{
 			chainsel.TEST_90000001.Selector: {},
 			chainsel.TEST_90000002.Selector: {},
 		},
@@ -96,11 +96,11 @@ func TestSaveExistingAddressWithLabels(t *testing.T) {
 }
 
 func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
-	dummyEnv := deployment.Environment{
+	dummyEnv := cldf.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]deployment.Chain{
+		Chains: map[uint64]cldf.Chain{
 			chainsel.TEST_90000001.Selector: {},
 			chainsel.TEST_90000002.Selector: {},
 		},

@@ -99,7 +99,7 @@ Or pull from your internal registry and update the image name in `environment-*.
 
 Download the CLI binary for your system from the [dev-platform repo](https://github.com/smartcontractkit/dev-platform). You can also build it locally.
 
-**Required version**: `v0.1.5`
+**Required version**: ` v0.2.0`
 
 ---
 

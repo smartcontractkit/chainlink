@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -34,7 +34,7 @@ type DONConfigSchema struct {
 
 const productLabel = "data-feeds"
 
-func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (cldf.ChangesetOutput, error) {
+func registerNodesToJDLogic(env cldf.Environment, c types.NodeConfig) (cldf.ChangesetOutput, error) {
 	dons, _ := LoadJSON[[]*DONConfigSchema](c.InputFileName, c.InputFS)
 
 	for _, don := range dons {
@@ -101,7 +101,7 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (cld
 	return cldf.ChangesetOutput{}, nil
 }
 
-func registerNodesToJDLogicPrecondition(env deployment.Environment, c types.NodeConfig) error {
+func registerNodesToJDLogicPrecondition(env cldf.Environment, c types.NodeConfig) error {
 	if c.InputFileName == "" {
 		return errors.New("input file name is required")
 	}

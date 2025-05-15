@@ -9,12 +9,12 @@ import (
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 )
 
 var _ cldf.ChangeSetV2[v1_6.SetOCR3OffRampConfig] = SetOCR3Offramp{}
@@ -22,7 +22,7 @@ var _ cldf.ChangeSetV2[v1_6.SetOCR3OffRampConfig] = SetOCR3Offramp{}
 // SetOCR3Offramp updates OCR3 Offramp configurations
 type SetOCR3Offramp struct{}
 
-func (cs SetOCR3Offramp) VerifyPreconditions(env deployment.Environment, config v1_6.SetOCR3OffRampConfig) error {
+func (cs SetOCR3Offramp) VerifyPreconditions(env cldf.Environment, config v1_6.SetOCR3OffRampConfig) error {
 	for _, remoteSel := range config.RemoteChainSels {
 		chainFamily, _ := chain_selectors.GetSelectorFamily(remoteSel)
 		if chainFamily != chain_selectors.FamilyAptos {
@@ -32,20 +32,24 @@ func (cs SetOCR3Offramp) VerifyPreconditions(env deployment.Environment, config 
 	return nil
 }
 
-func (cs SetOCR3Offramp) Apply(env deployment.Environment, config v1_6.SetOCR3OffRampConfig) (cldf.ChangesetOutput, error) {
+func (cs SetOCR3Offramp) Apply(env cldf.Environment, config v1_6.SetOCR3OffRampConfig) (cldf.ChangesetOutput, error) {
 	seqReports := make([]operations.Report[any, any], 0)
 	timeLockProposals := []mcms.TimelockProposal{}
 
-	state, err := changeset.LoadOnchainState(env)
+	state, err := aptosstate.LoadOnchainStateAptos(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
+	}
+	ccipState, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load EVM onchain state: %w", err)
 	}
 
 	for _, remoteSelector := range config.RemoteChainSels {
 		deps := operation.AptosDeps{
 			AptosChain:       env.AptosChains[remoteSelector],
-			OnChainState:     state.AptosChains[remoteSelector],
-			CCIPOnChainState: state,
+			OnChainState:     state[remoteSelector],
+			CCIPOnChainState: ccipState,
 		}
 		in := seq.SetOCR3OfframpSeqInput{
 			HomeChainSelector: config.HomeChainSel,
@@ -60,7 +64,7 @@ func (cs SetOCR3Offramp) Apply(env deployment.Environment, config v1_6.SetOCR3Of
 		// Generate MCMS proposals
 		proposal, err := utils.GenerateProposal(
 			deps.AptosChain.Client,
-			state.AptosChains[remoteSelector].MCMSAddress,
+			state[remoteSelector].MCMSAddress,
 			deps.AptosChain.Selector,
 			[]types.BatchOperation{setOCR3SeqReport.Output},
 			"Set OCR3 Configs",

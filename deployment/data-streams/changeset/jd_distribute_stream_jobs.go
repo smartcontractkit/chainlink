@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
@@ -25,6 +25,7 @@ var _ cldf.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStreamJob
 type CsDistributeStreamJobSpecsConfig struct {
 	Filter  *jd.ListFilter
 	Streams []StreamSpecConfig
+	Labels  []*ptypes.Label
 
 	// NodeNames specifies on which nodes to distribute the job specs.
 	NodeNames []string
@@ -48,12 +49,12 @@ type EARequestParams struct {
 
 type CsDistributeStreamJobSpecs struct{}
 
-func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistributeStreamJobSpecsConfig) (cldf.ChangesetOutput, error) {
+func (CsDistributeStreamJobSpecs) Apply(e cldf.Environment, cfg CsDistributeStreamJobSpecsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(e.GetContext(), defaultJobSpecsTimeout)
 	defer cancel()
 
 	// Add a label to the job spec to identify the related DON
-	labels := append([]*ptypes.Label(nil),
+	cfg.Labels = append(cfg.Labels,
 		&ptypes.Label{
 			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
 		},
@@ -67,7 +68,7 @@ func (CsDistributeStreamJobSpecs) Apply(e deployment.Environment, cfg CsDistribu
 	var proposals []*jobv1.ProposeJobRequest
 	for _, s := range cfg.Streams {
 		for _, n := range oracleNodes {
-			localLabels := append(labels, //nolint: gocritic // obvious and readable locally modified copy of labels
+			localLabels := append(cfg.Labels, //nolint: gocritic // locally modified copy of labels
 				&ptypes.Label{
 					Key:   devenv.LabelStreamIDKey,
 					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
@@ -155,7 +156,7 @@ func generateDatasources(cc StreamSpecConfig) []jobs.Datasource {
 	return dss
 }
 
-func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ deployment.Environment, config CsDistributeStreamJobSpecsConfig) error {
+func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ cldf.Environment, config CsDistributeStreamJobSpecsConfig) error {
 	if config.Filter == nil {
 		return errors.New("filter is required")
 	}
@@ -190,8 +191,8 @@ func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ deployment.Environment
 	}
 	// The list of node names tells us which nodes to distribute the job specs to.
 	// The size of that list needs to match the filter size, i.e. the number of nodes we expect to get from JD.
-	if config.Filter.NumOracleNodes+config.Filter.NumBootstrapNodes != len(config.NodeNames) {
-		return fmt.Errorf("number of node names (%d) does not match filter size (%d)", len(config.NodeNames), config.Filter.NumOracleNodes+config.Filter.NumBootstrapNodes)
+	if config.Filter.NumOracleNodes != len(config.NodeNames) {
+		return fmt.Errorf("number of node names (%d) does not match filter size (%d)", len(config.NodeNames), config.Filter.NumOracleNodes)
 	}
 
 	return nil

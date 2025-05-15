@@ -19,8 +19,9 @@ import (
 
 	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -40,14 +41,14 @@ type BillingTokenConfig struct {
 	MCMS     *proposalutils.TimelockConfig
 }
 
-func (cfg *BillingTokenConfig) Validate(e deployment.Environment) error {
+func (cfg *BillingTokenConfig) Validate(e cldf.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
@@ -55,7 +56,7 @@ func (cfg *BillingTokenConfig) Validate(e deployment.Environment) error {
 	if _, err := chainState.TokenToTokenProgram(tokenPubKey); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true}); err != nil {
 		return err
 	}
 	// check if already setup
@@ -72,9 +73,9 @@ func (cfg *BillingTokenConfig) Validate(e deployment.Environment) error {
 }
 
 func AddBillingToken(
-	e deployment.Environment,
-	chain deployment.SolChain,
-	chainState ccipChangeset.SolCCIPChainState,
+	e cldf.Environment,
+	chain cldf.SolChain,
+	chainState solanastateview.CCIPChainState,
 	billingTokenConfig solFeeQuoter.BillingTokenConfig,
 	mcms *proposalutils.TimelockConfig,
 	isUpdate bool,
@@ -84,16 +85,16 @@ func AddBillingToken(
 	txns := make([]mcmsTypes.Transaction, 0)
 	tokenPubKey := solana.MustPublicKeyFromBase58(billingTokenConfig.Mint.String())
 	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, feeQuoterAddress)
-	// we dont need to handle test router here because we explicitly create this and token2022Receiver for test router
+	// we dont need to handle test router here because we explicitly create this and token Receiver for test router
 	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(routerAddress)
 	tokenProgramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
-	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
+	tokenReceiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
-	feeQuoterUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
 
@@ -102,7 +103,7 @@ func AddBillingToken(
 		chain,
 		chainState,
 		mcms,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"",
 	)
@@ -122,7 +123,7 @@ func AddBillingToken(
 			tokenBillingPDA,
 			tokenProgramID,
 			tokenPubKey,
-			token2022Receiver,
+			tokenReceiver,
 			authority, // ccip admin
 			billingSignerPDA,
 			ata.ProgramID,
@@ -133,7 +134,7 @@ func AddBillingToken(
 		return txns, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	if feeQuoterUsingMCMS {
-		tx, err := BuildMCMSTxn(ixConfig, chainState.FeeQuoter.String(), ccipChangeset.FeeQuoter)
+		tx, err := BuildMCMSTxn(ixConfig, chainState.FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return txns, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -147,12 +148,12 @@ func AddBillingToken(
 	return txns, nil
 }
 
-func AddBillingTokenChangeset(e deployment.Environment, cfg BillingTokenConfig) (cldf.ChangesetOutput, error) {
+func AddBillingTokenChangeset(e cldf.Environment, cfg BillingTokenConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
@@ -193,37 +194,37 @@ type TokenTransferFeeForRemoteChainConfig struct {
 	MCMS                *proposalutils.TimelockConfig
 }
 
-func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e deployment.Environment) error {
+func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return fmt.Errorf("fee quoter validation failed: %w", err)
 	}
 
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true})
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true})
 }
 
 // TODO: rename this, i dont think this is for billing, this is more for token transfer config/fees
-func AddTokenTransferFeeForRemoteChain(e deployment.Environment, cfg TokenTransferFeeForRemoteChainConfig) (cldf.ChangesetOutput, error) {
+func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeForRemoteChainConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	remoteBillingPDA, _, _ := solState.FindFqPerChainPerTokenConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.FeeQuoter)
-	feeQuoterUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
 
@@ -232,7 +233,7 @@ func AddTokenTransferFeeForRemoteChain(e deployment.Environment, cfg TokenTransf
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
 	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
@@ -260,7 +261,7 @@ func AddTokenTransferFeeForRemoteChain(e deployment.Environment, cfg TokenTransf
 	e.Logger.Infow("Token billing set for remote chain", "chainSelector ", cfg.ChainSelector, "remoteChainSelector ", cfg.RemoteChainSelector, "tokenPubKey", tokenPubKey.String())
 
 	if feeQuoterUsingMCMS {
-		tx, err := BuildMCMSTxn(ix, chainState.FeeQuoter.String(), ccipChangeset.FeeQuoter)
+		tx, err := BuildMCMSTxn(ix, chainState.FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -286,8 +287,8 @@ type UpdatePricesConfig struct {
 	MCMS              *proposalutils.TimelockConfig
 }
 
-func (cfg UpdatePricesConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+func (cfg UpdatePricesConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -296,7 +297,7 @@ func (cfg UpdatePricesConfig) Validate(e deployment.Environment) error {
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true}); err != nil {
 		return err
 	}
 	if cfg.PriceUpdater.IsZero() {
@@ -322,12 +323,12 @@ func (cfg UpdatePricesConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func UpdatePrices(e deployment.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOutput, error) {
+func UpdatePrices(e cldf.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := ccipChangeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -336,11 +337,11 @@ func UpdatePrices(e deployment.Environment, cfg UpdatePricesConfig) (cldf.Change
 	chain := e.SolChains[chainSel]
 	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
-	feeQuoterUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
 
@@ -354,7 +355,7 @@ func UpdatePrices(e deployment.Environment, cfg UpdatePricesConfig) (cldf.Change
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
 	raw := solFeeQuoter.NewUpdatePricesInstruction(
@@ -378,7 +379,7 @@ func UpdatePrices(e deployment.Environment, cfg UpdatePricesConfig) (cldf.Change
 	}
 
 	if feeQuoterUsingMCMS {
-		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].FeeQuoter.String(), ccipChangeset.FeeQuoter)
+		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -412,8 +413,8 @@ const (
 	RemoveUpdater
 )
 
-func (cfg ModifyPriceUpdaterConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+func (cfg ModifyPriceUpdaterConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -422,7 +423,7 @@ func (cfg ModifyPriceUpdaterConfig) Validate(e deployment.Environment) error {
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true}); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true}); err != nil {
 		return err
 	}
 	if cfg.PriceUpdater.IsZero() {
@@ -431,12 +432,12 @@ func (cfg ModifyPriceUpdaterConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func ModifyPriceUpdater(e deployment.Environment, cfg ModifyPriceUpdaterConfig) (cldf.ChangesetOutput, error) {
+func ModifyPriceUpdater(e cldf.Environment, cfg ModifyPriceUpdaterConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := ccipChangeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -445,11 +446,11 @@ func ModifyPriceUpdater(e deployment.Environment, cfg ModifyPriceUpdaterConfig) 
 	chain := e.SolChains[chainSel]
 	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
-	feeQuoterUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
 
@@ -463,7 +464,7 @@ func ModifyPriceUpdater(e deployment.Environment, cfg ModifyPriceUpdaterConfig) 
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"",
 	)
@@ -490,7 +491,7 @@ func ModifyPriceUpdater(e deployment.Environment, cfg ModifyPriceUpdaterConfig) 
 	}
 
 	if feeQuoterUsingMCMS {
-		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].FeeQuoter.String(), ccipChangeset.FeeQuoter)
+		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -518,12 +519,12 @@ type WithdrawBilledFundsConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-func (cfg WithdrawBilledFundsConfig) Validate(e deployment.Environment) error {
+func (cfg WithdrawBilledFundsConfig) Validate(e cldf.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	state, err := ccipChangeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -535,15 +536,15 @@ func (cfg WithdrawBilledFundsConfig) Validate(e deployment.Environment) error {
 	if err := validateFeeAggregatorConfig(chain, chainState); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true})
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true})
 }
 
-func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig) (cldf.ChangesetOutput, error) {
+func WithdrawBilledFunds(e cldf.Environment, cfg WithdrawBilledFundsConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := ccipChangeset.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -557,11 +558,11 @@ func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig
 	tokenReceiverPDA, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
 	feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, chainState.GetFeeAggregator(chain))
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
-	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 
@@ -571,7 +572,7 @@ func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"",
 	)
@@ -594,7 +595,7 @@ func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].Router.String(), ccipChangeset.Router)
+		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].Router.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -620,8 +621,8 @@ type SetMaxFeeJuelsPerMsgConfig struct {
 	MCMS              *proposalutils.TimelockConfig
 }
 
-func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -635,24 +636,24 @@ func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true})
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true})
 }
 
-func SetMaxFeeJuelsPerMsg(e deployment.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (cldf.ChangesetOutput, error) {
+func SetMaxFeeJuelsPerMsg(e cldf.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
 
 	fqConfig, _, _ := solState.FindConfigPDA(chainState.FeeQuoter)
-	fqUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	fqUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
 
@@ -662,7 +663,7 @@ func SetMaxFeeJuelsPerMsg(e deployment.Environment, cfg SetMaxFeeJuelsPerMsgConf
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
 	instruction, err := solFeeQuoter.NewSetMaxFeeJuelsPerMsgInstruction(
@@ -675,7 +676,7 @@ func SetMaxFeeJuelsPerMsg(e deployment.Environment, cfg SetMaxFeeJuelsPerMsgConf
 	}
 
 	if fqUsingMCMS {
-		tx, err := BuildMCMSTxn(instruction, chainState.FeeQuoter.String(), ccipChangeset.FeeQuoter)
+		tx, err := BuildMCMSTxn(instruction, chainState.FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}

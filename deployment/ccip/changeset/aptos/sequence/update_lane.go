@@ -9,10 +9,12 @@ import (
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router/router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	config "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
+
 	"github.com/smartcontractkit/mcms/types"
 )
 
@@ -91,7 +93,7 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 }
 
 // Convert config.UpdateAptosLanesConfig into a map[uint64]UpdateAptosLanesSeqInput
-func ConvertToUpdateAptosLanesSeqInput(aptosChains map[uint64]changeset.AptosCCIPChainState, cfg config.UpdateAptosLanesConfig) map[uint64]UpdateAptosLanesSeqInput {
+func ConvertToUpdateAptosLanesSeqInput(aptosChains map[uint64]aptosstate.CCIPChainState, cfg config.UpdateAptosLanesConfig) map[uint64]UpdateAptosLanesSeqInput {
 	updateInputsByAptosChain := make(map[uint64]UpdateAptosLanesSeqInput)
 
 	// Group the operations by Aptos chain

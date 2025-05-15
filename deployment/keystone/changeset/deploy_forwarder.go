@@ -13,7 +13,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -28,7 +27,7 @@ type DeployForwarderRequest struct {
 // callers must merge the output addressbook with the existing one
 // TODO: add selectors to deploy only to specific chains
 // Deprecated: use DeployForwarderV2 instead
-func DeployForwarderX(env deployment.Environment, cfg DeployForwarderRequest) (cldf.ChangesetOutput, error) {
+func DeployForwarderX(env cldf.Environment, cfg DeployForwarderRequest) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	ab := cldf.NewMemoryAddressBook()
 	selectors := cfg.ChainSelectors
@@ -51,7 +50,7 @@ func DeployForwarderX(env deployment.Environment, cfg DeployForwarderRequest) (c
 	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (cldf.ChangesetOutput, error) {
+func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
 	out.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // TODO CRE-400
 	out.DataStore = datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
@@ -82,7 +81,7 @@ func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (cl
 }
 
 // DeployForwarderV2 deploys the KeystoneForwarder contract to the specified chain
-func DeployForwarderV2(env deployment.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
+func DeployForwarderV2(env cldf.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
 	req.deployFn = internal.DeployForwarder
 	return deploy(env, req)
 }
@@ -112,7 +111,7 @@ func (r ConfigureForwardContractsRequest) UseMCMS() bool {
 	return r.MCMSConfig != nil
 }
 
-func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardContractsRequest) (cldf.ChangesetOutput, error) {
+func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContractsRequest) (cldf.ChangesetOutput, error) {
 	wfDon, err := internal.NewRegisteredDon(env, internal.RegisteredDonConfig{
 		NodeIDs:          req.WFNodeIDs,
 		Name:             req.WFDonName,

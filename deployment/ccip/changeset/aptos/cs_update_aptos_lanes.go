@@ -8,13 +8,13 @@ import (
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 )
 
 var _ cldf.ChangeSetV2[config.UpdateAptosLanesConfig] = AddAptosLanes{}
@@ -22,7 +22,7 @@ var _ cldf.ChangeSetV2[config.UpdateAptosLanesConfig] = AddAptosLanes{}
 // AddAptosLane implements adding a new lane to an existing Aptos CCIP deployment
 type AddAptosLanes struct{}
 
-func (cs AddAptosLanes) VerifyPreconditions(env deployment.Environment, cfg config.UpdateAptosLanesConfig) error {
+func (cs AddAptosLanes) VerifyPreconditions(env cldf.Environment, cfg config.UpdateAptosLanesConfig) error {
 	// TODO: Implement verification logic - check chain selector validity, MCMS configuration, etc.
 	// Placeholder implementation to show expected structure
 
@@ -36,7 +36,7 @@ func (cs AddAptosLanes) VerifyPreconditions(env deployment.Environment, cfg conf
 	return nil
 }
 
-func (cs AddAptosLanes) Apply(env deployment.Environment, cfg config.UpdateAptosLanesConfig) (cldf.ChangesetOutput, error) {
+func (cs AddAptosLanes) Apply(env cldf.Environment, cfg config.UpdateAptosLanesConfig) (cldf.ChangesetOutput, error) {
 	timeLockProposals := []mcms.TimelockProposal{}
 	mcmsOperations := []types.BatchOperation{}
 	seqReports := make([]operations.Report[any, any], 0)
@@ -52,17 +52,21 @@ func (cs AddAptosLanes) Apply(env deployment.Environment, cfg config.UpdateAptos
 
 	// Add lane on Aptos chains
 	// Execute UpdateAptosLanesSequence for each aptos chain
-	state, err := changeset.LoadOnchainState(env)
+	state, err := aptosstate.LoadOnchainStateAptos(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
+	ccipState, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load EVM onchain state: %w", err)
+	}
 
-	updateInputsByAptosChain := seq.ConvertToUpdateAptosLanesSeqInput(state.AptosChains, cfg)
+	updateInputsByAptosChain := seq.ConvertToUpdateAptosLanesSeqInput(state, cfg)
 	for aptosChainSel, sequenceInput := range updateInputsByAptosChain {
 		deps := operation.AptosDeps{
 			AptosChain:       env.AptosChains[aptosChainSel],
-			OnChainState:     state.AptosChains[aptosChainSel],
-			CCIPOnChainState: state,
+			OnChainState:     state[aptosChainSel],
+			CCIPOnChainState: ccipState,
 		}
 		// Execute the sequence
 		updateSeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.UpdateAptosLanesSequence, deps, sequenceInput)
@@ -75,7 +79,7 @@ func (cs AddAptosLanes) Apply(env deployment.Environment, cfg config.UpdateAptos
 		// Generate MCMS proposals
 		proposal, err := utils.GenerateProposal(
 			deps.AptosChain.Client,
-			state.AptosChains[aptosChainSel].MCMSAddress,
+			state[aptosChainSel].MCMSAddress,
 			deps.AptosChain.Selector,
 			mcmsOperations,
 			"Update lanes on Aptos chain",

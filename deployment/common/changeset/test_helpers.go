@@ -28,7 +28,7 @@ import (
 )
 
 type ConfiguredChangeSet interface {
-	Apply(e deployment.Environment) (cldf.ChangesetOutput, error)
+	Apply(e cldf.Environment) (cldf.ChangesetOutput, error)
 }
 
 func Configure[C any](
@@ -46,7 +46,7 @@ type configuredChangeSetImpl[C any] struct {
 	config    C
 }
 
-func (ca configuredChangeSetImpl[C]) Apply(e deployment.Environment) (cldf.ChangesetOutput, error) {
+func (ca configuredChangeSetImpl[C]) Apply(e cldf.Environment) (cldf.ChangesetOutput, error) {
 	err := ca.changeset.VerifyPreconditions(e, ca.config)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -57,12 +57,12 @@ func (ca configuredChangeSetImpl[C]) Apply(e deployment.Environment) (cldf.Chang
 // Apply applies the changeset applications to the environment and returns the updated environment. This is the
 // variadic function equivalent of ApplyChangesets, but allowing you to simply pass in one or more changesets as
 // parameters at the end of the function. e.g. `changeset.Apply(t, e, nil, configuredCS1, configuredCS2)` etc.
-func Apply(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, first ConfiguredChangeSet, rest ...ConfiguredChangeSet) (deployment.Environment, error) {
+func Apply(t *testing.T, e cldf.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, first ConfiguredChangeSet, rest ...ConfiguredChangeSet) (cldf.Environment, error) {
 	return ApplyChangesets(t, e, timelockContractsPerChain, append([]ConfiguredChangeSet{first}, rest...))
 }
 
 // ApplyChangesets applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, changesetApplications []ConfiguredChangeSet) (deployment.Environment, error) {
+func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, changesetApplications []ConfiguredChangeSet) (cldf.Environment, error) {
 	currentEnv := e
 	for i, csa := range changesetApplications {
 		out, err := csa.Apply(currentEnv)
@@ -116,7 +116,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 				for _, sel := range chains.ToSlice() {
 					timelockContracts, ok := timelockContractsPerChain[sel]
 					if !ok || timelockContracts == nil {
-						return deployment.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
+						return cldf.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
 					}
 
 					err := proposalutils.ExecuteProposal(t, e, signed, timelockContracts, sel) //nolint:staticcheck //SA1019 ignoring deprecated function for compatibility; we don't have tools to generate the new field
@@ -132,11 +132,11 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 				// return the error so devs can ensure expected reversions
 				err = proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
 				if err != nil {
-					return deployment.Environment{}, err
+					return cldf.Environment{}, err
 				}
 				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
 				if err != nil {
-					return deployment.Environment{}, err
+					return cldf.Environment{}, err
 				}
 			}
 		}
@@ -146,11 +146,11 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 				// return the error so devs can ensure expected reversions
 				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
 				if err != nil {
-					return deployment.Environment{}, err
+					return cldf.Environment{}, err
 				}
 			}
 		}
-		currentEnv = deployment.Environment{
+		currentEnv = cldf.Environment{
 			Name:              e.Name,
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
@@ -169,7 +169,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 }
 
 // ApplyChangesetsV2 applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplications []ConfiguredChangeSet) (deployment.Environment, []cldf.ChangesetOutput, error) {
+func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications []ConfiguredChangeSet) (cldf.Environment, []cldf.ChangesetOutput, error) {
 	currentEnv := e
 	outputs := make([]cldf.ChangesetOutput, 0, len(changesetApplications))
 	for i, csa := range changesetApplications {
@@ -217,7 +217,7 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 
 		// Updated environment may be required before executing proposals when proposals involve new addresses
 		// Ex. changesets[0] deploys MCMS, changesets[1] generates a proposal with the new MCMS addresses
-		currentEnv = deployment.Environment{
+		currentEnv = cldf.Environment{
 			Name:              e.Name,
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
@@ -242,7 +242,7 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
-					return deployment.Environment{}, nil, err
+					return cldf.Environment{}, nil, err
 				}
 				if prop.Action != mcmsTypes.TimelockActionSchedule {
 					// We don't need to execute the proposal if it's not a schedule action
@@ -251,7 +251,7 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				}
 				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, currentEnv, &prop)
 				if err != nil {
-					return deployment.Environment{}, nil, err
+					return cldf.Environment{}, nil, err
 				}
 			}
 		}
@@ -265,7 +265,7 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				p := proposalutils.SignMCMSProposal(t, currentEnv, &prop)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
-					return deployment.Environment{}, nil, err
+					return cldf.Environment{}, nil, err
 				}
 			}
 		}
@@ -313,7 +313,7 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 	}
 }
 
-func SetPreloadedSolanaAddresses(t *testing.T, env deployment.Environment, selector uint64) {
+func SetPreloadedSolanaAddresses(t *testing.T, env cldf.Environment, selector uint64) {
 	typeAndVersion := cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
 	err := env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["mcm"], typeAndVersion)
 	require.NoError(t, err)
@@ -327,7 +327,7 @@ func SetPreloadedSolanaAddresses(t *testing.T, env deployment.Environment, selec
 	require.NoError(t, err)
 }
 
-func MustFundAddressWithLink(t *testing.T, e deployment.Environment, chain deployment.Chain, to common.Address, amount int64) {
+func MustFundAddressWithLink(t *testing.T, e cldf.Environment, chain cldf.Chain, to common.Address, amount int64) {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 
@@ -339,13 +339,13 @@ func MustFundAddressWithLink(t *testing.T, e deployment.Environment, chain deplo
 	e.Logger.Info("granting minter permissions for chain", chain.DeployerKey)
 	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	// Mint 'To' address some tokens
 	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, to, big.NewInt(amount))
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	// 'To' address should have the tokens
@@ -357,7 +357,7 @@ func MustFundAddressWithLink(t *testing.T, e deployment.Environment, chain deplo
 }
 
 // MaybeGetLinkBalance returns the LINK balance of the given address on the given chain.
-func MaybeGetLinkBalance(t *testing.T, e deployment.Environment, chain deployment.Chain, linkAddr common.Address) *big.Int {
+func MaybeGetLinkBalance(t *testing.T, e cldf.Environment, chain cldf.Chain, linkAddr common.Address) *big.Int {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 	linkState, err := commonState.MaybeLoadLinkTokenChainState(chain, addresses)

@@ -322,9 +322,11 @@ jobs:
         id: gen_id
         run: echo "id=$(uuidgen)" >> "$GITHUB_OUTPUT"
 
-      - name: Install flakeguard
+      - name: Install flakeguard and gotestsum
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
+          go install gotest.tools/gotestsum@v1.12.2 # needed for flakeguard output formatting
 
       - name: Run tests with flakeguard
         shell: bash

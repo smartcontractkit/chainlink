@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
 
@@ -24,8 +26,8 @@ import (
 // environment and the addresses of VerifierProxy and Verifier.
 func DeployVerifierProxyAndVerifier(
 	t *testing.T,
-	e deployment.Environment,
-) (env deployment.Environment, verifierProxyAddr common.Address, verifierAddr common.Address) {
+	e cldf.Environment,
+) (env cldf.Environment, verifierProxyAddr common.Address, verifierAddr common.Address) {
 	t.Helper()
 
 	chainSelector := testutil.TestChain.Selector

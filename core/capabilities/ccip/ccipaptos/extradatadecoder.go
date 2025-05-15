@@ -15,7 +15,7 @@ import (
 // Compatible with ccip::fee_quoter version 1.6.0
 type ExtraDataDecoder struct{}
 
-var _ ccipcommon.ExtraDataDecoder = (*ExtraDataDecoder)(nil)
+var _ ccipcommon.SourceChainExtraDataCodec = ExtraDataDecoder{}
 
 const (
 	aptosDestExecDataKey = "destGasAmount"

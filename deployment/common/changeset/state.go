@@ -66,7 +66,7 @@ func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (v1_0.MCMSWith
 // MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
 // Deprecated: use MaybeLoadMCMSWithTimelockState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
+func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.Chains[chainSelector]
@@ -97,7 +97,7 @@ func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors [
 // Deprecated: use MaybeLoadMCMSWithTimelockChainState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
 func MaybeLoadMCMSWithTimelockChainState(
-	chain deployment.Chain,
+	chain cldf.Chain,
 	addresses map[string]cldf.TypeAndVersion,
 ) (*MCMSWithTimelockState, error) {
 	var (
@@ -203,7 +203,7 @@ func (s LinkTokenState) GenerateLinkView() (v1_0.LinkTokenView, error) {
 // MaybeLoadLinkTokenState loads the LinkTokenState state for each chain in the given environment.
 // Deprecated: use MaybeLoadLinkTokenState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadLinkTokenState(env deployment.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
+func MaybeLoadLinkTokenState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
 	result := map[uint64]*LinkTokenState{}
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.Chains[chainSelector]
@@ -225,7 +225,7 @@ func MaybeLoadLinkTokenState(env deployment.Environment, chainSelectors []uint64
 
 // Deprecated: use MaybeLoadLinkTokenChainState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadLinkTokenChainState(chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
+func MaybeLoadLinkTokenChainState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
 	state := LinkTokenState{}
 	linkToken := cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
 
@@ -265,7 +265,7 @@ func (s StaticLinkTokenState) GenerateStaticLinkView() (v1_0.StaticLinkTokenView
 
 // Deprecated: use MaybeLoadStaticLinkTokenState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {
+func MaybeLoadStaticLinkTokenState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {
 	state := StaticLinkTokenState{}
 	staticLinkToken := cldf.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0)
 

@@ -17,12 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
 )
 
 func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore) {
 	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgrtest.NewTestTxStore(t, db)
 	chainID := big.NewInt(0)
 	memKS := keystest.NewMemoryChainStore()
 	addr1 := memKS.MustCreate(t)
@@ -68,7 +68,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 		unconfirmedAddr := testutils.NewAddress()
 		confirmedAddr := testutils.NewAddress()
 		_ = mustInsertInProgressEthTxWithAttempt(t, txStore, 123, inProgressAddr)
-		_ = cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, unconfirmedAddr)
+		_ = txmgrtest.MustInsertUnconfirmedEthTx(t, txStore, 123, unconfirmedAddr)
 		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
 		_ = mustCreateUnstartedTx(t, txStore, unstartedAddr, testutils.NewAddress(), []byte{}, 0, big.Int{}, ethClient.ConfiguredChainID())
 
@@ -121,7 +121,7 @@ func TestEvmTracker_ExceedingTTL(t *testing.T) {
 	addr1 := testutils.NewAddress()
 	addr2 := testutils.NewAddress()
 	tx1 := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, addr1)
-	tx2 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, addr2)
+	tx2 := txmgrtest.MustInsertUnconfirmedEthTx(t, txStore, 123, addr2)
 
 	tracker.XXXTestSetTTL(time.Nanosecond)
 	servicetest.Run(t, tracker)

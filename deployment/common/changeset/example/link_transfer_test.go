@@ -11,6 +11,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -18,14 +19,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 // setupLinkTransferContracts deploys all required contracts for the link transfer tests and returns the updated env.
-func setupLinkTransferTestEnv(t *testing.T) deployment.Environment {
+func setupLinkTransferTestEnv(t *testing.T) cldf.Environment {
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
 		Nodes:  1,
@@ -80,12 +80,12 @@ func TestLinkTransferMCMS(t *testing.T) {
 	// grant minter permissions
 	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, timelockAddress, big.NewInt(750))
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	timelocks := map[uint64]*proposalutils.TimelockExecutionContracts{
@@ -154,12 +154,12 @@ func TestLinkTransfer(t *testing.T) {
 	// grant minter permissions
 	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, chain.DeployerKey.From, big.NewInt(750))
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	timelocks := map[uint64]*proposalutils.TimelockExecutionContracts{
@@ -217,11 +217,11 @@ func TestValidate(t *testing.T) {
 	require.NoError(t, err)
 	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, chain.DeployerKey.From, big.NewInt(750))
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 
 	require.NoError(t, err)
 	tests := []struct {
@@ -393,12 +393,12 @@ func TestLinkTransferMCMSV2(t *testing.T) {
 	// grant minter permissions
 	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, timelockAddress, big.NewInt(750))
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	timelocks := map[uint64]*proposalutils.TimelockExecutionContracts{

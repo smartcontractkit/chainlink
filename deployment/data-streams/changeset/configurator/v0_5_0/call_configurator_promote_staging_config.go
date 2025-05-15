@@ -7,13 +7,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
@@ -46,14 +47,14 @@ func (cfg PromoteStagingConfigConfig) Validate() error {
 
 func (pc PromoteStagingConfig) GetContractAddress() common.Address { return pc.ConfiguratorAddress }
 
-func promoteStagingConfigPrecondition(_ deployment.Environment, cc PromoteStagingConfigConfig) error {
+func promoteStagingConfigPrecondition(_ cldf.Environment, cc PromoteStagingConfigConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployConfiguratorConfig: %w", err)
 	}
 	return nil
 }
 
-func promoteStagingConfigLogic(e deployment.Environment, cfg PromoteStagingConfigConfig) (cldf.ChangesetOutput, error) {
+func promoteStagingConfigLogic(e cldf.Environment, cfg PromoteStagingConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.Configurator.String(),
@@ -72,10 +73,10 @@ func doPromoteStagingConfig(
 	c *configurator.Configurator,
 	cfg PromoteStagingConfig,
 ) (*ethTypes.Transaction, error) {
-	return c.PromoteStagingConfig(deployment.SimTransactOpts(), cfg.ConfigID, cfg.IsGreenProduction)
+	return c.PromoteStagingConfig(cldf.SimTransactOpts(), cfg.ConfigID, cfg.IsGreenProduction)
 }
 
-func LoadConfigurator(e deployment.Environment, chainSel uint64, contractAddr string) (*configurator.Configurator, error) {
+func LoadConfigurator(e cldf.Environment, chainSel uint64, contractAddr string) (*configurator.Configurator, error) {
 	chain, ok := e.Chains[chainSel]
 	if !ok {
 		return nil, fmt.Errorf("chain %d not found", chainSel)

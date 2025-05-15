@@ -13,8 +13,6 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 type CapabilitiesRegistryDeployer struct {
@@ -70,7 +68,7 @@ func (c *CapabilitiesRegistryDeployer) Deploy(req DeployRequest) (*DeployRespons
 	return resp, nil
 }
 
-func estimateDeploymentGas(client deployment.OnchainClient, bytecode string) (uint64, error) {
+func estimateDeploymentGas(client cldf.OnchainClient, bytecode string) (uint64, error) {
 	// fake contract address required for gas estimation, otherwise it will fail
 	contractAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
 

@@ -13,6 +13,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 func GetErrorReasonFromTx(client bind.ContractBackend, from common.Address, tx *types.Transaction, receipt *types.Receipt) (string, error) {
@@ -60,7 +62,7 @@ func parseError(txError error) (string, error) {
 	return callErr.Data, nil
 }
 
-func ValidateSelectorsInEnvironment(e Environment, chains []uint64) error {
+func ValidateSelectorsInEnvironment(e cldf.Environment, chains []uint64) error {
 	for _, chain := range chains {
 		_, evmOk := e.Chains[chain]
 		_, solOk := e.SolChains[chain]

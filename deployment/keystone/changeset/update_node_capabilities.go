@@ -67,7 +67,7 @@ type MutateNodeCapabilitiesRequest struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-func (req *MutateNodeCapabilitiesRequest) Validate(e deployment.Environment) error {
+func (req *MutateNodeCapabilitiesRequest) Validate(e cldf.Environment) error {
 	if len(req.P2pToCapabilities) == 0 {
 		return errors.New("p2pToCapabilities is empty")
 	}
@@ -90,7 +90,7 @@ func (req *MutateNodeCapabilitiesRequest) UseMCMS() bool {
 	return req.MCMSConfig != nil
 }
 
-func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *OwnedContract[*kcr.CapabilitiesRegistry], error) {
+func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e cldf.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *OwnedContract[*kcr.CapabilitiesRegistry], error) {
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
@@ -109,7 +109,7 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 }
 
 // UpdateNodeCapabilities updates the capabilities of nodes in the registry
-func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilitiesRequest) (cldf.ChangesetOutput, error) {
+func UpdateNodeCapabilities(env cldf.Environment, req *UpdateNodeCapabilitiesRequest) (cldf.ChangesetOutput, error) {
 	c, capReg, err := req.updateNodeCapabilitiesImplRequest(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert request: %w", err)

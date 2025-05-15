@@ -11,11 +11,12 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 )
 
 var _ cldf.ChangeSetV2[config.DeployAptosChainConfig] = DeployAptosChain{}
@@ -23,9 +24,9 @@ var _ cldf.ChangeSetV2[config.DeployAptosChainConfig] = DeployAptosChain{}
 // DeployAptosChain deploys Aptos chain packages and modules
 type DeployAptosChain struct{}
 
-func (cs DeployAptosChain) VerifyPreconditions(env deployment.Environment, config config.DeployAptosChainConfig) error {
+func (cs DeployAptosChain) VerifyPreconditions(env cldf.Environment, config config.DeployAptosChainConfig) error {
 	// Validate env and prerequisite contracts
-	state, err := changeset.LoadOnchainStateAptos(env)
+	state, err := aptosstate.LoadOnchainStateAptos(env)
 	if err != nil {
 		return fmt.Errorf("failed to load existing Aptos onchain state: %w", err)
 	}
@@ -56,8 +57,8 @@ func (cs DeployAptosChain) VerifyPreconditions(env deployment.Environment, confi
 	return errors.Join(errs...)
 }
 
-func (cs DeployAptosChain) Apply(env deployment.Environment, config config.DeployAptosChainConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainStateAptos(env)
+func (cs DeployAptosChain) Apply(env cldf.Environment, config config.DeployAptosChainConfig) (cldf.ChangesetOutput, error) {
+	state, err := aptosstate.LoadOnchainStateAptos(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
@@ -87,7 +88,7 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 		mcmsOperations = append(mcmsOperations, mcmsSeqReport.Output.MCMSOperation)
 
 		// Save MCMS address
-		typeAndVersion := cldf.NewTypeAndVersion(changeset.AptosMCMSType, deployment.Version1_6_0)
+		typeAndVersion := cldf.NewTypeAndVersion(shared.AptosMCMSType, deployment.Version1_6_0)
 		deps.AB.Save(deps.AptosChain.Selector, mcmsSeqReport.Output.MCMSAddress.String(), typeAndVersion)
 
 		// CCIP Deploy operations
@@ -103,7 +104,7 @@ func (cs DeployAptosChain) Apply(env deployment.Environment, config config.Deplo
 		mcmsOperations = append(mcmsOperations, ccipSeqReport.Output.MCMSOperations...)
 
 		// Save the address of the CCIP object
-		typeAndVersion = cldf.NewTypeAndVersion(changeset.AptosCCIPType, deployment.Version1_6_0)
+		typeAndVersion = cldf.NewTypeAndVersion(shared.AptosCCIPType, deployment.Version1_6_0)
 		deps.AB.Save(deps.AptosChain.Selector, ccipSeqReport.Output.CCIPAddress.String(), typeAndVersion)
 
 		// Generate MCMS proposals

@@ -26,6 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
@@ -134,8 +136,8 @@ func DefaultTestConfigs() *TestConfigs {
 		NumOfUsersPerChain:    1,
 		Nodes:                 4,
 		Bootstraps:            1,
-		LinkPrice:             changeset.MockLinkPrice,
-		WethPrice:             changeset.MockWethPrice,
+		LinkPrice:             shared.MockLinkPrice,
+		WethPrice:             shared.MockWethPrice,
 		CreateJobAndContracts: true,
 		BlockTime:             2 * time.Second,
 	}
@@ -293,7 +295,7 @@ type TestEnvironment interface {
 }
 
 type DeployedEnv struct {
-	Env                    deployment.Environment
+	Env                    cldf.Environment
 	HomeChainSel           uint64
 	FeedChainSel           uint64
 	ReplayBlocks           map[uint64]uint64
@@ -303,7 +305,7 @@ type DeployedEnv struct {
 
 func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.TimelockExecutionContracts {
 	timelocks := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	state, err := changeset.LoadOnchainState(d.Env)
+	state, err := stateview.LoadOnchainState(d.Env)
 	require.NoError(t, err)
 	for chain, chainState := range state.Chains {
 		timelocks[chain] = &proposalutils.TimelockExecutionContracts{
@@ -325,9 +327,9 @@ type MemoryEnvironment struct {
 	DeployedEnv
 	nodes       map[string]memory.Node
 	TestConfig  *TestConfigs
-	Chains      map[uint64]deployment.Chain
-	SolChains   map[uint64]deployment.SolChain
-	AptosChains map[uint64]deployment.AptosChain
+	Chains      map[uint64]cldf.Chain
+	SolChains   map[uint64]cldf.SolChain
+	AptosChains map[uint64]cldf.AptosChain
 }
 
 func (m *MemoryEnvironment) TestConfigs() *TestConfigs {
@@ -345,7 +347,7 @@ func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
 func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	ctx := testcontext.Get(t)
 	tc := m.TestConfig
-	var chains map[uint64]deployment.Chain
+	var chains map[uint64]cldf.Chain
 	var users map[uint64][]*bind.TransactOpts
 	if len(tc.ChainIDs) > 0 {
 		chains, users = memory.NewMemoryChainsWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain)
@@ -365,7 +367,7 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	m.Chains = chains
 	m.SolChains = memory.NewMemoryChainsSol(t, tc.SolChains)
 	m.AptosChains = memory.NewMemoryChainsAptos(t, tc.AptosChains)
-	env := deployment.Environment{
+	env := cldf.Environment{
 		Chains:      m.Chains,
 		SolChains:   m.SolChains,
 		AptosChains: m.AptosChains,
@@ -621,7 +623,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	require.NoError(t, err)
 
 	// load the state again to get the latest addresses
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	err = state.ValidatePostDeploymentState(e.Env)
 	require.NoError(t, err)
@@ -633,7 +635,7 @@ func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([
 	if err != nil {
 		return nil, err
 	}
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	if err != nil {
 		return nil, err
 	}
@@ -753,7 +755,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		require.NoError(t, err)
 	}
 
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	// Assert link present
 	if tc.IsStaticLink {
@@ -763,7 +765,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 
-	tokenConfig := changeset.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	tokenConfig := shared.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
@@ -844,9 +846,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	for _, chain := range solChains {
 		// TODO: this is a workaround for tokenConfig.GetTokenInfo
 		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
-		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[chain].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[changeset.LinkSymbol]
+		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[chain].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 		// TODO: point this to proper SOL feed, apparently 0 signified SOL
-		tokenInfo[cciptypes.UnknownEncodedAddress(solanago.SolMint.String())] = tokenConfig.TokenSymbolToInfo[changeset.WethSymbol]
+		tokenInfo[cciptypes.UnknownEncodedAddress(solanago.SolMint.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
 
 		ocrOverride := tc.OCRConfigOverride
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
@@ -868,7 +870,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		// TODO(aptos): update this for token transfers
 		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
 		linkTokenAddress := state.AptosChains[chain].LinkTokenAddress
-		tokenInfo[cciptypes.UnknownEncodedAddress(linkTokenAddress.String())] = tokenConfig.TokenSymbolToInfo[changeset.LinkSymbol]
+		tokenInfo[cciptypes.UnknownEncodedAddress(linkTokenAddress.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 
 		ocrOverride := tc.OCRConfigOverride
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
@@ -996,7 +998,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 
-	state, err = changeset.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[e.HomeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[e.HomeChainSel].CCIPHome)
