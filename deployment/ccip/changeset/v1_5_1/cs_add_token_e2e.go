@@ -64,6 +64,8 @@ type E2ETokenAndPoolConfig struct {
 	PoolVersion           semver.Version
 	ExternalAdmin         common.Address // ExternalAdmin is the external administrator of the token pool on the registry.
 	RateLimiterConfig     RateLimiterPerChain
+	// SolChainUpdates defines the Solana chains and corresponding rate limits that should be defined on the token pool.
+	SolChainUpdates map[uint64]SolChainUpdate
 	// OverrideTokenSymbol is the token symbol to use to override against main symbol (ex: override to clCCIP-LnM when the main token symbol is CCIP-LnM)
 	// WARNING: This should only be used in exceptional cases where the token symbol on a particular chain differs from the main tokenSymbol
 	OverrideTokenSymbol shared.TokenSymbol
@@ -105,6 +107,7 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Enviro
 			Type:                poolCfg.DeployPoolConfig.Type,
 			Version:             poolCfg.PoolVersion,
 			OverrideTokenSymbol: poolCfg.OverrideTokenSymbol,
+			SolChainUpdates:     poolCfg.SolChainUpdates,
 		}
 
 		// Populate the TokenAdminRegistryChangesetConfig for each chain.
