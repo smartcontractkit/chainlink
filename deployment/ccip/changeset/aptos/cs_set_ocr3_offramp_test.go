@@ -5,16 +5,17 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/stretchr/testify/require"
+
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSetOCR3Offramp_Apply(t *testing.T) {
@@ -41,7 +42,7 @@ func TestSetOCR3Offramp_Apply(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load onchain state
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	require.NoError(t, err, "must load onchain state")
 
 	// bind ccip aptos

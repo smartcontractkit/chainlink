@@ -307,7 +307,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: cd smoke/ccip && go test ccip_aptos_messaging_test.go -timeout 15m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos-cli: 7.2.0
-    install-plugins-public: true
+    aptos_cli: 7.2.0
+    install_plugins_public: true
 
   # END: CCIP tests

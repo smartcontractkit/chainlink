@@ -59,7 +59,7 @@ func TestMessageHasher_InvalidReceiver(t *testing.T) {
 			[32]byte(solana.SystemProgramID.Bytes()),
 		},
 	}, nil).Maybe()
-	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
+	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec, mockExtraDataCodec))
 	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.Error(t, err)
 }
@@ -82,7 +82,7 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 			[32]byte(solana.SystemProgramID.Bytes()),
 		},
 	}, nil).Maybe()
-	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
+	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec, mockExtraDataCodec))
 	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.Error(t, err)
 }
