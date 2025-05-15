@@ -49,7 +49,6 @@ require (
 	github.com/smartcontractkit/mcms v0.19.2
 	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
-	github.com/test-go/testify v1.1.4
 	github.com/testcontainers/testcontainers-go v0.37.0
 	github.com/zksync-sdk/zksync2-go v1.0.0
 	go.uber.org/multierr v1.11.0
