@@ -4384,7 +4384,7 @@ func CreateOCR2CCIPCommitJobs(
 			retry.LastErrorOnly(true),
 			retry.OnRetry(func(attempt uint, err error) {
 				lggr.Warn().Err(err).Msgf(
-					"failing to create CCIP-Commit job on OCR node %d job name %s attempt %d  retrying", index+1, ocr2SpecCommit.Name, attempt,
+					"failing to create CCIP-Commit job on OCR node %d job name %s attempt %d retrying", index+1, ocr2SpecCommit.Name, attempt,
 				)
 			}),
 		}
@@ -4394,7 +4394,7 @@ func CreateOCR2CCIPCommitJobs(
 			return err1
 		}, retryOpts...)
 		if err != nil {
-			return fmt.Errorf("shouldn't fail creating CCIP-Commit job on OCR node %d job name %s - %w", index+1, ocr2SpecCommit.Name, err)
+			lggr.Err(err).Msgf("shouldn't fail creating CCIP-Commit job on OCR node %d job name %s - %v", index+1, ocr2SpecCommit.Name, err)
 		}
 		return nil
 	}
@@ -4440,7 +4440,7 @@ func CreateOCR2CCIPExecutionJobs(
 			retry.LastErrorOnly(true),
 			retry.OnRetry(func(attempt uint, err error) {
 				lggr.Warn().Err(err).Msgf(
-					"failing to create CCIP-Exec job on OCR node %d job name %s attempt %d  retrying", index+1, ocr2SpecExec.Name, attempt,
+					"failing to create CCIP-Exec job on OCR node %d job name %s attempt %d retrying", index+1, ocr2SpecExec.Name, attempt,
 				)
 			}),
 		}
@@ -4451,8 +4451,7 @@ func CreateOCR2CCIPExecutionJobs(
 		}, retryOpts...)
 
 		if err != nil {
-			return fmt.Errorf("shouldn't fail creating CCIP-Exec job on OCR node %d job name %s - %w", index+1,
-				ocr2SpecExec.Name, err)
+			lggr.Err(err).Msgf("shouldn't fail creating CCIP-Exec job on OCR node %d job name %s - %v", index+1, ocr2SpecExec.Name, err)
 		}
 		return nil
 	}
