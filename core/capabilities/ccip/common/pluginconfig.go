@@ -17,9 +17,10 @@ type PluginConfig struct {
 	GasEstimateProvider        cciptypes.EstimateProvider
 	RMNCrypto                  cciptypes.RMNCrypto
 	ContractTransmitterFactory cctypes.ContractTransmitterFactory
-	PriceOnlyCommitFn          string
-	ChainRW                    ChainRWProvider
-	AddressCodec               ChainSpecificAddressCodec
+	// PriceOnlyCommitFn optional method override for price only commit reports.
+	PriceOnlyCommitFn string
+	ChainRW           ChainRWProvider
+	AddressCodec      ChainSpecificAddressCodec
 }
 
 // PluginServices aggregates services for a specific chain family.
