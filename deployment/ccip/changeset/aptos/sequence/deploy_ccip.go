@@ -3,14 +3,14 @@ package sequence
 import (
 	"github.com/aptos-labs/aptos-go-sdk"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
-// Deploy CCIP Sequence
 type DeployCCIPSeqInput struct {
 	MCMSAddress aptos.AccountAddress
 	CCIPConfig  config.ChainContractParams
@@ -31,11 +31,8 @@ var DeployCCIPSequence = operations.NewSequence(
 func deployCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in DeployCCIPSeqInput) (DeployCCIPSeqOutput, error) {
 	var mcmsOperations []mcmstypes.BatchOperation
 
-	// Cleanup staging area
-	cleanupInput := operation.CleanupStagingAreaInput{
-		MCMSAddress: in.MCMSAddress,
-	}
-	cleanupReport, err := operations.ExecuteOperation(b, operation.CleanupStagingAreaOp, deps, cleanupInput)
+	// Cleanup MCMS staging area if not clear
+	cleanupReport, err := operations.ExecuteOperation(b, operation.CleanupStagingAreaOp, deps, in.MCMSAddress)
 	if err != nil {
 		return DeployCCIPSeqOutput{}, err
 	}
@@ -43,9 +40,10 @@ func deployCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in Deploy
 		mcmsOperations = append(mcmsOperations, cleanupReport.Output)
 	}
 
-	// Generate proposal to deploy CCIP package
+	// Generate batch operations to deploy CCIP package
 	deployCCIPInput := operation.DeployCCIPInput{
 		MCMSAddress: in.MCMSAddress,
+		IsUpdate:    false,
 	}
 	deployCCIPReport, err := operations.ExecuteOperation(b, operation.DeployCCIPOp, deps, deployCCIPInput)
 	if err != nil {
@@ -54,35 +52,34 @@ func deployCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in Deploy
 	ccipAddress := deployCCIPReport.Output.CCIPAddress
 
 	// For CCIP deployment the txs cannot be batched - it'd exceed Aptos API limits
-	// so it's converted to batch operations with single transactions in each
+	// so they're converted to batch operations with single transactions in each batch
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployCCIPReport.Output.MCMSOperations)...)
 
+	// Generate batch operations to deploy CCIP modules
 	deployModulesInput := operation.DeployModulesInput{
 		MCMSAddress: in.MCMSAddress,
 		CCIPAddress: ccipAddress,
 	}
-	// Generate proposal to deploy OnRamp module
+	// OnRamp module
 	deployOnRampReport, err := operations.ExecuteOperation(b, operation.DeployOnRampOp, deps, deployModulesInput)
 	if err != nil {
 		return DeployCCIPSeqOutput{}, err
 	}
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployOnRampReport.Output)...)
-
-	// Generate proposal to deploy OffRamp module
+	// OffRamp module
 	deployOffRampReport, err := operations.ExecuteOperation(b, operation.DeployOffRampOp, deps, deployModulesInput)
 	if err != nil {
 		return DeployCCIPSeqOutput{}, err
 	}
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployOffRampReport.Output)...)
-
-	// Generate proposal to deploy Router module
+	// Router module
 	deployRouterReport, err := operations.ExecuteOperation(b, operation.DeployRouterOp, deps, deployModulesInput)
 	if err != nil {
 		return DeployCCIPSeqOutput{}, err
 	}
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployRouterReport.Output)...)
 
-	// Generate proposal to initialize CCIP
+	// Generate batch operations to initialize CCIP
 	initCCIPInput := operation.InitializeCCIPInput{
 		MCMSAddress: in.MCMSAddress,
 		CCIPAddress: ccipAddress,

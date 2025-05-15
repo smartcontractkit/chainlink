@@ -2,10 +2,11 @@ package sequence
 
 import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 var UpdateCCIPSequence = operations.NewSequence(
@@ -18,11 +19,8 @@ var UpdateCCIPSequence = operations.NewSequence(
 func updateCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in config.UpdateAptosChainConfig) ([]mcmstypes.BatchOperation, error) {
 	var mcmsOperations []mcmstypes.BatchOperation
 
-	// Cleanup staging area
-	cleanupInput := operation.CleanupStagingAreaInput{
-		MCMSAddress: deps.OnChainState.MCMSAddress,
-	}
-	cleanupReport, err := operations.ExecuteOperation(b, operation.CleanupStagingAreaOp, deps, cleanupInput)
+	// Cleanup MCMS staging area if not clear
+	cleanupReport, err := operations.ExecuteOperation(b, operation.CleanupStagingAreaOp, deps, deps.OnChainState.MCMSAddress)
 	if err != nil {
 		return nil, err
 	}

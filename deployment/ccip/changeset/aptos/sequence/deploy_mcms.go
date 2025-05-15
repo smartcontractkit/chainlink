@@ -3,11 +3,12 @@ package sequence
 import (
 	"github.com/aptos-labs/aptos-go-sdk"
 
+	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // Deploy MCMS Sequence
@@ -25,8 +26,9 @@ var DeployMCMSSequence = operations.NewSequence(
 
 func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCMS types.MCMSWithTimelockConfigV2) (DeployMCMSSeqOutput, error) {
 	// Check if MCMS package is already deployed
-	if deps.OnChainState.MCMSAddress != (aptos.AccountAddress{}) {
-		b.Logger.Infow("MCMS Package already deployed", "addr", deps.OnChainState.MCMSAddress.String())
+	onChainState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
+	if onChainState.MCMSAddress != (aptos.AccountAddress{}) {
+		b.Logger.Infow("MCMS Package already deployed", "addr", onChainState.MCMSAddress.String())
 		return DeployMCMSSeqOutput{}, nil
 	}
 	// Deploy MCMS
@@ -58,7 +60,6 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 		MCMSConfigs: configMCMS.Proposer,
 		MCMSRole:    aptosmcms.TimelockRoleProposer,
 	}
-	// TODO: Should set MinDelay to timelock
 	_, err = operations.ExecuteOperation(b, operation.ConfigureMCMSOp, deps, configureMCMSProposers)
 	if err != nil {
 		return DeployMCMSSeqOutput{}, err
@@ -68,14 +69,29 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 	if err != nil {
 		return DeployMCMSSeqOutput{}, err
 	}
-	// Generate proposal to accept ownership
-	gaopReport, err := operations.ExecuteOperation(b, operation.AcceptOwnershipOp, deps, deployMCMSReport.Output)
+	// Accept ownership
+	aoReport, err := operations.ExecuteOperation(b, operation.AcceptOwnershipOp, deps, deployMCMSReport.Output)
+	if err != nil {
+		return DeployMCMSSeqOutput{}, err
+	}
+	// Set MinDelay
+	timelockMinDelayInput := operation.TimelockMinDelayInput{
+		MCMSAddress:      deployMCMSReport.Output,
+		TimelockMinDelay: (*configMCMS.TimelockMinDelay).Uint64(),
+	}
+	mdReport, err := operations.ExecuteOperation(b, operation.SetMinDelayOP, deps, timelockMinDelayInput)
 	if err != nil {
 		return DeployMCMSSeqOutput{}, err
 	}
 
+	// Generate MCMS Batch Operation
+	mcmsOps := mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  []mcmstypes.Transaction{aoReport.Output, mdReport.Output},
+	}
+
 	return DeployMCMSSeqOutput{
 		MCMSAddress:   deployMCMSReport.Output,
-		MCMSOperation: gaopReport.Output,
+		MCMSOperation: mcmsOps,
 	}, nil
 }

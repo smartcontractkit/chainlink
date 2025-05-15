@@ -1,10 +1,11 @@
 package operation
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
@@ -13,63 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	aptoscfg "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
-	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
-	"github.com/smartcontractkit/mcms/types"
 )
 
-// CleanupStagingArea Operation
-type CleanupStagingAreaInput struct {
-	MCMSAddress aptos.AccountAddress
-}
-
-var CleanupStagingAreaOp = operations.NewOperation(
-	"cleanup-staging-area-op",
-	Version1_0_0,
-	"Cleans up MCMS staging area if it's not already clean",
-	cleanupStagingArea,
-)
-
-func cleanupStagingArea(b operations.Bundle, deps AptosDeps, in CleanupStagingAreaInput) (types.BatchOperation, error) {
-	// Check resources first to see if staging is clean
-	IsMCMSStagingAreaClean, err := utils.IsMCMSStagingAreaClean(deps.AptosChain.Client, in.MCMSAddress)
-	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to check if MCMS staging area is clean: %w", err)
-	}
-	if IsMCMSStagingAreaClean {
-		b.Logger.Infow("MCMS Staging Area already clean", "addr", in.MCMSAddress.String())
-		return types.BatchOperation{}, nil
-	}
-
-	// Bind MCMS contract
-	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
-	mcmsAddress := mcmsContract.Address()
-
-	// Get cleanup staging operations
-	moduleInfo, function, _, args, err := mcmsContract.MCMSDeployer().Encoder().CleanupStagingArea()
-	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to EncodeCleanupStagingArea: %w", err)
-	}
-	additionalFields := aptosmcms.AdditionalFields{
-		PackageName: moduleInfo.PackageName,
-		ModuleName:  moduleInfo.ModuleName,
-		Function:    function,
-	}
-	afBytes, err := json.Marshal(additionalFields)
-	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to marshal additional fields: %w", err)
-	}
-
-	return types.BatchOperation{
-		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),
-		Transactions: []types.Transaction{{
-			To:               mcmsAddress.StringLong(),
-			Data:             aptosmcms.ArgsToData(args),
-			AdditionalFields: afBytes,
-		}},
-	}, nil
-}
-
-// GenerateDeployCCIPProposal Operation generates deployment MCMS operations for the CCIP package
+// OP: DeployCCIPOp deploys the CCIP package on Aptos chain
 type DeployCCIPInput struct {
 	MCMSAddress aptos.AccountAddress
 	IsUpdate    bool
@@ -80,7 +27,6 @@ type DeployCCIPOutput struct {
 	MCMSOperations []types.Operation
 }
 
-// DeployCCIPOp deploys the CCIP package on Aptos chain
 var DeployCCIPOp = operations.NewOperation(
 	"deploy-ccip-op",
 	Version1_0_0,
@@ -89,20 +35,20 @@ var DeployCCIPOp = operations.NewOperation(
 )
 
 func deployCCIP(b operations.Bundle, deps AptosDeps, in DeployCCIPInput) (DeployCCIPOutput, error) {
-	// Validate there's no package deployed
-	if (deps.OnChainState.CCIPAddress == (aptos.AccountAddress{})) == (in.IsUpdate) {
+	onChainState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
+	// Validate there's no package deployed XOR is update
+	if (onChainState.CCIPAddress == (aptos.AccountAddress{})) == (in.IsUpdate) {
 		if in.IsUpdate {
-			b.Logger.Infow("Trying to update a non-deployed package", "addr", deps.OnChainState.CCIPAddress.String())
+			b.Logger.Infow("Trying to update a non-deployed package", "addr", onChainState.CCIPAddress.String())
 			return DeployCCIPOutput{}, fmt.Errorf("CCIP package not deployed on Aptos chain %d", deps.AptosChain.Selector)
-		} else {
-			b.Logger.Infow("CCIP Package already deployed", "addr", deps.OnChainState.CCIPAddress.String())
-			return DeployCCIPOutput{CCIPAddress: deps.OnChainState.CCIPAddress}, nil
 		}
+		b.Logger.Infow("CCIP Package already deployed", "addr", onChainState.CCIPAddress.String())
+		return DeployCCIPOutput{CCIPAddress: onChainState.CCIPAddress}, nil
 	}
 
 	// Compile, chunk and get CCIP deploy operations
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
-	ccipObjectAddress, operations, err := getCCIPDeployMCMSOps(mcmsContract, deps.AptosChain.Selector, deps.OnChainState.CCIPAddress)
+	ccipObjectAddress, operations, err := getCCIPDeployMCMSOps(mcmsContract, deps.AptosChain.Selector, onChainState.CCIPAddress)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to compile and create deploy operations: %w", err)
 	}
@@ -151,12 +97,13 @@ func getCCIPDeployMCMSOps(mcmsContract mcmsbind.MCMS, chainSel uint64, ccipAddre
 	return ccipObjectAddress, operations, nil
 }
 
+// DeployModulesInput is the input for every module deployment operation
 type DeployModulesInput struct {
 	MCMSAddress aptos.AccountAddress
 	CCIPAddress aptos.AccountAddress
 }
 
-// DeployRouterOp generates deployment MCMS operations for the Router module
+// OP: DeployRouterOp generates deployment MCMS operations for the Router module
 var DeployRouterOp = operations.NewOperation(
 	"deploy-router-op",
 	Version1_0_0,
@@ -181,7 +128,7 @@ func deployRouter(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([
 	return operations, nil
 }
 
-// DeployOffRampOp generates deployment MCMS operations for the OffRamp module
+// OP: DeployOffRampOp generates deployment MCMS operations for the OffRamp module
 var DeployOffRampOp = operations.NewOperation(
 	"deploy-offramp-op",
 	Version1_0_0,
@@ -204,7 +151,7 @@ func deployOffRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) (
 	return operations, nil
 }
 
-// DeployOnRampOp generates MCMS proposals for the OnRamp module deployment
+// OP: DeployOnRampOp generates MCMS proposals for the OnRamp module deployment
 var DeployOnRampOp = operations.NewOperation(
 	"deploy-onramp-op",
 	Version1_0_0,
@@ -227,7 +174,7 @@ func deployOnRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([
 	return operations, nil
 }
 
-// InitializeCCIP Operation
+// OP: InitializeCCIP Operation
 type InitializeCCIPInput struct {
 	MCMSAddress aptos.AccountAddress
 	CCIPAddress aptos.AccountAddress

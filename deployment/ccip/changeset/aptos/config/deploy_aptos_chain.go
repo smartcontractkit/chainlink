@@ -1,11 +1,12 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -59,13 +60,13 @@ type FeeQuoterParams struct {
 
 func (f FeeQuoterParams) Validate() error {
 	if f.LinkToken == (aptos.AccountAddress{}) {
-		return fmt.Errorf("LinkToken is required")
+		return errors.New("LinkToken is required")
 	}
 	if f.TokenPriceStalenessThreshold == 0 {
-		return fmt.Errorf("TokenPriceStalenessThreshold can't be 0")
+		return errors.New("TokenPriceStalenessThreshold can't be 0")
 	}
 	if len(f.FeeTokens) == 0 {
-		return fmt.Errorf("at least one FeeTokens is required")
+		return errors.New("at least one FeeTokens is required")
 	}
 	return nil
 }
@@ -84,10 +85,10 @@ func (o OffRampParams) Validate() error {
 		return fmt.Errorf("invalid chain selector: %d - %w", o.ChainSelector, err)
 	}
 	if o.PermissionlessExecutionThreshold == 0 {
-		return fmt.Errorf("PermissionlessExecutionThreshold can't be 0")
+		return errors.New("PermissionlessExecutionThreshold can't be 0")
 	}
 	if len(o.SourceChainSelectors) != len(o.SourceChainIsEnabled) {
-		return fmt.Errorf("SourceChainSelectors and SourceChainIsEnabled must have the same length")
+		return errors.New("SourceChainSelectors and SourceChainIsEnabled must have the same length")
 	}
 	return nil
 }
@@ -101,9 +102,6 @@ type OnRampParams struct {
 func (o OnRampParams) Validate() error {
 	if err := cldf.IsValidChainSelector(o.ChainSelector); err != nil {
 		return fmt.Errorf("invalid chain selector: %d - %w", o.ChainSelector, err)
-	}
-	if o.AllowlistAdmin == (aptos.AccountAddress{}) {
-		return fmt.Errorf("AllowlistAdmin is required")
 	}
 	return nil
 }

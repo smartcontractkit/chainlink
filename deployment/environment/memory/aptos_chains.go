@@ -102,6 +102,9 @@ func aptosChain(t *testing.T, chainID string, adminAddress aptos.AccountAddress)
 	for i := 0; i < maxRetries; i++ {
 		// reserve all the ports we need explicitly to avoid port conflicts in other tests
 		ports := freeport.GetN(t, 2)
+		if i == 0 {
+			ports = []int{8080, 8081}
+		}
 
 		bcInput := &blockchain.Input{
 			Image:       "", // filled out by defaultAptos function
