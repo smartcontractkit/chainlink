@@ -27,11 +27,10 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      actions: read
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.chainlink_version }}
 
