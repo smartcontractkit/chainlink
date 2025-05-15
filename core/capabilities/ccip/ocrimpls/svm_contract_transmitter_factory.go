@@ -59,16 +59,17 @@ var SVMExecCalldataFunc = func(
 	extraDataCodec *ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
 	var info ccipocr3.ExecuteReportInfo
-	info, err = ccipocr3.DecodeExecuteReportInfo(report.Info)
-	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to decode execute report info: %w", err)
-	}
-
 	var extraDataDecoded ccipcommon.ExtraDataDecoded
-	if extraDataCodec != nil {
-		extraDataDecoded, err = decodeExecData(info, extraDataCodec)
+	info, err = ccipocr3.DecodeExecuteReportInfo(report.Info)
+	if len(report.Info) != 0 {
 		if err != nil {
-			return "", "", nil, fmt.Errorf("failed to decode extra data: %w", err)
+			return "", "", nil, fmt.Errorf("failed to decode execute report info: %w", err)
+		}
+		if extraDataCodec != nil {
+			extraDataDecoded, err = decodeExecData(info, extraDataCodec)
+			if err != nil {
+				return "", "", nil, fmt.Errorf("failed to decode extra data: %w", err)
+			}
 		}
 	}
 
