@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
@@ -223,7 +224,10 @@ func (w *chainWriter) GetEstimateFee(ctx context.Context, contract, method strin
 	}
 
 	to := common.HexToAddress(toAddress)
-	v := assets.Eth(*val)
+	var v assets.Eth
+	if val != nil {
+		v = assets.Eth(*val)
+	}
 
 	contractConfig, ok := w.contracts[contract]
 	if !ok {
@@ -239,9 +243,9 @@ func (w *chainWriter) GetEstimateFee(ctx context.Context, contract, method strin
 	if meta != nil && meta.GasLimit != nil {
 		gasLimit = meta.GasLimit.Uint64()
 	}
+
 	from := common.Address{}
-	// TODO repeat get max cost logic here
-	cost, err := w.ge.GetMaxCost(ctx, v, calldata, gasLimit, w.maxGasPrice, &from, &to)
+	cost, err := w.getMaxCost(ctx, v, calldata, gasLimit, w.maxGasPrice, &from, &to)
 	if err != nil {
 		return commontypes.EstimateFee{}, err
 	}
@@ -250,6 +254,29 @@ func (w *chainWriter) GetEstimateFee(ctx context.Context, contract, method strin
 		Fee:      cost,
 		Decimals: 18,
 	}, nil
+}
+
+func (w *chainWriter) getMaxCost(ctx context.Context, amount assets.Eth, calldata []byte,
+	gasLimit uint64, maxGasPrice *assets.Wei, fromAddress, toAddress *common.Address) (*big.Int, error) {
+	fee, err := w.GetFeeComponents(ctx)
+	var gasPrice *big.Int
+	if err != nil {
+		w.logger.Warnf("%w: GetFeeComponents failed; use maxFeePrice instead", err)
+		gasPrice = fee.ExecutionFee
+	} else {
+		gasPrice = (*big.Int)(maxGasPrice)
+	}
+
+	estimateGas, err := w.client.EstimateGas(ctx, ethereum.CallMsg{To: toAddress, Data: calldata})
+	if err != nil {
+		w.logger.Warnf("%w: EstimateGas failed; use gasLimit instead", err)
+		estimateGas = gasLimit
+	}
+
+	totalFee := new(big.Int).Mul(gasPrice, big.NewInt(int64(estimateGas)))
+	amountWithFees := new(big.Int).Add(amount.ToInt(), totalFee)
+
+	return amountWithFees, nil
 }
 
 func (w *chainWriter) Close() error {
