@@ -30,9 +30,10 @@ func main() {
 	flag.Parse()
 
 	rawComponents := strings.Split(capabilitiesStr, ",")
-	names := make([]string, 0, len(rawComponents))
-	for i, comp := range rawComponents {
-		names[i] = strings.TrimSpace(comp)
+	fmt.Println(fmt.Sprintf("rawComponents: %v (len = %d)", rawComponents, len(rawComponents)))
+	names := make([]string, 0)
+	for _, comp := range rawComponents {
+		names = append(names, strings.TrimSpace(comp))
 	}
 
 	if wasmPath == "" {
