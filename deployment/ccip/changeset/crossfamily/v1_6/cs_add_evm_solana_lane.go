@@ -366,6 +366,10 @@ func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env cl
 			},
 		},
 	}
+	// router is always owned by deployer key so no need to pass MCMS
+	if cfg.IsTestRouter {
+		input.evmRouterInput.MCMS = nil
+	}
 	input.solanaRouterInput = solana.AddRemoteChainToRouterConfig{
 		ChainSelector: cfg.SolanaChainSelector,
 		MCMS:          cfg.MCMSConfig,
