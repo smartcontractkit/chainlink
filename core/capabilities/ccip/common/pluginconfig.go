@@ -49,11 +49,12 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 		return PluginServices{}, fmt.Errorf("unsupported chain family: %s", chainFamily)
 	}
 
-	pluginServices := PluginServices{}
+	pluginServices := PluginServices{
+		ExtraDataCodec: &ExtraDataCodec{}, // lazy initialize it after factory init call
+	}
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
 	chainRWProviderMap := make(map[string]ChainRWProvider)
 	registeredExtraDataCodec := make(map[string]SourceChainExtraDataCodec)
-	pluginServices.ExtraDataCodec = &ExtraDataCodec{} // lazy initialize it after factory init call
 
 	for family, initFunc := range registeredFactories {
 		config := initFunc(lggr, pluginServices.ExtraDataCodec)
