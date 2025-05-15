@@ -8,7 +8,7 @@ type = "anvil"
 docker_cmd_params = ["-b", "5"]
 
 # ----- BINARY PATHS -----
-# Path to the mock capability binary used for test simulation
+# Path to the mock capability binary
 [binaries_config]
 mock_capability_binary_path = "../../../../../capabilities/bin/amd64/mock"
 

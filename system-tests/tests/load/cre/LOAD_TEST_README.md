@@ -12,7 +12,7 @@ Before running the load tests, ensure you have the following set up:
     - If you’re on macOS, the recommended way to install Nix is using the Determinate Systems graphical installer
 
 3. **Mock Capability**
-    - Must be compiled from the capabilities repository
+    - Must be compiled from the capabilities repository, details on how to compile it can be found in the `How to compile the mock capability` below
     - Required for simulating capability interactions
 
 4. **Observability stack**
@@ -29,10 +29,23 @@ Before running the load tests, ensure you have the following set up:
     - VPN turned on
 
 ### How to compile the mock capability
-1. Clone https://github.com/smartcontractkit/capabilities
-2. Run `nx build mock`
+#### 1. Clone the capabilities repository
+`git clone https://github.com/smartcontractkit/capabilities`
 
-This will compile the capability, it will be available in `capabilities/bin/amd64/mock`
+#### 2. Navigate to the repository
+`cd capabilities`
+
+#### 3. Build the mock capability
+`nx build mock`
+
+After compilation, the mock binary will be located at `capabilities/bin/amd64/mock`.
+
+Then update your test configuration file:
+```
+[binaries_config]
+mock_capability_binary_path = "/path/to/capabilities/bin/amd64/mock"
+```
+Use either an absolute path or a relative path pointing to your compiled binary.
 
 ### Setting Up Observability stack
 
