@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"go.uber.org/zap/zapcore"
@@ -20,21 +19,11 @@ func main() {
 	var wasmPath string
 	var configPath string
 	var debugMode bool
-	var capabilitiesStr string
-	defaultCapabilityNames := []string{"streams", "consensus", "write_aptos"}
 
 	flag.StringVar(&wasmPath, "wasm", "", "Path to the WASM binary file")
 	flag.StringVar(&configPath, "config", "", "Path to the Config file")
 	flag.BoolVar(&debugMode, "debug", false, "Enable debug-level logging")
-	flag.StringVar(&capabilitiesStr, "capability-names", strings.Join(defaultCapabilityNames, ","), "Comma separated list of capability names to load into the registry")
 	flag.Parse()
-
-	rawComponents := strings.Split(capabilitiesStr, ",")
-	fmt.Println(fmt.Sprintf("rawComponents: %v (len = %d)", rawComponents, len(rawComponents)))
-	names := make([]string, 0)
-	for _, comp := range rawComponents {
-		names = append(names, strings.TrimSpace(comp))
-	}
 
 	if wasmPath == "" {
 		fmt.Println("--wasm must be set")
@@ -71,7 +60,7 @@ func main() {
 	// Create the registry and fake capabilities
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-
+	names := []string{"streams", "consensus", "write_aptos", "cron"}
 	capabilities, err := NewFakeCapabilities(ctx, lggr, names, registry)
 	if err != nil {
 		fmt.Printf("Failed to create capabilities: %v\n", err)
