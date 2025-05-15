@@ -78,6 +78,7 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment) error {
 }
 
 func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("RegisterTokenAdminRegistry", "cfg", cfg)
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -354,6 +355,7 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment) 
 }
 
 func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("AcceptAdminRoleTokenAdminRegistry", "cfg", cfg)
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

@@ -41,6 +41,17 @@ var TestChain = chainselectors.Chain{
 	VarName:    "",
 }
 
+// TestDON is the DON we use in tests.
+var TestDON = struct {
+	ID   uint64
+	Name string
+	Env  string
+}{
+	ID:   1,
+	Name: "don",
+	Env:  "memory",
+}
+
 // NewMemoryEnv Deploys a memory environment with the provided number of nodes and optionally deploys MCMS and Timelock.
 // Deprecated: use NewMemoryEnvV2 instead.
 func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) cldf.Environment {
