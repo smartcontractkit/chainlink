@@ -240,7 +240,7 @@ func (w *chainWriter) GetEstimateFee(ctx context.Context, contract, method strin
 		gasLimit = meta.GasLimit.Uint64()
 	}
 	from := common.Address{}
-
+	// TODO repeat get max cost logic here
 	cost, err := w.ge.GetMaxCost(ctx, v, calldata, gasLimit, w.maxGasPrice, &from, &to)
 	if err != nil {
 		return commontypes.EstimateFee{}, err
@@ -250,7 +250,6 @@ func (w *chainWriter) GetEstimateFee(ctx context.Context, contract, method strin
 		Fee:      cost,
 		Decimals: 18,
 	}, nil
-
 }
 
 func (w *chainWriter) Close() error {
