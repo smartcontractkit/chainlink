@@ -13,8 +13,8 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
-	evmprimitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	evmprimitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives/evm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/chains"
@@ -80,6 +80,7 @@ func (r *Relayer) LatestAndFinalizedHead(ctx context.Context) (evmtypes.Head, ev
 	return convertHead(latest), convertHead(finalized), nil
 }
 
+// TODO introduce parameters validation PLEX-1437
 func (r *Relayer) QueryTrackedLogs(ctx context.Context, filterQuery []query.Expression,
 	limitAndSort query.LimitAndSort, confidenceLevel primitives.ConfidenceLevel) ([]*evmtypes.Log, error) {
 	conformations := confidenceToConformations(confidenceLevel)
@@ -133,7 +134,7 @@ func queryNameFromFilter(filterQuery []query.Expression) string {
 	for _, expr := range filterQuery {
 		if expr.IsPrimitive() {
 			switch primitive := expr.Primitive.(type) {
-			case *evmprimitives.AddressFilter:
+			case *evmprimitives.Address:
 				address = common.Address(primitive.Address).Hex()
 			case *evmprimitives.EventSig:
 				eventSig = common.Hash(primitive.EventSig).Hex()
