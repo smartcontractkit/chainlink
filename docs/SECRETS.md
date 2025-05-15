@@ -182,20 +182,20 @@ ThresholdKeyShare used by the threshold decryption OCR plugin
 ## CRE.Streams
 ```toml
 [CRE.Streams]
-ApiKey = "streams-api-key" # Example
-ApiSecret = "streams-api-secret" # Example
+APIKey = "streams-api-key" # Example
+APISecret = "streams-api-secret" # Example
 ```
 
 
-### ApiKey
+### APIKey
 ```toml
-ApiKey = "streams-api-key" # Example
+APIKey = "streams-api-key" # Example
 ```
-ApiKey is the API key used for authenticating with the CLL Data Streams SDK.
+APIKey is the API key used for authenticating with the CLL Data Streams SDK.
 
-### ApiSecret
+### APISecret
 ```toml
-ApiSecret = "streams-api-secret" # Example
+APISecret = "streams-api-secret" # Example
 ```
-ApiSecret is the API secret used for authenticating with the CLL Data Streams SDK.
+APISecret is the API secret used for authenticating with the CLL Data Streams SDK.
 

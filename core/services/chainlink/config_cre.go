@@ -9,18 +9,18 @@ type creConfig struct {
 	c toml.CreConfig
 }
 
-func (c *creConfig) StreamsApiKey() string {
-	if c.s.Streams == nil || c.s.Streams.ApiKey == nil {
+func (c *creConfig) StreamsAPIKey() string {
+	if c.s.Streams == nil || c.s.Streams.APIKey == nil {
 		return ""
 	}
-	return string(*c.s.Streams.ApiKey)
+	return string(*c.s.Streams.APIKey)
 }
 
-func (c *creConfig) StreamsApiSecret() string {
-	if c.s.Streams == nil || c.s.Streams.ApiSecret == nil {
+func (c *creConfig) StreamsAPISecret() string {
+	if c.s.Streams == nil || c.s.Streams.APISecret == nil {
 		return ""
 	}
-	return string(*c.s.Streams.ApiSecret)
+	return string(*c.s.Streams.APISecret)
 }
 
 func (c *creConfig) WsURL() string {

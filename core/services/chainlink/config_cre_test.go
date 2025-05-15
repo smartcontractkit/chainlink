@@ -12,8 +12,8 @@ import (
 const (
 	secretsCRE = `
 [CRE.Streams]
-ApiKey = "streams-api-key"
-ApiSecret = "streams-api-secret"
+APIKey = "streams-api-key"
+APISecret = "streams-api-secret"
 `
 	configCRE = `
 [CRE.Streams]
@@ -31,16 +31,16 @@ func TestCREConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	c := cfg.CRE()
-	assert.Equal(t, "streams-api-key", c.StreamsApiKey())
-	assert.Equal(t, "streams-api-secret", c.StreamsApiSecret())
+	assert.Equal(t, "streams-api-key", c.StreamsAPIKey())
+	assert.Equal(t, "streams-api-secret", c.StreamsAPISecret())
 	assert.Equal(t, "streams.url", c.WsURL())
 	assert.Equal(t, "streams.url", c.RestURL())
 }
 
 func TestEmptyCREConfig(t *testing.T) {
 	cfg := creConfig{s: toml.CreSecrets{}, c: toml.CreConfig{}}
-	assert.Equal(t, "", cfg.StreamsApiKey())
-	assert.Equal(t, "", cfg.StreamsApiSecret())
+	assert.Equal(t, "", cfg.StreamsAPIKey())
+	assert.Equal(t, "", cfg.StreamsAPISecret())
 	assert.Equal(t, "", cfg.WsURL())
 	assert.Equal(t, "", cfg.RestURL())
 }

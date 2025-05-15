@@ -1595,7 +1595,7 @@ type CreConfig struct {
 	Streams *StreamsConfig `toml:",omitempty"`
 }
 
-func (c *CreConfig) setFrom(f *CreConfig) (err error) {
+func (c *CreConfig) setFrom(f *CreConfig) {
 	if f.Streams != nil {
 		if c.Streams == nil {
 			c.Streams = &StreamsConfig{}
@@ -1607,13 +1607,11 @@ func (c *CreConfig) setFrom(f *CreConfig) (err error) {
 			c.Streams.RestURL = v
 		}
 	}
-
-	return nil
 }
 
 type StreamsSecretConfig struct {
-	ApiKey    *commonconfig.SecretString `toml:",omitempty"`
-	ApiSecret *commonconfig.SecretString `toml:",omitempty"`
+	APIKey    *commonconfig.SecretString `toml:",omitempty"`
+	APISecret *commonconfig.SecretString `toml:",omitempty"`
 }
 
 type CreSecrets struct {
@@ -1630,11 +1628,11 @@ func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
 		if c.Streams == nil {
 			c.Streams = &StreamsSecretConfig{}
 		}
-		if v := f.Streams.ApiKey; v != nil {
-			c.Streams.ApiKey = v
+		if v := f.Streams.APIKey; v != nil {
+			c.Streams.APIKey = v
 		}
-		if v := f.Streams.ApiSecret; v != nil {
-			c.Streams.ApiSecret = v
+		if v := f.Streams.APISecret; v != nil {
+			c.Streams.APISecret = v
 		}
 	}
 
@@ -1643,11 +1641,11 @@ func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
 
 func (c *CreSecrets) validateMerge(f *CreSecrets) (err error) {
 	if c.Streams != nil && f.Streams != nil {
-		if c.Streams.ApiKey != nil && f.Streams.ApiKey != nil {
-			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.ApiKey"})
+		if c.Streams.APIKey != nil && f.Streams.APIKey != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.APIKey"})
 		}
-		if c.Streams.ApiSecret != nil && f.Streams.ApiSecret != nil {
-			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.ApiSecret"})
+		if c.Streams.APISecret != nil && f.Streams.APISecret != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.APISecret"})
 		}
 	}
 	return err
