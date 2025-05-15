@@ -332,12 +332,27 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 		cfgMsgs = append(cfgMsgs, cfgMsg)
 	}
 
+	p2pKeysBundles := make([]*pb.P2PKeyBundle, 0)
+	p2pKeysV2, err := s.p2pKeyStore.GetAll()
+	if err != nil {
+		s.lggr.Errorf("p2pKeyStore.GetAll: %v", err)
+	}
+
+	if err == nil {
+		for _, key := range p2pKeysV2 {
+			bundle := s.newP2PBundle(key)
+
+			p2pKeysBundles = append(p2pKeysBundles, bundle)
+		}
+	}
+
 	workflowKey := s.getWorkflowPublicKey(ctx)
 
 	resp, err := fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
-		Version:      s.version,
-		ChainConfigs: cfgMsgs,
-		WorkflowKey:  &workflowKey,
+		Version:       s.version,
+		ChainConfigs:  cfgMsgs,
+		WorkflowKey:   &workflowKey,
+		P2PKeyBundles: p2pKeysBundles,
 	})
 	if err != nil {
 		return errors.Wrap(err, "SyncNodeInfo.UpdateNode call failed")
@@ -1373,6 +1388,16 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 	}
 
 	return &js, nil
+}
+
+// newP2PBundle generates a P2PKeyBundle protobuf message.
+func (s *service) newP2PBundle(key p2pkey.KeyV2) *pb.P2PKeyBundle {
+	pbP2PBundle := pb.P2PKeyBundle{
+		PeerId:    key.PeerID().String(),
+		PublicKey: key.PublicKeyHex(),
+	}
+
+	return &pbP2PBundle
 }
 
 // newChainConfigMsg generates a chain config protobuf message.

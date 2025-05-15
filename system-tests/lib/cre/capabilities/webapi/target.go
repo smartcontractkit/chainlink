@@ -10,20 +10,8 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-// Deprecated: use capabilities.webapi.WebAPITriggerCapabilityFactoryFn and capabilities.webapi.WebAPITargetCapabilityFactoryFn instead
-var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+var WebAPITargetCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
-
-	if flags.HasFlag(donFlags, types.WebAPITriggerCapability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "web-api-trigger",
-				Version:        "1.0.0",
-				CapabilityType: 0, // TRIGGER
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
 
 	if flags.HasFlag(donFlags, types.WebAPITargetCapability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{

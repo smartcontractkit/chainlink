@@ -9,12 +9,11 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-// Deprecated: use capabilities.webapi.WebAPITriggerJobSpecFactoryFn and capabilities.webapi.WebAPITargetJobSpecFactoryFn instead
-var WebAPIJobSpecFactoryFn = func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
-	return GenerateJobSpecs(input.DonTopology)
+var WebAPITriggerJobSpecFactoryFn = func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
+	return GenerateWebAPITriggerJobSpecs(input.DonTopology)
 }
 
-func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, error) {
+func GenerateWebAPITriggerJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
@@ -37,18 +36,6 @@ func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, err
 					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
 				}
 				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, types.WebAPITriggerCapability, "__builtin_web-api-trigger", libjobs.EmptyStdCapConfig))
-			}
-
-			if flags.HasFlag(donWithMetadata.Flags, types.WebAPITargetCapability) {
-				config := `"""
-						[rateLimiter]
-						GlobalRPS = 1000.0
-						GlobalBurst = 1000
-						PerSenderRPS = 1000.0
-						PerSenderBurst = 1000
-						"""`
-
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, types.WebAPITargetCapability, "__builtin_web-api-target", config))
 			}
 		}
 	}

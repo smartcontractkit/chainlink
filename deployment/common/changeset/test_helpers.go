@@ -9,9 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -273,12 +274,9 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 	return currentEnv, outputs, nil
 }
 
-func DeployLinkTokenTest(t *testing.T, solChains int) {
+func DeployLinkTokenTest(t *testing.T, memoryConfig memory.MemoryEnvironmentConfig) {
 	lggr := logger.Test(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains:    1,
-		SolChains: solChains,
-	})
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memoryConfig)
 	chain1 := e.AllChainSelectors()[0]
 	config := []uint64{chain1}
 	e, err := ApplyChangesets(t, e, nil, []ConfiguredChangeSet{
@@ -297,7 +295,7 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 	require.NoError(t, err)
 
 	// solana test
-	if solChains > 0 {
+	if memoryConfig.SolChains > 0 {
 		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
 		e, err = Apply(t, e, nil,
 			Configure(cldf.CreateLegacyChangeSet(DeploySolanaLinkToken), DeploySolanaLinkTokenConfig{
