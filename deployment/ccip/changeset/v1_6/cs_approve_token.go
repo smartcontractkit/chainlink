@@ -31,7 +31,7 @@ func (cfg ApproveTokenEVMConfig) Validate(e cldf.Environment) (stateview.CCIPOnC
 		return stateview.CCIPOnChainState{}, fmt.Errorf("router not found for chain selector %d", cfg.ChainSelector)
 	}
 
-	if chainState.LinkToken == nil {
+	if chainState.StaticLinkToken == nil {
 		return stateview.CCIPOnChainState{}, fmt.Errorf("link token not found for chain selector %d", cfg.ChainSelector)
 	}
 
@@ -50,7 +50,7 @@ func TokenApproveTransferEVMChangeset(e cldf.Environment, cfg ApproveTokenEVMCon
 		e,
 		cfg.ChainSelector,
 		chainState.Router.Address(),
-		chainState.LinkToken.Address(),
+		chainState.StaticLinkToken.Address(),
 		cfg.Amount,
 	)
 	if err != nil {
