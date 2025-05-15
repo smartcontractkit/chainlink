@@ -7,9 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -28,7 +25,15 @@ type AptosExecCallArgs struct {
 }
 
 // AptosContractTransmitterFactory implements the transmitter factory for Aptos chains.
-type AptosContractTransmitterFactory struct{}
+type AptosContractTransmitterFactory struct {
+	extraDataCodec ccipcommon.ExtraDataCodec
+}
+
+func NewAptosContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *AptosContractTransmitterFactory {
+	return &AptosContractTransmitterFactory{
+		extraDataCodec: extraDataCodec,
+	}
+}
 
 // NewAptosCommitCalldataFunc returns a ToCalldataFunc for Aptos commits that omits any Info object.
 func NewAptosCommitCalldataFunc(commitMethod string) ToEd25519CalldataFunc {
@@ -94,8 +99,6 @@ func (f *AptosContractTransmitterFactory) NewExecTransmitter(
 		fromAccount:         fromAccount,
 		offrampAddress:      offrampAddress,
 		toEd25519CalldataFn: AptosExecCallDataFunc,
-		extraDataCodec: ccipcommon.NewExtraDataCodec(
-			ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}, ccipaptos.ExtraDataDecoder{}),
-		),
+		extraDataCodec:      f.extraDataCodec,
 	}
 }
