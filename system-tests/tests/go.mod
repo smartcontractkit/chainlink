@@ -432,13 +432,13 @@ require (
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250414155853-651b4e583ee9 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250515091132-6c08936b29ab // indirect
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250513174048-af3e6b6d21fb // indirect
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250515132731-ad40fab9b75e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250514200342-5169fbe9e28d // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250514200342-5169fbe9e28d // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250514200342-5169fbe9e28d // indirect
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250501150903-3e93089d9ad5 // indirect
-	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0 // indirect
+	github.com/smartcontractkit/chainlink-protos/orchestrator v0.6.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250501150903-3e93089d9ad5 // indirect
