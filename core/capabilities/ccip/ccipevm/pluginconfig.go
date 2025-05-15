@@ -26,5 +26,5 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 
 func init() {
 	// Register the EVM plugin config factory
-	ccipcommon.RegisterPluginConfig(chainsel.FamilyEVM, InitializePluginConfig)
+	ccipcommon.RegisterPluginConfig(chainsel.FamilyEVM, InitializePluginConfig, ExtraDataCodec{})
 }

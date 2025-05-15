@@ -37,7 +37,8 @@ var registeredFactories = make(map[string]InitFunction)
 var registeredExtraDataCodec = make(map[string]SourceChainExtraDataCodec)
 
 // RegisterPluginConfig registers a plugin config factory for a chain family.
-func RegisterPluginConfig(chainFamily string, factory InitFunction) {
+func RegisterPluginConfig(chainFamily string, factory InitFunction, extraDataCodec SourceChainExtraDataCodec) {
+	registeredExtraDataCodec[chainFamily] = extraDataCodec
 	registeredFactories[chainFamily] = factory
 }
 
