@@ -18,6 +18,7 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/AlekSi/pointer"
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -4371,10 +4372,27 @@ func CreateOCR2CCIPCommitJobs(
 	createJob := func(index int, node *nodeclient.CLNodesWithKeys, ocr2SpecCommit nodeclient.OCR2TaskJobSpec, mu *sync.Mutex) error {
 		mu.Lock()
 		defer mu.Unlock()
+
 		ocr2SpecCommit.OCR2OracleSpec.OCRKeyBundleID.SetValid(node.KeysBundle.OCR2Key.Data.ID)
 		ocr2SpecCommit.OCR2OracleSpec.TransmitterID.SetValid(node.KeysBundle.EthAddress)
 		lggr.Info().Msgf("Creating CCIP-Commit job on OCR node %d job name %s", index+1, ocr2SpecCommit.Name)
-		_, err = node.Node.MustCreateJob(&ocr2SpecCommit)
+
+		retryOpts := []retry.Option{
+			retry.DelayType(retry.FixedDelay),
+			retry.Delay(100 * time.Millisecond),
+			retry.Attempts(5),
+			retry.LastErrorOnly(true),
+			retry.OnRetry(func(attempt uint, err error) {
+				lggr.Warn().Err(err).Msgf(
+					"failing to create CCIP-Commit job on OCR node %d job name %s attempt %d  retrying", index+1, ocr2SpecCommit.Name, attempt,
+				)
+			}),
+		}
+
+		err := retry.Do(func() error {
+			_, err1 := node.Node.MustCreateJob(&ocr2SpecCommit)
+			return err1
+		}, retryOpts...)
 		if err != nil {
 			return fmt.Errorf("shouldn't fail creating CCIP-Commit job on OCR node %d job name %s - %w", index+1, ocr2SpecCommit.Name, err)
 		}
@@ -4410,10 +4428,28 @@ func CreateOCR2CCIPExecutionJobs(
 	createJob := func(index int, node *nodeclient.CLNodesWithKeys, ocr2SpecExec nodeclient.OCR2TaskJobSpec, mu *sync.Mutex) error {
 		mu.Lock()
 		defer mu.Unlock()
+
 		ocr2SpecExec.OCR2OracleSpec.OCRKeyBundleID.SetValid(node.KeysBundle.OCR2Key.Data.ID)
 		ocr2SpecExec.OCR2OracleSpec.TransmitterID.SetValid(node.KeysBundle.EthAddress)
 		lggr.Info().Msgf("Creating CCIP-Exec job on OCR node %d job name %s", index+1, ocr2SpecExec.Name)
-		_, err = node.Node.MustCreateJob(&ocr2SpecExec)
+
+		retryOpts := []retry.Option{
+			retry.DelayType(retry.FixedDelay),
+			retry.Delay(100 * time.Millisecond),
+			retry.Attempts(5),
+			retry.LastErrorOnly(true),
+			retry.OnRetry(func(attempt uint, err error) {
+				lggr.Warn().Err(err).Msgf(
+					"failing to create CCIP-Exec job on OCR node %d job name %s attempt %d  retrying", index+1, ocr2SpecExec.Name, attempt,
+				)
+			}),
+		}
+
+		err := retry.Do(func() error {
+			_, err1 := node.Node.MustCreateJob(&ocr2SpecExec)
+			return err1
+		}, retryOpts...)
+
 		if err != nil {
 			return fmt.Errorf("shouldn't fail creating CCIP-Exec job on OCR node %d job name %s - %w", index+1,
 				ocr2SpecExec.Name, err)
