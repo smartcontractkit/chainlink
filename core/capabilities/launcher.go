@@ -118,6 +118,27 @@ func NewLauncher(
 	}
 }
 
+// CRE-326: Maintain only necessary Don2Don connections:
+//   - Workflow DONs connect only to other DONs that have at least one remote capability
+//   - Capability DONs connect only to workflow DONs
+//
+// Returns boolean as:
+//   - true: filter out
+//   - false: keep
+func filterDon2Don(myDON capabilities.DON, d registrysyncer.DON) bool {
+	// Below logic is based on identification who is who using a workflow acceptance flag:
+	//  d.DON.AcceptsWorkflows == true
+	//
+	// We identify 3 cases from the perspective of the node:
+	//  - if I'm workflow DON my peers should be only capability DONs
+	//  - if I'm capability my peers should only be workflow DONs
+	//  - if I'm both workflow & capability DON I am like being a workflow DON and connect only to capability DONs
+	if (myDON.AcceptsWorkflows && d.DON.AcceptsWorkflows) || (!myDON.AcceptsWorkflows && !d.DON.AcceptsWorkflows) {
+		return true // filter out
+	}
+	return false // keep
+}
+
 func (w *launcher) Start(ctx context.Context) error {
 	return nil
 }
@@ -161,9 +182,18 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
 
 	publicDONs := []registrysyncer.DON{}
+
+	myDON := state.IDsToDONs[registrysyncer.DonID(
+		state.IDsToNodes[w.peerWrapper.GetPeer().ID()].WorkflowDONId,
+	)].DON
+
 	for _, id := range allDONIDs {
 		d := state.IDsToDONs[id]
 		if !d.DON.IsPublic {
+			continue
+		}
+
+		if filterDon2Don(myDON, d) {
 			continue
 		}
 
