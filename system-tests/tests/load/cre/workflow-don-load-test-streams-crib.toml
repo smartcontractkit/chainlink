@@ -46,7 +46,7 @@ type = "crib"
 # CRIB deployment configuration for AWS
 [infra.crib]
 namespace = "crib-workflow-don-load-test"
-folder_location = "../../../../../crib/deployments/cre"  # Path to CRIB deployment files
+folder_location = "../../../../../crib/deployments/cre"  # Path to CRIB deployment folder
 provider = "aws"
 
 # Team information for resource allocation and billing

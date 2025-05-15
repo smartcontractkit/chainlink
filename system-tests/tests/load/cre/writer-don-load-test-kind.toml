@@ -39,7 +39,7 @@ type = "docker"
 # CRIB deployment configuration
 [infra.crib]
 namespace = "crib-writer-don-load-test-george"  # Unique namespace for this deployment
-folder_location = "../../../../../crib/deployments/cre"  # Path to CRIB deployment files
+folder_location = "../../../../../crib/deployments/cre"  # Path to CRIB deployment folder
 provider = "kind"  # Local Kubernetes in Docker
 
 # Team information for resource tracking
