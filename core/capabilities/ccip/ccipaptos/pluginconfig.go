@@ -7,8 +7,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// InitializePluginConfig returns a PluginConfig for EVM chains.
-func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodec) ccipcommon.PluginConfig {
+// initializePluginConfig returns a PluginConfig for Aptos chains.
+func initializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodec) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:          NewCommitPluginCodecV1(),
 		ExecutePluginCodec:         NewExecutePluginCodecV1(extraDataCodec),
@@ -17,5 +17,13 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		GasEstimateProvider:        NewGasEstimateProvider(),
 		RMNCrypto:                  nil,
 		ContractTransmitterFactory: ocrimpls.NewAptosContractTransmitterFactory(extraDataCodec),
+		ChainRW:                    ChainCWProvider{},
+		ExtraDataCodec:             ExtraDataDecoder{},
+		AddressCodec:               AddressCodec{},
 	}
+}
+
+func init() {
+	// Register the Aptos plugin config factory
+	ccipcommon.RegisterPluginConfig(chainsel.FamilyAptos, initializePluginConfig)
 }
