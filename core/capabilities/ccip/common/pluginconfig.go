@@ -3,28 +3,12 @@ package common
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-var (
-	// RegisteredPluginConfigFactories is a map that holds the registered plugin config factories. It will be
-	RegisteredPluginConfigFactories = make(map[string]func(lggr logger.Logger, extraDataCodec ExtraDataCodec) PluginConfig)
-
-	// RegisteredCRCW is a map that holds the registered ChainRWProvider factories. It will be used to create
-	RegisteredCRCW = make(map[string]ChainRWProvider)
-
-	// RegisteredExtraDataCodec is a map that holds the registered SourceChainExtraDataCodec factories. It will be used to create
-	RegisteredExtraDataCodec = make(map[string]SourceChainExtraDataCodec)
-
-	// RegisteredAddressCodec is a map that holds the registered ChainSpecificAddressCodec factories. It will be used to create
-	RegisteredAddressCodec = make(map[string]ChainSpecificAddressCodec)
-)
-
-// PluginConfig is a struct that contains the configuration for a plugin.
+// PluginConfig holds the configuration for a plugin.
 type PluginConfig struct {
 	CommitPluginCodec          cciptypes.CommitPluginCodec
 	ExecutePluginCodec         cciptypes.ExecutePluginCodec
@@ -33,41 +17,52 @@ type PluginConfig struct {
 	GasEstimateProvider        cciptypes.EstimateProvider
 	RMNCrypto                  cciptypes.RMNCrypto
 	ContractTransmitterFactory cctypes.ContractTransmitterFactory
-	// PriceOnlyCommitFn optional method override for price only commit reports.
-	PriceOnlyCommitFn string
+	PriceOnlyCommitFn          string
+	ChainRW                    ChainRWProvider
+	AddressCodec               ChainSpecificAddressCodec
 }
 
-// PluginConfigFactory is a factory for creating PluginConfig instances.
-type PluginConfigFactory struct {
-	lggr logger.Logger
+// PluginServices aggregates services for a specific chain family.
+type PluginServices struct {
+	PluginConfig   PluginConfig
+	AddrCodec      AddressCodec
+	ExtraDataCodec ExtraDataCodec
+	ChainRW        MultiChainRW
 }
 
-// NewPluginConfigFactory is a constructor for PluginConfigFactory.
-func NewPluginConfigFactory(lggr logger.Logger) *PluginConfigFactory {
-	return &PluginConfigFactory{
-		lggr: lggr,
+// InitFunction defines a function to initialize a PluginConfig.
+type InitFunction func(logger.Logger, ExtraDataCodec) PluginConfig
+
+var registeredFactories = make(map[string]InitFunction)
+var registeredExtraDataCodec = make(map[string]SourceChainExtraDataCodec)
+
+// RegisterPluginConfig registers a plugin config factory for a chain family.
+func RegisterPluginConfig(chainFamily string, factory InitFunction) {
+	registeredFactories[chainFamily] = factory
+}
+
+// GetPluginServices initializes and returns PluginServices for a chain family.
+func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, error) {
+	_, exists := registeredFactories[chainFamily]
+	if !exists {
+		return PluginServices{}, fmt.Errorf("unsupported chain family: %s", chainFamily)
 	}
-}
 
-// CreatePluginConfig creates a PluginConfig instance based on the chain family.
-func (f *PluginConfigFactory) CreatePluginConfig(chainFamily string) (PluginConfig, error) {
-	pluginConfigFactory, exist := RegisteredPluginConfigFactories[chainFamily]
-	if !exist {
-		return PluginConfig{}, fmt.Errorf("unsupported chain family: %s", chainFamily)
+	pluginServices := PluginServices{}
+	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
+	chainRWProviderMap := make(map[string]ChainRWProvider)
+	pluginServices.ExtraDataCodec = NewExtraDataCodec(registeredExtraDataCodec)
+
+	for family, initFunc := range registeredFactories {
+		config := initFunc(lggr, pluginServices.ExtraDataCodec)
+		addressCodecMap[family] = config.AddressCodec
+		chainRWProviderMap[family] = config.ChainRW
+		if family == chainFamily {
+			pluginServices.PluginConfig = config
+		}
 	}
 
-	return pluginConfigFactory(f.lggr, NewExtraDataCodec(RegisteredExtraDataCodec)), nil
-}
-
-// RegisterPluginConfig registers a plugin config factory for a specific chain family.
-func RegisterPluginConfig(
-	chainFamily string,
-	pluginConfigFactory func(lggr logger.Logger, extraDataCodec ExtraDataCodec) PluginConfig,
-	crw ChainRWProvider,
-	extraDataCodec SourceChainExtraDataCodec,
-	addressCodec ChainSpecificAddressCodec) {
-	RegisteredExtraDataCodec[chainFamily] = extraDataCodec
-	RegisteredPluginConfigFactories[chainFamily] = pluginConfigFactory
-	RegisteredCRCW[chainFamily] = crw
-	RegisteredAddressCodec[chainFamily] = addressCodec
+	pluginServices.AddrCodec = NewAddressCodec(addressCodecMap)
+	pluginServices.ChainRW = NewCRCW(chainRWProviderMap)
+	return pluginServices, nil
 }

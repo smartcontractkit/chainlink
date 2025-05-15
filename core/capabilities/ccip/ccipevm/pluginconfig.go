@@ -19,10 +19,12 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		GasEstimateProvider:        NewGasEstimateProvider(extraDataCodec),
 		RMNCrypto:                  NewEVMRMNCrypto(lggr.Named(chainsel.FamilyEVM).Named("RMNCrypto")),
 		ContractTransmitterFactory: ocrimpls.NewEVMContractTransmitterFactory(extraDataCodec),
+		ChainRW:                    ChainCWProvider{},
+		AddressCodec:               AddressCodec{},
 	}
 }
 
 func init() {
 	// Register the EVM plugin config factory
-	ccipcommon.RegisterPluginConfig(chainsel.FamilyEVM, InitializePluginConfig, ChainCWProvider{}, ExtraDataCodec{}, AddressCodec{})
+	ccipcommon.RegisterPluginConfig(chainsel.FamilyEVM, InitializePluginConfig)
 }

@@ -129,7 +129,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
 	}
 
-	pluginConfig, err := initializerPluginConfig(destChainFamily, i.lggr)
+	pluginServices, err := initializerPluginServices(destChainFamily, i.lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize plugin config: %w", err)
 	}
@@ -162,6 +162,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	i.lggr.Infow("offramp address", "offrampAddrStr", config.Config.OfframpAddress, "selector", config.Config.ChainSelector)
 	contractReaders, chainWriters, err := i.createReadersAndWriters(
 		ctx,
+		pluginServices.ChainRW,
 		destChainID,
 		pluginType,
 		config,
@@ -196,7 +197,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
 	factory, transmitter, err := i.createFactoryAndTransmitter(
-		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainID, pluginConfig, offrampAddrStr)
+		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainID, pluginServices.PluginConfig, offrampAddrStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
@@ -339,6 +340,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 
 func (i *pluginOracleCreator) createReadersAndWriters(
 	ctx context.Context,
+	crcw ccipcommon.MultiChainRW,
 	destChainID string,
 	pluginType cctypes.PluginType,
 	config cctypes.OCR3ConfigWithMeta,
@@ -369,7 +371,6 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		return nil, nil, fmt.Errorf("failed to get chain ID from chain selector %d: %w", i.homeChainSelector, err)
 	}
 
-	crcw := ccipcommon.NewCRCW(ccipcommon.RegisteredCRCW)
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for relayID, relayer := range i.relayers {
@@ -466,13 +467,13 @@ func decodeAndValidateOffchainConfig(
 }
 
 // initializerPluginConfig initializes the plugin config for the given chain family.
-func initializerPluginConfig(destChainFamily string, lggr logger.Logger) (ccipcommon.PluginConfig, error) {
-	pluginConfig, err := ccipcommon.NewPluginConfigFactory(lggr).CreatePluginConfig(destChainFamily)
+func initializerPluginServices(destChainFamily string, lggr logger.Logger) (ccipcommon.PluginServices, error) {
+	pluginServices, err := ccipcommon.GetPluginServices(lggr, destChainFamily)
 	if err != nil {
-		return ccipcommon.PluginConfig{}, fmt.Errorf("failed to create plugin config: %w", err)
+		return ccipcommon.PluginServices{}, fmt.Errorf("failed to create plugin config: %w", err)
 	}
 
-	return pluginConfig, nil
+	return pluginServices, nil
 }
 
 func defaultLocalConfig() ocrtypes.LocalConfig {

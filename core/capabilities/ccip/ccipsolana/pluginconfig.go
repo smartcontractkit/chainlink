@@ -19,10 +19,12 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		GasEstimateProvider:        NewGasEstimateProvider(extraDataCodec),
 		RMNCrypto:                  nil,
 		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(extraDataCodec),
+		AddressCodec:               AddressCodec{},
+		ChainRW:                    ChainRWProvider{},
 	}
 }
 
 func init() {
 	// Register the EVM plugin config factory
-	ccipcommon.RegisterPluginConfig(chainsel.FamilySolana, InitializePluginConfig, ChainRWProvider{}, ExtraDataCodec{}, AddressCodec{})
+	ccipcommon.RegisterPluginConfig(chainsel.FamilySolana, InitializePluginConfig)
 }

@@ -201,7 +201,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to get chain selector from chain ID %d", homeChainChainID)
 	}
 
-	addressCodec := common.NewAddressCodec(common.RegisteredAddressCodec)
+	pluginServices, err := common.GetPluginServices(d.lggr, d.capabilityConfig.ExternalRegistry().RelayID().Network)
+	if err != nil {
+		return nil, err
+	}
+	addressCodec := pluginServices.AddrCodec
 
 	// if bootstrappers are provided we assume that the node is a plugin oracle.
 	// the reason for this is that bootstrap oracles do not need to be aware
