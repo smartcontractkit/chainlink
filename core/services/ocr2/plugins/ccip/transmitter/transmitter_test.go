@@ -14,9 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
+	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

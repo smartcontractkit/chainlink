@@ -86,7 +86,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250501150903-3e93089d9ad5
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250501150903-3e93089d9ad5
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250512181546-ec20f1ac2a66
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250514193018-0b7546926e11
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.10
 	github.com/smartcontractkit/freeport v0.1.0
 	github.com/smartcontractkit/libocr v0.0.0-20250513175559-61c382d6cee4

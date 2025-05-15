@@ -9,7 +9,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
@@ -146,6 +150,30 @@ func TestProposeJob(t *testing.T) {
 		require.Equal(t, jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED, resp.Proposal.Status)
 	})
 
+	t.Run("successful job proposal without approval", func(t *testing.T) {
+		externalJobID := uuid.NewString()
+		jobSpec := createValidJobSpec(externalJobID)
+
+		req := &jobv1.ProposeJobRequest{
+			NodeId: "node-1",
+			Spec:   jobSpec,
+			Labels: []*ptypes.Label{
+				{
+					Key: LabelDoNotAutoApprove,
+				},
+			},
+		}
+
+		resp, err := client.ProposeJob(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.NotNil(t, resp.Proposal)
+		require.Equal(t, externalJobID, resp.Proposal.JobId)
+		require.Equal(t, jobSpec, resp.Proposal.Spec)
+		require.Equal(t, int64(1), resp.Proposal.Revision)
+		require.Equal(t, jobv1.ProposalStatus_PROPOSAL_STATUS_PENDING, resp.Proposal.Status)
+	})
+
 	t.Run("node not found", func(t *testing.T) {
 		externalJobID := uuid.NewString()
 		jobSpec := createValidJobSpec(externalJobID)
@@ -207,6 +235,83 @@ name = "Test Job"
 		// Reset for next tests
 		mockGetter.jobApprovers["node-1"].shouldFail = false
 	})
+}
+
+func TestRevokeJob(t *testing.T) {
+	t.Parallel()
+
+	mockGetter := &mockJobApproverGetter{
+		jobApprovers: make(map[string]*mockJobApprover),
+	}
+	mockGetter.jobApprovers["node-1"] = &mockJobApprover{}
+	client := NewJobServiceClient(mockGetter)
+
+	proposeJob := func(autoApprove bool) *jobv1.Proposal {
+		externalJobID := uuid.NewString()
+		jobSpec := createValidJobSpec(externalJobID)
+
+		labels := []*ptypes.Label{}
+		if !autoApprove {
+			labels = append(labels, &ptypes.Label{
+				Key: LabelDoNotAutoApprove,
+			})
+		}
+		req := &jobv1.ProposeJobRequest{
+			NodeId: "node-1",
+			Spec:   jobSpec,
+			Labels: labels,
+		}
+
+		resp, err := client.ProposeJob(t.Context(), req)
+		require.NoError(t, err)
+
+		return resp.GetProposal()
+	}
+
+	tests := []struct {
+		name          string
+		autoApprove   bool
+		overrideJobID string
+		expectedError string
+	}{
+		{
+			name:        "successful revoke job",
+			autoApprove: false,
+		},
+		{
+			name:          "cannot revoke approved job",
+			autoApprove:   true,
+			expectedError: "is not revokable: status PROPOSAL_STATUS_APPROVED",
+		},
+		{
+			name:          "job not found",
+			overrideJobID: "non-existent-job",
+			expectedError: "no proposals found for job",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			job := proposeJob(tc.autoApprove)
+
+			if tc.overrideJobID != "" {
+				job.JobId = tc.overrideJobID
+			}
+
+			resp, err := client.RevokeJob(t.Context(), &jobv1.RevokeJobRequest{
+				IdOneof: &jobv1.RevokeJobRequest_Id{Id: job.JobId},
+			})
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Nil(t, resp)
+				require.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				require.Equal(t, job.JobId, resp.Proposal.JobId)
+			}
+		})
+	}
 }
 
 func TestGetJob(t *testing.T) {
@@ -666,6 +771,287 @@ func TestMapProposalStore(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "proposal not found")
 	})
+}
+
+func TestMatchesSelectors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		selectors []*ptypes.Selector
+		job       *jobv1.Job
+		expected  bool
+	}{
+		// SelectorOp_EXIST cases
+		{
+			name: "SelectorOp_EXIST match",
+			selectors: []*ptypes.Selector{
+				{
+					Key: "label1",
+					Op:  ptypes.SelectorOp_EXIST,
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key: "label1",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectorOp_EXIST does not exist",
+			selectors: []*ptypes.Selector{
+				{
+					Key: "label1",
+					Op:  ptypes.SelectorOp_EXIST,
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: false,
+		},
+		// SelectorOp_NOT_EXIST cases
+		{
+			name: "SelectorOp_NOT_EXIST match",
+			selectors: []*ptypes.Selector{
+				{
+					Key: "label1",
+					Op:  ptypes.SelectorOp_NOT_EXIST,
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key: "label1",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "SelectorOp_NOT_EXIST does not exist",
+			selectors: []*ptypes.Selector{
+				{
+					Key: "label1",
+					Op:  ptypes.SelectorOp_NOT_EXIST,
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: true,
+		},
+		// SelectorOp_EQ cases
+		{
+			name: "SelectorOp_EQ match",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("value1"),
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectorOp_EQ mismatched label value",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("NOT THE VALUE WE NEED"),
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "SelectorOp_EQ with missing label",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: false,
+		},
+		// SelectorOp_NOT_EQ cases
+		{
+			name: "SelectorOp_NOT_EQ match",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("value1"),
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "SelectorOp_NOT_EQ mismatched label value",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("NOT THE VALUE WE NEED"),
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectorOp_NOT_EQ with missing label",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_EQ,
+					Value: pointer.To("value1"),
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: true,
+		},
+		// SelectorOp_IN cases
+		{
+			name: "SelectorOp_IN match",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_IN,
+					Value: pointer.To("value1,value2"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("value1"),
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectorOp_IN mismatched label value",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_IN,
+					Value: pointer.To("value1,value2"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("NOT THE VALUE WE NEED"),
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "SelectorOp_IN with missing label",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_IN,
+					Value: pointer.To("value1"),
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: false,
+		},
+		// SelectorOp_NOT_IN cases
+		{
+			name: "SelectorOp_NOT_IN match",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_IN,
+					Value: pointer.To("value1,value2"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("value1"),
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "SelectorOp_NOT_IN mismatched label value",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_IN,
+					Value: pointer.To("value1,value2"),
+				},
+			},
+			job: &jobv1.Job{
+				Labels: []*ptypes.Label{
+					{
+						Key:   "label1",
+						Value: pointer.To("NOT THE VALUE WE NEED"),
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectorOp_NOT_IN with missing label",
+			selectors: []*ptypes.Selector{
+				{
+					Key:   "label1",
+					Op:    ptypes.SelectorOp_NOT_IN,
+					Value: pointer.To("value1"),
+				},
+			},
+			job:      &jobv1.Job{},
+			expected: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := matchesSelectors(tc.selectors, tc.job)
+			require.Equal(t, tc.expected, result)
+		})
+	}
 }
 
 // need some non-ocr job type to avoid the ocr validation and the p2pwrapper check

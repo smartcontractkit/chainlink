@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/txmgrtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -63,13 +64,13 @@ func Test_PrometheusReporter(t *testing.T) {
 
 	t.Run("with unconfirmed evm.txes", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db)
+		txStore := txmgrtest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
+		etx := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
+		txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
+		txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
 		require.NoError(t, txStore.UpdateTxAttemptBroadcastBeforeBlockNum(testutils.Context(t), etx.ID, 7))
 
 		backend := headreporter.NewMockPrometheusBackend(t)

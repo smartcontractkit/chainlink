@@ -10,12 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
