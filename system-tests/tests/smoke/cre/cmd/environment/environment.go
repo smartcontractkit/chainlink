@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -105,7 +106,10 @@ var startCmd = &cobra.Command{
 			if p != nil {
 				fmt.Println("Panicked when starting environment")
 				if err, ok := p.(error); ok {
-					fmt.Fprint(os.Stderr, errors.Wrap(err, "error:\n%s").Error())
+					fmt.Fprint(os.Stderr, "Error:")
+					fmt.Fprint(os.Stderr, err)
+					fmt.Fprint(os.Stderr, "Stack trace:")
+					fmt.Fprint(os.Stderr, string(debug.Stack()))
 				} else {
 					fmt.Fprintf(os.Stderr, "panic: %v", p)
 				}
@@ -157,6 +161,11 @@ var startCmd = &cobra.Command{
 
 		output, err := startCLIEnvironment(topologyFlag, extraAllowedPortsFlag)
 		if err != nil {
+			fmt.Fprint(os.Stderr, "Error:")
+			fmt.Fprint(os.Stderr, err)
+			fmt.Fprint(os.Stderr, "Stack trace:")
+			fmt.Fprint(os.Stderr, string(debug.Stack()))
+
 			waitOnErrorTimeoutDurationFn()
 			removeErr := framework.RemoveTestContainers()
 			if removeErr != nil {
