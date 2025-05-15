@@ -99,7 +99,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 					evmChainState.LinkToken.Address(): testhelpers.DefaultLinkPrice,
 					evmChainState.Weth9.Address():     testhelpers.DefaultWethPrice,
 				},
-				IsRMNVerificationEnabledOnEVMOffRamp: true,
+				IsRMNVerificationDisabledOnEVMOffRamp: true,
 				SolanaRouterConfig: ccipChangesetSolana.RouterConfig{
 					RouterDestinationConfig: solRouter.DestChainConfig{
 						AllowListEnabled: true,

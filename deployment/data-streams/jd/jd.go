@@ -30,10 +30,6 @@ func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 	return &nodeapiv1.ListNodesRequest_Filter{
 		Selectors: []*jdtypesv1.Selector{
 			{
-				Key: utils.DonIdentifier(f.DONID, f.DONName),
-				Op:  jdtypesv1.SelectorOp_EXIST,
-			},
-			{
 				Key:   devenv.LabelNodeTypeKey,
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
@@ -56,10 +52,6 @@ func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 func (f *ListFilter) oraclesFilter() *nodeapiv1.ListNodesRequest_Filter {
 	return &nodeapiv1.ListNodesRequest_Filter{
 		Selectors: []*jdtypesv1.Selector{
-			{
-				Key: utils.DonIdentifier(f.DONID, f.DONName),
-				Op:  jdtypesv1.SelectorOp_EXIST,
-			},
 			{
 				Key:   devenv.LabelNodeTypeKey,
 				Op:    jdtypesv1.SelectorOp_EQ,

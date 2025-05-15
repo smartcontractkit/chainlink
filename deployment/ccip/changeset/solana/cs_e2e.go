@@ -23,6 +23,7 @@ type E2ETokenPoolConfig struct {
 
 func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {
 	finalOutput := cldf.ChangesetOutput{}
+	finalOutput.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	defer func(e cldf.Environment) {
 		e.Logger.Info("SolanaE2ETokenPool changeset completed")
 		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
@@ -33,9 +34,11 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
 		}
-		err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
 		}
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
@@ -46,9 +49,11 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
 		}
-		err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
 		}
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
@@ -59,9 +64,11 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to register token admin registry: %w", err)
 		}
-		err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
 		}
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
@@ -72,9 +79,11 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept admin role token admin registry: %w", err)
 		}
-		err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
 		}
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
@@ -85,9 +94,11 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set pool: %w", err)
 		}
-		err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
 		}
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
@@ -98,9 +109,11 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to remote chain token pool config: %w", err)
 		}
-		err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
 		}
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
@@ -111,9 +124,11 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool contracts: %w", err)
 		}
-		err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
 		}
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
@@ -131,6 +146,7 @@ type E2ETokenConfig struct {
 
 func E2EToken(e cldf.Environment, cfg E2ETokenConfig) (cldf.ChangesetOutput, error) {
 	finalOutput := cldf.ChangesetOutput{}
+	finalOutput.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	defer func(e cldf.Environment) {
 		e.Logger.Info("E2EToken changeset completed")
 		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
@@ -141,9 +157,11 @@ func E2EToken(e cldf.Environment, cfg E2ETokenConfig) (cldf.ChangesetOutput, err
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy solana token: %w", err)
 		}
-		err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
 		}
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
@@ -154,9 +172,11 @@ func E2EToken(e cldf.Environment, cfg E2ETokenConfig) (cldf.ChangesetOutput, err
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to upload token metadata: %w", err)
 		}
-		err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
 		}
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
@@ -167,9 +187,11 @@ func E2EToken(e cldf.Environment, cfg E2ETokenConfig) (cldf.ChangesetOutput, err
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to register token admin registry: %w", err)
 		}
-		err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
 		}
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
