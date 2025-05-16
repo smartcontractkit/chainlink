@@ -223,3 +223,39 @@ func SetFeedConfig(creCLICommandPath, feedID, feedDecimals, feedDescription stri
 
 	return nil
 }
+
+func PauseWorkflow(creCLICommandPath string, settingsFile *os.File) error {
+	commandArgs := []string{"workflow", "pause", "-S", settingsFile.Name(), "-v"}
+
+	pauseCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
+	pauseCmd.Stdout = os.Stdout
+	pauseCmd.Stderr = os.Stderr
+	if startErr := pauseCmd.Start(); startErr != nil {
+		return errors.Wrap(startErr, "failed to start pause command")
+	}
+
+	waitErr := pauseCmd.Wait()
+	if waitErr != nil {
+		return errors.Wrap(waitErr, "failed to wait for pause command")
+	}
+
+	return nil
+}
+
+func ActivateWorkflow(creCLICommandPath string, settingsFile *os.File) error {
+	commandArgs := []string{"workflow", "activate", "-S", settingsFile.Name(), "-v"}
+
+	activateCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
+	activateCmd.Stdout = os.Stdout
+	activateCmd.Stderr = os.Stderr
+	if startErr := activateCmd.Start(); startErr != nil {
+		return errors.Wrap(startErr, "failed to start activate command")
+	}
+
+	waitErr := activateCmd.Wait()
+	if waitErr != nil {
+		return errors.Wrap(waitErr, "failed to wait for activate command")
+	}
+
+	return nil
+}
