@@ -10,7 +10,7 @@ import (
 )
 
 // InitializePluginConfig returns a pluginConfig for Solana chains.
-func InitializePluginConfig(lggr logger.Logger, extraDataCodec *ccipcommon.ExtraDataCodec) ccipcommon.PluginConfig {
+func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodecProvider) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:          NewCommitPluginCodecV1(),
 		ExecutePluginCodec:         NewExecutePluginCodecV1(extraDataCodec),

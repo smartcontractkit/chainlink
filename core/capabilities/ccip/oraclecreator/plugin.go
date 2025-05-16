@@ -129,7 +129,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
 	}
 
-	pluginServices, err := initializerPluginServices(destChainFamily, i.lggr)
+	pluginServices, err := ccipcommon.GetPluginServices(i.lggr, destChainFamily)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize plugin config: %w", err)
 	}
@@ -464,16 +464,6 @@ func decodeAndValidateOffchainConfig(
 		return ccipcommon.OffChainConfig{}, errors.New("invalid offchain config: both commit and exec configs are either set or unset")
 	}
 	return ofc, nil
-}
-
-// initializerPluginConfig initializes the plugin config for the given chain family.
-func initializerPluginServices(destChainFamily string, lggr logger.Logger) (ccipcommon.PluginServices, error) {
-	pluginServices, err := ccipcommon.GetPluginServices(lggr, destChainFamily)
-	if err != nil {
-		return ccipcommon.PluginServices{}, fmt.Errorf("failed to create plugin config: %w", err)
-	}
-
-	return pluginServices, nil
 }
 
 func defaultLocalConfig() ocrtypes.LocalConfig {

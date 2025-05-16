@@ -190,7 +190,7 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 
 // Test EVM -> SVM extra data decoding in contract transmitter
 func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+	extraDataCodec := ccipcommon.ExtraDataCodecProvider(map[string]ccipcommon.SourceChainExtraDataCodec{
 		chainsel.FamilyEVM:    ccipevm.ExtraDataCodec{},
 		chainsel.FamilySolana: ccipsolana.ExtraDataCodec{},
 	})
@@ -207,7 +207,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Report: randomReport(t, 96),
 			Info:   encodedExecReport,
 		}
-		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, &extraDataCodec)
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.Contains(t, err.Error(), "unexpected report length, expected 1, got 2")
 	})
 	t.Run("fails when multiple report contains multiple messages", func(t *testing.T) {
@@ -225,7 +225,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Report: randomReport(t, 96),
 			Info:   encodedExecReport,
 		}
-		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, &extraDataCodec)
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.Contains(t, err.Error(), "unexpected message length, expected 1, got 2")
 	})
 	t.Run("fails with invalid extra args", func(t *testing.T) {
@@ -257,7 +257,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Info:   encodedExecReport,
 		}
 
-		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, &extraDataCodec)
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.Contains(t, err.Error(), "unknown extra args tag")
 	})
 	t.Run("fails with invalid extra exec data", func(t *testing.T) {
@@ -293,7 +293,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Info:   encodedExecReport,
 		}
 
-		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, &extraDataCodec)
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.Contains(t, err.Error(), "failed to decode token amount dest exec data: decode dest gas amount: abi decode uint32: abi: cannot marshal in to go type: length insufficient 4 require 32")
 	})
 	t.Run("Successfully decodes valid EVM -> SOL report", func(t *testing.T) {
@@ -331,7 +331,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Info:   encodedExecReport,
 		}
 
-		_, _, args, err := ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, &extraDataCodec)
+		_, _, args, err := ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.NoError(t, err)
 
 		expectedArgs, ok := args.(ocrimpls.SVMExecCallArgs)

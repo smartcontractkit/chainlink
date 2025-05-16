@@ -35,7 +35,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var extraDataCodec = ccipcommon.NewExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+var extraDataCodec = ccipcommon.ExtraDataCodecProvider(map[string]ccipcommon.SourceChainExtraDataCodec{
 	chainsel.FamilyEVM:    ExtraDataCodec{},
 	chainsel.FamilySolana: ccipsolana.ExtraDataCodec{},
 })
@@ -92,7 +92,7 @@ func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmE
 	expectedHash, err := d.contract.Hash(&bind.CallOpts{Context: ctx}, evmMsg, ccipMsg.Header.OnRamp)
 	require.NoError(t, err)
 
-	evmMsgHasher := NewMessageHasherV1(logger.Test(t), &extraDataCodec)
+	evmMsgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 	actualHash, err := evmMsgHasher.Hash(ctx, ccipMsg)
 	require.NoError(t, err)
 
@@ -267,7 +267,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		}, any2EVMMessage, common.LeftPadBytes(msg.Header.OnRamp, 32))
 		require.NoError(t, err)
 
-		h := NewMessageHasherV1(logger.Test(t), &extraDataCodec)
+		h := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 		msgH, err := h.Hash(t.Context(), msg)
 		require.NoError(t, err)
 		require.Equal(t, expectedMsgHash, msgH.String())
@@ -339,7 +339,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			rmnMsgHash = "0xb6ea678f918293745bfb8db05d79dcf08986c7da3e302ac5f6782618a6f11967"
 		)
 
-		h := NewMessageHasherV1(logger.Test(t), &extraDataCodec)
+		h := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 		msgH, err := h.Hash(t.Context(), msg)
 		require.NoError(t, err)
 
@@ -433,7 +433,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		//	rmnMsgHash = "0xb6ea678f918293745bfb8db05d79dcf08986c7da3e302ac5f6782618a6f11967"
 		//)
 
-		h := NewMessageHasherV1(logger.Test(t), &extraDataCodec)
+		h := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 		msgH, err := h.Hash(t.Context(), msg)
 		require.NoError(t, err)
 
@@ -458,7 +458,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		err = json.Unmarshal(data, &msgs)
 		require.NoError(t, err)
 
-		msgHasher := NewMessageHasherV1(logger.Test(t), &extraDataCodec)
+		msgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 
 		for _, msg := range msgs {
 			any2EVMMessage := ccipMsgToAny2EVMMessage(t, msg, msg.Header.SourceChainSelector)

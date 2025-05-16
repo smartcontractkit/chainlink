@@ -45,10 +45,10 @@ var (
 // - "OnRamp 1.6.0"
 type MessageHasherV1 struct {
 	lggr           logger.Logger
-	extraDataCodec *ccipcommon.ExtraDataCodec
+	extraDataCodec ccipcommon.ExtraDataCodecProvider
 }
 
-func NewMessageHasherV1(lggr logger.Logger, extraDataCodec *ccipcommon.ExtraDataCodec) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodecProvider) *MessageHasherV1 {
 	return &MessageHasherV1{
 		lggr:           lggr,
 		extraDataCodec: extraDataCodec,

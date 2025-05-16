@@ -187,8 +187,8 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			edc := ccipcommon.NewExtraDataCodec(registeredMockExtraDataCodecMap)
-			codec := NewExecutePluginCodecV1(&edc)
+			edc := ccipcommon.ExtraDataCodecProvider(registeredMockExtraDataCodecMap)
+			codec := NewExecutePluginCodecV1(edc)
 			report := tc.report(randomExecuteReport(t, d, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
 			bytes, err := codec.Encode(ctx, report)
 			if tc.expErr {
@@ -247,7 +247,7 @@ func Test_DecodeReport(t *testing.T) {
 	t.Logf("reportCtx[0]: %x, reportCtx[1]: %x", reportCtx[0], reportCtx[1])
 
 	rawReport := *abi.ConvertType(executeInputs[1], new([]byte)).(*[]byte)
-	codec := NewExecutePluginCodecV1(&extraDataCodec)
+	codec := NewExecutePluginCodecV1(extraDataCodec)
 	decoded, err := codec.Decode(t.Context(), rawReport)
 	require.NoError(t, err)
 

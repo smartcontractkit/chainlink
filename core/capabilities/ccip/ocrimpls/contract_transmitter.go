@@ -28,7 +28,7 @@ type ToCalldataFunc func(
 	report ocr3types.ReportWithInfo[[]byte],
 	rs, ss [][32]byte,
 	vs [32]byte,
-	codec *ccipcommon.ExtraDataCodec,
+	codec ccipcommon.ExtraDataCodecProvider,
 ) (contract string, method string, args any, err error)
 
 var _ ocr3types.ContractTransmitter[[]byte] = &ccipTransmitter{}
@@ -38,7 +38,7 @@ type ccipTransmitter struct {
 	fromAccount    ocrtypes.Account
 	offrampAddress string
 	toCalldataFn   ToCalldataFunc
-	extraDataCodec *ccipcommon.ExtraDataCodec
+	extraDataCodec ccipcommon.ExtraDataCodecProvider
 	lggr           logger.Logger
 }
 
@@ -55,7 +55,7 @@ func XXXNewContractTransmitterTestsOnly(
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
-		extraDataCodec *ccipcommon.ExtraDataCodec) (string, string, any, error) {
+		extraDataCodec ccipcommon.ExtraDataCodecProvider) (string, string, any, error) {
 		_, _, args, err := toCalldataFn(rawReportCtx, report, rs, ss, vs, extraDataCodec)
 		return contractName, method, args, err
 	}

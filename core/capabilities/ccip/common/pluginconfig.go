@@ -29,12 +29,12 @@ type PluginConfig struct {
 type PluginServices struct {
 	PluginConfig   PluginConfig
 	AddrCodec      AddressCodec
-	ExtraDataCodec *ExtraDataCodec
+	ExtraDataCodec ExtraDataCodecProvider
 	ChainRW        MultiChainRW
 }
 
 // InitFunction defines a function to initialize a PluginConfig.
-type InitFunction func(logger.Logger, *ExtraDataCodec) PluginConfig
+type InitFunction func(logger.Logger, ExtraDataCodecProvider) PluginConfig
 
 var registeredFactories = make(map[string]InitFunction)
 
@@ -51,8 +51,9 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 	}
 
 	pluginServices := PluginServices{
-		ExtraDataCodec: &ExtraDataCodec{}, // lazy initialize it after factory init call
+		ExtraDataCodec: make(ExtraDataCodecProvider), // lazy initialize it after factory init call
 	}
+
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
 	chainRWProviderMap := make(map[string]ChainRWProvider)
 	registeredExtraDataCodec := make(map[string]SourceChainExtraDataCodec)
@@ -67,7 +68,7 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 		}
 	}
 
-	*pluginServices.ExtraDataCodec = NewExtraDataCodec(registeredExtraDataCodec) // initialize and update it with the map
+	pluginServices.ExtraDataCodec = registeredExtraDataCodec // initialize and update it with the map
 	pluginServices.AddrCodec = NewAddressCodec(addressCodecMap)
 	pluginServices.ChainRW = NewCRCW(chainRWProviderMap)
 	return pluginServices, nil
