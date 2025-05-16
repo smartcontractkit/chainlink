@@ -206,18 +206,20 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
-						BurnMintTokenPoolMetadata: tokenMetadata,
-						BurnMintTokenPools: map[solana.PublicKey]solana.PublicKey{
-							poolConfigPDA: tokenAddress,
+						BurnMintTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{
+							tokenMetadata: {
+								poolConfigPDA: tokenAddress,
+							},
 						},
 					})
 			} else if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType {
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
-						LockReleaseTokenPoolMetadata: tokenMetadata,
-						LockReleaseTokenPools: map[solana.PublicKey]solana.PublicKey{
-							poolConfigPDA: tokenAddress,
+						LockReleaseTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{
+							tokenMetadata: {
+								poolConfigPDA: tokenAddress,
+							},
 						},
 					})
 			}
@@ -355,9 +357,10 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
 									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
-										BurnMintTokenPoolMetadata: tokenMetadata,
-										BurnMintTokenPools: map[solana.PublicKey]solana.PublicKey{
-											poolConfigPDA: tokenAddress,
+										BurnMintTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{
+											tokenMetadata: {
+												poolConfigPDA: tokenAddress,
+											},
 										},
 									},
 								},
@@ -375,9 +378,10 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
 									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
-										LockReleaseTokenPoolMetadata: tokenMetadata,
-										LockReleaseTokenPools: map[solana.PublicKey]solana.PublicKey{
-											poolConfigPDA: tokenAddress,
+										LockReleaseTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{
+											tokenMetadata: {
+												poolConfigPDA: tokenAddress,
+											},
 										},
 									},
 								},
