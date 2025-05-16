@@ -2,6 +2,7 @@ package environment
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -265,6 +266,13 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 	if err != nil {
 		return nil, fmt.Errorf("failed to load test configuration: %w", err)
 	}
+
+	marhsalled, err := json.Marshal(in)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal test configuration: %w", err)
+	}
+
+	fmt.Println(string(marhsalled))
 
 	capabilitiesBinaryPaths := map[cretypes.CapabilityFlag]string{}
 	var capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet
