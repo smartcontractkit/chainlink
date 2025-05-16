@@ -83,6 +83,7 @@ IsStateful = true
 DBArgs = ['shared_buffers=8192MB', 'effective_cache_size=16384MB', 'work_mem=128MB']
 
 [CCIP.Env.NewCLCluster.Common]
+DBTag = '15.13'
 BaseConfigTOML = """
 [Feature]
 LogPoller = true
