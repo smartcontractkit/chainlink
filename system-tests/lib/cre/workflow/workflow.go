@@ -20,24 +20,12 @@ import (
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 )
 
-func RegisterWithCRECLI(input cretypes.RegisterWorkflowWithCRECLIInput) error {
-	if valErr := input.Validate(); valErr != nil {
-		return errors.Wrap(valErr, "failed to validate RegisterWorkflowInput")
+func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
+	if registerValErr := validateRegisterWorkflowInput(input); registerValErr != nil {
+		return errors.Wrap(registerValErr, "failed to validate RegisterWorkflowInput")
 	}
 
-	// This env var is required by the CRE CLI
-	pkErr := os.Setenv("CRE_ETH_PRIVATE_KEY", input.CRECLIPrivateKey)
-	if pkErr != nil {
-		return errors.Wrap(pkErr, "failed to set CRE_ETH_PRIVATE_KEY")
-	}
-
-	// This env var is required by the CRE CLI
-	profileErr := os.Setenv("CRE_PROFILE", input.CRECLIProfile)
-	if profileErr != nil {
-		return errors.Wrap(pkErr, "failed to set CRE_PROFILE")
-	}
-
-	creCLIWorkflowSettingsFile, err := libcrecli.PrepareCRECLIWorkflowSettingsFile(input.CRECLIProfile, input.WorkflowOwnerAddress, input.WorkflowName)
+	creCLIWorkflowSettingsFile, err := prepareCRECLI(input)
 	if err != nil {
 		return err
 	}
@@ -72,6 +60,70 @@ func RegisterWithCRECLI(input cretypes.RegisterWorkflowWithCRECLIInput) error {
 	registerErr := libcrecli.DeployWorkflow(input.CRECLIAbsPath, workflowURL, workflowConfigURL, workflowSecretsURL, creCLIWorkflowSettingsFile)
 	if registerErr != nil {
 		return errors.Wrap(registerErr, "failed to register workflow")
+	}
+
+	return nil
+}
+
+func validateRegisterWorkflowInput(input cretypes.ManageWorkflowWithCRECLIInput) error {
+	if input.ShouldCompileNewWorkflow && input.NewWorkflow == nil {
+		return errors.New("NewWorkflow is required when ShouldCompileNewWorkflow is true")
+	}
+	if !input.ShouldCompileNewWorkflow && input.ExistingWorkflow == nil {
+		return errors.New("ExistingWorkflow is required when ShouldCompileNewWorkflow is false")
+	}
+	if input.NewWorkflow != nil && input.NewWorkflow.FolderLocation == "" {
+		return errors.New("WorkflowFolderLocation is required when ShouldCompileNewWorkflow is true")
+	}
+	if input.NewWorkflow != nil && input.NewWorkflow.WorkflowFileName == "" {
+		return errors.New("WorkflowFileName is required when ShouldCompileNewWorkflow is true")
+	}
+	if input.ExistingWorkflow != nil && input.ExistingWorkflow.BinaryURL == "" {
+		return errors.New("BinaryURL is required when ShouldCompileNewWorkflow is false")
+	}
+
+	return nil
+}
+
+func prepareCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) (*os.File, error) {
+	if valErr := input.Validate(); valErr != nil {
+		return nil, errors.Wrap(valErr, "failed to validate WorkflowInput")
+	}
+
+	if pkErr := os.Setenv("CRE_ETH_PRIVATE_KEY", input.CRECLIPrivateKey); pkErr != nil {
+		return nil, errors.Wrap(pkErr, "failed to set CRE_ETH_PRIVATE_KEY")
+	}
+
+	if profileErr := os.Setenv("CRE_PROFILE", input.CRECLIProfile); profileErr != nil {
+		return nil, errors.Wrap(profileErr, "failed to set CRE_PROFILE")
+	}
+
+	return libcrecli.PrepareCRECLIWorkflowSettingsFile(input.CRECLIProfile, input.WorkflowOwnerAddress, input.WorkflowName)
+}
+
+func PauseWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
+	creCLIWorkflowSettingsFile, err := prepareCRECLI(input)
+	if err != nil {
+		return err
+	}
+
+	pauseErr := libcrecli.PauseWorkflow(input.CRECLIAbsPath, creCLIWorkflowSettingsFile)
+	if pauseErr != nil {
+		return errors.Wrap(pauseErr, "failed to pause workflow")
+	}
+
+	return nil
+}
+
+func ActivateWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
+	creCLIWorkflowSettingsFile, err := prepareCRECLI(input)
+	if err != nil {
+		return err
+	}
+
+	activateErr := libcrecli.ActivateWorkflow(input.CRECLIAbsPath, creCLIWorkflowSettingsFile)
+	if activateErr != nil {
+		return errors.Wrap(activateErr, "failed to activate workflow")
 	}
 
 	return nil

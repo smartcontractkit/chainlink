@@ -365,9 +365,10 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 	acceptLiquidity := false
 
 	tests := []struct {
-		Msg              string
-		RegistrationPass *regPass
-		UpdatePass       *updatePass
+		Msg                    string
+		RegistrationPass       *regPass
+		UpdatePass             *updatePass
+		runWithMultipleTokenCS bool
 	}{
 		{
 			Msg: "Configure new pools on registry",
@@ -414,6 +415,20 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 				SelectorA2B:   createSymmetricRateLimits(200, 2000),
 				SelectorB2A:   createSymmetricRateLimits(200, 2000),
 			},
+		},
+		{
+			Msg: "Configure new pools on registry with multiple token CS",
+			RegistrationPass: &regPass{
+				SelectorA2B: createSymmetricRateLimits(100, 1000),
+				SelectorB2A: createSymmetricRateLimits(100, 1000),
+			},
+			UpdatePass: &updatePass{
+				UpdatePoolOnA: false,
+				UpdatePoolOnB: true,
+				SelectorA2B:   createSymmetricRateLimits(200, 2000),
+				SelectorB2A:   createSymmetricRateLimits(200, 2000),
+			},
+			runWithMultipleTokenCS: true,
 		},
 	}
 
@@ -479,9 +494,9 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 				}
 
 				if test.RegistrationPass != nil {
-					// Configure & set the active pools on the registry
-					e, err = commonchangeset.Apply(t, e, timelockContracts,
-						commonchangeset.Configure(
+					var configurePoolCS commonchangeset.ConfiguredChangeSet
+					if !test.runWithMultipleTokenCS {
+						configurePoolCS = commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 							v1_5_1.ConfigureTokenPoolContractsConfig{
 								TokenSymbol: testhelpers.TestTokenSymbol,
@@ -503,7 +518,39 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 									},
 								},
 							},
-						),
+						)
+					} else {
+						configurePoolCS = commonchangeset.Configure(
+							v1_5_1.ConfigureMultipleTokenPools,
+							v1_5_1.ConfigureMultipleTokenPoolsConfig{
+								MCMS: mcmsConfig,
+								Tokens: []*v1_5_1.ConfigureTokenPoolContractsConfig{
+									{
+										TokenSymbol: testhelpers.TestTokenSymbol,
+										PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+											selectorA: {
+												Type:    shared.LockReleaseTokenPool,
+												Version: deployment.Version1_5_1,
+												ChainUpdates: v1_5_1.RateLimiterPerChain{
+													selectorB: test.RegistrationPass.SelectorA2B,
+												},
+											},
+											selectorB: {
+												Type:    shared.LockReleaseTokenPool,
+												Version: deployment.Version1_5_1,
+												ChainUpdates: v1_5_1.RateLimiterPerChain{
+													selectorA: test.RegistrationPass.SelectorB2A,
+												},
+											},
+										},
+									},
+								},
+							},
+						)
+					}
+					// Configure & set the active pools on the registry
+					e, err = commonchangeset.Apply(t, e, timelockContracts,
+						configurePoolCS,
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 							v1_5_1.TokenAdminRegistryChangesetConfig{
