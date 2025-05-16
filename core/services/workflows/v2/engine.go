@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -20,6 +21,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
 
+type TriggerCapability interface {
+	Payload() *anypb.Any
+	capabilities.TriggerCapability
+}
+
+type triggerCapability struct {
+	capabilities.TriggerCapability
+	payload *anypb.Any
+}
+
+func (tc *triggerCapability) Payload() *anypb.Any {
+	return tc.payload
+}
+
 type Engine struct {
 	services.Service
 	srvcEng *services.Engine
@@ -28,7 +43,7 @@ type Engine struct {
 	localNode capabilities.Node
 
 	// registration ID -> trigger capability
-	triggers map[string]capabilities.TriggerCapability
+	triggers map[string]TriggerCapability
 	// used to separate registration and unregistration phases
 	triggersRegMu sync.Mutex
 
@@ -53,7 +68,7 @@ func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
 	}
 	engine := &Engine{
 		cfg:                     cfg,
-		triggers:                make(map[string]capabilities.TriggerCapability),
+		triggers:                make(map[string]TriggerCapability),
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
 		capCallsSemaphore:       make(chan struct{}, cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
@@ -174,7 +189,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		triggerCap := triggers[i]
 		registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, i)
 		// TODO(CAPPL-737): run with a timeout
-		e.cfg.Lggr.Debugw("Registering trigger", "triggerID", sub.Id)
+		e.cfg.Lggr.Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
 		triggerEventCh, err := triggerCap.RegisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
 			Metadata: capabilities.RequestMetadata{
@@ -196,22 +211,30 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 			e.unregisterAllTriggers(ctx)
 			return fmt.Errorf("failed to register trigger: %w", err)
 		}
-		e.triggers[registrationID] = triggerCap
+		e.triggers[registrationID] = &triggerCapability{
+			TriggerCapability: triggerCap,
+			payload:           sub.Payload,
+		}
 		eventChans[i] = triggerEventCh
 		triggerCapIDs[i] = sub.Id
 	}
 
 	// start listening for trigger events only if all registrations succeeded
 	for idx, triggerEventCh := range eventChans {
+		e.cfg.Lggr.Debugw("launching go routine", "id", triggerCapIDs[idx])
 		e.srvcEng.Go(func(srvcCtx context.Context) {
 			for {
+				e.cfg.Lggr.Debug("start of loop waiting for events")
 				select {
 				case <-srvcCtx.Done():
+					e.cfg.Lggr.Debug("context canceled waiting for events")
 					return
 				case event, isOpen := <-triggerEventCh:
 					if !isOpen {
+						e.cfg.Lggr.Debug("event chan is closed")
 						return
 					}
+					e.cfg.Lggr.Debugw("received a event", "event", event)
 					select {
 					case e.allTriggerEventsQueueCh <- enqueuedTriggerEvent{
 						triggerCapID: subs.Subscriptions[idx].Id,
@@ -239,6 +262,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			if !isOpen {
 				return
 			}
+			e.cfg.Lggr.Debug("got trigger event fired")
 			// TODO(CAPPL-737): check if expired
 			select {
 			case e.executionsSemaphore <- struct{}{}: // block if too many concurrent workflow executions
@@ -351,10 +375,11 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 				WorkflowID:    e.cfg.WorkflowID,
 				WorkflowDonID: e.localNode.WorkflowDON.ID,
 			},
+			Payload: trigger.Payload(),
 		})
 		if err != nil {
 			e.cfg.Lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
 		}
 	}
-	e.triggers = make(map[string]capabilities.TriggerCapability)
+	e.triggers = make(map[string]TriggerCapability)
 }
