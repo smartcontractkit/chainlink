@@ -1,0 +1,7 @@
+ChainID = '5611'
+
+[GasEstimator]
+PriceMax = '120 gwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 50
