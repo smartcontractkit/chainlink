@@ -74,7 +74,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@2ec5925da7b7c08a4260f40192d76e192b7c3961
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a17a745159d7537f85956899a38262ece7408e6e
     with:
       workflow_name: Run CCIP Integration Tests For PR
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
@@ -102,7 +102,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@2ec5925da7b7c08a4260f40192d76e192b7c3961
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a17a745159d7537f85956899a38262ece7408e6e
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
