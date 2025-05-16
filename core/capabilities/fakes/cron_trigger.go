@@ -237,7 +237,7 @@ func (s *Service) UnregisterTrigger(ctx context.Context, triggerID string, metad
 	}
 	err := s.scheduler.RemoveJob(jobID)
 	if err != nil {
-		return fmt.Errorf("UnregisterTrigger failed to remove job from scheduler: %s", err)
+		return fmt.Errorf("UnregisterTrigger failed to remove job from scheduler: %w", err)
 	}
 
 	// Close callback channel
@@ -286,7 +286,7 @@ func (s *Service) Close() error {
 
 	err := s.scheduler.Shutdown()
 	if err != nil {
-		return fmt.Errorf("scheduler shutdown encountered a problem: %s", err)
+		return fmt.Errorf("scheduler shutdown encountered a problem: %w", err)
 	}
 
 	// After .Shutdown() the scheduler cannot be started again,
@@ -331,8 +331,7 @@ func enforceFastestSchedule(lggr logger.Logger, clock clockwork.Clock, jobDef go
 	}
 	tempScheduler.Start()
 	defer func() {
-		err := tempScheduler.Shutdown()
-		if err != nil {
+		if err = tempScheduler.Shutdown(); err != nil {
 			lggr.Errorw("error shutting down enforceFastestSchedule temporary scheduler")
 		}
 	}()
