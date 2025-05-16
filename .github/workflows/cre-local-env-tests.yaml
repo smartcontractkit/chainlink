@@ -37,7 +37,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: chainlink/system-tests/tests/go.mod
+          go-version-file: system-tests/tests/go.mod
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
       - name: Configure AWS Credentials
@@ -59,7 +59,7 @@ jobs:
       - name: Overwrite chainlink version in TOML config
         shell: bash
         run: |
-          cat > chainlink/system-tests/tests/smoke/cre/cmd/configs/ci-override.toml<< EOF
+          cat > system-tests/tests/smoke/cre/cmd/configs/ci-override.toml<< EOF
           [jd]
             image = "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.9.0"
 
@@ -81,7 +81,7 @@ jobs:
       - name: Start the CLI
         shell: bash
         run: |
-          cd chainlink/system-tests/tests/smoke/cre/cmd
+          cd system-tests/tests/smoke/cre/cmd
           CTF_CONFIGS="./configs/single-don.toml,./configs/ci-override.toml" go run main.go env start
 
   notify-test-failure:
@@ -99,7 +99,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             {
-              "channel": "C023GJUSQ0H",
+              "channel": "C0364FG2CN9",
               "text": "Local CRE environment failed to start",
               "blocks": [
                 {
