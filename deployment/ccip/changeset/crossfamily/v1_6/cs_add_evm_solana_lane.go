@@ -46,9 +46,9 @@ var (
 		"addEVMAndSolanaLane",
 		semver.MustParse("1.0.0"),
 		"Adds bi-directional lane between EVM chain and Solana",
-		func(b operations.Bundle, deps Dependencies, input AddRemoteChainE2EConfig) ([]mcmslib.TimelockProposal, error) {
+		func(b operations.Bundle, deps Dependencies, input AddRemoteChainE2EConfig) (OpsOutput, error) {
 			deps.Env.Logger.Infow("Adding EVM and Solana lane", "EVMChainSelector", input.EVMChainSelector, "SolanaChainSelector", input.SolanaChainSelector)
-			finalOutput := make([]mcmslib.TimelockProposal, 0)
+			var finalOutput *OpsOutput
 			updateEVMOnRampReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateEVMOnRamp",
 				semver.MustParse("1.0.0"),
@@ -62,11 +62,11 @@ var (
 				},
 			), deps, deps.changesetInput.evmOnRampInput)
 			if err != nil {
-				return nil, err
+				return OpsOutput{}, err
 			}
 			// merge the changeset outputs
 			if len(updateEVMOnRampReport.Output) > 0 {
-				finalOutput = append(finalOutput, updateEVMOnRampReport.Output...)
+				finalOutput.Proposals = append(finalOutput.Proposals, updateEVMOnRampReport.Output...)
 			}
 			// update EVM fee quoter dest chain
 			updateEVMFeeQuoterDestChainReport, err := operations.ExecuteOperation(b, operations.NewOperation(
@@ -82,11 +82,11 @@ var (
 				},
 			), deps, deps.changesetInput.evmFeeQuoterDestChainInput)
 			if err != nil {
-				return nil, err
+				return OpsOutput{}, err
 			}
 			// merge the changeset outputs
 			if len(updateEVMFeeQuoterDestChainReport.Output) > 0 {
-				finalOutput = append(finalOutput, updateEVMFeeQuoterDestChainReport.Output...)
+				finalOutput.Proposals = append(finalOutput.Proposals, updateEVMFeeQuoterDestChainReport.Output...)
 			}
 			// update EVM fee quoter prices
 			updateEVMFeeQuoterPricesReport, err := operations.ExecuteOperation(b, operations.NewOperation(
@@ -102,11 +102,11 @@ var (
 				},
 			), deps, deps.changesetInput.evmFeeQuoterPriceInput)
 			if err != nil {
-				return nil, err
+				return OpsOutput{}, err
 			}
 			// merge the changeset outputs
 			if len(updateEVMFeeQuoterPricesReport.Output) > 0 {
-				finalOutput = append(finalOutput, updateEVMFeeQuoterPricesReport.Output...)
+				finalOutput.Proposals = append(finalOutput.Proposals, updateEVMFeeQuoterPricesReport.Output...)
 			}
 			// update EVM off ramp
 			updateEVMOffRampReport, err := operations.ExecuteOperation(b, operations.NewOperation(
@@ -122,11 +122,11 @@ var (
 				},
 			), deps, deps.changesetInput.evmOffRampInput)
 			if err != nil {
-				return nil, err
+				return OpsOutput{}, err
 			}
 			// merge the changeset outputs
 			if len(updateEVMOffRampReport.Output) > 0 {
-				finalOutput = append(finalOutput, updateEVMOffRampReport.Output...)
+				finalOutput.Proposals = append(finalOutput.Proposals, updateEVMOffRampReport.Output...)
 			}
 
 			// update EVM router
@@ -143,71 +143,83 @@ var (
 				},
 			), deps, deps.changesetInput.evmRouterInput)
 			if err != nil {
-				return nil, err
+				return OpsOutput{}, err
 			}
 			// merge the changeset outputs
 			if len(updateEVMRouterReport.Output) > 0 {
-				finalOutput = append(finalOutput, updateEVMRouterReport.Output...)
+				finalOutput.Proposals = append(finalOutput.Proposals, updateEVMRouterReport.Output...)
 			}
 			// update Solana router
 			updateSolanaRouterReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateSolanaRouter",
 				semver.MustParse("1.0.0"),
 				"Updates Solana Router with EVM Chain Configs",
-				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToRouterConfig) ([]mcmslib.TimelockProposal, error) {
+				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToRouterConfig) (OpsOutput, error) {
 					output, err := solana.AddRemoteChainToRouter(deps.Env, input)
 					if err != nil {
-						return nil, err
+						return OpsOutput{}, err
 					}
-					return output.MCMSTimelockProposals, nil
+					return OpsOutput{
+						Proposals:   output.MCMSTimelockProposals,
+						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
+					}, nil
 				},
 			), deps, deps.changesetInput.solanaRouterInput)
 			if err != nil {
-				return nil, err
+				return OpsOutput{}, err
 			}
-			// merge the changeset outputs
-			if len(updateSolanaRouterReport.Output) > 0 {
-				finalOutput = append(finalOutput, updateSolanaRouterReport.Output...)
+			// merge the output
+			err = finalOutput.Merge(updateSolanaRouterReport.Output, deps.Env)
+			if err != nil {
+				return OpsOutput{}, err
 			}
 			// update Solana off ramp
 			updateSolanaOffRampReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateSolanaOffRamp",
 				semver.MustParse("1.0.0"),
 				"Updates Solana OffRamps with EVM Chain Configs",
-				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToOffRampConfig) ([]mcmslib.TimelockProposal, error) {
+				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToOffRampConfig) (OpsOutput, error) {
 					output, err := solana.AddRemoteChainToOffRamp(deps.Env, input)
 					if err != nil {
-						return nil, err
+						return OpsOutput{}, err
 					}
-					return output.MCMSTimelockProposals, nil
+					return OpsOutput{
+						Proposals:   output.MCMSTimelockProposals,
+						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
+					}, nil
 				},
 			), deps, deps.changesetInput.solanaOffRampInput)
 			if err != nil {
-				return nil, err
+				return OpsOutput{}, err
 			}
-			// merge the changeset outputs
-			if len(updateSolanaOffRampReport.Output) > 0 {
-				finalOutput = append(finalOutput, updateSolanaOffRampReport.Output...)
+			// merge the output
+			err = finalOutput.Merge(updateSolanaOffRampReport.Output, deps.Env)
+			if err != nil {
+				return OpsOutput{}, err
 			}
 			// update Solana fee quoter
 			updateSolanaFeeQuoterReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateSolanaFeeQuoter",
 				semver.MustParse("1.0.0"),
 				"Updates Solana Fee Quoter with EVM Chain Configs",
-				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToFeeQuoterConfig) ([]mcmslib.TimelockProposal, error) {
+				func(b operations.Bundle, deps Dependencies, input solana.AddRemoteChainToFeeQuoterConfig) (OpsOutput, error) {
 					output, err := solana.AddRemoteChainToFeeQuoter(deps.Env, input)
 					if err != nil {
-						return nil, err
+						return OpsOutput{}, err
 					}
-					return output.MCMSTimelockProposals, nil
+					return OpsOutput{
+						Proposals:   output.MCMSTimelockProposals,
+						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
+					}, nil
 				},
 			), deps, deps.changesetInput.solanaFeeQuoterInput)
 			if err != nil {
-				return nil, err
+				return OpsOutput{}, err
 			}
-			// merge the changeset outputs
-			if len(updateSolanaFeeQuoterReport.Output) > 0 {
-				finalOutput = append(finalOutput, updateSolanaFeeQuoterReport.Output...)
+			// merge the output
+			err = finalOutput.Merge(updateSolanaFeeQuoterReport.Output, deps.Env)
+			if err != nil {
+				return OpsOutput{}, err
 			}
 			var mcmsCfg *proposalutils.TimelockConfig
 			if input.MCMSConfig != nil {
@@ -218,9 +230,12 @@ var (
 				SolanaChainSelector: input.SolanaChainSelector,
 				EVMChainSelector:    input.EVMChainSelector,
 				MCMSConfig:          mcmsCfg,
-				Proposals:           finalOutput,
+				Proposals:           finalOutput.Proposals,
 			})
-			return postOpsReport.Output, err
+			return OpsOutput{
+				Proposals:   postOpsReport.Output,
+				AddressBook: finalOutput.AddressBook,
+			}, err
 		},
 	)
 )
@@ -238,6 +253,26 @@ type postOpsInput struct {
 	EVMChainSelector    uint64
 	MCMSConfig          *proposalutils.TimelockConfig
 	Proposals           []mcmslib.TimelockProposal
+}
+
+type OpsOutput struct {
+	Proposals   []mcmslib.TimelockProposal
+	AddressBook cldf.AddressBook
+}
+
+func (o *OpsOutput) Merge(other OpsOutput, env cldf.Environment) error {
+	if o.AddressBook == nil {
+		o.AddressBook = other.AddressBook
+	} else if other.AddressBook != nil {
+		if err := o.AddressBook.Merge(other.AddressBook); err != nil {
+			return fmt.Errorf("failed to merge address book: %w", err)
+		}
+		if err := env.ExistingAddresses.Merge(other.AddressBook); err != nil {
+			return fmt.Errorf("failed to merge existing addresses to environment: %w", err)
+		}
+	}
+	o.Proposals = append(o.Proposals, other.Proposals...)
+	return nil
 }
 
 type csInputs struct {
@@ -330,6 +365,10 @@ func (cfg *AddRemoteChainE2EConfig) populateAndValidateIndividualCSConfig(env cl
 				},
 			},
 		},
+	}
+	// router is always owned by deployer key so no need to pass MCMS
+	if cfg.IsTestRouter {
+		input.evmRouterInput.MCMS = nil
 	}
 	input.solanaRouterInput = solana.AddRemoteChainToRouterConfig{
 		ChainSelector: cfg.SolanaChainSelector,
@@ -439,5 +478,8 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddRemoteChainE2EConfi
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute addEVMAndSolanaLane sequence: %w", err)
 	}
-	return cldf.ChangesetOutput{MCMSTimelockProposals: report.Output}, nil
+	return cldf.ChangesetOutput{
+		MCMSTimelockProposals: report.Output.Proposals,
+		AddressBook:           report.Output.AddressBook,
+	}, nil
 }

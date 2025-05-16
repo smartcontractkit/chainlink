@@ -467,6 +467,11 @@ ChipIngressEndpoint = ''
 Global = 200
 PerOwner = 200
 
+[CRE]
+[CRE.Streams]
+WsURL = ''
+RestURL = ''
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true

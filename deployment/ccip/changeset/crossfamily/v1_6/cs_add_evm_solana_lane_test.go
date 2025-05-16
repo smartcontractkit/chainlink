@@ -71,7 +71,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				}
-				testhelpers.TransferToTimelock(t, tenv, evmState, []uint64{evmChain})
+				testhelpers.TransferToTimelock(t, tenv, evmState, []uint64{evmChain}, false)
 			}
 
 			// Add EVM and Solana lane
