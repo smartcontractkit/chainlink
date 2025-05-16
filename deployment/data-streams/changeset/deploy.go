@@ -11,7 +11,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
 )
 
@@ -27,7 +27,7 @@ type (
 		TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 	}
 
-	ContractDeployFn[C Contract] func(chain deployment.Chain) *ContractDeployment[C]
+	ContractDeployFn[C Contract] func(chain cldf.Chain) *ContractDeployment[C]
 
 	ContractDeployment[C Contract] struct {
 		Address  common.Address
@@ -50,9 +50,9 @@ type DeploymentOutput[C Contract] struct {
 
 // DeployContract deploys a contract and saves the address to datastore.
 func DeployContract[C Contract](
-	e deployment.Environment,
+	e cldf.Environment,
 	dataStore ds.MutableDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata],
-	chain deployment.Chain,
+	chain cldf.Chain,
 	deployFn ContractDeployFn[C],
 	options *DeployOptions,
 ) (*ContractDeployment[C], error) {

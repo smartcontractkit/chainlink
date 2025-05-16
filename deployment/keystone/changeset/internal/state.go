@@ -20,7 +20,7 @@ import (
 )
 
 type GetContractSetsRequest struct {
-	Chains      map[uint64]deployment.Chain
+	Chains      map[uint64]cldf.Chain
 	AddressBook cldf.AddressBook
 
 	// Labels indicates the label set that a contract must include to be considered as a member
@@ -90,7 +90,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 // loadContractSet loads the MCMS state and then sets the Keystone contract state.
 func loadContractSet(
 	lggr logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	addresses map[string]cldf.TypeAndVersion,
 ) (*ContractSet, error) {
 	var out ContractSet
@@ -112,7 +112,7 @@ func loadContractSet(
 func setContracts(
 	lggr logger.Logger,
 	addresses map[string]cldf.TypeAndVersion,
-	client deployment.OnchainClient,
+	client cldf.OnchainClient,
 	set *ContractSet,
 ) error {
 	for addr, tv := range addresses {

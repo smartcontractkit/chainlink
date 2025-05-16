@@ -7,6 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
@@ -14,7 +17,7 @@ import (
 )
 
 type DataStreamsTestEnvSetupOutput struct {
-	Env               deployment.Environment
+	Env               cldf.Environment
 	LinkTokenAddress  common.Address
 	FeeManagerAddress common.Address
 }

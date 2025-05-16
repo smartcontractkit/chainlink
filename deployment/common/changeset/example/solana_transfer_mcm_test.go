@@ -28,7 +28,7 @@ import (
 )
 
 // setupFundingTestEnv deploys all required contracts for the funding test
-func setupFundingTestEnv(t *testing.T) deployment.Environment {
+func setupFundingTestEnv(t *testing.T) cldf.Environment {
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
 		SolChains: 1,
@@ -61,7 +61,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
-	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
+	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = cldf.SolChain{}
 	validSolChainSelector := validEnv.AllChainSelectorsSolana()[0]
 	receiverKey := solana.NewWallet().PublicKey()
 	cs := example.TransferFromTimelock{}
@@ -80,7 +80,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 	noTimelockEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		SolChains: 1,
 	})
-	noTimelockEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
+	noTimelockEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = cldf.SolChain{}
 	err = noTimelockEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, "dummy", cldf.TypeAndVersion{
 		Type:    "Sometype",
 		Version: deployment.Version1_0_0,
@@ -91,11 +91,11 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 	invalidSolChainEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		SolChains: 0,
 	})
-	invalidSolChainEnv.SolChains[validSolChainSelector] = deployment.SolChain{}
+	invalidSolChainEnv.SolChains[validSolChainSelector] = cldf.SolChain{}
 
 	tests := []struct {
 		name          string
-		env           deployment.Environment
+		env           cldf.Environment
 		config        example.TransferFromTimelockConfig
 		expectedError string
 	}{

@@ -13,8 +13,10 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -28,21 +30,25 @@ type CCIPContractsToTransfer struct {
 	FeeQuoter bool
 	OffRamp   bool
 	// Token Pool PDA -> Token Mint
-	LockReleaseTokenPools map[solana.PublicKey]solana.PublicKey
-	BurnMintTokenPools    map[solana.PublicKey]solana.PublicKey
-	RMNRemote             bool
+	LockReleaseTokenPools        map[solana.PublicKey]solana.PublicKey
+	BurnMintTokenPools           map[solana.PublicKey]solana.PublicKey
+	LockReleaseTokenPoolMetadata string
+	BurnMintTokenPoolMetadata    string
+	RMNRemote                    bool
 }
 
 type TransferCCIPToMCMSWithTimelockSolanaConfig struct {
 	// ContractsByChain is a map of chain selector the contracts we want to transfer.
 	// Each contract set to true will be transferred
 	ContractsByChain map[uint64]CCIPContractsToTransfer
+	CurrentOwner     solana.PublicKey
+	ProposedOwner    solana.PublicKey
 	// MCMSCfg is for the accept ownership proposal
 	MCMSCfg proposalutils.TimelockConfig
 }
 
 // ValidateContracts checks if the required contracts are present on the chain
-func ValidateContracts(state state2.SolCCIPChainState, chainSelector uint64, contracts CCIPContractsToTransfer) error {
+func ValidateContracts(state solanastateview.CCIPChainState, chainSelector uint64, contracts CCIPContractsToTransfer) error {
 	contractChecks := []struct {
 		enabled bool
 		value   solana.PublicKey
@@ -63,8 +69,8 @@ func ValidateContracts(state state2.SolCCIPChainState, chainSelector uint64, con
 	return nil
 }
 
-func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e deployment.Environment) error {
-	ccipState, err := state2.LoadOnchainStateSolana(e)
+func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e cldf.Environment) error {
+	ccipState, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -129,7 +135,7 @@ func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e deployment.Envi
 // the timelock and mcms exist on the chain and that the proposed addresses to transfer ownership
 // are currently owned by the deployer key.
 func TransferCCIPToMCMSWithTimelockSolana(
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg TransferCCIPToMCMSWithTimelockSolanaConfig,
 ) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
@@ -137,7 +143,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 	}
 	var batches []mcmsTypes.BatchOperation
 
-	ccipState, err := state2.LoadOnchainStateSolana(e)
+	ccipState, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -150,6 +156,19 @@ func TransferCCIPToMCMSWithTimelockSolana(
 		addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
 		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
 
+		currentOwner := solChain.DeployerKey.PublicKey()
+		if !cfg.CurrentOwner.IsZero() {
+			currentOwner = cfg.CurrentOwner
+		}
+		timelockSigner := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		proposedOwner := timelockSigner
+		if !cfg.ProposedOwner.IsZero() {
+			proposedOwner = cfg.ProposedOwner
+		}
+		if currentOwner.Equals(proposedOwner) {
+			return cldf.ChangesetOutput{}, fmt.Errorf("current owner and proposed owner are the same: %s", currentOwner)
+		}
+
 		timelocks[solChain.Selector] = mcmsSolana.ContractAddress(
 			mcmState.TimelockProgram,
 			mcmsSolana.PDASeed(mcmState.TimelockSeed),
@@ -161,8 +180,9 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				ccipState,
 				chainSelector,
 				solChain,
-				mcmState.TimelockProgram,
-				mcmState.TimelockSeed,
+				currentOwner,
+				proposedOwner,
+				timelockSigner,
 			)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of router: %w", err)
@@ -178,8 +198,9 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				ccipState,
 				chainSelector,
 				solChain,
-				mcmState.TimelockProgram,
-				mcmState.TimelockSeed,
+				currentOwner,
+				proposedOwner,
+				timelockSigner,
 			)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of fee quoter: %w", err)
@@ -195,8 +216,9 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				ccipState,
 				chainSelector,
 				solChain,
-				mcmState.TimelockProgram,
-				mcmState.TimelockSeed,
+				currentOwner,
+				proposedOwner,
+				timelockSigner,
 			)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of offRamp: %w", err)
@@ -207,14 +229,20 @@ func TransferCCIPToMCMSWithTimelockSolana(
 			})
 		}
 		for tokenPoolConfigPDA, tokenMint := range contractsToTransfer.LockReleaseTokenPools {
+			metadata := shared.CLLMetadata
+			if contractsToTransfer.LockReleaseTokenPoolMetadata != "" {
+				metadata = contractsToTransfer.LockReleaseTokenPoolMetadata
+			}
 			mcmsTxs, err := transferOwnershipLockReleaseTokenPools(
 				ccipState,
 				tokenPoolConfigPDA,
 				tokenMint,
 				chainSelector,
 				solChain,
-				mcmState.TimelockProgram,
-				mcmState.TimelockSeed,
+				metadata,
+				currentOwner,
+				proposedOwner,
+				timelockSigner,
 			)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of lock-release token pools: %w", err)
@@ -226,14 +254,20 @@ func TransferCCIPToMCMSWithTimelockSolana(
 		}
 
 		for tokenPoolConfigPDA, tokenMint := range contractsToTransfer.BurnMintTokenPools {
+			metadata := shared.CLLMetadata
+			if contractsToTransfer.BurnMintTokenPoolMetadata != "" {
+				metadata = contractsToTransfer.BurnMintTokenPoolMetadata
+			}
 			mcmsTxs, err := transferOwnershipBurnMintTokenPools(
 				ccipState,
 				tokenPoolConfigPDA,
 				tokenMint,
 				chainSelector,
 				solChain,
-				mcmState.TimelockProgram,
-				mcmState.TimelockSeed,
+				metadata,
+				currentOwner,
+				proposedOwner,
+				timelockSigner,
 			)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of burn-mint token pools: %w", err)
@@ -249,8 +283,9 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				ccipState,
 				chainSelector,
 				solChain,
-				mcmState.TimelockProgram,
-				mcmState.TimelockSeed,
+				currentOwner,
+				proposedOwner,
+				timelockSigner,
 			)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of rmnremote: %w", err)

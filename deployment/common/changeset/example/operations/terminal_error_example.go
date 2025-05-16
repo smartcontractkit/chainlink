@@ -7,8 +7,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 /**
@@ -21,12 +19,12 @@ var _ cldf.ChangeSetV2[operations.EmptyInput] = TerminalErrorExampleChangeset{}
 
 type TerminalErrorExampleChangeset struct{}
 
-func (l TerminalErrorExampleChangeset) VerifyPreconditions(e deployment.Environment, config operations.EmptyInput) error {
+func (l TerminalErrorExampleChangeset) VerifyPreconditions(e cldf.Environment, config operations.EmptyInput) error {
 	// perform any preconditions checks here
 	return nil
 }
 
-func (l TerminalErrorExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (cldf.ChangesetOutput, error) {
+func (l TerminalErrorExampleChangeset) Apply(e cldf.Environment, config operations.EmptyInput) (cldf.ChangesetOutput, error) {
 	ab := cldf.NewMemoryAddressBook()
 
 	_, err := operations.ExecuteOperation(e.OperationsBundle, TerminalErrorOperation, nil, operations.EmptyInput{})

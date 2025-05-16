@@ -9,7 +9,8 @@ import (
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type RouterView struct {
@@ -41,7 +42,7 @@ type RouterTokenAdminRegistry struct {
 	Mint                 string   `json:"mint,omitempty"`
 }
 
-func GenerateRouterView(chain deployment.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (RouterView, error) {
+func GenerateRouterView(chain cldf.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (RouterView, error) {
 	view := RouterView{}
 	var config solRouter.Config
 	configPDA, _, _ := solState.FindConfigPDA(program)

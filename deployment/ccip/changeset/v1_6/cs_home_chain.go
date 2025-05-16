@@ -24,8 +24,10 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -60,7 +62,7 @@ var (
 )
 
 // DeployHomeChainChangeset is a separate changeset because it is a standalone deployment performed once in home chain for the entire CCIP deployment.
-func DeployHomeChainChangeset(env deployment.Environment, cfg DeployHomeChainConfig) (cldf.ChangesetOutput, error) {
+func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return cldf.ChangesetOutput{}, errors.Wrapf(cldf.ErrInvalidConfig, "%v", err)
@@ -120,9 +122,9 @@ func (c DeployHomeChainConfig) Validate() error {
 // and returns a cldf.ContractDeploy struct with the address and contract instance.
 func deployCapReg(
 	lggr logger.Logger,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	ab cldf.AddressBook,
-	chain deployment.Chain,
+	chain cldf.Chain,
 ) (*cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
 	homeChainState, exists := state.Chains[chain.Selector]
 	if exists {
@@ -130,18 +132,18 @@ func deployCapReg(
 		if cr != nil {
 			lggr.Infow("Found CapabilitiesRegistry in chain state", "address", cr.Address().String())
 			return &cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-				Address: cr.Address(), Contract: cr, Tv: cldf.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0),
+				Address: cr.Address(), Contract: cr, Tv: cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0),
 			}, nil
 		}
 	}
 	capReg, err := cldf.DeployContract(lggr, chain, ab,
-		func(chain deployment.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+		func(chain cldf.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 				chain.DeployerKey,
 				chain.Client,
 			)
 			return cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-				Address: crAddr, Contract: cr, Tv: cldf.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
+				Address: crAddr, Contract: cr, Tv: cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
 			}
 		})
 	if err != nil {
@@ -153,16 +155,16 @@ func deployCapReg(
 
 func deployHomeChain(
 	lggr logger.Logger,
-	e deployment.Environment,
+	e cldf.Environment,
 	ab cldf.AddressBook,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
 	rmnHomeDynamic rmn_home.RMNHomeDynamicConfig,
 	nodeOps []capabilities_registry.CapabilitiesRegistryNodeOperator,
 	nodeP2PIDsPerNodeOpAdmin map[string][][32]byte,
 ) (*cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
 	// load existing state
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -180,14 +182,14 @@ func deployHomeChain(
 	} else {
 		ccipHome, err := cldf.DeployContract(
 			lggr, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
 				ccAddr, tx, cc, err2 := ccip_home.DeployCCIPHome(
 					chain.DeployerKey,
 					chain.Client,
 					capReg.Address,
 				)
 				return cldf.ContractDeploy[*ccip_home.CCIPHome]{
-					Address: ccAddr, Tv: cldf.NewTypeAndVersion(changeset.CCIPHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: cc,
+					Address: ccAddr, Tv: cldf.NewTypeAndVersion(shared.CCIPHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: cc,
 				}
 			})
 		if err != nil {
@@ -202,13 +204,13 @@ func deployHomeChain(
 	} else {
 		rmnHomeContract, err := cldf.DeployContract(
 			lggr, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*rmn_home.RMNHome] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*rmn_home.RMNHome] {
 				rmnAddr, tx, rmn, err2 := rmn_home.DeployRMNHome(
 					chain.DeployerKey,
 					chain.Client,
 				)
 				return cldf.ContractDeploy[*rmn_home.RMNHome]{
-					Address: rmnAddr, Tv: cldf.NewTypeAndVersion(changeset.RMNHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: rmn,
+					Address: rmnAddr, Tv: cldf.NewTypeAndVersion(shared.RMNHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: rmn,
 				}
 			},
 		)
@@ -248,7 +250,7 @@ func deployHomeChain(
 	if setCandidate {
 		tx, err := rmnHome.SetCandidate(
 			chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, configs.CandidateConfig.ConfigDigest)
-		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, rmn_home.RMNHomeABI, err); err != nil {
+		if _, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, rmn_home.RMNHomeABI, err); err != nil {
 			lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
 			return nil, err
 		}
@@ -262,7 +264,7 @@ func deployHomeChain(
 		}
 
 		tx, err := rmnHome.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
-		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, rmn_home.RMNHomeABI, err); err != nil {
+		if _, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, rmn_home.RMNHomeABI, err); err != nil {
 			lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "chain", chain.String(), "err", err)
 			return nil, err
 		}
@@ -287,8 +289,8 @@ func deployHomeChain(
 		return nil, fmt.Errorf("failed to get capabilities: %w", err)
 	}
 	capabilityToAdd := capabilities_registry.CapabilitiesRegistryCapability{
-		LabelledName:          ccip.CapabilityLabelledName,
-		Version:               ccip.CapabilityVersion,
+		LabelledName:          shared.CapabilityLabelledName,
+		Version:               shared.CapabilityVersion,
 		CapabilityType:        2, // consensus. not used (?)
 		ResponseType:          0, // report. not used (?)
 		ConfigurationContract: ccipHomeAddr,
@@ -308,7 +310,7 @@ func deployHomeChain(
 			chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
 				capabilityToAdd,
 			})
-		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, capabilities_registry.CapabilitiesRegistryABI, err); err != nil {
+		if _, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, capabilities_registry.CapabilitiesRegistryABI, err); err != nil {
 			lggr.Errorw("Failed to add capabilities", "chain", chain.String(), "err", err)
 			return nil, err
 		}
@@ -338,7 +340,7 @@ func deployHomeChain(
 	p2pIDsByNodeOpID := make(map[uint32][][32]byte)
 	if len(nodeOpsToAdd) > 0 {
 		tx, err := capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
-		txBlockNum, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, capabilities_registry.CapabilitiesRegistryABI, err)
+		txBlockNum, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
 			lggr.Errorw("Failed to add node operators", "chain", chain.String(), "err", err)
 			return nil, err
@@ -416,7 +418,7 @@ func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.Capabiliti
 func addNodes(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	p2pIDsByNodeOpId map[uint32][][32]byte,
 ) error {
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
@@ -445,7 +447,7 @@ func addNodes(
 				Signer:              p2pID, // Not used in tests
 				P2pId:               p2pID,
 				EncryptionPublicKey: p2pID, // Not used in tests
-				HashedCapabilityIds: [][32]byte{ccip.CCIPCapabilityID},
+				HashedCapabilityIds: [][32]byte{shared.CCIPCapabilityID},
 			}
 			if existing, ok := existingNodeParams[p2pID]; ok {
 				if isEqualCapabilitiesRegistryNodeParams(existing, nodeParam) {
@@ -465,7 +467,7 @@ func addNodes(
 	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
 	if err != nil {
 		lggr.Errorw("Failed to add nodes", "chain", chain.String(),
-			"err", deployment.DecodedErrFromABIIfDataErr(err, capabilities_registry.CapabilitiesRegistryABI))
+			"err", cldf.DecodedErrFromABIIfDataErr(err, capabilities_registry.CapabilitiesRegistryABI))
 		return err
 	}
 	_, err = chain.Confirm(tx)
@@ -478,8 +480,8 @@ type RemoveDONsConfig struct {
 	MCMS         *proposalutils.TimelockConfig
 }
 
-func (c RemoveDONsConfig) Validate(homeChain changeset.CCIPChainState) error {
-	if err := deployment.IsValidChainSelector(c.HomeChainSel); err != nil {
+func (c RemoveDONsConfig) Validate(homeChain evm.CCIPChainState) error {
+	if err := cldf.IsValidChainSelector(c.HomeChainSel); err != nil {
 		return fmt.Errorf("home chain selector must be set %w", err)
 	}
 	if len(c.DonIDs) == 0 {
@@ -500,8 +502,8 @@ func (c RemoveDONsConfig) Validate(homeChain changeset.CCIPChainState) error {
 
 // RemoveDONs removes DONs from the CapabilitiesRegistry contract.
 // TODO: Could likely be moved to common, but needs a common state struct first.
-func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+func RemoveDONs(e cldf.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -515,7 +517,7 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (cldf.ChangesetO
 	}
 	txOpts := homeChain.DeployerKey
 	if cfg.MCMS != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 
 	tx, err := homeChainState.CapabilityRegistry.RemoveDONs(txOpts, cfg.DonIDs)
@@ -523,7 +525,7 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (cldf.ChangesetO
 		return cldf.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
-		_, err = deployment.ConfirmIfNoErrorWithABI(homeChain, tx, capabilities_registry.CapabilitiesRegistryABI, err)
+		_, err = cldf.ConfirmIfNoErrorWithABI(homeChain, tx, capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -533,14 +535,14 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (cldf.ChangesetO
 
 	batchOperation, err := proposalutils.BatchOperationForChain(cfg.HomeChainSel,
 		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
-		string(changeset.CapabilitiesRegistry), []string{})
+		string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for home chain: %w", err)
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSel: homeChainState.Timelock.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSel: mcmsevmsdk.NewInspector(homeChain.Client)}
-	mcmsContractsByActionPerChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractsByActionPerChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -567,12 +569,12 @@ type RemoveNodesConfig struct {
 	MCMSCfg        *proposalutils.TimelockConfig
 }
 
-func removeNodesPrecondition(env deployment.Environment, c RemoveNodesConfig) error {
-	state, err := changeset.LoadOnchainState(env)
+func removeNodesPrecondition(env cldf.Environment, c RemoveNodesConfig) error {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return err
 	}
-	if err := changeset.ValidateChain(env, state, c.HomeChainSel, c.MCMSCfg); err != nil {
+	if err := stateview.ValidateChain(env, state, c.HomeChainSel, c.MCMSCfg); err != nil {
 		return err
 	}
 	if len(c.P2PIDsToRemove) == 0 {
@@ -642,8 +644,8 @@ func removeNodesPrecondition(env deployment.Environment, c RemoveNodesConfig) er
 	return nil
 }
 
-func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
+func removeNodesLogic(env cldf.Environment, c RemoveNodesConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -651,11 +653,11 @@ func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (cldf.Cha
 	homeChain := env.Chains[c.HomeChainSel]
 	txOpts := homeChain.DeployerKey
 	if c.MCMSCfg != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 	tx, err := homeChainState.CapabilityRegistry.RemoveNodes(txOpts, c.P2PIDsToRemove)
 	if c.MCMSCfg == nil {
-		_, err = deployment.ConfirmIfNoErrorWithABI(homeChain, tx, capabilities_registry.CapabilitiesRegistryABI, err)
+		_, err = cldf.ConfirmIfNoErrorWithABI(homeChain, tx, capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove nodes from capreg %s: %w",
 				homeChainState.CapabilityRegistry.Address().String(), err)
@@ -668,13 +670,13 @@ func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (cldf.Cha
 	}
 	batchOperation, err := proposalutils.BatchOperationForChain(c.HomeChainSel,
 		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
-		string(changeset.CapabilitiesRegistry), []string{})
+		string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for home chain: %w", err)
 	}
 
-	timelocks := changeset.BuildTimelockAddressPerChain(env, state)
-	mcmContract, err := changeset.BuildMcmAddressesPerChainByAction(env, state, c.MCMSCfg)
+	timelocks := deployergroup.BuildTimelockAddressPerChain(env, state)
+	mcmContract, err := deployergroup.BuildMcmAddressesPerChainByAction(env, state, c.MCMSCfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -726,8 +728,8 @@ type AddOrUpdateNopsConfig struct {
 	MCMSConfig   *proposalutils.TimelockConfig
 }
 
-func addUpdateOrRemoveNopsPrecondition(env deployment.Environment, c AddOrUpdateNopsConfig) error {
-	state, err := changeset.LoadOnchainState(env)
+func addUpdateOrRemoveNopsPrecondition(env cldf.Environment, c AddOrUpdateNopsConfig) error {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return err
 	}
@@ -735,7 +737,7 @@ func addUpdateOrRemoveNopsPrecondition(env deployment.Environment, c AddOrUpdate
 	if err != nil {
 		return fmt.Errorf("failed to get home chain selector: %w", err)
 	}
-	if err := changeset.ValidateChain(env, state, c.homeChainSel, c.MCMSConfig); err != nil {
+	if err := stateview.ValidateChain(env, state, c.homeChainSel, c.MCMSConfig); err != nil {
 		return err
 	}
 
@@ -767,8 +769,8 @@ func addUpdateOrRemoveNopsPrecondition(env deployment.Environment, c AddOrUpdate
 	return nil
 }
 
-func updateNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
+func updateNopsLogic(env cldf.Environment, c AddOrUpdateNopsConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -820,7 +822,7 @@ func updateNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate access for node operator %s: %w", nop.Name, err)
 		}
 	}
-	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMSConfig).
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMSConfig).
 		WithDeploymentContext("update nops in cap reg")
 	txOpts, err := deployerGroup.GetDeployer(homeChain.Selector)
 	if err != nil {
@@ -839,8 +841,8 @@ func updateNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.
 //	    if the sender is the owner of the CapabilitiesRegistry, if onlyOwner is true
 func validateAccess(
 	ctx context.Context,
-	chain deployment.Chain,
-	chainState changeset.CCIPChainState,
+	chain cldf.Chain,
+	chainState evm.CCIPChainState,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	nop capabilities_registry.CapabilitiesRegistryNodeOperator,
 	isMCMS bool,
@@ -901,8 +903,8 @@ func allNodeOperatorsByID(ctx context.Context, capReg *capabilities_registry.Cap
 	return nopIDByName, nil
 }
 
-func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
+func addNopsLogic(env cldf.Environment, c AddOrUpdateNopsConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -943,7 +945,7 @@ func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.Cha
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMSConfig).
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMSConfig).
 		WithDeploymentContext("add nops in cap reg")
 	txOpts, err := deployerGroup.GetDeployer(homeChain.Selector)
 	if err != nil {
@@ -956,8 +958,8 @@ func addNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.Cha
 	return deployerGroup.Enact()
 }
 
-func removeNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
+func removeNopsLogic(env cldf.Environment, c AddOrUpdateNopsConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -1000,7 +1002,7 @@ func removeNopsLogic(env deployment.Environment, c AddOrUpdateNopsConfig) (cldf.
 		env.Logger.Infof("No node operators found to be removed")
 		return cldf.ChangesetOutput{}, nil
 	}
-	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMSConfig).
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMSConfig).
 		WithDeploymentContext("remove nops in cap reg")
 	txOpts, err := deployerGroup.GetDeployer(homeChain.Selector)
 	if err != nil {
