@@ -161,3 +161,28 @@ jobs:
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
+  # TODO: change to step that prepares date
+  prepare-short-sha:
+    needs: [init]
+    runs-on: ubuntu-24.04
+    outputs:
+      short-sha: ${{ steps.short-sha.outputs.short-sha }}
+    steps:
+      - name: Set Short SHA
+        id: short-sha
+        shell: bash
+        run: |
+          SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
+          echo "short-sha=${SHORT_SHA}" | tee -a "$GITHUB_OUTPUT"
+  call-nightly-e2e-tests:
+    # TODO change to schedule once it is tested
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: [docker-core, docker-core-plugins, docker-ccip, docker-ccip-plugins, prepare-short-sha]
+    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@830af050dc5d9388a728c8be63586011cec181e6
+    with:
+      # TODO: change to nightly once it is tested
+      chainlink_image_tag: ${{ format('manual-{0}', needs.prepare-short-sha.outputs.short-sha) }}
+      # TODO: change to develop once it is tested
+      chainlink_version: dx-815-polish-nightly-cli
+
