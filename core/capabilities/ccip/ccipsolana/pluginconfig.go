@@ -26,6 +26,6 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec *ccipcommon.Extra
 }
 
 func init() {
-	// Register the EVM plugin config factory
+	// Register the Solana plugin config factory
 	ccipcommon.RegisterPluginConfig(chainsel.FamilySolana, InitializePluginConfig)
 }
