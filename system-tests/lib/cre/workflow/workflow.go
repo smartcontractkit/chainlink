@@ -21,27 +21,11 @@ import (
 )
 
 func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
-	if valErr := input.Validate(); valErr != nil {
-		return errors.Wrap(valErr, "failed to validate RegisterWorkflowInput")
-	}
-
 	if registerValErr := validateRegisterWorkflowInput(input); registerValErr != nil {
 		return errors.Wrap(registerValErr, "failed to validate RegisterWorkflowInput")
 	}
 
-	// This env var is required by the CRE CLI
-	pkErr := os.Setenv("CRE_ETH_PRIVATE_KEY", input.CRECLIPrivateKey)
-	if pkErr != nil {
-		return errors.Wrap(pkErr, "failed to set CRE_ETH_PRIVATE_KEY")
-	}
-
-	// This env var is required by the CRE CLI
-	profileErr := os.Setenv("CRE_PROFILE", input.CRECLIProfile)
-	if profileErr != nil {
-		return errors.Wrap(pkErr, "failed to set CRE_PROFILE")
-	}
-
-	creCLIWorkflowSettingsFile, err := libcrecli.PrepareCRECLIWorkflowSettingsFile(input.CRECLIProfile, input.WorkflowOwnerAddress, input.WorkflowName)
+	creCLIWorkflowSettingsFile, err := prepareCRECLI(input)
 	if err != nil {
 		return err
 	}
@@ -101,24 +85,24 @@ func validateRegisterWorkflowInput(input cretypes.ManageWorkflowWithCRECLIInput)
 	return nil
 }
 
-func PauseWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
+func prepareCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) (*os.File, error) {
 	if valErr := input.Validate(); valErr != nil {
-		return errors.Wrap(valErr, "failed to validate WorkflowInput")
+		return nil, errors.Wrap(valErr, "failed to validate WorkflowInput")
 	}
 
-	// This env var is required by the CRE CLI
-	pkErr := os.Setenv("CRE_ETH_PRIVATE_KEY", input.CRECLIPrivateKey)
-	if pkErr != nil {
-		return errors.Wrap(pkErr, "failed to set CRE_ETH_PRIVATE_KEY")
+	if pkErr := os.Setenv("CRE_ETH_PRIVATE_KEY", input.CRECLIPrivateKey); pkErr != nil {
+		return nil, errors.Wrap(pkErr, "failed to set CRE_ETH_PRIVATE_KEY")
 	}
 
-	// This env var is required by the CRE CLI
-	profileErr := os.Setenv("CRE_PROFILE", input.CRECLIProfile)
-	if profileErr != nil {
-		return errors.Wrap(pkErr, "failed to set CRE_PROFILE")
+	if profileErr := os.Setenv("CRE_PROFILE", input.CRECLIProfile); profileErr != nil {
+		return nil, errors.Wrap(profileErr, "failed to set CRE_PROFILE")
 	}
 
-	creCLIWorkflowSettingsFile, err := libcrecli.PrepareCRECLIWorkflowSettingsFile(input.CRECLIProfile, input.WorkflowOwnerAddress, input.WorkflowName)
+	return libcrecli.PrepareCRECLIWorkflowSettingsFile(input.CRECLIProfile, input.WorkflowOwnerAddress, input.WorkflowName)
+}
+
+func PauseWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
+	creCLIWorkflowSettingsFile, err := prepareCRECLI(input)
 	if err != nil {
 		return err
 	}
@@ -132,23 +116,7 @@ func PauseWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 }
 
 func ActivateWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
-	if valErr := input.Validate(); valErr != nil {
-		return errors.Wrap(valErr, "failed to validate WorkflowInput")
-	}
-
-	// This env var is required by the CRE CLI
-	pkErr := os.Setenv("CRE_ETH_PRIVATE_KEY", input.CRECLIPrivateKey)
-	if pkErr != nil {
-		return errors.Wrap(pkErr, "failed to set CRE_ETH_PRIVATE_KEY")
-	}
-
-	// This env var is required by the CRE CLI
-	profileErr := os.Setenv("CRE_PROFILE", input.CRECLIProfile)
-	if profileErr != nil {
-		return errors.Wrap(pkErr, "failed to set CRE_PROFILE")
-	}
-
-	creCLIWorkflowSettingsFile, err := libcrecli.PrepareCRECLIWorkflowSettingsFile(input.CRECLIProfile, input.WorkflowOwnerAddress, input.WorkflowName)
+	creCLIWorkflowSettingsFile, err := prepareCRECLI(input)
 	if err != nil {
 		return err
 	}

@@ -333,19 +333,21 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 	return configErr
 }
 
-func pausePoRWorkflow(input managePoRWorkflowInput) error {
-	// This env var is required by the CRE CLI
-	err := os.Setenv("CRE_ETH_PRIVATE_KEY", input.deployerPrivateKey)
+func buildManageWorkflowInput(input managePoRWorkflowInput) (keystonetypes.ManageWorkflowWithCRECLIInput, error) {
+	workflowRegistryAddress, err := crecontracts.FindAddressesForChain(
+		input.addressBook,
+		input.homeChainSelector,
+		keystone_changeset.WorkflowRegistry.String(),
+	)
 	if err != nil {
-		return errors.Wrap(err, "failed to set CRE_ETH_PRIVATE_KEY")
+		return keystonetypes.ManageWorkflowWithCRECLIInput{}, errors.Wrapf(
+			err,
+			"failed to find workflow registry address for chain %d",
+			input.homeChainSelector,
+		)
 	}
 
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(input.addressBook, input.homeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	if workflowRegistryErr != nil {
-		return errors.Wrapf(workflowRegistryErr, "failed to find workflow registry address for chain %d", input.homeChainSelector)
-	}
-
-	pauseWorkflowInput := keystonetypes.ManageWorkflowWithCRECLIInput{
+	return keystonetypes.ManageWorkflowWithCRECLIInput{
 		ChainSelector:            input.chainSelector,
 		WorkflowDonID:            input.workflowDonID,
 		WorkflowRegistryAddress:  workflowRegistryAddress,
@@ -356,9 +358,16 @@ func pausePoRWorkflow(input managePoRWorkflowInput) error {
 		WorkflowName:             input.WorkflowConfig.WorkflowName,
 		ShouldCompileNewWorkflow: input.WorkflowConfig.ShouldCompileNewWorkflow,
 		CRECLIProfile:            input.creCLIProfile,
+	}, nil
+}
+
+func pausePoRWorkflow(input managePoRWorkflowInput) error {
+	workflowInput, err := buildManageWorkflowInput(input)
+	if err != nil {
+		return err
 	}
 
-	pauseErr := creworkflow.PauseWithCRECLI(pauseWorkflowInput)
+	pauseErr := creworkflow.PauseWithCRECLI(workflowInput)
 	if pauseErr != nil {
 		return errors.Wrap(pauseErr, "failed to pause workflow with CRE CLI")
 	}
@@ -367,31 +376,12 @@ func pausePoRWorkflow(input managePoRWorkflowInput) error {
 }
 
 func activatePoRWorkflow(input managePoRWorkflowInput) error {
-	// This env var is required by the CRE CLI
-	err := os.Setenv("CRE_ETH_PRIVATE_KEY", input.deployerPrivateKey)
+	workflowInput, err := buildManageWorkflowInput(input)
 	if err != nil {
-		return errors.Wrap(err, "failed to set CRE_ETH_PRIVATE_KEY")
+		return err
 	}
 
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(input.addressBook, input.homeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	if workflowRegistryErr != nil {
-		return errors.Wrapf(workflowRegistryErr, "failed to find workflow registry address for chain %d", input.homeChainSelector)
-	}
-
-	activateWorkflowInput := keystonetypes.ManageWorkflowWithCRECLIInput{
-		ChainSelector:            input.chainSelector,
-		WorkflowDonID:            input.workflowDonID,
-		WorkflowRegistryAddress:  workflowRegistryAddress,
-		WorkflowOwnerAddress:     input.sethClient.MustGetRootKeyAddress(),
-		CRECLIPrivateKey:         input.deployerPrivateKey,
-		CRECLIAbsPath:            input.creCLIAbsPath,
-		CRESettingsFile:          input.creCLIsettingsFile,
-		WorkflowName:             input.WorkflowConfig.WorkflowName,
-		ShouldCompileNewWorkflow: input.WorkflowConfig.ShouldCompileNewWorkflow,
-		CRECLIProfile:            input.creCLIProfile,
-	}
-
-	activateErr := creworkflow.ActivateWithCRECLI(activateWorkflowInput)
+	activateErr := creworkflow.ActivateWithCRECLI(workflowInput)
 	if activateErr != nil {
 		return errors.Wrap(activateErr, "failed to activate workflow with CRE CLI")
 	}
