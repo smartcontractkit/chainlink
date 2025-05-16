@@ -178,11 +178,13 @@ jobs:
   call-nightly-e2e-tests:
     # TODO change to schedule once it is tested
     if: ${{ github.event_name == 'workflow_dispatch' }}
-    needs: [docker-core, docker-core-plugins, docker-ccip, docker-ccip-plugins, prepare-short-sha]
+    needs: [docker-core-plugins, prepare-short-sha]
     uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@830af050dc5d9388a728c8be63586011cec181e6
     with:
       # TODO: change to nightly once it is tested
-      chainlink_image_tag: ${{ format('manual-{0}', needs.prepare-short-sha.outputs.short-sha) }}
+      chainlink_image_tag: ${{ format('manual-{0}-plugins', needs.prepare-short-sha.outputs.short-sha) }}
       # TODO: change to develop once it is tested
       chainlink_version: dx-815-polish-nightly-cli
+    secrets:
+      inherit
 
