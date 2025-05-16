@@ -30,6 +30,11 @@ type svmAdapter struct {
 	chainState solanastate.CCIPChainState
 }
 
+// ChainSelector implements types.Adapter.
+func (s *svmAdapter) ChainSelector() uint64 {
+	return s.chain.Selector
+}
+
 // GetExtraArgs implements types.Adapter.
 // TODO: apply opts.
 func (s *svmAdapter) GetExtraArgs(receiver []byte, sourceFamily string, opts ...types.ExtraArgOpt) ([]byte, error) {

@@ -24,6 +24,11 @@ type evmAdapter struct {
 	chainState evm.CCIPChainState
 }
 
+// ChainSelector implements types.Adapter.
+func (a *evmAdapter) ChainSelector() uint64 {
+	return a.chain.Selector
+}
+
 // GetExtraArgs implements types.Adapter.
 // TODO: apply opts.
 func (a *evmAdapter) GetExtraArgs(_ []byte, sourceFamily string, opts ...types.ExtraArgOpt) ([]byte, error) {

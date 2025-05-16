@@ -65,6 +65,9 @@ func NewGasLimitExtraArg(gasLimit *big.Int) ExtraArgOpt {
 // So if there are e.g 3 source chains that are EVM and a dest that is Solana,
 // we would have 3 EVM adapters and 1 Solana adapter.
 type Adapter interface {
+	// ChainSelector returns the selector of the chain for the given adapter.
+	ChainSelector() uint64
+
 	// ChainFamily returns the family of the chain for the given adapter.
 	ChainFamily() string
 
@@ -107,11 +110,6 @@ type Scenario interface {
 	Run(t *testing.T, ctx ExecContext)
 }
 
-type SelectorAdapter struct {
-	Selector uint64
-	Adapter  Adapter
-}
-
 // ExecContext is our interface for representing the execution context of a test.
 // All scenarios must be executed within the context of an ExecContext.
 type ExecContext interface {
@@ -122,10 +120,10 @@ type ExecContext interface {
 	OnchainState() stateview.CCIPOnChainState
 
 	// Sources returns the source chain adapters for the test.
-	Sources() []SelectorAdapter
+	Sources() []Adapter
 
 	// Dest returns the destination chain adapter for the test.
-	Dest() SelectorAdapter
+	Dest() Adapter
 
 	// ReplayLogs replays logs for the given blocks using the provided offchain client.
 	// By default, it will assert on errors. Use WithAssertOnError(false) to change this behavior.

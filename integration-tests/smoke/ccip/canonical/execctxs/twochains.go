@@ -19,8 +19,8 @@ var _ types.ExecContext = &execCtx{}
 type execCtx struct {
 	env     cldf.Environment
 	state   stateview.CCIPOnChainState
-	sources []types.SelectorAdapter
-	dest    types.SelectorAdapter
+	sources []types.Adapter
+	dest    types.Adapter
 }
 
 // ReplayLogs implements types.ExecContext.
@@ -38,11 +38,11 @@ func (e *execCtx) OnchainState() stateview.CCIPOnChainState {
 	return e.state
 }
 
-func (e *execCtx) Sources() []types.SelectorAdapter {
+func (e *execCtx) Sources() []types.Adapter {
 	return e.sources
 }
 
-func (e *execCtx) Dest() types.SelectorAdapter {
+func (e *execCtx) Dest() types.Adapter {
 	return e.dest
 }
 
@@ -60,22 +60,13 @@ func NewEVM2EVMCtx(t *testing.T) types.ExecContext {
 	// connect a single lane, source to dest
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
-	var sourceSelectorAdapters = []types.SelectorAdapter{
-		{
-			Selector: sourceChain,
-			Adapter:  adapters.NewEVMAdapter(e.Env.Chains[sourceChain], state.Chains[sourceChain]),
-		},
-	}
-	destAdapter := adapters.NewEVMAdapter(e.Env.Chains[destChain], state.Chains[destChain])
-
 	return &execCtx{
-		env:     e.Env,
-		state:   state,
-		sources: sourceSelectorAdapters,
-		dest: types.SelectorAdapter{
-			Selector: destChain,
-			Adapter:  destAdapter,
+		env:   e.Env,
+		state: state,
+		sources: []types.Adapter{
+			adapters.NewEVMAdapter(e.Env.Chains[sourceChain], state.Chains[sourceChain]),
 		},
+		dest: adapters.NewEVMAdapter(e.Env.Chains[destChain], state.Chains[destChain]),
 	}
 }
 
@@ -99,23 +90,13 @@ func NewEVM2SolanaCtx(t *testing.T) types.ExecContext {
 	// connect a single lane, source to dest
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
-	var sourceSelectorAdapters = []types.SelectorAdapter{
-		{
-			Selector: sourceChain,
-			Adapter:  adapters.NewEVMAdapter(e.Env.Chains[sourceChain], state.Chains[sourceChain]),
-		},
-	}
-
-	destAdapter := adapters.NewSVMAdapter(e.Env.SolChains[destChain], state.SolChains[destChain])
-
 	return &execCtx{
-		env:     e.Env,
-		state:   state,
-		sources: sourceSelectorAdapters,
-		dest: types.SelectorAdapter{
-			Selector: destChain,
-			Adapter:  destAdapter,
+		env:   e.Env,
+		state: state,
+		sources: []types.Adapter{
+			adapters.NewEVMAdapter(e.Env.Chains[sourceChain], state.Chains[sourceChain]),
 		},
+		dest: adapters.NewSVMAdapter(e.Env.SolChains[destChain], state.SolChains[destChain]),
 	}
 }
 
@@ -134,22 +115,12 @@ func NewSolana2EVM(t *testing.T) types.ExecContext {
 	// connect a single lane, source to dest
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
-	var sourceSelectorAdapters = []types.SelectorAdapter{
-		{
-			Selector: sourceChain,
-			Adapter:  adapters.NewSVMAdapter(e.Env.SolChains[sourceChain], state.SolChains[sourceChain]),
-		},
-	}
-
-	destAdapter := adapters.NewEVMAdapter(e.Env.Chains[destChain], state.Chains[destChain])
-
 	return &execCtx{
-		env:     e.Env,
-		state:   state,
-		sources: sourceSelectorAdapters,
-		dest: types.SelectorAdapter{
-			Selector: sourceChain,
-			Adapter:  destAdapter,
+		env:   e.Env,
+		state: state,
+		sources: []types.Adapter{
+			adapters.NewSVMAdapter(e.Env.SolChains[sourceChain], state.SolChains[sourceChain]),
 		},
+		dest: adapters.NewEVMAdapter(e.Env.Chains[destChain], state.Chains[destChain]),
 	}
 }

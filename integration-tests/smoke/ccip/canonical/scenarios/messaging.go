@@ -39,10 +39,10 @@ func (s *messagingToCCIPReceiverScenario) Run(t *testing.T, ctx types.ExecContex
 	source := ctx.Sources()[0]
 	dest := ctx.Dest()
 
-	receiver := dest.Adapter.CCIPReceiver()
-	nativeFeeToken := source.Adapter.NativeFeeToken()
+	receiver := dest.CCIPReceiver()
+	nativeFeeToken := source.NativeFeeToken()
 
-	extraArgs, err := dest.Adapter.GetExtraArgs(receiver, source.Adapter.ChainFamily())
+	extraArgs, err := dest.GetExtraArgs(receiver, source.ChainFamily())
 	require.NoError(t, err)
 
 	components := types.MessageComponents{
@@ -55,41 +55,41 @@ func (s *messagingToCCIPReceiverScenario) Run(t *testing.T, ctx types.ExecContex
 
 	t.Logf("receiver length: %d, receiver: %x", len(receiver), receiver)
 
-	msg, err := source.Adapter.BuildMessage(components)
+	msg, err := source.BuildMessage(components)
 	require.NoError(t, err)
 
-	t.Logf("source: %d, dest: %d", source.Selector, dest.Selector)
+	t.Logf("source: %d, dest: %d", source.ChainSelector(), dest.ChainSelector())
 
 	// send the message on the source chain to the destination chain.
 	sendEvent := testhelpers.TestSendRequest(
 		t,
 		ctx.Env(),
 		ctx.OnchainState(),
-		source.Selector,
-		dest.Selector,
+		source.ChainSelector(),
+		dest.ChainSelector(),
 		false,
 		msg,
 	)
 
 	time.Sleep(30 * time.Second)
 	ctx.ReplayLogs(t, map[uint64]uint64{
-		source.Selector: 0,
+		source.ChainSelector(): 0,
 	})
 
 	switch s.validationType {
 	case ValidationTypeNone:
 		return
 	case ValidationTypeCommitOnly:
-		dest.Adapter.ValidateCommit(t, source.Selector, ccipocr3.SeqNumRange{
+		dest.ValidateCommit(t, source.ChainSelector(), ccipocr3.SeqNumRange{
 			ccipocr3.SeqNum(sendEvent.SequenceNumber),
 			ccipocr3.SeqNum(sendEvent.SequenceNumber),
 		})
 	case ValidationTypeExec:
-		dest.Adapter.ValidateCommit(t, source.Selector, ccipocr3.SeqNumRange{
+		dest.ValidateCommit(t, source.ChainSelector(), ccipocr3.SeqNumRange{
 			ccipocr3.SeqNum(sendEvent.SequenceNumber),
 			ccipocr3.SeqNum(sendEvent.SequenceNumber),
 		})
-		dest.Adapter.ValidateExec(t, source.Selector, []uint64{sendEvent.SequenceNumber})
+		dest.ValidateExec(t, source.ChainSelector(), []uint64{sendEvent.SequenceNumber})
 	}
 }
 
@@ -106,9 +106,9 @@ func (s *messagingToEOAScenario) Run(t *testing.T, ctx types.ExecContext) {
 	require.GreaterOrEqual(t, len(ctx.Sources()), 1)
 	require.NotNil(t, ctx.Dest())
 	// Solana doesn't support sending messages to EOAs
-	require.NotEqual(t, chain_selectors.FamilySolana, ctx.Dest().Adapter.ChainFamily())
+	require.NotEqual(t, chain_selectors.FamilySolana, ctx.Dest().ChainFamily())
 	// Aptos doesn't support sending messages to EOAs
-	require.NotEqual(t, chain_selectors.FamilyAptos, ctx.Dest().Adapter.ChainFamily())
+	require.NotEqual(t, chain_selectors.FamilyAptos, ctx.Dest().ChainFamily())
 
 	// determine the source and chain families so we can appropriately build the message
 	// note that we select the first source, this scenario doesn't support multiple sources
@@ -116,8 +116,8 @@ func (s *messagingToEOAScenario) Run(t *testing.T, ctx types.ExecContext) {
 	source := ctx.Sources()[0]
 	dest := ctx.Dest()
 
-	receiver := dest.Adapter.RandomReceiver()
-	nativeFeeToken := source.Adapter.NativeFeeToken()
+	receiver := dest.RandomReceiver()
+	nativeFeeToken := source.NativeFeeToken()
 
 	components := types.MessageComponents{
 		Receiver:     receiver,
@@ -127,7 +127,7 @@ func (s *messagingToEOAScenario) Run(t *testing.T, ctx types.ExecContext) {
 		TokenAmounts: []types.TokenAmount{},
 	}
 
-	msg, err := source.Adapter.BuildMessage(components)
+	msg, err := source.BuildMessage(components)
 	require.NoError(t, err)
 
 	// send the message on the source chain to the destination chain.
@@ -135,30 +135,30 @@ func (s *messagingToEOAScenario) Run(t *testing.T, ctx types.ExecContext) {
 		t,
 		ctx.Env(),
 		ctx.OnchainState(),
-		source.Selector,
-		dest.Selector,
+		source.ChainSelector(),
+		dest.ChainSelector(),
 		false,
 		msg,
 	)
 
 	time.Sleep(30 * time.Second)
 	ctx.ReplayLogs(t, map[uint64]uint64{
-		source.Selector: 0,
+		source.ChainSelector(): 0,
 	})
 
 	switch s.validationType {
 	case ValidationTypeNone:
 		return
 	case ValidationTypeCommitOnly:
-		dest.Adapter.ValidateCommit(t, source.Selector, ccipocr3.SeqNumRange{
+		dest.ValidateCommit(t, source.ChainSelector(), ccipocr3.SeqNumRange{
 			ccipocr3.SeqNum(sendEvent.SequenceNumber),
 			ccipocr3.SeqNum(sendEvent.SequenceNumber),
 		})
 	case ValidationTypeExec:
-		dest.Adapter.ValidateCommit(t, source.Selector, ccipocr3.SeqNumRange{
+		dest.ValidateCommit(t, source.ChainSelector(), ccipocr3.SeqNumRange{
 			ccipocr3.SeqNum(sendEvent.SequenceNumber),
 			ccipocr3.SeqNum(sendEvent.SequenceNumber),
 		})
-		dest.Adapter.ValidateExec(t, source.Selector, []uint64{sendEvent.SequenceNumber})
+		dest.ValidateExec(t, source.ChainSelector(), []uint64{sendEvent.SequenceNumber})
 	}
 }
