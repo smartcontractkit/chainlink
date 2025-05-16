@@ -306,7 +306,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 			if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 			}
-			newAddresses, err := output.AddressBook.Addresses()
+			newAddresses, err := output.AddressBook.Addresses() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses from address book: %w", err)
 			}
