@@ -99,6 +99,9 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Enviro
 		MCMS:        nil, // as token pools are deployed as part of the changeset, the pools will still be owned by the deployer key
 		PoolUpdates: make(map[uint64]TokenPoolConfig),
 	}
+	if existingPool {
+		c.configurePools.MCMS = timelockCfg
+	}
 	c.configureTokenAdminReg = TokenAdminRegistryChangesetConfig{
 		MCMS:  timelockCfg,
 		Pools: make(map[uint64]map[shared.TokenSymbol]TokenPoolInfo),
