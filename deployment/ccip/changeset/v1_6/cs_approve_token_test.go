@@ -32,8 +32,8 @@ func TestApproveTransferEVMChangeset(t *testing.T) {
 	dest := allChains[1]
 	_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.TokenApproveTransferEVMChangeset),
-			v1_6.ApproveTokenEVMConfig{
+			cldf.CreateLegacyChangeSet(v1_6.ApproveTokens),
+			v1_6.ApproveTokensConfig{
 				ChainSelector: source,
 				Amount:        big.NewInt(100),
 			},

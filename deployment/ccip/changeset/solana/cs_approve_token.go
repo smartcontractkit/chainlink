@@ -14,16 +14,14 @@ import (
 	solanaStateView "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 )
 
-type ApproveTokenFeeBillingSignerSolConfig struct {
+type ApproveTokensForFeeBillingSignerConfig struct {
 	ChainSelector uint64
-
-	TokenProgram solana.PublicKey
-
-	Amount   uint64
-	Decimals uint8
+	TokenProgram  solana.PublicKey
+	Amount        uint64
+	Decimals      uint8
 }
 
-func (cfg ApproveTokenFeeBillingSignerSolConfig) Validate(e cldf.Environment) (solanaStateView.CCIPChainState, error) {
+func (cfg ApproveTokensForFeeBillingSignerConfig) Validate(e cldf.Environment) (solanaStateView.CCIPChainState, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return solanaStateView.CCIPChainState{}, fmt.Errorf("failed to load onchain state: %w", err)
@@ -40,7 +38,7 @@ func (cfg ApproveTokenFeeBillingSignerSolConfig) Validate(e cldf.Environment) (s
 	return chainState, nil
 }
 
-func TokenApproveFeeBillingSigner(e cldf.Environment, cfg ApproveTokenFeeBillingSignerSolConfig) (cldf.ChangesetOutput, error) {
+func ApproveTokensForFeeBillingSigner(e cldf.Environment, cfg ApproveTokensForFeeBillingSignerConfig) (cldf.ChangesetOutput, error) {
 	state, err := cfg.Validate(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate config: %w", err)
@@ -67,17 +65,15 @@ func TokenApproveFeeBillingSigner(e cldf.Environment, cfg ApproveTokenFeeBilling
 	return cldf.ChangesetOutput{}, nil
 }
 
-type ApproveTokenSolConfig struct {
-	ChainSelector uint64
-
+type ApproveTokensConfig struct {
+	ChainSelector    uint64
 	AddressToApprove solana.PublicKey
 	TokenProgram     solana.PublicKey
-
-	Amount   uint64
-	Decimals uint8
+	Amount           uint64
+	Decimals         uint8
 }
 
-func (cfg ApproveTokenSolConfig) Validate(e cldf.Environment) (solanaStateView.CCIPChainState, error) {
+func (cfg ApproveTokensConfig) Validate(e cldf.Environment) (solanaStateView.CCIPChainState, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return solanaStateView.CCIPChainState{}, fmt.Errorf("failed to load onchain state: %w", err)
@@ -98,7 +94,7 @@ func (cfg ApproveTokenSolConfig) Validate(e cldf.Environment) (solanaStateView.C
 	return chainState, nil
 }
 
-func TokenApproveTransferSolChangeset(e cldf.Environment, cfg ApproveTokenSolConfig) (cldf.ChangesetOutput, error) {
+func ApproveTokens(e cldf.Environment, cfg ApproveTokensConfig) (cldf.ChangesetOutput, error) {
 	state, err := cfg.Validate(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate config: %w", err)
@@ -145,7 +141,7 @@ func doApproveTokenTransfer(
 		return fmt.Errorf("failed to find associated token address: %w", err)
 	}
 
-	ix1, err := solTokenUtil.TokenApproveChecked(
+	ix, err := solTokenUtil.TokenApproveChecked(
 		amount,
 		decimals,
 		tokenProgram,
@@ -158,7 +154,16 @@ func doApproveTokenTransfer(
 	if err != nil {
 		return fmt.Errorf("failed to TokenApproveChecked: %w", err)
 	}
-	if err = solChain.Confirm([]solana.Instruction{ix1}); err != nil {
+
+	e.Logger.Infow("Running TokenApprovedChecked (owner ATA = '%s', approved account = '%s', token = '%s', amount = %d, decimals = %d)",
+		deployerATA.String(),
+		addressToApprove.String(),
+		tokenPubKey.String(),
+		amount,
+		decimals,
+	)
+
+	if err = solChain.Confirm([]solana.Instruction{ix}); err != nil {
 		e.Logger.Errorw("Failed to confirm instructions for TokenApproveChecked", "chain", solChain.String(), "err", err)
 		return err
 	}
