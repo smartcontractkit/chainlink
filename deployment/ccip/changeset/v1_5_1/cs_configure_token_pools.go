@@ -503,7 +503,7 @@ func configureMultiplePoolPreconditionValidation(env cldf.Environment, c Configu
 		return errors.New("no tokens to configure")
 	}
 	for _, token := range c.Tokens {
-		if token.MCMS != nil {
+		if c.MCMS != nil {
 			token.MCMS = c.MCMS
 		}
 		if err := token.Validate(env); err != nil {
@@ -520,6 +520,9 @@ func configureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPo
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for _, token := range c.Tokens {
+		if c.MCMS != nil {
+			token.MCMS = c.MCMS
+		}
 		output, err := ConfigureTokenPoolContractsChangeset(env, *token)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool: %w", err)

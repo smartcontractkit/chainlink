@@ -428,6 +428,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 				SelectorA2B:   createSymmetricRateLimits(200, 2000),
 				SelectorB2A:   createSymmetricRateLimits(200, 2000),
 			},
+			runWithMultipleTokenCS: true,
 		},
 	}
 
