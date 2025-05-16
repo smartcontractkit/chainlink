@@ -24,6 +24,7 @@ on:
 jobs:
   test-cli:
     runs-on: ubuntu-latest
+    environment: "integration"
     timeout-minutes: 30
     permissions:
       contents: read
