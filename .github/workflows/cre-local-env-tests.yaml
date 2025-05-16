@@ -54,7 +54,7 @@ jobs:
         run: |
           cat > system-tests/tests/smoke/cre/cmd/configs/ci-override.toml<< EOF
           [jd]
-            image = "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.9.0"
+            image = "injected-at-runtime"
 
           [[nodesets]]
             nodes = 5
@@ -68,7 +68,7 @@ jobs:
 
             [[nodesets.node_specs]]
               [nodesets.node_specs.node]
-                image = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ inputs.chainlink_image_tag }}"
+                image = "injected-at-runtime"
           EOF
 
       - name: Start the CLI
@@ -77,6 +77,8 @@ jobs:
           CTF_CONFIGS: "./configs/single-don.toml,./configs/ci-override.toml"
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
           E2E_JD_VERSION: "0.9.0"
+          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
+          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag }}
         run: |
           cd system-tests/tests/smoke/cre/cmd
           go run main.go env start
