@@ -262,7 +262,6 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			if !isOpen {
 				return
 			}
-			e.cfg.Lggr.Debug("got trigger event fired")
 			// TODO(CAPPL-737): check if expired
 			select {
 			case e.executionsSemaphore <- struct{}{}: // block if too many concurrent workflow executions

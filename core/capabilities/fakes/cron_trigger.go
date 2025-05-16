@@ -23,7 +23,7 @@ const ID = "cron-trigger@1.0.0"
 const ServiceName = "CronCapabilities"
 
 const (
-	defaultSendChannelBufferSize          = 1000
+	defaultSendChannelBufferSize          = 1
 	defaultFastestScheduleIntervalSeconds = 30
 )
 
@@ -87,11 +87,6 @@ func NewTriggerService(parentLggr logger.Logger, clock clockwork.Clock) *Service
 		triggers:       NewCronStore(),
 		scheduler:      scheduler,
 		clock:          clock,
-		labeler: custmsg.NewLabeler().With(
-			"capabilityID", cronTriggerInfo.ID,
-			"capabilityVersion", cronTriggerInfo.Version(),
-			"capabilityName", cronTriggerInfo.ID,
-		),
 	}
 }
 
@@ -109,6 +104,7 @@ func (s *Service) Initialise(ctx context.Context, config string, _ core.Telemetr
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal config: %s %w", config, err)
 		}
+		s.lggr.Debugw("unmarshalling config", "config", config, "cronConfig", cronConfig)
 	}
 
 	if cronConfig.FastestScheduleIntervalSeconds == 0 {
@@ -176,15 +172,6 @@ func (s *Service) RegisterTrigger(ctx context.Context, triggerID string, metadat
 			case callbackCh <- response:
 			default:
 				s.lggr.Errorw("callback channel full, dropping event", "executionID", metadata.WorkflowExecutionID, "triggerID", triggerID, "eventID", response.Id)
-
-				lblErr := s.labeler.With(
-					"workflowOwner", metadata.WorkflowOwner,
-					"workflowName", metadata.WorkflowName,
-					"workflowID", metadata.WorkflowID,
-				).Emit(ctx, "callback channel full, dropping event")
-				if lblErr != nil {
-					s.lggr.Errorw("cannot emit custom event", "executionID", metadata.WorkflowExecutionID, "triggerID", triggerID, "eventID", response.Id, "err", err)
-				}
 			}
 		})
 
@@ -238,6 +225,7 @@ func createTriggerResponse(scheduledExecutionTime time.Time) capabilities.Trigge
 }
 
 func (s *Service) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) error {
+	s.lggr.Debug("got call to unregister trigger")
 	trigger, ok := s.triggers.Read(triggerID)
 	if !ok {
 		return fmt.Errorf("triggerId %s not found", triggerID)
@@ -255,6 +243,7 @@ func (s *Service) UnregisterTrigger(ctx context.Context, triggerID string, metad
 	}
 
 	// Close callback channel
+	s.lggr.Debug("closing event channel")
 	close(trigger.ch)
 
 	// Remove from triggers context
@@ -293,7 +282,6 @@ func (s *Service) Start(ctx context.Context) error {
 // After this call the Service cannot be started again,
 // The service will need to be re-built to start scheduling again.
 func (s *Service) Close() error {
-	s.lggr.Debug("closing cron trigger service")
 	if s.scheduler == nil {
 		return errors.New("service has shutdown, it must be built again to restart")
 	}
