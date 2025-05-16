@@ -10,8 +10,9 @@ import (
 
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanaStateView "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 type ApproveTokensForFeeBillingSignerConfig struct {
@@ -164,7 +165,7 @@ func doApproveTokenTransfer(
 	)
 
 	if err = solChain.Confirm([]solana.Instruction{ix}); err != nil {
-		e.Logger.Errorf("Failed to confirm instructions for TokenApproveChecked", "chain", solChain.String(), "err", err)
+		e.Logger.Errorf("Failed to confirm instructions TokenApproveChecked for chain %s err %w", solChain.String(), err)
 		return err
 	}
 
