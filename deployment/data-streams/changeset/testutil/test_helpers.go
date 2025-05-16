@@ -267,8 +267,7 @@ func GetMCMSConfig(useMCMS bool) *dsTypes.MCMSConfig {
 func GetNodeLabels(donID uint64, donName string, env string) []*ptypes.Label {
 	return []*ptypes.Label{
 		{
-			Key:   utils.DonIdentifier(donID, donName),
-			Value: nil,
+			Key: utils.DonIDLabel(donID, donName),
 		},
 		{
 			Key:   devenv.LabelNodeTypeKey,
