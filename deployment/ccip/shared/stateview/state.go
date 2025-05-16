@@ -202,7 +202,7 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithT
 
 func (c CCIPOnChainState) SolanaMCMSStateByChain(e cldf.Environment) map[uint64]commonstate.MCMSWithTimelockStateSolana {
 	mcmsStateByChain := make(map[uint64]commonstate.MCMSWithTimelockStateSolana)
-	for chainSelector, _ := range e.SolChains {
+	for chainSelector := range e.SolChains {
 		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return mcmsStateByChain
