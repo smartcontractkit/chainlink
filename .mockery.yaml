@@ -40,7 +40,7 @@ packages:
       AbigenContract:
   github.com/smartcontractkit/chainlink-evm/pkg/logpoller:
     config:
-      dir: core/chains/evm/logpoller/mocks
+      dir: common/logpoller/mocks
     interfaces:
       LogPoller:
   github.com/smartcontractkit/chainlink-evm/pkg/txmgr:
