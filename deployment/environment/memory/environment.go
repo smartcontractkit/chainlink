@@ -52,6 +52,7 @@ type MemoryEnvironmentConfig struct {
 	Chains             int
 	SolChains          int
 	AptosChains        int
+	ZkChains           int
 	NumOfUsersPerChain int
 	Nodes              int
 	Bootstraps         int
@@ -106,6 +107,10 @@ func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]cldf.SolChain {
 
 func NewMemoryChainsAptos(t *testing.T, numChains int) map[uint64]cldf.AptosChain {
 	return GenerateChainsAptos(t, numChains)
+}
+
+func NewMemoryChainsZk(t *testing.T, numChains int) map[uint64]cldf.Chain {
+	return GenerateChainsZk(t, numChains)
 }
 
 func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]cldf.Chain, map[uint64][]*bind.TransactOpts) {
@@ -265,6 +270,10 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
 	solChains := NewMemoryChainsSol(t, config.SolChains)
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
+	zkChains := NewMemoryChainsZk(t, config.ZkChains)
+	for chainSel, chain := range zkChains {
+		chains[chainSel] = chain
+	}
 	c := NewNodesConfig{
 		LogLevel:       logLevel,
 		Chains:         chains,

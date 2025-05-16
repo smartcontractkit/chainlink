@@ -266,10 +266,14 @@ func NewNode(
 		if err != nil {
 			t.Fatal(err)
 		}
-		evmchains[evmChainID] = EVMChain{
-			Backend:     chain.Client.(*Backend).Sim,
+		evmchain := EVMChain{
 			DeployerKey: chain.DeployerKey,
 		}
+		backend, ok := chain.Client.(*Backend)
+		if ok {
+			evmchain.Backend = backend.Sim
+		}
+		evmchains[evmChainID] = evmchain
 	}
 
 	// Do not want to load fixtures as they contain a dummy chainID.
@@ -346,7 +350,9 @@ func NewNode(
 	// Create clients for the core node backed by sim.
 	clients := make(map[uint64]client.Client)
 	for chainID, chain := range evmchains {
-		clients[chainID] = client.NewSimulatedBackendClient(t, chain.Backend, big.NewInt(int64(chainID)))
+		if chain.Backend != nil {
+			clients[chainID] = client.NewSimulatedBackendClient(t, chain.Backend, big.NewInt(int64(chainID))) //nolint:gosec // it shouldn't overflow
+		}
 	}
 
 	master := keystore.New(db, utils.FastScryptParams, lggr)
@@ -370,7 +376,7 @@ func NewNode(
 			fc.GenEthClient = func(i *big.Int) client.Client {
 				ethClient, ok := clients[i.Uint64()]
 				if !ok {
-					t.Fatal("no backend for chainID", i)
+					return client.NewNullClient(i, lggr)
 				}
 				return ethClient
 			}
@@ -403,7 +409,9 @@ func NewNode(
 
 	setupJD(t, app)
 	return &Node{
-		App: app,
+		Name: "node-" + keys.PeerID.String(),
+		ID:   app.ID().String(),
+		App:  app,
 		Chains: slices.Concat(
 			maps.Keys(nodecfg.Chains),
 			maps.Keys(nodecfg.Solchains),
@@ -498,10 +506,12 @@ func CreateKeys(t *testing.T,
 			}
 			transmitters[chain.Selector] = transmitter.String()
 
-			backend := chain.Client.(*Backend).Sim
-			fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), backend)
-			// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
-			fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend)
+			backend, ok := chain.Client.(*Backend)
+			if ok {
+				fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), backend.Sim)
+				// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
+				fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend.Sim)
+			}
 		case chainsel.FamilyAptos:
 			keystore := app.GetKeyStore().Aptos()
 			err = keystore.EnsureKey(ctx)

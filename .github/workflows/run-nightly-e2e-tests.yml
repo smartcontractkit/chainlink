@@ -1,9 +1,10 @@
 name: Run Nightly E2E Tests
 
 on:
-  schedule:
+  # Disabled due to constant failures. Should be fixed in DX-809
+  #schedule:
     # Run every night at midnight UTC (0:00 AM)
-    - cron: '0 0 * * *'
+    #- cron: '0 0 * * *'
   workflow_dispatch:
     # Useful when running the workflow manually
     inputs:
@@ -23,7 +24,7 @@ on:
           image versions. Example:
           "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
         required: false
-        type: string        
+        type: string
       require_chainlink_plugin_versions_in_qa_ecr:
         description:
           'Check Chainlink plugins versions to be present in QA ECR. If not,
@@ -31,12 +32,12 @@ on:
           Chainlink image versions. Example:
           "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
         required: false
-        type: string        
+        type: string
       extraArgs:
         required: false
         type: string
         default: '{ "flakeguard_enable": "true", "flakeguard_run_count": "5" }'
-        description: 'JSON of extra arguments for the workflow.'     
+        description: 'JSON of extra arguments for the workflow.'
 
 jobs:
   call-run-e2e-tests-workflow:

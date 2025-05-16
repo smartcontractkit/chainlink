@@ -46,11 +46,11 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	chainwritercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/chainwriter"
 	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
 	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
 	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
+	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
@@ -679,12 +679,13 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 		priceProvider,
 		mustSetCapabilitiesFn,
 		[]keystonetypes.DONCapabilityWithConfigFactoryFn{
-			webapicap.WebAPICapabilityFactoryFn,
+			webapicap.WebAPITriggerCapabilityFactoryFn,
+			webapicap.WebAPITargetCapabilityFactoryFn,
 			computecap.ComputeCapabilityFactoryFn,
 			consensuscap.OCR3CapabilityFactoryFn,
 			croncap.CronCapabilityFactoryFn,
-			chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainID))),
-			chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(targetChainID))),
+			writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(homeChainID))),
+			writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(targetChainID))),
 		},
 	)
 
@@ -733,11 +734,12 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{
-		webapicap.WebAPICapabilityFactoryFn,
+		webapicap.WebAPITriggerCapabilityFactoryFn,
+		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
 		croncap.CronCapabilityFactoryFn,
-		chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
+		writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
 	})
 
 	// Log extra information that might help debugging
@@ -788,11 +790,12 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger, []string{in.WorkflowConfigs[0].FeedID})
 	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{
-		webapicap.WebAPICapabilityFactoryFn,
+		webapicap.WebAPITriggerCapabilityFactoryFn,
+		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
 		croncap.CronCapabilityFactoryFn,
-		chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
+		writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
 	})
 
 	// Log extra information that might help debugging

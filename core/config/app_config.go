@@ -58,6 +58,7 @@ type AppConfig interface {
 	WebServer() WebServer
 	Tracing() Tracing
 	Telemetry() Telemetry
+	CRE() CRE
 }
 
 type DatabaseBackupMode string

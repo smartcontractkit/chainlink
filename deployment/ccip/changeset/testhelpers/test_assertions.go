@@ -908,20 +908,24 @@ func AssertTimelockOwnership(
 	e DeployedEnv,
 	chains []uint64,
 	state stateview.CCIPOnChainState,
+	withTestRouterTransfer bool,
 ) {
 	// check that the ownership has been transferred correctly
 	for _, chain := range chains {
-		for _, contract := range []common.Address{
+		allContracts := []common.Address{
 			state.Chains[chain].OnRamp.Address(),
 			state.Chains[chain].OffRamp.Address(),
 			state.Chains[chain].FeeQuoter.Address(),
 			state.Chains[chain].NonceManager.Address(),
 			state.Chains[chain].RMNRemote.Address(),
-			state.Chains[chain].TestRouter.Address(),
 			state.Chains[chain].Router.Address(),
 			state.Chains[chain].TokenAdminRegistry.Address(),
 			state.Chains[chain].RMNProxy.Address(),
-		} {
+		}
+		if withTestRouterTransfer {
+			allContracts = append(allContracts, state.Chains[chain].TestRouter.Address())
+		}
+		for _, contract := range allContracts {
 			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[chain].Client)
 			require.NoError(t, err)
 			require.Equal(t, state.Chains[chain].Timelock.Address(), owner)

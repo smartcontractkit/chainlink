@@ -71,7 +71,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				}
-				testhelpers.TransferToTimelock(t, tenv, evmState, []uint64{evmChain})
+				testhelpers.TransferToTimelock(t, tenv, evmState, []uint64{evmChain}, false)
 			}
 
 			// Add EVM and Solana lane
@@ -99,7 +99,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 					evmChainState.LinkToken.Address(): testhelpers.DefaultLinkPrice,
 					evmChainState.Weth9.Address():     testhelpers.DefaultWethPrice,
 				},
-				IsRMNVerificationEnabledOnEVMOffRamp: true,
+				IsRMNVerificationDisabledOnEVMOffRamp: true,
 				SolanaRouterConfig: ccipChangesetSolana.RouterConfig{
 					RouterDestinationConfig: solRouter.DestChainConfig{
 						AllowListEnabled: true,
