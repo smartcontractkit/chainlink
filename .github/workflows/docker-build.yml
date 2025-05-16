@@ -162,24 +162,12 @@ jobs:
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
-  prepare-nightly-image-tag:
-    needs: [init]
-    runs-on: ubuntu-24.04
-    outputs:
-      image-tag: ${{ steps.image-tag.outputs.image-tag }}
-    steps:
-      - name: Set Image Tag
-        id: image-tag
-        shell: bash
-        run: |
-          DATE=$(date +%Y%m%d)
-          echo "image-tag=nightly-${DATE}-plugins" | tee -a "$GITHUB_OUTPUT"
   call-nightly-e2e-tests:
     if: ${{ github.event_name == 'schedule' }}
-    needs: [docker-core-plugins, prepare-nightly-image-tag]
+    needs: [docker-core-plugins]
     uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@830af050dc5d9388a728c8be63586011cec181e6
     with:
-      chainlink_image_tag: ${{ needs.prepare-nightly-image-tag.outputs.image-tag }}
+      chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
       chainlink_version: develop
     secrets:
       inherit
