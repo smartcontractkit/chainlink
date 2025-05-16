@@ -65,18 +65,18 @@ jobs:
             image = "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.9.0"
 
           [[nodesets]]
-          nodes = 5
-          override_mode = "all"
-          http_port_range_start = 10100
-          name = "workflow"
+            nodes = 5
+            override_mode = "all"
+            http_port_range_start = 10100
+            name = "workflow"
 
-          [nodesets.db]
-            image = "postgres:12.0"
-            port = 13000
+            [nodesets.db]
+              image = "postgres:12.0"
+              port = 13000
 
-          [[nodesets.node_specs]]
-            [nodesets.node_specs.node]
-              image = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ inputs.chainlink_image_tag }}"
+            [[nodesets.node_specs]]
+              [nodesets.node_specs.node]
+                image = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ inputs.chainlink_image_tag }}"
           EOF
 
       - name: Start the CLI
@@ -85,40 +85,40 @@ jobs:
           cd system-tests/tests/smoke/cre/cmd
           CTF_CONFIGS="./configs/single-don.toml,./configs/ci-override.toml" go run main.go env start
 
-  notify-test-failure:
-    name: Notify about local env startup failure
-    if: failure()
-    needs: [test-cli]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Send slack notification for failed local env startup
-        id: send-slack-notification
-        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
-        with:
-          errors: "true"
-          method: chat.postMessage
-          token: ${{ secrets.QA_SLACK_API_KEY }}
-          payload: |
-            {
-              "channel": "C0364FG2CN9",
-              "text": "Local CRE environment failed to start",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*:rotating_light: Local CRE environment failed to start :rotating_light:*"
-                  }
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "Alerting <@U060CGGPY8H> local CRE environment failed to start for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop."
-                  }
-                }
-              ]
-            }
+  # notify-test-failure:
+  #   name: Notify about local env startup failure
+  #   if: failure()
+  #   needs: [test-cli]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Send slack notification for failed local env startup
+  #       id: send-slack-notification
+  #       uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+  #       with:
+  #         errors: "true"
+  #         method: chat.postMessage
+  #         token: ${{ secrets.QA_SLACK_API_KEY }}
+  #         payload: |
+  #           {
+  #             "channel": "C0364FG2CN9",
+  #             "text": "Local CRE environment failed to start",
+  #             "blocks": [
+  #               {
+  #                 "type": "section",
+  #                 "text": {
+  #                   "type": "mrkdwn",
+  #                   "text": "*:rotating_light: Local CRE environment failed to start :rotating_light:*"
+  #                 }
+  #               },
+  #               {
+  #                 "type": "section",
+  #                 "text": {
+  #                   "type": "mrkdwn",
+  #                   "text": "Alerting <@U060CGGPY8H> local CRE environment failed to start for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop."
+  #                 }
+  #               }
+  #             ]
+  #           }
 
 
 
