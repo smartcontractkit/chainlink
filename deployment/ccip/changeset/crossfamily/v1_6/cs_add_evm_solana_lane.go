@@ -48,7 +48,7 @@ var (
 		"Adds bi-directional lane between EVM chain and Solana",
 		func(b operations.Bundle, deps Dependencies, input AddRemoteChainE2EConfig) (OpsOutput, error) {
 			deps.Env.Logger.Infow("Adding EVM and Solana lane", "EVMChainSelector", input.EVMChainSelector, "SolanaChainSelector", input.SolanaChainSelector)
-			var finalOutput *OpsOutput
+			finalOutput := &OpsOutput{}
 			updateEVMOnRampReport, err := operations.ExecuteOperation(b, operations.NewOperation(
 				"updateEVMOnRamp",
 				semver.MustParse("1.0.0"),
@@ -261,6 +261,9 @@ type OpsOutput struct {
 }
 
 func (o *OpsOutput) Merge(other OpsOutput, env cldf.Environment) error {
+	if o == nil {
+		o = &OpsOutput{}
+	}
 	if o.AddressBook == nil {
 		o.AddressBook = other.AddressBook
 	} else if other.AddressBook != nil {
@@ -271,7 +274,13 @@ func (o *OpsOutput) Merge(other OpsOutput, env cldf.Environment) error {
 			return fmt.Errorf("failed to merge existing addresses to environment: %w", err)
 		}
 	}
-	o.Proposals = append(o.Proposals, other.Proposals...)
+	if o.Proposals == nil {
+		o.Proposals = other.Proposals
+		return nil
+	}
+	if len(other.Proposals) > 0 {
+		o.Proposals = append(o.Proposals, other.Proposals...)
+	}
 	return nil
 }
 
