@@ -13,12 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers/cron"
 	crontypedapi "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
-	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
+// TODO(CAPPL-866): remove this copy of cron trigger implementation from fakes
 const ID = "cron-trigger@1.0.0"
 const ServiceName = "CronCapabilities"
 
@@ -55,7 +55,6 @@ type Service struct {
 	lggr      logger.Logger
 	scheduler gocron.Scheduler
 	triggers  *cronStore
-	labeler   custmsg.MessageEmitter
 }
 
 var _ services.Service = &Service{}
@@ -104,7 +103,6 @@ func (s *Service) Initialise(ctx context.Context, config string, _ core.Telemetr
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal config: %s %w", config, err)
 		}
-		s.lggr.Debugw("unmarshalling config", "config", config, "cronConfig", cronConfig)
 	}
 
 	if cronConfig.FastestScheduleIntervalSeconds == 0 {
