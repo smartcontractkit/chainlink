@@ -74,8 +74,8 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.Equal(t, originalKeyRing.Tron[uk2.ID()].Base58Address(), decryptedKeyRing.Tron[uk2.ID()].Base58Address())
 		// compare ton keys
 		require.Len(t, decryptedKeyRing.Ton, 2)
-		require.Equal(t, originalKeyRing.Ton[ton1.ID()].UserFriendlyAddress(), decryptedKeyRing.Ton[ton1.ID()].UserFriendlyAddress())
-		require.Equal(t, originalKeyRing.Ton[ton2.ID()].UserFriendlyAddress(), decryptedKeyRing.Ton[ton2.ID()].UserFriendlyAddress())
+		require.Equal(t, originalKeyRing.Ton[ton1.ID()].AddressBase64(), decryptedKeyRing.Ton[ton1.ID()].AddressBase64())
+		require.Equal(t, originalKeyRing.Ton[ton2.ID()].AddressBase64(), decryptedKeyRing.Ton[ton2.ID()].AddressBase64())
 		// compare csa keys
 		require.Len(t, decryptedKeyRing.CSA, 2)
 		require.Equal(t, originalKeyRing.CSA[csa1.ID()].PublicKey, decryptedKeyRing.CSA[csa1.ID()].PublicKey)

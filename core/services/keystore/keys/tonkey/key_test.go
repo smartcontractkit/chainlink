@@ -23,13 +23,13 @@ func TestTonKey(t *testing.T) {
 		assert.NotNil(t, key.pubKey, "Public key should not be nil")
 		assert.NotNil(t, key.raw, "Private key should not be nil")
 
-		userFriendlyAddress := key.UserFriendlyAddress()
+		addressBase64 := key.AddressBase64()
 
-		assert.Len(t, userFriendlyAddress, 48, "Address in base64 should be 48 chars")
+		assert.Len(t, addressBase64, 48, "Address in base64 should be 48 chars")
 
-		decodedAddress, err := base64.RawURLEncoding.DecodeString(userFriendlyAddress)
+		decodedAddress, err := base64.RawURLEncoding.DecodeString(addressBase64)
 		if err != nil {
-			require.NoError(t, err, "Failed to decode userFriendlyAddress")
+			require.NoError(t, err, "Failed to decode addressBase64")
 		}
 
 		assert.Len(t, decodedAddress, 36, "Decoded address should be 36 bytes")
@@ -82,9 +82,9 @@ func TestTonKey(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, addr)
 
-		// Check that the user-friendly address is decodable and has expected length
+		// Check that the base64 address is decodable and has expected length
 		decoded, err := base64.RawURLEncoding.DecodeString(addr.String())
-		require.NoError(t, err, "User-friendly address should be valid base64")
+		require.NoError(t, err, "base64 address should be valid base64")
 		assert.Len(t, decoded, 36, "Decoded address should be 36 bytes")
 	})
 
@@ -110,15 +110,15 @@ func TestTonKey(t *testing.T) {
 		assert.NotEqual(t, addrV3WC0.String(), addrV3WCMinus1.String(), "Workchain 0 and -1 addresses should differ")
 	})
 
-	t.Run("RawAddress returns correct non-user-friendly address", func(t *testing.T) {
+	t.Run("RawAddress returns correct non-base64 address", func(t *testing.T) {
 		key, err := New()
 		require.NoError(t, err)
 
 		rawAddress := key.RawAddress()
-		userFriendlyAddress := key.UserFriendlyAddress()
+		addressBase64 := key.AddressBase64()
 
 		assert.NotEmpty(t, rawAddress, "Raw address should not be empty")
-		assert.NotEqual(t, userFriendlyAddress, rawAddress, "Raw and user-friendly addresses should differ")
+		assert.NotEqual(t, addressBase64, rawAddress, "Raw and base64 addresses should differ")
 
 		// Parse raw address and validate
 		parsed, err := address.ParseRawAddr(rawAddress)
@@ -137,6 +137,6 @@ func TestTonKey(t *testing.T) {
 		key2 := KeyFor(raw)
 
 		assert.Equal(t, key1.PublicKeyStr(), key2.PublicKeyStr(), "Restored key should have same public key")
-		assert.Equal(t, key1.UserFriendlyAddress(), key2.UserFriendlyAddress(), "Restored key should have same address")
+		assert.Equal(t, key1.AddressBase64(), key2.AddressBase64(), "Restored key should have same address")
 	})
 }

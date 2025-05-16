@@ -13,7 +13,7 @@ type TonKeyPresenter struct {
 
 // RenderTable implements TableRenderer
 func (p TonKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Ton Public Key", "User-Friendly Address", "Raw Address"}
+	headers := []string{"ID", "Ton Public Key", "Base64 Address", "Raw Address"}
 	rows := [][]string{p.ToRow()}
 
 	if _, err := rt.Write([]byte("🔑 Ton Keys\n")); err != nil {
@@ -28,7 +28,7 @@ func (p *TonKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.PubKey,
-		p.UserFriendlyAddress,
+		p.AddressBase64,
 		p.RawAddress,
 	}
 
@@ -39,7 +39,7 @@ type TonKeyPresenters []TonKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps TonKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Ton Public Key", "User-Friendly Address", "Raw Address"}
+	headers := []string{"ID", "Ton Public Key", "Base64 Address", "Raw Address"}
 	rows := [][]string{}
 
 	for _, p := range ps {

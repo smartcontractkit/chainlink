@@ -5,9 +5,9 @@ import "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ton
 // TonKeyResource represents a Ton key JSONAPI resource.
 type TonKeyResource struct {
 	JAID
-	UserFriendlyAddress string `json:"userFriendlyAddress"`
-	RawAddress          string `json:"rawAddress"`
-	PubKey              string `json:"publicKey"`
+	AddressBase64 string `json:"addressBase64"`
+	RawAddress    string `json:"rawAddress"`
+	PubKey        string `json:"publicKey"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -17,10 +17,10 @@ func (TonKeyResource) GetName() string {
 
 func NewTonKeyResource(key tonkey.Key) *TonKeyResource {
 	r := &TonKeyResource{
-		JAID:                JAID{ID: key.ID()},
-		UserFriendlyAddress: key.UserFriendlyAddress(),
-		RawAddress:          key.RawAddress(),
-		PubKey:              key.PublicKeyStr(),
+		JAID:          JAID{ID: key.ID()},
+		AddressBase64: key.AddressBase64(),
+		RawAddress:    key.RawAddress(),
+		PubKey:        key.PublicKeyStr(),
 	}
 
 	return r

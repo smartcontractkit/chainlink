@@ -55,7 +55,7 @@ func TestTonKeysController_Create_HappyPath(t *testing.T) {
 
 	require.Equal(t, keys[0].ID(), resource.ID)
 	require.Equal(t, keys[0].PublicKeyStr(), resource.PubKey)
-	require.Equal(t, keys[0].UserFriendlyAddress(), resource.UserFriendlyAddress)
+	require.Equal(t, keys[0].AddressBase64(), resource.AddressBase64)
 	require.Equal(t, keys[0].RawAddress(), resource.RawAddress)
 
 	_, err = keyStore.Ton().Get(resource.ID)

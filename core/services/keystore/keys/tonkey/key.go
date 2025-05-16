@@ -110,14 +110,14 @@ func (key Key) PubkeyToAddress() *address.Address {
 	return addr
 }
 
-// UserFriendlyAddress returns the user-friendly version of the Ton address
+// AddressBase64 returns the user-friendly version of the Ton address
 // https://docs.ton.org/v3/concepts/dive-into-ton/ton-blockchain/smart-contract-addresses#user-friendly-address
-func (key Key) UserFriendlyAddress() string {
+func (key Key) AddressBase64() string {
 	address := key.PubkeyToAddress()
 	return address.String()
 }
 
-// RawAddress returns the raw version of the Ton address
+// RawAddress returns the raw version of the Ton address, which includes the workchain
 // https://docs.ton.org/v3/concepts/dive-into-ton/ton-blockchain/smart-contract-addresses#raw-address
 func (key Key) RawAddress() string {
 	address := key.PubkeyToAddress()
