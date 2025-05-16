@@ -2242,6 +2242,7 @@ func GenTestTransferOwnershipConfig(
 	e DeployedEnv,
 	chains []uint64,
 	state stateview.CCIPOnChainState,
+	withTestRouterTransfer bool,
 ) commoncs.TransferToMCMSWithTimelockConfig {
 	var (
 		timelocksPerChain = make(map[uint64]common.Address)
@@ -2257,10 +2258,12 @@ func GenTestTransferOwnershipConfig(
 			state.Chains[chain].FeeQuoter.Address(),
 			state.Chains[chain].NonceManager.Address(),
 			state.Chains[chain].RMNRemote.Address(),
-			state.Chains[chain].TestRouter.Address(),
 			state.Chains[chain].Router.Address(),
 			state.Chains[chain].TokenAdminRegistry.Address(),
 			state.Chains[chain].RMNProxy.Address(),
+		}
+		if withTestRouterTransfer {
+			contracts[chain] = append(contracts[chain], state.Chains[chain].TestRouter.Address())
 		}
 	}
 
@@ -2305,6 +2308,7 @@ func TransferToTimelock(
 	tenv DeployedEnv,
 	state stateview.CCIPOnChainState,
 	chains []uint64,
+	withTestRouterTransfer bool,
 ) {
 	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(chains)+1)
 	for _, chain := range chains {
@@ -2323,9 +2327,9 @@ func TransferToTimelock(
 		timelockContracts,
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-			GenTestTransferOwnershipConfig(tenv, chains, state),
+			GenTestTransferOwnershipConfig(tenv, chains, state, withTestRouterTransfer),
 		),
 	)
 	require.NoError(t, err)
-	AssertTimelockOwnership(t, tenv, chains, state)
+	AssertTimelockOwnership(t, tenv, chains, state, withTestRouterTransfer)
 }

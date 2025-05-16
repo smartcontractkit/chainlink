@@ -36,7 +36,10 @@ func deployMCMProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(log, "mcm", false, true)
+		deployedProgramID, err := chain.DeployProgram(log, cldf.SolProgramInfo{
+			Name:  deployment.McmProgramName,
+			Bytes: deployment.SolanaProgramBytes[deployment.McmProgramName],
+		}, false, true)
 		if err != nil {
 			return fmt.Errorf("failed to deploy mcm program: %w", err)
 		}

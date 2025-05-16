@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -37,7 +38,10 @@ import (
 //  1. it adds chain support with the desired rate limits
 //  2. it adds the desired remote pool addresses to the token pool on the chain
 //  3. if there used to be an existing token pool on tokenadmin_registry, it adds the remote pool addresses of that token pool to ensure 0 downtime
-var _ cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
+var (
+	_                           cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
+	ConfigureMultipleTokenPools                                                   = cldf.CreateChangeSet(configureMultiplePoolLogic, configureMultiplePoolPreconditionValidation)
+)
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
 type RateLimiterConfig struct {
@@ -487,4 +491,56 @@ func GetTokenStateFromPoolEVM(
 		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to get config of token with address %s from registry on %s: %w", tokenAddress, chain.String(), err)
 	}
 	return tokenPool, tokenAddress, tokenConfig, nil
+}
+
+type ConfigureMultipleTokenPoolsConfig struct {
+	Tokens []*ConfigureTokenPoolContractsConfig
+	MCMS   *proposalutils.TimelockConfig // this will override the MCMS in the token pool configs
+}
+
+func configureMultiplePoolPreconditionValidation(env cldf.Environment, c ConfigureMultipleTokenPoolsConfig) error {
+	if len(c.Tokens) == 0 {
+		return errors.New("no tokens to configure")
+	}
+	for _, token := range c.Tokens {
+		if c.MCMS != nil {
+			token.MCMS = c.MCMS
+		}
+		if err := token.Validate(env); err != nil {
+			return fmt.Errorf("invalid token configuration: %w", err)
+		}
+	}
+	return nil
+}
+
+func configureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPoolsConfig) (cldf.ChangesetOutput, error) {
+	finalOutput := cldf.ChangesetOutput{}
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	for _, token := range c.Tokens {
+		if c.MCMS != nil {
+			token.MCMS = c.MCMS
+		}
+		output, err := ConfigureTokenPoolContractsChangeset(env, *token)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool: %w", err)
+		}
+		err = cldf.MergeChangesetOutput(env, &finalOutput, output)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output: %w", err)
+		}
+	}
+	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
+	if len(finalOutput.MCMSTimelockProposals) > 1 {
+		aggregatedProposals, err := proposalutils.AggregateProposals(
+			env, state.EVMMCMSStateByChain(), nil, finalOutput.MCMSTimelockProposals,
+			"Add Tokens E2E", c.MCMS)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+		}
+		finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*aggregatedProposals}
+	}
+	return finalOutput, nil
 }

@@ -463,6 +463,11 @@ ChipIngressEndpoint = ''
 Global = 200
 PerOwner = 200
 
+[CRE]
+[CRE.Streams]
+WsURL = ''
+RestURL = ''
+
 [[Aptos]]
 ChainID = '1'
 Enabled = false
