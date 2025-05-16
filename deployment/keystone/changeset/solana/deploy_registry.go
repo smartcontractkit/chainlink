@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/solana"
 )
 
@@ -16,10 +15,10 @@ type DeployRequest = struct {
 	Qualifier string
 	Labels    *datastore.LabelSet
 
-	deployFn func(ctx context.Context, chain deployment.SolChain, ab cldf.AddressBook) (*kslib.DeployResponse, error)
+	deployFn func(ctx context.Context, chain cldf.SolChain, ab cldf.AddressBook) (*kslib.DeployResponse, error)
 }
 
-func deploy(env deployment.Environment, req *DeployRequest) (cldf.ChangesetOutput, error) {
+func deploy(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	chain, ok := env.SolChains[req.ChainSel]
 	if !ok {

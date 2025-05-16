@@ -4,14 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-// DeployForwarder deploys the KeystoneForwarder contract to the chain
-// and saves the address in the address book. This mutates the address book.
-func DeployForwarder(ctx context.Context, chain deployment.SolChain, ab cldf.AddressBook) (*DeployResponse, error) {
+func DeployForwarder(ctx context.Context, chain cldf.SolChain, ab cldf.AddressBook) (*DeployResponse, error) {
 	forwarderDeployer, err := NewKeystoneForwarderDeployer()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KeystoneForwarderDeployer: %w", err)

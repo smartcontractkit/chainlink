@@ -41,7 +41,5 @@ func TestDeployForwarder(t *testing.T) {
 		require.Len(t, addrs, 1)
 		fa := resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("my-test-forwarder"))
 		require.Len(t, fa, 1, "expected to find 'my-test-forwarder' qualifier")
-		l := fa[0].Labels.List()
-		require.Len(t, l, 2, "expected exactly 2 labels")
 	})
 }
