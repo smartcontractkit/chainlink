@@ -12,6 +12,17 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
+  workflow_call:
+    inputs:
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "The tag of the Chainlink image to use for the tests."
+      chainlink_version:
+        required: true
+        type: string
+        description: "The version of Chainlink repository to use for the tests."
+        default: "develop"
 
 jobs:
   test-cli:
