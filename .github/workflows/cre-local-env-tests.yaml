@@ -12,14 +12,6 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
-      env_type:
-        required: true
-        type: choice
-        options:
-          - simplified
-          - full
-        description: "Either a simplified or full environment."
-        default: "simplified"
 
 jobs:
   test-cli:
@@ -81,9 +73,13 @@ jobs:
 
       - name: Start the CLI
         shell: bash
+        env:
+          CTF_CONFIGS: "./configs/single-don.toml,./configs/ci-override.toml"
+          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
+          E2E_JD_VERSION: "0.9.0"
         run: |
           cd system-tests/tests/smoke/cre/cmd
-          CTF_CONFIGS="./configs/single-don.toml,./configs/ci-override.toml" go run main.go env start
+          go run main.go env start
 
   # notify-test-failure:
   #   name: Notify about local env startup failure
