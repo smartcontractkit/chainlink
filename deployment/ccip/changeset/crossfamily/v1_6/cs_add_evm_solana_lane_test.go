@@ -16,14 +16,11 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	crossfamily "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/crossfamily/v1_6"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -42,12 +39,6 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if t.Name() == "TestAddEVMSolanaLaneBidirectional/MCMS_enabled" {
-				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-758")
-			}
-			if t.Name() == "TestAddEVMSolanaLaneBidirectional/MCMS_disabled" {
-				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-759")
-			}
 			t.Parallel()
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
@@ -116,10 +107,20 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			}
 
 			// run the changeset
-			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-				commonchangeset.Configure(crossfamily.AddEVMAndSolanaLaneChangeset, evmSolanaLaneCSInput),
-			})
+			out, err := crossfamily.AddEVMAndSolanaLaneChangeset.Apply(e, evmSolanaLaneCSInput)
 			require.NoError(t, err)
+
+			// if MCMS is enabled, we need to run the proposal
+			if tc.mcmsEnabled {
+				for _, prop := range out.MCMSTimelockProposals {
+					mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
+					// return the error so devs can ensure expected reversions
+					err = proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
+					require.NoError(t, err)
+					err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+					require.NoError(t, err)
+				}
+			}
 
 			// Check that the changeset was applied
 			evmState, err = stateview.LoadOnchainState(e)
