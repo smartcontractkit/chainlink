@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -180,12 +179,8 @@ func generateDatasources(cc StreamSpecConfig) []jobs.Datasource {
 func streamIDLabelsFromReportFields(rf jobs.ReportFields) ([]*ptypes.Label, error) {
 	labels := []*ptypes.Label{}
 
-	isIt := func(rf jobs.ReportFields, t jobs.ReportFields) bool {
-		return reflect.TypeOf(rf) == reflect.TypeOf(t)
-	}
-
-	switch {
-	case isIt(rf, jobs.MedianReportFields{}):
+	switch rf.(type) {
+	case jobs.MedianReportFields:
 		median := rf.(jobs.MedianReportFields)
 		l, err := streamIDLabelsFor(median.Benchmark.StreamID)
 		if err != nil {
@@ -193,7 +188,7 @@ func streamIDLabelsFromReportFields(rf jobs.ReportFields) ([]*ptypes.Label, erro
 		}
 		labels = append(labels, l...)
 
-	case isIt(rf, jobs.QuoteReportFields{}):
+	case jobs.QuoteReportFields:
 		quote := rf.(jobs.QuoteReportFields)
 		l, err := streamIDLabelsFor(quote.Benchmark.StreamID)
 		if err != nil {
