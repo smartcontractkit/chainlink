@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"maps"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -46,7 +47,7 @@ func RegisterPluginConfig(chainFamily string, factory InitFunction) {
 func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, error) {
 	_, exists := registeredFactories[chainFamily]
 	if !exists {
-		return PluginServices{}, fmt.Errorf("unsupported chain family: %s", chainFamily)
+		return PluginServices{}, fmt.Errorf("unsupported chain family: %s (available: %v)", chainFamily, maps.Keys(registeredFactories))
 	}
 
 	pluginServices := PluginServices{
