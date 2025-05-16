@@ -200,6 +200,22 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithT
 	return mcmsStateByChain
 }
 
+func (c CCIPOnChainState) SolanaMCMSStateByChain(e cldf.Environment) map[uint64]commonstate.MCMSWithTimelockStateSolana {
+	mcmsStateByChain := make(map[uint64]commonstate.MCMSWithTimelockStateSolana)
+	for chainSelector := range e.SolChains {
+		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		if err != nil {
+			return mcmsStateByChain
+		}
+		mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[chainSelector], addreses)
+		if err != nil {
+			return mcmsStateByChain
+		}
+		mcmsStateByChain[chainSelector] = *mcmState
+	}
+	return mcmsStateByChain
+}
+
 func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env cldf.Environment, selector uint64) (uint32, error) {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
