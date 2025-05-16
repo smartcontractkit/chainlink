@@ -155,7 +155,7 @@ func doApproveTokenTransfer(
 		return fmt.Errorf("failed to TokenApproveChecked: %w", err)
 	}
 
-	e.Logger.Infow("Running TokenApprovedChecked (owner ATA = '%s', approved account = '%s', token = '%s', amount = %d, decimals = %d)",
+	e.Logger.Infof("Running TokenApprovedChecked (owner ATA = '%s', approved account = '%s', token = '%s', amount = %d, decimals = %d)",
 		deployerATA.String(),
 		addressToApprove.String(),
 		tokenPubKey.String(),
@@ -164,7 +164,7 @@ func doApproveTokenTransfer(
 	)
 
 	if err = solChain.Confirm([]solana.Instruction{ix}); err != nil {
-		e.Logger.Errorw("Failed to confirm instructions for TokenApproveChecked", "chain", solChain.String(), "err", err)
+		e.Logger.Errorf("Failed to confirm instructions for TokenApproveChecked", "chain", solChain.String(), "err", err)
 		return err
 	}
 

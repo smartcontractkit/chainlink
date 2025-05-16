@@ -47,7 +47,7 @@ func ApproveTokensForRouter(e cldf.Environment, cfg ApproveTokensForRouterConfig
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	e.Logger.Infow("Approving Token(s) (approved account = '%s', token = '%s', amount = %d)",
+	e.Logger.Infof("Approving Token(s) (approved account = '%s', token = '%s', amount = %d)",
 		state.Router.Address().String(),
 		cfg.TokenAddress.String(),
 		cfg.Amount,
@@ -102,7 +102,7 @@ func ApproveTokens(e cldf.Environment, cfg ApproveTokensConfig) (cldf.ChangesetO
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	e.Logger.Infow("Approving Token(s) (approved account = '%s', token = '%s', amount = %d)",
+	e.Logger.Infof("Approving Token(s) (approved account = '%s', token = '%s', amount = %d)",
 		cfg.AddressToApprove.String(),
 		cfg.TokenAddress.String(),
 		cfg.Amount,
