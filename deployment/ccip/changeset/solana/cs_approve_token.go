@@ -165,7 +165,7 @@ func doApproveTokenTransfer(
 	)
 
 	if err = solChain.Confirm([]solana.Instruction{ix}); err != nil {
-		e.Logger.Errorf("Failed to confirm instructions TokenApproveChecked for chain %s err %w", solChain.String(), err)
+		e.Logger.Errorf("Failed to confirm instructions TokenApproveChecked for chain %s err %v", solChain.String(), err)
 		return err
 	}
 
