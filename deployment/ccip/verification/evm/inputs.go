@@ -22,8 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
 type rawContractInfo struct {
@@ -34,120 +35,120 @@ type rawContractInfo struct {
 
 // contracts maps type & version of a contract to its corresponding standard JSON input, name, and bytecode.
 // TODO: USDCTokenPool, HybridLockReleaseUSDCTokenPool, CapabilitiesRegistry, WETH9? (not urgent as these are infrequently deployed)
-var contracts map[deployment.ContractType]map[semver.Version]rawContractInfo = map[deployment.ContractType]map[semver.Version]rawContractInfo{
-	changeset.RMNRemote: {
+var contracts map[cldf.ContractType]map[semver.Version]rawContractInfo = map[cldf.ContractType]map[semver.Version]rawContractInfo{
+	shared.RMNRemote: {
 		deployment.Version1_6_0: rawContractInfo{
 			solidityStandardJSONInput: rmn_remote.SolidityStandardInput,
 			bytecode:                  rmn_remote.RMNRemoteBin,
 			name:                      "contracts/rmn/RMNRemote.sol:RMNRemote",
 		},
 	},
-	changeset.TokenPoolFactory: {
+	shared.TokenPoolFactory: {
 		deployment.Version1_5_1: rawContractInfo{
 			solidityStandardJSONInput: token_pool_factory.SolidityStandardInput,
 			bytecode:                  token_pool_factory.TokenPoolFactoryBin,
 			name:                      "contracts/tokenAdminRegistry/TokenPoolFactory/TokenPoolFactory.sol:TokenPoolFactory",
 		},
 	},
-	changeset.RegistryModule: {
+	shared.RegistryModule: {
 		deployment.Version1_6_0: rawContractInfo{
 			solidityStandardJSONInput: registry_module_owner_custom.SolidityStandardInput,
 			bytecode:                  registry_module_owner_custom.RegistryModuleOwnerCustomBin,
 			name:                      "contracts/tokenAdminRegistry/RegistryModuleOwnerCustom.sol:RegistryModuleOwnerCustom",
 		},
 	},
-	changeset.NonceManager: {
+	shared.NonceManager: {
 		deployment.Version1_6_0: rawContractInfo{
 			solidityStandardJSONInput: nonce_manager.SolidityStandardInput,
 			bytecode:                  nonce_manager.NonceManagerBin,
 			name:                      "contracts/NonceManager.sol:NonceManager",
 		},
 	},
-	changeset.FeeQuoter: {
+	shared.FeeQuoter: {
 		deployment.Version1_6_0: rawContractInfo{
 			solidityStandardJSONInput: fee_quoter.SolidityStandardInput,
 			bytecode:                  fee_quoter.FeeQuoterBin,
 			name:                      "contracts/FeeQuoter.sol:FeeQuoter",
 		},
 	},
-	changeset.CCIPHome: {
+	shared.CCIPHome: {
 		deployment.Version1_6_0: rawContractInfo{
 			solidityStandardJSONInput: ccip_home.SolidityStandardInput,
 			bytecode:                  ccip_home.CCIPHomeBin,
 			name:                      "contracts/capability/CCIPHome.sol:CCIPHome",
 		},
 	},
-	changeset.RMNHome: {
+	shared.RMNHome: {
 		deployment.Version1_6_0: rawContractInfo{
 			solidityStandardJSONInput: rmn_home.SolidityStandardInput,
 			bytecode:                  rmn_home.RMNHomeBin,
 			name:                      "contracts/rmn/RMNHome.sol:RMNHome",
 		},
 	},
-	changeset.OnRamp: {
+	shared.OnRamp: {
 		deployment.Version1_6_0: rawContractInfo{
 			solidityStandardJSONInput: onramp.SolidityStandardInput,
 			bytecode:                  onramp.OnRampBin,
 			name:                      "contracts/onRamp/OnRamp.sol:OnRamp",
 		},
 	},
-	changeset.OffRamp: {
+	shared.OffRamp: {
 		deployment.Version1_6_0: rawContractInfo{
 			solidityStandardJSONInput: offramp.SolidityStandardInput,
 			bytecode:                  offramp.OffRampBin,
 			name:                      "contracts/offRamp/OffRamp.sol:OffRamp",
 		},
 	},
-	changeset.FactoryBurnMintERC20Token: {
+	shared.FactoryBurnMintERC20Token: {
 		deployment.Version1_5_1: rawContractInfo{
 			solidityStandardJSONInput: factory_burn_mint_erc20.SolidityStandardInput,
 			bytecode:                  factory_burn_mint_erc20.FactoryBurnMintERC20Bin,
 			name:                      "contracts/tokenAdminRegistry/TokenPoolFactory/FactoryBurnMintERC20.sol:FactoryBurnMintERC20",
 		},
 	},
-	changeset.BurnMintTokenPool: {
+	shared.BurnMintTokenPool: {
 		deployment.Version1_5_1: rawContractInfo{
 			solidityStandardJSONInput: burn_mint_token_pool.SolidityStandardInput,
 			bytecode:                  burn_mint_token_pool.BurnMintTokenPoolBin,
 			name:                      "contracts/pools/BurnMintTokenPool.sol:BurnMintTokenPool",
 		},
 	},
-	changeset.BurnWithFromMintTokenPool: {
+	shared.BurnWithFromMintTokenPool: {
 		deployment.Version1_5_1: rawContractInfo{
 			solidityStandardJSONInput: burn_with_from_mint_token_pool.SolidityStandardInput,
 			bytecode:                  burn_with_from_mint_token_pool.BurnWithFromMintTokenPoolBin,
 			name:                      "contracts/pools/BurnWithFromMintTokenPool.sol:BurnWithFromMintTokenPool",
 		},
 	},
-	changeset.BurnFromMintTokenPool: {
+	shared.BurnFromMintTokenPool: {
 		deployment.Version1_5_1: rawContractInfo{
 			solidityStandardJSONInput: burn_from_mint_token_pool.SolidityStandardInput,
 			bytecode:                  burn_from_mint_token_pool.BurnFromMintTokenPoolBin,
 			name:                      "contracts/pools/BurnFromMintTokenPool.sol:BurnFromMintTokenPool",
 		},
 	},
-	changeset.LockReleaseTokenPool: {
+	shared.LockReleaseTokenPool: {
 		deployment.Version1_5_1: rawContractInfo{
 			solidityStandardJSONInput: lock_release_token_pool.SolidityStandardInput,
 			bytecode:                  lock_release_token_pool.LockReleaseTokenPoolBin,
 			name:                      "contracts/pools/LockReleaseTokenPool.sol:LockReleaseTokenPool",
 		},
 	},
-	changeset.TokenAdminRegistry: {
+	shared.TokenAdminRegistry: {
 		deployment.Version1_5_0: rawContractInfo{
 			solidityStandardJSONInput: token_admin_registry.SolidityStandardInput,
 			bytecode:                  token_admin_registry.TokenAdminRegistryBin,
 			name:                      "contracts/tokenAdminRegistry/TokenAdminRegistry.sol:TokenAdminRegistry",
 		},
 	},
-	changeset.Router: {
+	shared.Router: {
 		deployment.Version1_2_0: rawContractInfo{
 			solidityStandardJSONInput: router.SolidityStandardInput,
 			bytecode:                  router.RouterBin,
 			name:                      "contracts/Router.sol:Router",
 		},
 	},
-	changeset.ARMProxy: {
+	shared.ARMProxy: {
 		deployment.Version1_0_0: rawContractInfo{
 			solidityStandardJSONInput: rmn_proxy_contract.SolidityStandardInput,
 			bytecode:                  rmn_proxy_contract.RMNProxyBin,
@@ -157,7 +158,7 @@ var contracts map[deployment.ContractType]map[semver.Version]rawContractInfo = m
 }
 
 // loadSolidityContractMetadata loads the metadata for a contract type and version, including the standard JSON input, bytecode, and name.
-func loadSolidityContractMetadata(contractType deployment.ContractType, version semver.Version) (solidityContractMetadata, error) {
+func loadSolidityContractMetadata(contractType cldf.ContractType, version semver.Version) (solidityContractMetadata, error) {
 	contract, ok := contracts[contractType]
 	if !ok {
 		return solidityContractMetadata{}, fmt.Errorf("no contract found for type %s", contractType)
