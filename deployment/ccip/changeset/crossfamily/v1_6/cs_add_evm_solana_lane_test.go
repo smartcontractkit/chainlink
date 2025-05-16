@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/require"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -39,6 +40,12 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			if t.Name() == "TestAddEVMSolanaLaneBidirectional/MCMS_enabled" {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-758")
+			}
+			if t.Name() == "TestAddEVMSolanaLaneBidirectional/MCMS_disabled" {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-759")
+			}
 			t.Parallel()
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
