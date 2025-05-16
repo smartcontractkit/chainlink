@@ -11,7 +11,9 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -57,7 +59,7 @@ func TestOnRampView(t *testing.T) {
 		[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{},
 		[]evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{},
 	)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 	v, err := GenerateOnRampView(c)
 	require.NoError(t, err)

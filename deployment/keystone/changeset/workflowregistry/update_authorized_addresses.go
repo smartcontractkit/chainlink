@@ -8,13 +8,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-var _ deployment.ChangeSet[*UpdateAuthorizedAddressesRequest] = UpdateAuthorizedAddresses
+var _ cldf.ChangeSet[*UpdateAuthorizedAddressesRequest] = UpdateAuthorizedAddresses
 
 type UpdateAuthorizedAddressesRequest struct {
 	RegistryChainSel uint64
@@ -33,7 +34,7 @@ func (r *UpdateAuthorizedAddressesRequest) Validate() error {
 	return nil
 }
 
-func getWorkflowRegistry(env deployment.Environment, chainSel uint64) (*workflow_registry.WorkflowRegistry, error) {
+func getWorkflowRegistry(env cldf.Environment, chainSel uint64) (*workflow_registry.WorkflowRegistry, error) {
 	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
@@ -51,9 +52,9 @@ func getWorkflowRegistry(env deployment.Environment, chainSel uint64) (*workflow
 }
 
 // UpdateAuthorizedAddresses updates the list of DONs that workflows can be sent to.
-func UpdateAuthorizedAddresses(env deployment.Environment, req *UpdateAuthorizedAddressesRequest) (deployment.ChangesetOutput, error) {
+func UpdateAuthorizedAddresses(env cldf.Environment, req *UpdateAuthorizedAddressesRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
@@ -61,18 +62,18 @@ func UpdateAuthorizedAddresses(env deployment.Environment, req *UpdateAuthorized
 		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract sets: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 
 	cs := resp.ContractSets[req.RegistryChainSel]
 	if cs.WorkflowRegistry == nil {
-		return deployment.ChangesetOutput{}, errors.New("could not find workflow registry")
+		return cldf.ChangesetOutput{}, errors.New("could not find workflow registry")
 	}
 	registry := cs.WorkflowRegistry
 
 	chain, ok := env.Chains[req.RegistryChainSel]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
+		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
 
 	var addr []common.Address
@@ -99,7 +100,7 @@ func UpdateAuthorizedAddresses(env deployment.Environment, req *UpdateAuthorized
 	return s.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		tx, err := registry.UpdateAuthorizedAddresses(opts, addr, req.Allowed)
 		if err != nil {
-			err = deployment.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
+			err = cldf.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
 		}
 		return tx, err
 	})

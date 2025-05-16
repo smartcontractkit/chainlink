@@ -14,7 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -135,7 +136,7 @@ func toJSON[T any](t *testing.T, value T) string {
 }
 
 func deployMCMEvm(
-	t *testing.T, chain deployment.Chain, config *mcmstypes.Config,
+	t *testing.T, chain cldf.Chain, config *mcmstypes.Config,
 ) *bindings.ManyChainMultiSig {
 	t.Helper()
 
@@ -155,7 +156,7 @@ func deployMCMEvm(
 }
 
 func deployTimelockEvm(
-	t *testing.T, chain deployment.Chain, minDelay *big.Int, admin common.Address,
+	t *testing.T, chain cldf.Chain, minDelay *big.Int, admin common.Address,
 	proposers, executors, cancellers, bypassers []common.Address,
 ) *bindings.RBACTimelock {
 	t.Helper()
@@ -169,7 +170,7 @@ func deployTimelockEvm(
 }
 
 func deployCallProxyEvm(
-	t *testing.T, chain deployment.Chain, target common.Address,
+	t *testing.T, chain cldf.Chain, target common.Address,
 ) *bindings.CallProxy {
 	t.Helper()
 	_, tx, contract, err := bindings.DeployCallProxy(chain.DeployerKey, chain.Client, target)

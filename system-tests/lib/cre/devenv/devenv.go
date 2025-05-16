@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
@@ -28,7 +28,7 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		return nil, errors.Wrap(err, "input validation failed")
 	}
 
-	envs := make([]*deployment.Environment, len(input.NodeSetOutput))
+	envs := make([]*cldf.Environment, len(input.NodeSetOutput))
 	dons := make([]*devenv.DON, len(input.NodeSetOutput))
 
 	var allNodesInfo []devenv.NodeInfo
@@ -45,7 +45,7 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		}
 
 		chains = append(chains, devenv.ChainConfig{
-			ChainID:   cID,
+			ChainID:   strconv.FormatUint(cID, 10),
 			ChainName: sethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(bcOut.Family),
 			WSRPCs: []devenv.CribRPCs{{
@@ -143,7 +143,7 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 
 	// we assume that all DONs run on the same chain and that there's only one chain
 	output := &types.FullCLDEnvironmentOutput{
-		Environment: &deployment.Environment{
+		Environment: &cldf.Environment{
 			Name:              envs[0].Name,
 			Logger:            envs[0].Logger,
 			ExistingAddresses: input.ExistingAddresses,

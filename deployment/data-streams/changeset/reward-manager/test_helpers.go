@@ -5,52 +5,52 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 )
 
-// DeployRewardManagerAndLink deploys Link Token and deploys Verifier
+// RewardManagerDeploy deploys RewardManager
 // and returns the updated environment and the addresses of RewardManager.
-func DeployRewardManagerAndLink(
+func RewardManagerDeploy(
 	t *testing.T,
-	e deployment.Environment,
-) (env deployment.Environment, rewardManagerAddr common.Address, linkState *commonState.LinkTokenState) {
+	cfg testutil.MemoryEnv,
+) (cldf.Environment, common.Address) {
 	t.Helper()
 
 	chainSelector := testutil.TestChain.Selector
 
-	// 1) Deploy Link
-	env, err := commonChangesets.Apply(t, e, nil,
-		commonChangesets.Configure(
-			cldf.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
-			[]uint64{testutil.TestChain.Selector},
-		),
-	)
-
-	require.NoError(t, err)
-
-	addresses, err := env.ExistingAddresses.AddressesForChain(testutil.TestChain.Selector)
-	require.NoError(t, err)
-
-	chain := env.Chains[testutil.TestChain.Selector]
-	linkState, err = commonState.MaybeLoadLinkTokenChainState(chain, addresses)
-	require.NoError(t, err)
+	var shouldTransfer bool
+	var mcmsProposalCfg *proposalutils.TimelockConfig
+	if len(cfg.Timelocks) > 0 {
+		shouldTransfer = true
+		mcmsProposalCfg = &proposalutils.TimelockConfig{
+			MinDelay: 0,
+		}
+	}
 
 	// 2) Deploy RewardManager
 	deployRewardManagerCfg := DeployRewardManagerConfig{
+		Ownership: dsTypes.OwnershipSettings{
+			ShouldTransfer:     shouldTransfer,
+			MCMSProposalConfig: mcmsProposalCfg,
+		},
 		ChainsToDeploy: map[uint64]DeployRewardManager{
-			testutil.TestChain.Selector: {LinkTokenAddress: linkState.LinkToken.Address()},
+			testutil.TestChain.Selector: {LinkTokenAddress: cfg.LinkTokenState.LinkToken.Address()},
 		},
 	}
 
-	env, err = commonChangesets.Apply(t, env, nil,
+	env, err := commonChangesets.Apply(t, cfg.Environment, nil,
 		commonChangesets.Configure(
 			DeployRewardManagerChangeset,
 			deployRewardManagerCfg,
@@ -59,10 +59,9 @@ func DeployRewardManagerAndLink(
 	require.NoError(t, err, "deploying RewardManager should not fail")
 
 	// Get the RewardManager address
-	rewardManagerAddrHex, err := deployment.SearchAddressBook(env.ExistingAddresses, chainSelector, dsTypes.RewardManager)
-	require.NoError(t, err, "unable to find RewardManager address in address book")
-	rewardManagerAddr = common.HexToAddress(rewardManagerAddrHex)
-	require.NotEqual(t, common.Address{}, rewardManagerAddr, "RewardManager should not be zero address")
+	record, err := env.DataStore.Addresses().Get(ds.NewAddressRefKey(chainSelector, ds.ContractType(dsTypes.RewardManager), &deployment.Version0_5_0, ""))
+	require.NoError(t, err)
+	rewardManagerAddr := common.HexToAddress(record.Address)
 
-	return env, rewardManagerAddr, linkState
+	return env, rewardManagerAddr
 }

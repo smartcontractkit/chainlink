@@ -7,12 +7,14 @@ import (
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 )
 
 type TokenPoolView struct {
 	PoolType             string                                     `json:"poolType,omitempty"`
+	PoolMetadata         string                                     `json:"poolMetadata,omitempty"`
 	TokenPoolChainConfig map[uint64]map[string]TokenPoolChainConfig `json:"chainConfig,omitempty"`
 	TokenPoolState       map[string]TokenPoolState                  `json:"state,omitempty"`
 }
@@ -52,9 +54,10 @@ type TokenPoolRateLimitTokenBucket struct {
 	Rate        uint64 `json:"rate"`
 }
 
-func GenerateTokenPoolView(chain deployment.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey, poolType string) (TokenPoolView, error) {
+func GenerateTokenPoolView(chain cldf.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey, poolType string, poolMetadata string) (TokenPoolView, error) {
 	view := TokenPoolView{}
 	view.PoolType = poolType
+	view.PoolMetadata = poolMetadata
 	view.TokenPoolState = make(map[string]TokenPoolState)
 	view.TokenPoolChainConfig = make(map[uint64]map[string]TokenPoolChainConfig)
 	for _, remote := range remoteChains {

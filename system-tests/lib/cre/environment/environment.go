@@ -21,7 +21,9 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
@@ -63,7 +65,7 @@ const (
 
 type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *keystonetypes.WorkflowRegistryOutput
-	CldEnvironment                      *deployment.Environment
+	CldEnvironment                      *cldf.Environment
 	BlockchainOutput                    []*BlockchainOutput
 	DonTopology                         *keystonetypes.DonTopology
 	NodeOutput                          []*keystonetypes.WrappedNodeOutput
@@ -132,7 +134,7 @@ func SetupTestEnvironment(
 	chainsConfigs := []devenv.ChainConfig{}
 	for _, bcOut := range blockchainsOutput {
 		chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
-			ChainID:   bcOut.SethClient.Cfg.Network.ChainID,
+			ChainID:   strconv.FormatUint(bcOut.SethClient.Cfg.Network.ChainID, 10),
 			ChainName: bcOut.SethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
@@ -147,15 +149,15 @@ func SetupTestEnvironment(
 		})
 	}
 
-	allChains, allChainsErr := devenv.NewChains(singeFileLogger, chainsConfigs)
+	allChains, _, allChainsErr := devenv.NewChains(singeFileLogger, chainsConfigs)
 	if allChainsErr != nil {
 		return nil, pkgerrors.Wrap(allChainsErr, "failed to create chains")
 	}
 
-	allChainsCLDEnvironment := &deployment.Environment{
+	allChainsCLDEnvironment := &cldf.Environment{
 		Logger:            singeFileLogger,
 		Chains:            allChains,
-		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		GetContext: func() context.Context {
 			return ctx
 		},

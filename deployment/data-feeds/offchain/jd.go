@@ -9,7 +9,9 @@ import (
 	nodeapiv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	jdtypesv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
@@ -60,7 +62,7 @@ func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
 	}
 }
 
-func fetchNodesFromJD(ctx context.Context, env deployment.Environment, nodeFilters *NodesFilter) (nodes []*nodeapiv1.Node, err error) {
+func fetchNodesFromJD(ctx context.Context, env cldf.Environment, nodeFilters *NodesFilter) (nodes []*nodeapiv1.Node, err error) {
 	filter := nodeFilters.filter()
 
 	resp, err := env.Offchain.ListNodes(ctx, &nodeapiv1.ListNodesRequest{Filter: filter})
@@ -74,14 +76,14 @@ func fetchNodesFromJD(ctx context.Context, env deployment.Environment, nodeFilte
 	return resp.Nodes, nil
 }
 
-func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpec string, workflowName *string, nodeFilters *NodesFilter) (deployment.ChangesetOutput, error) {
-	out := deployment.ChangesetOutput{
-		Jobs: []deployment.ProposedJob{},
+func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec string, workflowName *string, nodeFilters *NodesFilter) (cldf.ChangesetOutput, error) {
+	out := cldf.ChangesetOutput{
+		Jobs: []cldf.ProposedJob{},
 	}
 	// Fetch nodes
 	nodes, err := fetchNodesFromJD(ctx, env, nodeFilters)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get nodes: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get nodes: %w", err)
 	}
 	// Propose jobs
 	jobLabels := []*ptypes.Label{
@@ -98,17 +100,18 @@ func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpe
 	}
 
 	for _, node := range nodes {
-		env.Logger.Debugf("Proposing jof for node %s", node.Name)
+		env.Logger.Debugf("Proposing job for node %s", node.Name)
 		resp, err := env.Offchain.ProposeJob(ctx, &jobv1.ProposeJobRequest{
 			NodeId: node.Id,
 			Spec:   workflowJobSpec,
 			Labels: jobLabels,
 		})
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose job: %w", err)
+			env.Logger.Errorf("failed to propose job: %s", err)
+			continue
 		}
 		env.Logger.Debugf("Job proposed %s", resp.Proposal.JobId)
-		out.Jobs = append(out.Jobs, deployment.ProposedJob{
+		out.Jobs = append(out.Jobs, cldf.ProposedJob{
 			JobID: resp.Proposal.JobId,
 			Node:  node.Id,
 			Spec:  resp.Proposal.Spec,
@@ -117,7 +120,7 @@ func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpe
 	return out, nil
 }
 
-func DeleteJobs(ctx context.Context, env deployment.Environment, jobIDs []string, workflowName string) {
+func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, workflowName string) {
 	if len(jobIDs) == 0 {
 		env.Logger.Debugf("jobIDs not present. Listing jobs to delete via workflow name")
 		jobSelectors := []*jdtypesv1.Selector{

@@ -14,16 +14,18 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 )
 
-var _ deployment.ChangeSet[DeployLanesConfig] = DeployLanesChangeset
+var _ cldf.ChangeSet[DeployLanesConfig] = DeployLanesChangeset
 
 type DeployLanesConfig struct {
 	Configs []DeployLaneConfig
 }
 
-func (c *DeployLanesConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+func (c *DeployLanesConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	for _, cfg := range c.Configs {
 		if err := cfg.Validate(e, state); err != nil {
 			return err
@@ -52,11 +54,11 @@ type DeployLaneConfig struct {
 	GasPriceUpdates    []price_registry_1_2_0.InternalGasPriceUpdate
 }
 
-func (c *DeployLaneConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
-	if err := deployment.IsValidChainSelector(c.SourceChainSelector); err != nil {
+func (c *DeployLaneConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
+	if err := cldf.IsValidChainSelector(c.SourceChainSelector); err != nil {
 		return err
 	}
-	if err := deployment.IsValidChainSelector(c.DestinationChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(c.DestinationChainSelector); err != nil {
 		return err
 	}
 	sourceChain, exists := e.Chains[c.SourceChainSelector]
@@ -86,7 +88,7 @@ func (c *DeployLaneConfig) Validate(e deployment.Environment, state changeset.CC
 	return nil
 }
 
-func (c *DeployLaneConfig) populateAddresses(state changeset.CCIPOnChainState) error {
+func (c *DeployLaneConfig) populateAddresses(state stateview.CCIPOnChainState) error {
 	sourceChainState := state.Chains[c.SourceChainSelector]
 	srcLink, err := sourceChainState.LinkTokenAddress()
 	if err != nil {
@@ -101,34 +103,34 @@ func (c *DeployLaneConfig) populateAddresses(state changeset.CCIPOnChainState) e
 	return nil
 }
 
-func DeployLanesChangeset(env deployment.Environment, c DeployLanesConfig) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
+func DeployLanesChangeset(env cldf.Environment, c DeployLanesConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
 	}
 	if err := c.Validate(env, state); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	// populate addresses from the state
 	for i := range c.Configs {
 		if err := c.Configs[i].populateAddresses(state); err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 	for _, cfg := range c.Configs {
 		if err := deployLane(env, state, newAddresses, cfg); err != nil {
-			return deployment.ChangesetOutput{
+			return cldf.ChangesetOutput{
 				AddressBook: newAddresses,
 			}, err
 		}
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
 }
 
-func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab deployment.AddressBook, cfg DeployLaneConfig) error {
+func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.AddressBook, cfg DeployLaneConfig) error {
 	// update prices on the source price registry
 	sourceChainState := state.Chains[cfg.SourceChainSelector]
 	destChainState := state.Chains[cfg.DestinationChainSelector]
@@ -144,7 +146,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 	}
 	_, err = sourceChain.Confirm(tx)
 	if err != nil {
-		return fmt.Errorf("failed to confirm price update tx for chain %s: %w", sourceChain.String(), deployment.MaybeDataErr(err))
+		return fmt.Errorf("failed to confirm price update tx for chain %s: %w", sourceChain.String(), cldf.MaybeDataErr(err))
 	}
 	// ================================================================
 	// │                        Deploy Lane                           │
@@ -153,7 +155,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 	onRamp, onRampExists := sourceChainState.EVM2EVMOnRamp[cfg.DestinationChainSelector]
 	if !onRampExists {
 		onRampC, err := cldf.DeployContract(e.Logger, sourceChain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp] {
 				onRampAddress, tx2, onRampC, err2 := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
 					sourceChain.DeployerKey,
 					sourceChain.Client,
@@ -166,7 +168,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 				)
 				return cldf.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp]{
 					Address: onRampAddress, Contract: onRampC, Tx: tx2,
-					Tv: deployment.NewTypeAndVersion(changeset.OnRamp, deployment.Version1_5_0), Err: err2,
+					Tv: cldf.NewTypeAndVersion(shared.OnRamp, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -184,7 +186,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 	commitStore, commitStoreExists := destChainState.CommitStore[cfg.SourceChainSelector]
 	if !commitStoreExists {
 		commitStoreC, err := cldf.DeployContract(e.Logger, destChain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*commit_store.CommitStore] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*commit_store.CommitStore] {
 				commitStoreAddress, tx2, commitStoreC, err2 := commit_store.DeployCommitStore(
 					destChain.DeployerKey,
 					destChain.Client,
@@ -197,7 +199,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 				)
 				return cldf.ContractDeploy[*commit_store.CommitStore]{
 					Address: commitStoreAddress, Contract: commitStoreC, Tx: tx2,
-					Tv: deployment.NewTypeAndVersion(changeset.CommitStore, deployment.Version1_5_0), Err: err2,
+					Tv: cldf.NewTypeAndVersion(shared.CommitStore, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -215,7 +217,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 	offRamp, offRampExists := destChainState.EVM2EVMOffRamp[cfg.SourceChainSelector]
 	if !offRampExists {
 		offRampC, err := cldf.DeployContract(e.Logger, destChain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
 				offRampAddress, tx2, offRampC, err2 := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
 					destChain.DeployerKey,
 					destChain.Client,
@@ -232,7 +234,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 				)
 				return cldf.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp]{
 					Address: offRampAddress, Contract: offRampC, Tx: tx2,
-					Tv: deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_5_0), Err: err2,
+					Tv: cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -250,11 +252,11 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 	tx, err = sourceChainState.Router.ApplyRampUpdates(sourceChain.DeployerKey,
 		[]router.RouterOnRamp{{DestChainSelector: destChain.Selector, OnRamp: onRamp.Address()}}, nil, nil)
 	if err != nil {
-		return fmt.Errorf("failed to apply router updates for source chain %s: %w", sourceChain.String(), deployment.MaybeDataErr(err))
+		return fmt.Errorf("failed to apply router updates for source chain %s: %w", sourceChain.String(), cldf.MaybeDataErr(err))
 	}
 	_, err = sourceChain.Confirm(tx)
 	if err != nil {
-		return fmt.Errorf("failed to confirm router updates tx %s for source chain %s: %w", tx.Hash().String(), sourceChain.String(), deployment.MaybeDataErr(err))
+		return fmt.Errorf("failed to confirm router updates tx %s for source chain %s: %w", tx.Hash().String(), sourceChain.String(), cldf.MaybeDataErr(err))
 	}
 
 	tx, err = destChainState.Router.ApplyRampUpdates(destChain.DeployerKey,
@@ -263,11 +265,11 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 		[]router.RouterOffRamp{{SourceChainSelector: sourceChain.Selector, OffRamp: offRamp.Address()}},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to apply router updates for destination chain %s: %w", destChain.String(), deployment.MaybeDataErr(err))
+		return fmt.Errorf("failed to apply router updates for destination chain %s: %w", destChain.String(), cldf.MaybeDataErr(err))
 	}
 	_, err = destChain.Confirm(tx)
 	if err != nil {
-		return fmt.Errorf("failed to confirm router updates tx %s for destination chain %s: %w", tx.Hash().String(), destChain.String(), deployment.MaybeDataErr(err))
+		return fmt.Errorf("failed to confirm router updates tx %s for destination chain %s: %w", tx.Hash().String(), destChain.String(), cldf.MaybeDataErr(err))
 	}
 
 	// price registry updates
@@ -277,16 +279,16 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 		[]common.Address{},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to apply price registry updates for destination chain %s: %w", destChain.String(), deployment.MaybeDataErr(err))
+		return fmt.Errorf("failed to apply price registry updates for destination chain %s: %w", destChain.String(), cldf.MaybeDataErr(err))
 	}
 	_, err = destChain.Confirm(tx)
 	if err != nil {
-		return fmt.Errorf("failed to confirm price registry updates tx %s for destination chain %s: %w", tx.Hash().String(), destChain.String(), deployment.MaybeDataErr(err))
+		return fmt.Errorf("failed to confirm price registry updates tx %s for destination chain %s: %w", tx.Hash().String(), destChain.String(), cldf.MaybeDataErr(err))
 	}
 	return nil
 }
 
-func arePrerequisitesMet(chainState changeset.CCIPChainState, chain deployment.Chain) error {
+func arePrerequisitesMet(chainState evm.CCIPChainState, chain cldf.Chain) error {
 	if chainState.Router == nil {
 		return fmt.Errorf("router not found for chain %s", chain.String())
 	}

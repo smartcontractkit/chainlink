@@ -57,6 +57,7 @@ func (j *JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeReq
 }
 
 // UpdateNode only updates the labels of the node.
+// WARNING: The provided input will *overwrite* the existing fields, it won't extend them.
 // TODO: Updating the PublicKey is not supported in this implementation.
 func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
 	node, err := j.nodeStore.get(in.Id)

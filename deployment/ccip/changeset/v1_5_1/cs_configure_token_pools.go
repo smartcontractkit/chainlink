@@ -11,9 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/mcms"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -32,7 +38,10 @@ import (
 //  1. it adds chain support with the desired rate limits
 //  2. it adds the desired remote pool addresses to the token pool on the chain
 //  3. if there used to be an existing token pool on tokenadmin_registry, it adds the remote pool addresses of that token pool to ensure 0 downtime
-var _ deployment.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
+var (
+	_                           cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
+	ConfigureMultipleTokenPools                                                   = cldf.CreateChangeSet(configureMultiplePoolLogic, configureMultiplePoolPreconditionValidation)
+)
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
 type RateLimiterConfig struct {
@@ -80,16 +89,25 @@ type SolChainUpdate struct {
 	// TokenAddress is the address of the token on the Solana chain.
 	TokenAddress string
 	// Type is the type of the token pool.
-	Type deployment.ContractType
+	Type cldf.ContractType
+	// Metadata is an identifier for which instance of the token pool this is.
+	// This is used to differentiate between multiple token pools on the same chain.
+	// e.g. "CLL" for the CLL token pool, "Partner1" for the partner token pool, etc.
+	Metadata string
 }
 
-func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state changeset.SolCCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
+func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
+	metadata := shared.CLLMetadata
+	if c.Metadata != "" {
+		metadata = c.Metadata
+	}
+
 	var tokenPoolProgram solana.PublicKey
 	switch c.Type {
-	case changeset.BurnMintTokenPool:
-		tokenPoolProgram = state.BurnMintTokenPool
-	case changeset.LockReleaseTokenPool:
-		tokenPoolProgram = state.LockReleaseTokenPool
+	case shared.BurnMintTokenPool:
+		tokenPoolProgram = state.BurnMintTokenPools[metadata]
+	case shared.LockReleaseTokenPool:
+		tokenPoolProgram = state.LockReleaseTokenPools[metadata]
 	default:
 		err = fmt.Errorf("unknown solana token pool type %s", c.Type)
 		return
@@ -109,7 +127,7 @@ func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state changeset.SolCCIPChainS
 	return
 }
 
-func (c SolChainUpdate) Validate(state changeset.SolCCIPChainState) error {
+func (c SolChainUpdate) Validate(state solanastateview.CCIPChainState) error {
 	if err := validateRateLimiterConfig(c.RateLimiterConfig.Inbound); err != nil {
 		return fmt.Errorf("validation of inbound rate limiter config for solana chain failed: %w", err)
 	}
@@ -131,23 +149,23 @@ type TokenPoolConfig struct {
 	// SolChainUpdates defines the Solana chains and corresponding rate limits that should be defined on the token pool.
 	SolChainUpdates map[uint64]SolChainUpdate
 	// Type is the type of the token pool.
-	Type deployment.ContractType
+	Type cldf.ContractType
 	// Version is the version of the token pool.
 	Version semver.Version
 	// OverrideTokenSymbol is the token symbol to use to override against main symbol (ex: override to clCCIP-LnM when the main token symbol is CCIP-LnM)
 	// WARNING: This should only be used in exceptional cases where the token symbol on a particular chain differs from the main tokenSymbol
-	OverrideTokenSymbol changeset.TokenSymbol
+	OverrideTokenSymbol shared.TokenSymbol
 }
 
-func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, ccipState changeset.CCIPOnChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
+func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf.Chain, ccipState stateview.CCIPOnChainState, useMcms bool, tokenSymbol shared.TokenSymbol) error {
 	chainState := ccipState.Chains[chain.Selector]
 	// Ensure that the inputted type is known
-	if _, ok := changeset.TokenPoolTypes[c.Type]; !ok {
+	if _, ok := shared.TokenPoolTypes[c.Type]; !ok {
 		return fmt.Errorf("%s is not a known token pool type", c.Type)
 	}
 
 	// Ensure that the inputted version is known
-	if _, ok := changeset.TokenPoolVersions[c.Version]; !ok {
+	if _, ok := shared.TokenPoolVersions[c.Version]; !ok {
 		return fmt.Errorf("%s is not a known token pool version", c.Version)
 	}
 
@@ -156,7 +174,7 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, c
 	}
 
 	// Ensure that a pool with given symbol, type and version is known to the environment
-	tokenPoolAddress, ok := changeset.GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, tokenSymbol, c.Type, c.Version)
+	tokenPoolAddress, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, tokenSymbol, c.Type, c.Version)
 	if !ok {
 		return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), tokenSymbol, c.Type, c.Version)
 	}
@@ -196,19 +214,19 @@ type ConfigureTokenPoolContractsConfig struct {
 	// PoolUpdates defines the changes that we want to make to the token pool on a chain
 	PoolUpdates map[uint64]TokenPoolConfig
 	// Symbol is the symbol of the token of interest.
-	TokenSymbol changeset.TokenSymbol
+	TokenSymbol shared.TokenSymbol
 }
 
-func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) error {
+func (c ConfigureTokenPoolContractsConfig) Validate(env cldf.Environment) error {
 	if c.TokenSymbol == "" {
 		return errors.New("token symbol must be defined")
 	}
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for chainSelector, poolUpdate := range c.PoolUpdates {
-		err := deployment.IsValidChainSelector(chainSelector)
+		err := cldf.IsValidChainSelector(chainSelector)
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
@@ -255,27 +273,27 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) 
 // ConfigureTokenPoolContractsChangeset configures pools for a given token across multiple chains.
 // The outputted MCMS proposal will update chain configurations on each pool, encompassing new chain additions and rate limit changes.
 // Removing chain support is not in scope for this changeset.
-func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c ConfigureTokenPoolContractsConfig) (deployment.ChangesetOutput, error) {
+func ConfigureTokenPoolContractsChangeset(env cldf.Environment, c ConfigureTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid ConfigureTokenPoolContractsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid ConfigureTokenPoolContractsConfig: %w", err)
 	}
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
 
 	for chainSelector := range c.PoolUpdates {
 		chain := env.Chains[chainSelector]
 
 		opts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
 		}
 		err = configureTokenPool(env.GetContext(), opts, env.Chains, state, c, chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to make operations to configure %s token pool on %s: %w", c.TokenSymbol, chain.String(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to make operations to configure %s token pool on %s: %w", c.TokenSymbol, chain.String(), err)
 		}
 	}
 
@@ -296,8 +314,8 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 func configureTokenPool(
 	ctx context.Context,
 	opts *bind.TransactOpts,
-	chains map[uint64]deployment.Chain,
-	state changeset.CCIPOnChainState,
+	chains map[uint64]cldf.Chain,
+	state stateview.CCIPOnChainState,
 	config ConfigureTokenPoolContractsConfig,
 	chainSelector uint64,
 ) error {
@@ -449,13 +467,13 @@ func configureTokenPool(
 // getTokenStateFromPool fetches the token config from the registry given the pool address
 func GetTokenStateFromPoolEVM(
 	ctx context.Context,
-	symbol changeset.TokenSymbol,
-	poolType deployment.ContractType,
+	symbol shared.TokenSymbol,
+	poolType cldf.ContractType,
 	version semver.Version,
-	chain deployment.Chain,
-	state changeset.CCIPChainState,
+	chain cldf.Chain,
+	state evm.CCIPChainState,
 ) (*token_pool.TokenPool, common.Address, token_admin_registry.TokenAdminRegistryTokenConfig, error) {
-	tokenPoolAddress, ok := changeset.GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, symbol, poolType, version)
+	tokenPoolAddress, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, symbol, poolType, version)
 	if !ok {
 		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), symbol, poolType, version)
 	}
@@ -473,4 +491,56 @@ func GetTokenStateFromPoolEVM(
 		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to get config of token with address %s from registry on %s: %w", tokenAddress, chain.String(), err)
 	}
 	return tokenPool, tokenAddress, tokenConfig, nil
+}
+
+type ConfigureMultipleTokenPoolsConfig struct {
+	Tokens []*ConfigureTokenPoolContractsConfig
+	MCMS   *proposalutils.TimelockConfig // this will override the MCMS in the token pool configs
+}
+
+func configureMultiplePoolPreconditionValidation(env cldf.Environment, c ConfigureMultipleTokenPoolsConfig) error {
+	if len(c.Tokens) == 0 {
+		return errors.New("no tokens to configure")
+	}
+	for _, token := range c.Tokens {
+		if c.MCMS != nil {
+			token.MCMS = c.MCMS
+		}
+		if err := token.Validate(env); err != nil {
+			return fmt.Errorf("invalid token configuration: %w", err)
+		}
+	}
+	return nil
+}
+
+func configureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPoolsConfig) (cldf.ChangesetOutput, error) {
+	finalOutput := cldf.ChangesetOutput{}
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	for _, token := range c.Tokens {
+		if c.MCMS != nil {
+			token.MCMS = c.MCMS
+		}
+		output, err := ConfigureTokenPoolContractsChangeset(env, *token)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool: %w", err)
+		}
+		err = cldf.MergeChangesetOutput(env, &finalOutput, output)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output: %w", err)
+		}
+	}
+	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
+	if len(finalOutput.MCMSTimelockProposals) > 1 {
+		aggregatedProposals, err := proposalutils.AggregateProposals(
+			env, state.EVMMCMSStateByChain(), nil, finalOutput.MCMSTimelockProposals,
+			"Add Tokens E2E", c.MCMS)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+		}
+		finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*aggregatedProposals}
+	}
+	return finalOutput, nil
 }

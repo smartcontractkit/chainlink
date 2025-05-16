@@ -25,9 +25,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
@@ -279,6 +279,18 @@ func (lsn *listenerV2) MaybeSubtractReservedEth(ctx context.Context, startBalanc
 	return big.NewInt(0), nil
 }
 
+// processRequestsPerSubBatchHelper processes requests for a given subscription using the batch coordinator for fulfillments.
+// The requests are first split into chunks so that multiple batch fulfillments can be processed in parallel.
+// Requests that are already fulfilled are then removed from the chunk.
+// Unfulfilled requests that pass simulation, and if the subscription still has enough remaining balance, are added to the current batch,
+// creating a new one if the current one exceeds the max gas limit.
+// The batch is then processed using the sending key of the first request in the batch, which is picked using round-robin.
+// If the subscription is out of balance, the rest of the chunks are skipped.
+//
+// Note: Multiple batch fulfillments can use the same sending key since they are picked for each request rather than each batch.
+//
+// Note: startBalanceNoReserved is the balance after subtracting reserved LINK/ETH for other requests that have yet to be confirmed on-chain.
+// It is also used to keep track of the remaining balance for the current request, after fulfilling it at max gas price.
 func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 	ctx context.Context,
 	subID *big.Int,
@@ -342,6 +354,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 		}
 		chunk := ready[chunkStart:chunkEnd]
 
+		// Get unfulfilled requests, and mark the already fulfilled ones as processed.
 		var unfulfilled []pendingRequest
 		alreadyFulfilled, err := lsn.checkReqsFulfilled(ctx, l, chunk)
 		if errors.Is(err, context.Canceled) {
@@ -486,6 +499,8 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 	return
 }
 
+// processRequestsPerSubBatch processes requests for a given subscription using the batch coordinator for fulfillments.
+// This is a wrapper function that splits the requests into native and LINK requests, and processes them in parallel,
 func (lsn *listenerV2) processRequestsPerSubBatch(
 	ctx context.Context,
 	subID *big.Int,
@@ -1033,6 +1048,7 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 	return fulfilled, errs
 }
 
+// runPipelines runs the pipelines for the given requests in parallel, simulating the fulfillment at the max gas price.
 func (lsn *listenerV2) runPipelines(
 	ctx context.Context,
 	l logger.Logger,

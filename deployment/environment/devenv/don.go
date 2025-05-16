@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +22,18 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 )
 
+// All label keys:
+// * must be non-empty,
+// * must be 63 characters or less,
+// * must begin and end with an alphanumeric character ([a-z0-9A-Z]),
+// * could contain dashes (-), underscores (_), dots (.), and alphanumerics between.
+//
+// All label values:
+// * must be 63 characters or less (can be empty),
+// * unless empty, must begin and end with an alphanumeric character ([a-z0-9A-Z]),
+// * could contain dashes (-), underscores (_), dots (.), and alphanumerics between.
+//
+// Source: https://github.com/smartcontractkit/job-distributor/blob/main/pkg/entities/labels.go
 const (
 	LabelNodeTypeKey            = "type"
 	LabelNodeTypeValueBootstrap = "bootstrap"
@@ -95,7 +106,7 @@ func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig,
 			var jdChains []JDChainConfigInput
 			for _, chain := range chains {
 				jdChains = append(jdChains, JDChainConfigInput{
-					ChainID:   strconv.FormatUint(chain.ChainID, 10),
+					ChainID:   chain.ChainID,
 					ChainType: chain.ChainType,
 				})
 			}
@@ -245,12 +256,14 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		case "APTOS", "SOLANA":
 			accounts, err := n.gqlClient.FetchKeys(ctx, chain.ChainType)
 			if err != nil {
-				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
 			}
 			if len(accounts) == 0 {
-				return fmt.Errorf("no account address found for node %s", n.Name)
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
 			}
 
+			n.AccountAddr[chain.ChainID] = accounts[0]
+			n.AccountAddr[chain.ChainID] = accounts[0]
 			account = accounts[0]
 		default:
 			return fmt.Errorf("unsupported chainType %v", chain.ChainType)

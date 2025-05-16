@@ -174,7 +174,7 @@ jobs:
             os: ${{ needs.runner-config.outputs.core-tests-runner }}
             is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            use-flakeguard: ${{ github.event_name == 'merge_group' && 'true' || 'false' }}
+            use-flakeguard: 'true'
 
           - cmd: go_core_tests_integration
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
@@ -197,7 +197,8 @@ jobs:
             is-self-hosted: ${{ needs.runner-config.outputs.deployment-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             setup-solana: "true"
-            use-flakeguard: ${{ github.event_name == 'merge_group' && 'true' || 'false' }}
+            setup-aptos: "true"
+            use-flakeguard: 'true'
 
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -267,6 +268,12 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true' }}
         uses: ./.github/actions/setup-solana
 
+      - name: Setup Aptos
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
+        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
+        with:
+          CLI_VERSION: 7.2.0
+
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-wasmd
@@ -316,9 +323,7 @@ jobs:
           USE_FLAKEGUARD: ${{ matrix.type.use-flakeguard == 'true' && 'true' || '' }}
         run: |
           # See: https://github.com/golang/go/issues/69179
-          GODEBUG=goindex=0
-
-          ./tools/bin/${{ matrix.type.cmd }} ./...
+          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
 
       - name: Generate Flakeguard Test Reports
         if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
@@ -640,6 +645,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/extras=s3-cache
       SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
       SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
       GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
@@ -716,7 +722,7 @@ jobs:
 
           echo "Opt-out is false for current run. Using self-hosted runner for deployment tests."
           echo "deployment-tests-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
-          echo "deployment-tests-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "deployment-tests-runner=${SH_DEPLOYMENT_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
 
       - name: Select runners for core tests
         id: core-tests

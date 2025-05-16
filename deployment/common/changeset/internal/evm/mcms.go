@@ -19,7 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -27,11 +29,11 @@ import (
 )
 
 // DeployMCMSOption is a function that modifies a TypeAndVersion before or after deployment.
-type DeployMCMSOption func(*deployment.TypeAndVersion)
+type DeployMCMSOption func(*cldf.TypeAndVersion)
 
 // WithLabel is a functional option that sets a label on the TypeAndVersion.
 func WithLabel(label string) DeployMCMSOption {
-	return func(tv *deployment.TypeAndVersion) {
+	return func(tv *cldf.TypeAndVersion) {
 		tv.AddLabel(label)
 	}
 }
@@ -46,10 +48,10 @@ type MCMSWithTimelockEVMDeploy struct {
 }
 
 func DeployMCMSWithConfigEVM(
-	contractType deployment.ContractType,
+	contractType cldf.ContractType,
 	lggr logger.Logger,
-	chain deployment.Chain,
-	ab deployment.AddressBook,
+	chain cldf.Chain,
+	ab cldf.AddressBook,
 	mcmConfig mcmsTypes.Config,
 	options ...DeployMCMSOption,
 ) (*cldf.ContractDeploy[*bindings.ManyChainMultiSig], error) {
@@ -59,13 +61,13 @@ func DeployMCMSWithConfigEVM(
 		return nil, err
 	}
 	mcm, err := cldf.DeployContract(lggr, chain, ab,
-		func(chain deployment.Chain) cldf.ContractDeploy[*bindings.ManyChainMultiSig] {
+		func(chain cldf.Chain) cldf.ContractDeploy[*bindings.ManyChainMultiSig] {
 			mcmAddr, tx, mcm, err2 := bindings.DeployManyChainMultiSig(
 				chain.DeployerKey,
 				chain.Client,
 			)
 
-			tv := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
+			tv := cldf.NewTypeAndVersion(contractType, deployment.Version1_0_0)
 			for _, option := range options {
 				option(&tv)
 			}
@@ -86,7 +88,7 @@ func DeployMCMSWithConfigEVM(
 		groupParents,
 		false,
 	)
-	if _, err := deployment.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
+	if _, err := cldf.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
 		lggr.Errorw("Failed to confirm mcm config", "chain", chain.String(), "err", err)
 		return mcm, err
 	}
@@ -101,8 +103,8 @@ func DeployMCMSWithConfigEVM(
 func DeployMCMSWithTimelockContractsEVM(
 	ctx context.Context,
 	lggr logger.Logger,
-	chain deployment.Chain,
-	ab deployment.AddressBook,
+	chain cldf.Chain,
+	ab cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 	state *state.MCMSWithTimelockState,
 ) (*proposalutils.MCMSWithTimelockContracts, error) {
@@ -155,7 +157,7 @@ func DeployMCMSWithTimelockContractsEVM(
 
 	if timelock == nil {
 		timelockC, err := cldf.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*bindings.RBACTimelock] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*bindings.RBACTimelock] {
 				timelock, tx2, cc, err2 := bindings.DeployRBACTimelock(
 					chain.DeployerKey,
 					chain.Client,
@@ -172,7 +174,7 @@ func DeployMCMSWithTimelockContractsEVM(
 					[]common.Address{bypasser.Address()},                                          // bypassers
 				)
 
-				tv := deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0)
+				tv := cldf.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0)
 				if config.Label != nil {
 					tv.AddLabel(*config.Label)
 				}
@@ -193,14 +195,14 @@ func DeployMCMSWithTimelockContractsEVM(
 
 	if callProxy == nil {
 		callProxyC, err := cldf.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) cldf.ContractDeploy[*bindings.CallProxy] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*bindings.CallProxy] {
 				callProxy, tx2, cc, err2 := bindings.DeployCallProxy(
 					chain.DeployerKey,
 					chain.Client,
 					timelock.Address(),
 				)
 
-				tv := deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0)
+				tv := cldf.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0)
 				if config.Label != nil {
 					tv.AddLabel(*config.Label)
 				}
@@ -267,7 +269,7 @@ func getAdminAddresses(ctx context.Context, timelock *bindings.RBACTimelock) ([]
 func GrantRolesForTimelock(
 	ctx context.Context,
 	lggr logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	timelockContracts *proposalutils.MCMSWithTimelockContracts,
 	skipIfDeployerKeyNotAdmin bool, // If true, skip role grants if the deployer key is not an admin.
 ) ([]mcmsTypes.Transaction, error) {
@@ -387,12 +389,12 @@ func GrantRolesForTimelock(
 func grantRoleTx(
 	lggr logger.Logger,
 	timelock *bindings.RBACTimelock,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	isDeployerKeyAdmin bool,
 	roleID [32]byte,
 	address common.Address,
 ) (mcmsTypes.Transaction, error) {
-	txOpts := deployment.SimTransactOpts()
+	txOpts := cldf.SimTransactOpts()
 	if isDeployerKeyAdmin {
 		txOpts = chain.DeployerKey
 	}
@@ -400,7 +402,7 @@ func grantRoleTx(
 		txOpts, roleID, address,
 	)
 	if isDeployerKeyAdmin {
-		if _, err2 := deployment.ConfirmIfNoErrorWithABI(chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {
+		if _, err2 := cldf.ConfirmIfNoErrorWithABI(chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {
 			lggr.Errorw("Failed to grant timelock role",
 				"chain", chain.String(),
 				"timelock", timelock.Address().Hex(),

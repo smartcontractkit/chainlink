@@ -12,16 +12,18 @@ import (
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func deployTimelockProgram(
-	e deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, chain deployment.SolChain,
-	addressBook deployment.AddressBook,
+	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, chain cldf.SolChain,
+	addressBook cldf.AddressBook,
 ) error {
-	typeAndVersion := deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
+	typeAndVersion := cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
 	log := logger.With(e.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
 
 	programID, _, err := chainState.GetStateFromType(commontypes.RBACTimelock)
@@ -30,7 +32,10 @@ func deployTimelockProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(log, "timelock", false)
+		deployedProgramID, err := chain.DeployProgram(log, cldf.SolProgramInfo{
+			Name:  deployment.TimelockProgramName,
+			Bytes: deployment.SolanaProgramBytes[deployment.TimelockProgramName],
+		}, false, true)
 		if err != nil {
 			return fmt.Errorf("failed to deploy timelock program: %w", err)
 		}
@@ -59,8 +64,8 @@ func deployTimelockProgram(
 }
 
 func initTimelock(
-	e deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, chain deployment.SolChain,
-	addressBook deployment.AddressBook, minDelay *big.Int,
+	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, chain cldf.SolChain,
+	addressBook cldf.AddressBook, minDelay *big.Int,
 ) error {
 	if chainState.TimelockProgram.IsZero() {
 		return errors.New("mcm program is not deployed")
@@ -68,7 +73,7 @@ func initTimelock(
 	programID := chainState.TimelockProgram
 	timelockBindings.SetProgramID(programID)
 
-	typeAndVersion := deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0)
+	typeAndVersion := cldf.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0)
 	timelockProgram, timelockSeed, err := chainState.GetStateFromType(commontypes.RBACTimelock)
 	if err != nil {
 		return fmt.Errorf("failed to get timelock state: %w", err)
@@ -112,7 +117,7 @@ func initTimelock(
 }
 
 func initializeTimelock(
-	e deployment.Environment, chain deployment.SolChain, timelockProgram solana.PublicKey, timelockID state.PDASeed,
+	e cldf.Environment, chain cldf.SolChain, timelockProgram solana.PublicKey, timelockID state.PDASeed,
 	chainState *state.MCMSWithTimelockStateSolana, minDelay *big.Int,
 ) error {
 	if minDelay == nil {
