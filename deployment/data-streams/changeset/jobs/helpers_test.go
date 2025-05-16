@@ -7,8 +7,8 @@ package jobs
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -108,11 +108,11 @@ func sendTestStreamJobs(t *testing.T, e cldf.Environment, numOracles int, autoAp
 				ReportFields: jobs.QuoteReportFields{
 					Bid: jobs.ReportFieldLLO{
 						ResultPath: "data,bid",
-						StreamID:   pointer.To(fmt.Sprintf("%d", randomStreamID())),
+						StreamID:   pointer.To(strconv.FormatUint(uint64(randomStreamID()), 10)),
 					},
 					Benchmark: jobs.ReportFieldLLO{
 						ResultPath: "data,mid",
-						StreamID:   pointer.To(fmt.Sprintf("%d", randomStreamID())),
+						StreamID:   pointer.To(strconv.FormatUint(uint64(randomStreamID()), 10)),
 					},
 					Ask: jobs.ReportFieldLLO{
 						ResultPath: "data,ask",

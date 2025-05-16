@@ -102,7 +102,7 @@ func (CsDistributeStreamJobSpecs) Apply(e cldf.Environment, cfg CsDistributeStre
 			// Check if there is already a job spec for this stream on this node:
 			externalJobID, err := fetchExternalJobID(e, n.Id, []*ptypes.Selector{
 				{
-					Key: utils.StreamIDLabel(s.StreamID),
+					Key: utils.StreamIDLabel(streamID),
 					Op:  ptypes.SelectorOp_EXIST,
 				},
 			})
