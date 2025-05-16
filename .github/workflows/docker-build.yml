@@ -162,29 +162,25 @@ jobs:
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
-  # TODO: change to step that prepares date
-  prepare-short-sha:
+  prepare-nightly-image-tag:
     needs: [init]
     runs-on: ubuntu-24.04
     outputs:
-      short-sha: ${{ steps.short-sha.outputs.short-sha }}
+      image-tag: ${{ steps.image-tag.outputs.image-tag }}
     steps:
-      - name: Set Short SHA
-        id: short-sha
+      - name: Set Image Tag
+        id: image-tag
         shell: bash
         run: |
-          SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
-          echo "short-sha=${SHORT_SHA}" | tee -a "$GITHUB_OUTPUT"
+          DATE=$(date +%Y%m%d)
+          echo "image-tag=nightly-${DATE}-plugins" | tee -a "$GITHUB_OUTPUT"
   call-nightly-e2e-tests:
-    # TODO change to schedule once it is tested
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    needs: [docker-core-plugins, prepare-short-sha]
+    if: ${{ github.event_name == 'schedule' }}
+    needs: [docker-core-plugins, prepare-nightly-image-tag]
     uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@830af050dc5d9388a728c8be63586011cec181e6
     with:
-      # TODO: change to nightly once it is tested
-      chainlink_image_tag: ${{ format('manual-{0}-plugins', needs.prepare-short-sha.outputs.short-sha) }}
-      # TODO: change to develop once it is tested
-      chainlink_version: dx-815-polish-nightly-cli
+      chainlink_image_tag: ${{ needs.prepare-nightly-image-tag.outputs.image-tag }}
+      chainlink_version: develop
     secrets:
       inherit
 
