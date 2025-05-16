@@ -221,20 +221,15 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 
 	// start listening for trigger events only if all registrations succeeded
 	for idx, triggerEventCh := range eventChans {
-		e.cfg.Lggr.Debugw("launching go routine", "id", triggerCapIDs[idx])
 		e.srvcEng.Go(func(srvcCtx context.Context) {
 			for {
-				e.cfg.Lggr.Debug("start of loop waiting for events")
 				select {
 				case <-srvcCtx.Done():
-					e.cfg.Lggr.Debug("context canceled waiting for events")
 					return
 				case event, isOpen := <-triggerEventCh:
 					if !isOpen {
-						e.cfg.Lggr.Debug("event chan is closed")
 						return
 					}
-					e.cfg.Lggr.Debugw("received a event", "event", event)
 					select {
 					case e.allTriggerEventsQueueCh <- enqueuedTriggerEvent{
 						triggerCapID: subs.Subscriptions[idx].Id,
