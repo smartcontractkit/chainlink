@@ -356,8 +356,19 @@ func configureTokenPool(
 			if err != nil {
 				return fmt.Errorf("failed to get remote token for chain with selector %d: %w", remoteChainSelector, err)
 			}
-			if !bytes.Equal(remoteTokenAddress.Bytes(), remoteToken) {
-				// Remove & later re-add the chain if the token has changed
+			remotePoolAddresses, err := tokenPool.GetRemotePools(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+			if err != nil {
+				return fmt.Errorf("failed to get remote pools for chain with selector %d: %w", remoteChainSelector, err)
+			}
+			isRemotePoolSupported := false
+			for _, address := range remotePoolAddresses {
+				if bytes.Equal(address, remotePoolAddress.Bytes()) {
+					isRemotePoolSupported = true
+					break
+				}
+			}
+			if !bytes.Equal(remoteTokenAddress.Bytes(), remoteToken) || !isRemotePoolSupported {
+				// Remove & later re-add the chain if the remote token has changed OR the remote pool address is not supported
 				chainRemovals = append(chainRemovals, remoteChainSelector)
 				addChain = true
 			} else {
