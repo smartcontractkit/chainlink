@@ -373,3 +373,38 @@ func getTransferableContracts(addressStore datastore.AddressRefStore, chainSelec
 
 	return transferableContracts
 }
+
+// getContractOwnedByMCMS retrieves a contract of type T that is owned by MCMS.
+// It returns the first contract found of that type that is owned by MCMS.
+func getContractOwnedByMCMS[T Ownable](chain cldf.Chain, addressStore datastore.AddressRefStore) (*OwnedContract[T], error) {
+	var contractType datastore.ContractType
+	switch any(*new(T)).(type) {
+	case *forwarder.KeystoneForwarder:
+		contractType = datastore.ContractType(KeystoneForwarder)
+	case *capabilities_registry.CapabilitiesRegistry:
+		contractType = datastore.ContractType(CapabilitiesRegistry)
+	case *ocr3_capability.OCR3Capability:
+		contractType = datastore.ContractType(OCR3Capability)
+	case *workflow_registry.WorkflowRegistry:
+		contractType = datastore.ContractType(WorkflowRegistry)
+	default:
+		return nil, fmt.Errorf("unsupported contract type %T", *new(T))
+	}
+
+	addresses := addressStore.Filter(datastore.AddressRefByChainSelector(chain.Selector))
+
+	for _, addrRef := range addresses {
+		if addrRef.Type == contractType {
+			contract, err := GetOwnedContractV2[T](addressStore, chain, addrRef.Address)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get contract at %s: %w", addrRef.Address, err)
+			}
+			if contract.McmsContracts == nil {
+				continue
+			}
+			return contract, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no contract of type %T found", *new(T))
+}

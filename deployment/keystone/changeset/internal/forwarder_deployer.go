@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -80,7 +81,8 @@ type ConfigureForwarderContractsRequest struct {
 	UseMCMS bool
 }
 type ConfigureForwarderContractsResponse struct {
-	OpsPerChain map[uint64]mcmstypes.BatchOperation
+	ConfiguredForwarderAddresses map[uint64]common.Address
+	OpsPerChain                  map[uint64]mcmstypes.BatchOperation
 }
 
 // Depreciated: use [changeset.ConfigureForwardContracts] instead
@@ -96,6 +98,7 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 	}
 
 	opPerChain := make(map[uint64]mcmstypes.BatchOperation)
+	configuredForwarders := make(map[uint64]common.Address)
 	// configure forwarders on all chains
 	for _, chain := range env.Chains {
 		if _, shouldInclude := req.Chains[chain.Selector]; len(req.Chains) > 0 && !shouldInclude {
@@ -113,8 +116,10 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 		for k, op := range ops {
 			opPerChain[k] = op
 		}
+		configuredForwarders[chain.Selector] = contracts.Forwarder.Address()
 	}
 	return &ConfigureForwarderContractsResponse{
-		OpsPerChain: opPerChain,
+		ConfiguredForwarderAddresses: configuredForwarders,
+		OpsPerChain:                  opPerChain,
 	}, nil
 }
