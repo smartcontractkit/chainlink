@@ -56,19 +56,17 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
 	chainRWProviderMap := make(map[string]ChainRWProvider)
-	registeredExtraDataCodec := make(map[string]SourceChainExtraDataCodec)
 
 	for family, initFunc := range registeredFactories {
 		config := initFunc(lggr, pluginServices.ExtraDataCodec)
 		addressCodecMap[family] = config.AddressCodec
 		chainRWProviderMap[family] = config.ChainRW
-		registeredExtraDataCodec[family] = config.ExtraDataCodec
+		pluginServices.ExtraDataCodec[family] = config.ExtraDataCodec // initialize and update it with the map
 		if family == chainFamily {
 			pluginServices.PluginConfig = config
 		}
 	}
 
-	pluginServices.ExtraDataCodec = registeredExtraDataCodec // initialize and update it with the map
 	pluginServices.AddrCodec = NewAddressCodec(addressCodecMap)
 	pluginServices.ChainRW = NewCRCW(chainRWProviderMap)
 	return pluginServices, nil
