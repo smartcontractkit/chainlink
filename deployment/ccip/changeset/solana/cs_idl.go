@@ -359,9 +359,6 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 
-	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
-	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
-
 	if err := repoSetup(e, chain, c.GitCommitSha); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting up anchor workspace: %w", err)
 	}
@@ -448,8 +445,9 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 		return cldf.ChangesetOutput{}, fmt.Errorf("error loading timelockSignerPDA: %w", err)
 	}
 
-	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
-	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	if err := repoSetup(e, chain, c.GitCommitSha); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("error setting up anchor workspace: %w", err)
+	}
 
 	// set idl authority
 	if c.Router {
@@ -534,9 +532,6 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[c.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
-
-	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
-	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
 
 	if err := repoSetup(e, chain, c.GitCommitSha); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting up anchor workspace: %w", err)
