@@ -118,6 +118,10 @@ func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPCha
 		err = errors.New("token address must be defined")
 		return
 	}
+	if tokenPoolProgram.IsZero() {
+		err = fmt.Errorf("token pool program %s is not defined for metadata %s", tokenPoolProgram, c.Metadata)
+		return
+	}
 	token = solana.MustPublicKeyFromBase58(c.TokenAddress)
 	tokenPool, err = solTokenUtil.TokenPoolConfigAddress(token, tokenPoolProgram)
 	if err != nil {
