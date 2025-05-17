@@ -815,6 +815,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				Type:              shared.BurnMintTokenPool,
 				TokenAddress:      state.SolChains[remoteSelector].SPL2022Tokens[0].String(),
 				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(0, 0),
+				Metadata:          shared.CLLMetadata,
 			}
 		}
 		e, err = commonchangeset.Apply(t, e, nil,
@@ -849,6 +850,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				Type:              shared.BurnMintTokenPool,
 				TokenAddress:      state.SolChains[remoteSelector].SPL2022Tokens[0].String(),
 				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(100, 1000),
+				Metadata:          shared.CLLMetadata,
 			}
 		}
 		e.Chains[selector].DeployerKey.GasLimit = 1_000_000 // Hack: Increase gas limit to avoid out of gas error (could this be a cause for test flakiness?)
@@ -924,6 +926,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				Type:              shared.BurnMintTokenPool,
 				TokenAddress:      remoteTokenAddress.String(),
 				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(0, 0),
+				Metadata:          shared.CLLMetadata,
 			}
 		}
 		e, err = commonchangeset.Apply(t, e, nil,
