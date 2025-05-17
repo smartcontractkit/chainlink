@@ -97,17 +97,19 @@ type SolChainUpdate struct {
 }
 
 func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
-	metadata := shared.CLLMetadata
-	if c.Metadata != "" {
-		metadata = c.Metadata
+	if c.Metadata == "" {
+		token = solana.PublicKey{}
+		tokenPool = solana.PublicKey{}
+		err = errors.New("metadata must be defined for solana token pool in SolChainUpdate")
+		return
 	}
 
 	var tokenPoolProgram solana.PublicKey
 	switch c.Type {
 	case shared.BurnMintTokenPool:
-		tokenPoolProgram = state.BurnMintTokenPools[metadata]
+		tokenPoolProgram = state.BurnMintTokenPools[c.Metadata]
 	case shared.LockReleaseTokenPool:
-		tokenPoolProgram = state.LockReleaseTokenPools[metadata]
+		tokenPoolProgram = state.LockReleaseTokenPools[c.Metadata]
 	default:
 		err = fmt.Errorf("unknown solana token pool type %s", c.Type)
 		return
