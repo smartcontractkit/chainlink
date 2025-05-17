@@ -310,6 +310,7 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("chain %d not supported", c.ChainSelector)
 	}
 	chainState := existingState.SolChains[c.ChainSelector]
+	chain := e.SolChains[c.ChainSelector]
 	bnmTokenPool, _ := GetActiveTokenPool(&e, solTestTokenPool.BurnAndMint_PoolType, c.ChainSelector, c.BurnMintTokenPoolMetadata)
 	lrTokenPool, _ := GetActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, c.ChainSelector, c.LockReleaseTokenPoolMetadata)
 	if c.Router && chainState.Router.IsZero() {
@@ -347,7 +348,8 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 	if c.AccessController && mcmState.AccessControllerProgram.IsZero() {
 		return fmt.Errorf("access controller program not deployed for chain %d, cannot upload idl", c.ChainSelector)
 	}
-	return nil
+
+	return repoSetup(e, chain, c.GitCommitSha)
 }
 
 // changeset to upload idl for a program
@@ -359,9 +361,6 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 
-	if err := repoSetup(e, chain, c.GitCommitSha); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error setting up anchor workspace: %w", err)
-	}
 	// start uploading
 	if c.Router {
 		err := idlInit(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName)
@@ -443,10 +442,6 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error loading timelockSignerPDA: %w", err)
-	}
-
-	if err := repoSetup(e, chain, c.GitCommitSha); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error setting up anchor workspace: %w", err)
 	}
 
 	// set idl authority
@@ -532,10 +527,6 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[c.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
-
-	if err := repoSetup(e, chain, c.GitCommitSha); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error setting up anchor workspace: %w", err)
-	}
 
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
 	if c.Router {
