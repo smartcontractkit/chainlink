@@ -98,8 +98,6 @@ type SolChainUpdate struct {
 
 func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
 	if c.Metadata == "" {
-		token = solana.PublicKey{}
-		tokenPool = solana.PublicKey{}
 		err = errors.New("metadata must be defined for solana token pool in SolChainUpdate")
 		return
 	}
