@@ -2,6 +2,7 @@ package solana
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	solBinary "github.com/gagliardetto/binary"
@@ -204,6 +205,9 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment) err
 	chain := e.SolChains[cfg.ChainSelector]
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return fmt.Errorf("fee quoter validation failed: %w", err)
+	}
+	if cfg.Config.DestBytesOverhead < 32 {
+		return errors.New("dest bytes overhead must be greater than 32")
 	}
 
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true})
