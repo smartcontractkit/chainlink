@@ -128,6 +128,9 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topologyFlag, TopologySimplified, TopologyFull)
 		}
 
+		startTime := time.Now()
+		fmt.Printf("\033[35m\nStarting CRE environment\033[0m\n\n")
+
 		if os.Getenv("CTF_CONFIGS") == "" {
 			// use default config
 			if topologyFlag == TopologySimplified {
@@ -151,8 +154,6 @@ var startCmd = &cobra.Command{
 			}
 			fmt.Printf("Set PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
 		}
-
-		fmt.Println("Starting the environment...")
 
 		// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
 		setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
@@ -222,11 +223,10 @@ var startCmd = &cobra.Command{
 		}
 
 		// TODO print urls?
-
-		fmt.Println()
-		fmt.Println("Environment started successfully")
+		fmt.Printf("\033[35m\nEnvironment setup completed successfully in %.2f minutes\033[0m\n\n", time.Since(startTime).Minutes())
 		fmt.Println()
 		fmt.Println("To terminate execute: ctf d rm")
+		fmt.Println()
 
 		return nil
 	},
@@ -320,12 +320,12 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 			capabilitiesBinaryPaths[cretypes.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
 		}
 
-		capabiliitesDONCapabilities := []string{cretypes.WriteEVMCapability, cretypes.WebAPITargetCapability}
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" {
-			capabiliitesDONCapabilities = append(capabiliitesDONCapabilities, cretypes.LogTriggerCapability)
+			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.LogTriggerCapability)
 			capabilitiesBinaryPaths[cretypes.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
 		}
 
+		capabiliitesDONCapabilities := []string{cretypes.WriteEVMCapability, cretypes.WebAPITargetCapability}
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" {
 			capabiliitesDONCapabilities = append(capabiliitesDONCapabilities, cretypes.ReadContractCapability)
 			capabilitiesBinaryPaths[cretypes.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
@@ -354,17 +354,17 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		}
 	}
 
-	fmt.Println("DON topology:")
+	fmt.Println("\033[35m\nDON topology:\033[0m")
 	for _, nodeSet := range capabilitiesAwareNodeSets {
-		fmt.Printf("%s\n", strings.ToUpper(nodeSet.Input.Name))
-		fmt.Printf("\tNode count: %d\n", len(nodeSet.Input.NodeSpecs))
+		fmt.Printf("\033[35m%s\033[0m\n", strings.ToUpper(nodeSet.Input.Name))
+		fmt.Printf("\033[35m\tNode count: %d\033[0m\n", len(nodeSet.Input.NodeSpecs))
 		capabilitiesDesc := "none"
 		if len(nodeSet.Capabilities) > 0 {
 			capabilitiesDesc = strings.Join(nodeSet.Capabilities, ", ")
 		}
-		fmt.Printf("\tCapabilities: %s\n", capabilitiesDesc)
-		fmt.Printf("\tDON Types: %s\n", strings.Join(nodeSet.DONTypes, ", "))
-		fmt.Println()
+		fmt.Printf("\033[35m\tCapabilities: %s\033[0m\n", capabilitiesDesc)
+		fmt.Printf("\033[35m\tDON Types: %s\033[0m", strings.Join(nodeSet.DONTypes, ", "))
+		fmt.Printf("\033[0m\n\n")
 	}
 
 	// add support for more capabilities if needed
