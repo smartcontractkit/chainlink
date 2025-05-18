@@ -179,28 +179,26 @@ func generateDatasources(cc StreamSpecConfig) []jobs.Datasource {
 func streamIDLabelsFromReportFields(rf jobs.ReportFields) ([]*ptypes.Label, error) {
 	labels := []*ptypes.Label{}
 
-	switch rf.(type) {
+	switch rf := rf.(type) {
 	case jobs.MedianReportFields:
-		median := rf.(jobs.MedianReportFields)
-		l, err := streamIDLabelsFor(median.Benchmark.StreamID)
+		l, err := streamIDLabelsFor(rf.Benchmark.StreamID)
 		if err != nil {
 			return nil, err
 		}
 		labels = append(labels, l...)
 
 	case jobs.QuoteReportFields:
-		quote := rf.(jobs.QuoteReportFields)
-		l, err := streamIDLabelsFor(quote.Benchmark.StreamID)
+		l, err := streamIDLabelsFor(rf.Benchmark.StreamID)
 		if err != nil {
 			return nil, err
 		}
 		labels = append(labels, l...)
-		l, err = streamIDLabelsFor(quote.Bid.StreamID)
+		l, err = streamIDLabelsFor(rf.Bid.StreamID)
 		if err != nil {
 			return nil, err
 		}
 		labels = append(labels, l...)
-		l, err = streamIDLabelsFor(quote.Ask.StreamID)
+		l, err = streamIDLabelsFor(rf.Ask.StreamID)
 		if err != nil {
 			return nil, err
 		}
