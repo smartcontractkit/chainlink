@@ -29,7 +29,7 @@
     # Every time that consumer address changes (e.g. due code sequence changes) we need to update the config used in CI. That config is identical to the one used, when executing local machine
     # unless test uses fake data provider. In that case the IP of the fake data provider will be different in the CI, because it uses linux not macOS operating system and that changes the IP
     # of 'host.docker.internal'. TL;DR is that when updating this config you can use config created during local execution, but you need to use data provider URL copied from the previous CI config.
-    config_url = "https://gist.githubusercontent.com/Tofel/3905a87f22f105da5c0d7196ce7032c4/raw/63c982400f682a95580bf7b5b422aaf8ef4ba511/two_dons_config.json_03_04_2025"
+    config_url = "https://gist.githubusercontent.com/Tofel/b4b33d7a3b31117ce237697470a23f9f/raw/c95096b584199de484201b3eba8367f117caccca/two_dons_config.json_16_05_2025"
 
 [dependencies]
   cron_capability_binary_path = "./cron"

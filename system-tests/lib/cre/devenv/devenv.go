@@ -45,7 +45,7 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		}
 
 		chains = append(chains, devenv.ChainConfig{
-			ChainID:   cID,
+			ChainID:   strconv.FormatUint(cID, 10),
 			ChainName: sethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(bcOut.Family),
 			WSRPCs: []devenv.CribRPCs{{

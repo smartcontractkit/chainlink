@@ -33,11 +33,16 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.Fund
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
-	nonce, err := client.Client.PendingNonceAt(ctx, fromAddress)
-	defer cancel()
-	if err != nil {
-		return nil, err
+	var nonce uint64
+	if payload.Nonce == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
+		nonce, err = client.Client.PendingNonceAt(ctx, fromAddress)
+		defer cancel()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		nonce = *payload.Nonce
 	}
 
 	gasLimit, err := client.EstimateGasLimitForFundTransfer(fromAddress, payload.ToAddress, payload.Amount)
@@ -130,7 +135,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.Fund
 		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
 		Msg("About to send funds")
 
-	ctx, cancel = context.WithTimeout(ctx, txTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), txTimeout)
 	defer cancel()
 	err = client.Client.SendTransaction(ctx, signedTx)
 	if err != nil {
