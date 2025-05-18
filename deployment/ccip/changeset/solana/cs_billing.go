@@ -214,7 +214,7 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment) err
 		cfg.Config.DestBytesOverhead = MinDestBytesOverhead
 	}
 	if cfg.Config.MinFeeUsdcents > cfg.Config.MaxFeeUsdcents {
-		return fmt.Errorf("min fee is greater than max fee")
+		return fmt.Errorf("min fee %d cannot be greater than max fee %d", cfg.Config.MinFeeUsdcents, cfg.Config.MaxFeeUsdcents)
 	}
 
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true})
