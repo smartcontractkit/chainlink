@@ -20,18 +20,27 @@ func TestDeployForwarder(t *testing.T) {
 		SolChains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-
 	registrySel := env.AllChainSelectorsSolana()[0]
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
 		ab := cldf.NewMemoryAddressBook()
-
+		cfg := BuildSolanaConfig{
+			GitCommitSha:   "6442d0e438ca175b1b2ce059a174ba4bf4e8afc1",
+			DestinationDir: "./contracts",
+			LocalBuild: LocalBuildConfig{
+				BuildLocally:         true,
+				CleanDestinationDir:  false,
+				CreateDestinationDir: true,
+				CleanGitDir:          true,
+			},
+		}
 		// deploy forwarder
 		env.ExistingAddresses = ab
 		//	resp, err := changeset.DeployForwarder(env, changeset.DeployForwarderRequest{})
 		resp, err := DeployForwarder(env, &DeployRequest{
-			ChainSel:  registrySel,
-			Qualifier: "my-test-forwarder",
+			ChainSel:    registrySel,
+			Qualifier:   "my-test-forwarder",
+			BuildConfig: &cfg,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)

@@ -11,9 +11,10 @@ import (
 )
 
 type DeployRequest = struct {
-	ChainSel  uint64
-	Qualifier string
-	Labels    *datastore.LabelSet
+	ChainSel    uint64
+	Qualifier   string
+	Labels      *datastore.LabelSet
+	BuildConfig *BuildSolanaConfig
 
 	deployFn func(ctx context.Context, chain cldf.SolChain, ab cldf.AddressBook) (*kslib.DeployResponse, error)
 }
