@@ -255,39 +255,6 @@ runs:
       with:
         cosign-release: "v1.6.0"
 
-    - if: inputs.sign-images == 'true' && inputs.sign-method == 'keypair'
-      name: Sign the published root Docker image using keypair method
-      shell: sh
-      env:
-        COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
-      run: |
-        echo "${{ inputs.cosign-private-key }}" > cosign.key
-        cosign sign -y --key cosign.key "${{ env.root_image_name }}@${{ env.root_image_digest }}"
-        rm -f cosign.key
-
-    - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keypair'
-      name: Verify the signature of the published root Docker image using keypair
-      shell: sh
-      run: |
-        echo "${{ inputs.cosign-public-key }}" > cosign.key
-        cosign verify --key cosign.key "${{ env.root_image_name }}"
-        rm -f cosign.key
-
-    # This automatically signs the image with the correct OIDC provider from Github
-    - if: inputs.sign-images == 'true'
-      name: Sign the published root Docker image using keyless method
-      shell: sh
-      run: |
-        cosign sign "${{ env.root_image_name }}" --yes
-
-    - if: inputs.verify-signature == 'true'
-      name: Verify the signature of the published root Docker image using keyless
-      shell: sh
-      run: |
-        echo "${{ inputs.cosign-private-key }}" > cosign.key
-        cosign sign -y --key cosign.key "${{ env.nonroot_image_name }}@${{ env.nonroot_image_digest }}"
-        rm -f cosign.key
-
     # This automatically signs the image with the correct OIDC provider from Github
     - if: inputs.sign-images == 'true'
       name: Sign the published non-root Docker image using keyless method
