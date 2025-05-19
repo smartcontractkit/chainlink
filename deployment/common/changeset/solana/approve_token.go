@@ -45,7 +45,7 @@ func preconditionsApproveTokenForFeeBillingSigner(e cldf.Environment, cfg Approv
 }
 
 func logicApproveTokenForFeeBillingSigner(e cldf.Environment, cfg ApproveTokenForFeeBillingSignerConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 
 	chainState := state.SolChains[cfg.ChainSelector]
 
@@ -100,11 +100,11 @@ func preconditionsApproveToken(e cldf.Environment, cfg ApproveTokenConfig) error
 }
 
 func logicApproveToken(e cldf.Environment, cfg ApproveTokenConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 
 	chainState := state.SolChains[cfg.ChainSelector]
 
-	err = doApproveTokenTransfer(
+	err := doApproveTokenTransfer(
 		e,
 		chainState,
 		cfg.ChainSelector,
