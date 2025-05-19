@@ -3,11 +3,12 @@ package crecli
 import (
 	"bytes"
 	"fmt"
-	"github.com/pkg/errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+
+	"github.com/pkg/errors"
 )
 
 type CompilationResult struct {
