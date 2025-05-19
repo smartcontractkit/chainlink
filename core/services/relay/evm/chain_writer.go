@@ -217,6 +217,8 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 	}, nil
 }
 
+// GetEstimateFee returns total cost of TX execution in the underlying chain's currency.
+// The value (val) is included in the fee calculation.
 func (w *chainWriter) GetEstimateFee(ctx context.Context, contract, method string, args any, toAddress string, meta *commontypes.TxMeta, val *big.Int) (commontypes.EstimateFee, error) {
 	calldata, err := w.encoder.Encode(ctx, args, codec.WrapItemType(contract, method, true))
 	if err != nil {
