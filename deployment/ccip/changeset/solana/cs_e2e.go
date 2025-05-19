@@ -25,7 +25,6 @@ type E2ETokenPoolConfig struct {
 	MCMS                                  *proposalutils.TimelockConfig
 }
 
-// TODO: write a test for this
 func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {
 	finalOutput := cldf.ChangesetOutput{}
 	finalOutput.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
@@ -48,11 +47,7 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
 		}
-		// TODO: will this work?
-		e.ExistingAddresses.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	}
-
-	// TODO: this should only be called if the above changeset fails to add a token pool lookup table
 	for _, tokenPoolConfig := range cfg.AddTokenPoolLookupTable {
 		output, err := AddTokenPoolLookupTable(e, tokenPoolConfig)
 		if err != nil {
