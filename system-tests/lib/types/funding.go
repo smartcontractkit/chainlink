@@ -17,4 +17,5 @@ type FundsToSend struct {
 	GasFeeCap  *big.Int
 	GasTipCap  *big.Int
 	TxTimeout  *time.Duration
+	Nonce      *uint64
 }

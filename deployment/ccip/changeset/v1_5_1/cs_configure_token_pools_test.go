@@ -796,6 +796,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 					ChainSelector: selector,
 					TokenPubKey:   tokenAddress,
 					PoolType:      &bnm,
+					Metadata:      shared.CLLMetadata,
 				},
 			),
 		})
@@ -815,6 +816,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				Type:              shared.BurnMintTokenPool,
 				TokenAddress:      state.SolChains[remoteSelector].SPL2022Tokens[0].String(),
 				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(0, 0),
+				Metadata:          shared.CLLMetadata,
 			}
 		}
 		e, err = commonchangeset.Apply(t, e, nil,
@@ -849,6 +851,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				Type:              shared.BurnMintTokenPool,
 				TokenAddress:      state.SolChains[remoteSelector].SPL2022Tokens[0].String(),
 				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(100, 1000),
+				Metadata:          shared.CLLMetadata,
 			}
 		}
 		e.Chains[selector].DeployerKey.GasLimit = 1_000_000 // Hack: Increase gas limit to avoid out of gas error (could this be a cause for test flakiness?)
@@ -906,6 +909,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 						ChainSelector: selector,
 						TokenPubKey:   tokenAddress,
 						PoolType:      &bnm,
+						Metadata:      shared.CLLMetadata,
 					},
 				),
 			})
@@ -914,9 +918,9 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		}
 	}
 
-	//////////////////////////////////////
-	// REMOVE & ADD SOLANA CHAIN CONFIG //
-	//////////////////////////////////////
+	////////////////////////////////////////////////////////////
+	// REMOVE & ADD SOLANA CHAIN CONFIG (due to token change) //
+	////////////////////////////////////////////////////////////
 	for _, selector := range evmSelectors {
 		solChainUpdates := make(map[uint64]v1_5_1.SolChainUpdate)
 		for remoteSelector, remoteTokenAddress := range remoteTokenAddresses {
@@ -924,6 +928,64 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				Type:              shared.BurnMintTokenPool,
 				TokenAddress:      remoteTokenAddress.String(),
 				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(0, 0),
+				Metadata:          shared.CLLMetadata,
+			}
+		}
+		e, err = commonchangeset.Apply(t, e, nil,
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+				v1_5_1.ConfigureTokenPoolContractsConfig{
+					TokenSymbol: testhelpers.TestTokenSymbol,
+					PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+						selector: {
+							Type:            shared.BurnMintTokenPool,
+							Version:         deployment.Version1_5_1,
+							SolChainUpdates: solChainUpdates,
+						},
+					},
+				},
+			),
+		)
+		require.NoError(t, err)
+
+		for _, remoteSelector := range solanaSelectors {
+			validateSolanaConfig(t, state, solChainUpdates, selector, remoteSelector)
+		}
+	}
+
+	//////////////////////////////////
+	// DEPLOY NEW SOLANA TOKEN POOL //
+	//////////////////////////////////
+	require.NoError(t, err)
+	lr := solTestTokenPool.LockAndRelease_PoolType
+	for _, selector := range solanaSelectors {
+		for _, tokenAddress := range remoteTokenAddresses {
+			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
+					changeset_solana.TokenPoolConfig{
+						ChainSelector: selector,
+						TokenPubKey:   tokenAddress,
+						PoolType:      &lr,
+						Metadata:      shared.CLLMetadata,
+					},
+				),
+			})
+			require.NoError(t, err)
+		}
+	}
+
+	/////////////////////////////////////////////////////////////////
+	// REMOVE & ADD SOLANA CHAIN CONFIG (due to token pool change) //
+	/////////////////////////////////////////////////////////////////
+	for _, selector := range evmSelectors {
+		solChainUpdates := make(map[uint64]v1_5_1.SolChainUpdate)
+		for remoteSelector, remoteTokenAddress := range remoteTokenAddresses {
+			solChainUpdates[remoteSelector] = v1_5_1.SolChainUpdate{
+				Type:              shared.LockReleaseTokenPool,
+				TokenAddress:      remoteTokenAddress.String(),
+				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(0, 0),
+				Metadata:          shared.CLLMetadata,
 			}
 		}
 		e, err = commonchangeset.Apply(t, e, nil,

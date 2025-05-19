@@ -1311,6 +1311,7 @@ func DeployTransferableTokenSolana(
 				ChainSelector: solChainSel,
 				TokenPubKey:   solTokenAddress,
 				PoolType:      &bnm,
+				Metadata:      shared.CLLMetadata,
 			},
 		),
 	)
@@ -1341,6 +1342,7 @@ func DeployTransferableTokenSolana(
 				SolChainSelector: solChainSel,
 				SolTokenPubKey:   solTokenAddress,
 				SolPoolType:      &bnm,
+				Metadata:         shared.CLLMetadata,
 				EVMRemoteConfigs: map[uint64]ccipChangeSetSolana.EVMRemoteConfig{
 					evmChainSel: {
 						TokenSymbol: shared.TokenSymbol(evmTokenName),
@@ -1393,6 +1395,7 @@ func DeployTransferableTokenSolana(
 				PoolType:        &bnm,
 				TokenPubKey:     solTokenAddress,
 				WritableIndexes: []uint8{3, 4, 7},
+				Metadata:        shared.CLLMetadata,
 			},
 		),
 	)
@@ -2202,8 +2205,9 @@ func TransferOwnershipSolana(
 	// If we don't fund, execute() calls will fail with "no funds" errors.
 	timelockSignerPDA = state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	mcmSignerPDA = state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
-	memory.FundSolanaAccounts(e.GetContext(), t, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
+	err = memory.FundSolanaAccounts(e.GetContext(), []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
 		100, e.SolChains[solChain].Client)
+	require.NoError(t, err)
 	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
 	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
 	// Apply transfer ownership changeset
