@@ -38,13 +38,22 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	}(e)
 
+	var addressBookToRemove cldf.AddressBook //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	for _, tokenPoolConfig := range cfg.AddTokenPoolAndLookupTable {
 		output, err := AddTokenPoolAndLookupTable(e, tokenPoolConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
 		}
 		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			// merge into in memory address book for below changesets
 			err = e.ExistingAddresses.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
+			// later remove from in memory address book so that we can use the finalOutput address book to update the disk/in-memory address book
+			addressBookToRemove = output.AddressBook
+
+			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
 			}
@@ -139,6 +148,11 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 		}
 		finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+	}
+
+	err := e.ExistingAddresses.Remove(addressBookToRemove) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove address book: %w", err)
 	}
 
 	return finalOutput, nil
