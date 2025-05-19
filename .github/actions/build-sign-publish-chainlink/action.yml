@@ -260,13 +260,13 @@ runs:
       name: Sign the published root Docker image using keyless method
       shell: sh
       run: |
-        cosign sign "${{ env.root_image_name }}" --yes
+        cosign sign -y "${{ env.root_image_digest }}"
 
     - if: inputs.verify-signature == 'true'
       name: Verify the signature of the published root Docker image using keyless
       shell: sh
       run: |
-        cosign verify "${{ env.root_image_name }}" \
+	cosign verify "${{ env.root_image_digest }}" \
         --certificate-oidc-issuer ${{ env.oidc-issuer }} \
         --certificate-identity "${{ env.oidc-identity }}"
 
@@ -275,12 +275,13 @@ runs:
       name: Sign the published non-root Docker image using keyless method
       shell: sh
       run: |
-        cosign sign "${{ env.nonroot_image_name }}" --yes
+	cosign sign -y "${{ env.nonroot_image_digest }}"
 
     - if: inputs.verify-signature == 'true'
       name: Verify the signature of the published non-root Docker image using keyless
       shell: sh
       run: |
-        cosign verify "${{ env.nonroot_image_name }}" \
+	cosign verify "${{ env.nonroot_image_digest }}" \
         --certificate-oidc-issuer ${{ env.oidc-issuer }} \
         --certificate-identity "${{ env.oidc-identity }}"
+
