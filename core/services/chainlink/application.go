@@ -932,6 +932,9 @@ func newCREServices(
 
 				engineRegistry := syncer.NewEngineRegistry()
 
+				// TODO: create billing client
+				var billingClient workflows.BillingClient
+
 				eventHandler, err := syncer.NewEventHandler(
 					lggr,
 					workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
@@ -941,6 +944,7 @@ func newCREServices(
 					workflowRateLimiter,
 					workflowLimits,
 					artifactsStore,
+					syncer.WithBillingClient(billingClient),
 				)
 				if err != nil {
 					return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)

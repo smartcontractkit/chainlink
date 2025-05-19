@@ -469,7 +469,7 @@ WsURL = ''
 RestURL = ''
 
 [Billing]
-URL = ''
+URL = 'localhost:4319'
 
 [[Aptos]]
 ChainID = '1'
