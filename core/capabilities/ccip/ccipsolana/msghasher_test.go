@@ -25,8 +25,8 @@ import (
 
 func TestMessageHasher_EVM2SVM(t *testing.T) {
 	registeredExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
-		chainsel.FamilyEVM:    ccipevm.EVMExtraDataCodec{},
-		chainsel.FamilySolana: SolanaExtraDataCodec{},
+		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
+		chainsel.FamilySolana: ExtraDataDecoder{},
 	}
 	var extraDataCodec = ccipcommon.ExtraDataCodec(registeredExtraDataCodecMap)
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)

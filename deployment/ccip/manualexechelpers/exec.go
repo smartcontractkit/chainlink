@@ -554,8 +554,8 @@ func ManuallyExecuteAll(
 	reExecuteIfFailed bool,
 ) error {
 	extraDataCodec := ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
-		chainsel.FamilyEVM:    ccipevm.EVMExtraDataCodec{},
-		chainsel.FamilySolana: ccipsolana.SolanaExtraDataCodec{},
+		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
+		chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
 	})
 	// the chain multiple times for the same root/messages.
 	messageSentCache := NewMessageSentCache()

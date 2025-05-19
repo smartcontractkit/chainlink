@@ -20,7 +20,7 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		RMNCrypto:                  NewEVMRMNCrypto(lggr.Named(chainsel.FamilyEVM).Named("RMNCrypto")),
 		ContractTransmitterFactory: ocrimpls.NewEVMContractTransmitterFactory(extraDataCodec),
 		ChainRW:                    ChainCWProvider{},
-		ExtraDataCodec:             EVMExtraDataCodec{},
+		ExtraDataCodec:             ExtraDataDecoder{},
 		AddressCodec:               AddressCodec{},
 	}
 }

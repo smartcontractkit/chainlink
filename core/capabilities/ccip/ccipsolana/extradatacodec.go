@@ -29,11 +29,11 @@ var (
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
 )
 
-// SolanaExtraDataCodec is a helper struct for decoding extra data
-type SolanaExtraDataCodec struct{}
+// ExtraDataDecoder is a helper struct for decoding extra data
+type ExtraDataDecoder struct{}
 
 // DecodeExtraArgsToMap is a helper function for converting Borsh encoded extra args bytes into map[string]any
-func (d SolanaExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}
@@ -74,11 +74,11 @@ func (d SolanaExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (m
 }
 
 // DecodeDestExecDataToMap is a helper function for converting dest exec data bytes into map[string]any
-func (d SolanaExtraDataCodec) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
 	return map[string]any{
 		svmDestExecDataKey: binary.BigEndian.Uint32(destExecData),
 	}, nil
 }
 
-// Ensure SolanaExtraDataCodec implements the SourceChainExtraDataCodec interface
-var _ ccipcommon.SourceChainExtraDataCodec = &SolanaExtraDataCodec{}
+// Ensure ExtraDataDecoder implements the SourceChainExtraDataCodec interface
+var _ ccipcommon.SourceChainExtraDataCodec = &ExtraDataDecoder{}

@@ -57,8 +57,8 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 			// Set the source chain selector to be EVM for now
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.SOLANA_TESTNET.Selector)
 			edc := ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
-				chainsel.FamilyEVM:    ccipevm.EVMExtraDataCodec{},
-				chainsel.FamilySolana: SolanaExtraDataCodec{},
+				chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
+				chainsel.FamilySolana: ExtraDataDecoder{},
 			})
 			ep := EstimateProvider{extraDataCodec: edc}
 			got := ep.CalculateMessageMaxGas(msg)
@@ -101,8 +101,8 @@ func TestCalculateMaxGas(t *testing.T) {
 
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.SOLANA_TESTNET.Selector)
 			edc := ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
-				chainsel.FamilyEVM:    ccipevm.EVMExtraDataCodec{},
-				chainsel.FamilySolana: SolanaExtraDataCodec{},
+				chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
+				chainsel.FamilySolana: ExtraDataDecoder{},
 			})
 			ep := EstimateProvider{extraDataCodec: edc}
 			gotTree := ep.CalculateMerkleTreeGas(tt.numRequests)

@@ -21,7 +21,7 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(extraDataCodec),
 		AddressCodec:               AddressCodec{},
 		ChainRW:                    ChainRWProvider{},
-		ExtraDataCodec:             SolanaExtraDataCodec{},
+		ExtraDataCodec:             ExtraDataDecoder{},
 	}
 }
 

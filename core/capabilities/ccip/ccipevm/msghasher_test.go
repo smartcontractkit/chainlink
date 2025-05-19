@@ -36,8 +36,8 @@ import (
 )
 
 var extraDataCodec = ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
-	chainsel.FamilyEVM:    EVMExtraDataCodec{},
-	chainsel.FamilySolana: ccipsolana.SolanaExtraDataCodec{},
+	chainsel.FamilyEVM:    ExtraDataDecoder{},
+	chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
 })
 
 // NOTE: these test cases are only EVM <-> EVM.
