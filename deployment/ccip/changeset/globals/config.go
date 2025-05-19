@@ -25,8 +25,6 @@ const (
 	InflightCacheExpiry         = 1 * time.Minute
 	RootSnoozeTime              = 5 * time.Minute
 	BatchingStrategyID          = 0
-	GasPriceDeviationPPB        = 1000
-	DAGasPriceDeviationPPB      = 0
 	OptimisticConfirmations     = 1
 	TransmissionDelayMultiplier = 15 * time.Second
 	// ======================================

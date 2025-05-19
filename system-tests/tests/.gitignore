@@ -18,3 +18,4 @@ crib-configs/
 cache/
 
 cre.yaml
+*.state.yaml

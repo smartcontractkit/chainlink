@@ -772,3 +772,9 @@ ChipIngressEndpoint = '' # Default
 [Telemetry.ResourceAttributes]
 # foo is an example resource attribute
 foo = "bar" # Example
+
+[CRE.Streams]
+# WsURL is the websockets url for the streams sdk config
+WsURL = "streams.url" # Example
+# RestURL is the REST url for the streams sdk config
+RestURL = "streams.url" # Example

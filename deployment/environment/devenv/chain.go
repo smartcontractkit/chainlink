@@ -2,9 +2,13 @@ package devenv
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,17 +17,23 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 const (
 	EVMChainType = "EVM"
+	SolChainType = "SOLANA"
 )
 
 type CribRPCs struct {
@@ -33,14 +43,15 @@ type CribRPCs struct {
 
 // ChainConfig holds the configuration for a with a deployer key which can be used to send transactions to the chain.
 type ChainConfig struct {
-	ChainID            uint64                   // chain id as per EIP-155, mainly applicable for EVM chains
+	ChainID            string                   // chain id as per EIP-155
 	ChainName          string                   // name of the chain populated from chainselector repo
 	ChainType          string                   // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
 	PreferredURLScheme cldf.URLSchemePreference // preferred url scheme for the chain
 	WSRPCs             []CribRPCs               // websocket rpcs to connect to the chain
 	HTTPRPCs           []CribRPCs               // http rpcs to connect to the chain
 	DeployerKey        *bind.TransactOpts       // key to deploy and configure contracts on the chain
-	Users              []*bind.TransactOpts     // map of addresses to their transact opts to interact with the chain as users
+	SolDeployerKey     solana.PrivateKey
+	Users              []*bind.TransactOpts // map of addresses to their transact opts to interact with the chain as users
 }
 
 func (c *ChainConfig) SetUsers(pvtkeys []string) error {
@@ -58,7 +69,11 @@ func (c *ChainConfig) SetUsers(pvtkeys []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to convert private key to ECDSA: %w", err)
 		}
-		user, err := bind.NewKeyedTransactorWithChainID(pvtKey, new(big.Int).SetUint64(c.ChainID))
+		chainID, success := new(big.Int).SetString(c.ChainID, 10)
+		if !success {
+			return fmt.Errorf("invalid chainID %s", c.ChainID)
+		}
+		user, err := bind.NewKeyedTransactorWithChainID(pvtKey, chainID)
 		if err != nil {
 			return fmt.Errorf("failed to create transactor: %w", err)
 		}
@@ -74,7 +89,12 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		if err != nil {
 			return fmt.Errorf("failed to convert private key to ECDSA: %w", err)
 		}
-		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, new(big.Int).SetUint64(c.ChainID))
+		chainID, success := new(big.Int).SetString(c.ChainID, 10)
+		if !success {
+			return fmt.Errorf("invalid chainID %s", c.ChainID)
+		}
+
+		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, chainID)
 		if err != nil {
 			return fmt.Errorf("failed to create transactor: %w", err)
 		}
@@ -90,7 +110,11 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		return fmt.Errorf("failed to create KMS client: %w", err)
 	}
 	evmKMSClient := deployment.NewEVMKMSClient(kmsClient, kmsConfig.KmsDeployerKeyId)
-	c.DeployerKey, err = evmKMSClient.GetKMSTransactOpts(context.Background(), new(big.Int).SetUint64(c.ChainID))
+	chainID, success := new(big.Int).SetString(c.ChainID, 10)
+	if !success {
+		return fmt.Errorf("invalid chainID %s", c.ChainID)
+	}
+	c.DeployerKey, err = evmKMSClient.GetKMSTransactOpts(context.Background(), chainID)
 	if err != nil {
 		return fmt.Errorf("failed to get transactor from KMS client: %w", err)
 	}
@@ -111,36 +135,39 @@ func (c *ChainConfig) ToRPCs() []cldf.RPC {
 	return rpcs
 }
 
-func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Chain, error) {
-	chains := make(map[uint64]cldf.Chain)
-	var syncMap sync.Map
+func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Chain, map[uint64]cldf.SolChain, error) {
+	evmChains := make(map[uint64]cldf.Chain)
+	solChains := make(map[uint64]cldf.SolChain)
+	var evmSyncMap sync.Map
+	var solSyncMap sync.Map
+
 	g := new(errgroup.Group)
 	for _, chainCfg := range configs {
-		chainCfg := chainCfg
+		chainCfg := chainCfg // capture loop variable
 		g.Go(func() error {
-			selector, err := chainselectors.SelectorFromChainId(chainCfg.ChainID)
+			chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(chainCfg.ChainID, strings.ToLower(chainCfg.ChainType))
 			if err != nil {
-				return fmt.Errorf("failed to get selector from chain id %d: %w", chainCfg.ChainID, err)
+				return fmt.Errorf("failed to get selector from chain id %s: %w", chainCfg.ChainID, err)
 			}
 
 			rpcConf := cldf.RPCConfig{
-				ChainSelector: selector,
+				ChainSelector: chainDetails.ChainSelector,
 				RPCs:          chainCfg.ToRPCs(),
 			}
-			ec, err := cldf.NewMultiClient(logger, rpcConf)
-			if err != nil {
-				return fmt.Errorf("failed to create multi client: %w", err)
-			}
 
-			chainInfo, err := cldf.ChainInfo(selector)
-			if err != nil {
-				return fmt.Errorf("failed to get chain info for chain %s: %w", chainCfg.ChainName, err)
-			}
-			syncMap.Store(selector, cldf.Chain{
-				Selector:    selector,
-				Client:      ec,
-				DeployerKey: chainCfg.DeployerKey,
-				Confirm: func(tx *types.Transaction) (uint64, error) {
+			switch chainCfg.ChainType {
+			case EVMChainType:
+				ec, err := cldf.NewMultiClient(logger, rpcConf)
+				if err != nil {
+					return fmt.Errorf("failed to create multi client: %w", err)
+				}
+
+				chainInfo, err := cldf.ChainInfo(chainDetails.ChainSelector)
+				if err != nil {
+					return fmt.Errorf("failed to get chain info for chain %s: %w", chainCfg.ChainName, err)
+				}
+
+				confirmFn := func(tx *types.Transaction) (uint64, error) {
 					var blockNumber uint64
 					if tx == nil {
 						return 0, fmt.Errorf("tx was nil, nothing to confirm chain %s", chainInfo.ChainName)
@@ -163,16 +190,107 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Cha
 						return blockNumber, fmt.Errorf("tx %s reverted, could not decode error reason chain %s", tx.Hash().Hex(), chainInfo.ChainName)
 					}
 					return blockNumber, nil
-				},
-			})
-			return nil
+				}
+
+				evmSyncMap.Store(chainDetails.ChainSelector, cldf.Chain{
+					Selector:    chainDetails.ChainSelector,
+					Client:      ec,
+					DeployerKey: chainCfg.DeployerKey,
+					Confirm:     confirmFn,
+				})
+				return nil
+
+			case SolChainType:
+				logger.Info("Creating solana programs tmp dir")
+				programsPath, err := os.MkdirTemp("", "solana-programs")
+				logger.Infof("Solana programs tmp dir at %s", programsPath)
+				if err != nil {
+					return err
+				}
+
+				keyPairDir, err := os.MkdirTemp("", "solana-keypair")
+				logger.Infof("Solana keypair dir at %s", keyPairDir)
+				if err != nil {
+					return err
+				}
+
+				keyPairPath, err := generateSolanaKeypair(chainCfg.SolDeployerKey, keyPairDir)
+				if err != nil {
+					return err
+				}
+
+				sc := solRpc.New(chainCfg.HTTPRPCs[0].External)
+				solSyncMap.Store(chainDetails.ChainSelector, cldf.SolChain{
+					Selector:    chainDetails.ChainSelector,
+					Client:      sc,
+					DeployerKey: &chainCfg.SolDeployerKey,
+					KeypairPath: keyPairPath,
+					URL:         chainCfg.HTTPRPCs[0].External,
+					WSURL:       chainCfg.WSRPCs[0].External,
+					Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
+						_, err := solCommonUtil.SendAndConfirm(
+							context.Background(), sc, instructions, chainCfg.SolDeployerKey, solRpc.CommitmentConfirmed, opts...,
+						)
+						return err
+					},
+					ProgramsPath: programsPath,
+				})
+				return nil
+
+			default:
+				return fmt.Errorf("chain type %s is not supported", chainCfg.ChainType)
+			}
 		})
 	}
-	err := g.Wait()
 
-	syncMap.Range(func(sel, value interface{}) bool {
-		chains[sel.(uint64)] = value.(cldf.Chain)
+	if err := g.Wait(); err != nil {
+		return nil, nil, err
+	}
+
+	evmSyncMap.Range(func(sel, value interface{}) bool {
+		evmChains[sel.(uint64)] = value.(cldf.Chain)
 		return true
 	})
-	return chains, err
+
+	solSyncMap.Range(func(sel, value interface{}) bool {
+		solChains[sel.(uint64)] = value.(cldf.SolChain)
+		return true
+	})
+
+	return evmChains, solChains, nil
+}
+
+func (c *ChainConfig) SetSolDeployerKey(keyString *string) error {
+	if keyString == nil || *keyString == "" {
+		return errors.New("no Solana private key provided")
+	}
+
+	solKey, err := solana.PrivateKeyFromBase58(*keyString)
+	if err != nil {
+		return fmt.Errorf("invalid Solana private key: %w", err)
+	}
+
+	c.SolDeployerKey = solKey
+	return nil
+}
+
+func generateSolanaKeypair(privateKey solana.PrivateKey, dir string) (string, error) {
+	privateKeyBytes := []byte(privateKey)
+
+	intArray := make([]int, len(privateKeyBytes))
+	for i, b := range privateKeyBytes {
+		intArray[i] = int(b)
+	}
+
+	keypairJSON, err := json.Marshal(intArray)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal keypair: %w", err)
+	}
+
+	keypairPath := filepath.Join(dir, "solana-keypair.json")
+	if err := os.WriteFile(keypairPath, keypairJSON, 0600); err != nil {
+		return "", fmt.Errorf("failed to write keypair to file: %w", err)
+	}
+
+	return keypairPath, nil
 }

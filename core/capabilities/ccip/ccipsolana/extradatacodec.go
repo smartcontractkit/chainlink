@@ -47,7 +47,7 @@ func (d ExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[str
 		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
 		err := args.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return outputMap, fmt.Errorf("failed to decode extra args: %w", err)
+			return nil, fmt.Errorf("failed to decode extra args: %w", err)
 		}
 		val = reflect.ValueOf(args)
 		typ = reflect.TypeOf(args)
@@ -56,7 +56,7 @@ func (d ExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[str
 		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
 		err := args.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return outputMap, fmt.Errorf("failed to decode extra args: %w", err)
+			return nil, fmt.Errorf("failed to decode extra args: %w", err)
 		}
 		val = reflect.ValueOf(args)
 		typ = reflect.TypeOf(args)
