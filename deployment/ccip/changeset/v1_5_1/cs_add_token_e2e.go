@@ -113,12 +113,6 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Enviro
 		Pools: make(map[uint64]map[shared.TokenSymbol]TokenPoolInfo),
 	}
 	for chain, poolCfg := range c.PoolConfig {
-		c.deployPool = &DeployTokenPoolContractsConfig{
-			TokenSymbol:  symbol,
-			NewPools:     make(map[uint64]DeployTokenPoolInput),
-			IsTestRouter: c.IsTestRouter,
-		}
-
 		tpCfg := TokenPoolConfig{
 			ChainUpdates:        poolCfg.RateLimiterConfig,
 			Version:             poolCfg.PoolVersion,
@@ -132,8 +126,14 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Enviro
 
 		if poolCfg.ExistingPoolType == nil {
 			// deploy new tokenPool
-			if poolCfg.DeployPoolConfig == nil {
+			if poolCfg.DeployPoolConfig != nil {
 				return fmt.Errorf("existing pool type must be provided for chain %d, if no deploy pool config is there", chain)
+			}
+
+			c.deployPool = &DeployTokenPoolContractsConfig{
+				TokenSymbol:  symbol,
+				NewPools:     make(map[uint64]DeployTokenPoolInput),
+				IsTestRouter: c.IsTestRouter,
 			}
 
 			c.deployPool.NewPools[chain] = *poolCfg.DeployPoolConfig
@@ -141,9 +141,8 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Enviro
 			poolInfo.Type = poolCfg.DeployPoolConfig.Type
 		} else {
 			// no need to deploy new tokenPool
-			c.deployPool.NewPools[chain] = *poolCfg.DeployPoolConfig
-			tpCfg.Type = poolCfg.DeployPoolConfig.Type
-			poolInfo.Type = poolCfg.DeployPoolConfig.Type
+			tpCfg.Type = *poolCfg.ExistingPoolType
+			poolInfo.Type = *poolCfg.ExistingPoolType
 		}
 
 		// Populate the TokenAdminRegistryChangesetConfig for each chain.
