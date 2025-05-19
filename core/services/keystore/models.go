@@ -162,7 +162,7 @@ type keyRing struct {
 	StarkNet   map[string]starkkey.Key
 	Aptos      map[string]aptoskey.Key
 	Tron       map[string]tronkey.Key
-	Ton        map[string]tonkey.Key
+	TON        map[string]tonkey.Key
 	VRF        map[string]vrfkey.KeyV2
 	Workflow   map[string]workflowkey.Key
 	LegacyKeys LegacyKeyStorage
@@ -180,7 +180,7 @@ func newKeyRing() *keyRing {
 		StarkNet: make(map[string]starkkey.Key),
 		Aptos:    make(map[string]aptoskey.Key),
 		Tron:     make(map[string]tronkey.Key),
-		Ton:      make(map[string]tonkey.Key),
+		TON:      make(map[string]tonkey.Key),
 		VRF:      make(map[string]vrfkey.KeyV2),
 		Workflow: make(map[string]workflowkey.Key),
 	}
@@ -246,8 +246,8 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, tronkey := range kr.Tron {
 		rawKeys.Tron = append(rawKeys.Tron, internal.RawBytes(tronkey))
 	}
-	for _, tonkey := range kr.Ton {
-		rawKeys.Ton = append(rawKeys.Ton, internal.RawBytes(tonkey))
+	for _, tonkey := range kr.TON {
+		rawKeys.TON = append(rawKeys.TON, internal.RawBytes(tonkey))
 	}
 	for _, vrfKey := range kr.VRF {
 		rawKeys.VRF = append(rawKeys.VRF, internal.RawBytes(vrfKey))
@@ -301,7 +301,7 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 		tronIDs = append(tronIDs, tronKey.ID())
 	}
 	tonIDs := []string{}
-	for _, tonKey := range kr.Ton {
+	for _, tonKey := range kr.TON {
 		tonIDs = append(tonIDs, tonKey.ID())
 	}
 	var vrfIDs []string
@@ -345,7 +345,7 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Tron keys", len(tronIDs)), "keys", tronIDs)
 	}
 	if len(tonIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Ton keys", len(tonIDs)), "keys", tonIDs)
+		lggr.Infow(fmt.Sprintf("Unlocked %d TON keys", len(tonIDs)), "keys", tonIDs)
 	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
@@ -372,7 +372,7 @@ type rawKeyRing struct {
 	StarkNet   [][]byte
 	Aptos      [][]byte
 	Tron       [][]byte
-	Ton        [][]byte
+	TON        [][]byte
 	VRF        [][]byte
 	Workflow   [][]byte
 	LegacyKeys LegacyKeyStorage `json:"-"`
@@ -421,9 +421,9 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 		tronKey := tronkey.KeyFor(internal.NewRaw(rawTronKey))
 		keyRing.Tron[tronKey.ID()] = tronKey
 	}
-	for _, rawTonKey := range rawKeys.Ton {
-		tonKey := tonkey.KeyFor(internal.NewRaw(rawTonKey))
-		keyRing.Ton[tonKey.ID()] = tonKey
+	for _, rawTONKey := range rawKeys.TON {
+		tonKey := tonkey.KeyFor(internal.NewRaw(rawTONKey))
+		keyRing.TON[tonKey.ID()] = tonKey
 	}
 	for _, rawVRFKey := range rawKeys.VRF {
 		vrfKey := vrfkey.KeyFor(internal.NewRaw(rawVRFKey))

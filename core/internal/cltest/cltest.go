@@ -134,7 +134,7 @@ var (
 	DefaultStarkNetKey = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultAptosKey    = aptoskey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultTronKey     = tronkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
-	DefaultTonKey      = tonkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
+	DefaultTONKey      = tonkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultVRFKey      = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 )
 

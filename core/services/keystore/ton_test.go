@@ -15,12 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 )
 
-func Test_TonKeyStore_E2E(t *testing.T) {
+func Test_TONKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db)
 	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))
-	ks := keyStore.Ton()
+	ks := keyStore.TON()
 	reset := func() {
 		ctx := context.Background() // Executed on cleanup
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))

@@ -29,8 +29,8 @@ const (
 	OCRChainTypeAptos = "APTOS"
 	// OCRChainTypeTron defines OCR2 Tron Chain Type
 	OCRChainTypeTron = "TRON"
-	// OCRChainTypeTon defines OCR2 Ton Chain Type
-	OCRChainTypeTon = "TON"
+	// OCRChainTypeTON defines OCR2 TON Chain Type
+	OCRChainTypeTON = "TON"
 )
 
 // ToOCR2ChainType turns a valid string into a OCR2ChainType
@@ -48,8 +48,8 @@ func ToOCR2ChainType(s string) (OCR2ChainType, error) {
 		return OCRChainTypeAptos, nil
 	case string(chaintype.Tron):
 		return OCRChainTypeTron, nil
-	case string(chaintype.Ton):
-		return OCRChainTypeTon, nil
+	case string(chaintype.TON):
+		return OCRChainTypeTON, nil
 	default:
 		return "", errors.New("unknown ocr2 chain type")
 	}
@@ -70,8 +70,8 @@ func FromOCR2ChainType(ct OCR2ChainType) string {
 		return string(chaintype.Aptos)
 	case OCRChainTypeTron:
 		return string(chaintype.Tron)
-	case OCRChainTypeTon:
-		return string(chaintype.Ton)
+	case OCRChainTypeTON:
+		return string(chaintype.TON)
 	default:
 		return strings.ToLower(string(ct))
 	}

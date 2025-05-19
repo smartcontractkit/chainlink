@@ -256,7 +256,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					t.Skip("aptos doesn't need a CoreRelayerChainInteroperator")
 				case relay.NetworkTron:
 					t.Skip("tron doesn't need a CoreRelayerChainInteroperator")
-				case relay.NetworkTon:
+				case relay.NetworkTON:
 					t.Skip("ton doesn't need a CoreRelayerChainInteroperator")
 
 				default:

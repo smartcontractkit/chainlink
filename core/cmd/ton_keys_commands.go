@@ -6,17 +6,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-type TonKeyPresenter struct {
+type TONKeyPresenter struct {
 	JAID
-	presenters.TonKeyResource
+	presenters.TONKeyResource
 }
 
 // RenderTable implements TableRenderer
-func (p TonKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Ton Public Key", "Base64 Address", "Raw Address"}
+func (p TONKeyPresenter) RenderTable(rt RendererTable) error {
+	headers := []string{"ID", "TON Public Key", "Base64 Address", "Raw Address"}
 	rows := [][]string{p.ToRow()}
 
-	if _, err := rt.Write([]byte("🔑 Ton Keys\n")); err != nil {
+	if _, err := rt.Write([]byte("🔑 TON Keys\n")); err != nil {
 		return err
 	}
 	renderList(headers, rows, rt.Writer)
@@ -24,7 +24,7 @@ func (p TonKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *TonKeyPresenter) ToRow() []string {
+func (p *TONKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.PubKey,
@@ -35,18 +35,18 @@ func (p *TonKeyPresenter) ToRow() []string {
 	return row
 }
 
-type TonKeyPresenters []TonKeyPresenter
+type TONKeyPresenters []TONKeyPresenter
 
 // RenderTable implements TableRenderer
-func (ps TonKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Ton Public Key", "Base64 Address", "Raw Address"}
+func (ps TONKeyPresenters) RenderTable(rt RendererTable) error {
+	headers := []string{"ID", "TON Public Key", "Base64 Address", "Raw Address"}
 	rows := [][]string{}
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
 	}
 
-	if _, err := rt.Write([]byte("🔑 Ton Keys\n")); err != nil {
+	if _, err := rt.Write([]byte("🔑 TON Keys\n")); err != nil {
 		return err
 	}
 	renderList(headers, rows, rt.Writer)
@@ -54,6 +54,6 @@ func (ps TonKeyPresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func NewTonKeysClient(s *Shell) KeysClient {
-	return newKeysClient[tonkey.Key, TonKeyPresenter, TonKeyPresenters]("Ton", s)
+func NewTONKeysClient(s *Shell) KeysClient {
+	return newKeysClient[tonkey.Key, TONKeyPresenter, TONKeyPresenters]("TON", s)
 }

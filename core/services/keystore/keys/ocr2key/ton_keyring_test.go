@@ -11,10 +11,10 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-func TestTonKeyring_Sign_Verify(t *testing.T) {
-	kr1, err := newTonKeyring(cryptorand.Reader)
+func TestTONKeyring_Sign_Verify(t *testing.T) {
+	kr1, err := newTONKeyring(cryptorand.Reader)
 	require.NoError(t, err)
-	kr2, err := newTonKeyring(cryptorand.Reader)
+	kr2, err := newTONKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	ctx := ocrtypes.ReportContext{}
 
@@ -42,10 +42,10 @@ func TestTonKeyring_Sign_Verify(t *testing.T) {
 	})
 }
 
-func TestTonKeyring_Sign3_Verify3(t *testing.T) {
-	kr1, err := newTonKeyring(cryptorand.Reader)
+func TestTONKeyring_Sign3_Verify3(t *testing.T) {
+	kr1, err := newTONKeyring(cryptorand.Reader)
 	require.NoError(t, err)
-	kr2, err := newTonKeyring(cryptorand.Reader)
+	kr2, err := newTONKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	digest := ocrtypes.ConfigDigest{}
 
@@ -78,7 +78,7 @@ func TestTonKeyring_Sign3_Verify3(t *testing.T) {
 	})
 }
 
-func TestTonKeyring_Marshalling(t *testing.T) {
+func TestTONKeyring_Marshalling(t *testing.T) {
 	kr1, err := newAptosKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()

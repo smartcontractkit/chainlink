@@ -13,11 +13,11 @@ import (
 	"github.com/xssnick/tonutils-go/ton/wallet"
 )
 
-func TestTonKey(t *testing.T) {
+func TestTONKey(t *testing.T) {
 	t.Run("Generate new key and verify its components", func(t *testing.T) {
 		// Generate a new key
 		key, err := New()
-		require.NoError(t, err, "Failed to generate new TonKey")
+		require.NoError(t, err, "Failed to generate new TONKey")
 
 		// Verify key components
 		assert.NotNil(t, key.pubKey, "Public key should not be nil")
@@ -38,7 +38,7 @@ func TestTonKey(t *testing.T) {
 	t.Run("Generate new key and verify its components", func(t *testing.T) {
 		// Generate a new key
 		key, err := New()
-		require.NoError(t, err, "Failed to generate new TonKey")
+		require.NoError(t, err, "Failed to generate new TONKey")
 
 		// Verify key components
 		assert.NotNil(t, key.pubKey, "Public key should not be nil")
@@ -78,7 +78,7 @@ func TestTonKey(t *testing.T) {
 		key, err := New()
 		require.NoError(t, err)
 
-		addr, err := key.PubkeyToAddressWithVersionAndWorkchain(wallet.V4R1, -1)
+		addr, err := key.PubkeyToAddressWith(wallet.V4R1, -1)
 		require.NoError(t, err)
 		assert.NotNil(t, addr)
 
@@ -92,16 +92,16 @@ func TestTonKey(t *testing.T) {
 		key, err := New()
 		require.NoError(t, err)
 
-		addrV3WC0, err := key.PubkeyToAddressWithVersionAndWorkchain(wallet.V3, 0)
+		addrV3WC0, err := key.PubkeyToAddressWith(wallet.V3, 0)
 		require.NoError(t, err)
 
-		addrV4WC0, err := key.PubkeyToAddressWithVersionAndWorkchain(wallet.V4R1, 0)
+		addrV4WC0, err := key.PubkeyToAddressWith(wallet.V4R1, 0)
 		require.NoError(t, err)
 
-		addrV3WC1, err := key.PubkeyToAddressWithVersionAndWorkchain(wallet.V3, 1)
+		addrV3WC1, err := key.PubkeyToAddressWith(wallet.V3, 1)
 		require.NoError(t, err)
 
-		addrV3WCMinus1, err := key.PubkeyToAddressWithVersionAndWorkchain(wallet.V3, -1)
+		addrV3WCMinus1, err := key.PubkeyToAddressWith(wallet.V3, -1)
 		require.NoError(t, err)
 
 		// Assert addresses are all different

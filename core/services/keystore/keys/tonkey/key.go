@@ -1,12 +1,14 @@
 package tonkey
 
 import (
+	"context"
 	"crypto"
 	"crypto/ed25519"
 	crypto_rand "crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 
@@ -90,8 +92,8 @@ func (key Key) Sign(msg []byte) ([]byte, error) {
 	return key.signFn(rng, msg, hash)
 }
 
-// PubkeyToAddressWithVersionAndWorkchain returns the TON wallet address for the given wallet version and workchain
-func (key Key) PubkeyToAddressWithVersionAndWorkchain(version wallet.Version, workchain int8) (*address.Address, error) {
+// PubkeyToAddressWith returns the TON wallet address for the given wallet version and workchain
+func (key Key) PubkeyToAddressWith(version wallet.VersionConfig, workchain int8) (*address.Address, error) {
 	privKey := ed25519.NewKeyFromSeed(internal.Bytes(key.raw))
 	w, err := wallet.FromPrivateKeyWithOptions(nil, privKey, version, wallet.WithWorkchain(workchain))
 	if err != nil {
@@ -102,22 +104,30 @@ func (key Key) PubkeyToAddressWithVersionAndWorkchain(version wallet.Version, wo
 
 // PubkeyToAddress returns the wallet v3 address for workchain 0
 func (key Key) PubkeyToAddress() *address.Address {
-	ver := wallet.V3
-	addr, err := key.PubkeyToAddressWithVersionAndWorkchain(ver, 0)
+	ver := wallet.ConfigHighloadV3{
+		MessageTTL: 120, // 2 minutes TTL
+		MessageBuilder: func(ctx context.Context, subWalletId uint32) (id uint32, createdAt int64, err error) {
+			tm := time.Now().Unix() - 30
+			//nolint:gosec // safe: tm is always positive, within uint32 range
+			return uint32(10000 + tm%(1<<23)), tm, nil
+		},
+	}
+	workchain := int8(0)
+	addr, err := key.PubkeyToAddressWith(ver, workchain)
 	if err != nil {
 		panic(fmt.Errorf("failed to get address: %w", err))
 	}
 	return addr
 }
 
-// AddressBase64 returns the user-friendly version of the Ton address
+// AddressBase64 returns the user-friendly version of the TON address
 // https://docs.ton.org/v3/concepts/dive-into-ton/ton-blockchain/smart-contract-addresses#user-friendly-address
 func (key Key) AddressBase64() string {
 	address := key.PubkeyToAddress()
 	return address.String()
 }
 
-// RawAddress returns the raw version of the Ton address, which includes the workchain
+// RawAddress returns the raw version of the TON address, which includes the workchain
 // https://docs.ton.org/v3/concepts/dive-into-ton/ton-blockchain/smart-contract-addresses#raw-address
 func (key Key) RawAddress() string {
 	address := key.PubkeyToAddress()

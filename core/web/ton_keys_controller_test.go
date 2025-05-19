@@ -14,17 +14,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTonKeysController_Index_HappyPath(t *testing.T) {
+func TestTONKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	client, keyStore := setupTonKeysControllerTests(t)
-	keys, _ := keyStore.Ton().GetAll()
+	client, keyStore := setupTONKeysControllerTests(t)
+	keys, _ := keyStore.TON().GetAll()
 
 	response, cleanup := client.Get("/v2/keys/ton")
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	resources := []presenters.TonKeyResource{}
+	resources := []presenters.TONKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resources)
 	require.NoError(t, err)
 
@@ -34,7 +34,7 @@ func TestTonKeysController_Index_HappyPath(t *testing.T) {
 	require.Equal(t, keys[0].PublicKeyStr(), resources[0].PubKey)
 }
 
-func TestTonKeysController_Create_HappyPath(t *testing.T) {
+func TestTONKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -46,10 +46,10 @@ func TestTonKeysController_Create_HappyPath(t *testing.T) {
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	keys, _ := keyStore.Ton().GetAll()
+	keys, _ := keyStore.TON().GetAll()
 	require.Len(t, keys, 1)
 
-	resource := presenters.TonKeyResource{}
+	resource := presenters.TONKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
 	require.NoError(t, err)
 
@@ -58,48 +58,48 @@ func TestTonKeysController_Create_HappyPath(t *testing.T) {
 	require.Equal(t, keys[0].AddressBase64(), resource.AddressBase64)
 	require.Equal(t, keys[0].RawAddress(), resource.RawAddress)
 
-	_, err = keyStore.Ton().Get(resource.ID)
+	_, err = keyStore.TON().Get(resource.ID)
 	require.NoError(t, err)
 }
 
-func TestTonKeysController_Delete_NonExistentTonKeyID(t *testing.T) {
+func TestTONKeysController_Delete_NonExistentTONKeyID(t *testing.T) {
 	t.Parallel()
 
-	client, _ := setupTonKeysControllerTests(t)
+	client, _ := setupTONKeysControllerTests(t)
 
-	nonExistentTonKeyID := "foobar"
-	response, cleanup := client.Delete("/v2/keys/ton/" + nonExistentTonKeyID)
+	nonExistentTONKeyID := "foobar"
+	response, cleanup := client.Delete("/v2/keys/ton/" + nonExistentTONKeyID)
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestTonKeysController_Delete_HappyPath(t *testing.T) {
+func TestTONKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
-	client, keyStore := setupTonKeysControllerTests(t)
+	client, keyStore := setupTONKeysControllerTests(t)
 
-	keys, _ := keyStore.Ton().GetAll()
+	keys, _ := keyStore.TON().GetAll()
 	initialLength := len(keys)
-	key, _ := keyStore.Ton().Create(ctx)
+	key, _ := keyStore.TON().Create(ctx)
 
 	response, cleanup := client.Delete("/v2/keys/ton/" + key.ID())
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, response.StatusCode)
-	require.Error(t, utils.JustError(keyStore.Ton().Get(key.ID())))
+	require.Error(t, utils.JustError(keyStore.TON().Get(key.ID())))
 
-	keys, _ = keyStore.Ton().GetAll()
+	keys, _ = keyStore.TON().GetAll()
 	require.Len(t, keys, initialLength)
 }
 
-func setupTonKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
+func setupTONKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
 	ctx := testutils.Context(t)
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(ctx))
 	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.Ton().Add(ctx, cltest.DefaultTonKey))
+	require.NoError(t, app.KeyStore.TON().Add(ctx, cltest.DefaultTONKey))
 
 	client := app.NewHTTPClient(nil)
 

@@ -2,8 +2,8 @@ package presenters
 
 import "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 
-// TonKeyResource represents a Ton key JSONAPI resource.
-type TonKeyResource struct {
+// TONKeyResource represents a TON key JSONAPI resource.
+type TONKeyResource struct {
 	JAID
 	AddressBase64 string `json:"addressBase64"`
 	RawAddress    string `json:"rawAddress"`
@@ -11,12 +11,12 @@ type TonKeyResource struct {
 }
 
 // GetName implements the api2go EntityNamer interface
-func (TonKeyResource) GetName() string {
-	return "encryptedTonKeys"
+func (TONKeyResource) GetName() string {
+	return "encryptedTONKeys"
 }
 
-func NewTonKeyResource(key tonkey.Key) *TonKeyResource {
-	r := &TonKeyResource{
+func NewTONKeyResource(key tonkey.Key) *TONKeyResource {
+	r := &TONKeyResource{
 		JAID:          JAID{ID: key.ID()},
 		AddressBase64: key.AddressBase64(),
 		RawAddress:    key.RawAddress(),
@@ -26,10 +26,10 @@ func NewTonKeyResource(key tonkey.Key) *TonKeyResource {
 	return r
 }
 
-func NewTonKeyResources(keys []tonkey.Key) []TonKeyResource {
-	rs := []TonKeyResource{}
+func NewTONKeyResources(keys []tonkey.Key) []TONKeyResource {
+	rs := []TONKeyResource{}
 	for _, key := range keys {
-		rs = append(rs, *NewTonKeyResource(key))
+		rs = append(rs, *NewTONKeyResource(key))
 	}
 
 	return rs

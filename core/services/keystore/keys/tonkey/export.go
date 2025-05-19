@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const keyTypeIdentifier = "Ton"
+const keyTypeIdentifier = "TON"
 
 // FromEncryptedJSON gets key from json and password
 func FromEncryptedJSON(keyJSON []byte, password string) (Key, error) {

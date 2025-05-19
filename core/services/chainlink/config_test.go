@@ -1509,7 +1509,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 0: 2 errors:
 			- Enabled: invalid value (1): expected bool
 			- ChainID: missing: required for all chains
-	- Ton: 2 errors:
+	- TON: 2 errors:
 		- 0.Nodes.1.Name: invalid value (ton-test): duplicate - must be unique
 		- 0: 2 errors:
 			- Enabled: invalid value (1): expected bool

@@ -218,8 +218,8 @@ func (g *generalConfig) TronConfigs() RawConfigs {
 	return g.c.Tron
 }
 
-func (g *generalConfig) TonConfigs() RawConfigs {
-	return g.c.Ton
+func (g *generalConfig) TONConfigs() RawConfigs {
+	return g.c.TON
 }
 
 func (g *generalConfig) Validate() error {
@@ -360,8 +360,8 @@ func (g *generalConfig) TronEnabled() bool {
 	return false
 }
 
-func (g *generalConfig) TonEnabled() bool {
-	for _, c := range g.c.Ton {
+func (g *generalConfig) TONEnabled() bool {
+	for _, c := range g.c.TON {
 		if c.IsEnabled() {
 			return true
 		}

@@ -115,12 +115,12 @@ keys starknet delete # Delete StarkNet key if present
 keys starknet export # Export StarkNet key to keyfile
 keys starknet import # Import StarkNet key from keyfile
 keys starknet list # List the StarkNet keys
-keys ton # Remote commands for administering the node's Ton keys
-keys ton create # Create a Ton key
-keys ton delete # Delete Ton key if present
-keys ton export # Export Ton key to keyfile
-keys ton import # Import Ton key from keyfile
-keys ton list # List the Ton keys
+keys ton # Remote commands for administering the node's TON keys
+keys ton create # Create a TON key
+keys ton delete # Delete TON key if present
+keys ton export # Export TON key to keyfile
+keys ton import # Import TON key from keyfile
+keys ton list # List the TON keys
 keys tron # Remote commands for administering the node's Tron keys
 keys tron create # Create a Tron key
 keys tron delete # Delete Tron key if present

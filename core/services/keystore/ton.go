@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 )
 
-type Ton interface {
+type TON interface {
 	Get(id string) (tonkey.Key, error)
 	GetAll() ([]tonkey.Key, error)
 	Create(ctx context.Context) (tonkey.Key, error)
@@ -26,9 +26,9 @@ type ton struct {
 	*keyManager
 }
 
-var _ Ton = &ton{}
+var _ TON = &ton{}
 
-func newTonKeyStore(km *keyManager) *ton {
+func newTONKeyStore(km *keyManager) *ton {
 	return &ton{
 		km,
 	}
@@ -49,7 +49,7 @@ func (ks *ton) GetAll() (keys []tonkey.Key, _ error) {
 	if ks.isLocked() {
 		return nil, ErrLocked
 	}
-	for _, key := range ks.keyRing.Ton {
+	for _, key := range ks.keyRing.TON {
 		keys = append(keys, key)
 	}
 	return keys, nil
@@ -74,7 +74,7 @@ func (ks *ton) Add(ctx context.Context, key tonkey.Key) error {
 	if ks.isLocked() {
 		return ErrLocked
 	}
-	if _, found := ks.keyRing.Ton[key.ID()]; found {
+	if _, found := ks.keyRing.TON[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
 	return ks.safeAddKey(ctx, key)
@@ -102,9 +102,9 @@ func (ks *ton) Import(ctx context.Context, keyJSON []byte, password string) (ton
 	}
 	key, err := tonkey.FromEncryptedJSON(keyJSON, password)
 	if err != nil {
-		return tonkey.Key{}, errors.Wrap(err, "TonKeyStore#ImportKey failed to decrypt key")
+		return tonkey.Key{}, errors.Wrap(err, "TONKeyStore#ImportKey failed to decrypt key")
 	}
-	if _, found := ks.keyRing.Ton[key.ID()]; found {
+	if _, found := ks.keyRing.TON[key.ID()]; found {
 		return tonkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
 	return key, ks.keyManager.safeAddKey(ctx, key)
@@ -129,7 +129,7 @@ func (ks *ton) EnsureKey(ctx context.Context) error {
 	if ks.isLocked() {
 		return ErrLocked
 	}
-	if len(ks.keyRing.Ton) > 0 {
+	if len(ks.keyRing.TON) > 0 {
 		return nil
 	}
 
@@ -138,7 +138,7 @@ func (ks *ton) EnsureKey(ctx context.Context) error {
 		return err
 	}
 
-	ks.logger.Infof("Created Ton key with ID %s", key.ID())
+	ks.logger.Infof("Created TON key with ID %s", key.ID())
 
 	return ks.safeAddKey(ctx, key)
 }
@@ -152,23 +152,23 @@ func (ks *ton) Sign(_ context.Context, id string, msg []byte) (signature []byte,
 }
 
 func (ks *ton) getByID(id string) (tonkey.Key, error) {
-	key, found := ks.keyRing.Ton[id]
+	key, found := ks.keyRing.TON[id]
 	if !found {
-		return tonkey.Key{}, KeyNotFoundError{ID: id, KeyType: "Ton"}
+		return tonkey.Key{}, KeyNotFoundError{ID: id, KeyType: "TON"}
 	}
 	return key, nil
 }
 
-// TonLooppSigner implements the [github.com/smartcontractkit/chainlink-common/pkg/loop.Keystore] interface and
-// handles signing for Ton messages.
-type TonLooppSigner struct {
-	Ton
+// TONLooppSigner implements the [github.com/smartcontractkit/chainlink-common/pkg/loop.Keystore] interface and
+// handles signing for TON messages.
+type TONLooppSigner struct {
+	TON
 }
 
-var _ loop.Keystore = &TonLooppSigner{}
+var _ loop.Keystore = &TONLooppSigner{}
 
-// Returns a list of Ton Public Keys
-func (s *TonLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {
+// Returns a list of TON Public Keys
+func (s *TONLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {
 	ks, err := s.GetAll()
 	if err != nil {
 		return nil, err

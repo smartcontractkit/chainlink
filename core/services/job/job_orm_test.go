@@ -1050,13 +1050,13 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run(("test Ton key validation"), func(t *testing.T) {
+	t.Run(("test TON key validation"), func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = relay.NetworkTon
+		jb.OCR2OracleSpec.Relay = relay.NetworkTON
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
-		require.EqualError(t, err, "no Ton key matching: \"bad key\"")
+		require.EqualError(t, err, "no TON key matching: \"bad key\"")
 
-		tonKey, err := keyStore.Ton().Create(ctx)
+		tonKey, err := keyStore.TON().Create(ctx)
 		require.NoError(t, err)
 		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, tonKey.ID())
 		require.NoError(t, err)

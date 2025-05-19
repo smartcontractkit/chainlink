@@ -26,7 +26,7 @@ type AppConfig interface {
 	StarkNetEnabled() bool
 	AptosEnabled() bool
 	TronEnabled() bool
-	TonEnabled() bool
+	TONEnabled() bool
 
 	Validate() error
 	ValidateDB() error

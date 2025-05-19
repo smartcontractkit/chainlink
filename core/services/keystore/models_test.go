@@ -54,7 +54,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		VRF:    [][]byte{internal.RawBytes(vrf1), internal.RawBytes(vrf2)},
 		Cosmos: [][]byte{internal.RawBytes(tk1), internal.RawBytes(tk2)},
 		Tron:   [][]byte{internal.RawBytes(uk1), internal.RawBytes(uk2)},
-		Ton:    [][]byte{internal.RawBytes(ton1), internal.RawBytes(ton2)},
+		TON:    [][]byte{internal.RawBytes(ton1), internal.RawBytes(ton2)},
 	}
 	originalKeyRing, kerr := originalKeyRingRaw.keys()
 	require.NoError(t, kerr)
@@ -73,9 +73,9 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.Equal(t, originalKeyRing.Tron[uk1.ID()].Base58Address(), decryptedKeyRing.Tron[uk1.ID()].Base58Address())
 		require.Equal(t, originalKeyRing.Tron[uk2.ID()].Base58Address(), decryptedKeyRing.Tron[uk2.ID()].Base58Address())
 		// compare ton keys
-		require.Len(t, decryptedKeyRing.Ton, 2)
-		require.Equal(t, originalKeyRing.Ton[ton1.ID()].AddressBase64(), decryptedKeyRing.Ton[ton1.ID()].AddressBase64())
-		require.Equal(t, originalKeyRing.Ton[ton2.ID()].AddressBase64(), decryptedKeyRing.Ton[ton2.ID()].AddressBase64())
+		require.Len(t, decryptedKeyRing.TON, 2)
+		require.Equal(t, originalKeyRing.TON[ton1.ID()].AddressBase64(), decryptedKeyRing.TON[ton1.ID()].AddressBase64())
+		require.Equal(t, originalKeyRing.TON[ton2.ID()].AddressBase64(), decryptedKeyRing.TON[ton2.ID()].AddressBase64())
 		// compare csa keys
 		require.Len(t, decryptedKeyRing.CSA, 2)
 		require.Equal(t, originalKeyRing.CSA[csa1.ID()].PublicKey, decryptedKeyRing.CSA[csa1.ID()].PublicKey)

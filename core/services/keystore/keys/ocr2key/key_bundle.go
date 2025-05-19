@@ -65,8 +65,8 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 		return newKeyBundleRand(chaintype.Aptos, newAptosKeyring)
 	case chaintype.Tron:
 		return newKeyBundleRand(chaintype.Tron, newEVMKeyring)
-	case chaintype.Ton:
-		return newKeyBundleRand(chaintype.Ton, newTonKeyring)
+	case chaintype.TON:
+		return newKeyBundleRand(chaintype.TON, newTONKeyring)
 	}
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
@@ -86,8 +86,8 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 		return mustNewKeyBundleInsecure(chaintype.Aptos, newAptosKeyring, reader)
 	case chaintype.Tron:
 		return mustNewKeyBundleInsecure(chaintype.Tron, newEVMKeyring, reader)
-	case chaintype.Ton:
-		return mustNewKeyBundleInsecure(chaintype.Ton, newTonKeyring, reader)
+	case chaintype.TON:
+		return mustNewKeyBundleInsecure(chaintype.TON, newTONKeyring, reader)
 	}
 	panic(chaintype.NewErrInvalidChainType(chainType))
 }
@@ -126,7 +126,7 @@ func KeyFor(raw internal.Raw) (kb KeyBundle) {
 		kb = newKeyBundle(new(aptosKeyring))
 	case chaintype.Tron:
 		kb = newKeyBundle(new(evmKeyring))
-	case chaintype.Ton:
+	case chaintype.TON:
 		kb = newKeyBundle(new(tonKeyring))
 	default:
 		return nil

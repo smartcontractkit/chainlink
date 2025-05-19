@@ -24,7 +24,7 @@ type tonKeyring struct {
 	pubKey  ed25519.PublicKey
 }
 
-func newTonKeyring(material io.Reader) (*tonKeyring, error) {
+func newTONKeyring(material io.Reader) (*tonKeyring, error) {
 	pubKey, privKey, err := ed25519.GenerateKey(material)
 	if err != nil {
 		return nil, err

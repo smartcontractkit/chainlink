@@ -48,7 +48,7 @@ type Master interface {
 	StarkNet() StarkNet
 	Aptos() Aptos
 	Tron() Tron
-	Ton() Ton
+	TON() TON
 	VRF() VRF
 	Workflow() Workflow
 	Unlock(ctx context.Context, password string) error
@@ -97,7 +97,7 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logg
 		starknet:   newStarkNetKeyStore(km),
 		aptos:      newAptosKeyStore(km),
 		tron:       newTronKeyStore(km),
-		ton:        newTonKeyStore(km),
+		ton:        newTONKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 		workflow:   newWorkflowKeyStore(km),
 	}
@@ -143,7 +143,7 @@ func (ks *master) Tron() Tron {
 	return ks.tron
 }
 
-func (ks *master) Ton() Ton {
+func (ks *master) TON() TON {
 	return ks.ton
 }
 
@@ -291,7 +291,7 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 	case tronkey.Key:
 		return "Tron", nil
 	case tonkey.Key:
-		return "Ton", nil
+		return "TON", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil
 	case workflowkey.Key:
